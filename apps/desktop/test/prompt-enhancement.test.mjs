@@ -83,8 +83,9 @@ test("prompt-enhancement settings expose templates, restore, and the draft varia
   assert.match(settingsPage, /PromptEnhancementCard/);
   assert.match(card, /PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE/);
   assert.match(card, /promptEnhancementUserTemplate/);
-  // The system prompt is not overridable; the card must not offer a field for it.
-  assert.doesNotMatch(card, /promptEnhancementSystemPrompt/);
+  // The system prompt is now overridable; the card offers a field for it.
+  assert.match(card, /promptEnhancementSystemPrompt/);
+  assert.match(card, /PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT/);
   // Editing happens in a sheet, opened from the card, matching the subagent editor.
   assert.match(card, /ext-sheet-overlay/);
   assert.match(card, /ext-sheet-actions/);
@@ -105,11 +106,11 @@ test("prompt-enhancement settings expose templates, restore, and the draft varia
   assert.doesNotMatch(card, /promptEnhancementThinkingLevel/);
   assert.doesNotMatch(card, /promptEnhancementModelId/);
   assert.doesNotMatch(card, /SubagentModelPicker/);
-  // A save that would drop the draft variable or exceed the host-core bound
-  // is refused before it is sent.
-  assert.match(card, /templateMissingVariable/);
+  // A save that would exceed the host-core length bound is refused before it
+  // is sent. The draft variable is optional, so its absence is not an error.
   assert.match(card, /templateTooLong/);
-  assert.match(card, /isValidPromptEnhancementUserTemplate/);
+  assert.match(card, /systemTooLong/);
+  assert.match(card, /isCustomPromptEnhancementTemplateActive/);
 
   // The defaults live in shared so the settings page can display the same text
   // the runtime sends, and the placeholder is substituted literally.
@@ -118,11 +119,12 @@ test("prompt-enhancement settings expose templates, restore, and the draft varia
   assert.match(shared, /resolvePromptEnhancementTemplates/);
   assert.doesNotMatch(shared, /\.replace\(PROMPT_ENHANCEMENT_DRAFT_VARIABLE, draft\)/);
 
-  // host-core validates before persisting, so no other writer can store a
-  // template that would silently drop the draft.
+  // host-core validates before persisting: a template beyond the length bound
+  // is rejected. The draft placeholder is optional (it is appended at render
+  // time when absent), so there is no "must contain" check anymore.
   assert.match(hostCore, /fn prompt_enhancement_template_error/);
   assert.match(hostCore, /MAX_PROMPT_ENHANCEMENT_TEMPLATE_CHARS/);
-  assert.match(hostCore, /promptEnhancementUserTemplate must contain/);
+  assert.doesNotMatch(hostCore, /promptEnhancementUserTemplate must contain/);
 
   // The one-shot keeps its boundary: no history, no tools.
   assert.match(runtime, /promptEnhancementContext/);

@@ -9,12 +9,12 @@
  *
  * The user template is overridable through
  * `AppSettings.promptEnhancementUserTemplate`; an absent or blank override means
- * "use the default below". The system prompt is not overridable: it carries the
- * contract the feature is verified against. Rust host-core validates an override
- * before it persists (see
- * `crates/host-core/src/rpc/mod.rs`), so the resolution helpers here are the
- * runtime's defensive second line, not the primary gate.
- */
+ * "use the default below". The system prompt is overridable the same way
+ * through `AppSettings.promptEnhancementSystemPrompt`; a blank override falls
+ * back to the built-in default. Rust host-core validates overrides before they
+ * persist (see `crates/host-core/src/rpc/mod.rs`), so the resolution helpers
+ * here are the runtime's defensive second line, not the primary gate.
+*/
 
 /**
  * The single placeholder a user template must contain. The draft is inserted
@@ -27,7 +27,7 @@ export const PROMPT_ENHANCEMENT_DRAFT_VARIABLE = "{{draft}}";
  * Upper bound for one stored template, in characters. Mirrored by
  * `MAX_PROMPT_ENHANCEMENT_TEMPLATE_LEN` in host-core; keep the two in step.
  */
-export const PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH = 8000;
+export const PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH = 1_000_000;
 
 /**
  * Default system prompt. Mature products with the same one-shot job converge on
@@ -104,6 +104,11 @@ export type PromptEnhancementTemplateOverrides = {
   /** Off (absent) keeps the built-in template even when text is stored. */
   customTemplate?: boolean | null;
   userTemplate?: string | null;
+  /**
+   * Optional override for the enhancement system prompt. Applied only while
+   * `customTemplate` is on; a blank value falls back to the built-in default.
+   */
+  systemPrompt?: string | null;
 };
 
 function usableOverride(value: string | null | undefined): string | undefined {
@@ -111,47 +116,51 @@ function usableOverride(value: string | null | undefined): string | undefined {
   return value.trim() ? value : undefined;
 }
 
-/** True when a user template is usable: non-blank and carries `{{draft}}`. */
+/**
+ * True when a user template is usable. A usable template is simply non-blank:
+ * the `{{draft}}` placeholder is optional, because a template without it no
+ * longer drops the draft (see `renderPromptEnhancementUserPrompt`).
+ */
 export function isValidPromptEnhancementUserTemplate(
   template: string | null | undefined,
 ): boolean {
-  const value = usableOverride(template);
-  return value !== undefined && value.includes(PROMPT_ENHANCEMENT_DRAFT_VARIABLE);
+  return usableOverride(template) !== undefined;
 }
 
 /**
- * Resolve the effective user template. A blank override falls back to the
- * default, so clearing the field and restoring the default are the same write.
- *
- * A user template that persists without `{{draft}}` cannot happen through the
- * settings UI or host-core validation; should one appear anyway (a hand-edited
- * store), the renderer falls back to the default rather than sending the model
- * a prompt with the user's draft missing. The system prompt is not overridable
- * and is always the built-in default.
+ * Resolve the effective system prompt and user template. A blank override
+ * falls back to its built-in default, so clearing a field and restoring the
+ * default are the same write. Both overrides are gated by the same switch and
+ * fall back independently.
  */
 export function resolvePromptEnhancementTemplates(
   overrides: PromptEnhancementTemplateOverrides = {},
 ): { systemPrompt: string; userTemplate: string } {
-  // The switch is the gate: a stored template is kept for the next time it is
-  // turned on, but does not apply until then.
-  const customApplies =
-    overrides.customTemplate === true &&
-    isValidPromptEnhancementUserTemplate(overrides.userTemplate);
+  // The switch is the gate: stored overrides are kept for the next time it is
+  // turned on, but do not apply until then.
+  const customOn = overrides.customTemplate === true;
+  const userOverride = usableOverride(overrides.userTemplate);
+  const systemOverride = usableOverride(overrides.systemPrompt);
   return {
-    systemPrompt: PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT,
-    userTemplate: customApplies
-      ? (overrides.userTemplate as string)
-      : PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE,
+    systemPrompt:
+      customOn && systemOverride !== undefined
+        ? systemOverride
+        : PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT,
+    userTemplate:
+      customOn && userOverride !== undefined
+        ? userOverride
+        : PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE,
   };
 }
 
-/** True when the stored template is currently the one in force. */
+/** True when a stored override (template or system prompt) is in force. */
 export function isCustomPromptEnhancementTemplateActive(
   overrides: PromptEnhancementTemplateOverrides = {},
 ): boolean {
   return (
     overrides.customTemplate === true &&
-    isValidPromptEnhancementUserTemplate(overrides.userTemplate)
+    (usableOverride(overrides.userTemplate) !== undefined ||
+      usableOverride(overrides.systemPrompt) !== undefined)
   );
 }
 
@@ -166,8 +175,13 @@ export function renderPromptEnhancementUserPrompt(
   draft: string,
   userTemplate?: string | null,
 ): string {
-  const template = isValidPromptEnhancementUserTemplate(userTemplate)
-    ? (userTemplate as string)
-    : PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE;
+  const template =
+    usableOverride(userTemplate) ?? PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE;
+  // A template without the draft variable no longer drops the draft: the draft
+  // is appended so it always reaches the model. This keeps a custom template
+  // usable even when the user omits the placeholder.
+  if (!template.includes(PROMPT_ENHANCEMENT_DRAFT_VARIABLE)) {
+    return `${template}\n\n${draft}`;
+  }
   return template.split(PROMPT_ENHANCEMENT_DRAFT_VARIABLE).join(draft);
 }

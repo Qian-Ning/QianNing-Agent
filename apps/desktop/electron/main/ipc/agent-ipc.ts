@@ -189,6 +189,10 @@ export function registerAgentIpc({
           typeof settings?.promptEnhancementUserTemplate === "string"
             ? settings.promptEnhancementUserTemplate
             : undefined,
+        systemPrompt:
+          typeof settings?.promptEnhancementSystemPrompt === "string"
+            ? settings.promptEnhancementSystemPrompt
+            : undefined,
       }),
     );
     logger.app("session", "info", "prompt enhanced", {

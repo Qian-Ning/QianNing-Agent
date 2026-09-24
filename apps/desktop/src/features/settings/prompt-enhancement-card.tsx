@@ -1,30 +1,27 @@
 /**
  * Prompt-enhancement settings (ADR 0121).
  *
- * This card owns the Composer Enhance prompt action: a switch that chooses
- * between the built-in user template and a saved one, the settings icon button
- * that opens the template editor, and the model plus reasoning rows that pick
- * which model runs the rewrite.
+ * This card owns the Composer Enhance prompt action: an edit button that opens
+ * the template editor, and the model plus reasoning rows that pick which model
+ * runs the rewrite.
  *
- * What is deliberately not editable: the system prompt. It carries the rewrite
- * contract the feature is verified against (proper-noun preservation, language
- * following without meta notes, the output contract), so it stays a built-in
- * default and host-core drops any stored override.
- *
- * The template field shows the built-in default text when no override is saved,
- * so the editor opens on the value in force, and "restore default" is
- * self-explanatory. Editing the field back to the exact default text clears the
- * override rather than storing a frozen copy, so a later product improvement to
- * the default still reaches users who never customized it.
+ * Both the system prompt and the user template are editable here. Each field
+ * shows its built-in default when no override is saved, so the editor opens on
+ * the value in force and "restore default" is self-explanatory. Editing a field
+ * back to the exact default text clears that override rather than storing a
+ * frozen copy, so a later product improvement to the default still reaches a
+ * user who never customized it. The `{{draft}}` placeholder is optional: a user
+ * template without it still sends the draft (it is appended at render time).
  */
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { AppSettings } from "@pi-desktop/shared";
 import {
+  PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT,
   PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE,
   PROMPT_ENHANCEMENT_DRAFT_VARIABLE,
   PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH,
-  isValidPromptEnhancementUserTemplate,
+  isCustomPromptEnhancementTemplateActive,
 } from "@pi-desktop/shared";
 import { Button, Field, TooltipButton, portalOverlay } from "../../components/ui";
 import { IconPencil, IconX } from "../../components/icons";
@@ -40,9 +37,11 @@ export function PromptEnhancementCard({
 }) {
   const { t } = useTranslation();
   const [editorOpen, setEditorOpen] = useState(false);
-  const hasCustomTemplate = isValidPromptEnhancementUserTemplate(
-    settings.promptEnhancementUserTemplate,
-  );
+  const hasCustomTemplate = isCustomPromptEnhancementTemplateActive({
+    customTemplate: settings.promptEnhancementCustomTemplate,
+    userTemplate: settings.promptEnhancementUserTemplate,
+    systemPrompt: settings.promptEnhancementSystemPrompt,
+  });
 
   return (
     <SettingsCard title={t("settings.promptEnhancementTitle")}>
@@ -97,7 +96,11 @@ function PromptEnhancementEditorSheet({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const savedSystem = settings.promptEnhancementSystemPrompt ?? "";
   const savedTemplate = settings.promptEnhancementUserTemplate ?? "";
+  const [systemDraft, setSystemDraft] = useState(
+    savedSystem || PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT,
+  );
   const [templateDraft, setTemplateDraft] = useState(
     savedTemplate || PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE,
   );
@@ -105,12 +108,15 @@ function PromptEnhancementEditorSheet({
   const [saveError, setSaveError] = useState(false);
   const templateRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const templateMissingVariable =
-    templateDraft.trim().length > 0 &&
-    !isValidPromptEnhancementUserTemplate(templateDraft);
+  const systemTooLong =
+    [...systemDraft].length > PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH;
   const templateTooLong =
     [...templateDraft].length > PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH;
+  const systemDefault = systemDraft === PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT;
+  const templateDefault =
+    templateDraft === PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE;
   const dirty =
+    systemDraft !== (savedSystem || PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT) ||
     templateDraft !== (savedTemplate || PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE);
 
   useEffect(() => {
@@ -139,22 +145,26 @@ function PromptEnhancementEditorSheet({
     });
   };
 
-  const restoreTemplateDefault = () => {
+  const restoreDefaults = () => {
+    setSystemDraft(PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT);
     setTemplateDraft(PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE);
   };
 
   const save = async () => {
-    if (templateMissingVariable || templateTooLong || saving) return;
+    if (systemTooLong || templateTooLong || saving) return;
     setSaving(true);
     setSaveError(false);
     try {
-      const savedTemplateValue =
-        templateDraft === PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE
-          ? ""
-          : templateDraft;
+      // Editing a field back to its default clears that override, so a later
+      // improvement to the default still reaches this user.
+      const systemValue = systemDefault ? "" : systemDraft;
+      const templateValue = templateDefault ? "" : templateDraft;
       await saveSettings({
-        promptEnhancementUserTemplate: savedTemplateValue,
-        promptEnhancementCustomTemplate: Boolean(savedTemplateValue.trim()),
+        promptEnhancementSystemPrompt: systemValue,
+        promptEnhancementUserTemplate: templateValue,
+        promptEnhancementCustomTemplate: Boolean(
+          systemValue.trim() || templateValue.trim(),
+        ),
       });
       onClose();
     } catch {
@@ -164,14 +174,12 @@ function PromptEnhancementEditorSheet({
     }
   };
 
-  const hasValidationError = templateMissingVariable || templateTooLong;
-  const errorMessage = templateMissingVariable
-    ? t("settings.promptEnhancementMissingDraftVariable")
-    : templateTooLong
-      ? t("settings.promptEnhancementTooLong")
-      : saveError
-        ? t("settings.promptEnhancementSaveError")
-        : null;
+  const hasValidationError = systemTooLong || templateTooLong;
+  const errorMessage = hasValidationError
+    ? t("settings.promptEnhancementTooLong")
+    : saveError
+      ? t("settings.promptEnhancementSaveError")
+      : null;
 
   return portalOverlay(
     <div
@@ -212,6 +220,22 @@ function PromptEnhancementEditorSheet({
 
         <div className="ext-sheet-body">
           <Field
+            label={t("settings.promptEnhancementSystemPrompt")}
+            hint={t("settings.promptEnhancementSystemPromptDesc")}
+          >
+            <textarea
+              className="field-textarea ext-skill-body"
+              value={systemDraft}
+              rows={8}
+              onChange={(event) => setSystemDraft(event.target.value)}
+              aria-label={t("settings.promptEnhancementSystemPrompt")}
+              aria-invalid={systemTooLong}
+              spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="off"
+            />
+          </Field>
+          <Field
             label={t("settings.promptEnhancementUserTemplate")}
             hint={t("settings.promptEnhancementUserTemplateDesc")}
           >
@@ -222,7 +246,7 @@ function PromptEnhancementEditorSheet({
               rows={10}
               onChange={(event) => setTemplateDraft(event.target.value)}
               aria-label={t("settings.promptEnhancementUserTemplate")}
-              aria-invalid={hasValidationError}
+              aria-invalid={templateTooLong}
               spellCheck={false}
               autoCorrect="off"
               autoCapitalize="off"
@@ -240,7 +264,7 @@ function PromptEnhancementEditorSheet({
           <Button variant="ghost" type="button" onClick={insertDraftVariable}>
             {t("settings.promptEnhancementInsertDraft")}
           </Button>
-          <Button variant="ghost" type="button" onClick={restoreTemplateDefault}>
+          <Button variant="ghost" type="button" onClick={restoreDefaults}>
             {t("settings.promptEnhancementRestore")}
           </Button>
           <div className="ext-sheet-actions-end">

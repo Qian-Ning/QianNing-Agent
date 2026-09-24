@@ -2,16 +2,16 @@ import type { EnglishCatalog } from "../en/index.js";
 
 export const es = {
   "app": {
-    "shellName": "PI-Desktop",
+    "shellName": "QianNing Agent",
     "tagline": "Socio de codificación de IA local",
-    "starting": "Iniciando PI-Desktop…",
+    "starting": "Iniciando QianNing Agent…",
     "loadingView": "Cargando vista…",
     "uiCrashed": "Algo salió mal con la interfaz"
   },
   "startup": {
     "slowTitle": "Aún iniciando…",
-    "slowBody": "PI-Desktop está tardando más de lo habitual en alcanzar tu servicio local. Puede que aún termine por sí solo — puedes esperar o recoger los registros primero.",
-    "stalledTitle": "PI-Desktop no pudo terminar de iniciarse",
+    "slowBody": "QianNing Agent está tardando más de lo habitual en alcanzar tu servicio local. Puede que aún termine por sí solo — puedes esperar o recoger los registros primero.",
+    "stalledTitle": "QianNing Agent no pudo terminar de iniciarse",
     "stalledBody": "Esta ventana nunca recibió tus chats y tu configuración, así que todavía no hay nada que mostrar. No se eliminó nada — tus datos siguen en el disco.",
     "retrying": "Reintentando…",
     "copyDiagnostics": "Copiar diagnósticos",
@@ -36,12 +36,12 @@ export const es = {
     "unread": "Sin leer",
     "pinned": "Fijadas",
     "viewMore": "Ver más…",
-    "open": "Abrir PI-Desktop",
-    "quit": "Salir de PI-Desktop",
-    "askTitle": "¿Mantener PI-Desktop ejecutándose en segundo plano?",
-    "askBody": "Cuando cierra la ventana, PI-Desktop puede seguir ejecutándose en la bandeja del sistema para que no se pierda nada. Puedes cambiar esto en cualquier momento en Configuración.",
+    "open": "Abrir QianNing Agent",
+    "quit": "Salir de QianNing Agent",
+    "askTitle": "¿Mantener QianNing Agent ejecutándose en segundo plano?",
+    "askBody": "Cuando cierra la ventana, QianNing Agent puede seguir ejecutándose en la bandeja del sistema para que no se pierda nada. Puedes cambiar esto en cualquier momento en Configuración.",
     "closeToTray": "Cerca de la bandeja",
-    "confirmQuitTitle": "¿Salir de PI-Desktop?",
+    "confirmQuitTitle": "¿Salir de QianNing Agent?",
     "confirmQuitBody": "¿Está seguro de que desea salir? Se detendrán todas las sesiones en ejecución y es posible que se pierdan los cambios no guardados.",
     "confirmQuit": "Salir"
   },
@@ -92,7 +92,7 @@ export const es = {
     "zoomOut": "Alejar",
     "toggleFullScreen": "Alternar pantalla completa",
     "toggleDevTools": "Herramientas de desarrollador",
-    "appHelp": "Ayuda de PI-Desktop",
+    "appHelp": "Ayuda de QianNing Agent",
     "openLogs": "Abrir registros",
     "checkForUpdates": "Buscar actualizaciones…"
   },
@@ -238,7 +238,7 @@ export const es = {
     "emptyTitle": "¿Qué puedo ayudarte a construir?",
     "emptyTitleInProject": "¿Qué podemos construir en {{project}}?",
     "emptyTitleTemporary": "¿Qué te gustaría explorar temporalmente?",
-    "placeholder": "Pídale ayuda a PI-Desktop con cualquier cosa",
+    "placeholder": "Pídale ayuda a QianNing Agent con cualquier cosa",
     "placeholderHome": "Pregunte cualquier cosa",
     "placeholderHint": "Escriba / para comandos · @ para archivos",
     "placeholderHomeHint": "Escriba / para comandos · @ para archivos",
@@ -580,7 +580,7 @@ export const es = {
   "settings": {
     "power": "Energía",
     "keepAwakeWhileRunning": "Mantener el equipo activo",
-    "keepAwakeWhileRunningDesc": "Evita la suspensión por inactividad mientras PI-Desktop esté abierto. La pantalla puede apagarse; la suspensión manual y al cerrar la tapa siguen funcionando.",
+    "keepAwakeWhileRunningDesc": "Evita la suspensión por inactividad mientras QianNing Agent esté abierto. La pantalla puede apagarse; la suspensión manual y al cerrar la tapa siguen funcionando.",
     "imageModel": "Modelo de imágenes",
     "imageModelUnset": "Sin configurar",
     "imageModelUnavailable": "No disponible por ahora",
@@ -678,7 +678,7 @@ sklm: {
       "Este proveedor proviene del complemento «{{plugin}}», que proporciona su punto final y sus modelos. Actívelo o desactívelo en la página «Extensiones».",
     "pluginProviderKey": "Clave API",
     "pluginProviderKeyHint":
-      "Se guarda en PI-Desktop y lo usa el entorno de ejecución. El complemento nunca lo recibe.",
+      "Se guarda en QianNing Agent y lo usa el entorno de ejecución. El complemento nunca lo recibe.",
     "pluginProviderKeyRemove": "Eliminar clave",
     "pluginProviderKeySaved": "Clave API guardada",
     "pluginProviderKeyRemoved": "Clave API eliminada",
@@ -1495,6 +1495,9 @@ sklm: {
     "promptEnhancementCustomTemplateNeedsTemplate":
       "Guarde primero una plantilla propia; el interruptor elegirá entonces entre ella y la plantilla integrada.",
     "promptEnhancementEdit": "Editar",
+    "promptEnhancementSystemPrompt": "Prompt del sistema",
+    "promptEnhancementSystemPromptDesc":
+      "Las instrucciones de reescritura enviadas al modelo. Editable; deje el valor predeterminado para conservar el comportamiento integrado.",
     "promptEnhancementModelTitle": "Mejora de prompts",
     "promptEnhancementModel": "Modelo predeterminado",
     "promptEnhancementThinking": "Esfuerzo de razonamiento",
@@ -1636,7 +1639,7 @@ sklm: {
     "draft": "Borrador"
   },
   "scheduled": {
-    "description": "Ejecuta tareas recurrentes mientras PI-Desktop está abierto.",
+    "description": "Ejecuta tareas recurrentes mientras QianNing Agent está abierto.",
     "edit": "Editar tarea",
     "hourlyHint": "Se ejecuta cada hora, desde una hora después de guardar o activar. Reiniciar la app reinicia el intervalo.",
     "morning": "Mañana",
@@ -1650,7 +1653,7 @@ sklm: {
     "legacyHint": "Edita y guarda la programación para activar las ejecuciones automáticas.",
     "time": "Hora",
     "weekday": "Día de la semana",
-    "localTimeHint": "Usa la zona horaria local. Mantén PI-Desktop abierto; las ejecuciones omitidas no se recuperan.",
+    "localTimeHint": "Usa la zona horaria local. Mantén QianNing Agent abierto; las ejecuciones omitidas no se recuperan.",
     "projectHint": "Se guarda el proyecto actual. Se utiliza el modelo predeterminado.",
     "autoPermissionHint": "El modo automático puede ejecutar acciones restringidas sin preguntar. Úsalo solo para tareas de confianza.",
     "unavailableModel": "{{provider}} / {{model}} (no disponible)",
@@ -2114,8 +2117,8 @@ sklm: {
       "agent.prompt.inject": "Puede cambiar las instrucciones enviadas al agente de IA.",
       "agent.complete": "Puede gastar su cuota de modelo en una finalización única. El complemento nunca recibe sus claves API.",
       "agent.extension": "Ejecuta módulos ExtensionAPI dentro del proceso del agente con el mismo acceso que sus propias herramientas. Activa solo código en el que confíes.",
-      "provider.register": "Agregue los proveedores que define este complemento a la lista de proveedores de Configuración. El complemento aporta el punto final y los modelos; su clave API permanece en PI-Desktop.",
-      "desktop.control": "Permite invocar el catálogo de control de PI-Desktop revisado; las operaciones destructivas siguen requiriendo confirm=true y el token bearer de MCP no se expone.",
+      "provider.register": "Agregue los proveedores que define este complemento a la lista de proveedores de Configuración. El complemento aporta el punto final y los modelos; su clave API permanece en QianNing Agent.",
+      "desktop.control": "Permite invocar el catálogo de control de QianNing Agent revisado; las operaciones destructivas siguen requiriendo confirm=true y el token bearer de MCP no se expone.",
       "models.list": "Puede ver en qué modelos se ha registrado. No recibe llaves.",
       "session.read": "Puede leer la conversación en la que está operando la llamada de herramienta actual, incluidos los resultados de la herramienta.",
       "net.fetch": "Puede realizar solicitudes de red salientes.",
@@ -2128,7 +2131,7 @@ sklm: {
       "audio.capture.background": "Captura el micrófono mientras el complemento se ejecuta en segundo plano, sin ningún panel abierto.",
       "audio.playback.background": "Reproduce el audio que transmite el complemento, incluso cuando no hay ningún panel abierto.",
       "speech.adapter.register": "Puede añadir un protocolo de transcripción o voz que use tus claves de proveedor. El complemento nunca ve la clave.",
-      "keyboard.globalShortcut": "Registra atajos de teclado del sistema que activan los comandos propios de este complemento mientras PI-Desktop no tiene el foco.",
+      "keyboard.globalShortcut": "Registra atajos de teclado del sistema que activan los comandos propios de este complemento mientras QianNing Agent no tiene el foco.",
       "net.websocket": "Abre conexiones bidireccionales en tiempo real con los hosts que declara el complemento.",
       "bus.publish": "Puede enviar mensajes sobre los temas que declaró.",
       "bus.subscribe": "Puede recibir mensajes sobre los temas que declaró.",
@@ -2354,7 +2357,7 @@ sklm: {
     "unsupportedGlibc":
       "Esta versión para Linux requiere glibc 2.35 o posterior (Ubuntu 22.04, Debian 12, Fedora 36+).",
     "dbSchemaTooNew":
-      "Esta versión de PI-Desktop es más antigua que tus datos locales (esquema de datos {{found}}, esta versión admite {{supported}}). Instala la versión más reciente de PI-Desktop que abrió estos datos por última vez, o una posterior.",
+      "Esta versión de QianNing Agent es más antigua que tus datos locales (esquema de datos {{found}}, esta versión admite {{supported}}). Instala la versión más reciente de QianNing Agent que abrió estos datos por última vez, o una posterior.",
     "archMismatch":
       "Esta es la versión {{buildArch}} ejecutándose en una máquina {{machineArch}}, por lo que corre mediante traducción y es más lenta. Instala la versión {{machineArch}}.",
     "dismissArchMismatch": "Descartar",

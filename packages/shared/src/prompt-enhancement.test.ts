@@ -55,22 +55,26 @@ describe("resolvePromptEnhancementTemplates", () => {
     });
   });
 
-  it("keeps the built-in template while the switch is off", () => {
-    // A stored template is kept for the next time the switch is turned on, but
-    // does not apply until then.
+  it("keeps the built-in overrides while the switch is off", () => {
+    // Stored overrides are kept for the next time the switch is turned on, but
+    // do not apply until then.
     expect(
       resolvePromptEnhancementTemplates({
         customTemplate: false,
         userTemplate: "custom <{{draft}}>",
-      }).userTemplate,
-    ).toBe(PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE);
+        systemPrompt: "custom system",
+      }),
+    ).toEqual({
+      systemPrompt: PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT,
+      userTemplate: PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE,
+    });
     expect(
       resolvePromptEnhancementTemplates({ userTemplate: "custom <{{draft}}>" })
         .userTemplate,
     ).toBe(PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE);
   });
 
-  it("applies the stored template once the switch is on", () => {
+  it("applies the stored user template once the switch is on", () => {
     const result = resolvePromptEnhancementTemplates({
       customTemplate: true,
       userTemplate: "custom <{{draft}}>",
@@ -79,46 +83,68 @@ describe("resolvePromptEnhancementTemplates", () => {
     expect(result.userTemplate).toBe("custom <{{draft}}>");
   });
 
-  it("falls back when the switch is on but the template is unusable", () => {
-    // host-core rejects this write, so it can only arrive from a hand-edited
-    // store; sending it would silently drop the user's draft.
-    for (const userTemplate of ["no placeholder here", "", "   ", null, undefined]) {
-      expect(
-        resolvePromptEnhancementTemplates({ customTemplate: true, userTemplate })
-          .userTemplate,
-      ).toBe(PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE);
-    }
-  });
-
-  it("never returns an overridable system prompt", () => {
+  it("applies a stored system prompt override once the switch is on", () => {
     const result = resolvePromptEnhancementTemplates({
       customTemplate: true,
-      userTemplate: "custom <{{draft}}>",
+      systemPrompt: "be terse",
     });
-    expect(result.systemPrompt).toBe(PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT);
+    expect(result.systemPrompt).toBe("be terse");
+    // A user template left unset still falls back to the default.
+    expect(result.userTemplate).toBe(PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE);
+  });
+
+  it("applies a user template even without the draft placeholder", () => {
+    // The placeholder is no longer mandatory; the template is used verbatim and
+    // the draft is appended by the renderer.
+    const result = resolvePromptEnhancementTemplates({
+      customTemplate: true,
+      userTemplate: "no placeholder here",
+    });
+    expect(result.userTemplate).toBe("no placeholder here");
+  });
+
+  it("falls back to defaults for blank overrides", () => {
+    for (const blank of ["", "   ", null, undefined]) {
+      expect(
+        resolvePromptEnhancementTemplates({
+          customTemplate: true,
+          userTemplate: blank,
+          systemPrompt: blank,
+        }),
+      ).toEqual({
+        systemPrompt: PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT,
+        userTemplate: PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE,
+      });
+    }
   });
 });
 
 describe("isCustomPromptEnhancementTemplateActive", () => {
-  it("is true only for an enabled, usable template", () => {
+  it("is true when the switch is on and any override is usable", () => {
     expect(
       isCustomPromptEnhancementTemplateActive({ customTemplate: true, userTemplate: "{{draft}}" }),
+    ).toBe(true);
+    expect(
+      isCustomPromptEnhancementTemplateActive({ customTemplate: true, userTemplate: "no variable" }),
+    ).toBe(true);
+    expect(
+      isCustomPromptEnhancementTemplateActive({ customTemplate: true, systemPrompt: "custom" }),
     ).toBe(true);
     expect(
       isCustomPromptEnhancementTemplateActive({ customTemplate: false, userTemplate: "{{draft}}" }),
     ).toBe(false);
     expect(
-      isCustomPromptEnhancementTemplateActive({ customTemplate: true, userTemplate: "none" }),
+      isCustomPromptEnhancementTemplateActive({ customTemplate: true, userTemplate: "   " }),
     ).toBe(false);
     expect(isCustomPromptEnhancementTemplateActive()).toBe(false);
   });
 });
 
 describe("isValidPromptEnhancementUserTemplate", () => {
-  it("requires a non-blank template carrying the variable", () => {
+  it("accepts any non-blank template, placeholder optional", () => {
     expect(isValidPromptEnhancementUserTemplate("{{draft}}")).toBe(true);
     expect(isValidPromptEnhancementUserTemplate("text {{draft}} text")).toBe(true);
-    expect(isValidPromptEnhancementUserTemplate("no variable")).toBe(false);
+    expect(isValidPromptEnhancementUserTemplate("no variable")).toBe(true);
     expect(isValidPromptEnhancementUserTemplate("")).toBe(false);
     expect(isValidPromptEnhancementUserTemplate("   ")).toBe(false);
     expect(isValidPromptEnhancementUserTemplate(undefined)).toBe(false);
@@ -150,8 +176,10 @@ describe("renderPromptEnhancementUserPrompt", () => {
     expect(renderPromptEnhancementUserPrompt("X", "{{draft}}|{{draft}}")).toBe("X|X");
   });
 
-  it("falls back to the default template when the stored one is unusable", () => {
-    const content = renderPromptEnhancementUserPrompt("X", "no variable");
-    expect(content).toContain("<draft>\nX\n</draft>");
+  it("appends the draft when a stored template omits the placeholder", () => {
+    // No placeholder no longer drops the draft: it is appended so the model
+    // still receives it.
+    const content = renderPromptEnhancementUserPrompt("X", "rewrite formally");
+    expect(content).toBe("rewrite formally\n\nX");
   });
 });

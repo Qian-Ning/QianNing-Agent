@@ -48,6 +48,7 @@ pub(crate) const PORTABLE_APPLICATION_FIELDS: &[&str] = &[
     "chatContentMaxWidth",
     "promptEnhancementCustomTemplate",
     "promptEnhancementUserTemplate",
+    "promptEnhancementSystemPrompt",
     "promptEnhancementProviderId",
     "promptEnhancementModelId",
     "promptEnhancementThinkingLevel",

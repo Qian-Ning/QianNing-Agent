@@ -48,14 +48,17 @@ export type AppSettings = {
   promptEnhancementCustomTemplate?: boolean;
   /**
    * Composer prompt-enhancement user-template override (ADR 0121). Applied only
-   * while `promptEnhancementCustomTemplate` is on. Host-core rejects a non-blank
-   * value without `{{draft}}` and any value beyond
-   * `PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH`.
-   *
-   * The system prompt is intentionally not overridable: it carries the rewrite
-   * contract the feature is specified against.
+   * while `promptEnhancementCustomTemplate` is on. A blank value falls back to
+   * the built-in default. The `{{draft}}` placeholder is optional; when it is
+   * absent the draft is appended so it still reaches the model.
    */
   promptEnhancementUserTemplate?: string;
+  /**
+   * Composer prompt-enhancement system-prompt override. Applied only while
+   * `promptEnhancementCustomTemplate` is on; a blank value falls back to the
+   * built-in default. Replaces the whole enhancement system prompt.
+   */
+  promptEnhancementSystemPrompt?: string;
   /**
    * Model the one-shot enhancement runs on. Absent means "follow the Composer's
    * current model". When the pinned pair is unusable, main falls back to the
