@@ -244,7 +244,7 @@
       "artifactName": "QianNing-Agent-Setup-${version}.${ext}"
     },
     "portable": {
-      "artifactName": "PI-Desktop-Portable-${version}.${ext}"
+      "artifactName": "QianNing-Agent-Portable-${version}.${ext}"
     },
     "deb": {
       "packageName": "pi-desktop",

@@ -270,7 +270,7 @@ test("packaging publishes an electron-updater feed for GitHub Releases", () => {
   assert.equal(pkg.build.nsis.artifactName, "QianNing-Agent-Setup-${version}.${ext}");
   const winTargets = pkg.build.win.target.map((entry) => entry.target);
   assert.deepEqual(winTargets, ["nsis", "zip", "portable"], "Windows release targets");
-  assert.equal(pkg.build.portable.artifactName, "PI-Desktop-Portable-${version}.${ext}", "portable artifact name");
+  assert.equal(pkg.build.portable.artifactName, "QianNing-Agent-Portable-${version}.${ext}", "portable artifact name");
   assert.equal(
     pkg.build.win.artifactName,
     "QianNing-Agent-Portable-${version}.${ext}",
