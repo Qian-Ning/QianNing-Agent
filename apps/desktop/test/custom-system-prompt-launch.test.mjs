@@ -7,15 +7,16 @@ import test from "node:test";
 register(new URL("./helpers/ts-import-hooks.mjs", import.meta.url));
 const { createSessionLaunchRuntime } = await import("../electron/main/runtime/session-launch.ts");
 
-// The persona a launch carries is exactly two editable scopes:
+// The persona a launch carries is exactly one editable scope:
 //
-//   conversation (sessions.system_prompt)  >  app-wide (settings)  >  built-in
+//   conversation (sessions.system_prompt)  >  built-in default
 //
-// The old file layer (`.pi/SYSTEM.md` / `APPEND_SYSTEM.md`) is gone: a persona
-// the UI cannot show is a persona the user cannot reason about, and the file
-// also leaked between the two scopes by winning one kind while losing another.
-// The regression this file guards is a file on disk silently overriding, or
-// blanking, what the user typed in the app.
+// The old file layer (`.pi/SYSTEM.md` / `APPEND_SYSTEM.md`) and the app-wide
+// global prompt were both removed: a persona the UI cannot show, or a second
+// scope the user did not set on this conversation, is a persona the user
+// cannot reason about. The regression this file guards is a file on disk, or
+// an inherited setting, silently overriding — or blanking — what the user
+// typed on this conversation.
 const workspace = mkdtempSync(join(tmpdir(), "pi-csp-ws-"));
 
 test.after(() => {
@@ -84,45 +85,45 @@ test("launch reads no persona from disk", async () => {
   }
 });
 
-test("a conversation with no prompt of its own inherits the app-wide one", async () => {
+test("a conversation with no prompt of its own falls back to the built-in persona", async () => {
   const runtime = launchRuntime();
   const base = { providerId: provider.id, modelId: "parent", projectPath: workspace };
 
-  const global = await launchParams(runtime, base, {
-    globalSystemPrompt: "MARKER-GLOBAL-PERSONA",
-  });
-  assert.equal(global.systemPrompt, "MARKER-GLOBAL-PERSONA");
-
-  // Blank at either scope means "no override", never "empty persona": with
-  // neither set the launch carries no prompt and the built-in one answers.
+  // There is no app-wide scope any more: a global setting must not become the
+  // persona, so it is ignored and the built-in persona answers.
   assert.equal(
-    (await launchParams(runtime, base, { globalSystemPrompt: "   " })).systemPrompt,
+    (await launchParams(runtime, base, { globalSystemPrompt: "MARKER-GLOBAL-PERSONA" }))
+      .systemPrompt,
     undefined,
   );
+  // With nothing set at all, the launch carries no prompt and the built-in
+  // persona answers.
   assert.equal((await launchParams(runtime, base)).systemPrompt, undefined);
 });
 
-test("the conversation prompt wins over the app-wide one", async () => {
+test("the conversation prompt is the only editable scope", async () => {
   const runtime = launchRuntime();
   const base = { providerId: provider.id, modelId: "parent", projectPath: workspace };
 
-  const both = await launchParams(
+  // The conversation prompt reaches the model, and a stray global setting does
+  // not shadow or replace it.
+  const set = await launchParams(
     runtime,
     { ...base, systemPrompt: "MARKER-CONVERSATION" },
     { globalSystemPrompt: "MARKER-GLOBAL-PERSONA" },
   );
-  assert.equal(both.systemPrompt, "MARKER-CONVERSATION");
+  assert.equal(set.systemPrompt, "MARKER-CONVERSATION");
 
-  // A whitespace-only conversation prompt is not an override, so the app-wide
-  // scope — not a blank persona — is what reaches the model.
+  // A whitespace-only conversation prompt is not an override, so the built-in
+  // persona — not a blank one and not a global setting — is what reaches the model.
   const blank = await launchParams(
     runtime,
     { ...base, systemPrompt: "   " },
     { globalSystemPrompt: "MARKER-GLOBAL-PERSONA" },
   );
-  assert.equal(blank.systemPrompt, "MARKER-GLOBAL-PERSONA");
+  assert.equal(blank.systemPrompt, undefined);
 
-  // The stored values are trimmed, so a padded prompt does not carry its
+  // The stored value is trimmed, so a padded prompt does not carry its
   // whitespace into the model's system message.
   const padded = await launchParams(runtime, { ...base, systemPrompt: "  spaced  " });
   assert.equal(padded.systemPrompt, "spaced");

@@ -1,4 +1,4 @@
-# ADR 0307: Two persona scopes instead of a file-based instruction chain
+# ADR 0307: One editable persona scope, the per-conversation prompt
 
 - Status: Accepted
 - Date: 2026-09-25
@@ -31,37 +31,45 @@ diverge without any visible signal. Project rules were also injected on a lazy
 per-path schedule, which meant the prompt that produced a given answer depended
 on which files the agent had happened to touch.
 
+A first pass reduced this to two editable scopes — the conversation's own
+prompt and an app-wide prompt in Settings. In use the owner found even two
+scopes more than the product needed: an app-wide prompt is an invisible
+influence on every conversation the user never opened, and "why is this new
+chat behaving oddly" again required looking somewhere other than the chat. The
+requirement settled on one editable persona: the conversation you are in.
+
 ## Decision
 
-1. The persona the model receives has exactly two editable scopes, most
-   specific first: the conversation's own prompt (`sessions.system_prompt`,
-   schema v20) and the app-wide prompt (`settings.globalSystemPrompt`). Below
-   both is the built-in product persona.
-2. A blank or whitespace-only value at either scope means "no override", never
-   "empty persona": the next scope down answers. Both values are trimmed before
-   they reach the prompt.
+1. The persona the model receives has exactly one editable scope: the
+   conversation's own prompt (`sessions.system_prompt`, schema v20). Below it
+   is the built-in product persona. There is no app-wide persona scope.
+2. A blank or whitespace-only value means "no override", never "empty persona":
+   the built-in persona answers. The value is trimmed before it reaches the
+   prompt.
 3. No persona is read from disk. The `.pi/SYSTEM.md` / `APPEND_SYSTEM.md`
    layer and the `AGENTS.md` regression chain are removed, together with the
    `project.instructions.resolve` preflight, the resolver registration on the
    sidecar wrapper, the instruction IPC channels, the `AgentInstructionFile`
    type, and the project-group instruction store.
-4. The setting is edited where it applies: the app-wide prompt on
-   Settings ▸ Prompts (`instructions` tab id retained as persisted routing
-   state), and a conversation's prompt from the conversation topbar editor.
+4. The persona is edited where it applies: a conversation's prompt from the
+   conversation topbar editor. Settings has no persona destination — the
+   Prompts / 提示词 tab and its `globalSystemPrompt` field are removed, and the
+   `globalSystemPrompt` setting is no longer accepted, stored, or synced.
 5. The prompt-enhancement card keeps only its model and reasoning rows. Its
    rewrite system prompt and user template become product constants in
    `packages/shared/src/prompt-enhancement.ts`; host-core no longer accepts or
    stores `promptEnhancementCustomTemplate`,
    `promptEnhancementUserTemplate`, or `promptEnhancementSystemPrompt`.
-6. The config-sync `instructions` domain is removed. The app-wide persona
-   travels inside the application-preferences domain like any other setting, so
-   it needs no project mapping and cannot be written outside the approved
-   selection.
+6. There is no config-sync `instructions` domain and no app-wide persona field
+   to sync. A conversation's prompt is session state, not portable application
+   configuration.
 
 ## Consequences
 
-- What the user types in the app is the persona the model receives; there is no
-  file that can outrank or silently blank it.
+- What the user types in a conversation is the persona the model receives for
+  that conversation; there is no file, and no app-wide setting, that can
+  outrank it, silently blank it, or change a conversation the user never
+  edited.
 - The prompt is stable across a conversation: it no longer depends on which
   paths the agent touched earlier in the turn.
 - Project context keeps only what is not a persona — project memory and, for a
@@ -72,29 +80,38 @@ on which files the agent had happened to touch.
   sync as before. Existing `AGENTS.md` files in repositories are untouched —
   they are simply no longer injected, and still readable by the agent as
   ordinary workspace files.
-- A project-group instruction record written by an older build is no longer
-  read. It is archived to `<data-dir>/removed-prompt-storage.json` and dropped
-  from the key-value store during startup maintenance, together with the three
-  enhancement template keys in the app-settings blob. The archive is written
-  first: if it cannot be written, the rows stay in place rather than vanish
-  without a copy. Nothing a still-supported scope reads is touched.
+- Storage written for the removed scopes is not read. A project-group
+  instruction record, the three enhancement template keys, and the app-wide
+  `globalSystemPrompt` value in the app-settings blob are archived to
+  `<data-dir>/removed-prompt-storage.json` and dropped during startup
+  maintenance (`prune_removed_prompt_storage`). The archive is written first:
+  if it cannot be written, the rows stay in place rather than vanish without a
+  copy. Nothing a still-supported scope reads is touched.
 - Native-pi sessions are unaffected; they keep the upstream loader's own
   resolution.
 
 ## Alternatives
 
-### Keep the file layer as a third, lowest-priority scope
+### Keep the app-wide prompt as a second, lower-priority scope
+
+Rejected by the owner after using it. An app-wide prompt changes conversations
+the user never opened and reintroduces the "look elsewhere to explain this
+chat" problem that motivated the whole change. One visible scope per
+conversation is the whole model.
+
+### Keep the file layer as a lowest-priority scope
 
 Rejected. It preserves the failure this ADR removes: a persona the UI cannot
 show is a persona the user cannot reason about, and the file still changes the
 prompt for reasons invisible in the app.
 
-### Keep the project instruction chain and add the two new scopes on top
+### Keep the project instruction chain and add the conversation scope on top
 
 Rejected. It grows the ambiguity rather than removing it, and the lazy
 per-path injection makes an answer's prompt depend on tool history.
 
-### Migrate the removed instruction files into the app-wide prompt
+### Migrate the removed instruction files or global prompt into the conversation
 
-Rejected. It would silently adopt text the user may never have intended as a
-persona, from a file that could hold unrelated repository rules.
+Rejected. It would silently adopt text the user may never have intended as this
+conversation's persona, from a file or a global setting that could hold
+unrelated content.

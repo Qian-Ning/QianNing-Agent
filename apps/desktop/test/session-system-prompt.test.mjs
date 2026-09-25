@@ -1,18 +1,18 @@
 /**
  * Per-conversation system prompt: the scope contract.
  *
- * Exactly two scopes reach the model's persona, ordered and separable:
+ * Exactly one scope reaches the model's persona:
  *
- *   conversation (sessions.system_prompt)  >  global (settings)  >
- *   built-in default
+ *   conversation (sessions.system_prompt)  >  built-in default
  *
- * The file-based persona layer (`.pi/SYSTEM.md`) and the AGENTS.md instruction
- * chain were removed: two editable scopes are the whole model, so there is
- * nothing left to keep in step with a file on disk.
+ * The file-based persona layer (`.pi/SYSTEM.md`), the AGENTS.md instruction
+ * chain, and the app-wide global prompt were all removed: the conversation's
+ * own prompt is the whole editable model, so there is nothing left to keep in
+ * step with a file on disk or a second inherited scope.
  *
- * A blank/whitespace value at either scope means "no override", never
- * "empty persona" — the regression this file exists to catch is a cleared
- * field silently leaving the agent with no product persona at all.
+ * A blank/whitespace value means "no override", never "empty persona" — the
+ * regression this file exists to catch is a cleared field silently leaving the
+ * agent with no product persona at all.
  *
  * The dialog and topbar wiring is asserted from source because the renderer
  * surface is what the user actually meets; the storage half is covered by the
@@ -87,21 +87,20 @@ test("the schema change is a migration, not a rebuild assumption", () => {
   assert.match(migrationSource, /pub\(crate\) fn migrate_v19_to_v20\(conn: &Connection, path: &Path\)/);
 });
 
-test("launch orders the prompt scopes conversation > global > built-in", () => {
+test("launch orders the prompt scopes conversation > built-in", () => {
   assert.match(launchSource, /const sessionSystemPrompt =\s*typeof session\.systemPrompt === "string" \? session\.systemPrompt\.trim\(\) : "";/);
-  assert.match(launchSource, /const globalSystemPrompt =\s*typeof settings\.globalSystemPrompt === "string"/);
-  assert.match(launchSource, /const systemPrompt = sessionSystemPrompt \|\| globalSystemPrompt \|\| undefined;/);
+  assert.match(launchSource, /const systemPrompt = sessionSystemPrompt \|\| undefined;/);
   // The file layer is gone, so no launch path may read SYSTEM.md again.
   assert.doesNotMatch(launchSource, /loadCustomSystemPrompt|SYSTEM\.md/);
-  assert.match(appSettingsSource, /globalSystemPrompt\?: string;/);
+  // The app-wide scope is gone: the launch must not read a global setting.
+  assert.doesNotMatch(launchSource, /globalSystemPrompt/);
+  assert.doesNotMatch(appSettingsSource, /globalSystemPrompt/);
 });
 
-test("the settings page edits the app-wide prompt", () => {
-  assert.match(settingsSource, /export function GlobalPromptCard/);
-  assert.match(settingsSource, /saveSettings\(\{ globalSystemPrompt: draft\.trim\(\) \}\)/);
-  assert.match(settingsSource, /t\("settings\.globalPromptTitle"\)/);
-  // A blank field means "fall back", so the stored value must be trimmed empty.
-  assert.match(settingsSource, /const stored = settings\.globalSystemPrompt \?\? "";/);
+test("the conversation prompt is the only editable persona surface", () => {
+  // The old Settings ▸ Prompts card and its app-wide setting are gone.
+  assert.doesNotMatch(settingsSource, /GlobalPromptCard/);
+  assert.doesNotMatch(settingsSource, /globalSystemPrompt/);
 });
 
 test("the conversation editor is a modal that states which persona is in effect", () => {

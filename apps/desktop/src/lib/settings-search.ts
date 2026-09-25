@@ -9,7 +9,6 @@ export type SettingsTabId =
   | "general"
   | "ai"
   | "shortcuts"
-  | "instructions"
   | "agent"
   | "skills"
   | "mcp"
@@ -148,18 +147,6 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
       "settings.shortcutAction.openCommandPalette",
       "settings.shortcutAction.toggleSidebar",
       "settings.shortcutAction.openWorkPanel",
-    ],
-  },
-  {
-    id: "instructions",
-    labelKey: "settings.nav.instructions",
-    titleKey: "settings.instructions",
-    group: "agent",
-    keywordKeys: [
-      "settings.globalPromptTitle",
-      "settings.globalPromptDesc",
-      "settings.globalPromptHint",
-      "settings.conversationPromptTitle",
     ],
   },
   {

@@ -890,7 +890,7 @@ agent 运行时的职责，与官方 Pi 编码 agent 的归属层保持一致；
 ## 7. 系统提示组成
 
 ```text
-[persona: conversation prompt > app-wide prompt > built-in default]
+[persona: conversation prompt > built-in default]
 + [operating-state prompt: agent/plan/goal]
 + [workspace info]
 + [tool instructions]
@@ -898,19 +898,18 @@ agent 运行时的职责，与官方 Pi 编码 agent 的归属层保持一致；
 
 ### 7.0.1 人格作用域
 
-模型收到的人格由且仅由两个可编辑作用域决定，越具体越优先：
+模型收到的人格只有一个可编辑作用域：该对话自己的提示词
+（`sessions.system_prompt`，schema v20）。当一个对话没有设置自己的提示词时，
+使用内置产品人格。该值为空或仅含空白都表示"不覆盖"，而非"空人格"：由内置
+人格作答。写入时会裁剪首尾空白；解析结果发生变化会让运行中的 runtime 通过
+复用匹配失效，下一条提示词重新组合。
 
-1. 该对话自己的提示词（`sessions.system_prompt`，schema v20）；
-2. 全局提示词（`settings.globalSystemPrompt`）；
-
-两者都没有时使用内置产品人格。任一作用域为空或仅含空白都表示"不覆盖"，
-而非"空人格"：由下一层作用域作答。两个值写入时都会裁剪首尾空白；解析结果
-发生变化会让运行中的 runtime 通过复用匹配失效，下一条提示词重新组合。
-
-不存在基于文件的人格层：原先的 `SYSTEM.md` / `APPEND_SYSTEM.md` 文件对与
-`AGENTS.md` 指令链都不再读取。一个可被发现的文件可能在某一种类型上胜出、在
-另一种上落败，而这正是两个显式作用域要消除的混乱。native-pi 会话不受影响，
-仍走上游加载器的解析。
+不存在应用级（全局）人格设置，也不存在基于文件的人格层：原先的 `SYSTEM.md` /
+`APPEND_SYSTEM.md` 文件对与 `AGENTS.md` 指令链都不再读取，早先的应用级
+`globalSystemPrompt` 作用域也已移除。一个可被发现的文件可能在某一种类型上
+胜出、在另一种上落败，而一个被继承的应用级值会悄悄改变用户从未编辑过的对话
+——这正是单一、显式的按对话作用域要消除的混乱。native-pi 会话不受影响，仍走
+上游加载器的解析。
 
 基本提示明确指出协作规则，因为省略它们
 是产生静默会话的原因：“更喜欢简洁、可操作的答案”

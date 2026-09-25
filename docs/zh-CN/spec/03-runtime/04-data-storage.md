@@ -1181,10 +1181,11 @@ outbox 排空。渲染器侧的停止绝不重写已有已开始回复的转录
 1–1,000,000 的整数范围。因此现有数据库会在读取时延迟获得默认值，不需要破坏性
 迁移或第二个设置存储。
 
-同一个应用设置 JSON 还可选存储 `globalSystemPrompt`，即某个对话未单独设置
-提示词时继承的全局人格（ADR 0307）。空值或仅空白表示"不覆盖"：规范化时会丢弃
-该键，因此清空字段不会写入空字符串，而是恢复内置人格。超出长度上限的写入会被
-`settings.set` 在落库前拒绝。
+同一个应用设置 JSON 曾经存储的应用级 `globalSystemPrompt` 已随人格模型收敛为
+「仅按对话提示词」而移除：现在唯一可编辑的人格是 `sessions.system_prompt`。
+旧版本写入的该值会在开机维护时先归档到 `<data-dir>/removed-prompt-storage.json`
+再从设置 JSON 中删除（`prune_removed_prompt_storage`，先归档后删除），因此不会
+在没有可读副本的情况下丢失任何内容。
 
 该 JSON 还存储一次性「✨增强」使用哪个模型、多少推理（`promptEnhancementProviderId`、
 `promptEnhancementModelId` 与 `promptEnhancementThinkingLevel`，ADR 0121）。

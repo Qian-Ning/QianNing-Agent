@@ -620,10 +620,6 @@ fn drop_session_side_data(st: &AppState, id: &str) {
 const DEFAULT_LARGE_PASTE_THRESHOLD: i64 = 600;
 const MIN_LARGE_PASTE_THRESHOLD: i64 = 1;
 const MAX_LARGE_PASTE_THRESHOLD: i64 = 1_000_000;
-/// Upper bound for the stored app-wide persona, in characters. Mirrored by
-/// `MAX_SESSION_SYSTEM_PROMPT_CHARS` for the per-conversation prompt; both are
-/// deliberately generous because the operator owns this text.
-const MAX_GLOBAL_SYSTEM_PROMPT_CHARS: usize = 200_000;
 
 fn normalize_settings_value(mut value: Value) -> Value {
     if let Some(object) = value.as_object_mut() {
@@ -683,22 +679,6 @@ fn normalize_settings_value(mut value: Value) -> Value {
                 next.insert("insecureNoticeAcknowledged".into(), Value::Bool(true));
             }
             object.insert("networkPolicy".into(), Value::Object(next));
-        }
-        // The app-wide persona keeps the same contract as the per-conversation
-        // prompt: a blank or unusable value is dropped rather than stored, so
-        // the store never holds a value that could never be read.
-        let drop_global_prompt = match object.get("globalSystemPrompt") {
-            None => false,
-            Some(value) => match value.as_str() {
-                None => true,
-                Some(text) => {
-                    text.trim().is_empty()
-                        || text.chars().count() > MAX_GLOBAL_SYSTEM_PROMPT_CHARS
-                }
-            },
-        };
-        if drop_global_prompt {
-            object.remove("globalSystemPrompt");
         }
     }
     value
@@ -801,31 +781,6 @@ fn validate_settings_value(value: &Value) -> Result<(), JsonRpcError> {
                         "INVALID_PARAMS",
                     ));
                 }
-            }
-        }
-    }
-    // The app-wide persona shares the per-conversation prompt's generous
-    // budget; a blank string is accepted because it means "use the built-in
-    // default" and is dropped by the normalizer rather than stored.
-    if let Some(prompt) = object.get("globalSystemPrompt") {
-        match prompt.as_str() {
-            Some(text) => {
-                if text.chars().count() > MAX_GLOBAL_SYSTEM_PROMPT_CHARS {
-                    return Err(rpc_err(
-                        1002,
-                        format!(
-                            "globalSystemPrompt must not exceed {MAX_GLOBAL_SYSTEM_PROMPT_CHARS} characters"
-                        ),
-                        "INVALID_PARAMS",
-                    ));
-                }
-            }
-            None => {
-                return Err(rpc_err(
-                    1002,
-                    "globalSystemPrompt must be a string",
-                    "INVALID_PARAMS",
-                ))
             }
         }
     }
@@ -6302,83 +6257,6 @@ mod tests {
         );
         assert!(catalog["choices"].is_array());
         assert!(catalog["effective"].is_object() || catalog["effective"].is_null());
-    }
-
-    #[tokio::test]
-    async fn global_system_prompt_round_trips_and_clears() {
-        let data_dir = tempfile::tempdir().unwrap();
-        let mut app_state = AppState::open(data_dir.path()).unwrap();
-        app_state.handshook = true;
-        let state = Arc::new(Mutex::new(app_state));
-        let (tx, _rx) = mpsc::unbounded_channel();
-
-        // Nothing stored yet: the field is absent, so the launch falls back to
-        // the built-in persona.
-        let settings = handle_request(state.clone(), "settings.get", json!({}), tx.clone())
-            .await
-            .unwrap();
-        assert!(settings.get("globalSystemPrompt").is_none());
-
-        handle_request(
-            state.clone(),
-            "settings.set",
-            json!({ "globalSystemPrompt": "You are a terse reviewer." }),
-            tx.clone(),
-        )
-        .await
-        .unwrap();
-        assert_eq!(
-            handle_request(state.clone(), "settings.get", json!({}), tx.clone())
-                .await
-                .unwrap()["globalSystemPrompt"],
-            "You are a terse reviewer."
-        );
-
-        // Beyond the bound the write is refused, and the stored value is intact.
-        let oversized = handle_request(
-            state.clone(),
-            "settings.set",
-            json!({ "globalSystemPrompt": "x".repeat(200_001) }),
-            tx.clone(),
-        )
-        .await
-        .unwrap_err();
-        assert_eq!(oversized.data.unwrap()["errorCode"], "INVALID_PARAMS");
-        assert_eq!(
-            handle_request(state.clone(), "settings.get", json!({}), tx.clone())
-                .await
-                .unwrap()["globalSystemPrompt"],
-            "You are a terse reviewer."
-        );
-
-        // A blank value means "restore the built-in persona": the field is
-        // dropped rather than persisted as an empty string.
-        handle_request(
-            state.clone(),
-            "settings.set",
-            json!({ "globalSystemPrompt": "   " }),
-            tx.clone(),
-        )
-        .await
-        .unwrap();
-        assert!(
-            handle_request(state.clone(), "settings.get", json!({}), tx.clone())
-                .await
-                .unwrap()
-                .get("globalSystemPrompt")
-                .is_none()
-        );
-
-        // A non-string is rejected outright.
-        let wrong_type = handle_request(
-            state,
-            "settings.set",
-            json!({ "globalSystemPrompt": 7 }),
-            tx,
-        )
-        .await
-        .unwrap_err();
-        assert_eq!(wrong_type.data.unwrap()["errorCode"], "INVALID_PARAMS");
     }
 
     #[tokio::test]

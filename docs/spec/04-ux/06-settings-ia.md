@@ -48,23 +48,22 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   1. **General / 常规** — Lucide `SlidersHorizontal` (appearance)
   2. **AI** — Lucide `Sparkles` (permissions, defaults, command shell)
   3. **Shortcuts / 快捷键** — Lucide `Keyboard` (keyboard shortcuts)
-  4. **Prompts / 提示词** — Lucide `TextSelect` (the app-wide persona; a conversation can override it from its own editor)
-  5. **Models / 模型** — Lucide `Bot` (providers and default model)
-  6. **Skills / 技能** — Lucide `BookOpen` (reusable agent instructions)
-  7. **MCP** — Lucide `Server` (agent connections)
-  8. **Subagents / 子智能体** — Lucide `Bot` (built-in and personal parallel agents)
-  9. **Import / 导入** — Lucide `Download` (bring sessions and model configuration in from other tools)
-  10. **Projects / 项目** — Lucide `Archive` (durable project index)
-  11. **Cloud sync / 云同步** — Lucide `CloudDownload` (encrypted portable configuration backup and bidirectional sync; developer mode only)
-  12. **Remote Hosts / 远程主机** — Lucide `Globe` (SSH bootstrap and pairing inventory; developer mode only)
-  13. **Voice / 语音输入** — Lucide `Mic` (local offline transcription)
-  14. **Info / 信息** — Lucide `Info` (versions, logs, updates, developer)
+  4. **Models / 模型** — Lucide `Bot` (providers and default model)
+  5. **Skills / 技能** — Lucide `BookOpen` (reusable agent instructions)
+  6. **MCP** — Lucide `Server` (agent connections)
+  7. **Subagents / 子智能体** — Lucide `Bot` (built-in and personal parallel agents)
+  8. **Import / 导入** — Lucide `Download` (bring sessions and model configuration in from other tools)
+  9. **Projects / 项目** — Lucide `Archive` (durable project index)
+  10. **Cloud sync / 云同步** — Lucide `CloudDownload` (encrypted portable configuration backup and bidirectional sync; developer mode only)
+  11. **Remote Hosts / 远程主机** — Lucide `Globe` (SSH bootstrap and pairing inventory; developer mode only)
+  12. **Voice / 语音输入** — Lucide `Mic` (local offline transcription)
+  13. **Info / 信息** — Lucide `Info` (versions, logs, updates, developer)
   Icons are decorative (`aria-hidden` via the SVG default) and stay monochrome
   with the rail label; do not reuse refresh/rotate glyphs here.
 - The directory remains a flat searchable list in the same exact order. For
   scanability, the destinations are shown in four titled visual clusters:
   `Preferences` / `偏好` (General, AI, Shortcuts, Voice), `Agent` / `智能体`
-  (Instructions, Models, Skills, MCP, Subagents), `Workspace` / `工作区`
+  (Models, Skills, MCP, Subagents), `Workspace` / `工作区`
   (Import, Projects), and `System` / `系统` (Cloud sync, Remote Hosts, Info;
   Cloud sync and Remote Hosts are developer-only). Headings are
   muted, non-interactive labels and use whitespace for separation; no divider
@@ -624,22 +623,13 @@ system while preserving their different data ownership:
   and focus lift a control without adding a persistent in-flow divider; invalid
   form state is announced from the shared error region.
 
-### Prompts (`instructions` tab)
-- Edit the app-wide system prompt used by every conversation that does not set
-  its own. It is a settings field saved through the ordinary settings API, not a
-  file: the user never has to know where a prompt lives on disk.
-- The rails label and page title read **Prompts / 提示词**; the tab id stays
-  `instructions` because it is persisted routing state, not copy.
-- There is no separate global-vs-project instruction surface and no
-  instruction-file path to display. The two persona scopes (this app-wide
-  prompt, and a conversation's own editor) are the whole model, ordered
-  app-wide below conversation, with the built-in persona underneath both.
-
 ### Conversation prompt
-- A conversation's own prompt is edited from the conversation topbar, not from
-  Settings, so the narrowest scope is set where it applies.
-- The editor opens on the value in force, states which persona is active, and
-  clears the override when emptied; a whitespace-only value is not an override.
+- A conversation's own prompt is the single editable persona scope. It is
+  edited from the conversation topbar, not from Settings, so the scope is set
+  where it applies and there is no app-wide prompt tab to keep in step with it.
+- The editor opens on the value in force, states whether this conversation has
+  its own prompt or is using the built-in persona, and clears the prompt when
+  emptied; a whitespace-only value is not a prompt.
 
 ### Import
 - Scan supported local agent stores for **sessions**, **model configuration**,
@@ -799,7 +789,7 @@ system while preserving their different data ownership:
 1. Opening Settings hides the coding app sidebar (full-page takeover)
 2. Rail shows the search pill at the top, the back-to-app action pinned at the
    foot on the main sidebar's footer icon line, and exactly General / 常规, AI,
-   Shortcuts / 快捷键, Prompts / 提示词, Models / 模型, Skills / 技能, MCP,
+   Shortcuts / 快捷键, Models / 模型, Skills / 技能, MCP,
    Subagents / 子智能体, Import / 导入, Projects / 项目, Cloud sync / 云同步,
    Remote Hosts / 远程主机, Voice / 语音输入, and Info / 信息 in that order. Cloud sync / 云同步
    and Remote Hosts / 远程主机 appear only while developer mode is on. The rows are grouped under Preferences / 偏好,

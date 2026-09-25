@@ -40,7 +40,6 @@ pub(crate) const PORTABLE_APPLICATION_FIELDS: &[&str] = &[
     "linkOpenTarget",
     "contextUsageDisplay",
     "chatContentMaxWidth",
-    "globalSystemPrompt",
     "promptEnhancementProviderId",
     "promptEnhancementModelId",
     "promptEnhancementThinkingLevel",

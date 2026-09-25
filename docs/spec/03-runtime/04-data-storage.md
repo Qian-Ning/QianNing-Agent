@@ -281,11 +281,13 @@ The app settings JSON optionally stores `thinkingDisplayMode` (`detailed` or
 `compact`). Missing values retain detailed presentation. This additive display
 preference neither rewrites stored reasoning nor changes the database schema.
 
-The same blob optionally stores `globalSystemPrompt`, the app-wide persona a
-conversation inherits when it sets no prompt of its own (ADR 0307). A blank or
-whitespace-only value means "no override": the normalizer drops the key, so
-clearing the field stores no value and the built-in persona returns. Oversized
-values are rejected by `settings.set` before they persist.
+The app-wide `globalSystemPrompt` this blob once stored was removed when the
+persona model was reduced to the per-conversation prompt alone: the only
+editable persona is now `sessions.system_prompt`. A value written by an older
+build is archived to `<data-dir>/removed-prompt-storage.json` and dropped from
+the settings blob during startup maintenance
+(`prune_removed_prompt_storage`), archive first, so nothing is deleted without a
+readable copy.
 
 The blob also stores which model and how much reasoning the one-shot ✨ rewrite
 uses (`promptEnhancementProviderId`, `promptEnhancementModelId`, and

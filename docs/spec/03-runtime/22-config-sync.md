@@ -38,11 +38,12 @@ opt-in. Provider API keys and MCP environment variables/headers are included
 only when the credential category is selected; OAuth access/refresh tokens and
 cookies are never exported.
 
-The app-wide persona (`globalSystemPrompt`) travels inside the application
-preferences domain, like every other settings field. There is no instruction
-domain and no instruction file to capture: a prompt is settings, not a file on
-disk, so it needs no mapping and cannot be written outside the approved
-selection.
+There is no app-wide persona setting to sync: the persona model was reduced to
+the per-conversation prompt alone, and a conversation's prompt is session state,
+not portable application configuration. There is likewise no instruction domain
+and no instruction file to capture — a prompt is settings or session state, not
+a file on disk, so it needs no mapping and cannot be written outside the
+approved selection.
 Directory-shaped skills carry bounded sibling resources as authenticated
 objects. Package paths, symlinks, collisions, file counts, and total size are
 validated by Host before approved resources are written: at most 256 resources

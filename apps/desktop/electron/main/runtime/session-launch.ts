@@ -375,19 +375,13 @@ export function createSessionLaunchRuntime({
       typeof session.projectPath === "string" && session.projectPath.trim()
         ? session.projectPath.trim()
         : undefined;
-    // Persona precedence, most specific first:
-    //   1. this conversation's own prompt (schema v20)
-    //   2. the app-wide prompt from Settings
-    //   3. the built-in default
-    // These are the only two persona scopes. A blank value at either means "no
-    // override", never "empty persona": the next scope down answers.
+    // Persona precedence: the conversation's own prompt (schema v20) if it
+    // sets one, otherwise the built-in default. The conversation prompt is the
+    // only editable persona scope; a blank or whitespace-only value means "no
+    // override", never "empty persona", so the built-in default answers.
     const sessionSystemPrompt =
       typeof session.systemPrompt === "string" ? session.systemPrompt.trim() : "";
-    const globalSystemPrompt =
-      typeof settings.globalSystemPrompt === "string"
-        ? settings.globalSystemPrompt.trim()
-        : "";
-    const systemPrompt = sessionSystemPrompt || globalSystemPrompt || undefined;
+    const systemPrompt = sessionSystemPrompt || undefined;
     let projectMemory: string | undefined;
     let workspaceRootsGuide: string | undefined;
     if (projectPath) {

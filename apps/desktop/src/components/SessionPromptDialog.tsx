@@ -9,25 +9,18 @@ import { IconBot, IconClose } from "./icons";
 /**
  * The per-conversation persona editor.
  *
- * Scope is the whole point of this surface: the value belongs to ONE session
- * row (`sessions.system_prompt`), outranks the app-wide prompt for that
- * conversation, and leaves every other conversation on the global value. The
- * dialog therefore shows which of the two is in effect, so "why is this chat
- * answering differently" is answerable without reading source.
- *
- * Clearing the field (or typing only whitespace) removes the override rather
- * than storing an empty string, so the conversation returns to the global /
- * built-in persona.
+ * This is the only editable persona scope: the value belongs to ONE session
+ * row (`sessions.system_prompt`) and leaves every other conversation on the
+ * built-in default. Clearing the field (or typing only whitespace) removes the
+ * prompt rather than storing an empty string, so the conversation returns to
+ * the built-in persona.
  */
 export function SessionPromptDialog({
   session,
-  globalPrompt,
   onClose,
   onSave,
 }: {
   session: SessionSummary;
-  /** The app-wide prompt, shown as the inherited value in the empty state. */
-  globalPrompt?: string;
   onClose: () => void;
   onSave: (value: string | null) => Promise<void>;
 }) {
@@ -129,11 +122,6 @@ export function SessionPromptDialog({
         {error ? (
           <div className="project-memory-dialog-hint" role="status">
             {error}
-          </div>
-        ) : null}
-        {!stored && globalPrompt && draft.trim() === "" ? (
-          <div className="settings-instruction-path session-prompt-inherited">
-            {globalPrompt}
           </div>
         ) : null}
         <div className="project-instructions-dialog-actions">

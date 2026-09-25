@@ -150,10 +150,10 @@ fn v19_database_migrates_session_system_prompt_column() {
 }
 
 #[test]
-fn boot_archives_and_drops_storage_removed_by_the_two_scope_persona_model() {
+fn boot_archives_and_drops_storage_removed_by_the_single_scope_persona_model() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("pi.sqlite");
-    let kept = "Keep the API stable.";
+    let kept = "grande";
     {
         let db = Database::open(&path).unwrap();
         db.kv_set(
@@ -166,7 +166,8 @@ fn boot_archives_and_drops_storage_removed_by_the_two_scope_persona_model() {
             &db,
             &serde_json::json!({
                 "theme": "dark",
-                "globalSystemPrompt": kept,
+                "fontScale": kept,
+                "globalSystemPrompt": "You are a terse reviewer.",
                 "promptEnhancementCustomTemplate": true,
                 "promptEnhancementUserTemplate": "{{draft}} rewrite this",
                 "promptEnhancementSystemPrompt": "You are a rewriter.",
@@ -176,8 +177,8 @@ fn boot_archives_and_drops_storage_removed_by_the_two_scope_persona_model() {
     }
 
     let db = Database::open(&path).unwrap();
-    // The namespace is gone and the three template keys are gone, while the
-    // persona that the new model still reads survives untouched.
+    // The namespace is gone and every removed prompt key is gone, while an
+    // unrelated setting the app still reads survives untouched.
     let leftover: i64 = db
         .conn()
         .query_row(
@@ -188,13 +189,14 @@ fn boot_archives_and_drops_storage_removed_by_the_two_scope_persona_model() {
         .unwrap();
     assert_eq!(leftover, 0, "removed namespace is empty after boot");
     let settings = db.get_setting("app").unwrap().unwrap();
-    for key in REMOVED_ENHANCEMENT_TEMPLATE_KEYS {
+    for key in REMOVED_PROMPT_SETTINGS_KEYS {
         assert!(settings.get(*key).is_none(), "{key} is still stored");
     }
     assert_eq!(settings["theme"], serde_json::json!("dark"));
-    assert_eq!(settings["globalSystemPrompt"], serde_json::json!(kept));
+    assert_eq!(settings["fontScale"], serde_json::json!(kept));
 
-    // Nothing is dropped without a readable copy of it.
+    // Nothing is dropped without a readable copy of it, including the app-wide
+    // prompt that used to be a second persona scope.
     let archive = dir.path().join(REMOVED_PROMPT_ARCHIVE_FILE);
     let dump: Value = serde_json::from_slice(&std::fs::read(&archive).unwrap()).unwrap();
     assert_eq!(
@@ -205,7 +207,11 @@ fn boot_archives_and_drops_storage_removed_by_the_two_scope_persona_model() {
         dump["applicationSettings"]["promptEnhancementUserTemplate"],
         serde_json::json!("{{draft}} rewrite this")
     );
-    assert!(dump["applicationSettings"].get("globalSystemPrompt").is_none());
+    assert_eq!(
+        dump["applicationSettings"]["globalSystemPrompt"],
+        serde_json::json!("You are a terse reviewer.")
+    );
+    assert!(dump["applicationSettings"].get("theme").is_none());
 
     // Idempotent: a second boot finds nothing to remove and keeps the archive.
     let before = std::fs::metadata(&archive).unwrap().modified().unwrap();

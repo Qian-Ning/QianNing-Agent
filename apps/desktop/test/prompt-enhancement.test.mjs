@@ -98,10 +98,13 @@ test("the prompt-enhancement card is model-and-reasoning only", async () => {
   assert.doesNotMatch(shared, /\.replace\(PROMPT_ENHANCEMENT_DRAFT_VARIABLE, draft\)/);
 
   // host-core stores no enhancement template at all: the two removed settings
-  // keys are not accepted, and only the app-wide persona is bounded.
+  // keys are not accepted, and the only bounded persona is the per-conversation
+  // prompt.
   assert.doesNotMatch(hostCore, /prompt_enhancement_template_error/);
   assert.doesNotMatch(hostCore, /MAX_PROMPT_ENHANCEMENT_TEMPLATE_CHARS/);
-  assert.match(hostCore, /MAX_GLOBAL_SYSTEM_PROMPT_CHARS/);
+  // The app-wide persona scope is gone, so its bound is gone with it.
+  assert.doesNotMatch(hostCore, /MAX_GLOBAL_SYSTEM_PROMPT_CHARS/);
+  assert.doesNotMatch(hostCore, /globalSystemPrompt/);
 
   // The one-shot keeps its boundary: no history, no tools.
   assert.match(runtime, /promptEnhancementContext/);

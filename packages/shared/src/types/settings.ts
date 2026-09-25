@@ -41,15 +41,6 @@ export type AppSettings = {
   /** Configured command shell for the agent Bash protocol tool. */
   defaultCommandShell?: CommandShellId;
   /**
-   * The user's own global system prompt (the app-wide persona). It applies to
-   * every conversation that has not set its own. Absent or blank means the
-   * built-in default persona.
-   *
-   * This is one of exactly two persona scopes: this one, and the per-session
-   * `SessionSummary.systemPrompt`. Nothing else reaches the model's persona.
-   */
-  globalSystemPrompt?: string;
-  /**
    * Model the one-shot enhancement runs on. Absent means "follow the Composer's
    * current model". When the pinned pair is unusable, main falls back to the
    * Composer model and logs a warning (ADR 0121).

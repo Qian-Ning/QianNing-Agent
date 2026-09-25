@@ -7,12 +7,16 @@ const TASK_RUNS_KEEP: i64 = 100;
 /// 0307 removed the reader; `prune_removed_prompt_storage` reclaims the rows.
 pub(crate) const REMOVED_GROUP_INSTRUCTIONS_NAMESPACE: &str = "projectGroupInstructions";
 
-/// App-settings keys older builds used to configure the one-shot ✨ rewrite.
-/// ADR 0307 made the rewrite instructions product constants.
-pub(crate) const REMOVED_ENHANCEMENT_TEMPLATE_KEYS: &[&str] = &[
+/// App-settings keys older builds wrote for prompt features this fork removed:
+/// the three that configured the one-shot ✨ rewrite (ADR 0307 made the rewrite
+/// instructions product constants), and `globalSystemPrompt`, the app-wide
+/// persona scope removed when the persona model was reduced to the
+/// per-conversation prompt alone. Nothing reads any of them now.
+pub(crate) const REMOVED_PROMPT_SETTINGS_KEYS: &[&str] = &[
     "promptEnhancementCustomTemplate",
     "promptEnhancementUserTemplate",
     "promptEnhancementSystemPrompt",
+    "globalSystemPrompt",
 ];
 
 /// Readable dump of the above, written next to the database before the rows go.
@@ -154,13 +158,14 @@ impl Database {
         Ok(())
     }
 
-    /// Reclaim the prompt storage that ADR 0307 removed.
+    /// Reclaim the prompt storage this fork's persona model removed.
     ///
     /// Older builds wrote project-group instructions into the
-    /// `projectGroupInstructions` namespace and the one-shot rewrite's system
-    /// prompt and user template into the app settings blob. Nothing reads
-    /// either location any more, so the rows only bloat the file and mislead
-    /// anyone inspecting the settings JSON.
+    /// `projectGroupInstructions` namespace, and wrote the one-shot rewrite's
+    /// template settings plus the app-wide `globalSystemPrompt` into the app
+    /// settings blob. Nothing reads any of them any more — the persona model is
+    /// the per-conversation prompt alone — so the rows only bloat the file and
+    /// mislead anyone inspecting the settings JSON.
     ///
     /// The content is archived next to the database before it is dropped:
     /// this is user-authored text with no destination in the new model, so it
@@ -185,7 +190,7 @@ impl Database {
             .unwrap_or_else(|| serde_json::json!({}));
         let mut removed_settings = serde_json::Map::new();
         if let Some(object) = settings.as_object_mut() {
-            for key in REMOVED_ENHANCEMENT_TEMPLATE_KEYS {
+            for key in REMOVED_PROMPT_SETTINGS_KEYS {
                 if let Some(value) = object.remove(*key) {
                     removed_settings.insert((*key).to_string(), value);
                 }
@@ -198,7 +203,7 @@ impl Database {
         let archive = self.data_dir.join(REMOVED_PROMPT_ARCHIVE_FILE);
         let payload = serde_json::json!({
             "removedAt": ms_to_ts(now_ms()),
-            "reason": "ADR 0307 removed the file-based instruction chain and the enhancement template settings",
+            "reason": "This fork removed the file-based instruction chain, the enhancement template settings, and the app-wide global prompt scope",
             "projectGroupInstructions": group_instructions
                 .iter()
                 .map(|(key, raw)| {
@@ -238,7 +243,7 @@ impl Database {
             group_instructions = group_instructions.len(),
             settings_keys = removed_settings.len(),
             archive = %archive.display(),
-            "archived and dropped prompt storage removed by the two-scope persona model"
+            "archived and dropped prompt storage removed by the single-scope persona model"
         );
         Ok(())
     }

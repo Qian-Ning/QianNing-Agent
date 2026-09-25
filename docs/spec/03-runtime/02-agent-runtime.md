@@ -1240,7 +1240,7 @@ same gateway backend as the conversation it summarizes.
 ## 7. System prompt composition
 
 ```text
-[persona: conversation prompt > app-wide prompt > built-in default]
+[persona: conversation prompt > built-in default]
 + [operating-state prompt: agent/plan/goal]
 + [workspace info]
 + [tool instructions]
@@ -1248,22 +1248,22 @@ same gateway backend as the conversation it summarizes.
 
 ### 7.0.1 Persona scopes
 
-The persona the model receives is set by exactly two editable scopes, most
-specific first:
+The persona the model receives has exactly one editable scope: the
+conversation's own prompt (`sessions.system_prompt`, schema v20). When a
+conversation sets no prompt of its own, the built-in product persona answers.
+A blank or whitespace-only value means "no override", never "empty persona":
+the built-in persona answers. The value is trimmed, and a change to the
+resolved persona retires the runtime through the reuse match, so the next
+prompt recomposes.
 
-1. the conversation's own prompt (`sessions.system_prompt`, schema v20),
-2. the app-wide prompt (`settings.globalSystemPrompt`),
-
-and otherwise the built-in product persona. A blank or whitespace-only value at
-either scope means "no override", never "empty persona": the next scope down
-answers. Both values are trimmed, and a change to the resolved persona retires
-the runtime through the reuse match, so the next prompt recomposes.
-
-There is no file-based persona layer: the former `SYSTEM.md` /
-`APPEND_SYSTEM.md` pair and the `AGENTS.md` instruction chain are not read.
-A discoverable file could win one kind and lose the other behind the user's
-back, which is exactly the confusion two explicit scopes remove. Native-pi
-sessions are untouched and keep the upstream loader's resolution.
+There is no app-wide persona setting and no file-based persona layer: the
+former `SYSTEM.md` / `APPEND_SYSTEM.md` pair and the `AGENTS.md` instruction
+chain are not read, and the earlier app-wide `globalSystemPrompt` scope was
+removed. A discoverable file could win one kind and lose the other behind the
+user's back, and an inherited app-wide value silently changed conversations
+the user never edited — exactly the confusion a single explicit per-conversation
+scope removes. Native-pi sessions are untouched and keep the upstream loader's
+resolution.
 
 The base prompt states collaboration rules explicitly, because omitting them
 is what produced silent sessions: "prefer concise, actionable answers" was the

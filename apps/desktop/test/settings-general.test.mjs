@@ -364,8 +364,8 @@ test("settings nav icons map each destination to a semantic lucide glyph", () =>
   assert.match(settingsPageSource, /ai: <IconSparkles/);
   assert.doesNotMatch(settingsPageSource, /usage: <IconActivity/);
   assert.match(settingsPageSource, /shortcuts: <IconKeyboard/);
-  assert.match(settingsPageSource, /instructions: <IconTextSelect/);
   assert.match(settingsPageSource, /agent: <IconBot/);
+  assert.doesNotMatch(settingsPageSource, /instructions: <IconTextSelect/);
   assert.match(settingsPageSource, /import: <IconDownload/);
   assert.match(settingsPageSource, /projects: <IconArchive/);
   assert.match(settingsPageSource, /about: <IconInfo/);
@@ -400,7 +400,6 @@ test("settings nav keeps a flat searchable index with titled visual groups", () 
     "general",
     "ai",
     "shortcuts",
-    "instructions",
     "agent",
     "import",
     "projects",
@@ -408,6 +407,8 @@ test("settings nav keeps a flat searchable index with titled visual groups", () 
   ].map((id) => settingsSearchSource.indexOf(`id: "${id}"`));
   assert.ok(navOrder.every((index) => index >= 0));
   assert.deepEqual(navOrder, [...navOrder].sort((a, b) => a - b));
+  // The Prompts / instructions tab was removed with the app-wide prompt.
+  assert.equal(settingsSearchSource.indexOf('id: "instructions"'), -1);
   const generalStart = settingsSearchSource.indexOf('id: "general"');
   const aiStart = settingsSearchSource.indexOf('id: "ai"');
   const shortcutsStart = settingsSearchSource.indexOf('id: "shortcuts"');
@@ -436,7 +437,6 @@ test("settings rail uses short parallel labels and descriptive page titles", () 
     "settings.nav.general",
     "settings.nav.ai",
     "settings.nav.shortcuts",
-    "settings.nav.instructions",
     "settings.nav.models",
     "settings.nav.skills",
     "settings.nav.mcp",

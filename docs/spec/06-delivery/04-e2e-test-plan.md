@@ -5723,27 +5723,27 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `context-compaction.test.mjs`, `assistant-turns.test.mjs`, host-core
   transcript/session unit tests); full provider/UI journey Draft
 
-#### E2E-AGENTS-001: Two persona scopes reach the agent
+#### E2E-AGENTS-001: The conversation prompt is the only editable persona
 
 - **Preconditions**: A provider is configured; a conversation is open.
 - **Steps**:
-  1. Start an Agent-mode conversation with no app-wide prompt set, submit a
+  1. Start an Agent-mode conversation that sets no prompt of its own, submit a
      prompt, and confirm the built-in persona answers.
-  2. Open Settings -> Prompts, save an app-wide prompt, and submit a prompt in a
-     different conversation.
-  3. Open the conversation topbar editor in one conversation, save a
-     conversation prompt, and submit a prompt there and in a third conversation.
-  4. Clear the conversation editor and submit again.
-  5. Create a workspace containing `.pi/SYSTEM.md` and an `AGENTS.md`, then
+  2. Open the conversation topbar editor in one conversation, save a
+     conversation prompt, and submit a prompt there and in a second conversation
+     that has no prompt of its own.
+  3. Clear the conversation editor and submit again.
+  4. Create a workspace containing `.pi/SYSTEM.md` and an `AGENTS.md`, then
      start a conversation in it.
-- **Expected**: The app-wide prompt reaches every conversation that sets no
-  prompt of its own. The conversation prompt outranks it in that conversation
-  only, and clearing it restores the app-wide scope rather than an empty
-  persona: a blank or whitespace-only value is never an override at either
-  scope. The stored values are trimmed. Neither `.pi/SYSTEM.md` nor `AGENTS.md`
-  changes the persona or the sidecar launch params; the built-in persona answers
-  when neither scope is set. The conversation editor states which persona is in
-  effect and is unavailable for imported native-pi conversations.
+- **Expected**: A conversation's own prompt reaches the model in that
+  conversation only; every other conversation answers with the built-in
+  persona, since there is no app-wide scope to inherit. Clearing the editor
+  restores the built-in persona rather than an empty one: a blank or
+  whitespace-only value is never a prompt. The stored value is trimmed. Neither
+  `.pi/SYSTEM.md` nor `AGENTS.md` changes the persona or the sidecar launch
+  params. The conversation editor states whether this conversation has its own
+  prompt or is using the built-in persona, and is unavailable for imported
+  native-pi conversations.
 - **Specs linked**: `03-runtime/02-agent-runtime.md`,
   `04-ux/06-settings-ia.md`, ADR 0307
 - **Acceptance**: C (chat/stream), F (persistence)
@@ -5752,24 +5752,27 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `custom-system-prompt-launch.test.mjs`, host-core session unit tests);
   full provider/UI journey Draft
 
-#### E2E-AGENTS-002: Settings manages the app-wide persona
+#### E2E-AGENTS-002: No app-wide prompt surface remains
 
 - **Preconditions**: PI-Desktop is running; a conversation is open.
 - **Steps**:
-  1. Open Settings -> Prompts and save an app-wide prompt.
-  2. Submit a prompt in a fresh conversation.
-  3. Clear the field, save, and submit again.
-- **Expected**: The destination is labelled Prompts / 提示词 with a Lucide
-  `TextSelect` icon, and it edits one settings field rather than a file: no
-  instruction-file path is shown and no dedicated instruction IPC exists. A
-  saved value reaches the next prompt in every conversation that sets no
-  prompt of its own, and a cleared value restores the built-in persona rather
-  than persisting an empty string.
-- **Specs linked**: `04-ux/06-settings-ia.md`, ADR 0307
-- **Acceptance**: C (chat/stream), F (persistence)
+  1. Open Settings and review the navigation rail and search.
+  2. Inspect an application-settings blob written by an older build that carries
+     a `globalSystemPrompt` value, then start the app on it.
+- **Expected**: Settings exposes no Prompts / 提示词 destination and no
+  app-wide system-prompt field; the only persona editor is the conversation
+  topbar editor. A `globalSystemPrompt` written by an older build is archived to
+  `<data-dir>/removed-prompt-storage.json` and dropped from the settings blob at
+  startup (archive first, so a failed archive leaves the value in place), and it
+  never reaches a prompt.
+- **Specs linked**: `04-ux/06-settings-ia.md`, `03-runtime/04-data-storage.md`,
+  ADR 0307
+- **Acceptance**: F (persistence)
 - **Milestone**: M5
 - **Status**: Unit-covered (`settings-general.test.mjs`,
-  `session-system-prompt.test.mjs`); full UI journey Draft
+  `session-system-prompt.test.mjs`, `prompt-enhancement.test.mjs`, host-core
+  `boot_archives_and_drops_storage_removed_by_the_single_scope_persona_model`);
+  full UI journey Draft
 
 #### E2E-085: Expanded sidebar typography keeps list content compact
 

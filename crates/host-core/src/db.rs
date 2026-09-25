@@ -27,8 +27,8 @@ pub(crate) use migrations::{
     migrate_app_settings, migrate_v10_to_v15, migrate_v11_to_v15, migrate_v12_to_v15,
     migrate_v13_to_v15, migrate_v14_to_v15, migrate_v17_to_v18, migrate_v18_to_v19,
     migrate_v19_to_v20, migrate_v7_to_v8, migrate_v8_to_v15, migrate_v9_to_v15,
-    migration_backup_path, validate_session_modes, REMOVED_ENHANCEMENT_TEMPLATE_KEYS,
-    REMOVED_GROUP_INSTRUCTIONS_NAMESPACE, REMOVED_PROMPT_ARCHIVE_FILE,
+    migration_backup_path, validate_session_modes, REMOVED_GROUP_INSTRUCTIONS_NAMESPACE,
+    REMOVED_PROMPT_ARCHIVE_FILE, REMOVED_PROMPT_SETTINGS_KEYS,
 };
 pub(crate) use model::PlanWorkRow;
 pub use model::{Database, ProjectMemoryEntryRecord, ProjectMemoryRecord, ProjectRecord};

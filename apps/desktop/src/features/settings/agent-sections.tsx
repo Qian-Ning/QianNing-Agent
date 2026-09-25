@@ -1,80 +1,11 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { AppSettings } from "@pi-desktop/shared";
 import { useUpdateState } from "../../hooks/use-update-state";
 import { api } from "../../lib/api";
-import { Button, Textarea } from "../../components/ui";
+import { Button } from "../../components/ui";
 import { IconFileText } from "../../components/icons";
 import { ReleaseNotesDialog } from "../../components/ReleaseNotesDialog";
-import { SettingsCard, SettingsRow } from "./primitives";
-
-/**
- * The app-wide persona. It is a settings field, not a file, so the user can
- * set it without knowing where AGENTS.md lives; a conversation can still
- * override it from its own prompt editor.
- */
-export function GlobalPromptCard({
-  settings,
-  saveSettings,
-}: {
-  settings: AppSettings;
-  saveSettings: (patch: Partial<AppSettings>) => Promise<void>;
-}) {
-  const { t } = useTranslation();
-  const stored = settings.globalSystemPrompt ?? "";
-  const [draft, setDraft] = useState<string>(stored);
-  const [saving, setSaving] = useState(false);
-
-  // Follow the stored value when it changes elsewhere (config sync, reset),
-  // but never stomp on what the user is typing: only a NEW stored value wins.
-  useEffect(() => {
-    setDraft((current) => (current === stored ? current : stored));
-  }, [stored]);
-
-  const dirty = draft !== stored;
-  const save = async () => {
-    setSaving(true);
-    try {
-      await saveSettings({ globalSystemPrompt: draft.trim() });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <SettingsCard
-      title={t("settings.globalPromptTitle")}
-      description={t("settings.globalPromptDesc")}
-    >
-      <div className="settings-form-grid">
-        <Textarea
-          className="settings-instruction-editor"
-          value={draft}
-          placeholder={t("settings.globalPromptPlaceholder")}
-          aria-label={t("settings.globalPromptTitle")}
-          spellCheck={false}
-          autoCorrect="off"
-          autoCapitalize="off"
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        <div className="settings-row-copy">
-          <div className="settings-instruction-path">
-            {t("settings.globalPromptHint")}
-          </div>
-        </div>
-      </div>
-      <div className="settings-panel-actions">
-        <Button
-          variant="primary"
-          disabled={!dirty || saving}
-          onClick={() => void save()}
-        >
-          {saving ? t("settings.saving") : t("common.save")}
-        </Button>
-      </div>
-    </SettingsCard>
-  );
-}
+import { SettingsRow } from "./primitives";
 
 export function UpdatesRow({ currentVersion }: { currentVersion?: string }) {
   const { t } = useTranslation();

@@ -22,7 +22,6 @@ import {
   IconBot,
   IconChevronLeft,
   IconDownload,
-  IconTextSelect,
   IconGlobe,
   IconInfo,
   IconKeyboard,
@@ -58,7 +57,7 @@ import {
   SettingsCard,
   SettingsRow,
 } from "./primitives";
-import { GlobalPromptCard, UpdatesRow } from "./agent-sections";
+import { UpdatesRow } from "./agent-sections";
 import { ImportSection } from "./import-page";
 import { PromptEnhancementCard } from "./prompt-enhancement-card";
 import { CloseBehaviorSection, DeveloperSection } from "./developer-sections";
@@ -225,7 +224,6 @@ export function SettingsPage() {
       general: <IconSliders size={14} />,
       ai: <IconSparkles size={14} />,
       shortcuts: <IconKeyboard size={14} />,
-      instructions: <IconTextSelect size={14} />,
       agent: <IconBot size={14} />,
       skills: <IconBookOpen size={14} />,
       mcp: <IconServer size={14} />,
@@ -552,12 +550,6 @@ export function SettingsPage() {
           {tab === "mcp" && <AgentMcpPage />}
 
           {tab === "subagents" && <AgentSubagentsPage />}
-
-          {tab === "instructions" && settings && (
-            <div className="settings-stack">
-              <GlobalPromptCard settings={settings} saveSettings={saveSettings} />
-            </div>
-          )}
 
           {tab === "import" && <ImportSection />}
 

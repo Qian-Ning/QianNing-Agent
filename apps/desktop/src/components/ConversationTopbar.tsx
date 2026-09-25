@@ -35,7 +35,6 @@ export function ConversationTopbar({
   const activeSessionId = useAppStore((s) => s.activeSessionId);
   const sessions = useAppStore((s) => s.sessions);
   const workspace = useAppStore((s) => s.workspace);
-  const globalPrompt = useAppStore((s) => s.settings?.globalSystemPrompt);
   const setActiveSessionSystemPrompt = useAppStore(
     (s) => s.setActiveSessionSystemPrompt,
   );
@@ -117,7 +116,6 @@ export function ConversationTopbar({
       {promptOpen && activeSession && promptEditable ? (
         <SessionPromptDialog
           session={activeSession}
-          globalPrompt={globalPrompt}
           onClose={() => setPromptOpen(false)}
           onSave={setActiveSessionSystemPrompt}
         />
