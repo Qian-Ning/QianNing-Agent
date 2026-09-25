@@ -1181,13 +1181,16 @@ outbox 排空。渲染器侧的停止绝不重写已有已开始回复的转录
 1–1,000,000 的整数范围。因此现有数据库会在读取时延迟获得默认值，不需要破坏性
 迁移或第二个设置存储。
 
-同一个应用设置 JSON 还可选存储提示词增强的覆盖值
-`promptEnhancementCustomTemplate`（决定已存模板是否生效的开关）、
-`promptEnhancementUserTemplate`、`promptEnhancementProviderId`、
-`promptEnhancementModelId` 与 `promptEnhancementThinkingLevel`（ADR 0121）。用户模板缺失或为空表示使用内置默认值，
-因此清空字段不会写入空字符串而是不写该键。非空的用户模板必须包含草稿变量，且
-不得超过 `PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH`；host-core 会拒绝违反任一规则的
-写入，并丢弃已不再读取的 `promptEnhancementSystemPrompt`。无需提升 schema 版本。
+同一个应用设置 JSON 还可选存储 `globalSystemPrompt`，即某个对话未单独设置
+提示词时继承的全局人格（ADR 0307）。空值或仅空白表示"不覆盖"：规范化时会丢弃
+该键，因此清空字段不会写入空字符串，而是恢复内置人格。超出长度上限的写入会被
+`settings.set` 在落库前拒绝。
+
+该 JSON 还存储一次性「✨增强」使用哪个模型、多少推理（`promptEnhancementProviderId`、
+`promptEnhancementModelId` 与 `promptEnhancementThinkingLevel`，ADR 0121）。
+增强自身的指令不是设置项：`promptEnhancementCustomTemplate`、
+`promptEnhancementUserTemplate` 与 `promptEnhancementSystemPrompt` 已移除，
+host-core 不再接受这三个键。无需提升 schema 版本。
 - Plan 和 Goal 工件永远不会根据转录内容重建。开
   启动,
   一笔交易标志着每笔 `pending` 批准和每笔 `queued` 或

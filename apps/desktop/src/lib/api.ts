@@ -26,7 +26,6 @@ import type {
   QueuedTurnSummary,
   AgentStatus,
   AskToolResolution,
-  AgentInstructionFile,
   AppSettings,
   CommandShellCatalog,
   AppVersionInfo,
@@ -780,10 +779,6 @@ export const api = {
     invoke<{ memory: ProjectMemory }>(IPC.invoke.projectGroupMemoryGet, { groupId }),
   saveProjectGroupMemory: (groupId: string, entries: ProjectMemory["entries"]) =>
     invoke<{ memory: ProjectMemory }>(IPC.invoke.projectGroupMemorySave, { groupId, entries }),
-  getProjectGroupInstructions: (groupId: string) =>
-    invoke<{ content: string }>(IPC.invoke.projectGroupInstructionsGet, { groupId }),
-  saveProjectGroupInstructions: (groupId: string, content: string) =>
-    invoke<{ content: string }>(IPC.invoke.projectGroupInstructionsSave, { groupId, content }),
   openProject: () =>
     invoke<{ workspace: ProjectWorkspace | null; canceled?: boolean }>(
       IPC.invoke.projectOpen,
@@ -916,21 +911,6 @@ export const api = {
     invoke<{ moved: boolean }>(IPC.invoke.agentQueueReorder, { turnId, direction }),
   getStatus: (sessionId: string) =>
     invoke<{ status: AgentStatus }>(IPC.invoke.agentGetStatus, sessionId),
-  getAgentInstructions: (projectPath?: string) =>
-    invoke<{ global: AgentInstructionFile; project?: AgentInstructionFile }>(
-      IPC.invoke.agentInstructionsGet,
-      projectPath === undefined ? {} : { projectPath },
-    ),
-  saveAgentInstructions: (
-    scope: AgentInstructionFile["scope"],
-    content: string,
-    projectPath?: string,
-  ) =>
-    invoke<{ file: AgentInstructionFile }>(IPC.invoke.agentInstructionsSave, {
-      scope,
-      content,
-      ...(projectPath === undefined ? {} : { projectPath }),
-    }),
   resolvePermission: (resolution: ToolPermissionResolution) =>
     invoke(IPC.invoke.toolResolvePermission, resolution),
   resolveAskTool: (resolution: AskToolResolution) =>

@@ -10,9 +10,7 @@ use super::repositories::{
 
 const GROUP_NAMESPACE: &str = "projectGroups";
 const GROUP_MEMORY_NAMESPACE: &str = "projectGroupMemory";
-const GROUP_INSTRUCTIONS_NAMESPACE: &str = "projectGroupInstructions";
 pub const MAX_PROJECT_GROUP_NAME_CHARS: usize = 80;
-pub const MAX_PROJECT_GROUP_INSTRUCTIONS_BYTES: usize = 32 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -45,7 +43,6 @@ pub struct ProjectGroupRecord {
 pub struct ProjectGroupContextRecord {
     pub group_id: String,
     pub roots: Vec<ProjectGroupRoot>,
-    pub instructions: String,
     pub memory: ProjectMemoryRecord,
 }
 
@@ -152,12 +149,11 @@ impl Database {
     }
 
     /// Delete a stored project group record together with its group-scoped
-    /// memory and instructions. The underlying project rows are left untouched;
-    /// callers remove those separately when appropriate.
+    /// memory. The underlying project rows are left untouched; callers remove
+    /// those separately when appropriate.
     pub fn delete_project_group_record(&self, id: &str) -> Result<()> {
         self.kv_delete(GROUP_NAMESPACE, id)?;
         self.kv_delete(GROUP_MEMORY_NAMESPACE, id)?;
-        self.kv_delete(GROUP_INSTRUCTIONS_NAMESPACE, id)?;
         Ok(())
     }
 
@@ -456,44 +452,6 @@ impl Database {
         })
     }
 
-    pub fn get_project_group_instructions(&self, id: &str) -> Result<String> {
-        let Some(group) = self.group_by_id(id)? else {
-            return Err(anyhow!("project group not found"));
-        };
-        if group.legacy {
-            return Ok(String::new());
-        }
-        Ok(self
-            .kv_get(GROUP_INSTRUCTIONS_NAMESPACE, &group.id)?
-            .and_then(|value| {
-                value
-                    .get("content")
-                    .and_then(Value::as_str)
-                    .map(str::to_string)
-            })
-            .unwrap_or_default())
-    }
-
-    pub fn set_project_group_instructions(&self, id: &str, content: &str) -> Result<String> {
-        let Some(group) = self.group_by_id(id)? else {
-            return Err(anyhow!("project group not found"));
-        };
-        if group.legacy {
-            return Err(anyhow!("legacy project groups use folder instructions"));
-        }
-        if content.len() > MAX_PROJECT_GROUP_INSTRUCTIONS_BYTES {
-            return Err(anyhow!(
-                "project instructions exceed {MAX_PROJECT_GROUP_INSTRUCTIONS_BYTES} bytes"
-            ));
-        }
-        self.kv_set(
-            GROUP_INSTRUCTIONS_NAMESPACE,
-            &group.id,
-            &serde_json::json!({ "content": content, "updatedAt": now_ms() }),
-        )?;
-        Ok(content.to_string())
-    }
-
     pub fn project_group_context_for_path(
         &self,
         path: &str,
@@ -507,7 +465,6 @@ impl Database {
         Ok(Some(ProjectGroupContextRecord {
             group_id: group.id.clone(),
             roots: group.roots,
-            instructions: self.get_project_group_instructions(&group.id)?,
             memory: self.get_project_group_memory(&group.id)?,
         }))
     }

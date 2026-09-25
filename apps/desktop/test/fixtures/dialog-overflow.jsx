@@ -7,7 +7,6 @@ import { catalogs, flattenCatalog } from "@pi-desktop/i18n";
 import { bindingForCustomModel, IPC } from "@pi-desktop/shared";
 import { ExtensionPromptHost } from "../../src/components/ExtensionPromptDialog";
 import { SessionRenameDialog } from "../../src/components/SessionRenameDialog";
-import { ProjectInstructionsDialog } from "../../src/components/ProjectInstructionsDialog";
 import { ProjectMemoryDialog } from "../../src/components/ProjectMemoryDialog";
 import { ProjectDeleteDialog } from "../../src/components/ProjectDeleteDialog";
 import { PluginInstallDialog } from "../../src/components/plugins/PluginInstallDialog";
@@ -82,7 +81,6 @@ window.dialogFixture = {
     let component;
     if (kind === "extension") component = <ExtensionPromptHost key={++revision} />;
     if (kind === "rename") component = <SessionRenameDialog session={{ id: "s", title: long }} onClose={close} onSave={async (value) => { this.saved = value; }} onError={error} />;
-    if (kind === "instructions") component = <ProjectInstructionsDialog {...props} />;
     if (kind === "memory") component = <ProjectMemoryDialog {...props} />;
     if (kind === "delete") component = <ProjectDeleteDialog {...props} runningSessionIds={[]} onDeleted={() => {}} />;
     if (kind === "install") component = <PluginInstallDialog job={{ ...newInstallJob({ id: "fixture", name: long, grantedPermissions: [], autoUpdate: false }), status: "failed", error: long }} onCancel={close} onRetry={() => {}} onClose={close} />;

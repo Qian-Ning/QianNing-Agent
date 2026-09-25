@@ -842,7 +842,7 @@ pub(crate) fn migrate_v18_to_v19(conn: &Connection, path: &Path) -> Result<()> {
 
 /// v20 adds the per-conversation system prompt column. A session that sets it
 /// replaces the composed persona for its own turns only; NULL keeps the
-/// built-in/SYSTEM.md behavior (see `sessions::session_system_prompt`).
+/// built-in persona (see `sessions::set_session_system_prompt`).
 pub(crate) fn migrate_v19_to_v20_tx(tx: &rusqlite::Transaction<'_>) -> Result<()> {
     let has_column: bool = tx.query_row(
         "SELECT EXISTS(SELECT 1 FROM pragma_table_info('sessions') WHERE name = 'system_prompt')",

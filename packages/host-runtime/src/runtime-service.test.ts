@@ -107,10 +107,6 @@ class FakeSidecar implements RuntimeSidecarLink {
       this.exit = null;
     };
   }
-  setProjectInstructionRoot(sessionId: string, projectPath?: string): void {
-    this.roots.set(sessionId, projectPath);
-  }
-  clearProjectInstructionRoot(): void {}
   clearVendorAuthBindings(): void {}
 }
 

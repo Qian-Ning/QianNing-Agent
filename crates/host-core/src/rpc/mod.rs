@@ -620,30 +620,10 @@ fn drop_session_side_data(st: &AppState, id: &str) {
 const DEFAULT_LARGE_PASTE_THRESHOLD: i64 = 600;
 const MIN_LARGE_PASTE_THRESHOLD: i64 = 1;
 const MAX_LARGE_PASTE_THRESHOLD: i64 = 1_000_000;
-/// Upper bound for one stored prompt-enhancement template, in characters.
-/// Mirrored by `PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH` in
-/// `packages/shared/src/prompt-enhancement.ts`; keep the two in step.
-const MAX_PROMPT_ENHANCEMENT_TEMPLATE_CHARS: usize = 1_000_000;
-
-/// A template override is either absent, blank (meaning "use the default"), or
-/// a non-blank string within the length bound. The `{{draft}}` placeholder is
-/// optional: a user template without it no longer drops the draft, because the
-/// renderer appends the draft when the placeholder is absent (see
-/// `renderPromptEnhancementUserPrompt`).
-fn prompt_enhancement_template_error(field: &str, value: &Value) -> Option<String> {
-    let Some(text) = value.as_str() else {
-        return Some(format!("{field} must be a string"));
-    };
-    if text.trim().is_empty() {
-        return None;
-    }
-    if text.chars().count() > MAX_PROMPT_ENHANCEMENT_TEMPLATE_CHARS {
-        return Some(format!(
-            "{field} must not exceed {MAX_PROMPT_ENHANCEMENT_TEMPLATE_CHARS} characters"
-        ));
-    }
-    None
-}
+/// Upper bound for the stored app-wide persona, in characters. Mirrored by
+/// `MAX_SESSION_SYSTEM_PROMPT_CHARS` for the per-conversation prompt; both are
+/// deliberately generous because the operator owns this text.
+const MAX_GLOBAL_SYSTEM_PROMPT_CHARS: usize = 200_000;
 
 fn normalize_settings_value(mut value: Value) -> Value {
     if let Some(object) = value.as_object_mut() {
@@ -704,26 +684,21 @@ fn normalize_settings_value(mut value: Value) -> Value {
             }
             object.insert("networkPolicy".into(), Value::Object(next));
         }
-        // A blank override means "use the built-in default", and an unusable
-        // one (wrong type or oversized) falls back to the default too. The
-        // system prompt override is now honored the same way as the user
-        // template: kept when usable, dropped when blank/unusable so the store
-        // never holds a value that would never be read.
-        for template_field in [
-            "promptEnhancementUserTemplate",
-            "promptEnhancementSystemPrompt",
-            "globalSystemPrompt",
-        ] {
-            let unusable = match object.get(template_field) {
-                None => false,
-                Some(value) => match prompt_enhancement_template_error(template_field, value) {
-                    Some(_) => true,
-                    None => value.as_str().is_some_and(|text| text.trim().is_empty()),
-                },
-            };
-            if unusable {
-                object.remove(template_field);
-            }
+        // The app-wide persona keeps the same contract as the per-conversation
+        // prompt: a blank or unusable value is dropped rather than stored, so
+        // the store never holds a value that could never be read.
+        let drop_global_prompt = match object.get("globalSystemPrompt") {
+            None => false,
+            Some(value) => match value.as_str() {
+                None => true,
+                Some(text) => {
+                    text.trim().is_empty()
+                        || text.chars().count() > MAX_GLOBAL_SYSTEM_PROMPT_CHARS
+                }
+            },
+        };
+        if drop_global_prompt {
+            object.remove("globalSystemPrompt");
         }
     }
     value
@@ -829,29 +804,17 @@ fn validate_settings_value(value: &Value) -> Result<(), JsonRpcError> {
             }
         }
     }
-    for template_field in [
-        "promptEnhancementUserTemplate",
-        "promptEnhancementSystemPrompt",
-    ] {
-        if let Some(template_value) = object.get(template_field) {
-            if let Some(message) =
-                prompt_enhancement_template_error(template_field, template_value)
-            {
-                return Err(rpc_err(1002, message, "INVALID_PARAMS"));
-            }
-        }
-    }
-    // The global persona shares the per-conversation prompt's generous budget;
-    // a blank string is accepted because it means "use the built-in default".
+    // The app-wide persona shares the per-conversation prompt's generous
+    // budget; a blank string is accepted because it means "use the built-in
+    // default" and is dropped by the normalizer rather than stored.
     if let Some(prompt) = object.get("globalSystemPrompt") {
         match prompt.as_str() {
             Some(text) => {
-                if text.chars().count() > sessions::MAX_SESSION_SYSTEM_PROMPT_CHARS {
+                if text.chars().count() > MAX_GLOBAL_SYSTEM_PROMPT_CHARS {
                     return Err(rpc_err(
                         1002,
                         format!(
-                            "globalSystemPrompt must not exceed {} characters",
-                            sessions::MAX_SESSION_SYSTEM_PROMPT_CHARS
+                            "globalSystemPrompt must not exceed {MAX_GLOBAL_SYSTEM_PROMPT_CHARS} characters"
                         ),
                         "INVALID_PARAMS",
                     ));
@@ -1744,34 +1707,6 @@ async fn handle_request(
                 .set_project_group_memory(id, entries)
                 .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
             Ok(json!({ "memory": memory }))
-        }
-        "project.group.instructions.get" => {
-            let id = params
-                .get("groupId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "groupId required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let content = st
-                .db
-                .get_project_group_instructions(id)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            Ok(json!({ "content": content }))
-        }
-        "project.group.instructions.set" => {
-            let id = params
-                .get("groupId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "groupId required", "INVALID_PARAMS"))?;
-            let content = params
-                .get("content")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "content required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let content = st
-                .db
-                .set_project_group_instructions(id, content)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            Ok(json!({ "content": content }))
         }
         "project.group.context" => {
             let path = params
@@ -6370,48 +6305,24 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn prompt_enhancement_templates_round_trip_and_validate() {
+    async fn global_system_prompt_round_trips_and_clears() {
         let data_dir = tempfile::tempdir().unwrap();
         let mut app_state = AppState::open(data_dir.path()).unwrap();
         app_state.handshook = true;
         let state = Arc::new(Mutex::new(app_state));
         let (tx, _rx) = mpsc::unbounded_channel();
 
-        // Nothing stored yet: the field is absent, so the renderer falls back
-        // to the built-in default.
+        // Nothing stored yet: the field is absent, so the launch falls back to
+        // the built-in persona.
         let settings = handle_request(state.clone(), "settings.get", json!({}), tx.clone())
             .await
             .unwrap();
-        assert!(settings.get("promptEnhancementUserTemplate").is_none());
+        assert!(settings.get("globalSystemPrompt").is_none());
 
-        // A custom template and its switch persist unchanged.
         handle_request(
             state.clone(),
             "settings.set",
-            json!({
-                "promptEnhancementCustomTemplate": true,
-                "promptEnhancementUserTemplate": "before {{draft}} after",
-            }),
-            tx.clone(),
-        )
-        .await
-        .unwrap();
-        let stored = handle_request(state.clone(), "settings.get", json!({}), tx.clone())
-            .await
-            .unwrap();
-        assert_eq!(
-            stored["promptEnhancementUserTemplate"],
-            "before {{draft}} after"
-        );
-        assert_eq!(stored["promptEnhancementCustomTemplate"], true);
-
-        // A user template without the {{draft}} placeholder is now accepted:
-        // the renderer appends the draft when the placeholder is absent, so it
-        // no longer gets dropped.
-        handle_request(
-            state.clone(),
-            "settings.set",
-            json!({ "promptEnhancementUserTemplate": "no placeholder" }),
+            json!({ "globalSystemPrompt": "You are a terse reviewer." }),
             tx.clone(),
         )
         .await
@@ -6419,41 +6330,33 @@ mod tests {
         assert_eq!(
             handle_request(state.clone(), "settings.get", json!({}), tx.clone())
                 .await
-                .unwrap()["promptEnhancementUserTemplate"],
-            "no placeholder"
+                .unwrap()["globalSystemPrompt"],
+            "You are a terse reviewer."
         );
 
-        // A template beyond the (now very high) length bound is still rejected.
+        // Beyond the bound the write is refused, and the stored value is intact.
         let oversized = handle_request(
             state.clone(),
             "settings.set",
-            json!({ "promptEnhancementUserTemplate": "x".repeat(1_000_001) }),
+            json!({ "globalSystemPrompt": "x".repeat(200_001) }),
             tx.clone(),
         )
         .await
         .unwrap_err();
         assert_eq!(oversized.data.unwrap()["errorCode"], "INVALID_PARAMS");
-
-        // The system prompt is now overridable: a non-blank value persists, and
-        // a blank value restores the built-in default (the override is dropped).
-        handle_request(
-            state.clone(),
-            "settings.set",
-            json!({ "promptEnhancementSystemPrompt": "custom system" }),
-            tx.clone(),
-        )
-        .await
-        .unwrap();
         assert_eq!(
             handle_request(state.clone(), "settings.get", json!({}), tx.clone())
                 .await
-                .unwrap()["promptEnhancementSystemPrompt"],
-            "custom system"
+                .unwrap()["globalSystemPrompt"],
+            "You are a terse reviewer."
         );
+
+        // A blank value means "restore the built-in persona": the field is
+        // dropped rather than persisted as an empty string.
         handle_request(
             state.clone(),
             "settings.set",
-            json!({ "promptEnhancementSystemPrompt": "   " }),
+            json!({ "globalSystemPrompt": "   " }),
             tx.clone(),
         )
         .await
@@ -6462,29 +6365,20 @@ mod tests {
             handle_request(state.clone(), "settings.get", json!({}), tx.clone())
                 .await
                 .unwrap()
-                .get("promptEnhancementSystemPrompt")
+                .get("globalSystemPrompt")
                 .is_none()
         );
 
-        // Writing a blank value means "restore the default": the override is
-        // dropped rather than persisted as an empty string.
-        handle_request(
-            state.clone(),
+        // A non-string is rejected outright.
+        let wrong_type = handle_request(
+            state,
             "settings.set",
-            json!({ "promptEnhancementUserTemplate": "   " }),
+            json!({ "globalSystemPrompt": 7 }),
             tx,
         )
         .await
-        .unwrap();
-        let cleared = handle_request(
-            state,
-            "settings.get",
-            json!({}),
-            mpsc::unbounded_channel().0,
-        )
-        .await
-        .unwrap();
-        assert!(cleared.get("promptEnhancementUserTemplate").is_none());
+        .unwrap_err();
+        assert_eq!(wrong_type.data.unwrap()["errorCode"], "INVALID_PARAMS");
     }
 
     #[tokio::test]

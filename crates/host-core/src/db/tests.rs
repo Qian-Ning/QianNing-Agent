@@ -1215,17 +1215,11 @@ fn project_group_roundtrips_roots_and_shared_context() {
         )
         .unwrap();
     assert_eq!(memory.content, "## Stack\n\nUse Rust for services.");
-    assert_eq!(
-        db.set_project_group_instructions(&group.id, "Keep changes backwards compatible.")
-            .unwrap(),
-        "Keep changes backwards compatible."
-    );
     let context = db
         .project_group_context_for_path(&second.to_string_lossy())
         .unwrap()
         .unwrap();
     assert_eq!(context.group_id, group.id);
-    assert_eq!(context.instructions, "Keep changes backwards compatible.");
     assert_eq!(context.memory.content, "## Stack\n\nUse Rust for services.");
 
     let renamed = db

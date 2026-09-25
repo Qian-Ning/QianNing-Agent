@@ -5723,61 +5723,53 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `context-compaction.test.mjs`, `assistant-turns.test.mjs`, host-core
   transcript/session unit tests); full provider/UI journey Draft
 
-#### E2E-AGENTS-001: Project instruction chain configures an agent session
+#### E2E-AGENTS-001: Two persona scopes reach the agent
 
-- **Preconditions**: A project contains root `AGENTS.md`, nested
-  `packages/api/AGENTS.md`, and a provider is configured.
+- **Preconditions**: A provider is configured; a conversation is open.
 - **Steps**:
-  1. Start an Agent-mode conversation and submit a task covered by the root
-     instruction.
-  2. Let the agent read or edit `packages/api/handler.ts`.
-  3. Add `packages/api/AGENTS.override.md`, then have the agent access another
-     file in that directory.
-  4. Edit the root instruction while the session is idle, then submit a
-     follow-up task.
-- **Expected**: The initial runtime receives the root chain. Before the file
-  tool executes, the nested instruction is appended after its root source and
-  therefore takes precedence. In one directory, `AGENTS.override.md` wins over
-  `AGENTS.md`; `CLAUDE.md` and `.claude/CLAUDE.md` are fallback names. The idle
-  follow-up uses changed root content rather than reusing the prior runtime.
-  Empty, unreadable, oversized, and out-of-root instruction files do not block
-  the turn; combined UTF-8 content is capped at 32 KiB. If path-specific
-  resolution exceeds its two-second deadline or the host is unavailable, the
-  file tool continues with the base chain and does not retain a sibling
-  directory's rules. Repeated file tools in the same directory during one
-  prompt reuse one path-resolution claim; the next prompt resolves again so
-  changed instruction files are observed. The resolver uses the session-bound
-  project root passed at runtime launch and does not issue a per-file
-  `session.get` RPC.
-- **Specs linked**: `03-runtime/02-agent-runtime.md`
+  1. Start an Agent-mode conversation with no app-wide prompt set, submit a
+     prompt, and confirm the built-in persona answers.
+  2. Open Settings -> Prompts, save an app-wide prompt, and submit a prompt in a
+     different conversation.
+  3. Open the conversation topbar editor in one conversation, save a
+     conversation prompt, and submit a prompt there and in a third conversation.
+  4. Clear the conversation editor and submit again.
+  5. Create a workspace containing `.pi/SYSTEM.md` and an `AGENTS.md`, then
+     start a conversation in it.
+- **Expected**: The app-wide prompt reaches every conversation that sets no
+  prompt of its own. The conversation prompt outranks it in that conversation
+  only, and clearing it restores the app-wide scope rather than an empty
+  persona: a blank or whitespace-only value is never an override at either
+  scope. The stored values are trimmed. Neither `.pi/SYSTEM.md` nor `AGENTS.md`
+  changes the persona or the sidecar launch params; the built-in persona answers
+  when neither scope is set. The conversation editor states which persona is in
+  effect and is unavailable for imported native-pi conversations.
+- **Specs linked**: `03-runtime/02-agent-runtime.md`,
+  `04-ux/06-settings-ia.md`, ADR 0307
 - **Acceptance**: C (chat/stream), F (persistence)
 - **Milestone**: M5
-- **Status**: Partially automated (`project-instructions.test.ts`,
-  `runtime.test.ts`); full
-  provider/UI journey Draft
+- **Status**: Unit-covered (`session-system-prompt.test.mjs`,
+  `custom-system-prompt-launch.test.mjs`, host-core session unit tests);
+  full provider/UI journey Draft
 
-#### E2E-AGENTS-002: Global settings and project menus manage instruction files
+#### E2E-AGENTS-002: Settings manages the app-wide persona
 
-- **Preconditions**: PI-Desktop is running; a project can be opened.
+- **Preconditions**: PI-Desktop is running; a conversation is open.
 - **Steps**:
-  1. Open Settings -> Instructions without an active project and save global
-     content.
-  2. Start a new agent session and verify its instruction context includes the
-     global source.
-  3. Open the Projects view and use a project's more menu to edit and save its
-     displayed `AGENTS.md`.
-  4. Submit a prompt in a new or idle session.
-- **Expected**: The global editor targets only `~/.pi/agent/AGENTS.md`. The
-  project editor is available only from a known project's Projects-view more
-  menu and targets only that project's root `AGENTS.md`. Both editors show
-  their resolved paths, preserve the typed text, and save through the dedicated
-  IPC rather than a general file write API. Global content precedes project
-  content in the next runtime; the saved project content follows it and takes
-  precedence on conflicts. The project editor is a viewport-level dialog.
-- **Specs linked**: `03-runtime/02-agent-runtime.md`, ADR 0037
-- **Acceptance**: C (chat/stream), D (workspace), F (persistence)
+  1. Open Settings -> Prompts and save an app-wide prompt.
+  2. Submit a prompt in a fresh conversation.
+  3. Clear the field, save, and submit again.
+- **Expected**: The destination is labelled Prompts / 提示词 with a Lucide
+  `TextSelect` icon, and it edits one settings field rather than a file: no
+  instruction-file path is shown and no dedicated instruction IPC exists. A
+  saved value reaches the next prompt in every conversation that sets no
+  prompt of its own, and a cleared value restores the built-in persona rather
+  than persisting an empty string.
+- **Specs linked**: `04-ux/06-settings-ia.md`, ADR 0307
+- **Acceptance**: C (chat/stream), F (persistence)
 - **Milestone**: M5
-- **Status**: Unit-covered (`project-instructions.test.ts`); UI journey Draft
+- **Status**: Unit-covered (`settings-general.test.mjs`,
+  `session-system-prompt.test.mjs`); full UI journey Draft
 
 #### E2E-085: Expanded sidebar typography keeps list content compact
 

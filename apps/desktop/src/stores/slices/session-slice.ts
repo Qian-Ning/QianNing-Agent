@@ -685,9 +685,9 @@ export function createSessionSlice({
         ),
       }));
       // No runtime teardown is needed here: the sidecar compares the resolved
-      // customSystemPrompt when it decides whether a cached runtime can be
-      // reused, so the next prompt in this conversation retires the old one and
-      // recomposes from the saved value.
+      // systemPrompt when it decides whether a cached runtime can be reused, so
+      // the next prompt in this conversation retires the old one and recomposes
+      // from the saved value.
     },
 
     /** Abort one session's running turn, whether or not it is the visible one. */

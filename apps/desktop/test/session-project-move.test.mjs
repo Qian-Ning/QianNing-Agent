@@ -62,10 +62,12 @@ test("a successful move rebinds the live agent to the new project", () => {
     /IPC\.invoke\.sessionMoveProject,[\s\S]*?\n  \);\n/,
   )?.[0] ?? "";
   assert.match(handler, /sessionProjects\.set\(sessionId, movedProjectPath\)/);
-  assert.match(handler, /sidecar\.clearProjectInstructionRoot\(sessionId\)/);
   assert.match(handler, /sidecar\.clearVendorAuthBindings\(sessionId\)/);
   assert.match(handler, /sidecar\s*\n?\s*\.call\("agent\.disposeSession", \{ sessionId \}\)/);
-  assert.match(handler, /sidecar\.setProjectInstructionRoot\(sessionId, movedProjectPath\)/);
+  // There is no instruction root to rebind anymore: the persona is the session
+  // row plus settings, both of which the host already owns, so the move only
+  // has to drop what the live sidecar cached about the old project.
+  assert.doesNotMatch(handler, /InstructionRoot/);
   assert.match(mcpControl, /spec\("sessionMoveProject", "session\/moveProject"/);
 });
 

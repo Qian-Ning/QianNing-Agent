@@ -19,8 +19,6 @@ import {
 } from "./runtime.js";
 import type { PluginSkillDef } from "./plugin-skills-prompt.js";
 import type { SessionMessageOrigin, TrustedExtensionSpec } from "@pi-desktop/shared";
-import type { ProjectInstructions } from "./project-instructions.js";
-import type { CustomSystemPrompt } from "./custom-system-prompt.js";
 import {
   normalizeSupportedThinkingLevels,
   normalizeThinkingLevel,
@@ -108,9 +106,11 @@ type RuntimeParams = {
   scratchDir?: string;
   /** Session-bound workspace root supplied by Electron main. */
   projectPath?: string;
-  customSystemPrompt?: CustomSystemPrompt;
-  projectInstructions?: ProjectInstructions;
+  /** Persona resolved by the launch; absent means the built-in default. */
+  systemPrompt?: string;
   projectMemory?: string;
+  /** Multi-root geography for a grouped project, when it has more than one. */
+  workspaceRootsGuide?: string;
   compactionSettings?: ContextCompactionSettings;
   attachmentsDir?: string;
   userMessageId?: string;
@@ -216,8 +216,6 @@ async function runtimeFor(
     subagents,
     subagentProviders,
     subagentModelKeys,
-    projectInstructions: params.projectInstructions,
-    customSystemPrompt: params.customSystemPrompt,
     projectMemory: params.projectMemory,
     projectPath: params.projectPath,
     commandShell: params.commandShell,
@@ -284,9 +282,9 @@ async function runtimeFor(
     subagentProviders,
     subagentModelKeys,
     projectPath: params.projectPath,
-    customSystemPrompt: params.customSystemPrompt,
-    projectInstructions: params.projectInstructions,
+    systemPrompt: params.systemPrompt,
     projectMemory: params.projectMemory,
+    workspaceRootsGuide: params.workspaceRootsGuide,
     scratchDir:
       typeof params.scratchDir === "string" && params.scratchDir
         ? params.scratchDir

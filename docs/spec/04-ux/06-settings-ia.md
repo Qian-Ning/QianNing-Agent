@@ -48,7 +48,7 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   1. **General / 常规** — Lucide `SlidersHorizontal` (appearance)
   2. **AI** — Lucide `Sparkles` (permissions, defaults, command shell)
   3. **Shortcuts / 快捷键** — Lucide `Keyboard` (keyboard shortcuts)
-  4. **Instructions / 指令** — Lucide `FileText` (global and project instruction files)
+  4. **Prompts / 提示词** — Lucide `TextSelect` (the app-wide persona; a conversation can override it from its own editor)
   5. **Models / 模型** — Lucide `Bot` (providers and default model)
   6. **Skills / 技能** — Lucide `BookOpen` (reusable agent instructions)
   7. **MCP** — Lucide `Server` (agent connections)
@@ -624,11 +624,22 @@ system while preserving their different data ownership:
   and focus lift a control without adding a persistent in-flow divider; invalid
   form state is announced from the shared error region.
 
-### Instructions (`instructions` tab)
-- Edit the global instruction Markdown used by every PI-Desktop Agent session.
-- Show the resolved instruction-file path and save through the host-backed
-  instruction API; project instructions remain managed from the active project
-  menu and are resolved after the global layer.
+### Prompts (`instructions` tab)
+- Edit the app-wide system prompt used by every conversation that does not set
+  its own. It is a settings field saved through the ordinary settings API, not a
+  file: the user never has to know where a prompt lives on disk.
+- The rails label and page title read **Prompts / 提示词**; the tab id stays
+  `instructions` because it is persisted routing state, not copy.
+- There is no separate global-vs-project instruction surface and no
+  instruction-file path to display. The two persona scopes (this app-wide
+  prompt, and a conversation's own editor) are the whole model, ordered
+  app-wide below conversation, with the built-in persona underneath both.
+
+### Conversation prompt
+- A conversation's own prompt is edited from the conversation topbar, not from
+  Settings, so the narrowest scope is set where it applies.
+- The editor opens on the value in force, states which persona is active, and
+  clears the override when emptied; a whitespace-only value is not an override.
 
 ### Import
 - Scan supported local agent stores for **sessions**, **model configuration**,
@@ -672,7 +683,7 @@ system while preserving their different data ownership:
   and can select multiple local folders in one native picker; the first folder
   is the primary root of one logical project, and the remaining folders are
   retained as roots of that same project rather than separate project tabs.
-  Chats, project instructions, and project memory are shared by the group.
+  Chats and project memory are shared by the group.
 - The destination is one workbench (D267), revised by D455 into a one-column
   list with an in-row inspector, and revised again into an inset grouped index
   in the iOS sense: the selected row is the header of its own card, so the
@@ -788,7 +799,7 @@ system while preserving their different data ownership:
 1. Opening Settings hides the coding app sidebar (full-page takeover)
 2. Rail shows the search pill at the top, the back-to-app action pinned at the
    foot on the main sidebar's footer icon line, and exactly General / 常规, AI,
-   Shortcuts / 快捷键, Instructions / 指令, Models / 模型, Skills / 技能, MCP,
+   Shortcuts / 快捷键, Prompts / 提示词, Models / 模型, Skills / 技能, MCP,
    Subagents / 子智能体, Import / 导入, Projects / 项目, Cloud sync / 云同步,
    Remote Hosts / 远程主机, Voice / 语音输入, and Info / 信息 in that order. Cloud sync / 云同步
    and Remote Hosts / 远程主机 appear only while developer mode is on. The rows are grouped under Preferences / 偏好,

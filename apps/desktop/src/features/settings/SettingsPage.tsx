@@ -22,7 +22,7 @@ import {
   IconBot,
   IconChevronLeft,
   IconDownload,
-  IconFileText,
+  IconTextSelect,
   IconGlobe,
   IconInfo,
   IconKeyboard,
@@ -58,7 +58,7 @@ import {
   SettingsCard,
   SettingsRow,
 } from "./primitives";
-import { AgentInstructionsSection, UpdatesRow } from "./agent-sections";
+import { GlobalPromptCard, UpdatesRow } from "./agent-sections";
 import { ImportSection } from "./import-page";
 import { PromptEnhancementCard } from "./prompt-enhancement-card";
 import { CloseBehaviorSection, DeveloperSection } from "./developer-sections";
@@ -225,7 +225,7 @@ export function SettingsPage() {
       general: <IconSliders size={14} />,
       ai: <IconSparkles size={14} />,
       shortcuts: <IconKeyboard size={14} />,
-      instructions: <IconFileText size={14} />,
+      instructions: <IconTextSelect size={14} />,
       agent: <IconBot size={14} />,
       skills: <IconBookOpen size={14} />,
       mcp: <IconServer size={14} />,
@@ -523,10 +523,7 @@ export function SettingsPage() {
                 />
               </SettingsCard>
 
-              <PromptEnhancementCard
-                settings={settings}
-                saveSettings={saveSettings}
-              />
+              <PromptEnhancementCard />
             </div>
           )}
 
@@ -557,10 +554,9 @@ export function SettingsPage() {
           {tab === "subagents" && <AgentSubagentsPage />}
 
           {tab === "instructions" && settings && (
-            <AgentInstructionsSection
-              settings={settings}
-              saveSettings={saveSettings}
-            />
+            <div className="settings-stack">
+              <GlobalPromptCard settings={settings} saveSettings={saveSettings} />
+            </div>
           )}
 
           {tab === "import" && <ImportSection />}

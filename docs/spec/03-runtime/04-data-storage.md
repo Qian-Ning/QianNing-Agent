@@ -278,16 +278,18 @@ The app settings JSON optionally stores `thinkingDisplayMode` (`detailed` or
 `compact`). Missing values retain detailed presentation. This additive display
 preference neither rewrites stored reasoning nor changes the database schema.
 
-The same blob optionally stores the prompt-enhancement overrides
-`promptEnhancementCustomTemplate` (the switch that decides whether a stored
-template applies), `promptEnhancementUserTemplate`,
-`promptEnhancementProviderId`, `promptEnhancementModelId`, and
-`promptEnhancementThinkingLevel` (ADR 0121). An absent or blank user template means the
-built-in default applies, so clearing the field stores no key rather than an
-empty string. A non-blank user template must contain the draft variable and stay
-within `PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH`; host-core rejects a write that
-breaks either rule and drops any stored `promptEnhancementSystemPrompt`, which is
-no longer read. No schema version bump is required.
+The same blob optionally stores `globalSystemPrompt`, the app-wide persona a
+conversation inherits when it sets no prompt of its own (ADR 0307). A blank or
+whitespace-only value means "no override": the normalizer drops the key, so
+clearing the field stores no value and the built-in persona returns. Oversized
+values are rejected by `settings.set` before they persist.
+
+The blob also stores which model and how much reasoning the one-shot ✨ rewrite
+uses (`promptEnhancementProviderId`, `promptEnhancementModelId`, and
+`promptEnhancementThinkingLevel`, ADR 0121). The rewrite's own instructions are
+not settings: `promptEnhancementCustomTemplate`,
+`promptEnhancementUserTemplate`, and `promptEnhancementSystemPrompt` are gone,
+and host-core no longer accepts them. No schema version bump is required.
 
 New config domains (e.g. MCP servers) start as a namespace; they graduate to
 tables only when they need relations or indexes.

@@ -192,7 +192,6 @@ test("pt-BR keeps security disclosures and action semantics intact", () => {
   assert.match(brazilian["plugins.marketEmpty"], /nenhum plugin corresponde à sua pesquisa/i);
   assert.doesNotMatch(brazilian["chat.queuedPromptEmpty"], /vazi[oa]/i);
   assert.match(brazilian["chat.queuedPromptEmpty"], /mensagem na fila/i);
-  assert.match(brazilian["settings.promptEnhancementCustomTemplate"], /modelo personalizado/i);
   assert.equal(brazilian["settings.smoothStreaming"], "Exibição gradual");
   assert.match(brazilian["settings.smoothStreamingDesc"], /caractere por caractere/i);
   assert.match(brazilian["settings.smoothStreamingDesc"], /máquina de escrever/i);

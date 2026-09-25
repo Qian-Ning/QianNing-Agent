@@ -73,79 +73,58 @@ test("prompt enhancement has complete English-first locale coverage", () => {
   }
 });
 
-test("prompt-enhancement settings expose templates, restore, and the draft variable", async () => {
+test("the prompt-enhancement card is model-and-reasoning only", async () => {
   const card = await read("../src/features/settings/prompt-enhancement-card.tsx");
   const settingsPage = await read("../src/features/settings/SettingsPage.tsx");
   const shared = await read("../../../packages/shared/src/prompt-enhancement.ts");
   const hostCore = await read("../../../crates/host-core/src/rpc/mod.rs");
 
-  // The card is reachable from the AI settings tab.
+  // The card is reachable from the AI settings tab and no longer carries an
+  // editor: the rewrite instructions are the product's, so there is nothing for
+  // a user to override and nothing that can compete with the persona scopes.
   assert.match(settingsPage, /PromptEnhancementCard/);
-  assert.match(card, /PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE/);
-  assert.match(card, /promptEnhancementUserTemplate/);
-  // The system prompt is now overridable; the card offers a field for it.
-  assert.match(card, /promptEnhancementSystemPrompt/);
-  assert.match(card, /PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT/);
-  // Editing happens in a sheet, opened from the card, matching the subagent editor.
-  assert.match(card, /ext-sheet-overlay/);
-  assert.match(card, /ext-sheet-actions/);
-  assert.match(card, /portalOverlay/);
-  assert.match(card, /promptEnhancementCustomTemplate/);
-  // No switch — the edit button is the only control on the row; saving a
-  // non-empty template activates it, restoring default deactivates.
-  assert.doesNotMatch(card, /settings-toggle/);
-  assert.doesNotMatch(card, /role="switch"/);
-  assert.match(card, /hasCustomTemplate/);
-  assert.match(card, /promptEnhancementCustomTemplateActive/);
-  assert.match(card, /promptEnhancementCustomTemplate: Boolean/);
-  assert.match(card, /settings-icon-button/);
-  assert.match(card, /IconPencil/);
   assert.match(card, /EnhancementModelCard/);
-  // Model and reasoning rows are composed in, not inlined on this file.
-  assert.doesNotMatch(card, /promptEnhancementProviderId/);
-  assert.doesNotMatch(card, /promptEnhancementThinkingLevel/);
-  assert.doesNotMatch(card, /promptEnhancementModelId/);
-  assert.doesNotMatch(card, /SubagentModelPicker/);
-  // A save that would exceed the host-core length bound is refused before it
-  // is sent. The draft variable is optional, so its absence is not an error.
-  assert.match(card, /templateTooLong/);
-  assert.match(card, /systemTooLong/);
-  assert.match(card, /isCustomPromptEnhancementTemplateActive/);
+  assert.doesNotMatch(card, /promptEnhancementUserTemplate/);
+  assert.doesNotMatch(card, /promptEnhancementSystemPrompt/);
+  assert.doesNotMatch(card, /promptEnhancementCustomTemplate/);
+  assert.doesNotMatch(card, /ext-sheet-overlay/);
+  assert.doesNotMatch(card, /Textarea/);
 
-  // The defaults live in shared so the settings page can display the same text
-  // the runtime sends, and the placeholder is substituted literally.
+  // The defaults still live in shared so the runtime and its tests agree on the
+  // exact text, and the placeholder is substituted literally.
   assert.match(shared, /export const PROMPT_ENHANCEMENT_DRAFT_VARIABLE/);
   assert.match(shared, /renderPromptEnhancementUserPrompt/);
-  assert.match(shared, /resolvePromptEnhancementTemplates/);
+  assert.doesNotMatch(shared, /resolvePromptEnhancementTemplates/);
   assert.doesNotMatch(shared, /\.replace\(PROMPT_ENHANCEMENT_DRAFT_VARIABLE, draft\)/);
 
-  // host-core validates before persisting: a template beyond the length bound
-  // is rejected. The draft placeholder is optional (it is appended at render
-  // time when absent), so there is no "must contain" check anymore.
-  assert.match(hostCore, /fn prompt_enhancement_template_error/);
-  assert.match(hostCore, /MAX_PROMPT_ENHANCEMENT_TEMPLATE_CHARS/);
-  assert.doesNotMatch(hostCore, /promptEnhancementUserTemplate must contain/);
+  // host-core stores no enhancement template at all: the two removed settings
+  // keys are not accepted, and only the app-wide persona is bounded.
+  assert.doesNotMatch(hostCore, /prompt_enhancement_template_error/);
+  assert.doesNotMatch(hostCore, /MAX_PROMPT_ENHANCEMENT_TEMPLATE_CHARS/);
+  assert.match(hostCore, /MAX_GLOBAL_SYSTEM_PROMPT_CHARS/);
 
   // The one-shot keeps its boundary: no history, no tools.
   assert.match(runtime, /promptEnhancementContext/);
   assert.match(oneShot, /createProviderRetryStream/);
 });
 
-test("prompt-enhancement locale coverage includes the settings copy", () => {
+test("the removed template copy no longer ships in the reference locales", () => {
   for (const source of [en, zh]) {
+    assert.match(source, /promptEnhancementTitle:/);
+    // The deleted editors' copy must not linger: an unused key is a promise the
+    // UI no longer keeps.
     for (const key of [
-      "promptEnhancementTitle",
       "promptEnhancementEdit",
       "promptEnhancementUserTemplate",
       "promptEnhancementInsertDraft",
       "promptEnhancementCustomTemplate",
       "promptEnhancementCustomTemplateDesc",
       "promptEnhancementCustomTemplateNeedsTemplate",
-      "promptEnhancementMissingDraftVariable",
+      "promptEnhancementSystemPrompt",
       "promptEnhancementTooLong",
       "promptEnhancementSaveError",
     ]) {
-      assert.match(source, new RegExp(`${key}:`));
+      assert.doesNotMatch(source, new RegExp(`${key}:`));
     }
   }
 });

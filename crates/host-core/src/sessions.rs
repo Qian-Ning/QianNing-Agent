@@ -1329,16 +1329,6 @@ pub fn normalize_session_system_prompt(value: Option<&str>) -> Result<Option<Str
     Ok(Some(text.to_string()))
 }
 
-/// The persisted per-conversation system prompt, or None for unknown sessions.
-pub fn session_system_prompt(db: &Database, id: &str) -> Result<Option<String>> {
-    Ok(db
-        .conn()
-        .prepare_cached("SELECT system_prompt FROM sessions WHERE id = ?1")?
-        .query_row(params![id], |row| row.get(0))
-        .optional()?
-        .flatten())
-}
-
 /// Persist a session's own system prompt. `None` clears it and restores the
 /// built-in/SYSTEM.md persona.
 pub fn set_session_system_prompt(
@@ -3881,13 +3871,19 @@ mod tests {
         Database::open(&dir.join("test.sqlite")).unwrap()
     }
 
+    fn stored_system_prompt(db: &Database, id: &str) -> Option<String> {
+        get_session(db, id)
+            .unwrap()
+            .and_then(|session| session.summary.system_prompt)
+    }
+
     #[test]
     fn session_system_prompt_round_trips_and_clears() {
         let db = test_db();
         let session = create_session(&db, Some("Chat".into()), None, None, None, None).unwrap();
         // A new session starts with no override, so the built-in persona applies.
         assert_eq!(session.system_prompt, None);
-        assert_eq!(session_system_prompt(&db, &session.id).unwrap(), None);
+        assert_eq!(stored_system_prompt(&db, &session.id), None);
 
         let updated = set_session_system_prompt(&db, &session.id, Some("  You are a poet.  "))
             .unwrap()
@@ -3895,7 +3891,7 @@ mod tests {
         // Surrounding whitespace is trimmed on write.
         assert_eq!(updated.system_prompt.as_deref(), Some("You are a poet."));
         assert_eq!(
-            session_system_prompt(&db, &session.id).unwrap().as_deref(),
+            stored_system_prompt(&db, &session.id).as_deref(),
             Some("You are a poet.")
         );
 
@@ -3905,7 +3901,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(cleared.system_prompt, None);
-        assert_eq!(session_system_prompt(&db, &session.id).unwrap(), None);
+        assert_eq!(stored_system_prompt(&db, &session.id), None);
 
         // An explicit None clears it as well.
         set_session_system_prompt(&db, &session.id, Some("persona")).unwrap();
@@ -3944,13 +3940,13 @@ mod tests {
         let oversized = "x".repeat(MAX_SESSION_SYSTEM_PROMPT_CHARS + 1);
         assert!(set_session_system_prompt(&db, &session.id, Some(&oversized)).is_err());
         // The rejected write must not have changed the stored value.
-        assert_eq!(session_system_prompt(&db, &session.id).unwrap(), None);
+        assert_eq!(stored_system_prompt(&db, &session.id), None);
     }
 
     #[test]
     fn session_system_prompt_unknown_session_reports_none() {
         let db = test_db();
-        assert_eq!(session_system_prompt(&db, "missing").unwrap(), None);
+        assert_eq!(stored_system_prompt(&db, "missing"), None);
         assert!(set_session_system_prompt(&db, "missing", Some("x"))
             .unwrap()
             .is_none());

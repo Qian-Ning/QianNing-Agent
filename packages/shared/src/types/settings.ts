@@ -41,29 +41,12 @@ export type AppSettings = {
   /** Configured command shell for the agent Bash protocol tool. */
   defaultCommandShell?: CommandShellId;
   /**
-   * Whether the stored user template replaces the built-in one (ADR 0121).
-   * Absent means off. Turning it off keeps `promptEnhancementUserTemplate` so
-   * toggling back on restores the user's text instead of discarding it.
-   */
-  promptEnhancementCustomTemplate?: boolean;
-  /**
-   * Composer prompt-enhancement user-template override (ADR 0121). Applied only
-   * while `promptEnhancementCustomTemplate` is on. A blank value falls back to
-   * the built-in default. The `{{draft}}` placeholder is optional; when it is
-   * absent the draft is appended so it still reaches the model.
-   */
-  promptEnhancementUserTemplate?: string;
-  /**
-   * Composer prompt-enhancement system-prompt override. Applied only while
-   * `promptEnhancementCustomTemplate` is on; a blank value falls back to the
-   * built-in default. Replaces the whole enhancement system prompt.
-   */
-  promptEnhancementSystemPrompt?: string;
-  /**
    * The user's own global system prompt (the app-wide persona). It applies to
-   * every conversation that has not set its own, and it outranks the
-   * `SYSTEM.md` file layer so editing it in Settings is always predictable.
-   * Absent or blank means the built-in default persona.
+   * every conversation that has not set its own. Absent or blank means the
+   * built-in default persona.
+   *
+   * This is one of exactly two persona scopes: this one, and the per-session
+   * `SessionSummary.systemPrompt`. Nothing else reaches the model's persona.
    */
   globalSystemPrompt?: string;
   /**

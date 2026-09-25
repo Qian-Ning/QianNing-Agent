@@ -24,13 +24,6 @@ export type LocalToolHandler = (input: {
   signal: AbortSignal;
 }) => Promise<LocalToolResult>;
 
-export type ProjectInstructionResolver = (input: {
-  sessionId: string;
-  path: string;
-  /** Project root registered by the embedding host for this session. */
-  projectPath?: string;
-}) => Promise<unknown>;
-
 /**
  * Resolve request auth for a vendor account. Answered by the embedding host
  * against the signed-in pi-ai collection; the sidecar names a provider row,
@@ -61,7 +54,6 @@ const HOST_PROXY_ALLOWED = new Set([
   "plans.submit",
   "plans.pending",
   "plans.abort",
-  "project.instructions.resolve",
   "provider.resolveAuth",
   "provider.resolveSubagentModel",
   "app.health",
@@ -118,8 +110,7 @@ export type AgentSidecarOptions = {
  * The Node pi agent sidecar over stdio NDJSON JSON-RPC. Besides plain calls it
  * answers the sidecar's reverse `host.proxy` requests: an allowlisted subset is
  * forwarded to host-core, and the rest is served by handlers the embedding
- * host registers (local tools, project instructions, vendor auth, trusted
- * extensions).
+ * host registers (local tools, vendor auth, trusted extensions).
  */
 export class AgentSidecar {
   private child: ChildProcessWithoutNullStreams;
@@ -146,11 +137,6 @@ export class AgentSidecar {
   private localToolControllers = new Map<string, AbortController>();
   private localTools = new Map<string, LocalToolHandler>();
   private localToolTimers = new Set<ReturnType<typeof setTimeout>>();
-  private projectInstructionResolver: ProjectInstructionResolver | null = null;
-  // The sidecar may request a path, but it never chooses the project root.
-  // The embedding host registers this binding from the host-owned session
-  // record immediately before starting a runtime turn.
-  private projectInstructionRoots = new Map<string, string>();
   private vendorAuthResolver: VendorAuthResolver | null = null;
   private trustedExtensionBridge: TrustedExtensionSidecarBridge | null = null;
   // Vendor-account rows this session was launched with. The sidecar can only
@@ -307,22 +293,6 @@ export class AgentSidecar {
   /** Register a tool the sidecar can call that the embedding host handles locally. */
   setLocalTool(name: string, handler: LocalToolHandler): void {
     this.localTools.set(name, handler);
-  }
-
-  setProjectInstructionResolver(resolver: ProjectInstructionResolver): void {
-    this.projectInstructionResolver = resolver;
-  }
-
-  setProjectInstructionRoot(sessionId: string, projectPath?: string): void {
-    const id = sessionId.trim();
-    if (!id) return;
-    const root = projectPath?.trim();
-    if (root) this.projectInstructionRoots.set(id, root);
-    else this.projectInstructionRoots.delete(id);
-  }
-
-  clearProjectInstructionRoot(sessionId: string): void {
-    this.projectInstructionRoots.delete(sessionId.trim());
   }
 
   setVendorAuthResolver(resolver: VendorAuthResolver): void {
@@ -488,21 +458,6 @@ export class AgentSidecar {
         if (method === "tools.abort") {
           this.localToolControllers.get(`${params.sessionId}:${params.toolCallId}`)?.abort();
         }
-        if (method === "project.instructions.resolve") {
-          if (!this.projectInstructionResolver) {
-            throw new Error("project instruction resolver unavailable");
-          }
-          const sessionId = String(params.sessionId ?? "");
-          const result = await this.projectInstructionResolver({
-            sessionId,
-            path: String(params.path ?? ""),
-            projectPath: this.projectInstructionRoots.get(sessionId),
-          });
-          this.writeToChild(
-            JSON.stringify({ jsonrpc: "2.0", id: msg.id, result }) + "\n",
-          );
-          return;
-        }
         if (method === "provider.resolveAuth") {
           const result = await this.resolveVendorAuth(params);
           this.writeToChild(
@@ -640,7 +595,6 @@ export class AgentSidecar {
 
   async dispose(): Promise<void> {
     this.disposed = true;
-    this.projectInstructionRoots.clear();
     this.vendorAuthBindings.clear();
     this.closeTransport(new Error("agent sidecar disposed"));
     this.exitHandlers.clear();

@@ -1,5 +1,4 @@
 export * from "./host-client.js";
-export * from "./custom-system-prompt.js";
 export * from "./model-capabilities.js";
 export * from "./mode-prompts.js";
 export * from "./runtime.js";
@@ -11,8 +10,6 @@ export * from "./one-shot-complete.js";
 export * from "./prompt-templates.js";
 export * from "./prompt-enhancement.js";
 export * from "./provider-headers.js";
-export * from "./project-instructions.js";
-export * from "./project-instructions-prompt.js";
 export * from "./project-memory-prompt.js";
 export * from "./subagent.js";
 export * from "./subagent-definitions.js";

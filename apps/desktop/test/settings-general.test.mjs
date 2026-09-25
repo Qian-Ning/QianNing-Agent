@@ -364,7 +364,7 @@ test("settings nav icons map each destination to a semantic lucide glyph", () =>
   assert.match(settingsPageSource, /ai: <IconSparkles/);
   assert.doesNotMatch(settingsPageSource, /usage: <IconActivity/);
   assert.match(settingsPageSource, /shortcuts: <IconKeyboard/);
-  assert.match(settingsPageSource, /instructions: <IconFileText/);
+  assert.match(settingsPageSource, /instructions: <IconTextSelect/);
   assert.match(settingsPageSource, /agent: <IconBot/);
   assert.match(settingsPageSource, /import: <IconDownload/);
   assert.match(settingsPageSource, /projects: <IconArchive/);

@@ -30,7 +30,6 @@ test("icon-only actions expose localized hover tooltips", () => {
     ["components/ContextUsageInspector.tsx", "chat.usageContextAria"],
     ["components/Toast.tsx", "toast.dismiss"],
     ["components/UpdateBanner.tsx", "updates.dismiss"],
-    ["components/ProjectInstructionsDialog.tsx", "settings.cancel"],
     ["components/extensions/McpEditorSheet.tsx", "common.close"],
     ["components/settings/SkillEditorSheet.tsx", "common.close"],
     ["components/settings/SubagentEditorSheet.tsx", "common.close"],

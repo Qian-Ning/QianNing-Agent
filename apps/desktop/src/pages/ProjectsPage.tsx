@@ -9,7 +9,6 @@ import {
   IconArchive,
   IconArchiveRestore,
   IconChat,
-  IconFileText,
   IconMore,
   IconPencil,
   IconPin,
@@ -22,7 +21,6 @@ import {
 import { loadRecentProjects, type RecentProject } from "../lib/recent-projects";
 import { collectSessionProjects } from "../lib/session-projects";
 import { normalizeProjectPath } from "../lib/sidebar-session-groups";
-import { ProjectInstructionsDialog } from "../components/ProjectInstructionsDialog";
 import { ProjectMemoryDialog } from "../components/ProjectMemoryDialog";
 import { ProjectEditDialog } from "../components/ProjectEditDialog";
 import { ProjectDeleteDialog } from "../components/ProjectDeleteDialog";
@@ -99,12 +97,6 @@ export function ProjectsPage() {
     roots: ProjectGroupRecord["roots"];
   } | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
-  const [instructionsFor, setInstructionsFor] = useState<{
-    name: string;
-    path: string;
-    groupId?: string;
-    legacy?: boolean;
-  } | null>(null);
   const [memoryFor, setMemoryFor] = useState<{
     name: string;
     path: string;
@@ -572,22 +564,6 @@ export function ProjectsPage() {
                           role="menuitem"
                           onClick={() => {
                             setMenuFor(null);
-                            setInstructionsFor({
-                              name: project.name,
-                              path: project.path,
-                              groupId: project.groupId,
-                              legacy: project.legacy,
-                            });
-                          }}
-                        >
-                          <IconFileText size={14} />
-                          {t("project.editInstructions")}
-                        </button>
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            setMenuFor(null);
                             setMemoryFor({
                               name: project.name,
                               path: project.path,
@@ -682,18 +658,6 @@ export function ProjectsPage() {
           />
         </div>
       )}
-      {instructionsFor ? (
-        <ProjectInstructionsDialog
-          project={instructionsFor}
-          onClose={() => setInstructionsFor(null)}
-          onSaved={() => showToast(t("project.instructionsSaved"), { variant: "success" })}
-          onError={(error) =>
-            showToast(error instanceof Error ? error.message : String(error), {
-              variant: "error",
-            })
-          }
-        />
-      ) : null}
       {memoryFor ? (
         <ProjectMemoryDialog
           project={memoryFor}

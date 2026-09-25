@@ -1,6 +1,6 @@
 # ADR 0044: Session-bound project instruction preflight
 
-- Status: Accepted
+- Status: Superseded by [ADR 0307](0307-two-persona-scopes.md)
 - Date: 2026-08-02
 - Related: [ADR 0037](0037-project-instruction-chain.md) ·
   [Agent runtime](../spec/03-runtime/02-agent-runtime.md) ·

@@ -21,8 +21,6 @@ import {
   capabilitiesFromModelConfig,
   clampThinkingLevel,
   genericModelConfig,
-  loadCustomSystemPrompt,
-  loadInstructionChain,
   loadSubagentDefinitions,
   modelConfigWithBinding,
   optionalProviderHeaders,
@@ -377,62 +375,36 @@ export function createSessionLaunchRuntime({
       typeof session.projectPath === "string" && session.projectPath.trim()
         ? session.projectPath.trim()
         : undefined;
-    let projectInstructions = await loadInstructionChain(projectPath);
-    // pi-compatible SYSTEM.md / APPEND_SYSTEM.md (issue #542): resolved once
-    // per launch; a change retires the runtime through the reuse match.
-    const fileSystemPrompt = await loadCustomSystemPrompt(projectPath);
     // Persona precedence, most specific first:
     //   1. this conversation's own prompt (schema v20)
     //   2. the app-wide prompt from Settings
-    //   3. the SYSTEM.md file layer
-    //   4. the built-in default
-    // An explicit choice the user typed into the UI outranks a file on disk,
-    // because a value the UI shows but the model ignores is a trap. The
-    // APPEND_SYSTEM.md layer still composes on top of whichever persona wins.
+    //   3. the built-in default
+    // These are the only two persona scopes. A blank value at either means "no
+    // override", never "empty persona": the next scope down answers.
     const sessionSystemPrompt =
       typeof session.systemPrompt === "string" ? session.systemPrompt.trim() : "";
     const globalSystemPrompt =
       typeof settings.globalSystemPrompt === "string"
         ? settings.globalSystemPrompt.trim()
         : "";
-    const personaOverride = sessionSystemPrompt || globalSystemPrompt;
-    const customSystemPrompt = personaOverride
-      ? {
-          ...(fileSystemPrompt ?? {}),
-          replace: personaOverride,
-        }
-      : fileSystemPrompt;
+    const systemPrompt = sessionSystemPrompt || globalSystemPrompt || undefined;
     let projectMemory: string | undefined;
+    let workspaceRootsGuide: string | undefined;
     if (projectPath) {
       try {
         const result = await runtimeState.host!.call<{
           context?: {
             roots?: Array<{ path?: string }>;
-            instructions?: string;
             memory?: { content?: string };
           } | null;
         }>("project.group.context", { path: projectPath });
         const groupRoots = result.context?.roots ?? [];
-        const groupRootGuide = groupRoots.length > 1
-          ? [
-              `Primary root: ${groupRoots[0]?.path ?? projectPath}`,
-              ...groupRoots.slice(1).map((root) => `Additional root: ${root.path}`),
-              "Use an absolute path when reading or editing an additional root.",
-            ].join("\n")
-          : "";
-        const groupInstructions = result.context?.instructions?.trim();
-        if (groupRootGuide || groupInstructions) {
-          projectInstructions = {
-            entries: [
-              ...(projectInstructions?.entries ?? []),
-              ...(groupRootGuide
-                ? [{ source: "ChatGPT Project folders", content: groupRootGuide }]
-                : []),
-              ...(groupInstructions
-                ? [{ source: "ChatGPT Project instructions", content: groupInstructions }]
-                : []),
-            ],
-          };
+        if (groupRoots.length > 1) {
+          workspaceRootsGuide = [
+            `Primary root: ${groupRoots[0]?.path ?? projectPath}`,
+            ...groupRoots.slice(1).map((root) => `Additional root: ${root.path}`),
+            "Use an absolute path when reading or editing an additional root.",
+          ].join("\n");
         }
         const groupMemory = result.context?.memory?.content?.trim();
         if (groupMemory) projectMemory = groupMemory;
@@ -648,9 +620,9 @@ export function createSessionLaunchRuntime({
         scratchDir: join(dataDir, "scratch", sessionId),
         attachmentsDir: join(dataDir, "attachments"),
         projectPath,
-        customSystemPrompt,
-        projectInstructions,
+        systemPrompt,
         projectMemory,
+        workspaceRootsGuide,
         provider: {
           id: provider.id,
           name: provider.name,

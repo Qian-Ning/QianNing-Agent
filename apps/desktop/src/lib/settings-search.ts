@@ -114,9 +114,6 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
       "settings.contextUsageDisplayUsed",
       "settings.promptEnhancementTitle",
       "settings.promptEnhancementDesc",
-      "settings.promptEnhancementCustomTemplate",
-      "settings.promptEnhancementEdit",
-      "settings.promptEnhancementUserTemplate",
       "settings.promptEnhancementModelTitle",
       "settings.promptEnhancementModel",
       "settings.promptEnhancementModelFollow",
@@ -159,8 +156,10 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
     titleKey: "settings.instructions",
     group: "agent",
     keywordKeys: [
-      "settings.instructionsGlobal",
-      "settings.instructionsPath",
+      "settings.globalPromptTitle",
+      "settings.globalPromptDesc",
+      "settings.globalPromptHint",
+      "settings.conversationPromptTitle",
     ],
   },
   {

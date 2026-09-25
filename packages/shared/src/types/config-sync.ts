@@ -13,7 +13,6 @@ export const CONFIG_SYNC_CATEGORIES = [
   "mcp",
   "skills",
   "subagents",
-  "instructions",
   "projects",
   "plugins",
   "automation",

@@ -29,8 +29,6 @@ export type RuntimeSidecarLink = {
   call<T = unknown>(method: string, params?: unknown): Promise<T>;
   onNotification(handler: (method: string, params: unknown) => void): () => void;
   onExit(handler: (info: { intentional: boolean; code: number | null; signal: NodeJS.Signals | null }) => void): () => void;
-  setProjectInstructionRoot(sessionId: string, projectPath?: string): void;
-  clearProjectInstructionRoot(sessionId: string): void;
   clearVendorAuthBindings(sessionId: string): void;
 };
 
@@ -310,7 +308,6 @@ export class RuntimeService implements RuntimePort {
       throw typedError("Session already has an active turn", ErrorCodes.AGENT_BUSY);
     }
     const launch = await this.options.launch.resolve(sessionId, session, settings ?? {});
-    sidecar.setProjectInstructionRoot(sessionId, launch.projectPath);
 
     const turnId = await this.beginTurn(sessionId, launch.providerId, launch.modelId, sessionMessage?.origin.messageId);
 
@@ -456,7 +453,6 @@ export class RuntimeService implements RuntimePort {
     const detail = await host.call<{ session?: Record<string, unknown> | null }>("session.get", { id: sessionId });
     if (!detail.session) throw typedError("Session not found", ErrorCodes.NOT_FOUND);
     const launch = await this.options.launch.resolve(sessionId, detail.session, settings ?? {});
-    sidecar.setProjectInstructionRoot(sessionId, launch.projectPath);
     // A lost reply says nothing about the sidecar's own verdict: it keeps
     // summarizing and persists the checkpoint through host-core, so the durable
     // record decides whether this manual compaction succeeded (issue #795).

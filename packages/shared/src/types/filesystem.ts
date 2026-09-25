@@ -22,13 +22,6 @@ export type FsImageDataUrlResult = {
   errorCode?: string;
 };
 
-export type AgentInstructionFile = {
-  scope: "global" | "project";
-  path: string;
-  content: string;
-  exists: boolean;
-};
-
 export type ProjectMemory = {
   content: string;
   entries?: ProjectMemoryEntry[];

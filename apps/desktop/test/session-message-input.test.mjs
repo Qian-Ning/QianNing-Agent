@@ -80,7 +80,6 @@ test("prompt IPC persists original session text, skips slash expansion and binds
     registrar: { handle: (channel, handler) => handlers.set(channel, handler) },
     getHost: () => host,
     getSidecar: () => ({
-      setProjectInstructionRoot() {},
       async call(method, params) { sidecarCalls.push({ method, params }); return { accepted: true, turnId: "turn-1" }; },
     }),
     getAgentHostBridge: () => null,

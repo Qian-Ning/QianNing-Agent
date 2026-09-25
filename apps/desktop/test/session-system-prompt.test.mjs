@@ -1,13 +1,16 @@
 /**
  * Per-conversation system prompt: the scope contract.
  *
- * Three scopes now reach the model's persona, and the whole point of the
- * feature is that they are ordered and separable:
+ * Exactly two scopes reach the model's persona, ordered and separable:
  *
  *   conversation (sessions.system_prompt)  >  global (settings)  >
- *   SYSTEM.md file layer                   >  built-in default
+ *   built-in default
  *
- * A blank/whitespace value at either UI scope means "no override", never
+ * The file-based persona layer (`.pi/SYSTEM.md`) and the AGENTS.md instruction
+ * chain were removed: two editable scopes are the whole model, so there is
+ * nothing left to keep in step with a file on disk.
+ *
+ * A blank/whitespace value at either scope means "no override", never
  * "empty persona" — the regression this file exists to catch is a cleared
  * field silently leaving the agent with no product persona at all.
  *
@@ -69,7 +72,7 @@ test("a conversation carries its own prompt through the session contract", () =>
 test("the host persists the conversation prompt and clears it on blank", () => {
   assert.match(schemaSource, /system_prompt TEXT,/);
   assert.match(hostSource, /pub fn set_session_system_prompt/);
-  assert.match(hostSource, /pub fn session_system_prompt/);
+  assert.match(hostSource, /pub fn normalize_session_system_prompt/);
   assert.match(hostSource, /UPDATE sessions SET system_prompt = \?2, updated_at = \?3 WHERE id = \?1/);
   // Blank means "no override", so the built-in persona returns.
   assert.match(hostSource, /let Some\(text\) = value\.map\(str::trim\)\.filter\(\|text\| !text\.is_empty\(\)\) else \{\s*return Ok\(None\);/);
@@ -84,12 +87,12 @@ test("the schema change is a migration, not a rebuild assumption", () => {
   assert.match(migrationSource, /pub\(crate\) fn migrate_v19_to_v20\(conn: &Connection, path: &Path\)/);
 });
 
-test("launch orders the prompt scopes conversation > global > SYSTEM.md", () => {
-  assert.match(launchSource, /const fileSystemPrompt = await loadCustomSystemPrompt\(projectPath\);/);
+test("launch orders the prompt scopes conversation > global > built-in", () => {
   assert.match(launchSource, /const sessionSystemPrompt =\s*typeof session\.systemPrompt === "string" \? session\.systemPrompt\.trim\(\) : "";/);
   assert.match(launchSource, /const globalSystemPrompt =\s*typeof settings\.globalSystemPrompt === "string"/);
-  assert.match(launchSource, /const personaOverride = sessionSystemPrompt \|\| globalSystemPrompt;/);
-  assert.match(launchSource, /replace: personaOverride,/);
+  assert.match(launchSource, /const systemPrompt = sessionSystemPrompt \|\| globalSystemPrompt \|\| undefined;/);
+  // The file layer is gone, so no launch path may read SYSTEM.md again.
+  assert.doesNotMatch(launchSource, /loadCustomSystemPrompt|SYSTEM\.md/);
   assert.match(appSettingsSource, /globalSystemPrompt\?: string;/);
 });
 
