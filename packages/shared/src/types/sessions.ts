@@ -25,7 +25,7 @@ export type SessionCapabilities = {
 
 export type SessionSummary = {
   id: string;
-  /** Transcript authority. Omitted by older hosts and normalized to `desktop`. */
+  /** Which app owns this session's transcript. Omitted means `desktop`. */
   source?: SessionSource;
   /** Native sessions expose only safe actions in the first continuation slice. */
   capabilities?: SessionCapabilities;
@@ -41,6 +41,12 @@ export type SessionSummary = {
   thinkingLevel: SessionThinkingLevel;
   /** Per-session permission mode; `inherit` follows the global default (D115). */
   permissionMode: PermissionMode;
+  /**
+   * Per-conversation system prompt. Present (non-blank) means this conversation
+   * replaces the composed persona for its own turns; absent means the built-in
+   * default, or a project/global `SYSTEM.md`, applies.
+   */
+  systemPrompt?: string;
   /** Effective capability for this session's exact provider/model pair. */
   supportsReasoning?: boolean;
   /** Effective image-input capability for this session's exact model. */

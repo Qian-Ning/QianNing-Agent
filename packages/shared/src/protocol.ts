@@ -114,6 +114,8 @@ export const IPC = {
     sessionOpen: "pi-desktop/session/open",
     sessionDelete: "pi-desktop/session/delete",
     sessionRename: "pi-desktop/session/rename",
+    /** Set or clear a conversation's own system prompt (schema v20). */
+    sessionSetSystemPrompt: "pi-desktop/session/setSystemPrompt",
     sessionSummarizeTitle: "pi-desktop/session/summarizeTitle",
     sessionConfigure: "pi-desktop/session/configure",
     sessionImportScan: "pi-desktop/session/importScan",

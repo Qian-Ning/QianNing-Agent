@@ -49,6 +49,7 @@ pub(crate) const PORTABLE_APPLICATION_FIELDS: &[&str] = &[
     "promptEnhancementCustomTemplate",
     "promptEnhancementUserTemplate",
     "promptEnhancementSystemPrompt",
+    "globalSystemPrompt",
     "promptEnhancementProviderId",
     "promptEnhancementModelId",
     "promptEnhancementThinkingLevel",

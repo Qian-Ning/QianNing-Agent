@@ -122,6 +122,33 @@ fn v18_database_migrates_session_thinking_omit() {
     assert!(sql.contains("'omit'"), "{sql}");
 }
 
+#[test]
+fn v19_database_migrates_session_system_prompt_column() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    {
+        let db = Database::open(&path).unwrap();
+        // Force the pre-v20 shape: drop the column so the migration has real
+        // work to do rather than reading a column CREATE already added.
+        db.conn()
+            .execute_batch("ALTER TABLE sessions DROP COLUMN system_prompt;")
+            .unwrap();
+        db.conn().pragma_update(None, "user_version", 19).unwrap();
+    }
+    let db = Database::open(&path).unwrap();
+    assert_eq!(schema_version(db.conn()), SCHEMA_VERSION);
+    assert!(migration_backup_path(&path, 19).exists());
+    let has_column: i64 = db
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name = 'system_prompt'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(has_column, 1, "system_prompt column is present after v20");
+}
+
 fn schema_version(conn: &Connection) -> i64 {
     conn.query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap()

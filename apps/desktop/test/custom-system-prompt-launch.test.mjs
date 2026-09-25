@@ -53,10 +53,12 @@ function launchRuntime() {
   });
 }
 
-async function launchParams(runtime) {
-  const launch = await runtime.resolveAgentRuntimeLaunch("session", {
-    providerId: provider.id, modelId: "parent", projectPath: workspace,
-  }, {});
+async function launchParams(
+  runtime,
+  session = { providerId: provider.id, modelId: "parent", projectPath: workspace },
+  settings = {},
+) {
+  const launch = await runtime.resolveAgentRuntimeLaunch("session", session, settings);
   return launch.sidecarParams;
 }
 
@@ -86,4 +88,74 @@ test("launch discovers project custom system prompt files (issue #542)", async (
   // Deleting the project files reverts the launch to the global-only state.
   rmSync(join(workspace, ".pi"), { recursive: true, force: true });
   assert.deepEqual((await launchParams(runtime)).customSystemPrompt, baseline);
+});
+
+// The per-conversation prompt (sessions.system_prompt) and the app-wide prompt
+// (settings.globalSystemPrompt) both sit above the SYSTEM.md files: a value the
+// UI shows the user must be the value the model receives.
+test("launch resolves the conversation and global prompts above the file layer", async () => {
+  const runtime = launchRuntime();
+  mkdirSync(join(workspace, ".pi"), { recursive: true });
+  writeFileSync(join(workspace, ".pi", "SYSTEM.md"), "MARKER-FILE-PERSONA");
+  writeFileSync(join(workspace, ".pi", "APPEND_SYSTEM.md"), "MARKER-FILE-APPEND");
+
+  const base = { providerId: provider.id, modelId: "parent", projectPath: workspace };
+
+  // With no UI prompt set, the file layer still wins the persona.
+  assert.equal(
+    (await launchParams(runtime, base)).customSystemPrompt?.replace,
+    "MARKER-FILE-PERSONA",
+  );
+  assert.equal(
+    (await launchParams(runtime, base)).customSystemPrompt?.append,
+    "MARKER-FILE-APPEND",
+  );
+
+  // The conversation's own prompt outranks the file persona but keeps append.
+  const conversation = await launchParams(runtime, {
+    ...base,
+    systemPrompt: "MARKER-CONVERSATION-PERSONA",
+  });
+  assert.equal(conversation.customSystemPrompt?.replace, "MARKER-CONVERSATION-PERSONA");
+  assert.equal(conversation.customSystemPrompt?.append, "MARKER-FILE-APPEND");
+
+  // A blank conversation prompt is not an override: it must not blank out the
+  // persona the file layer provides.
+  assert.equal(
+    (await launchParams(runtime, { ...base, systemPrompt: "   " })).customSystemPrompt
+      ?.replace,
+    "MARKER-FILE-PERSONA",
+  );
+
+  // A run that carries no conversation prompt at all behaves the same way.
+  assert.equal(
+    (await launchParams(runtime, base)).customSystemPrompt?.replace,
+    "MARKER-FILE-PERSONA",
+  );
+
+  rmSync(join(workspace, ".pi"), { recursive: true, force: true });
+});
+
+// The app-wide prompt is a settings field, so it must reach the launch the same
+// way the conversation prompt does — and lose to it, because the narrower scope
+// is the more specific choice.
+test("launch applies the global prompt and lets the conversation prompt win", async () => {
+  const runtime = launchRuntime();
+  const base = { providerId: provider.id, modelId: "parent", projectPath: workspace };
+
+  const global = await launchParams(runtime, base, {
+    globalSystemPrompt: "MARKER-GLOBAL-PERSONA",
+  });
+  assert.equal(global.customSystemPrompt?.replace, "MARKER-GLOBAL-PERSONA");
+
+  // A blank global prompt is not an override and must not blank the persona.
+  const blank = await launchParams(runtime, base, { globalSystemPrompt: "   " });
+  assert.notEqual(blank.customSystemPrompt?.replace, "   ");
+  assert.notEqual(blank.customSystemPrompt?.replace, "");
+
+  // The conversation wins over the global prompt.
+  const both = await launchParams(runtime, { ...base, systemPrompt: "MARKER-CONVERSATION" }, {
+    globalSystemPrompt: "MARKER-GLOBAL-PERSONA",
+  });
+  assert.equal(both.customSystemPrompt?.replace, "MARKER-CONVERSATION");
 });

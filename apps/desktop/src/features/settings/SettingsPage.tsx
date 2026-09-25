@@ -556,7 +556,12 @@ export function SettingsPage() {
 
           {tab === "subagents" && <AgentSubagentsPage />}
 
-          {tab === "instructions" && <AgentInstructionsSection />}
+          {tab === "instructions" && settings && (
+            <AgentInstructionsSection
+              settings={settings}
+              saveSettings={saveSettings}
+            />
+          )}
 
           {tab === "import" && <ImportSection />}
 

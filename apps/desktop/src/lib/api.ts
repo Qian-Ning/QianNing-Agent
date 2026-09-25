@@ -583,6 +583,12 @@ export const api = {
     invoke<{ ok: boolean; path: string }>(IPC.invoke.projectOpenFolder, path),
   renameSession: (id: string, title: string) =>
     invoke<{ ok: boolean }>(IPC.invoke.sessionRename, id, title),
+  setSessionSystemPrompt: (id: string, systemPrompt: string | null) =>
+    invoke<{ session: SessionSummary }>(
+      IPC.invoke.sessionSetSystemPrompt,
+      id,
+      systemPrompt,
+    ).then((result) => ({ ...result, session: normalizeSession(result.session) })),
   moveSessionProject: (sessionId: string, projectPath: string) =>
     invoke<{ session: SessionSummary }>(IPC.invoke.sessionMoveProject, {
       sessionId,

@@ -60,6 +60,13 @@ export type AppSettings = {
    */
   promptEnhancementSystemPrompt?: string;
   /**
+   * The user's own global system prompt (the app-wide persona). It applies to
+   * every conversation that has not set its own, and it outranks the
+   * `SYSTEM.md` file layer so editing it in Settings is always predictable.
+   * Absent or blank means the built-in default persona.
+   */
+  globalSystemPrompt?: string;
+  /**
    * Model the one-shot enhancement runs on. Absent means "follow the Composer's
    * current model". When the pinned pair is unusable, main falls back to the
    * Composer model and logs a warning (ADR 0121).

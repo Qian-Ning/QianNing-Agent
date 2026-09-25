@@ -380,7 +380,28 @@ export function createSessionLaunchRuntime({
     let projectInstructions = await loadInstructionChain(projectPath);
     // pi-compatible SYSTEM.md / APPEND_SYSTEM.md (issue #542): resolved once
     // per launch; a change retires the runtime through the reuse match.
-    const customSystemPrompt = await loadCustomSystemPrompt(projectPath);
+    const fileSystemPrompt = await loadCustomSystemPrompt(projectPath);
+    // Persona precedence, most specific first:
+    //   1. this conversation's own prompt (schema v20)
+    //   2. the app-wide prompt from Settings
+    //   3. the SYSTEM.md file layer
+    //   4. the built-in default
+    // An explicit choice the user typed into the UI outranks a file on disk,
+    // because a value the UI shows but the model ignores is a trap. The
+    // APPEND_SYSTEM.md layer still composes on top of whichever persona wins.
+    const sessionSystemPrompt =
+      typeof session.systemPrompt === "string" ? session.systemPrompt.trim() : "";
+    const globalSystemPrompt =
+      typeof settings.globalSystemPrompt === "string"
+        ? settings.globalSystemPrompt.trim()
+        : "";
+    const personaOverride = sessionSystemPrompt || globalSystemPrompt;
+    const customSystemPrompt = personaOverride
+      ? {
+          ...(fileSystemPrompt ?? {}),
+          replace: personaOverride,
+        }
+      : fileSystemPrompt;
     let projectMemory: string | undefined;
     if (projectPath) {
       try {

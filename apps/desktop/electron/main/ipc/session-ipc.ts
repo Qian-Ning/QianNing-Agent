@@ -354,6 +354,25 @@ export function registerSessionIpc({
     return host.call("session.rename", { id, title });
   });
   handle(
+    IPC.invoke.sessionSetSystemPrompt,
+    async (id: string, systemPrompt: string | null) => {
+      rejectNativeMutation(id, "system prompt");
+      if (!host) throw new Error("host unavailable");
+      if (systemPrompt !== null && typeof systemPrompt !== "string") {
+        throw Object.assign(new Error("systemPrompt must be a string or null"), {
+          errorCode: ErrorCodes.INVALID_ARGUMENT,
+        });
+      }
+      const result = await host.call<{ session?: RuntimeSession | null }>(
+        "session.setSystemPrompt",
+        { id, systemPrompt },
+      );
+      if (!result.session) return result;
+      const { providers, defaults } = await sessionCapabilityContext();
+      return { ...result, session: enrichSession(result.session, providers, defaults) };
+    },
+  );
+  handle(
     IPC.invoke.sessionMoveProject,
     async (input: { sessionId?: string; projectPath?: string } = {}) => {
       if (!host) throw new Error("host unavailable");

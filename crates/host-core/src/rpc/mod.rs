@@ -712,6 +712,7 @@ fn normalize_settings_value(mut value: Value) -> Value {
         for template_field in [
             "promptEnhancementUserTemplate",
             "promptEnhancementSystemPrompt",
+            "globalSystemPrompt",
         ] {
             let unusable = match object.get(template_field) {
                 None => false,
@@ -837,6 +838,31 @@ fn validate_settings_value(value: &Value) -> Result<(), JsonRpcError> {
                 prompt_enhancement_template_error(template_field, template_value)
             {
                 return Err(rpc_err(1002, message, "INVALID_PARAMS"));
+            }
+        }
+    }
+    // The global persona shares the per-conversation prompt's generous budget;
+    // a blank string is accepted because it means "use the built-in default".
+    if let Some(prompt) = object.get("globalSystemPrompt") {
+        match prompt.as_str() {
+            Some(text) => {
+                if text.chars().count() > sessions::MAX_SESSION_SYSTEM_PROMPT_CHARS {
+                    return Err(rpc_err(
+                        1002,
+                        format!(
+                            "globalSystemPrompt must not exceed {} characters",
+                            sessions::MAX_SESSION_SYSTEM_PROMPT_CHARS
+                        ),
+                        "INVALID_PARAMS",
+                    ));
+                }
+            }
+            None => {
+                return Err(rpc_err(
+                    1002,
+                    "globalSystemPrompt must be a string",
+                    "INVALID_PARAMS",
+                ))
             }
         }
     }
@@ -2224,6 +2250,10 @@ async fn handle_request(
                         .map(str::to_string),
                     thinking_level,
                     permission_mode,
+                    system_prompt: params
+                        .get("systemPrompt")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string),
                 },
             )
             .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
@@ -2388,6 +2418,35 @@ async fn handle_request(
             let ok = sessions::rename_session(&st.db, id, &title)
                 .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
             Ok(json!({ "ok": ok }))
+        }
+        "session.setSystemPrompt" => {
+            let id = params
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
+            // Present-but-null clears the override; a string sets it; a missing
+            // field is a caller bug rather than a silent clear.
+            let raw = params
+                .get("systemPrompt")
+                .ok_or_else(|| rpc_err(1002, "systemPrompt required", "INVALID_PARAMS"))?;
+            let value = match raw {
+                Value::Null => None,
+                Value::String(text) => Some(text.as_str()),
+                _ => {
+                    return Err(rpc_err(
+                        1002,
+                        "systemPrompt must be a string or null",
+                        "INVALID_PARAMS",
+                    ))
+                }
+            };
+            let st = state.lock().await;
+            let session = sessions::set_session_system_prompt(&st.db, id, value)
+                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
+            let Some(session) = session else {
+                return Err(rpc_err(1007, "session not found", "NOT_FOUND"));
+            };
+            Ok(json!({ "session": session }))
         }
         "session.appendMessage" => {
             let session_id = params
