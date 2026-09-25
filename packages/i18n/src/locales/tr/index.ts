@@ -291,6 +291,7 @@ export const tr = {
     conversationPromptActive: "Özel istem etkin",
     conversationPromptInherit: "Yerleşik istem kullanılıyor",
     conversationPromptSave: "Kaydet",
+    conversationPromptClear: "Yerleşiğe sıfırla",
     conversationPromptSaved: "Sohbet istemi kaydedildi",
     enhancingPrompt: "İyileştiriliyor…",
     undoEnhancement: "İyileştirmeyi geri al",

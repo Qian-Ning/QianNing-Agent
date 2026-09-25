@@ -281,6 +281,7 @@ export const ptBR = {
     conversationPromptActive: "Prompt personalizado ativo",
     conversationPromptInherit: "Usando o prompt integrado",
     conversationPromptSave: "Salvar",
+    conversationPromptClear: "Restaurar o integrado",
     conversationPromptSaved: "Prompt da conversa salvo",
     enhancingPrompt: "Aprimorando…",
     undoEnhancement: "Desfazer aprimoramento",

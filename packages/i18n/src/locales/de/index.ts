@@ -282,6 +282,7 @@ export const de = {
     "conversationPromptActive": "Eigener Prompt aktiv",
     "conversationPromptInherit": "Integrierter Prompt wird verwendet",
     "conversationPromptSave": "Speichern",
+    "conversationPromptClear": "Auf integrierten Prompt zurücksetzen",
     "conversationPromptSaved": "Prompt der Unterhaltung gespeichert",
     "enhancingPrompt": "Verbesserung…",
     "undoEnhancement": "Verbesserung rückgängig machen",

@@ -284,6 +284,7 @@ export const zhCN = {
     conversationPromptActive: "已设置专属提示词",
     conversationPromptInherit: "正在使用内置提示词",
     conversationPromptSave: "保存",
+    conversationPromptClear: "恢复内置",
     conversationPromptSaved: "本对话提示词已保存",
     enhancingPrompt: "增强中…",
     undoEnhancement: "撤回增强",

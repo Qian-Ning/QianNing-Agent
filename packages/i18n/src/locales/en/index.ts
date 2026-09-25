@@ -289,6 +289,7 @@ export const en = {
     conversationPromptActive: "Custom prompt active",
     conversationPromptInherit: "Using the built-in prompt",
     conversationPromptSave: "Save",
+    conversationPromptClear: "Reset to built-in",
     conversationPromptSaved: "Conversation prompt saved",
     enhancingPrompt: "Enhancing…",
     undoEnhancement: "Undo enhancement",

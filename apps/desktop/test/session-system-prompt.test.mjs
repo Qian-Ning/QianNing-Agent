@@ -112,7 +112,12 @@ test("the conversation editor is a modal that states which persona is in effect"
   assert.match(dialogSource, /t\("chat\.conversationPromptActive"\)/);
   assert.match(dialogSource, /t\("chat\.conversationPromptInherit"\)/);
   // Clearing the editor removes the override rather than storing "".
-  assert.match(dialogSource, /await onSave\(trimmed \? trimmed : null\);/);
+  assert.match(dialogSource, /await onSave\(value\);/);
+  assert.match(dialogSource, /const trimmed = draft\.trim\(\);/);
+  // A dedicated one-click reset removes the stored prompt without forcing the
+  // user to hand-delete the text; it is only offered when a prompt is stored.
+  assert.match(dialogSource, /const clearOverride = \(\) => void commit\(null\);/);
+  assert.match(dialogSource, /t\("chat\.conversationPromptClear"\)/);
   assert.match(topbarSource, /<SessionPromptDialog/);
   assert.match(topbarSource, /active=\{Boolean\(activeSession\?\.systemPrompt\)\}/);
 });

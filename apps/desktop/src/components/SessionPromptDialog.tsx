@@ -42,12 +42,11 @@ export function SessionPromptDialog({
   }, [onClose, saving]);
 
   const dirty = draft !== stored;
-  const save = async () => {
+  const commit = async (value: string | null) => {
     setSaving(true);
     setError(null);
     try {
-      const trimmed = draft.trim();
-      await onSave(trimmed ? trimmed : null);
+      await onSave(value);
       onClose();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
@@ -55,6 +54,15 @@ export function SessionPromptDialog({
       setSaving(false);
     }
   };
+  // Save writes the trimmed draft, or removes the override when it is blank so
+  // the conversation returns to the built-in persona.
+  const save = () => {
+    const trimmed = draft.trim();
+    void commit(trimmed ? trimmed : null);
+  };
+  // One-click "stop using this prompt": drop the override without making the
+  // user hand-delete the text first. Only offered when a prompt is stored.
+  const clearOverride = () => void commit(null);
 
   const dialog = (
     <div
@@ -128,10 +136,20 @@ export function SessionPromptDialog({
           <Button variant="ghost" disabled={saving} onClick={onClose}>
             {t("settings.cancel")}
           </Button>
+          {stored ? (
+            <Button
+              variant="ghost"
+              className="session-prompt-clear"
+              disabled={saving}
+              onClick={clearOverride}
+            >
+              {t("chat.conversationPromptClear")}
+            </Button>
+          ) : null}
           <Button
             variant="primary"
             disabled={!dirty || saving}
-            onClick={() => void save()}
+            onClick={save}
           >
             {saving
               ? t("settings.saving")

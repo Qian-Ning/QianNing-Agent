@@ -291,6 +291,7 @@ export const ko = {
     conversationPromptActive: "사용자 지정 프롬프트 사용 중",
     conversationPromptInherit: "내장 프롬프트 사용 중",
     conversationPromptSave: "저장",
+    conversationPromptClear: "기본 프롬프트로 재설정",
     conversationPromptSaved: "대화 프롬프트가 저장되었습니다",
     enhancingPrompt: "개선 중…",
     undoEnhancement: "개선 취소",

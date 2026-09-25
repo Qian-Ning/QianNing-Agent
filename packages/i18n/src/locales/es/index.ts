@@ -282,6 +282,7 @@ export const es = {
     "conversationPromptActive": "Prompt propio activo",
     "conversationPromptInherit": "Usando el prompt integrado",
     "conversationPromptSave": "Guardar",
+    "conversationPromptClear": "Restablecer al integrado",
     "conversationPromptSaved": "Prompt de la conversación guardado",
     "enhancingPrompt": "Mejorando...",
     "undoEnhancement": "Deshacer mejora",

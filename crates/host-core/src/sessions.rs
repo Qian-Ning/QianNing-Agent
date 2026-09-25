@@ -3895,6 +3895,21 @@ mod tests {
             Some("You are a poet.")
         );
 
+        // Editing an existing prompt overwrites it — the reported "set but
+        // can't modify" case. A second, different non-empty value replaces the
+        // first rather than being rejected, appended, or locked.
+        let edited = set_session_system_prompt(&db, &session.id, Some("You are a terse reviewer."))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            edited.system_prompt.as_deref(),
+            Some("You are a terse reviewer.")
+        );
+        assert_eq!(
+            stored_system_prompt(&db, &session.id).as_deref(),
+            Some("You are a terse reviewer.")
+        );
+
         // A blank value clears the override instead of storing an empty string,
         // so the built-in persona comes back.
         let cleared = set_session_system_prompt(&db, &session.id, Some("   "))
