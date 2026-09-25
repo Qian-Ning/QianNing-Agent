@@ -73,9 +73,11 @@ on which files the agent had happened to touch.
   they are simply no longer injected, and still readable by the agent as
   ordinary workspace files.
 - A project-group instruction record written by an older build is no longer
-  read. It is left in the key-value store rather than migrated: the data has no
-  destination in the new model, and deleting a user's text to tidy a namespace
-  is worse than leaving an unreachable row.
+  read. It is archived to `<data-dir>/removed-prompt-storage.json` and dropped
+  from the key-value store during startup maintenance, together with the three
+  enhancement template keys in the app-settings blob. The archive is written
+  first: if it cannot be written, the rows stay in place rather than vanish
+  without a copy. Nothing a still-supported scope reads is touched.
 - Native-pi sessions are unaffected; they keep the upstream loader's own
   resolution.
 

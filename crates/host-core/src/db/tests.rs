@@ -149,6 +149,103 @@ fn v19_database_migrates_session_system_prompt_column() {
     assert_eq!(has_column, 1, "system_prompt column is present after v20");
 }
 
+#[test]
+fn boot_archives_and_drops_storage_removed_by_the_two_scope_persona_model() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    let kept = "Keep the API stable.";
+    {
+        let db = Database::open(&path).unwrap();
+        db.kv_set(
+            REMOVED_GROUP_INSTRUCTIONS_NAMESPACE,
+            "group-1",
+            &serde_json::json!({ "content": "Answer in French.", "updatedAt": 1 }),
+        )
+        .unwrap();
+        insert_raw_app_settings(
+            &db,
+            &serde_json::json!({
+                "theme": "dark",
+                "globalSystemPrompt": kept,
+                "promptEnhancementCustomTemplate": true,
+                "promptEnhancementUserTemplate": "{{draft}} rewrite this",
+                "promptEnhancementSystemPrompt": "You are a rewriter.",
+            })
+            .to_string(),
+        );
+    }
+
+    let db = Database::open(&path).unwrap();
+    // The namespace is gone and the three template keys are gone, while the
+    // persona that the new model still reads survives untouched.
+    let leftover: i64 = db
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM kv WHERE ns = ?1",
+            params![REMOVED_GROUP_INSTRUCTIONS_NAMESPACE],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(leftover, 0, "removed namespace is empty after boot");
+    let settings = db.get_setting("app").unwrap().unwrap();
+    for key in REMOVED_ENHANCEMENT_TEMPLATE_KEYS {
+        assert!(settings.get(*key).is_none(), "{key} is still stored");
+    }
+    assert_eq!(settings["theme"], serde_json::json!("dark"));
+    assert_eq!(settings["globalSystemPrompt"], serde_json::json!(kept));
+
+    // Nothing is dropped without a readable copy of it.
+    let archive = dir.path().join(REMOVED_PROMPT_ARCHIVE_FILE);
+    let dump: Value = serde_json::from_slice(&std::fs::read(&archive).unwrap()).unwrap();
+    assert_eq!(
+        dump["projectGroupInstructions"]["group-1"]["content"],
+        serde_json::json!("Answer in French.")
+    );
+    assert_eq!(
+        dump["applicationSettings"]["promptEnhancementUserTemplate"],
+        serde_json::json!("{{draft}} rewrite this")
+    );
+    assert!(dump["applicationSettings"].get("globalSystemPrompt").is_none());
+
+    // Idempotent: a second boot finds nothing to remove and keeps the archive.
+    let before = std::fs::metadata(&archive).unwrap().modified().unwrap();
+    drop(db);
+    let db = Database::open(&path).unwrap();
+    assert!(!std::fs::read(&archive).unwrap().is_empty());
+    assert!(std::fs::metadata(&archive).unwrap().modified().unwrap() >= before);
+    let settings = db.get_setting("app").unwrap().unwrap();
+    assert_eq!(settings["theme"], serde_json::json!("dark"));
+}
+
+#[test]
+fn boot_keeps_unknown_storage_when_the_archive_cannot_be_written() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    {
+        let db = Database::open(&path).unwrap();
+        db.kv_set(
+            REMOVED_GROUP_INSTRUCTIONS_NAMESPACE,
+            "group-1",
+            &serde_json::json!({ "content": "Answer in French." }),
+        )
+        .unwrap();
+    }
+    // Occupy the archive path with a directory so the write fails: the rows
+    // must survive rather than disappear without a copy.
+    std::fs::create_dir(dir.path().join(REMOVED_PROMPT_ARCHIVE_FILE)).unwrap();
+
+    let db = Database::open(&path).unwrap();
+    let leftover: i64 = db
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM kv WHERE ns = ?1",
+            params![REMOVED_GROUP_INSTRUCTIONS_NAMESPACE],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(leftover, 1, "unarchived rows are left in place");
+}
+
 fn schema_version(conn: &Connection) -> i64 {
     conn.query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap()
