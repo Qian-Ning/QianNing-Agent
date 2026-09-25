@@ -23,7 +23,7 @@ import { useProviderModels } from "./useProviderModels";
 import { ModelSelectionPanes, useModelSelection } from "./ModelSelectionPanes";
 import { CUSTOM_SERVICE, ServicePicker } from "./ServicePicker";
 import type { ProviderCopyDraft } from "./provider-copy";
-import { API_STYLE_LABEL_KEYS, CUSTOM_PROVIDER_API_STYLES, isAccountOnlyApiStyle, needsCustomApiStyleChoice, providerSetupPreset } from "./provider-api-style";
+import { API_STYLE_LABEL_KEYS, CUSTOM_PROVIDER_API_STYLES, isAccountOnlyApiStyle, needsCustomApiStyleChoice, providerAuthKindForSetup, providerSetupPreset } from "./provider-api-style";
 
 import { getBaseUrlIssue, normalizeBaseUrlInput } from "./provider-endpoint-guidance";
 import { ProviderEndpointGuidance } from "./ProviderEndpointGuidance";
@@ -92,6 +92,10 @@ export function ProviderSetupDialog({
   const namedPreset = NAMED_ENDPOINT_PRESETS.find((preset) => preset.id === service);
   const named = Boolean(namedPreset);
   const custom = service === CUSTOM_SERVICE;
+  // A local / self-hosted runtime preset (Ollama, LM Studio): its endpoint is a
+  // loopback URL and it usually needs no key, so it probes without one and is
+  // stored with `none` auth unless the user pastes a key (vLLM --api-key etc.).
+  const localPreset = Boolean(namedPreset?.local);
   const resolvedName = namedPreset ? name.trim() || namedPreset.name : name;
   const resolvedBaseUrl = namedPreset?.baseUrl ?? baseUrl;
   const resolvedApiStyle: CatalogApiStyle = namedPreset?.apiStyle ?? apiStyle;
@@ -102,12 +106,13 @@ export function ProviderSetupDialog({
   const accountOnlyApiStyle = isAccountOnlyApiStyle(apiStyle);
   const requestBaseUrl = normalizeBaseUrlInput(resolvedBaseUrl, resolvedApiStyle);
   // Named add-path waits for a key so picking a vendor does not 401-probe.
-  // Editing reuses the stored secret. Custom still probes a valid URL alone.
+  // Editing reuses the stored secret. Custom and keyless local presets still
+  // probe a valid URL alone (a local server needs no key to answer /models).
   const discoveryActive =
     Boolean(service) &&
     !requiresApiStyleChoice &&
     !baseUrlIssue &&
-    (custom || Boolean(apiKey.trim()) || Boolean(provider));
+    (custom || localPreset || Boolean(apiKey.trim()) || Boolean(provider));
   const headers = pairsToRecord(headerPairs);
   const discovery = useProviderModels(
     discoveryActive,
@@ -244,7 +249,11 @@ export function ProviderSetupDialog({
           type: "openai_compatible",
           protocol: "openai_compatible",
           baseUrl: providerBaseUrl,
-          authKind: "api_key_and_base_url",
+          // A local endpoint saved without a key — a custom loopback URL or a
+          // keyless local preset (Ollama, LM Studio) — is a self-hosted server
+          // that authenticates nothing; store it as `none` so launch does not
+          // demand a secret. Any endpoint given a key stays key-authenticated.
+          authKind: providerAuthKindForSetup({ custom, localNoAuthPreset: localPreset, apiKey }),
           defaultModelId: persisted[0]?.id,
           models: persisted,
           secretValue: apiKey || undefined,

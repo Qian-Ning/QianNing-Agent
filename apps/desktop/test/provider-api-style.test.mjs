@@ -3,7 +3,7 @@ import { register } from "node:module";
 import test from "node:test";
 register(new URL("./helpers/ts-import-hooks.mjs", import.meta.url));
 const { API_STYLES } = await import("@pi-desktop/shared");
-const { CUSTOM_PROVIDER_API_STYLES, needsCustomApiStyleChoice, providerSetupPreset } =
+const { CUSTOM_PROVIDER_API_STYLES, needsCustomApiStyleChoice, providerAuthKindForSetup, providerSetupPreset } =
   await import("../src/components/settings/provider-api-style.ts");
 const { copyProviderConfiguration } = await import("../src/components/settings/provider-copy.ts");
 
@@ -54,4 +54,33 @@ test("ordinary named services retain existing preset selection", () => {
 test("a named hostname cannot overwrite a manually saved protocol", () => {
   assert.equal(providerSetupPreset(source("chat_completions")), undefined);
 
+});
+
+test("a keyless local endpoint is stored as no-auth, a keyed one is key-authenticated", () => {
+  // A custom loopback URL saved without a key (Ollama, LM Studio, vLLM,
+  // llama.cpp) authenticates nothing, so launch must not demand a secret.
+  assert.equal(providerAuthKindForSetup({ custom: true, apiKey: "" }), "none");
+  assert.equal(
+    providerAuthKindForSetup({ custom: true, apiKey: "   " }),
+    "none",
+  );
+  // A keyless local preset (Ollama / LM Studio Service option) is also no-auth.
+  assert.equal(
+    providerAuthKindForSetup({ custom: false, localNoAuthPreset: true, apiKey: "" }),
+    "none",
+  );
+  // Pasting a key (e.g. vLLM started with --api-key) upgrades either to keyed.
+  assert.equal(
+    providerAuthKindForSetup({ custom: true, apiKey: "sk-local" }),
+    "api_key_and_base_url",
+  );
+  assert.equal(
+    providerAuthKindForSetup({ custom: false, localNoAuthPreset: true, apiKey: "sk-x" }),
+    "api_key_and_base_url",
+  );
+  // A cloud named vendor without a typed key still expects one.
+  assert.equal(
+    providerAuthKindForSetup({ custom: false, apiKey: "" }),
+    "api_key_and_base_url",
+  );
 });

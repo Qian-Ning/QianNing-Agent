@@ -433,7 +433,7 @@ a usage tab.
     Mistral, Together, Fireworks, OpenCode Go, Z.AI, DeepSeek, Qwen/DashScope,
     Moonshot/Kimi, Zhipu, SiliconFlow, Volcengine Ark, MiniMax,
     MiniMax (OpenAI), Xiaomi, Kimi
-    For Coding) then show Service + API key, with the published host as a
+    For Coding, Ollama (local), LM Studio (local)) then show Service + API key, with the published host as a
     one-line summary. Custom endpoint then shows Service, Name beside Base URL,
     and API key beside API format in three explicit rows so each input keeps a
     stable alignment as the form changes. The custom Base URL field accepts

@@ -56,7 +56,9 @@ test("the service list is a flat vendor menu with custom first", () => {
 test("named add-path discovery waits for a key and does not flash loading", () => {
   assert.match(setupSource, /discoveryActive/);
   assert.match(setupSource, /Boolean\(apiKey\.trim\(\)\)/);
-  assert.match(setupSource, /custom \|\| Boolean\(apiKey\.trim\(\)\) \|\| Boolean\(provider\)/);
+  // A keyless local preset (Ollama, LM Studio) probes without a key, alongside
+  // custom endpoints and existing providers; a cloud named vendor still waits.
+  assert.match(setupSource, /custom \|\| localPreset \|\| Boolean\(apiKey\.trim\(\)\) \|\| Boolean\(provider\)/);
   // Loading is painted inside the debounced run, not when the effect starts.
   const runAt = hookSource.indexOf("const run = async");
   const loadingAt = hookSource.indexOf('status: "loading"');

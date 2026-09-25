@@ -1321,6 +1321,8 @@ sklm: {
     presetMinimaxCnOpenai: "MiniMax (OpenAI)",
     presetKimiCoding: "Kimi For Coding",
     presetXiaomi: "Xiaomi",
+    presetOllama: "Ollama (yerel)",
+    presetLmStudio: "LM Studio (yerel)",
     apiStyleResponses: "OpenAI Responses",
     apiStyleAnthropic: "Anthropic Messages",
     apiStyleGoogle: "Google Generative AI",

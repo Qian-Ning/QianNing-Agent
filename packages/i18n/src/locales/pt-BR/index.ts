@@ -1280,6 +1280,8 @@ export const ptBR = {
     presetMinimaxCnOpenai: "MiniMax (OpenAI)",
     presetKimiCoding: "Kimi Coding",
     presetXiaomi: "Xiaomi",
+    presetOllama: "Ollama (local)",
+    presetLmStudio: "LM Studio (local)",
     apiStyleResponses: "OpenAI Responses",
     apiStyleAnthropic: "Anthropic Messages",
     apiStyleGoogle: "Google Generative AI",

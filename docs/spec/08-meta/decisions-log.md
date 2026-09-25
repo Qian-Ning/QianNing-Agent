@@ -7067,3 +7067,24 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `--composer-dock-height`. There is no scroll state, protocol, persistence,
   theme schema, or permission change. See `04-ux/08-component-spec.md` and
   E2E-CHAT-opaque-floating-decision-and-retry-surfaces.
+
+## 2026-09-26 — Named local-runtime presets and keyless local auth (D625)
+
+- Amend D029 / D310 / D312 / ADR 0012. D029 already supports local models
+  through OpenAI-compatible gateways, but reaching Ollama or LM Studio meant
+  choosing Custom endpoint, typing the loopback URL, and pasting a throwaway
+  key to get past the key-authenticated save path. Local inference is a first
+  request for a personal build, so it should be one Service pick.
+- The add-provider Service list gains two named endpoints: `ollama`
+  (`http://localhost:11434/v1`) and `lmstudio` (`http://localhost:1234/v1`),
+  both Chat Completions, flagged `local` so the setup dialog probes `/models`
+  without a key and saves the row with `authKind: "none"`. A custom endpoint
+  saved without a key is treated the same way (it is a self-hosted server).
+  Pasting a key (vLLM `--api-key`, a proxy) still stores `api_key_and_base_url`,
+  and a `none` row can gain a key later — the choice is not a one-way trap.
+- No new provider type, apiStyle, wire adapter, protocol, schema, or secret
+  path: `none` auth, loopback base URLs, and the `pi-desktop-no-auth` request
+  placeholder all already exist. Readiness (`providerServesChatModels`) and
+  launch (`session-launch`) already treat `none` as keyless. Custom endpoints
+  remain available. See `03-runtime/11-provider-model-system.md`,
+  `03-runtime/12-provider-config-schema.md`, and `04-ux/06-settings-ia.md`.

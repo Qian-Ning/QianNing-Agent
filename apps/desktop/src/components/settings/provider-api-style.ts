@@ -34,6 +34,28 @@ export function needsCustomApiStyleChoice(
   return isAccountOnlyApiStyle(style) && style !== savedStyle;
 }
 
+/**
+ * Auth kind for a provider saved from the setup dialog.
+ *
+ * A local / self-hosted OpenAI-compatible server (Ollama, LM Studio, vLLM,
+ * llama.cpp) authenticates nothing, so it is stored as `none`. That happens
+ * when the custom endpoint is saved without a key, or when a keyless local
+ * preset is chosen and left without one. Readiness
+ * (`providerServesChatModels`), launch (`session-launch`), and the runtime
+ * request key all already treat `none` as a keyless provider, and a key added
+ * later still wins over the placeholder — so `none` is a safe superset of
+ * "no key required". A cloud vendor, or any endpoint given a key, stays
+ * `api_key_and_base_url`.
+ */
+export function providerAuthKindForSetup(input: {
+  custom: boolean;
+  localNoAuthPreset?: boolean;
+  apiKey: string;
+}): "none" | "api_key_and_base_url" {
+  if (input.apiKey.trim()) return "api_key_and_base_url";
+  return input.custom || input.localNoAuthPreset ? "none" : "api_key_and_base_url";
+}
+
 export function providerSetupPreset(provider?: ProviderPublic | null) {
   if (!provider || isAccountOnlyApiStyle(provider.apiStyle)) return undefined;
   const preset = matchNamedPreset({
