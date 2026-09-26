@@ -65,12 +65,28 @@ export type ComposerFileReference = {
   token?: string;
 };
 
-export type ComposerMenuView = "root" | "model" | "thinking";
-
-export type PromptEnhancementError = {
-  message: string;
-  code: string;
+/**
+ * i18n key for a reasoning level's short label. The composer shows these
+ * localized (关闭/最小/低/中/高/极高/最高/默认) on the reasoning pill and in its
+ * menu; the wire value stays the canonical English token.
+ */
+const REASONING_LEVEL_LABEL_KEYS: Record<SessionThinkingLevel, string> = {
+  off: "chat.reasoningLevelOff",
+  minimal: "chat.reasoningLevelMinimal",
+  low: "chat.reasoningLevelLow",
+  medium: "chat.reasoningLevelMedium",
+  high: "chat.reasoningLevelHigh",
+  xhigh: "chat.reasoningLevelXhigh",
+  max: "chat.reasoningLevelMax",
+  omit: "chat.reasoningLevelOmit",
 };
+
+export function reasoningLevelLabelKey(level: string): string {
+  return (
+    REASONING_LEVEL_LABEL_KEYS[level as SessionThinkingLevel] ??
+    "chat.reasoningLevelOff"
+  );
+}
 
 export function nextMode(mode: Mode): Mode {
   const index = MODE_CYCLE.indexOf(mode);

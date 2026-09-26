@@ -139,7 +139,7 @@ test("the component spec assigns mode ownership to Composer", () => {
   assert.match(topbarSpec, /Project\s+scope/);
   assert.doesNotMatch(topbarSpec, /model picker/);
   assert.doesNotMatch(topbarSpec, /Agent \| Plan|mode toggle|mode indicator/);
-  assert.match(composerSpec, /combined model ×\s+reasoning-level control/);
+  assert.match(composerSpec, /two separate pills — a\s+model picker and a reasoning-level picker/);
   assert.match(composerSpec, /Composer-left Agent\/Plan\/Goal chip is the sole mode/);
   assert.match(composerSpec, /--ds-bg-composer/);
 });

@@ -1,11 +1,20 @@
 # Composer Prompt Enhancement
 
+> **Status (D626): UI removed.** QianNing Agent removed both user-facing entry
+> points for prompt enhancement — the composer Sparkles action and the
+> Settings ▸ AI 「提示词增强」 card — because the persona model was reduced to a
+> single editable scope and a separate one-shot draft rewriter competed with it.
+> The host bridge, the `pi-desktop/prompt/enhance` invoke channel, the one-shot
+> runtime, and the abort/timeout guard described below are **retained** so the
+> feature can be restored without backend work; they simply have no UI trigger
+> in this build. The sections below describe that retained backend contract.
+
 ## 1. Scope
 
 The prompt-enhancement capability supports a one-shot `Enhance prompt` request
-for a non-empty draft. The Composer renders it as a standalone Sparkles action
-between the combined model × reasoning selector and the single Stop/Send
-submit slot. When invoked, the request rewrites only the draft text with the
+for a non-empty draft. When it had a UI, the Composer rendered it as a
+standalone Sparkles action beside the model selector. When invoked, the
+request rewrites only the draft text with the
 model currently displayed in the Composer. Inline file-reference chips,
 including pasted image chips, remain unchanged and do not disable the action.
 

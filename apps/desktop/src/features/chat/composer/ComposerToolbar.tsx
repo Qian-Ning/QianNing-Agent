@@ -14,9 +14,7 @@ import { TooltipButton } from "../../../components/ui";
 import {
   IconArrowUp,
   IconPlus,
-  IconSparkles,
   IconStop,
-  IconUndo2,
 } from "../../../components/icons";
 import { ModeIcon } from "./ComposerModeIcon";
 import { VoiceMicButton } from "../../voice/VoiceMicButton";
@@ -50,15 +48,9 @@ export type ComposerToolbarProps = {
   modelLabel: string;
   thinkingLabel: string;
   contextUsage: ContextUsage | null;
-  enhancementDraft: string;
   value: string;
   modelReady: boolean;
   sendBlocked: boolean;
-  enhancingPrompt: boolean;
-  enhancementUndoText: string | null;
-  enhancePrompt: () => Promise<void>;
-  undoPromptEnhancement: () => void;
-  clearEnhancementError: () => void;
   runActive: boolean;
   hasDraftContent: boolean;
   abort: AppState["abort"];
@@ -69,7 +61,7 @@ export type ComposerToolbarProps = {
   onVoiceCancel: () => void;
 };
 
-/** Composer controls: mode, permission, model, enhancement, and send/stop. */
+/** Composer controls: mode, permission, model, reasoning, and send/stop. */
 export function ComposerToolbar({
   t,
   mode,
@@ -89,15 +81,9 @@ export function ComposerToolbar({
   modelLabel,
   thinkingLabel,
   contextUsage,
-  enhancementDraft,
   value,
   modelReady,
   sendBlocked,
-  enhancingPrompt,
-  enhancementUndoText,
-  enhancePrompt,
-  undoPromptEnhancement,
-  clearEnhancementError,
   runActive,
   hasDraftContent,
   abort,
@@ -145,7 +131,7 @@ export function ComposerToolbar({
           ariaLabel={planningLive ? t(`${mode}.planning`) : t("settings.mode")}
           disabled={controlsBlocked}
           onClick={async () => {
-            modelMenu.setOpen(false);
+            modelMenu.closeMenus();
             setPermissionOpen(false);
             const next: Mode = nextMode(mode);
             try {
@@ -172,7 +158,7 @@ export function ComposerToolbar({
         <ComposerPermissionPicker t={t} mode={mode}
           composerPermissionMode={composerPermissionMode}
           permissionOpen={permissionOpen} setPermissionOpen={setPermissionOpen}
-          controlsBlocked={controlsBlocked} onCloseOtherMenus={() => modelMenu.setOpen(false)}
+          controlsBlocked={controlsBlocked} onCloseOtherMenus={() => modelMenu.closeMenus()}
           onSelect={async (candidate) => {
                 try {
                   await configureActiveSession({
@@ -203,42 +189,6 @@ export function ComposerToolbar({
           controlsBlocked={controlsBlocked}
           onCloseOtherMenus={() => setPermissionOpen(false)}
         />
-        <TooltipButton
-          type="button"
-          className={`icon-btn icon-btn-square composer-enhance-btn${enhancingPrompt ? " is-loading" : ""}`}
-          tooltip={t("chat.enhancePrompt")}
-          ariaLabel={enhancingPrompt ? t("chat.enhancingPrompt") : t("chat.enhancePrompt")}
-          aria-busy={enhancingPrompt}
-          disabled={
-            !enhancementDraft.trim() ||
-            enhancementDraft.trim().startsWith("/") ||
-            !modelReady ||
-            sendBlocked ||
-            enhancingPrompt
-          }
-          onClick={() => void enhancePrompt()}
-        >
-          {enhancingPrompt ? (
-            <>
-              <span className="tool-spinner" aria-hidden="true" />
-              <span>{t("chat.enhancingPrompt")}</span>
-            </>
-          ) : (
-            <IconSparkles size={15} aria-hidden="true" />
-          )}
-        </TooltipButton>
-        {enhancementUndoText !== null ? (
-          <TooltipButton
-            type="button"
-            className="icon-btn icon-btn-square composer-enhance-undo"
-            tooltip={t("chat.undoEnhancement")}
-            ariaLabel={t("chat.undoEnhancement")}
-            disabled={controlsBlocked}
-            onClick={undoPromptEnhancement}
-          >
-            <IconUndo2 size={15} aria-hidden="true" />
-          </TooltipButton>
-        ) : null}
         {runActive && !hasDraftContent ? (
           <TooltipButton
             type="button"

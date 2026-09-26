@@ -79,9 +79,11 @@ test("composer exposes the runtime thinking level order and provider filtering",
   assert.match(composerSource, /thinkingMenuLevels/);
 });
 
-test("thinking levels use their canonical English values without i18n", () => {
-  assert.match(composerSource, /const thinkingLabel = thinkingLevel;/);
-  assert.match(composerSource, /<span className="flex-1">\s*\{level\}/);
+test("thinking levels keep canonical English wire values with localized labels", () => {
+  // The wire value stays canonical; only the display label is localized
+  // through reasoningLevelLabelKey (D626).
+  assert.match(composerSource, /const thinkingLabel = t\(reasoningLevelLabelKey\(thinkingLevel\)\);/);
+  assert.match(composerModelPickerSource, /\{t\(reasoningLevelLabelKey\(level\)\)\}/);
   assert.doesNotMatch(composerSource, /THINKING_LEVEL_(LABELS|I18N_KEYS)/);
   assert.doesNotMatch(composerSource, /chat\.effort(?:Off|Minimal|Low|Mid|High|Xhigh|Max)/);
   assert.doesNotMatch(transcriptSource, /thinkingLevel\./);
@@ -116,10 +118,11 @@ test("Composer owns the mode and model controls", () => {
   assert.doesNotMatch(topbarSource, /ModelSelect|model-chip/);
   assert.doesNotMatch(topbarSource, /ct-mode|ct-mode-btn|configureActiveSession/);
   assert.doesNotMatch(stylesSource, /\.conversation-topbar \.ct-mode/);
-  assert.match(composerModelPickerSource, /composer-model-thinking-chip/);
+  // Two independent pills (D626): a left model chip and a right reasoning chip.
+  assert.match(composerModelPickerSource, /composer-model-thinking-chip composer-model-chip/);
+  assert.match(composerModelPickerSource, /composer-model-thinking-chip composer-reasoning-chip/);
   assert.match(composerModelPickerSource, /composer-model-thinking-menu/);
-  assert.match(composerModelPickerSource, /composer-menu-entry/);
-  assert.match(composerModelPickerSource, /composer-menu-back/);
+  assert.doesNotMatch(composerModelPickerSource, /composer-menu-entry|composer-menu-back/);
 });
 
 test("conversation topbar keeps the title and actions free of a running indicator", () => {

@@ -15,7 +15,6 @@ import {
   imageGenerationBindings,
   isImageGenerationModel,
   normalizeLargePasteThreshold,
-  stripInlineComposerFileReferenceTokens,
 } from "@pi-desktop/shared";
 import { useAppStore } from "../stores/app-store";
 import { latestTurnContextInspector } from "../lib/latest-turn-context";
@@ -40,6 +39,7 @@ import {
   cssPixels,
   isPermissionMode,
   isThinkingLevel,
+  reasoningLevelLabelKey,
   thinkingLevelForProvider,
   thinkingProviderForModel,
   THINKING_LEVELS,
@@ -143,14 +143,9 @@ export function Composer({
   );
 
   const [permissionOpen, setPermissionOpen] = useState(false);
-  const enhancementInvalidateRef = useRef<() => void>(() => {});
   const composerShellRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
   const publishedDockHeightRef = useRef(-1);
-
-  const invalidatePromptEnhancement = () => {
-    enhancementInvalidateRef.current();
-  };
 
   const draft = useComposerDraft({
     variant,
@@ -161,7 +156,6 @@ export function Composer({
     clearComposerPrefill,
     prefill,
     t,
-    invalidatePromptEnhancement,
     inputBlocked: planCheckpoint?.status === "pending" || nativeInputBlocked,
   });
   const {
@@ -231,10 +225,6 @@ export function Composer({
   const inputBlocked = approvalPending || pasting || nativeInputBlocked;
   const controlsBlocked = approvalPending || nativeSession;
   const sendBlocked = approvalPending || pasting || nativeInputBlocked;
-  const enhancementDraft = stripInlineComposerFileReferenceTokens(
-    value,
-    activeFileReferences,
-  );
   // Edit returns one queued row to the composer. The row is removed and its
   // captured draft becomes the input, so the input must be empty first: the
   // live read is the only current source (the draft cache is not per keystroke).
@@ -373,7 +363,7 @@ export function Composer({
     thinkingProvider,
     configuredThinkingLevel,
   );
-  const thinkingLabel = thinkingLevel;
+  const thinkingLabel = t(reasoningLevelLabelKey(thinkingLevel));
   const selectedModelInfo = selectedModelCatalog?.find((candidate) =>
     sameComposerModelId(candidate.modelId, modelId ?? ""),
   );
@@ -408,10 +398,6 @@ export function Composer({
   const submitController = useComposerSubmit({
     value,
     draftKey,
-    activeSessionId,
-    providerId: provider?.id,
-    modelId,
-    thinkingLevel,
     modelReady,
     sendBlocked,
     pasting,
@@ -430,16 +416,7 @@ export function Composer({
       setCursor,
     },
   });
-  enhancementInvalidateRef.current = submitController.invalidatePromptEnhancement;
-  const {
-    enhancingPrompt,
-    enhancementUndoText,
-    enhancementError,
-    clearEnhancementError,
-    enhancePrompt,
-    undoPromptEnhancement,
-    submit,
-  } = submitController;
+  const { submit } = submitController;
 
   const voiceEnabled = !!settings?.voice?.enabled;
   const voice = useVoiceInput({
@@ -466,7 +443,6 @@ export function Composer({
   const acceptCompletion = (index: number) => {
     const result = composerAc.accept(index);
     if (!result) return;
-    invalidatePromptEnhancement();
     // File accept strips the @ token (empty insert) and used to store a
     // token-less chip above the textarea. Inline chips only paint when a
     // sentinel is in the draft, so Enter looked like the reference vanished.
@@ -546,8 +522,6 @@ export function Composer({
           editQueuedPrompt={handleEditQueuedPrompt}
           sendQueuedNow={sendQueuedNow}
           approvalPending={approvalPending}
-          enhancementError={enhancementError}
-          clearEnhancementError={clearEnhancementError}
           droppedDirectories={droppedDirectories}
           openDroppedFolderAsProject={openDroppedFolderAsProject}
           insertDroppedDirectoryPaths={insertDroppedDirectoryPaths}
@@ -618,15 +592,9 @@ export function Composer({
             modelLabel={modelLabel}
             thinkingLabel={thinkingLabel}
             contextUsage={composerContextUsage ?? null}
-            enhancementDraft={enhancementDraft}
             value={value}
             modelReady={modelReady}
             sendBlocked={sendBlocked}
-            enhancingPrompt={enhancingPrompt}
-            enhancementUndoText={enhancementUndoText}
-            enhancePrompt={enhancePrompt}
-            undoPromptEnhancement={undoPromptEnhancement}
-            clearEnhancementError={clearEnhancementError}
             runActive={runActive}
             hasDraftContent={hasDraftContent}
             abort={abort}

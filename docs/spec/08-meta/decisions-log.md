@@ -7088,3 +7088,35 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   launch (`session-launch`) already treat `none` as keyless. Custom endpoints
   remain available. See `03-runtime/11-provider-model-system.md`,
   `03-runtime/12-provider-config-schema.md`, and `04-ux/06-settings-ia.md`.
+
+## 2026-09-26 — Two composer pills and prompt-enhancement UI removed (D626)
+
+- Amend D270 / D347 / ADR 0121. The composer's bottom row previously carried
+  one combined `model × reasoning` chip plus a standalone Sparkles
+  `Enhance prompt` action. The reference build the user follows shows two
+  separate selectors — a model pill on the left and a reasoning-level pill on
+  the right — and this personal build no longer has an enhancement feature, so
+  the Sparkles action's slot is reused by the reasoning pill.
+- The single combined chip is split into two independent pills that share one
+  controller (`useComposerModelMenu`): each owns its open flag so only one
+  popover shows at a time, but both share the selection writes, the latest-wins
+  reasoning commit queue, and the keyboard contract. The reasoning pill only
+  renders for a model that publishes a reasoning ladder. The draggable
+  `ThinkingLevelSlider` is retained inside the reasoning menu.
+- Reasoning levels are now shown as localized labels (zh-CN 关闭 / 最小 / 低 /
+  中 / 高 / 极高 / 最高 / 默认; English Off / Minimal / Low / Medium / High /
+  Very high / Max / Default) through `reasoningLevelLabelKey()` in nine locales.
+  The wire value stays canonical (`off`, `low`, `high`, `xhigh`, `max`, `omit`,
+  …); only the display label is translated. This reverses D270's
+  "canonical value, not localized" rule for the composer surface only.
+- The prompt-enhancement UI is removed at every entry point: the composer
+  Sparkles button, its undo affordance, the error surface, the renderer wiring
+  (`invalidatePromptEnhancement` and the enhancement draft/version refs), the
+  Settings ▸ AI 「提示词增强」 card (`prompt-enhancement-card.tsx` and
+  `EnhancementModelCard.tsx` deleted), its nav wiring, and its Settings-search
+  index keys. The host bridge (`pi-desktop/prompt/enhance`), the typed
+  `enhancePrompt` API, the one-shot agent-runtime path, and the abort/timeout
+  guard are **retained with no UI trigger** so the feature can be restored
+  without backend work. No Rust, IPC contract, schema, or persisted-format
+  change. See `04-ux/08-component-spec.md` §11, `04-ux/06-settings-ia.md`, and
+  `04-ux/12-prompt-enhancement.md`.
