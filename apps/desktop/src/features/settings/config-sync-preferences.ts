@@ -35,7 +35,6 @@ const CATEGORY_KEYS: ConfigSyncCategory[] = [
   "mcp",
   "skills",
   "subagents",
-  "instructions",
   "projects",
   "plugins",
   "automation",

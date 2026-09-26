@@ -620,36 +620,6 @@ fn drop_session_side_data(st: &AppState, id: &str) {
 const DEFAULT_LARGE_PASTE_THRESHOLD: i64 = 600;
 const MIN_LARGE_PASTE_THRESHOLD: i64 = 1;
 const MAX_LARGE_PASTE_THRESHOLD: i64 = 1_000_000;
-/// Upper bound for one stored prompt-enhancement template, in characters.
-/// Mirrored by `PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH` in
-/// `packages/shared/src/prompt-enhancement.ts`; keep the two in step.
-const MAX_PROMPT_ENHANCEMENT_TEMPLATE_CHARS: usize = 8000;
-/// The placeholder a usable user template must carry.
-const PROMPT_ENHANCEMENT_DRAFT_VARIABLE: &str = "{{draft}}";
-
-/// A template override is either absent, blank (meaning "use the default"), or
-/// a non-blank string within the length bound; a user template must also carry
-/// the draft variable, or the draft never reaches the model.
-fn prompt_enhancement_template_error(field: &str, value: &Value) -> Option<String> {
-    let Some(text) = value.as_str() else {
-        return Some(format!("{field} must be a string"));
-    };
-    if text.trim().is_empty() {
-        return None;
-    }
-    if text.chars().count() > MAX_PROMPT_ENHANCEMENT_TEMPLATE_CHARS {
-        return Some(format!(
-            "{field} must not exceed {MAX_PROMPT_ENHANCEMENT_TEMPLATE_CHARS} characters"
-        ));
-    }
-    if field == "promptEnhancementUserTemplate" && !text.contains(PROMPT_ENHANCEMENT_DRAFT_VARIABLE)
-    {
-        return Some(format!(
-            "promptEnhancementUserTemplate must contain {PROMPT_ENHANCEMENT_DRAFT_VARIABLE}"
-        ));
-    }
-    None
-}
 
 fn normalize_settings_value(mut value: Value) -> Value {
     if let Some(object) = value.as_object_mut() {
@@ -709,25 +679,6 @@ fn normalize_settings_value(mut value: Value) -> Value {
                 next.insert("insecureNoticeAcknowledged".into(), Value::Bool(true));
             }
             object.insert("networkPolicy".into(), Value::Object(next));
-        }
-        // A blank override means "use the built-in default", and an unusable
-        // one (wrong type, oversized, or a user template without the draft
-        // variable) falls back to the default too, rather than leaving a
-        // prompt that would silently drop the user's draft.
-        // The system prompt is part of the feature contract, not a preference:
-        // an override written by an older build is dropped so the store cannot
-        // hold a value that would never be read.
-        object.remove("promptEnhancementSystemPrompt");
-        let template_field = "promptEnhancementUserTemplate";
-        let unusable_template = match object.get(template_field) {
-            None => false,
-            Some(value) => match prompt_enhancement_template_error(template_field, value) {
-                Some(_) => true,
-                None => value.as_str().is_some_and(|text| text.trim().is_empty()),
-            },
-        };
-        if unusable_template {
-            object.remove(template_field);
         }
     }
     value
@@ -888,13 +839,6 @@ fn validate_settings_value(value: &Value) -> Result<(), JsonRpcError> {
                     ));
                 }
             }
-        }
-    }
-    if let Some(template_value) = object.get("promptEnhancementUserTemplate") {
-        if let Some(message) =
-            prompt_enhancement_template_error("promptEnhancementUserTemplate", template_value)
-        {
-            return Err(rpc_err(1002, message, "INVALID_PARAMS"));
         }
     }
     if let Some(infinite_retry) = object.get("infiniteProviderRetry") {
@@ -1776,34 +1720,6 @@ async fn handle_request(
                 .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
             Ok(json!({ "memory": memory }))
         }
-        "project.group.instructions.get" => {
-            let id = params
-                .get("groupId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "groupId required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let content = st
-                .db
-                .get_project_group_instructions(id)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            Ok(json!({ "content": content }))
-        }
-        "project.group.instructions.set" => {
-            let id = params
-                .get("groupId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "groupId required", "INVALID_PARAMS"))?;
-            let content = params
-                .get("content")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "content required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let content = st
-                .db
-                .set_project_group_instructions(id, content)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            Ok(json!({ "content": content }))
-        }
         "project.group.context" => {
             let path = params
                 .get("path")
@@ -2295,6 +2211,10 @@ async fn handle_request(
                         .map(str::to_string),
                     thinking_level,
                     permission_mode,
+                    system_prompt: params
+                        .get("systemPrompt")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string),
                 },
             )
             .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
@@ -2459,6 +2379,35 @@ async fn handle_request(
             let ok = sessions::rename_session(&st.db, id, &title)
                 .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
             Ok(json!({ "ok": ok }))
+        }
+        "session.setSystemPrompt" => {
+            let id = params
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
+            // Present-but-null clears the override; a string sets it; a missing
+            // field is a caller bug rather than a silent clear.
+            let raw = params
+                .get("systemPrompt")
+                .ok_or_else(|| rpc_err(1002, "systemPrompt required", "INVALID_PARAMS"))?;
+            let value = match raw {
+                Value::Null => None,
+                Value::String(text) => Some(text.as_str()),
+                _ => {
+                    return Err(rpc_err(
+                        1002,
+                        "systemPrompt must be a string or null",
+                        "INVALID_PARAMS",
+                    ))
+                }
+            };
+            let st = state.lock().await;
+            let session = sessions::set_session_system_prompt(&st.db, id, value)
+                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
+            let Some(session) = session else {
+                return Err(rpc_err(1007, "session not found", "NOT_FOUND"));
+            };
+            Ok(json!({ "session": session }))
         }
         "session.appendMessage" => {
             let session_id = params
@@ -6379,108 +6328,6 @@ mod tests {
         );
         assert!(catalog["choices"].is_array());
         assert!(catalog["effective"].is_object() || catalog["effective"].is_null());
-    }
-
-    #[tokio::test]
-    async fn prompt_enhancement_templates_round_trip_and_validate() {
-        let data_dir = tempfile::tempdir().unwrap();
-        let mut app_state = AppState::open(data_dir.path()).unwrap();
-        app_state.handshook = true;
-        let state = Arc::new(Mutex::new(app_state));
-        let (tx, _rx) = mpsc::unbounded_channel();
-
-        // Nothing stored yet: the field is absent, so the renderer falls back
-        // to the built-in default.
-        let settings = handle_request(state.clone(), "settings.get", json!({}), tx.clone())
-            .await
-            .unwrap();
-        assert!(settings.get("promptEnhancementUserTemplate").is_none());
-
-        // A custom template and its switch persist unchanged.
-        handle_request(
-            state.clone(),
-            "settings.set",
-            json!({
-                "promptEnhancementCustomTemplate": true,
-                "promptEnhancementUserTemplate": "before {{draft}} after",
-            }),
-            tx.clone(),
-        )
-        .await
-        .unwrap();
-        let stored = handle_request(state.clone(), "settings.get", json!({}), tx.clone())
-            .await
-            .unwrap();
-        assert_eq!(
-            stored["promptEnhancementUserTemplate"],
-            "before {{draft}} after"
-        );
-        assert_eq!(stored["promptEnhancementCustomTemplate"], true);
-
-        // A user template without the draft variable would silently drop the
-        // draft, so the write is rejected rather than normalized.
-        let missing_variable = handle_request(
-            state.clone(),
-            "settings.set",
-            json!({ "promptEnhancementUserTemplate": "no placeholder" }),
-            tx.clone(),
-        )
-        .await
-        .unwrap_err();
-        assert_eq!(
-            missing_variable.data.unwrap()["errorCode"],
-            "INVALID_PARAMS"
-        );
-
-        // An oversized template is rejected too.
-        let oversized = handle_request(
-            state.clone(),
-            "settings.set",
-            json!({ "promptEnhancementUserTemplate": "x".repeat(8001) }),
-            tx.clone(),
-        )
-        .await
-        .unwrap_err();
-        assert_eq!(oversized.data.unwrap()["errorCode"], "INVALID_PARAMS");
-
-        // The system prompt is not overridable: a write carrying one is dropped
-        // by normalization, so the store cannot hold a value that would never
-        // be read.
-        handle_request(
-            state.clone(),
-            "settings.set",
-            json!({ "promptEnhancementSystemPrompt": "custom system" }),
-            tx.clone(),
-        )
-        .await
-        .unwrap();
-        assert!(
-            handle_request(state.clone(), "settings.get", json!({}), tx.clone())
-                .await
-                .unwrap()
-                .get("promptEnhancementSystemPrompt")
-                .is_none()
-        );
-
-        // Writing a blank value means "restore the default": the override is
-        // dropped rather than persisted as an empty string.
-        handle_request(
-            state.clone(),
-            "settings.set",
-            json!({ "promptEnhancementUserTemplate": "   " }),
-            tx,
-        )
-        .await
-        .unwrap();
-        let cleared = handle_request(
-            state,
-            "settings.get",
-            json!({}),
-            mpsc::unbounded_channel().0,
-        )
-        .await
-        .unwrap();
-        assert!(cleared.get("promptEnhancementUserTemplate").is_none());
     }
 
     #[tokio::test]

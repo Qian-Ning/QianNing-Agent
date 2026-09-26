@@ -48,22 +48,22 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   1. **General / 常规** — Lucide `SlidersHorizontal` (appearance)
   2. **AI** — Lucide `Sparkles` (permissions, defaults, command shell)
   3. **Shortcuts / 快捷键** — Lucide `Keyboard` (keyboard shortcuts)
-  4. **Instructions / 指令** — Lucide `FileText` (global and project instruction files)
-  5. **Models / 模型** — Lucide `Bot` (providers and default model)
-  6. **Skills / 技能** — Lucide `BookOpen` (reusable agent instructions)
-  7. **MCP** — Lucide `Server` (agent connections)
-  8. **Subagents / 子智能体** — Lucide `Bot` (built-in and personal parallel agents)
-  9. **Import / 导入** — Lucide `Download` (bring sessions and model configuration in from other tools)
-  10. **Projects / 项目** — Lucide `Archive` (durable project index)
-  11. **Cloud sync / 云同步** — Lucide `CloudDownload` (encrypted portable configuration backup and bidirectional sync; developer mode only)
-  12. **Remote Hosts / 远程主机** — Lucide `Globe` (SSH bootstrap and pairing inventory; developer mode only)
+  4. **Models / 模型** — Lucide `Bot` (providers and default model)
+  5. **Skills / 技能** — Lucide `BookOpen` (reusable agent instructions)
+  6. **MCP** — Lucide `Server` (agent connections)
+  7. **Subagents / 子智能体** — Lucide `Bot` (built-in and personal parallel agents)
+  8. **Import / 导入** — Lucide `Download` (bring sessions and model configuration in from other tools)
+  9. **Projects / 项目** — Lucide `Archive` (durable project index)
+  10. **Cloud sync / 云同步** — Lucide `CloudDownload` (encrypted portable configuration backup and bidirectional sync; developer mode only)
+  11. **Remote Hosts / 远程主机** — Lucide `Globe` (SSH bootstrap and pairing inventory; developer mode only)
+  12. **Voice / 语音输入** — Lucide `Mic` (local offline transcription)
   13. **Info / 信息** — Lucide `Info` (versions, logs, updates, developer)
   Icons are decorative (`aria-hidden` via the SVG default) and stay monochrome
   with the rail label; do not reuse refresh/rotate glyphs here.
 - The directory remains a flat searchable list in the same exact order. For
   scanability, the destinations are shown in four titled visual clusters:
-  `Preferences` / `偏好` (General, AI, Shortcuts), `Agent` / `智能体`
-  (Instructions, Models, Skills, MCP, Subagents), `Workspace` / `工作区`
+  `Preferences` / `偏好` (General, AI, Shortcuts, Voice), `Agent` / `智能体`
+  (Models, Skills, MCP, Subagents), `Workspace` / `工作区`
   (Import, Projects), and `System` / `系统` (Cloud sync, Remote Hosts, Info;
   Cloud sync and Remote Hosts are developer-only). Headings are
   muted, non-interactive labels and use whitespace for separation; no divider
@@ -235,23 +235,13 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   is remaining. The threshold controls when a text-only paste becomes a
   temporary session-scratch file; it defaults to 600 characters and accepts
   integer values from 1 through 1,000,000.
-- **Prompt enhancement** is a card controlling the Composer's Enhance prompt
-  action (ADR 0121). It carries a `Use a custom template` switch and the settings
-  icon button the subagent rows use for editing, which opens an editor sheet
-  (the subagent editor's pattern). The switch gates whether a stored template
-  applies, is disabled until one is saved, and turns on when a template is
-  saved; turning it off keeps the stored text. The sheet holds the user-template
-  editor, which shows the built-in default text when no override is stored and
-  offers an insert action for the draft variable; a save that would leave the
-  template without that variable is refused. The system prompt is built in and
-  exposes no field. The same card also has a `Default model` row using the same
-  anchored, searchable menu as the Models tab's default-model row; empty means
-  "follow the Composer's current model". Two rows therefore read `Default
-  model`, distinguished by their card headings (Prompt enhancement vs Models
-  Defaults). The reasoning row is a menu select listing the levels the selected
-  model actually supports (the row is disabled when it supports none), defaults
-  to Off, and has no follow-the-session entry. Settings search indexes the card,
-  its switch, the template row, the default-model row, and the reasoning row.
+- **Prompt enhancement** (removed, D626). The Composer's Enhance prompt action
+  and its Settings card were both removed in this build: the persona model was
+  reduced to a single editable scope (the per-conversation prompt), so a
+  separate one-shot draft rewriter no longer earns a place in the AI tab. The
+  host bridge and one-shot runtime are retained (see `04-ux/12-prompt-enhancement.md`)
+  but have no Settings entry, and Settings search no longer indexes any
+  prompt-enhancement row.
 - **Thinking display mode** uses a menu select with Detailed (default) and
   Compact. Both modes use one whole-process disclosure. Detailed starts the
   process open, keeps reasoning visible, opens the active multi-item activity
@@ -429,7 +419,7 @@ a usage tab.
     Mistral, Together, Fireworks, OpenCode Go, Z.AI, DeepSeek, Qwen/DashScope,
     Moonshot/Kimi, Zhipu, SiliconFlow, Volcengine Ark, MiniMax,
     MiniMax (OpenAI), Xiaomi, Kimi
-    For Coding) then show Service + API key, with the published host as a
+    For Coding, Ollama (local), LM Studio (local)) then show Service + API key, with the published host as a
     one-line summary. Custom endpoint then shows Service, Name beside Base URL,
     and API key beside API format in three explicit rows so each input keeps a
     stable alignment as the form changes. The custom Base URL field accepts
@@ -619,11 +609,13 @@ system while preserving their different data ownership:
   and focus lift a control without adding a persistent in-flow divider; invalid
   form state is announced from the shared error region.
 
-### Instructions (`instructions` tab)
-- Edit the global instruction Markdown used by every PI-Desktop Agent session.
-- Show the resolved instruction-file path and save through the host-backed
-  instruction API; project instructions remain managed from the active project
-  menu and are resolved after the global layer.
+### Conversation prompt
+- A conversation's own prompt is the single editable persona scope. It is
+  edited from the conversation topbar, not from Settings, so the scope is set
+  where it applies and there is no app-wide prompt tab to keep in step with it.
+- The editor opens on the value in force, states whether this conversation has
+  its own prompt or is using the built-in persona, and clears the prompt when
+  emptied; a whitespace-only value is not a prompt.
 
 ### Import
 - Scan supported local agent stores for **sessions**, **model configuration**,
@@ -667,7 +659,7 @@ system while preserving their different data ownership:
   and can select multiple local folders in one native picker; the first folder
   is the primary root of one logical project, and the remaining folders are
   retained as roots of that same project rather than separate project tabs.
-  Chats, project instructions, and project memory are shared by the group.
+  Chats and project memory are shared by the group.
 - The destination is one workbench (D267), revised by D455 into a one-column
   list with an in-row inspector, and revised again into an inset grouped index
   in the iOS sense: the selected row is the header of its own card, so the
@@ -775,7 +767,7 @@ system while preserving their different data ownership:
 1. Opening Settings hides the coding app sidebar (full-page takeover)
 2. Rail shows the search pill at the top, the back-to-app action pinned at the
    foot on the main sidebar's footer icon line, and exactly General / 常规, AI,
-   Shortcuts / 快捷键, Instructions / 指令, Models / 模型, Skills / 技能, MCP,
+   Shortcuts / 快捷键, Models / 模型, Skills / 技能, MCP,
    Subagents / 子智能体, Import / 导入, Projects / 项目, Cloud sync / 云同步,
    Remote Hosts / 远程主机, and Info / 信息 in that order. Cloud sync / 云同步
    and Remote Hosts / 远程主机 appear only while developer mode is on. The rows are grouped under Preferences / 偏好,

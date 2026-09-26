@@ -167,6 +167,9 @@ fn spawn(db: &Database, input: &Value) -> Result<Value> {
             project_path: parent.summary.project_path,
             thinking_level: Some(parent.summary.thinking_level),
             permission_mode: Some(parent.summary.permission_mode),
+            // A spawned worker inherits the parent conversation's persona so a
+            // delegated session answers the same way its owner configured.
+            system_prompt: parent.summary.system_prompt,
         },
     )?;
     db.conn().execute("INSERT INTO session_collaboration_links(session_id,created_by_session_id,plugin_id,created_at) VALUES(?1,?2,?3,?4)",params![created.id,source,plugin,now_ms()])?;

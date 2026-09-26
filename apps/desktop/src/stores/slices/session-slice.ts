@@ -117,6 +117,7 @@ export function createSessionSlice({
   | "forkSession"
   | "forkAssistantMessage"
   | "configureActiveSession"
+  | "setActiveSessionSystemPrompt"
   | "abortSession"
 > {
   const refreshSessionList = createRefreshCoordinator(async () => {
@@ -660,6 +661,34 @@ export function createSessionSlice({
           [sessionId]: result.session.mode === "plan" ? "planning" : "inactive",
         },
       }));
+    },
+
+    /**
+     * The conversation's own persona. Unlike mode/model, this never stages
+     * behind a running turn: the prompt is composed at the next launch, so
+     * writing it immediately keeps the editor honest about what will be sent.
+     */
+    setActiveSessionSystemPrompt: async (systemPrompt) => {
+      const sessionId = get().activeSessionId;
+      if (!sessionId) return;
+      const trimmed = systemPrompt?.trim() ?? "";
+      const value = trimmed ? trimmed : null;
+      const result = await api.setSessionSystemPrompt(sessionId, value);
+      set((state) => ({
+        sessions: state.sessions.map((session) =>
+          session.id === sessionId
+            ? {
+                ...result.session,
+                pinned: sessionIsPinned(sessionId, state.sessionMeta),
+                archived: sessionIsArchived(sessionId, state.sessionMeta),
+              }
+            : session,
+        ),
+      }));
+      // No runtime teardown is needed here: the sidecar compares the resolved
+      // systemPrompt when it decides whether a cached runtime can be reused, so
+      // the next prompt in this conversation retires the old one and recomposes
+      // from the saved value.
     },
 
     /** Abort one session's running turn, whether or not it is the visible one. */

@@ -1,7 +1,7 @@
 export const PROTOCOL_VERSION = 11 as const;
 export const SCHEMA_VERSION = 16 as const;
-export const APP_ID = "net.aiuo.pi-desktop";
-export const APP_NAME = "PI-Desktop";
+export const APP_ID = "com.qianning.agent";
+export const APP_NAME = "QianNing Agent";
 export const APP_VERSION = "0.15.8";
 
 export const APP_MENU_COMMANDS = [
@@ -100,8 +100,6 @@ export const IPC = {
     agentQueuePrioritize: "pi-desktop/agent/queue/prioritize",
     agentQueueReorder: "pi-desktop/agent/queue/reorder",
     agentGetStatus: "pi-desktop/agent/getStatus",
-    agentInstructionsGet: "pi-desktop/agent/instructions/get",
-    agentInstructionsSave: "pi-desktop/agent/instructions/save",
     sessionList: "pi-desktop/session/list",
     sessionCreate: "pi-desktop/session/create",
     sessionFork: "pi-desktop/session/fork",
@@ -114,6 +112,8 @@ export const IPC = {
     sessionOpen: "pi-desktop/session/open",
     sessionDelete: "pi-desktop/session/delete",
     sessionRename: "pi-desktop/session/rename",
+    /** Set or clear a conversation's own system prompt (schema v20). */
+    sessionSetSystemPrompt: "pi-desktop/session/setSystemPrompt",
     sessionSummarizeTitle: "pi-desktop/session/summarizeTitle",
     sessionConfigure: "pi-desktop/session/configure",
     sessionImportScan: "pi-desktop/session/importScan",
@@ -157,8 +157,6 @@ export const IPC = {
     projectGroupUpdate: "pi-desktop/project-group/update",
     projectGroupMemoryGet: "pi-desktop/project-group/memory/get",
     projectGroupMemorySave: "pi-desktop/project-group/memory/save",
-    projectGroupInstructionsGet: "pi-desktop/project-group/instructions/get",
-    projectGroupInstructionsSave: "pi-desktop/project-group/instructions/save",
     projectClone: "pi-desktop/project/clone",
     projectCloneCheckout: "pi-desktop/project/cloneCheckout",
     projectGet: "pi-desktop/project/get",

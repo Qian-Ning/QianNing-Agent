@@ -2657,14 +2657,14 @@ present the interrupted terminal snapshot after restart.
 ### 11.1 Purpose
 
 Input area at the bottom of MainChat for composing and sending prompts. Supports
-multi-line input, mode/permission context, abort, and a combined model ×
-reasoning-level control.
+multi-line input, mode/permission context, abort, and two separate pills — a
+model picker and a reasoning-level picker (D629).
 
 ### 11.2 Anatomy
 
 ```text
 +----------------------------------------------------------+
-| [Agent/Plan/Goal] [permission mode]     | [ring %] [model · reasoning ▾] |
+| [Agent/Plan/Goal] [permission mode]     | [ring %] [model ▾] [reasoning ▾] |
 | queued messages (optional; one row per item) | [⏹ Stop / → Send] (one submit slot) |
 | textarea (auto-growing, 1 line → max 7)                         |
 | placeholder: welcome → command/file hint → keyboard hint        |
@@ -2707,34 +2707,39 @@ reasoning-level control.
   Accept edits is `允许编辑` / `允許編輯` so the option remains single-line
   beside its selection indicator.
 - The right toolbar owns the remaining-capacity context inspector (when the
-  newest assistant turn has usage) immediately left of one combined model ×
-  reasoning-level chip, then the standalone prompt-enhancement action and the
-  single Stop/Send submit slot (D347). The inspector trigger shows the ring
-  and percentage only. The chip shows Bot, the current model name, and the
-  current canonical reasoning level value separated by `·`; `off` omits the
-  level text. The canonical value is rendered as-is (`low`, `high`, `xhigh`,
-  or `max`) and is not localized. The
-  prompt-enhancement action shows Sparkles while idle, uses the shared
-  `.tool-spinner` and localized `Enhancing…` label while running, and remains
-  a one-shot draft rewrite action. Inline file-reference chips, including
-  pasted image chips, do not disable this action and remain in the draft.
+  newest assistant turn has usage) immediately left of two separate pills — a
+  model pill and a reasoning-level pill — then the single Stop/Send submit slot
+  (D347, D626). The inspector trigger shows the ring and percentage only. The
+  model pill shows Bot plus the current model name; the reasoning pill shows an
+  activity glyph plus the current reasoning level and is always present (D630),
+  so the reasoning control is never hidden by a model's capability metadata. A
+  model that publishes a reasoning ladder shows that ladder; a non-reasoning
+  model, or one whose catalog metadata is missing or stale, still shows the full
+  canonical ladder, defaults to `off`, and lets the user force a level up. The
+  reasoning level is rendered as a
+  localized label (关闭 / 最小 / 低 / 中 / 高 / 极高 / 最高 / 默认 in zh-CN, Off /
+  Minimal / Low / Medium / High / Very high / Max / Default in English) while
+  the wire value stays canonical (`off`, `low`, `high`, `xhigh`, `max`, …). The
+  standalone `Enhance prompt` (Sparkles) action was removed in this build
+  (D629); the host bridge and one-shot runtime are retained but have no UI
+  entry point.
 - MainPane and the chat surface keep a 450px hard minimum. The composer toolbar
   remains a single, non-wrapping row as its container narrows: the mode and
   permission labels stay on one line and ellipsize within their chips, while
-  the combined model × reasoning trigger progressively gives up detail. At
+  the model and reasoning pills progressively give up detail. At
   560px it hides the reasoning level label, at 480px it tightens the model label
-  cap, and at the 450px floor it becomes a 32px icon-only trigger. The trigger's
-  menu and accessible name retain the complete model/reasoning selection. The
-  context inspector hides its percentage at the floor and the enhancement
-  loading state becomes icon-only, preserving the action hit targets without
-  clipping or overlapping toolbar content. Home and thread-docked composers
-  use the same responsive rules.
-- The combined chip opens one anchored menu above itself. The menu starts with
-  only Model and Reasoning level entries, each showing its current value and a
-  chevron. Selecting an entry replaces the menu contents in place with a back
-  row and its submenu; selecting a model or level returns to the two-entry root
-  without closing the popover. The menu is `min(300px, 100vw - 24px)`, uses the
-  large radius/dialog shadow tokens, and enters with a short upward fade.
+  cap, and at the 450px floor the model pill becomes a 32px icon-only trigger.
+  Each pill's menu and accessible name retain the complete selection. The
+  context inspector hides its percentage at the floor, preserving the action hit
+  targets without clipping or overlapping toolbar content. Home and
+  thread-docked composers use the same responsive rules.
+- Each pill opens its own anchored menu above itself; opening one closes the
+  other so only a single popover is visible at a time. The model menu lists
+  provider → model options with a search field; the reasoning menu lists the
+  selected model's reasoning ladder as a localized radio list plus a draggable
+  slider that commits latest-wins without leaving the menu. Both menus are
+  `min(280px, 100vw - 24px)`, use the large radius/dialog shadow tokens, and
+  enter with a short upward fade.
 - The Model submenu establishes a clear provider → model hierarchy: sticky
   provider headings use the stronger `--text-md` section treatment, while
   indented model options use normal-weight `--text-sm` text. In zh-CN, provider

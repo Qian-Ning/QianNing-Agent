@@ -9,7 +9,6 @@ export type SettingsTabId =
   | "general"
   | "ai"
   | "shortcuts"
-  | "instructions"
   | "agent"
   | "skills"
   | "mcp"
@@ -112,15 +111,6 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
       "settings.contextUsageDisplay",
       "settings.contextUsageDisplayRemaining",
       "settings.contextUsageDisplayUsed",
-      "settings.promptEnhancementTitle",
-      "settings.promptEnhancementDesc",
-      "settings.promptEnhancementCustomTemplate",
-      "settings.promptEnhancementEdit",
-      "settings.promptEnhancementUserTemplate",
-      "settings.promptEnhancementModelTitle",
-      "settings.promptEnhancementModel",
-      "settings.promptEnhancementModelFollow",
-      "settings.promptEnhancementThinking",
       "settings.largePasteThreshold",
     ],
   },
@@ -151,16 +141,6 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
       "settings.shortcutAction.openCommandPalette",
       "settings.shortcutAction.toggleSidebar",
       "settings.shortcutAction.openWorkPanel",
-    ],
-  },
-  {
-    id: "instructions",
-    labelKey: "settings.nav.instructions",
-    titleKey: "settings.instructions",
-    group: "agent",
-    keywordKeys: [
-      "settings.instructionsGlobal",
-      "settings.instructionsPath",
     ],
   },
   {

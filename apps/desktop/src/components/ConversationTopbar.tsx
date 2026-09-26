@@ -1,10 +1,8 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../stores/app-store";
-import {
-  IconSidebar,
-  IconNewSession,
-  IconSearch,
-} from "./icons";
+import { ConversationPromptButton, SessionPromptDialog } from "./SessionPromptDialog";
+import { IconNewSession, IconSearch, IconSidebar } from "./icons";
 import { TooltipButton } from "./ui";
 
 function projectName(path?: string | null, name?: string | null) {
@@ -37,8 +35,16 @@ export function ConversationTopbar({
   const activeSessionId = useAppStore((s) => s.activeSessionId);
   const sessions = useAppStore((s) => s.sessions);
   const workspace = useAppStore((s) => s.workspace);
+  const setActiveSessionSystemPrompt = useAppStore(
+    (s) => s.setActiveSessionSystemPrompt,
+  );
+  const [promptOpen, setPromptOpen] = useState(false);
 
   const activeSession = sessions.find((session) => session.id === activeSessionId);
+  // A native (imported) session's prompt belongs to its origin app, so the
+  // editor is disabled rather than writing a value nothing would read.
+  const promptEditable =
+    Boolean(activeSession) && !activeSession!.id.startsWith("native-pi:");
 
   const fullTaskTitle = isDefaultSessionTitle(activeSession?.title)
     ? t("chat.untitledTask")
@@ -81,6 +87,12 @@ export function ConversationTopbar({
 
       <div className="ct-right">
         <div className="ct-actions">
+          {promptEditable ? (
+            <ConversationPromptButton
+              active={Boolean(activeSession?.systemPrompt)}
+              onOpen={() => setPromptOpen(true)}
+            />
+          ) : null}
           <TooltipButton
             type="button"
             className="ct-icon-btn"
@@ -101,6 +113,13 @@ export function ConversationTopbar({
           </TooltipButton>
         </div>
       </div>
+      {promptOpen && activeSession && promptEditable ? (
+        <SessionPromptDialog
+          session={activeSession}
+          onClose={() => setPromptOpen(false)}
+          onSave={setActiveSessionSystemPrompt}
+        />
+      ) : null}
     </div>
   );
 }

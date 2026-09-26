@@ -111,6 +111,11 @@ pub struct SessionSummary {
     pub thinking_level: String,
     #[serde(default = "default_permission_mode")]
     pub permission_mode: String,
+    /// Per-conversation system prompt. `None` keeps the built-in persona (or a
+    /// project/global `SYSTEM.md`); a value replaces the persona for this
+    /// session's turns only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system_prompt: Option<String>,
     pub updated_at: String,
     pub created_at: String,
 }
@@ -1143,7 +1148,7 @@ fn session_created_at(db: &Database, session_id: &str) -> Result<String> {
 
 const SUMMARY_SELECT: &str =
     "SELECT s.id, s.title, s.last_seq, p.path, s.model_id, s.provider_id, s.mode,
-            s.thinking_level, s.permission_mode, s.updated_at, s.created_at
+            s.thinking_level, s.permission_mode, s.system_prompt, s.updated_at, s.created_at
      FROM sessions s LEFT JOIN projects p ON p.id = s.project_id
      WHERE s.deleted_at IS NULL";
 
@@ -1158,8 +1163,9 @@ pub(crate) fn summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Sess
         mode: row.get(6)?,
         thinking_level: row.get(7)?,
         permission_mode: row.get(8)?,
-        updated_at: ms_to_ts(row.get(9)?),
-        created_at: ms_to_ts(row.get(10)?),
+        system_prompt: row.get(9)?,
+        updated_at: ms_to_ts(row.get(10)?),
+        created_at: ms_to_ts(row.get(11)?),
     })
 }
 
@@ -1233,6 +1239,8 @@ pub struct SessionCreateOptions {
     pub project_path: Option<String>,
     pub thinking_level: Option<String>,
     pub permission_mode: Option<String>,
+    /// Per-conversation system prompt; `None` keeps the built-in persona.
+    pub system_prompt: Option<String>,
 }
 
 pub fn create_session_with_thinking(
@@ -1254,6 +1262,7 @@ pub fn create_session_with_thinking(
             project_path,
             thinking_level,
             permission_mode: None,
+            system_prompt: None,
         },
     )
 }
@@ -1275,6 +1284,7 @@ pub fn create_session_with_options(
         project_path,
         thinking_level,
         permission_mode,
+        system_prompt,
     } = options;
     let now = now_ms();
     let id = Uuid::new_v4().to_string();
@@ -1284,6 +1294,7 @@ pub fn create_session_with_options(
     validate_thinking_level(&thinking_level)?;
     let permission_mode = permission_mode.unwrap_or_else(default_permission_mode);
     validate_permission_mode(&permission_mode)?;
+    let system_prompt = normalize_session_system_prompt(system_prompt.as_deref())?;
     let project_id = match project_path
         .as_deref()
         .filter(|path| !path.trim().is_empty())
@@ -1299,8 +1310,8 @@ pub fn create_session_with_options(
         .prepare_cached(
             "INSERT INTO sessions (
                 id, title, project_id, provider_id, model_id, mode, thinking_level,
-                permission_mode, created_at, updated_at
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)",
+                permission_mode, system_prompt, created_at, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
         )?
         .execute(params![
             id,
@@ -1311,6 +1322,7 @@ pub fn create_session_with_options(
             mode,
             thinking_level,
             permission_mode,
+            system_prompt,
             now
         ])?;
     Ok(SessionSummary {
@@ -1323,9 +1335,49 @@ pub fn create_session_with_options(
         mode,
         thinking_level,
         permission_mode,
+        system_prompt,
         updated_at: ms_to_ts(now),
         created_at: ms_to_ts(now),
     })
+}
+
+/// Longest per-conversation system prompt accepted. Generous on purpose: the
+/// operator owns this text and the model applies its own context limit.
+pub const MAX_SESSION_SYSTEM_PROMPT_CHARS: usize = 200_000;
+
+/// Normalize a stored per-conversation system prompt. A blank/whitespace value
+/// means "no override" so the UI can clear the field without writing an empty
+/// string that would silently disable the built-in persona.
+pub fn normalize_session_system_prompt(value: Option<&str>) -> Result<Option<String>> {
+    let Some(text) = value.map(str::trim).filter(|text| !text.is_empty()) else {
+        return Ok(None);
+    };
+    if text.chars().count() > MAX_SESSION_SYSTEM_PROMPT_CHARS {
+        return Err(anyhow!(
+            "system prompt exceeds {MAX_SESSION_SYSTEM_PROMPT_CHARS} characters"
+        ));
+    }
+    Ok(Some(text.to_string()))
+}
+
+/// Persist a session's own system prompt. `None` clears it and restores the
+/// built-in/SYSTEM.md persona.
+pub fn set_session_system_prompt(
+    db: &Database,
+    id: &str,
+    system_prompt: Option<&str>,
+) -> Result<Option<SessionSummary>> {
+    let normalized = normalize_session_system_prompt(system_prompt)?;
+    let changed = db
+        .conn()
+        .prepare_cached(
+            "UPDATE sessions SET system_prompt = ?2, updated_at = ?3 WHERE id = ?1",
+        )?
+        .execute(params![id, normalized, now_ms()])?;
+    if changed == 0 {
+        return Ok(None);
+    }
+    Ok(get_session(db, id)?.map(|detail| detail.summary))
 }
 
 /// The persisted per-session permission mode, or None for unknown sessions.
@@ -1650,10 +1702,10 @@ pub fn fork_session_through(
             .prepare_cached(
                 "INSERT INTO sessions (
                     id, title, project_id, provider_id, model_id, mode, thinking_level,
-                    permission_mode, source, pinned, last_seq, created_at, updated_at
+                    permission_mode, system_prompt, source, pinned, last_seq, created_at, updated_at
                  )
                  SELECT ?1, ?2, project_id, provider_id, model_id, mode, thinking_level,
-                        permission_mode, NULL, 0, ?3, ?4, ?4
+                        permission_mode, system_prompt, NULL, 0, ?3, ?4, ?4
                  FROM sessions WHERE id = ?5",
             )?
             .execute(params![id, title, records.len() as i64, now, source_id])?;
@@ -1683,6 +1735,7 @@ pub fn fork_session_through(
         mode: source.summary.mode,
         thinking_level: source.summary.thinking_level,
         permission_mode: source.summary.permission_mode,
+        system_prompt: source.summary.system_prompt,
         updated_at: created_at.clone(),
         created_at,
     };
@@ -3849,6 +3902,102 @@ mod tests {
         Database::open(&dir.join("test.sqlite")).unwrap()
     }
 
+    fn stored_system_prompt(db: &Database, id: &str) -> Option<String> {
+        get_session(db, id)
+            .unwrap()
+            .and_then(|session| session.summary.system_prompt)
+    }
+
+    #[test]
+    fn session_system_prompt_round_trips_and_clears() {
+        let db = test_db();
+        let session = create_session(&db, Some("Chat".into()), None, None, None, None).unwrap();
+        // A new session starts with no override, so the built-in persona applies.
+        assert_eq!(session.system_prompt, None);
+        assert_eq!(stored_system_prompt(&db, &session.id), None);
+
+        let updated = set_session_system_prompt(&db, &session.id, Some("  You are a poet.  "))
+            .unwrap()
+            .unwrap();
+        // Surrounding whitespace is trimmed on write.
+        assert_eq!(updated.system_prompt.as_deref(), Some("You are a poet."));
+        assert_eq!(
+            stored_system_prompt(&db, &session.id).as_deref(),
+            Some("You are a poet.")
+        );
+
+        // Editing an existing prompt overwrites it — the reported "set but
+        // can't modify" case. A second, different non-empty value replaces the
+        // first rather than being rejected, appended, or locked.
+        let edited = set_session_system_prompt(&db, &session.id, Some("You are a terse reviewer."))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            edited.system_prompt.as_deref(),
+            Some("You are a terse reviewer.")
+        );
+        assert_eq!(
+            stored_system_prompt(&db, &session.id).as_deref(),
+            Some("You are a terse reviewer.")
+        );
+
+        // A blank value clears the override instead of storing an empty string,
+        // so the built-in persona comes back.
+        let cleared = set_session_system_prompt(&db, &session.id, Some("   "))
+            .unwrap()
+            .unwrap();
+        assert_eq!(cleared.system_prompt, None);
+        assert_eq!(stored_system_prompt(&db, &session.id), None);
+
+        // An explicit None clears it as well.
+        set_session_system_prompt(&db, &session.id, Some("persona")).unwrap();
+        let cleared = set_session_system_prompt(&db, &session.id, None)
+            .unwrap()
+            .unwrap();
+        assert_eq!(cleared.system_prompt, None);
+    }
+
+    #[test]
+    fn session_system_prompt_is_scoped_and_survives_reload() {
+        let db = test_db();
+        let with_prompt =
+            create_session(&db, Some("A".into()), None, None, None, None).unwrap();
+        let without = create_session(&db, Some("B".into()), None, None, None, None).unwrap();
+        set_session_system_prompt(&db, &with_prompt.id, Some("Only for A")).unwrap();
+
+        // The override belongs to one conversation: reading it back through
+        // get_session must not leak onto the sibling session.
+        let reloaded = get_session(&db, &with_prompt.id).unwrap().unwrap();
+        assert_eq!(reloaded.summary.system_prompt.as_deref(), Some("Only for A"));
+        let sibling = get_session(&db, &without.id).unwrap().unwrap();
+        assert_eq!(sibling.summary.system_prompt, None);
+
+        // And it survives a reopen of the database file, i.e. it is persisted
+        // rather than held in memory.
+        let listed = list_sessions(&db).unwrap();
+        let listed_a = listed.iter().find(|s| s.id == with_prompt.id).unwrap();
+        assert_eq!(listed_a.system_prompt.as_deref(), Some("Only for A"));
+    }
+
+    #[test]
+    fn session_system_prompt_rejects_oversized_text() {
+        let db = test_db();
+        let session = create_session(&db, Some("Chat".into()), None, None, None, None).unwrap();
+        let oversized = "x".repeat(MAX_SESSION_SYSTEM_PROMPT_CHARS + 1);
+        assert!(set_session_system_prompt(&db, &session.id, Some(&oversized)).is_err());
+        // The rejected write must not have changed the stored value.
+        assert_eq!(stored_system_prompt(&db, &session.id), None);
+    }
+
+    #[test]
+    fn session_system_prompt_unknown_session_reports_none() {
+        let db = test_db();
+        assert_eq!(stored_system_prompt(&db, "missing"), None);
+        assert!(set_session_system_prompt(&db, "missing", Some("x"))
+            .unwrap()
+            .is_none());
+    }
+
     fn user_msg(id: &str, content: &str, ts: &str) -> UiMessage {
         UiMessage {
             id: id.into(),
@@ -4369,6 +4518,7 @@ mod tests {
             mode: "agent".into(),
             thinking_level: "off".into(),
             permission_mode: "inherit".into(),
+            system_prompt: None,
             created_at: "2025-01-01T00:00:00Z".into(),
             updated_at: "2025-01-02T00:00:00Z".into(),
         };
@@ -4419,6 +4569,7 @@ mod tests {
             mode: "agent".into(),
             thinking_level: "off".into(),
             permission_mode: "inherit".into(),
+            system_prompt: None,
             created_at: "2025-01-01T00:00:00Z".into(),
             updated_at: "2025-01-01T00:00:00Z".into(),
         };
@@ -5164,6 +5315,7 @@ mod tests {
             mode: "agent".into(),
             thinking_level: "medium".into(),
             permission_mode: "inherit".into(),
+            system_prompt: None,
             created_at: "2025-01-01T00:00:00Z".into(),
             updated_at: "2025-01-01T00:00:00Z".into(),
         };

@@ -204,6 +204,11 @@ export type AppState = {
     thinkingLevel: SessionThinkingLevel;
     permissionMode?: PermissionMode;
   }) => Promise<void>;
+  /**
+   * Set or clear the active conversation's own system prompt. `null` and a
+   * blank string both clear it, restoring the global/built-in persona.
+   */
+  setActiveSessionSystemPrompt: (systemPrompt: string | null) => Promise<void>;
   /** Returns true once accepted unless concurrent smart Stop restores it. */
   sendPrompt: (
     content: string,

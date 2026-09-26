@@ -117,7 +117,12 @@ test("the shared service menu still portals above dialogs for model pickers", ()
 test("named add-path discovery waits for a key and does not flash loading", () => {
   assert.match(setupSource, /discoveryActive/);
   assert.match(setupSource, /Boolean\(apiKey\.trim\(\)\)/);
-  assert.match(setupSource, /custom \|\| Boolean\(apiKey\.trim\(\)\) \|\| Boolean\(provider\)/);
+  // A keyless local preset also activates discovery (QianNing local-runtime
+  // support), so the named-service path reads `custom || localPreset || key`.
+  assert.match(
+    setupSource,
+    /custom \|\| localPreset \|\| Boolean\(apiKey\.trim\(\)\) \|\| Boolean\(provider\)/,
+  );
   // Loading is painted inside the debounced run, not when the effect starts.
   const runAt = hookSource.indexOf("const run = async");
   const loadingAt = hookSource.indexOf('status: "loading"');

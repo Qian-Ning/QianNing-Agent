@@ -101,9 +101,10 @@ test("the default picker's query reaches an account by its label", () => {
 });
 
 test("the Settings model pickers name providers through the shared helper", async () => {
+  // EnhancementModelCard was removed with the prompt-enhancement UI (D629);
+  // ModelConfigPage is the remaining Settings picker.
   for (const rel of [
     "../src/components/settings/ModelConfigPage.tsx",
-    "../src/components/settings/EnhancementModelCard.tsx",
   ]) {
     const source = await read(rel);
     assert.match(source, /providerDisplayName\(provider\)/, rel);

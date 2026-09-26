@@ -41,22 +41,6 @@ export type AppSettings = {
   /** Configured command shell for the agent Bash protocol tool. */
   defaultCommandShell?: CommandShellId;
   /**
-   * Whether the stored user template replaces the built-in one (ADR 0121).
-   * Absent means off. Turning it off keeps `promptEnhancementUserTemplate` so
-   * toggling back on restores the user's text instead of discarding it.
-   */
-  promptEnhancementCustomTemplate?: boolean;
-  /**
-   * Composer prompt-enhancement user-template override (ADR 0121). Applied only
-   * while `promptEnhancementCustomTemplate` is on. Host-core rejects a non-blank
-   * value without `{{draft}}` and any value beyond
-   * `PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH`.
-   *
-   * The system prompt is intentionally not overridable: it carries the rewrite
-   * contract the feature is specified against.
-   */
-  promptEnhancementUserTemplate?: string;
-  /**
    * Model the one-shot enhancement runs on. Absent means "follow the Composer's
    * current model". When the pinned pair is unusable, main falls back to the
    * Composer model and logs a warning (ADR 0121).

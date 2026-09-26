@@ -68,15 +68,17 @@ test("composer send/stop button follows draft content and the visible session's 
   assert.match(submitSlot, /onClick=\{\(\) => void abort\(\)\}/);
   assert.doesNotMatch(composerRight, /\{runActive \? \(/);
   const modelIndex = composerRight.indexOf("<ComposerModelPicker");
-  const enhanceIndex = composerRight.indexOf("composer-enhance-btn");
   const submitIndex = Math.max(
     composerRight.indexOf('className="stop-btn"'),
     composerRight.indexOf('className="send-btn"'),
   );
   assert.ok(
-    modelIndex >= 0 && modelIndex < enhanceIndex && enhanceIndex < submitIndex,
-    "The enhancement action should sit between model selection and the submit slot",
+    modelIndex >= 0 && modelIndex < submitIndex,
+    "Model selection should sit before the submit slot",
   );
+  // The ✦ enhancement action was removed (D629): nothing renders between the
+  // model picker and the submit slot any more.
+  assert.doesNotMatch(composerRight, /composer-enhance-btn/);
   const modelTrigger =
     composer.match(
       /className=\{`icon-btn composer-model-thinking-chip[\s\S]*?<\/button>/,

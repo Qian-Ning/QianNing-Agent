@@ -133,12 +133,12 @@ export class AppUpdaterController {
       (platform === "win32"
         ? this.readPackagedDistribution(isPackaged)
         : undefined);
-    const mode = resolveUpdateMode(
-      platform,
-      isPackaged,
-      process.env,
-      distribution,
-    );
+    // QianNing Agent is a personal build with no release feed of its own.
+    // Auto-update is disabled outright: it never checks the upstream project's
+    // GitHub releases, downloads, or prompts to install. The platform-derived
+    // mode is still computed for parity but intentionally discarded.
+    void resolveUpdateMode(platform, isPackaged, process.env, distribution);
+    const mode: UpdateMode = "disabled";
     this.state = {
       mode,
       status: "idle",

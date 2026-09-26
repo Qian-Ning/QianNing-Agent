@@ -13,7 +13,6 @@ import { buildSessionContext } from "./session-context.js";
 import {
   COMPACTION_FALLBACK_MARKER,
   DesktopAgentRuntime,
-  PATH_INSTRUCTION_RESOLUTION_TIMEOUT_MS,
   looksLikePseudoToolCall,
   type CompactionStrategy,
   type PluginToolDef,
@@ -23,7 +22,6 @@ import {
 import { estimateOutputCapInputTokens } from "./output-cap.js";
 
 import { COMPACTION_SUMMARY_MAX_RETRIES } from "./compaction-summary-input.js";
-import type { ProjectInstructions } from "./project-instructions.js";
 import { classifyAgentError } from "./agent-errors.js";
 import {
   PROVIDER_RATE_LIMIT_MAX_RETRIES,
@@ -163,9 +161,9 @@ function createRuntime(
     compactionStrategy: CompactionStrategy;
     projectPath: string;
     scratchDir: string;
-    customSystemPrompt: import("./custom-system-prompt.js").CustomSystemPrompt;
-    projectInstructions: import("./project-instructions.js").ProjectInstructions;
+    systemPrompt: string;
     projectMemory: string;
+    workspaceRootsGuide: string;
     pluginTools: PluginToolDef[];
     subagents: SubagentDefinition[];
     subagentProviders: Record<string, RuntimeProviderConfig>;
@@ -191,12 +189,12 @@ function createRuntime(
     compactionStrategy: overrides.compactionStrategy,
     projectPath: overrides.projectPath,
     scratchDir: overrides.scratchDir,
-    customSystemPrompt: overrides.customSystemPrompt,
+    systemPrompt: overrides.systemPrompt,
     pluginTools: overrides.pluginTools,
     subagents: overrides.subagents,
     subagentProviders: overrides.subagentProviders,
     subagentModelKeys: overrides.subagentModelKeys,
-    projectInstructions: overrides.projectInstructions,
+    workspaceRootsGuide: overrides.workspaceRootsGuide,
     projectMemory: overrides.projectMemory,
     pluginSkills: overrides.pluginSkills,
     onEvent: overrides.onEvent ?? vi.fn(),
@@ -237,8 +235,7 @@ function runtimeMatches(
     thinkingLevel: (runtime as any).thinkingLevel,
     pluginTools: (runtime as any).pluginTools,
     pluginSkills: (runtime as any).pluginSkills,
-    projectInstructions: (runtime as any).baseProjectInstructions,
-    customSystemPrompt: (runtime as any).customSystemPrompt,
+    workspaceRootsGuide: (runtime as any).workspaceRootsGuide,
     projectMemory: (runtime as any).projectMemory,
     projectPath: (runtime as any).projectPath,
     commandShell: (runtime as any).commandShell,
@@ -335,23 +332,21 @@ describe("system transcript reconstruction", () => {
   });
 });
 
-describe("custom system prompt files (issue #542)", () => {
+describe("session persona", () => {
   const persona = "You are Custom, a specialized assistant.";
-  const appendix = "MARKER-XYZ-123 Always end with the marker.";
 
   function promptOf(runtime: DesktopAgentRuntime): string {
     return (runtime as any).agent.state.systemPrompt as string;
   }
 
   it("replaces only the persona, keeping operational rules", async () => {
-    const runtime = createRuntime({
-      customSystemPrompt: { replace: persona },
-    });
+    // The launch hands over the resolved persona; the runtime must not let it
+    // drop the operational rules the desktop depends on.
+    const runtime = createRuntime({ systemPrompt: persona });
     const prompt = promptOf(runtime);
 
     expect(prompt).toContain(persona);
-    expect(prompt).not.toContain("You are PI-Desktop");
-    // Operational rules from the default prompt must survive the replacement.
+    expect(prompt).not.toContain("You are QianNing Agent");
     expect(prompt).toContain("Complete the requested work and relevant checks");
     expect(prompt).toContain("Before each tool batch, briefly state its purpose");
     expect(prompt).toContain("Editing workflow: inside the advertised workspace");
@@ -360,69 +355,26 @@ describe("custom system prompt files (issue #542)", () => {
     await runtime.dispose();
   });
 
-  it("appends APPEND_SYSTEM.md after the base prompt and before project instructions", async () => {
-    const runtime = createRuntime({
-      customSystemPrompt: { append: appendix },
-      projectInstructions: {
-        entries: [{ source: "AGENTS.md", content: "Run unit tests." }],
-      },
-    });
+  it("keeps the built-in persona when no prompt is supplied", async () => {
+    const runtime = createRuntime();
     const prompt = promptOf(runtime);
 
-    expect(prompt).toContain(appendix);
-    expect(prompt).toContain("You are PI-Desktop");
-    expect(prompt).toContain("Run unit tests.");
-    expect(prompt.indexOf(appendix)).toBeGreaterThan(
-      prompt.indexOf("You are PI-Desktop"),
-    );
-    expect(prompt.indexOf("Run unit tests.")).toBeGreaterThan(
-      prompt.indexOf(appendix),
-    );
+    expect(prompt).toContain("You are QianNing Agent");
 
     await runtime.dispose();
   });
 
-  it("applies replace and append together", async () => {
+  it("carries a grouped project's extra roots alongside the persona", async () => {
+    // Multi-root geography is session facts, not a persona: both must reach the
+    // prompt, the roots without displacing the persona.
     const runtime = createRuntime({
-      customSystemPrompt: { replace: persona, append: appendix },
+      systemPrompt: persona,
+      workspaceRootsGuide: "Primary root: /work/a\nAdditional root: /work/b",
     });
     const prompt = promptOf(runtime);
 
     expect(prompt).toContain(persona);
-    expect(prompt).toContain(appendix);
-    expect(prompt).not.toContain("You are PI-Desktop");
-
-    await runtime.dispose();
-  });
-
-  it("keeps the default prompt without custom files", async () => {
-    const runtime = createRuntime();
-    const prompt = promptOf(runtime);
-
-    expect(prompt).toContain("You are PI-Desktop");
-    expect(prompt).not.toContain("MARKER-XYZ-123");
-
-    await runtime.dispose();
-  });
-
-  it("retires the runtime when custom prompt content changes", async () => {
-    const runtime = createRuntime({
-      customSystemPrompt: { append: appendix },
-    });
-    expect(
-      runtimeMatches(runtime, { customSystemPrompt: { append: appendix } }),
-    ).toBe(true);
-    expect(
-      runtimeMatches(runtime, {
-        customSystemPrompt: { append: "Different appendix." },
-      }),
-    ).toBe(false);
-    expect(
-      runtimeMatches(runtime, { customSystemPrompt: undefined }),
-    ).toBe(false);
-    expect(
-      runtimeMatches(runtime, { customSystemPrompt: { replace: persona } }),
-    ).toBe(false);
+    expect(prompt).toContain("Additional root: /work/b");
 
     await runtime.dispose();
   });
@@ -893,43 +845,20 @@ describe("DesktopAgentRuntime configuration matching", () => {
     await runtime.dispose();
   });
 
-  it("recreates the runtime when project instructions change", async () => {
-    const projectInstructions = {
-      entries: [{ source: "AGENTS.md", content: "Run unit tests." }],
-    };
-    const runtime = createRuntime({ projectInstructions });
+  it("retires a runtime when the resolved persona changes", async () => {
+    const runtime = createRuntime({ systemPrompt: "You are A." });
 
-    expect((runtime as any).agent.state.systemPrompt).toContain(
-      "# Project instructions\n\n",
-    );
-    expect((runtime as any).agent.state.systemPrompt).toContain(
-      "Run unit tests.",
-    );
     expect(runtimeMatches(runtime)).toBe(true);
-    expect(
-      runtimeMatches(runtime, {
-        projectInstructions: {
-          entries: [{ source: "AGENTS.md", content: "Run lint." }],
-        },
-      }),
-    ).toBe(false);
+    expect(runtimeMatches(runtime, { systemPrompt: "You are B." })).toBe(false);
 
     await runtime.dispose();
   });
 
-  it("loads newly discovered nested instructions before a file tool runs", async () => {
+  it("keeps file tools free of any instruction-lookup round trip", async () => {
+    // The path-scoped AGENTS.md resolver is gone: a file tool must reach the
+    // host exactly once, for the tool itself.
     const host = {
-      call: vi
-        .fn()
-        .mockResolvedValueOnce({
-          entries: [
-            {
-              source: "packages/api/AGENTS.md",
-              content: "Run API tests.",
-            },
-          ],
-        })
-        .mockResolvedValueOnce({ ok: true, content: "file contents" }),
+      call: vi.fn().mockResolvedValue({ ok: true, content: "file contents" }),
     };
     const runtime = createRuntime({ host });
     const read = (runtime as any).agent.state.tools.find(
@@ -938,186 +867,9 @@ describe("DesktopAgentRuntime configuration matching", () => {
 
     await read.execute("tool-1", { path: "packages/api/handler.ts" });
 
-    expect(host.call.mock.calls[0][0]).toBe("project.instructions.resolve");
-    expect((runtime as any).agent.state.systemPrompt).toContain(
-      "packages/api/AGENTS.md",
-    );
-    expect((runtime as any).agent.state.systemPrompt).toContain("Run API tests.");
+    expect(host.call.mock.calls).toHaveLength(1);
+    expect(host.call.mock.calls[0][0]).toBe("tools.execute");
     await runtime.dispose();
-  });
-
-  it.each([
-    ["Read", { path: "packages/api/handler.ts" }],
-    ["Write", { path: "packages/api/handler.ts", content: "export {};" }],
-    ["Edit", {
-      path: "packages/api/handler.ts",
-      tag: "ABCD",
-      ops: "PUT 1.=1:\n+after\n",
-    }],
-    ["BrowserPreview", { path: "packages/api/index.html" }],
-  ])("resolves path-scoped instructions before %s", async (toolName, params) => {
-    const host = {
-      call: vi
-        .fn()
-        .mockResolvedValueOnce({
-          entries: [{ source: "packages/api/AGENTS.md", content: "Use API rules." }],
-        })
-        .mockResolvedValueOnce({ ok: true, content: "done" }),
-    };
-    const runtime = createRuntime({ host });
-    let tool = (runtime as any).agent.state.tools.find(
-      (candidate: any) => candidate.name === toolName,
-    );
-    if (!tool) {
-      const search = (runtime as any).agent.state.tools.find(
-        (candidate: any) => candidate.name === "ToolSearch",
-      );
-      await search.execute("search-1", { query: toolName });
-      await (runtime as any).rebuiltAgentContext();
-      tool = (runtime as any).agent.state.tools.find(
-        (candidate: any) => candidate.name === toolName,
-      );
-    }
-
-    await tool.execute(`tool-${toolName}`, params);
-
-    expect(host.call.mock.calls[0][0]).toBe("project.instructions.resolve");
-    expect((runtime as any).agent.state.systemPrompt).toContain("Use API rules.");
-    await runtime.dispose();
-  });
-
-  it("replaces sibling-directory instructions for each file path", async () => {
-    const host = {
-      call: vi
-        .fn()
-        .mockResolvedValueOnce({
-          entries: [
-            { source: "AGENTS.md", content: "Use root rules." },
-            { source: "packages/a/AGENTS.md", content: "Use A rules." },
-          ],
-        })
-        .mockResolvedValueOnce({ ok: true, content: "A contents" })
-        .mockResolvedValueOnce({
-          entries: [
-            { source: "AGENTS.md", content: "Use root rules." },
-            { source: "packages/b/AGENTS.md", content: "Use B rules." },
-          ],
-        })
-        .mockResolvedValueOnce({ ok: true, content: "B contents" }),
-    };
-    const runtime = createRuntime({ host });
-    const read = (runtime as any).agent.state.tools.find(
-      (tool: any) => tool.name === "Read",
-    );
-
-    await read.execute("tool-a", { path: "packages/a/file.ts" });
-    expect((runtime as any).agent.state.systemPrompt).toContain("Use A rules.");
-
-    await read.execute("tool-b", { path: "packages/b/file.ts" });
-    expect((runtime as any).agent.state.systemPrompt).toContain("Use B rules.");
-    expect((runtime as any).agent.state.systemPrompt).not.toContain("Use A rules.");
-    await runtime.dispose();
-  });
-
-  it("claims one instruction chain per target directory within a prompt", async () => {
-    const host = {
-      call: vi
-        .fn()
-        .mockResolvedValueOnce({
-          entries: [{ source: "packages/api/AGENTS.md", content: "Use API rules." }],
-        })
-        .mockResolvedValue({ ok: true, content: "done" }),
-    };
-    const runtime = createRuntime({ host, projectPath: "/workspace/project" });
-    const read = (runtime as any).agent.state.tools.find(
-      (tool: any) => tool.name === "Read",
-    );
-
-    await read.execute("tool-a", { path: "packages/api/handler.ts" });
-    await read.execute("tool-b", { path: "packages/api/routes.ts" });
-
-    expect(
-      host.call.mock.calls.filter(
-        (call: unknown[]) => call[0] === "project.instructions.resolve",
-      ),
-    ).toHaveLength(1);
-    expect(host.call.mock.calls[0][1]).toEqual({
-      sessionId: "session-1",
-      path: "packages/api/handler.ts",
-      projectPath: "/workspace/project",
-    });
-    expect(host.call.mock.calls[1][0]).toBe("tools.execute");
-    expect(host.call.mock.calls[2][0]).toBe("tools.execute");
-    await runtime.dispose();
-  });
-
-  it("claims a fallback so one resolver failure cannot stall every sibling read", async () => {
-    const host = {
-      call: vi
-        .fn()
-        .mockRejectedValueOnce(new Error("resolver unavailable"))
-        .mockResolvedValue({ ok: true, content: "done" }),
-    };
-    const runtime = createRuntime({
-      host,
-      projectInstructions: {
-        entries: [{ source: "AGENTS.md", content: "Use root rules." }],
-      },
-    });
-    const read = (runtime as any).agent.state.tools.find(
-      (tool: any) => tool.name === "Read",
-    );
-
-    await read.execute("tool-a", { path: "packages/api/handler.ts" });
-    await read.execute("tool-b", { path: "packages/api/routes.ts" });
-
-    expect(
-      host.call.mock.calls.filter(
-        (call: unknown[]) => call[0] === "project.instructions.resolve",
-      ),
-    ).toHaveLength(1);
-    expect((runtime as any).agent.state.systemPrompt).toContain("Use root rules.");
-    await runtime.dispose();
-  });
-
-  it("keeps file tools moving when path instruction resolution times out", async () => {
-    const host = {
-      call: vi
-        .fn()
-        .mockResolvedValueOnce({
-          entries: [
-            { source: "AGENTS.md", content: "Use root rules." },
-            { source: "packages/a/AGENTS.md", content: "Use A rules." },
-          ],
-        })
-        .mockResolvedValueOnce({ ok: true, content: "A contents" })
-        .mockRejectedValueOnce(new Error("parent host proxy timeout"))
-        .mockResolvedValueOnce({ ok: true, content: "B contents" }),
-    };
-    const runtime = createRuntime({
-      host,
-      projectInstructions: {
-        entries: [{ source: "AGENTS.md", content: "Use root rules." }],
-      },
-    });
-    const read = (runtime as any).agent.state.tools.find(
-      (tool: any) => tool.name === "Read",
-    );
-
-    await read.execute("tool-a", { path: "packages/a/file.ts" });
-    expect((runtime as any).agent.state.systemPrompt).toContain("Use A rules.");
-
-    await read.execute("tool-b", { path: "packages/b/file.ts" });
-
-    expect(host.call.mock.calls[2]).toEqual([
-      "project.instructions.resolve",
-      { sessionId: "session-1", path: "packages/b/file.ts" },
-      PATH_INSTRUCTION_RESOLUTION_TIMEOUT_MS,
-    ]);
-    expect(host.call.mock.calls[3][0]).toBe("tools.execute");
-    expect((runtime as any).agent.state.systemPrompt).toContain("Use root rules.");
-    expect((runtime as any).agent.state.systemPrompt).not.toContain("Use A rules.");
-
   });
 
   it("uses the active shell dialect in prompts and runtime reuse", async () => {
@@ -1262,11 +1014,7 @@ describe("DesktopAgentRuntime configuration matching", () => {
 
   it("accepts aliased tool argument names and folds them onto the canonical ones", async () => {
     const host = {
-      call: vi.fn().mockImplementation(async (method: string) =>
-        method === "project.instructions.resolve"
-          ? { entries: [] }
-          : { ok: true, content: "done" },
-      ),
+      call: vi.fn().mockResolvedValue({ ok: true, content: "done" }),
     };
     const runtime = createRuntime({ host });
     // Read the catalog, not the active set: Glob and Grep are deferred tools
@@ -6494,25 +6242,20 @@ describe("DesktopAgentRuntime plugin skills (D174)", () => {
   ];
 
   it("advertises the catalog and ships the Skill tool with the first request (D404)", async () => {
-    const runtime = createRuntime({
-      pluginSkills,
-      projectInstructions: {
-        entries: [{ source: "AGENTS.md", content: "Run unit tests." }],
-      },
-    });
+    const runtime = createRuntime({ pluginSkills });
     const agent = (runtime as any).agent;
     const prompt = agent.state.systemPrompt as string;
 
     expect(prompt).toContain("# Skills");
     expect(prompt).toContain("`demo.hello/release-notes`");
-    expect(prompt).toContain("Run unit tests.");
     // Only the catalog line travels up front; the body loads on demand.
     expect(prompt).not.toContain("Skill: Release notes");
     // The catalog is useless behind a search: the tool is callable on turn one.
     expect(agent.state.tools.some((tool: any) => tool.name === "Skill")).toBe(true);
-    // The user's own instructions come last, so they keep the final word.
+    // Plugin-taught skills sit between the mode prompt and the on-demand tool
+    // catalog, so neither shadowed section can displace the other.
     expect(prompt.indexOf("# Skills")).toBeLessThan(
-      prompt.indexOf("# Project instructions"),
+      prompt.indexOf("# On-demand tools"),
     );
 
     await runtime.dispose();
@@ -6528,19 +6271,11 @@ describe("DesktopAgentRuntime plugin skills (D174)", () => {
     await runtime.dispose();
   });
 
-  it("keeps the catalog through a nested instruction reload", async () => {
-    const host = {
-      call: vi.fn().mockResolvedValue({
-        entries: [{ source: "src/AGENTS.md", content: "Use tabs." }],
-      }),
-    };
-    const runtime = createRuntime({ pluginSkills, host });
-
-    await (runtime as any).loadPathInstructions("Read", { path: "src/a.ts" });
+  it("keeps the skill catalog on the composed prompt", async () => {
+    const runtime = createRuntime({ pluginSkills });
 
     const prompt = (runtime as any).agent.state.systemPrompt;
     expect(prompt).toContain("# Skills");
-    expect(prompt).toContain("Use tabs.");
 
     await runtime.dispose();
   });
@@ -6952,9 +6687,7 @@ describe("DesktopAgentRuntime subagents", () => {
       subagents: [explorer, pinned],
       subagentProviders: { "remote/remote-model": remote },
       scratchDir: "/scratch/session-1",
-      projectInstructions: {
-        entries: [{ source: "AGENTS.md", content: "Use project rules." }],
-      } as ProjectInstructions,
+      workspaceRootsGuide: "Additional root: /work/shared",
     });
 
     // No pin means the session's own provider; a pin means exactly that model.
@@ -7774,9 +7507,6 @@ describe("DesktopAgentRuntime subagents", () => {
     };
     const host = {
       call: vi.fn((method: string) => {
-        if (method === "project.instructions.resolve") {
-          return Promise.resolve(undefined);
-        }
         if (method === "tools.execute") {
           return Promise.resolve({ ok: true, content: {} });
         }

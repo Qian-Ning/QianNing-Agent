@@ -20,8 +20,6 @@ import {
 import {
   capabilitiesFromModelConfig,
   clampThinkingLevel,
-  loadCustomSystemPrompt,
-  loadInstructionChain,
   loadSubagentDefinitions,
   modelConfigWithBinding,
   optionalProviderHeaders,
@@ -373,41 +371,30 @@ export function createSessionLaunchRuntime({
       typeof session.projectPath === "string" && session.projectPath.trim()
         ? session.projectPath.trim()
         : undefined;
-    let projectInstructions = await loadInstructionChain(projectPath);
-    // pi-compatible SYSTEM.md / APPEND_SYSTEM.md (issue #542): resolved once
-    // per launch; a change retires the runtime through the reuse match.
-    const customSystemPrompt = await loadCustomSystemPrompt(projectPath);
+    // Persona precedence: the conversation's own prompt (schema v20) if it
+    // sets one, otherwise the built-in default. The conversation prompt is the
+    // only editable persona scope; a blank or whitespace-only value means "no
+    // override", never "empty persona", so the built-in default answers.
+    const sessionSystemPrompt =
+      typeof session.systemPrompt === "string" ? session.systemPrompt.trim() : "";
+    const systemPrompt = sessionSystemPrompt || undefined;
     let projectMemory: string | undefined;
+    let workspaceRootsGuide: string | undefined;
     if (projectPath) {
       try {
         const result = await runtimeState.host!.call<{
           context?: {
             roots?: Array<{ path?: string }>;
-            instructions?: string;
             memory?: { content?: string };
           } | null;
         }>("project.group.context", { path: projectPath });
         const groupRoots = result.context?.roots ?? [];
-        const groupRootGuide = groupRoots.length > 1
-          ? [
-              `Primary root: ${groupRoots[0]?.path ?? projectPath}`,
-              ...groupRoots.slice(1).map((root) => `Additional root: ${root.path}`),
-              "Use an absolute path when reading or editing an additional root.",
-            ].join("\n")
-          : "";
-        const groupInstructions = result.context?.instructions?.trim();
-        if (groupRootGuide || groupInstructions) {
-          projectInstructions = {
-            entries: [
-              ...(projectInstructions?.entries ?? []),
-              ...(groupRootGuide
-                ? [{ source: "ChatGPT Project folders", content: groupRootGuide }]
-                : []),
-              ...(groupInstructions
-                ? [{ source: "ChatGPT Project instructions", content: groupInstructions }]
-                : []),
-            ],
-          };
+        if (groupRoots.length > 1) {
+          workspaceRootsGuide = [
+            `Primary root: ${groupRoots[0]?.path ?? projectPath}`,
+            ...groupRoots.slice(1).map((root) => `Additional root: ${root.path}`),
+            "Use an absolute path when reading or editing an additional root.",
+          ].join("\n");
         }
         const groupMemory = result.context?.memory?.content?.trim();
         if (groupMemory) projectMemory = groupMemory;
@@ -624,9 +611,9 @@ export function createSessionLaunchRuntime({
         scratchDir: join(dataDir, "scratch", sessionId),
         attachmentsDir: join(dataDir, "attachments"),
         projectPath,
-        customSystemPrompt,
-        projectInstructions,
+        systemPrompt,
         projectMemory,
+        workspaceRootsGuide,
         provider: {
           id: provider.id,
           name: provider.name,

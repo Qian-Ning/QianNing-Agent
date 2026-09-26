@@ -13,53 +13,67 @@ const listSource = await readComposerModule("ComposerModelList.tsx");
 const composerSource = `${modelMenuSource}\n${pickerSource}\n${sliderSource}\n${listSource}`;
 const stylesSource = await loadStyles();
 
-test("Composer uses one model popover with a root and one in-place submenu", () => {
-  assert.match(composerSource, /useState<ComposerMenuView>\("root"\)/);
-  assert.match(composerSource, /showView\("model"\)/);
-  // The reasoning level is the slider itself: no second submenu to enter.
-  assert.doesNotMatch(composerSource, /showView\("thinking"\)/);
-  assert.match(composerSource, /menuClassName="composer-model-menu composer-model-thinking-menu"/);
-  assert.match(composerSource, /role="menuitem"[\s\S]*?aria-haspopup="menu"/);
-  assert.match(composerSource, /className="composer-menu-back"/);
-  assert.match(composerSource, /IconChevronLeft/);
-  assert.doesNotMatch(composerSource, /className="composer-thinking"/);
-  assert.doesNotMatch(composerSource, /className={`icon-btn mode-chip thinking-chip/);
+test("Composer renders two independent pills sharing one controller (D629)", () => {
+  // Left model pill and right reasoning pill are separate AnchoredMenus, each
+  // with its own open flag, so one can be open while the other is closed.
+  assert.match(modelMenuSource, /const \[modelOpen, setModelOpen\] = useState\(false\)/);
+  assert.match(modelMenuSource, /const \[reasoningOpen, setReasoningOpen\] = useState\(false\)/);
+  assert.match(pickerSource, /composer-model-thinking-chip composer-model-chip/);
+  assert.match(pickerSource, /composer-model-thinking-chip composer-reasoning-chip/);
+  assert.match(pickerSource, /menuClassName="composer-model-menu composer-model-thinking-menu"/);
+  // The reasoning pill is ALWAYS shown so the control is never hidden (D630);
+  // a model without a published ladder still gets the full canonical ladder.
+  assert.match(modelMenuSource, /const hasReasoning = true/);
+  assert.match(modelMenuSource, /const modelPublishesReasoning = availableThinkingLevels\.length > 0/);
+  // The heading switches copy by real capability, but the pill itself is shown either way (D630).
+  assert.match(pickerSource, /modelPublishesReasoning\s*\n?\s*\? t\("chat\.reasoningSupportedBy"/);
+  assert.match(pickerSource, /: t\("chat\.reasoningUnavailableFor", \{ model: modelLabel \}\)/);
+  assert.match(pickerSource, /\{hasReasoning \? \(/);
+  // No leftover combined-popover scaffolding.
+  assert.doesNotMatch(pickerSource, /ComposerMenuView|showView|setView\(|composer-menu-back|IconChevronLeft/);
 });
 
-test("model selection returns to the root without closing", () => {
-  assert.match(composerSource, /await configureActiveSession\(\{[\s\S]*?thinkingLevel: nextThinkingLevel/);
-  assert.match(composerSource, /setQuery\(""\);[\s\S]*?setView\("root"\)/);
-  assert.match(composerSource, /const thinkingMenuLevels = sessionThinkingMenuLevels\(availableThinkingLevels\)/);
+test("model and reasoning selection each close only their own pill", () => {
+  // Selecting a model configures the session and closes the model pill; the
+  // reasoning pill is unaffected and vice versa.
+  assert.match(modelMenuSource, /const selectModel = async/);
+  assert.match(modelMenuSource, /await configureActiveSession\(\{[\s\S]*?thinkingLevel: nextThinkingLevel/);
+  assert.match(modelMenuSource, /setQuery\(""\);\s*\n\s*setModelOpen\(false\)/);
+  assert.match(modelMenuSource, /const selectThinkingLevel = async/);
+  assert.match(modelMenuSource, /setReasoningOpen\(false\);\s*\n\s*setThinkingHighlight\(-1\)/);
+  assert.match(modelMenuSource, /const thinkingMenuLevels = reasoningPickerLevels\(availableThinkingLevels\)/);
+  // closeMenus drops both at once for the mode/permission chips.
+  assert.match(modelMenuSource, /const closeMenus = \(\) => \{\s*\n\s*setModelOpen\(false\);\s*\n\s*setReasoningOpen\(false\);/);
 });
-test("the menu root carries the reasoning slider itself", () => {
-  // The root view renders the slider and nothing else for the level: there is
-  // no reasoning entry left to open a list of levels.
-  assert.match(composerSource, /\{thinkingMenuLevels\.length > 1 \? \(/);
-  assert.match(composerSource, /className="composer-thinking-slider"/);
-  assert.doesNotMatch(composerSource, /showView\("thinking"\)/);
-  assert.doesNotMatch(composerSource, /composer-thinking-list/);
-  assert.match(sliderSource, /"--stop-count": levels\.length/);
-  assert.match(composerSource, /type="range"/);
-  assert.match(composerSource, /className="composer-thinking-range"/);
-  assert.match(sliderSource, /aria-label=\{label\}/);
-  assert.match(sliderSource, /aria-valuetext=\{levels\[index\] \?\? level\}/);
-  assert.match(composerSource, /const commitThinkingLevel = /);
-  // The slider is the only path that writes a level, and its write is
-  // latest-wins: the queue owns the ordering.
-  assert.match(composerSource, /return queue\.commit\(level\)/);
+
+test("the reasoning pill carries a localized radio list and the drag slider", () => {
+  // The radio list uses the localized reasoning-level labels (D629); the wire
+  // value stays canonical, only the display label is translated.
+  assert.match(pickerSource, /role="menuitemradio"/);
+  assert.match(pickerSource, /aria-checked=\{thinkingLevel === level\}/);
+  assert.match(pickerSource, /\{t\(reasoningLevelLabelKey\(level\)\)\}/);
+  assert.match(pickerSource, /className="composer-thinking-list" ref=\{thinkingListRef\}/);
+  // The slider mirrors the same localized labels through labelFor.
+  assert.match(pickerSource, /\{thinkingMenuLevels\.length > 1 \? \(/);
+  assert.match(pickerSource, /labelFor=\{\(level\) => t\(reasoningLevelLabelKey\(level\)\)\}/);
   assert.match(pickerSource, /commit=\{commitThinkingLevel\}/);
-  assert.match(composerSource, /if \(SLIDER_KEYS\.has\(event\.key\)\) event\.stopPropagation\(\);/);
-  assert.match(composerSource, /composer-thinking-tick/);
-  assert.match(composerSource, /createLatestCommitQueue/);
-  assert.match(composerSource, /thinkingQueueRef\.current\?\.invalidate\(\)/);
+  assert.match(sliderSource, /"--stop-count": levels\.length/);
+  assert.match(sliderSource, /type="range"/);
+  assert.match(sliderSource, /className="composer-thinking-range"/);
+  assert.match(sliderSource, /aria-label=\{label\}/);
+  assert.match(sliderSource, /aria-valuetext=\{tickLabel\(levels\[index\] \?\? \(level as SessionThinkingLevel\)\)\}/);
+  assert.match(modelMenuSource, /const commitThinkingLevel = /);
+  assert.match(modelMenuSource, /if \(!\(await commitThinkingLevel\(level\)\)\) return;/);
+  assert.match(sliderSource, /if \(SLIDER_KEYS\.has\(event\.key\)\) event\.stopPropagation\(\);/);
+  assert.match(sliderSource, /className=\{`composer-thinking-tick /);
+  assert.match(modelMenuSource, /createLatestCommitQueue/);
+  assert.match(modelMenuSource, /thinkingQueueRef\.current\?\.invalidate\(\)/);
   assert.match(sliderSource, /tabIndex=\{-1\}/);
   assert.match(sliderSource, /className="composer-thinking-ticks" aria-hidden="true"/);
-  assert.doesNotMatch(pickerSource, /composer-thinking-tick[\s\S]{0,200}role="menuitemradio"/);
   assert.match(stylesSource, /\.composer-thinking-range::-webkit-slider-runnable-track/);
   assert.match(stylesSource, /\.composer-thinking-range::-webkit-slider-thumb/);
   assert.match(stylesSource, /\.composer-thinking-range::-moz-range-thumb/);
   assert.match(stylesSource, /\.composer-thinking-tick\.active\s*\{/);
-  assert.doesNotMatch(composerSource, /thinkingMode|showThinkingMode|ThinkingSelectionMode|thinkingCommitChainRef/);
 });
 
 test("the reasoning slider aligns each track dot and label to the thumb", () => {
@@ -85,28 +99,26 @@ test("the reasoning slider aligns each track dot and label to the thumb", () => 
   assert.match(stylesSource, /\.composer-thinking-range::-webkit-slider-runnable-track \{\s*height: var\(--thinking-track-height\);\s*background: transparent;/);
 });
 
-test("opening the combined menu preloads model metadata before its submenu", () => {
+test("opening the model pill preloads model metadata", () => {
   assert.match(
-    composerSource,
-    /useEffect\(\(\) => \{\n    if \(!open\) return;\n    for \(const candidate of providers\)\s*\{/,
+    modelMenuSource,
+    /useEffect\(\(\) => \{\n    if \(!modelOpen\) return;\n    for \(const candidate of providers\)\s*\{/,
   );
-  assert.match(composerSource, /void loadProviderModels\(candidate\.id\);/);
-  assert.match(composerSource, /\}, \[loadProviderModels, open, providers\]\);/);
+  assert.match(modelMenuSource, /void loadProviderModels\(candidate\.id\);/);
+  assert.match(modelMenuSource, /\}, \[loadProviderModels, modelOpen, providers\]\);/);
 });
 
-test("the combined chip and menu meet the compact accessible visual contract", () => {
-  assert.match(composerSource, /aria-haspopup="menu"/);
-  assert.match(composerSource, /aria-expanded=\{open\}/);
-  assert.match(composerSource, /role="menuitemradio"/);
-  assert.match(composerSource, /aria-checked=\{active\}/);
-  assert.doesNotMatch(composerSource, /aria-checked=\{thinkingLevel === level\}/);
-  assert.match(composerSource, /event\.key === "ArrowLeft"/);
-  assert.match(composerSource, /event\.key === "Escape"/);
+test("both pills meet the compact accessible visual contract", () => {
+  assert.match(pickerSource, /aria-haspopup="menu"/);
+  assert.match(pickerSource, /aria-expanded=\{modelOpen\}/);
+  assert.match(pickerSource, /aria-expanded=\{reasoningOpen\}/);
+  assert.match(pickerSource, /role="menuitemradio"/);
+  assert.match(modelMenuSource, /event\.key === "Escape"/);
+  assert.match(modelMenuSource, /event\.key === "ArrowDown"/);
   assert.match(stylesSource, /\.composer-model-thinking-menu\s*\{[\s\S]*?position:\s*fixed;/);
   assert.match(stylesSource, /\.composer-model-thinking-menu\s*\{[\s\S]*?top:\s*0;/);
   assert.match(stylesSource, /\.composer-model-thinking-menu\s*\{[\s\S]*?width:\s*min\(280px,\s*calc\(100vw - 24px\)\)/);
-  assert.match(composerSource, /className="composer-model-thinking-icon"[\s\S]*?<IconBot size=\{14\} \/>/);
-  assert.doesNotMatch(stylesSource, /\.composer-model-thinking-icon\.is-off/);
+  assert.match(pickerSource, /className="composer-model-thinking-icon"[\s\S]*?<IconBot size=\{14\} \/>/);
   assert.match(stylesSource, /@media \(prefers-reduced-motion: reduce\)/);
 });
 
@@ -156,46 +168,22 @@ test("reasoning projection uses the selected exact catalog row and binding", asy
   assert.match(source, /sameComposerModelId\(candidate\.id, model\.modelId\)/);
 });
 
-test("a model row spends the panel's width instead of stacking at its left edge", () => {
-  // The label and the capability icons share one line, with the icons pinned to
-  // the trailing edge: stacking them in a column left the right half of the
-  // menu empty next to every row.
-  assert.match(
-    stylesSource,
-    /\.composer-model-option-main\s*\{[^}]*flex-direction:\s*row;/,
-  );
-  assert.match(
-    stylesSource,
-    /\.composer-model-option-main\s*\{[^}]*flex-wrap:\s*wrap;/,
-  );
-  assert.match(
-    stylesSource,
-    /\.composer-model-option-meta\s*\{[^}]*margin-left:\s*auto;/,
-  );
-  // One label per row, and a long name wraps in full rather than truncating.
-  assert.doesNotMatch(stylesSource, /\.composer-model-full-id/);
-  assert.doesNotMatch(stylesSource, /\.composer-model-display-name/);
-  assert.match(
-    stylesSource,
-    /\.composer-model-label\s*\{[^}]*overflow-wrap:\s*anywhere;[^}]*white-space:\s*normal;/,
-  );
-});
-
-test("an alias is told apart from the catalog name, and capabilities are icons", () => {
-  // A row shows one of the two names, never both: the alias the user set wins
-  // over the catalog's, and it carries its own chip so which one is on screen
-  // stays visible.
-  assert.match(listSource, /\?\.alias\?\.trim\(\)/);
-  assert.match(listSource, /\{alias \|\| optionDisplayName\}/);
-  assert.match(listSource, /composer-model-label \$\{alias \? "is-alias" : ""\}/);
-  assert.match(
-    stylesSource,
-    /\.composer-model-label\.is-alias\s*\{[^}]*background:\s*var\(--ds-tile-deep\);/,
-  );
-  // Capability markers are icons whose accessible name stays the translated
-  // label, because the spelled-out badges were the widest thing in a row.
-  assert.match(listSource, /IconSparkles size=\{12\}/);
-  assert.match(listSource, /IconEye size=\{12\}/);
-  assert.match(listSource, /chat\.modelBadgeReasoning/);
-  assert.match(listSource, /chat\.modelBadgeVision/);
+test("the reasoning-level label helper maps every canonical level to an i18n key", async () => {
+  const source = await readComposerModule("model.ts");
+  // The picker and slider render labels through reasoningLevelLabelKey so the
+  // level ladder is localized while the wire value stays canonical (D629).
+  assert.match(source, /export function reasoningLevelLabelKey/);
+  assert.match(source, /REASONING_LEVEL_LABEL_KEYS/);
+  for (const [level, key] of [
+    ["off", "chat.reasoningLevelOff"],
+    ["minimal", "chat.reasoningLevelMinimal"],
+    ["low", "chat.reasoningLevelLow"],
+    ["medium", "chat.reasoningLevelMedium"],
+    ["high", "chat.reasoningLevelHigh"],
+    ["xhigh", "chat.reasoningLevelXhigh"],
+    ["max", "chat.reasoningLevelMax"],
+    ["omit", "chat.reasoningLevelOmit"],
+  ]) {
+    assert.match(source, new RegExp(`${level}:\\s*"${key.replace(".", "\\.")}"`));
+  }
 });

@@ -9,7 +9,6 @@ import { redactValue } from "./logger";
 export type {
   LocalToolHandler,
   LocalToolResult,
-  ProjectInstructionResolver,
   SidecarNotificationHandler,
   TrustedExtensionSidecarBridge,
   VendorAuthResolver,

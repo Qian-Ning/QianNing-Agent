@@ -122,6 +122,136 @@ fn v18_database_migrates_session_thinking_omit() {
     assert!(sql.contains("'omit'"), "{sql}");
 }
 
+#[test]
+fn v19_database_migrates_session_system_prompt_column() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    {
+        let db = Database::open(&path).unwrap();
+        // Force the pre-v20 shape: drop the column so the migration has real
+        // work to do rather than reading a column CREATE already added.
+        db.conn()
+            .execute_batch("ALTER TABLE sessions DROP COLUMN system_prompt;")
+            .unwrap();
+        db.conn().pragma_update(None, "user_version", 19).unwrap();
+    }
+    let db = Database::open(&path).unwrap();
+    assert_eq!(schema_version(db.conn()), SCHEMA_VERSION);
+    assert!(migration_backup_path(&path, 19).exists());
+    let has_column: i64 = db
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name = 'system_prompt'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(has_column, 1, "system_prompt column is present after v20");
+}
+
+#[test]
+fn boot_archives_and_drops_storage_removed_by_the_single_scope_persona_model() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    let kept = "grande";
+    {
+        let db = Database::open(&path).unwrap();
+        db.kv_set(
+            REMOVED_GROUP_INSTRUCTIONS_NAMESPACE,
+            "group-1",
+            &serde_json::json!({ "content": "Answer in French.", "updatedAt": 1 }),
+        )
+        .unwrap();
+        insert_raw_app_settings(
+            &db,
+            &serde_json::json!({
+                "theme": "dark",
+                "fontScale": kept,
+                "globalSystemPrompt": "You are a terse reviewer.",
+                "promptEnhancementCustomTemplate": true,
+                "promptEnhancementUserTemplate": "{{draft}} rewrite this",
+                "promptEnhancementSystemPrompt": "You are a rewriter.",
+            })
+            .to_string(),
+        );
+    }
+
+    let db = Database::open(&path).unwrap();
+    // The namespace is gone and every removed prompt key is gone, while an
+    // unrelated setting the app still reads survives untouched.
+    let leftover: i64 = db
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM kv WHERE ns = ?1",
+            params![REMOVED_GROUP_INSTRUCTIONS_NAMESPACE],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(leftover, 0, "removed namespace is empty after boot");
+    let settings = db.get_setting("app").unwrap().unwrap();
+    for key in REMOVED_PROMPT_SETTINGS_KEYS {
+        assert!(settings.get(*key).is_none(), "{key} is still stored");
+    }
+    assert_eq!(settings["theme"], serde_json::json!("dark"));
+    assert_eq!(settings["fontScale"], serde_json::json!(kept));
+
+    // Nothing is dropped without a readable copy of it, including the app-wide
+    // prompt that used to be a second persona scope.
+    let archive = dir.path().join(REMOVED_PROMPT_ARCHIVE_FILE);
+    let dump: Value = serde_json::from_slice(&std::fs::read(&archive).unwrap()).unwrap();
+    assert_eq!(
+        dump["projectGroupInstructions"]["group-1"]["content"],
+        serde_json::json!("Answer in French.")
+    );
+    assert_eq!(
+        dump["applicationSettings"]["promptEnhancementUserTemplate"],
+        serde_json::json!("{{draft}} rewrite this")
+    );
+    assert_eq!(
+        dump["applicationSettings"]["globalSystemPrompt"],
+        serde_json::json!("You are a terse reviewer.")
+    );
+    assert!(dump["applicationSettings"].get("theme").is_none());
+
+    // Idempotent: a second boot finds nothing to remove and keeps the archive.
+    let before = std::fs::metadata(&archive).unwrap().modified().unwrap();
+    drop(db);
+    let db = Database::open(&path).unwrap();
+    assert!(!std::fs::read(&archive).unwrap().is_empty());
+    assert!(std::fs::metadata(&archive).unwrap().modified().unwrap() >= before);
+    let settings = db.get_setting("app").unwrap().unwrap();
+    assert_eq!(settings["theme"], serde_json::json!("dark"));
+}
+
+#[test]
+fn boot_keeps_unknown_storage_when_the_archive_cannot_be_written() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    {
+        let db = Database::open(&path).unwrap();
+        db.kv_set(
+            REMOVED_GROUP_INSTRUCTIONS_NAMESPACE,
+            "group-1",
+            &serde_json::json!({ "content": "Answer in French." }),
+        )
+        .unwrap();
+    }
+    // Occupy the archive path with a directory so the write fails: the rows
+    // must survive rather than disappear without a copy.
+    std::fs::create_dir(dir.path().join(REMOVED_PROMPT_ARCHIVE_FILE)).unwrap();
+
+    let db = Database::open(&path).unwrap();
+    let leftover: i64 = db
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM kv WHERE ns = ?1",
+            params![REMOVED_GROUP_INSTRUCTIONS_NAMESPACE],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(leftover, 1, "unarchived rows are left in place");
+}
+
 fn schema_version(conn: &Connection) -> i64 {
     conn.query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap()
@@ -1188,17 +1318,11 @@ fn project_group_roundtrips_roots_and_shared_context() {
         )
         .unwrap();
     assert_eq!(memory.content, "## Stack\n\nUse Rust for services.");
-    assert_eq!(
-        db.set_project_group_instructions(&group.id, "Keep changes backwards compatible.")
-            .unwrap(),
-        "Keep changes backwards compatible."
-    );
     let context = db
         .project_group_context_for_path(&second.to_string_lossy())
         .unwrap()
         .unwrap();
     assert_eq!(context.group_id, group.id);
-    assert_eq!(context.instructions, "Keep changes backwards compatible.");
     assert_eq!(context.memory.content, "## Stack\n\nUse Rust for services.");
 
     let renamed = db

@@ -34,13 +34,16 @@ schema v7, v8, v11, and v14:
 
 Project groups use the existing `kv` extension boundary rather than a new
 relational schema. The host stores one JSON record per group in the
-`projectGroups` namespace, shared memory in `projectGroupMemory`, and shared
-instructions in `projectGroupInstructions`. The record contains the stable group
-id, display name, ordered canonical roots, primary root, timestamps, and optional
+`projectGroups` namespace and shared memory in `projectGroupMemory`. The record
+contains the stable group id, display name, ordered canonical roots, primary
+root, timestamps, and optional
 `detachedPaths`. Removed roots stay in `detachedPaths` so an old path project
 record is not recreated as a standalone legacy group; sessions and files are not
 deleted. Existing path projects are projected as legacy single-root groups at
-read time; their path-scoped memory and filesystem instructions remain readable.
+read time; their path-scoped memory remains readable. The
+`projectGroupInstructions` namespace ADR 0308 removed is archived to
+`<data-dir>/removed-prompt-storage.json` and deleted on the first startup that
+finds it.
 5. **Plan/Goal checkpoints are immutable host artifacts** with recorded path,
    hash, and size; the existing approval row also carries execution fields.
    Startup interruption is the process-epoch fence and no work is replayed.
@@ -278,16 +281,20 @@ The app settings JSON optionally stores `thinkingDisplayMode` (`detailed` or
 `compact`). Missing values retain detailed presentation. This additive display
 preference neither rewrites stored reasoning nor changes the database schema.
 
-The same blob optionally stores the prompt-enhancement overrides
-`promptEnhancementCustomTemplate` (the switch that decides whether a stored
-template applies), `promptEnhancementUserTemplate`,
-`promptEnhancementProviderId`, `promptEnhancementModelId`, and
-`promptEnhancementThinkingLevel` (ADR 0121). An absent or blank user template means the
-built-in default applies, so clearing the field stores no key rather than an
-empty string. A non-blank user template must contain the draft variable and stay
-within `PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH`; host-core rejects a write that
-breaks either rule and drops any stored `promptEnhancementSystemPrompt`, which is
-no longer read. No schema version bump is required.
+The app-wide `globalSystemPrompt` this blob once stored was removed when the
+persona model was reduced to the per-conversation prompt alone: the only
+editable persona is now `sessions.system_prompt`. A value written by an older
+build is archived to `<data-dir>/removed-prompt-storage.json` and dropped from
+the settings blob during startup maintenance
+(`prune_removed_prompt_storage`), archive first, so nothing is deleted without a
+readable copy.
+
+The blob also stores which model and how much reasoning the one-shot ✨ rewrite
+uses (`promptEnhancementProviderId`, `promptEnhancementModelId`, and
+`promptEnhancementThinkingLevel`, ADR 0121). The rewrite's own instructions are
+not settings: `promptEnhancementCustomTemplate`,
+`promptEnhancementUserTemplate`, and `promptEnhancementSystemPrompt` are gone,
+and host-core no longer accepts them. No schema version bump is required.
 
 New config domains (e.g. MCP servers) start as a namespace; they graduate to
 tables only when they need relations or indexes.

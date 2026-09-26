@@ -53,15 +53,18 @@ test("modifier Enter sends when Enter-to-send is disabled", () => {
 });
 
 test("model menu keydown ignores IME composition keystrokes", () => {
-  const handler = modelMenuSource.slice(
-    modelMenuSource.indexOf("const onMenuKeyDown"),
-    modelMenuSource.indexOf('event.key === "ArrowDown"'),
-  );
-  assert.match(
-    handler,
-    /event\.nativeEvent\.isComposing \|\| event\.nativeEvent\.keyCode === 229/,
-    "menu navigation must bail out while an IME composition is active",
-  );
+  // The two pills each own a keydown handler; both must bail out during an
+  // active IME composition before any navigation.
+  for (const entry of ["const onModelMenuKeyDown", "const onReasoningMenuKeyDown"]) {
+    const start = modelMenuSource.indexOf(entry);
+    assert.ok(start > -1, `${entry} must exist`);
+    const handler = modelMenuSource.slice(start, modelMenuSource.indexOf("};", start));
+    assert.match(
+      handler,
+      /event\.nativeEvent\.isComposing \|\| event\.nativeEvent\.keyCode === 229/,
+      "menu navigation must bail out while an IME composition is active",
+    );
+  }
 });
 
 test("an ideographic comma opens the slash menu from an empty draft (D405)", () => {

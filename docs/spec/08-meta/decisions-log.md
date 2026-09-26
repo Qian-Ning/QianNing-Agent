@@ -7155,3 +7155,77 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   duplicating an id), plus the `scripts/e2e/provider-api-style.tsx` and
   `scripts/e2e/image-generation-ui.tsx` probes, which no longer click Manage
   models.
+## 2026-09-26 — Named local-runtime presets and keyless local auth (D628)
+
+- Amend D029 / D310 / D312 / ADR 0012. D029 already supports local models
+  through OpenAI-compatible gateways, but reaching Ollama or LM Studio meant
+  choosing Custom endpoint, typing the loopback URL, and pasting a throwaway
+  key to get past the key-authenticated save path. Local inference is a first
+  request for a personal build, so it should be one Service pick.
+- The add-provider Service list gains two named endpoints: `ollama`
+  (`http://localhost:11434/v1`) and `lmstudio` (`http://localhost:1234/v1`),
+  both Chat Completions, flagged `local` so the setup dialog probes `/models`
+  without a key and saves the row with `authKind: "none"`. A custom endpoint
+  saved without a key is treated the same way (it is a self-hosted server).
+  Pasting a key (vLLM `--api-key`, a proxy) still stores `api_key_and_base_url`,
+  and a `none` row can gain a key later — the choice is not a one-way trap.
+- No new provider type, apiStyle, wire adapter, protocol, schema, or secret
+  path: `none` auth, loopback base URLs, and the `pi-desktop-no-auth` request
+  placeholder all already exist. Readiness (`providerServesChatModels`) and
+  launch (`session-launch`) already treat `none` as keyless. Custom endpoints
+  remain available. See `03-runtime/11-provider-model-system.md`,
+  `03-runtime/12-provider-config-schema.md`, and `04-ux/06-settings-ia.md`.
+
+## 2026-09-26 — Two composer pills and prompt-enhancement UI removed (D629)
+
+- Amend D270 / D347 / ADR 0121. The composer's bottom row previously carried
+  one combined `model × reasoning` chip plus a standalone Sparkles
+  `Enhance prompt` action. The reference build the user follows shows two
+  separate selectors — a model pill on the left and a reasoning-level pill on
+  the right — and this personal build no longer has an enhancement feature, so
+  the Sparkles action's slot is reused by the reasoning pill.
+- The single combined chip is split into two independent pills that share one
+  controller (`useComposerModelMenu`): each owns its open flag so only one
+  popover shows at a time, but both share the selection writes, the latest-wins
+  reasoning commit queue, and the keyboard contract. The reasoning pill is
+  always present (superseded by D630); the draggable
+  `ThinkingLevelSlider` is retained inside the reasoning menu.
+- Reasoning levels are now shown as localized labels (zh-CN 关闭 / 最小 / 低 /
+  中 / 高 / 极高 / 最高 / 默认; English Off / Minimal / Low / Medium / High /
+  Very high / Max / Default) through `reasoningLevelLabelKey()` in nine locales.
+  The wire value stays canonical (`off`, `low`, `high`, `xhigh`, `max`, `omit`,
+  …); only the display label is translated. This reverses D270's
+  "canonical value, not localized" rule for the composer surface only.
+- The prompt-enhancement UI is removed at every entry point: the composer
+  Sparkles button, its undo affordance, the error surface, the renderer wiring
+  (`invalidatePromptEnhancement` and the enhancement draft/version refs), the
+  Settings ▸ AI 「提示词增强」 card (`prompt-enhancement-card.tsx` and
+  `EnhancementModelCard.tsx` deleted), its nav wiring, and its Settings-search
+  index keys. The host bridge (`pi-desktop/prompt/enhance`), the typed
+  `enhancePrompt` API, the one-shot agent-runtime path, and the abort/timeout
+  guard are **retained with no UI trigger** so the feature can be restored
+  without backend work. No Rust, IPC contract, schema, or persisted-format
+  change. See `04-ux/08-component-spec.md` §11, `04-ux/06-settings-ia.md`, and
+  `04-ux/12-prompt-enhancement.md`.
+
+## 2026-09-26 — Reasoning pill is always shown, never capability-hidden (D630)
+
+- Amend D629. The user requires the reasoning-strength control to remain
+  visible at all times: "模型识别到没有推理效果，可以默认关闭，但功能不能隐藏，
+  需要显示出来". D626 rendered the reasoning pill only for a model that
+  publishes a reasoning ladder, so selecting a non-reasoning model (or one whose
+  catalog metadata is missing/stale — common for local, proxy, and newly
+  released models) made the pill disappear entirely.
+- The reasoning pill now renders unconditionally (`hasReasoning = true` in
+  `useComposerModelMenu`). When the model publishes no ladder, the pill still
+  offers the full canonical ladder (`reasoningPickerLevels()` falls back to
+  `THINKING_LEVELS`), defaults to `off`, and shows the
+  `chat.reasoningUnavailableFor` heading ("no built-in reasoning levels — keep
+  it off, or force one" / zh-CN "没有内置推理等级——可保持关闭，也可手动指定") in
+  place of `chat.reasoningSupportedBy`. `modelPublishesReasoning` still tracks
+  the real capability for the heading text only.
+- The wire value stays canonical and the existing per-provider clamp
+  (`thinkingLevelForProvider`) is unchanged, so a forced level is sent verbatim
+  and the host validates it against `THINKING_LEVELS`; no Rust, IPC contract,
+  schema, or persisted-format change. See `04-ux/08-component-spec.md` §11 and
+  `06-delivery/04-e2e-test-plan.md` E2E-050.

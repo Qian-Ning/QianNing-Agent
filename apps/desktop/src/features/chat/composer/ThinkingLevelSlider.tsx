@@ -10,11 +10,15 @@ type Props = {
   levels: readonly SessionThinkingLevel[];
   level: string;
   label: string;
+  /** Localized short label for each level; defaults to the raw token. */
+  labelFor?: (level: SessionThinkingLevel) => string;
   commit: (level: SessionThinkingLevel) => Promise<boolean>;
 };
 
 /** Native input owns interaction; the decorative thumb owns visual motion. */
-export function ThinkingLevelSlider({ levels, level, label, commit }: Props) {
+export function ThinkingLevelSlider({ levels, level, label, labelFor, commit }: Props) {
+  const tickLabel = (candidate: SessionThinkingLevel) =>
+    labelFor ? labelFor(candidate) : candidate;
   const [pendingIndex, setPendingIndex] = useState<number | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const rail = useRef<HTMLDivElement>(null);
@@ -73,7 +77,7 @@ export function ThinkingLevelSlider({ levels, level, label, commit }: Props) {
         type="range"
         className="composer-thinking-range"
         min={0} max={levels.length - 1} step={1} value={index}
-        aria-label={label} aria-valuetext={levels[index] ?? level}
+        aria-label={label} aria-valuetext={tickLabel(levels[index] ?? (level as SessionThinkingLevel))}
         onChange={(event) => select(Number(event.target.value))}
         onPointerDown={(event) => {
           if (!event.isPrimary || event.button !== 0) return;
@@ -96,8 +100,8 @@ export function ThinkingLevelSlider({ levels, level, label, commit }: Props) {
       {levels.map((candidate, stop) => <button key={candidate} type="button" tabIndex={-1}
         data-hovered={hoveredIndex === stop ? "true" : undefined}
         className={`composer-thinking-tick ${index === stop ? "active" : ""}`}
-        title={candidate} onMouseDown={(event) => event.preventDefault()}
-        onClick={() => select(stop)}>{candidate}</button>)}
+        title={tickLabel(candidate)} onMouseDown={(event) => event.preventDefault()}
+        onClick={() => select(stop)}>{tickLabel(candidate)}</button>)}
     </div>
   </div>;
 }

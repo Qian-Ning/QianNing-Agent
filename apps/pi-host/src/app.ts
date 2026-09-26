@@ -159,10 +159,6 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
       log("error", "agent sidecar exited unexpectedly", { exitCode: code, signal, stderrTail });
       void supervisor.superviseRestart("sidecar");
     });
-    sidecar.setProjectInstructionResolver(async ({ projectPath, path }) => {
-      const { loadInstructionChain } = await import("@pi-desktop/agent-runtime");
-      return loadInstructionChain(projectPath, path);
-    });
     sidecar.setLocalTool("Skill", async ({ args, sessionId }) => {
       const id = String((args as { id?: unknown })?.id ?? "").trim();
       const host = getHost();
@@ -237,7 +233,6 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
       disposeSession: async (sessionId) => {
         const sidecar = getSidecar();
         if (!sidecar) return;
-        sidecar.clearProjectInstructionRoot(sessionId);
         await sidecar.call("agent.disposeSession", { sessionId }).catch(() => undefined);
       },
       revokeDevice: (deviceId) => store.revokeDevice(deviceId, new Date().toISOString()),

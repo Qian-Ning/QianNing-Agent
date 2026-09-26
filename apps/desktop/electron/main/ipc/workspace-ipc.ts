@@ -339,25 +339,6 @@ export function registerWorkspaceIpc({
       });
     },
   );
-  handle(
-    IPC.invoke.projectGroupInstructionsGet,
-    async (input: { groupId?: unknown } = {}) => {
-      if (!host) throw new Error("host unavailable");
-      const groupId = typeof input.groupId === "string" ? input.groupId.trim() : "";
-      if (!groupId) throw new Error("project group id required");
-      return host.call("project.group.instructions.get", { groupId });
-    },
-  );
-  handle(
-    IPC.invoke.projectGroupInstructionsSave,
-    async (input: { groupId?: unknown; content?: unknown } = {}) => {
-      if (!host) throw new Error("host unavailable");
-      const groupId = typeof input.groupId === "string" ? input.groupId.trim() : "";
-      const content = typeof input.content === "string" ? input.content : "";
-      if (!groupId) throw new Error("project group id required");
-      return host.call("project.group.instructions.set", { groupId, content });
-    },
-  );
   handle(IPC.invoke.projectOpenFolder, async (path: string) => {
     if (!host) throw new Error("host unavailable");
     const requestedPath = String(path ?? "").trim();

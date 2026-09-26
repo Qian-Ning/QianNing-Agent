@@ -267,13 +267,13 @@ test("packaging publishes an electron-updater feed for GitHub Releases", () => {
     "rpm build-id configuration",
   );
   // GitHub asset URLs mangle spaces; keep Windows artifact names space-free.
-  assert.equal(pkg.build.nsis.artifactName, "PI-Desktop-Setup-${version}.${ext}");
+  assert.equal(pkg.build.nsis.artifactName, "QianNing-Agent-Setup-${version}.${ext}");
   const winTargets = pkg.build.win.target.map((entry) => entry.target);
   assert.deepEqual(winTargets, ["nsis", "zip", "portable"], "Windows release targets");
-  assert.equal(pkg.build.portable.artifactName, "PI-Desktop-Portable-${version}.${ext}", "portable artifact name");
+  assert.equal(pkg.build.portable.artifactName, "QianNing-Agent-Portable-${version}.${ext}", "portable artifact name");
   assert.equal(
     pkg.build.win.artifactName,
-    "PI-Desktop-Portable-${version}.${ext}",
+    "QianNing-Agent-Portable-${version}.${ext}",
   );
   assert.equal(pkg.build.extraMetadata.piDistribution, "installed");
   assert.match(pkg.scripts["dist:win"], /build-desktop-release\.mjs win/);

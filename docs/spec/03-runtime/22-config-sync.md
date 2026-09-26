@@ -32,15 +32,18 @@ granularity, activation, and recovery policy for every supported domain.
 ## 2. Portable domains
 
 The current adapter set covers application preferences, user-owned providers,
-MCP definitions, user skills, global subagents, app-managed global/project
-instructions and projects, plugin installation intent, scheduled automations,
-and optional project memory. Credentials are opt-in. Provider API keys and MCP
-environment variables/headers are included only when the credential category
-is selected; OAuth access/refresh tokens and cookies are never exported.
-The instruction adapter reads only the fixed global `~/.pi/agent/AGENTS.md`
-and each registered project's root `AGENTS.md`; it does not scan nested
-repositories or arbitrary files. Imported instruction files are written only
-after their scope is explicitly selected, mapped where required, and approved.
+MCP definitions, user skills, global subagents, projects, plugin installation
+intent, scheduled automations, and optional project memory. Credentials are
+opt-in. Provider API keys and MCP environment variables/headers are included
+only when the credential category is selected; OAuth access/refresh tokens and
+cookies are never exported.
+
+There is no app-wide persona setting to sync: the persona model was reduced to
+the per-conversation prompt alone, and a conversation's prompt is session state,
+not portable application configuration. There is likewise no instruction domain
+and no instruction file to capture — a prompt is settings or session state, not
+a file on disk, so it needs no mapping and cannot be written outside the
+approved selection.
 Directory-shaped skills carry bounded sibling resources as authenticated
 objects. Package paths, symlinks, collisions, file counts, and total size are
 validated by Host before approved resources are written: at most 256 resources

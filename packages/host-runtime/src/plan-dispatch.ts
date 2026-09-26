@@ -140,7 +140,6 @@ export class PlanExecutionDispatcher {
         this.approvedExecutionIdsBySession.set(execution.sessionId, execution.id);
         this.executionTurns.set(execution.id, { sessionId: execution.sessionId, turnId });
         this.started.add(execution.id);
-        sidecar.setProjectInstructionRoot(execution.sessionId, launch.projectPath);
         const accepted = await sidecar.call<{ accepted: boolean }>("agent.executeApprovedPlan", {
           ...launch.sidecarParams,
           mode: "agent",

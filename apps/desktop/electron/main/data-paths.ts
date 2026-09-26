@@ -26,10 +26,10 @@ import { APP_NAME } from "@pi-desktop/shared";
 export const DEVELOPMENT_INSTALLATION_NAME = `${APP_NAME} Dev`;
 
 /** Data directory of a shipped installation, below the user's home. */
-export const INSTALLATION_DATA_DIR_NAME = ".pi-desktop";
+export const INSTALLATION_DATA_DIR_NAME = ".qianning-agent";
 
 /** Data directory of a development installation, below the user's home. */
-export const DEVELOPMENT_DATA_DIR_NAME = ".pi-desktop-dev";
+export const DEVELOPMENT_DATA_DIR_NAME = ".qianning-agent-dev";
 
 export type DataDirInput = {
   /** `PI_DESKTOP_DATA_DIR`; an explicit directory wins over either profile. */

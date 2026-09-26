@@ -3,11 +3,11 @@
   "version": "0.15.8",
   "desktopName": "pi-desktop.desktop",
   "private": true,
-  "description": "PI-Desktop Electron application",
-  "homepage": "https://github.com/vastsa/PI-Desktop",
+  "description": "QianNing Agent — personal AI coding agent desktop app",
+  "homepage": "https://github.com/QianNing/QianNing-Agent",
   "author": {
-    "name": "vastsa",
-    "email": "hhxk666@gmail.com"
+    "name": "QianNing",
+    "email": "qian-ning@foxmail.com"
   },
   "main": "./out/main/index.js",
   "type": "module",
@@ -79,8 +79,8 @@
     "zustand": "^5.0.15"
   },
   "build": {
-    "appId": "net.aiuo.pi-desktop",
-    "productName": "PI-Desktop",
+    "appId": "com.qianning.agent",
+    "productName": "QianNing Agent",
     "directories": {
       "output": "release"
     },
@@ -203,8 +203,8 @@
       ]
     },
     "win": {
-      "executableName": "PI-Desktop",
-      "artifactName": "PI-Desktop-Portable-${version}.${ext}",
+      "executableName": "QianNing Agent",
+      "artifactName": "QianNing-Agent-Portable-${version}.${ext}",
       "target": [
         {
           "target": "nsis",
@@ -240,11 +240,11 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "PI-Desktop",
-      "artifactName": "PI-Desktop-Setup-${version}.${ext}"
+      "shortcutName": "QianNing Agent",
+      "artifactName": "QianNing-Agent-Setup-${version}.${ext}"
     },
     "portable": {
-      "artifactName": "PI-Desktop-Portable-${version}.${ext}"
+      "artifactName": "QianNing-Agent-Portable-${version}.${ext}"
     },
     "deb": {
       "packageName": "pi-desktop",

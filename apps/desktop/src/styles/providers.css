@@ -1082,6 +1082,47 @@
   gap: 8px;
 }
 
+/*
+  Per-conversation prompt editor. It reuses the project-instructions dialog
+  chrome so every long-text editor in the app reads as one surface, and only
+  adds the Active/Inherited state row that tells the user which persona is in
+  effect for this conversation.
+*/
+.session-prompt-dialog {
+  width: min(100%, 720px);
+}
+
+.session-prompt-dialog-editor {
+  min-height: 220px;
+}
+
+.session-prompt-state {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--ds-tile);
+  padding: 2px 8px;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-xs);
+}
+
+.session-prompt-state.active {
+  background: color-mix(in oklab, var(--ds-accent) 16%, transparent);
+  color: var(--ds-accent);
+}
+
+.session-prompt-inherited {
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+/* The topbar prompt control paints "this conversation has its own persona"
+   on the icon itself, the way the permission chip paints its mode. */
+.conversation-topbar .ct-icon-btn.conversation-prompt-btn.active {
+  color: var(--ds-accent);
+}
+
 /* Model combobox: plain input that reveals discovered models beneath it. */
 .provider-model-combo {
   position: relative;

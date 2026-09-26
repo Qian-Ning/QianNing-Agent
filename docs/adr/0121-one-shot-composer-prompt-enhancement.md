@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-24
+- Updated: 2026-09-25 (rewrite templates are product constants; the card is model and reasoning only — see [ADR 0308](0308-two-persona-scopes.md))
 - Updated: 2026-09-20 (one Prompt enhancement card on Settings → AI)
 - Related: Issue #14, Issue #562
 

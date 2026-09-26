@@ -11,7 +11,6 @@ import {
   assertFeedbackIssueUrl,
   buildBugReportUrl,
 } from "@pi-desktop/shared";
-import { globalInstructionPath } from "@pi-desktop/agent-runtime";
 import type { HostProcess } from "../host-process";
 import type { AppUpdaterController } from "../updater";
 import type { IpcRegistrar } from "./types";
@@ -131,29 +130,6 @@ export function registerAppIpc({
     return families;
   });
 
-  const instructionFile = async (
-    scope: "global" | "project",
-    projectPath?: string | null,
-  ) => {
-    const path =
-      scope === "global"
-        ? globalInstructionPath()
-        : projectPath
-          ? join(projectPath, "AGENTS.md")
-          : null;
-    if (!path) {
-      throw Object.assign(new Error("workspace required"), {
-        errorCode: ErrorCodes.INVALID_ARGUMENT,
-      });
-    }
-    const { readFile } = await import("node:fs/promises");
-    try {
-      return { scope, path, content: await readFile(path, "utf8"), exists: true };
-    } catch {
-      return { scope, path, content: "", exists: false };
-    }
-  };
-
   const managedProjectPath = async (input: unknown): Promise<string> => {
     const host = getHost();
     if (!host) throw new Error("host unavailable");
@@ -183,46 +159,6 @@ export function registerAppIpc({
     }
     return projectPath;
   };
-
-  handle(
-    IPC.invoke.agentInstructionsGet,
-    async (input: { projectPath?: unknown } = {}) => {
-      const projectPath =
-        input.projectPath === undefined
-          ? null
-          : await managedProjectPath(input.projectPath);
-      return {
-        global: await instructionFile("global"),
-        ...(projectPath
-          ? { project: await instructionFile("project", projectPath) }
-          : {}),
-      };
-    },
-  );
-
-  handle(
-    IPC.invoke.agentInstructionsSave,
-    async (input: {
-      scope?: "global" | "project";
-      content?: unknown;
-      projectPath?: unknown;
-    } = {}) => {
-      if (input.scope !== "global" && input.scope !== "project") {
-        throw Object.assign(new Error("instruction scope required"), {
-          errorCode: ErrorCodes.INVALID_ARGUMENT,
-        });
-      }
-      const scope = input.scope;
-      const projectPath =
-        scope === "project" ? await managedProjectPath(input.projectPath) : null;
-      const file = await instructionFile(scope, projectPath);
-      const content = typeof input.content === "string" ? input.content : "";
-      const { mkdir, writeFile } = await import("node:fs/promises");
-      await mkdir(dirname(file.path), { recursive: true });
-      await writeFile(file.path, content, "utf8");
-      return { file: { ...file, content, exists: true } };
-    },
-  );
 
   handle(IPC.invoke.updatesGetState, async () => updater.getState());
   handle(IPC.invoke.updatesCheck, async () => updater.check({ manual: true }));

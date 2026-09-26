@@ -60,14 +60,14 @@ Each ADR includes:
 | 0034 | Merge the command palette into global search | Accepted |
 | 0035 | Surface the OS locale through the preload bridge | Accepted |
 | 0036 | Split Settings into AI and Shortcuts destinations | Accepted |
-| 0037 | Resolve project instructions in Electron main | Accepted |
+| 0037 | Resolve project instructions in Electron main | Superseded by 0307 |
 | 0038 | Bridge plugin-declared MCP servers in Electron main | Accepted |
 | 0039 | Activate plugin skills and ship plugin authoring as a first-party devkit | Accepted (skill delivery revised by D174) |
 | 0040 | Resident plugin services and the inter-plugin message bus | Accepted |
 | 0041 | Bound host runtime resources and decouple message persistence | Accepted |
 | 0042 | Message-scoped inline review cards | Superseded by 0043 |
 | 0043 | Message-owned review snapshots and guarded rollback | Accepted |
-| 0044 | Session-bound project instruction preflight | Accepted |
+| 0044 | Session-bound project instruction preflight | Superseded by 0307 |
 | 0045 | Bash tool inherits the user's login-shell PATH | Accepted (amended D600 / issue #571) |
 | 0046 | Categorized process log files | Accepted |
 | 0047 | Context usage inspector with exact and estimated token sources | Accepted |
@@ -337,6 +337,7 @@ Each ADR includes:
 | 0305 | [Keep scheduled-task execution settings task-owned](0305-scheduled-task-execution-settings.md) | Accepted for implementation (amends scheduled-desktop-automations) |
 | 0306 | [Brazilian Portuguese (pt-BR) shell locale](0306-portuguese-brazil-shell-locale.md) | Accepted (amends ADR 0160 / 0183 / 0185) |
 | 0307 | [Sync the API-key service catalog with pi-ai's built-in providers](0307-pi-ai-api-key-provider-sync.md) | Accepted (amends ADR 0012 / 0020 / 0116 / 0155) |
+| 0308 | [One editable persona scope, the per-conversation prompt](0308-two-persona-scopes.md) | Accepted (supersedes 0037 / 0044, amends 0121) |
 | turn-process-and-thinking-display | [Turn process and thinking presentation](turn-process-and-thinking-display.md) | Accepted |
 | provider-display-order | [Provider display order](provider-display-order.md) | Accepted |
 | registry-header-variable-spelling | [Remote header variables accept the registry's `{name}` spelling](registry-header-variable-spelling.md) | Proposed |

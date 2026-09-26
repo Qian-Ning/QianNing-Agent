@@ -1,20 +1,11 @@
 /**
  * Templates for Composer's one-shot prompt enhancement (ADR 0121).
  *
- * Shared rather than agent-runtime-local because three surfaces must agree on
- * the exact text: the runtime that sends the request, the settings UI that
- * shows the default a user is overriding, and the "restore default" action.
- * Keeping one copy means what the settings page displays is what the model
- * receives.
- *
- * The user template is overridable through
- * `AppSettings.promptEnhancementUserTemplate`; an absent or blank override means
- * "use the default below". The system prompt is not overridable: it carries the
- * contract the feature is verified against. Rust host-core validates an override
- * before it persists (see
- * `crates/host-core/src/rpc/mod.rs`), so the resolution helpers here are the
- * runtime's defensive second line, not the primary gate.
- */
+ * These are the product's own instructions for the rewrite, not a user-facing
+ * setting: the enhancement is a one-shot draft rewriter that never becomes a
+ * conversation's persona, so it must not compete with the two persona scopes
+ * (the per-conversation prompt and the app-wide one). One copy, one behavior.
+*/
 
 /**
  * The single placeholder a user template must contain. The draft is inserted
@@ -27,7 +18,7 @@ export const PROMPT_ENHANCEMENT_DRAFT_VARIABLE = "{{draft}}";
  * Upper bound for one stored template, in characters. Mirrored by
  * `MAX_PROMPT_ENHANCEMENT_TEMPLATE_LEN` in host-core; keep the two in step.
  */
-export const PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH = 8000;
+export const PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH = 1_000_000;
 
 /**
  * Default system prompt. Mature products with the same one-shot job converge on
@@ -99,62 +90,6 @@ Fix the login bug: identify the failing code path, explain the root cause, and a
 Never emit: "The draft is in Chinese, so the response must be in Chinese." followed by the draft unchanged.
 请说明要处理的具体对象、期望的输出格式、可接受的约束条件与验收标准；如果缺少必要信息，先列出需要我补充的内容再开始。`;
 
-/** The persisted user-template override, as stored on `AppSettings`. */
-export type PromptEnhancementTemplateOverrides = {
-  /** Off (absent) keeps the built-in template even when text is stored. */
-  customTemplate?: boolean | null;
-  userTemplate?: string | null;
-};
-
-function usableOverride(value: string | null | undefined): string | undefined {
-  if (typeof value !== "string") return undefined;
-  return value.trim() ? value : undefined;
-}
-
-/** True when a user template is usable: non-blank and carries `{{draft}}`. */
-export function isValidPromptEnhancementUserTemplate(
-  template: string | null | undefined,
-): boolean {
-  const value = usableOverride(template);
-  return value !== undefined && value.includes(PROMPT_ENHANCEMENT_DRAFT_VARIABLE);
-}
-
-/**
- * Resolve the effective user template. A blank override falls back to the
- * default, so clearing the field and restoring the default are the same write.
- *
- * A user template that persists without `{{draft}}` cannot happen through the
- * settings UI or host-core validation; should one appear anyway (a hand-edited
- * store), the renderer falls back to the default rather than sending the model
- * a prompt with the user's draft missing. The system prompt is not overridable
- * and is always the built-in default.
- */
-export function resolvePromptEnhancementTemplates(
-  overrides: PromptEnhancementTemplateOverrides = {},
-): { systemPrompt: string; userTemplate: string } {
-  // The switch is the gate: a stored template is kept for the next time it is
-  // turned on, but does not apply until then.
-  const customApplies =
-    overrides.customTemplate === true &&
-    isValidPromptEnhancementUserTemplate(overrides.userTemplate);
-  return {
-    systemPrompt: PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT,
-    userTemplate: customApplies
-      ? (overrides.userTemplate as string)
-      : PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE,
-  };
-}
-
-/** True when the stored template is currently the one in force. */
-export function isCustomPromptEnhancementTemplateActive(
-  overrides: PromptEnhancementTemplateOverrides = {},
-): boolean {
-  return (
-    overrides.customTemplate === true &&
-    isValidPromptEnhancementUserTemplate(overrides.userTemplate)
-  );
-}
-
 /**
  * Render the one-shot user message for a draft.
  *
@@ -162,12 +97,8 @@ export function isCustomPromptEnhancementTemplateActive(
  * interprets `$&`, `$'`, `` $` `` or `$1` inside the draft as a replacement
  * pattern.
  */
-export function renderPromptEnhancementUserPrompt(
-  draft: string,
-  userTemplate?: string | null,
-): string {
-  const template = isValidPromptEnhancementUserTemplate(userTemplate)
-    ? (userTemplate as string)
-    : PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE;
-  return template.split(PROMPT_ENHANCEMENT_DRAFT_VARIABLE).join(draft);
+export function renderPromptEnhancementUserPrompt(draft: string): string {
+  return PROMPT_ENHANCEMENT_DEFAULT_USER_TEMPLATE.split(
+    PROMPT_ENHANCEMENT_DRAFT_VARIABLE,
+  ).join(draft);
 }

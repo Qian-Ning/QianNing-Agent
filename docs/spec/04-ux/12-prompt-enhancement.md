@@ -1,11 +1,20 @@
 # Composer Prompt Enhancement
 
+> **Status (D629): UI removed.** QianNing Agent removed both user-facing entry
+> points for prompt enhancement — the composer Sparkles action and the
+> Settings ▸ AI 「提示词增强」 card — because the persona model was reduced to a
+> single editable scope and a separate one-shot draft rewriter competed with it.
+> The host bridge, the `pi-desktop/prompt/enhance` invoke channel, the one-shot
+> runtime, and the abort/timeout guard described below are **retained** so the
+> feature can be restored without backend work; they simply have no UI trigger
+> in this build. The sections below describe that retained backend contract.
+
 ## 1. Scope
 
 The prompt-enhancement capability supports a one-shot `Enhance prompt` request
-for a non-empty draft. The Composer renders it as a standalone Sparkles action
-between the combined model × reasoning selector and the single Stop/Send
-submit slot. When invoked, the request rewrites only the draft text with the
+for a non-empty draft. When it had a UI, the Composer rendered it as a
+standalone Sparkles action beside the model selector. When invoked, the
+request rewrites only the draft text with the
 model currently displayed in the Composer. Inline file-reference chips,
 including pasted image chips, remain unchanged and do not disable the action.
 
@@ -43,17 +52,16 @@ providers receive a short-lived `ModelAuth` through the existing main-owned
 resolver; no key or refresh token crosses into the renderer.
 
 The completion context is a built-in system prompt plus one user message built
-from a user template. The template defaults to
-`packages/shared/src/prompt-enhancement.ts` and can be overridden in Settings
-(see §5). It carries a `{{draft}}` placeholder; every occurrence is replaced
-with the draft text, and the default template keeps the draft inside `<draft>`
-tags so draft text reads as content to improve rather than as instructions. The
-system prompt is not user-editable and states the role, the rewrite principles,
-an explicit do-not list (including leaving code, commands, file paths,
-identifiers, and other proper nouns exactly as written), language-following
-rules that forbid language meta notes, a length brake (do not expand beyond
-roughly twice the draft's length; a long draft may stay long), and the output
-contract.
+from a built-in user template. Both live in
+`packages/shared/src/prompt-enhancement.ts` and are the product's own: nothing
+in Settings can replace them, so there is exactly one possible context shape.
+The template carries a `{{draft}}` placeholder and keeps the draft inside
+`<draft>` tags so draft text reads as content to improve rather than as
+instructions. The system prompt states the role, the rewrite principles, an
+explicit do-not list (including leaving code, commands, file paths, identifiers,
+and other proper nouns exactly as written), language-following rules that forbid
+language meta notes, a length brake (do not expand beyond roughly twice the
+draft's length; a long draft may stay long), and the output contract.
 
 No prior conversation, tools, attachments, or session state are included. The
 renderer removes its inline file-reference chip tokens before the request and
@@ -87,54 +95,13 @@ the newer draft. File chips are not included in the rewrite and are not
 removed by success or failure.
 
 
-## 5. Configurable user template, model, and reasoning
+## 5. Model and reasoning
 
-Settings -> AI hosts a Prompt enhancement card. One row carries a switch —
-`Use a custom template` — and the settings icon button the subagent rows use for
-editing, which opens an editor sheet. The sheet holds the user template and
-saves on `Save`, so closing it abandons the edit; `Cancel` and `Escape` close it,
-and a click on the sheet backdrop closes it only when no save is in flight.
-
-| Field | Effect when off or empty |
-|---|---|
-| `promptEnhancementCustomTemplate` | the built-in user template applies |
-| `promptEnhancementUserTemplate` | the built-in user template |
-
-The switch is the gate, not the text, and it is enabled only once a usable
-custom template exists. With no saved template it renders disabled with a hint
-that saving one unlocks it, because it would otherwise choose between two
-identical states. Saving a template turns the switch on, since the user just
-wrote one.
-
-Turning the switch off keeps `promptEnhancementUserTemplate`, so turning it back
-on restores the user's text instead of discarding it. A stored template with the
-switch off, or an enabled switch whose template cannot be found, both resolve to
-the built-in template.
-
-The system prompt is not editable and exposes no field. It is part of the
-feature contract (proper-noun preservation, language following without meta
-notes, the length brake, the output contract), so changing it is a source change
-that updates this spec. host-core drops a stored system-prompt override written
-by an earlier build, so the store cannot hold a value nothing reads.
-
-The template field shows the built-in default text when no override is stored,
-so the editor opens on the value in force. Editing the field back to the exact
-default text clears the override rather than storing a frozen copy, so later
-improvements to the default still reach users who never customized it. Never
-persisting the default text is deliberate.
-
-The field offers an insert action that writes the draft variable at the caret,
-and a save that would leave the template without it is refused locally with a
-message. host-core enforces the same rules for any writer: a non-blank
-`promptEnhancementUserTemplate` must contain `{{draft}}`, the value must be a
-string within `PROMPT_ENHANCEMENT_TEMPLATE_MAX_LENGTH`, and a blank value is
-stored as absent rather than as an empty string.
-
-### Enhancement model and reasoning
-
-Which model runs the rewrite, and with how much reasoning, live on the same
-Settings -> AI Prompt enhancement card as the template, as two rows below the
-custom-template switch. The model row is titled `Default model` and uses the
+Settings -> AI hosts a Prompt enhancement card. It has no editor and no
+template fields: the rewrite instructions are the product's own (§3), and
+offering both a persona editor and a rewriter editor on the same surface is what
+made the prompt model unreadable. The card carries exactly two rows, the model
+and the reasoning level. The model row is titled `Default model` and uses the
 same anchored, searchable menu as Settings -> Models' default-model row.
 
 | Field | Effect when empty |

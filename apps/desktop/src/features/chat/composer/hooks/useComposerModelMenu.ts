@@ -22,10 +22,9 @@ import {
 } from "../../../../lib/provider-display";
 import { providerThinkingLevels } from "../../../../lib/session-thinking";
 import {
-  sessionThinkingMenuLevels,
+  reasoningPickerLevels,
   thinkingLevelForProvider,
   thinkingProviderForModel,
-  type ComposerMenuView,
 } from "../model";
 import { createLatestCommitQueue } from "../thinking-commit-queue";
 
@@ -42,6 +41,13 @@ type UseComposerModelMenuOptions = {
   }) => Promise<void>;
 };
 
+/**
+ * Shared state and commit logic for the composer's two separate pills — the
+ * model picker and the reasoning-level picker (D629). Each menu owns its own
+ * open flag so one can be open while the other is closed, but both share the
+ * selection writes, the latest-wins reasoning commit queue, and the keyboard
+ * contract so a model switch and a reasoning change stay consistent.
+ */
 export function useComposerModelMenu({
   mode,
   activeSessionId,
@@ -62,13 +68,14 @@ export function useComposerModelMenu({
   const providerModels = useAppStore((s) => s.providerModels);
   const loadProviderModels = useAppStore((s) => s.loadProviderModels);
   const showToast = useAppStore((s) => s.showToast);
-  const [open, setOpen] = useState(false);
-  const [view, setView] = useState<ComposerMenuView>("root");
+  const [modelOpen, setModelOpen] = useState(false);
+  const [reasoningOpen, setReasoningOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [modelHighlight, setModelHighlight] = useState(-1);
-  const rootMenuRef = useRef<HTMLDivElement>(null);
+  const [thinkingHighlight, setThinkingHighlight] = useState(-1);
   const modelSearchRef = useRef<HTMLInputElement>(null);
   const modelListRef = useRef<HTMLDivElement>(null);
+  const thinkingListRef = useRef<HTMLDivElement>(null);
   const thinkingConfigRef = useRef({
     mode,
     providerId: provider?.id,
@@ -114,7 +121,13 @@ export function useComposerModelMenu({
       provider ? providerModels[provider.id] : undefined,
     );
   const availableThinkingLevels = providerThinkingLevels(thinkingProvider);
-  const thinkingMenuLevels = sessionThinkingMenuLevels(availableThinkingLevels);
+  const thinkingMenuLevels = reasoningPickerLevels(availableThinkingLevels);
+  // The reasoning pill is ALWAYS shown so the control is never hidden (D630):
+  // a model with a published ladder gets its ladder; a model that publishes no
+  // ladder (non-reasoning, or one whose catalog metadata is missing/stale)
+  // still gets the full canonical ladder and simply defaults to `off`.
+  const hasReasoning = true;
+  const modelPublishesReasoning = availableThinkingLevels.length > 0;
   const modelGroups = useMemo(
     () =>
       providers
@@ -180,61 +193,88 @@ export function useComposerModelMenu({
     [flatModels, provider?.id, modelId],
   );
 
-  useEffect(() => {
-    if (!open || view !== "model") return;
-    setModelHighlight(queryNeedle ? (flatModels.length ? 0 : -1) : activeFlatIndex);
-  }, [activeFlatIndex, flatModels.length, flatModelsKey, open, queryNeedle, view]);
+  const closeMenus = () => {
+    setModelOpen(false);
+    setReasoningOpen(false);
+  };
 
   useEffect(() => {
-    if (!open) return;
+    if (!modelOpen) return;
+    setModelHighlight(queryNeedle ? (flatModels.length ? 0 : -1) : activeFlatIndex);
+  }, [activeFlatIndex, flatModels.length, flatModelsKey, modelOpen, queryNeedle]);
+
+  useEffect(() => {
+    if (!reasoningOpen) return;
+    setThinkingHighlight(
+      thinkingLevel ? thinkingMenuLevels.indexOf(thinkingLevel) : -1,
+    );
+  }, [reasoningOpen, thinkingLevel, thinkingMenuLevels]);
+
+  useEffect(() => {
+    if (!modelOpen) return;
     for (const candidate of providers) {
       if (candidate.enabled && (candidate.hasSecret || candidate.authKind === "none")) {
         void loadProviderModels(candidate.id);
       }
     }
-  }, [loadProviderModels, open, providers]);
+  }, [loadProviderModels, modelOpen, providers]);
 
   useEffect(() => {
-    if (open) return;
-    setView("root");
+    if (modelOpen) return;
     setQuery("");
     setModelHighlight(-1);
-  }, [open]);
+  }, [modelOpen]);
+  useEffect(() => {
+    if (reasoningOpen) return;
+    setThinkingHighlight(-1);
+  }, [reasoningOpen]);
   useEffect(() => {
     thinkingQueueRef.current?.invalidate();
   }, [activeSessionId, provider?.id, modelId]);
 
   useEffect(() => {
     if (!controlsBlocked) return;
-    setOpen(false);
+    closeMenus();
     thinkingQueueRef.current?.invalidate();
   }, [controlsBlocked]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!modelOpen) return;
     requestAnimationFrame(() => {
-      if (view === "root") rootMenuRef.current?.querySelector<HTMLButtonElement>(".composer-menu-entry")?.focus();
-      if (view === "model") modelSearchRef.current?.focus();
-      if (view === "model" && modelHighlight >= 0) {
+      modelSearchRef.current?.focus();
+      if (modelHighlight >= 0) {
         modelListRef.current
           ?.querySelector(`[data-model-index="${modelHighlight}"]`)
           ?.scrollIntoView({ block: "nearest" });
       }
     });
-  }, [open, view]);
+  }, [modelOpen]);
 
   useEffect(() => {
-    if (!open || view !== "model" || modelHighlight < 0) return;
+    if (!reasoningOpen) return;
+    requestAnimationFrame(() => {
+      thinkingListRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+      if (thinkingHighlight >= 0) {
+        thinkingListRef.current
+          ?.querySelector(`[data-thinking-index="${thinkingHighlight}"]`)
+          ?.scrollIntoView({ block: "nearest" });
+      }
+    });
+  }, [reasoningOpen]);
+
+  useEffect(() => {
+    if (!modelOpen || modelHighlight < 0) return;
     modelListRef.current
       ?.querySelector(`[data-model-index="${modelHighlight}"]`)
       ?.scrollIntoView({ block: "nearest" });
-  }, [modelHighlight, open, view]);
+  }, [modelHighlight, modelOpen]);
 
-  const showView = (nextView: ComposerMenuView) => {
-    setView(nextView);
-    setModelHighlight(-1);
-    if (nextView !== "model") setQuery("");
-  };
+  useEffect(() => {
+    if (!reasoningOpen || thinkingHighlight < 0) return;
+    thinkingListRef.current
+      ?.querySelector(`[data-thinking-index="${thinkingHighlight}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [reasoningOpen, thinkingHighlight]);
 
   const selectModel = async (candidate: ProviderPublic, nextModelId: string) => {
     thinkingQueueRef.current?.invalidate();
@@ -269,7 +309,7 @@ export function useComposerModelMenu({
         thinkingLevel: nextThinkingLevel,
       });
       setQuery("");
-      setView("root");
+      setModelOpen(false);
       setModelHighlight(-1);
     } catch (error) {
       showToast(error instanceof Error ? error.message : String(error), {
@@ -290,20 +330,21 @@ export function useComposerModelMenu({
     return queue.commit(level);
   };
 
-  const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  const selectThinkingLevel = async (level: SessionThinkingLevel) => {
+    if (!(await commitThinkingLevel(level))) return;
+    setReasoningOpen(false);
+    setThinkingHighlight(-1);
+  };
+
+  const onModelMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
     if (event.key === "Escape") {
       event.preventDefault();
-      setOpen(false);
-      return;
-    }
-    if (event.key === "ArrowLeft" && view !== "root") {
-      event.preventDefault();
-      showView("root");
+      setModelOpen(false);
       return;
     }
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
-      if (event.key === "Enter" && view === "model" && event.target instanceof HTMLInputElement) {
+      if (event.key === "Enter" && event.target instanceof HTMLInputElement) {
         const entry = flatModels[modelHighlight];
         if (entry) {
           event.preventDefault();
@@ -312,7 +353,6 @@ export function useComposerModelMenu({
       }
       return;
     }
-    if (view === "root") return;
     event.preventDefault();
     if (!flatModels.length) return;
     const delta = event.key === "ArrowDown" ? 1 : -1;
@@ -322,24 +362,56 @@ export function useComposerModelMenu({
     });
   };
 
+  const onReasoningMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setReasoningOpen(false);
+      return;
+    }
+    if (event.key === "Enter") {
+      const level = thinkingMenuLevels[thinkingHighlight] ?? thinkingMenuLevels[0];
+      if (level) {
+        event.preventDefault();
+        void selectThinkingLevel(level);
+      }
+      return;
+    }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    if (!thinkingMenuLevels.length) return;
+    const delta = event.key === "ArrowDown" ? 1 : -1;
+    setThinkingHighlight((current) => {
+      const base = current < 0 ? (delta > 0 ? -1 : thinkingMenuLevels.length) : current;
+      return (base + delta + thinkingMenuLevels.length) % thinkingMenuLevels.length;
+    });
+  };
+
   return {
-    open,
-    setOpen,
-    view,
+    modelOpen,
+    setModelOpen,
+    reasoningOpen,
+    setReasoningOpen,
+    closeMenus,
     query,
     setQuery,
     modelHighlight,
     setModelHighlight,
-    rootMenuRef,
+    thinkingHighlight,
+    setThinkingHighlight,
     modelSearchRef,
     modelListRef,
+    thinkingListRef,
     modelGroups: filteredModelGroups,
     flatModels,
     thinkingMenuLevels,
-    showView,
+    hasReasoning,
+    modelPublishesReasoning,
     selectModel,
     commitThinkingLevel,
-    onMenuKeyDown,
+    selectThinkingLevel,
+    onModelMenuKeyDown,
+    onReasoningMenuKeyDown,
     controlsBlocked,
   };
 }

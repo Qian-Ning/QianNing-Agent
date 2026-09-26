@@ -9,8 +9,6 @@ import type { ThinkingLevel } from "@pi-desktop/shared";
 import {
   PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT,
   renderPromptEnhancementUserPrompt,
-  resolvePromptEnhancementTemplates,
-  type PromptEnhancementTemplateOverrides,
 } from "@pi-desktop/shared";
 import { completeOneShot } from "./one-shot-complete.js";
 import type { RuntimeProviderConfig } from "./provider-binding.js";
@@ -21,7 +19,7 @@ export type PromptEnhancementStream = (
   options?: SimpleStreamOptions,
 ) => AssistantMessageEventStream;
 
-export type PromptEnhancementOptions = PromptEnhancementTemplateOverrides & {
+export type PromptEnhancementOptions = {
   signal?: AbortSignal;
   /** Test seam for a provider stream; production uses the resolved model registry. */
   stream?: PromptEnhancementStream;
@@ -30,21 +28,16 @@ export type PromptEnhancementOptions = PromptEnhancementTemplateOverrides & {
 };
 
 /**
- * Build the one-shot context from the effective templates. `overrides` carries
- * the user's saved templates; blank or missing values fall back to the shared
- * defaults.
+ * Build the one-shot context. The rewriter's instructions are the product's, so
+ * this context is composed purely from the shared defaults.
  */
-export function promptEnhancementContext(
-  draft: string,
-  overrides: PromptEnhancementTemplateOverrides = {},
-): Context {
-  const templates = resolvePromptEnhancementTemplates(overrides);
+export function promptEnhancementContext(draft: string): Context {
   return {
-    systemPrompt: templates.systemPrompt,
+    systemPrompt: PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT,
     messages: [
       {
         role: "user",
-        content: renderPromptEnhancementUserPrompt(draft, templates.userTemplate),
+        content: renderPromptEnhancementUserPrompt(draft),
         timestamp: Date.now(),
       },
     ],
@@ -102,7 +95,7 @@ export async function enhancePromptDraft(
 ): Promise<string> {
   const result = await completeOneShot(
     provider,
-    promptEnhancementContext(draft, options),
+    promptEnhancementContext(draft),
     thinkingLevel,
     {
       signal: options.signal,

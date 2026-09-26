@@ -1862,20 +1862,21 @@ identify the platform validation still needed.
 #### E2E-089: Composer model menu opens upward and switches model
 
 - **Preconditions**: Chat route active; provider configured.
-- **Steps**: 1) Click the Composer-right model × reasoning chip. 2) Confirm the
-  menu opens upward from the bottom composer. 3) Enter Model, select a different
-  provider/model, and return to the root. 4) Enter Reasoning level and select a
+- **Steps**: 1) Click the Composer-right model pill. 2) Confirm the
+  menu opens upward from the bottom composer. 3) Select a different
+  provider/model. 4) Open the reasoning pill and select a
   supported level. 5) Open Settings from the command palette or application menu.
-- **Expected**: The trigger uses a Bot icon while retaining the current model
-  and reasoning labels. The root shows only Model and Reasoning level entries.
-  The Model submenu lists enabled runnable providers and only the model bindings
+- **Expected**: The model pill uses a Bot icon with the current model label,
+  and the reasoning pill (when the model has a ladder) shows the localized
+  level. The model menu lists enabled runnable providers and only the model bindings
   saved for each provider, with each model row visibly indented beneath its provider
   heading. Cached or freshly discovered models may supply display names and
   metadata for those bindings, but unconfigured discovery results are absent;
-  configured IDs remain available when discovery is unavailable. The Reasoning
-  level submenu lists only the selected model's published levels. Selecting
-  updates the active session model/reasoning configuration without dismissing
-  the menu; Settings opens from the command palette/menu. The Composer model
+  configured IDs remain available when discovery is unavailable. The reasoning
+  menu lists only the selected model's published levels. Selecting a model
+  closes the model menu; selecting a level closes the reasoning menu; both
+  update the active session model/reasoning configuration. Settings opens from
+  the command palette/menu. The Composer model
   trigger ellipsizes long IDs. Each option shows one display name only, and
   hovering a long option exposes its complete display name in the tooltip
   without changing the menu layout or adding a visible model ID.
@@ -1889,16 +1890,16 @@ identify the platform validation still needed.
 
 - **Preconditions**: Chat route active; a configured model is selected; the
   composer is rendered in both empty-home and thread-docked variants.
-- **Steps**: 1) Set the Composer container to 560px and inspect the combined
-  model × reasoning trigger. 2) Set it to 480px, then 450px. 3) At each width,
-  inspect the mode, permission, context, enhancement, and Send/Stop controls;
+- **Steps**: 1) Set the Composer container to 560px and inspect the model and
+  reasoning pills. 2) Set it to 480px, then 450px. 3) At each width,
+  inspect the mode, permission, context, and Send/Stop controls;
   open the model menu from the narrow trigger; repeat the visual check in the
   other Composer variant.
 - **Expected**: The toolbar remains one non-wrapping row and does not overflow
-  its container. At 560px the reasoning label and separator yield first; at
-  480px the model label is further capped; at the 450px floor the combined
-  model × reasoning trigger is a 32px icon-only control. The full selection is
-  still available through the trigger's menu, tooltip, and accessible name.
+  its container. At 560px the reasoning label yields first; at
+  480px the model label is further capped; at the 450px floor the model pill is
+  a 32px icon-only control. The full selection is
+  still available through each pill's menu, tooltip, and accessible name.
   Mode and permission labels remain single-line and ellipsized, the context
   ring and action controls retain usable hit targets, and the single Send/Stop
   slot remains reachable. Home and thread-docked composers match.
@@ -3195,9 +3196,9 @@ identify the platform validation still needed.
   sidebar renders the derived `src/assets/brand/logo-*.png` asset through `BrandLogo`
   and the docked composer prompt row has no leading
   brand icon or reserved icon slot and its text aligns directly with the input
-  gutter. The right Composer toolbar shows a Bot model × reasoning chip, then
-  a standalone prompt-enhancement Sparkles button, then the single submit
-  slot. The footer Settings and Plugins actions are compact icon buttons;
+  gutter. The right Composer toolbar shows a Bot model pill and a reasoning
+  pill, then the single submit slot (the standalone prompt-enhancement Sparkles
+  button was removed, D626). The footer Settings and Plugins actions are compact icon buttons;
   Plugins sits immediately to the right of Settings and exposes a localized
   accessible name. Every scoped session-creation control uses the dedicated
   message-plus icon with localized labels and accessible names. `Codex` remains visible only as
@@ -3393,33 +3394,34 @@ identify the platform validation still needed.
 - **Status**: Unit-covered (`rpc::tests` for project-bound, Temporary, and
   missing-session workspace resolution); full multi-turn UI scenario Draft
 
-#### E2E-050: Composer model × reasoning menu follows exact capability
+#### E2E-050: Composer model and reasoning pills follow exact capability
 
 - **Preconditions**: One catalogued reasoning model, one non-reasoning model,
   and one unknown free-form model id.
-- **Steps**: 1) Open the Composer model × reasoning chip. 2) Confirm the root
-  contains the Model and Reasoning level entries with current values, plus a
-  slider with one track dot per supported level on a rail directly beneath the
-  Reasoning level entry; confirm every level keeps a visible label under the
-  rail, each centered on its track dot. 3) Drag and click the slider across
-  multiple supported levels and click a tick label, confirming the chip
-  updates while the menu stays at the root and the selected track dot sits
-  under the thumb. 4) Open Model, search for a model, and select a
-  model from a provider group; confirm the menu remains open at the root.
-  5) Open Reasoning level and choose a level from the radio list. 6) Repeat
-  with a non-reasoning provider and an unknown free-form model id; exercise
-  Escape, outside click, Up/Down, Enter, Left, and the slider's arrow keys.
-  In both roomy and crowded toolbars, switch `omit`, `low`, `high`, `max`,
-  and `off` without closing the menu: its horizontal position stays stable,
-  and the trigger stays inside its slot, including with a long model name.
+- **Steps**: 1) Open the Composer reasoning pill (right of the model pill).
+  Confirm it lists the supported reasoning levels as a localized radio list
+  (zh-CN 关闭/最小/低/中/高/极高/最高/默认) plus a
+  slider with one track dot per supported level on a rail; confirm every level
+  keeps a visible label under the rail, each centered on its track dot. 2) Drag
+  and click the slider across multiple supported levels and click a tick label,
+  confirming the pill label updates while the menu stays open and the selected
+  track dot sits under the thumb. 3) Open the model pill, search for a model,
+  and select a model from a provider group; confirm the model menu closes on
+  selection and the reasoning pill stays untouched. 4) Reopen the reasoning
+  pill and choose a level from the radio list; confirm it closes on selection.
+  5) Confirm opening one pill closes the other so only one popover is visible.
+  6) Repeat with a non-reasoning provider and an
+  unknown free-form model id; the reasoning pill stays present in both cases
+  (D630): its heading switches to the "no built-in reasoning levels" note, the
+  level defaults to `off`, and the user can still force a level up. Exercise
+  Escape, outside click, Up/Down, Enter,
+  and the slider's arrow keys. In both roomy and crowded toolbars, switch
+  `omit`, `low`, `high`, `max`, and `off` without the menu drifting, and the
+  triggers stay inside their slots, including with a long model name.
   Moving the anchor and dispatching a viewport resize must reposition the
   menu without an event-target type error. Automated geometry coverage:
   `node scripts/e2e-composer-thinking-layout.mjs` (isolated Electron fixture,
   production React picker and compiled styles; no live providers).
-  Repeat native mouse press/release to open, select the first and subsequent
-  reasoning levels, close, and reopen three times with motion enabled. The
-  menu must retain its opening position on every selection; synthetic DOM
-  `click()` alone does not exercise the trigger's `:active` transition.
   Hover each dot and its label: the corresponding label highlights. Unfilled
   dots brighten and enlarge slightly; filled dots and the selected thumb stay unchanged
   without shifting the menu. Move outside: the preview clears and the selected
@@ -3433,21 +3435,22 @@ identify the platform validation still needed.
   Native range dragging
   follows immediately; arrow keys retain focus and update the selection.
   With reduced motion enabled, the target is shown without a transition.
-- **Expected**: The chip is in the right toolbar with a Bot icon, before the
-  standalone prompt-enhancement Sparkles action and Send/Abort; Off omits the
-  level text. The single anchored menu replaces its root
-  with an in-place back row and submenu, never opens tabs or a second popover,
-  and always reopens at the root. Model search filters sticky provider groups;
+- **Expected**: Two separate pills sit in the right toolbar — a model pill
+  (Bot icon plus model name) and a reasoning pill (activity glyph plus the
+  localized level) — before Send/Abort. The Sparkles enhancement action is
+  gone (D629). The reasoning pill only appears for a model that publishes a
+  reasoning ladder. Each pill opens its own anchored menu above itself and
+  opening one closes the other. Model search filters sticky provider groups;
   reasoning levels come from `omit` then the selected model binding's enabled
-  levels in canonical order. The root carries a drag slider with one labeled
-  stop per level directly beneath the Reasoning level entry when more than
+  levels in canonical order. The reasoning menu carries a drag slider with one
+  labeled stop per level when more than
   one level is listed (a single-level binding hides the slider). Dragging
   across several stops persists only the last pending level; tick labels are
-  not tab stops. Slider and tick commits update the chip immediately while
-  the menu stays at the root. The Reasoning level entry opens the radio list,
-  which uses radio semantics, a trailing check, and the current model support
-  note. Selecting either value immediately updates the chip and root value,
-  clears model filtering, and keeps the menu open. A
+  not tab stops. Slider and tick commits update the pill immediately while
+  the menu stays open. The radio list uses radio semantics, a trailing check,
+  and the current model support note. Selecting a model closes the model menu;
+  selecting a level closes the reasoning menu. Labels are localized while the
+  wire value stays canonical (`off`, `low`, `high`, `xhigh`, `max`, `omit`). A
   non-reasoning or unknown model starts at `off`, but an explicit Settings
   binding can make its configured levels available; discovery never promotes it
   automatically. Refreshing discovered model data cannot overwrite the binding.
@@ -5697,61 +5700,56 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `context-compaction.test.mjs`, `assistant-turns.test.mjs`, host-core
   transcript/session unit tests); full provider/UI journey Draft
 
-#### E2E-AGENTS-001: Project instruction chain configures an agent session
+#### E2E-AGENTS-001: The conversation prompt is the only editable persona
 
-- **Preconditions**: A project contains root `AGENTS.md`, nested
-  `packages/api/AGENTS.md`, and a provider is configured.
+- **Preconditions**: A provider is configured; a conversation is open.
 - **Steps**:
-  1. Start an Agent-mode conversation and submit a task covered by the root
-     instruction.
-  2. Let the agent read or edit `packages/api/handler.ts`.
-  3. Add `packages/api/AGENTS.override.md`, then have the agent access another
-     file in that directory.
-  4. Edit the root instruction while the session is idle, then submit a
-     follow-up task.
-- **Expected**: The initial runtime receives the root chain. Before the file
-  tool executes, the nested instruction is appended after its root source and
-  therefore takes precedence. In one directory, `AGENTS.override.md` wins over
-  `AGENTS.md`; `CLAUDE.md` and `.claude/CLAUDE.md` are fallback names. The idle
-  follow-up uses changed root content rather than reusing the prior runtime.
-  Empty, unreadable, oversized, and out-of-root instruction files do not block
-  the turn; combined UTF-8 content is capped at 32 KiB. If path-specific
-  resolution exceeds its two-second deadline or the host is unavailable, the
-  file tool continues with the base chain and does not retain a sibling
-  directory's rules. Repeated file tools in the same directory during one
-  prompt reuse one path-resolution claim; the next prompt resolves again so
-  changed instruction files are observed. The resolver uses the session-bound
-  project root passed at runtime launch and does not issue a per-file
-  `session.get` RPC.
-- **Specs linked**: `03-runtime/02-agent-runtime.md`
+  1. Start an Agent-mode conversation that sets no prompt of its own, submit a
+     prompt, and confirm the built-in persona answers.
+  2. Open the conversation topbar editor in one conversation, save a
+     conversation prompt, and submit a prompt there and in a second conversation
+     that has no prompt of its own.
+  3. Clear the conversation editor and submit again.
+  4. Create a workspace containing `.pi/SYSTEM.md` and an `AGENTS.md`, then
+     start a conversation in it.
+- **Expected**: A conversation's own prompt reaches the model in that
+  conversation only; every other conversation answers with the built-in
+  persona, since there is no app-wide scope to inherit. Clearing the editor
+  restores the built-in persona rather than an empty one: a blank or
+  whitespace-only value is never a prompt. The stored value is trimmed. Neither
+  `.pi/SYSTEM.md` nor `AGENTS.md` changes the persona or the sidecar launch
+  params. The conversation editor states whether this conversation has its own
+  prompt or is using the built-in persona, and is unavailable for imported
+  native-pi conversations.
+- **Specs linked**: `03-runtime/02-agent-runtime.md`,
+  `04-ux/06-settings-ia.md`, ADR 0308
 - **Acceptance**: C (chat/stream), F (persistence)
 - **Milestone**: M5
-- **Status**: Partially automated (`project-instructions.test.ts`,
-  `runtime.test.ts`); full
-  provider/UI journey Draft
+- **Status**: Unit-covered (`session-system-prompt.test.mjs`,
+  `custom-system-prompt-launch.test.mjs`, host-core session unit tests);
+  full provider/UI journey Draft
 
-#### E2E-AGENTS-002: Global settings and project menus manage instruction files
+#### E2E-AGENTS-002: No app-wide prompt surface remains
 
-- **Preconditions**: PI-Desktop is running; a project can be opened.
+- **Preconditions**: PI-Desktop is running; a conversation is open.
 - **Steps**:
-  1. Open Settings -> Instructions without an active project and save global
-     content.
-  2. Start a new agent session and verify its instruction context includes the
-     global source.
-  3. Open the Projects view and use a project's more menu to edit and save its
-     displayed `AGENTS.md`.
-  4. Submit a prompt in a new or idle session.
-- **Expected**: The global editor targets only `~/.pi/agent/AGENTS.md`. The
-  project editor is available only from a known project's Projects-view more
-  menu and targets only that project's root `AGENTS.md`. Both editors show
-  their resolved paths, preserve the typed text, and save through the dedicated
-  IPC rather than a general file write API. Global content precedes project
-  content in the next runtime; the saved project content follows it and takes
-  precedence on conflicts. The project editor is a viewport-level dialog.
-- **Specs linked**: `03-runtime/02-agent-runtime.md`, ADR 0037
-- **Acceptance**: C (chat/stream), D (workspace), F (persistence)
+  1. Open Settings and review the navigation rail and search.
+  2. Inspect an application-settings blob written by an older build that carries
+     a `globalSystemPrompt` value, then start the app on it.
+- **Expected**: Settings exposes no Prompts / 提示词 destination and no
+  app-wide system-prompt field; the only persona editor is the conversation
+  topbar editor. A `globalSystemPrompt` written by an older build is archived to
+  `<data-dir>/removed-prompt-storage.json` and dropped from the settings blob at
+  startup (archive first, so a failed archive leaves the value in place), and it
+  never reaches a prompt.
+- **Specs linked**: `04-ux/06-settings-ia.md`, `03-runtime/04-data-storage.md`,
+  ADR 0308
+- **Acceptance**: F (persistence)
 - **Milestone**: M5
-- **Status**: Unit-covered (`project-instructions.test.ts`); UI journey Draft
+- **Status**: Unit-covered (`settings-general.test.mjs`,
+  `session-system-prompt.test.mjs`, `prompt-enhancement.test.mjs`, host-core
+  `boot_archives_and_drops_storage_removed_by_the_single_scope_persona_model`);
+  full UI journey Draft
 
 #### E2E-085: Expanded sidebar typography keeps list content compact
 

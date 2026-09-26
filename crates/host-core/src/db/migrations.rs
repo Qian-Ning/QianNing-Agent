@@ -3,6 +3,25 @@ use super::*;
 const AUDIT_RETENTION_MS: i64 = 90 * 24 * 3600 * 1000;
 const TASK_RUNS_KEEP: i64 = 100;
 
+/// Key-value namespace older builds used for per-group instruction text. ADR
+/// 0308 removed the reader; `prune_removed_prompt_storage` reclaims the rows.
+pub(crate) const REMOVED_GROUP_INSTRUCTIONS_NAMESPACE: &str = "projectGroupInstructions";
+
+/// App-settings keys older builds wrote for prompt features this fork removed:
+/// the three that configured the one-shot ✨ rewrite (ADR 0308 made the rewrite
+/// instructions product constants), and `globalSystemPrompt`, the app-wide
+/// persona scope removed when the persona model was reduced to the
+/// per-conversation prompt alone. Nothing reads any of them now.
+pub(crate) const REMOVED_PROMPT_SETTINGS_KEYS: &[&str] = &[
+    "promptEnhancementCustomTemplate",
+    "promptEnhancementUserTemplate",
+    "promptEnhancementSystemPrompt",
+    "globalSystemPrompt",
+];
+
+/// Readable dump of the above, written next to the database before the rows go.
+pub(crate) const REMOVED_PROMPT_ARCHIVE_FILE: &str = "removed-prompt-storage.json";
+
 impl Database {
     pub(crate) fn boot_maintenance(&self) -> Result<()> {
         let now = now_ms();
@@ -135,6 +154,97 @@ impl Database {
         // One-time repair: strip the Windows extended-length path prefix
         // (`//?/X:/...` → `X:/...`) from project paths stored by older versions.
         self.fix_extended_length_project_paths()?;
+        self.prune_removed_prompt_storage()?;
+        Ok(())
+    }
+
+    /// Reclaim the prompt storage this fork's persona model removed.
+    ///
+    /// Older builds wrote project-group instructions into the
+    /// `projectGroupInstructions` namespace, and wrote the one-shot rewrite's
+    /// template settings plus the app-wide `globalSystemPrompt` into the app
+    /// settings blob. Nothing reads any of them any more — the persona model is
+    /// the per-conversation prompt alone — so the rows only bloat the file and
+    /// mislead anyone inspecting the settings JSON.
+    ///
+    /// The content is archived next to the database before it is dropped:
+    /// this is user-authored text with no destination in the new model, so it
+    /// goes to a readable file rather than straight to a `DELETE`. If the
+    /// archive cannot be written, the deletion is skipped and startup
+    /// continues — an unreachable row is harmless, a missing backup is not.
+    ///
+    /// Idempotent: after the first pass both locations are empty and the
+    /// archive is not rewritten.
+    fn prune_removed_prompt_storage(&self) -> Result<()> {
+        let group_instructions: Vec<(String, String)> = {
+            let mut stmt = self
+                .conn
+                .prepare_cached("SELECT key, value_json FROM kv WHERE ns = ?1 ORDER BY key")?;
+            let rows = stmt.query_map(params![REMOVED_GROUP_INSTRUCTIONS_NAMESPACE], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?;
+            rows.collect::<rusqlite::Result<Vec<_>>>()?
+        };
+        let mut settings = self
+            .get_setting("app")?
+            .unwrap_or_else(|| serde_json::json!({}));
+        let mut removed_settings = serde_json::Map::new();
+        if let Some(object) = settings.as_object_mut() {
+            for key in REMOVED_PROMPT_SETTINGS_KEYS {
+                if let Some(value) = object.remove(*key) {
+                    removed_settings.insert((*key).to_string(), value);
+                }
+            }
+        }
+        if group_instructions.is_empty() && removed_settings.is_empty() {
+            return Ok(());
+        }
+
+        let archive = self.data_dir.join(REMOVED_PROMPT_ARCHIVE_FILE);
+        let payload = serde_json::json!({
+            "removedAt": ms_to_ts(now_ms()),
+            "reason": "This fork removed the file-based instruction chain, the enhancement template settings, and the app-wide global prompt scope",
+            "projectGroupInstructions": group_instructions
+                .iter()
+                .map(|(key, raw)| {
+                    (key.clone(), serde_json::from_str::<Value>(raw).unwrap_or(Value::Null))
+                })
+                .collect::<serde_json::Map<String, Value>>(),
+            "applicationSettings": removed_settings,
+        });
+        match serde_json::to_vec_pretty(&payload)
+            .map_err(anyhow::Error::from)
+            .and_then(|bytes| std::fs::write(&archive, bytes).map_err(anyhow::Error::from))
+        {
+            Ok(()) => {}
+            Err(error) => {
+                tracing::warn!(
+                    archive = %archive.display(),
+                    error = %error,
+                    "keeping unreachable prompt storage; could not archive it first"
+                );
+                return Ok(());
+            }
+        }
+
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute(
+            "DELETE FROM kv WHERE ns = ?1",
+            params![REMOVED_GROUP_INSTRUCTIONS_NAMESPACE],
+        )?;
+        if !removed_settings.is_empty() {
+            tx.execute(
+                "UPDATE kv SET value_json = ?1, updated_at = ?2 WHERE ns = 'app' AND key = 'app'",
+                params![settings.to_string(), now_ms()],
+            )?;
+        }
+        tx.commit()?;
+        tracing::info!(
+            group_instructions = group_instructions.len(),
+            settings_keys = removed_settings.len(),
+            archive = %archive.display(),
+            "archived and dropped prompt storage removed by the single-scope persona model"
+        );
         Ok(())
     }
 
@@ -838,4 +948,33 @@ pub(crate) fn migrate_v18_to_v19(conn: &Connection, path: &Path) -> Result<()> {
     })();
     let _ = conn.pragma_update(None, "foreign_keys", true);
     result
+}
+
+/// v20 adds the per-conversation system prompt column. A session that sets it
+/// replaces the composed persona for its own turns only; NULL keeps the
+/// built-in persona (see `sessions::set_session_system_prompt`).
+pub(crate) fn migrate_v19_to_v20_tx(tx: &rusqlite::Transaction<'_>) -> Result<()> {
+    let has_column: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('sessions') WHERE name = 'system_prompt')",
+        [],
+        |row| row.get(0),
+    )?;
+    if !has_column {
+        tx.execute_batch("ALTER TABLE sessions ADD COLUMN system_prompt TEXT;")?;
+    }
+    tx.pragma_update(None, "user_version", 20i64)?;
+    Ok(())
+}
+
+pub(crate) fn migrate_v19_to_v20(conn: &Connection, path: &Path) -> Result<()> {
+    let backup = create_migration_backup(conn, path, 19)?;
+    let tx = conn.unchecked_transaction()?;
+    migrate_v19_to_v20_tx(&tx)?;
+    tx.commit().with_context(|| {
+        format!(
+            "commit schema v19 to v20 migration; backup {} remains",
+            backup.display()
+        )
+    })?;
+    Ok(())
 }

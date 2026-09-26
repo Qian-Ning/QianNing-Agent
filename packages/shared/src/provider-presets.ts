@@ -18,6 +18,13 @@ export type NamedEndpointPreset = {
   aliases?: readonly string[];
   /** Completions thinking/tool-stream flags for Zhipu / Z.AI hosts. */
   zhipuCompat?: boolean;
+  /**
+   * A local / self-hosted runtime reached over a loopback URL (Ollama, LM
+   * Studio, …). Its API key is optional — the server authenticates nothing by
+   * default — so the setup dialog probes models without a key and stores the
+   * row with `none` auth unless a key is pasted.
+   */
+  local?: boolean;
 };
 
 export const NAMED_ENDPOINT_PRESETS: readonly NamedEndpointPreset[] = [
@@ -346,6 +353,26 @@ export const NAMED_ENDPOINT_PRESETS: readonly NamedEndpointPreset[] = [
     baseUrl: "https://token-plan-sgp.xiaomimimo.com/v1",
     apiStyle: "chat_completions",
     labelKey: "settings.presetXiaomiTokenPlanSgp",
+  },
+  {
+    id: "ollama",
+    vendorKey: "ollama",
+    name: "Ollama (local)",
+    baseUrl: "http://localhost:11434/v1",
+    apiStyle: "chat_completions",
+    labelKey: "settings.presetOllama",
+    aliases: ["ollama-local", "localhost"],
+    local: true,
+  },
+  {
+    id: "lmstudio",
+    vendorKey: "lmstudio",
+    name: "LM Studio (local)",
+    baseUrl: "http://localhost:1234/v1",
+    apiStyle: "chat_completions",
+    labelKey: "settings.presetLmStudio",
+    aliases: ["lm-studio", "lm studio"],
+    local: true,
   },
 ];
 

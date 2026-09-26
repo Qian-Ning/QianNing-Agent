@@ -65,12 +65,45 @@ export type ComposerFileReference = {
   token?: string;
 };
 
-export type ComposerMenuView = "root" | "model";
-
-export type PromptEnhancementError = {
-  message: string;
-  code: string;
+/**
+ * i18n key for a reasoning level's short label. The composer shows these
+ * localized (关闭/最小/低/中/高/极高/最高/默认) on the reasoning pill and in its
+ * menu; the wire value stays the canonical English token.
+ */
+const REASONING_LEVEL_LABEL_KEYS: Record<SessionThinkingLevel, string> = {
+  off: "chat.reasoningLevelOff",
+  minimal: "chat.reasoningLevelMinimal",
+  low: "chat.reasoningLevelLow",
+  medium: "chat.reasoningLevelMedium",
+  high: "chat.reasoningLevelHigh",
+  xhigh: "chat.reasoningLevelXhigh",
+  max: "chat.reasoningLevelMax",
+  omit: "chat.reasoningLevelOmit",
 };
+
+export function reasoningLevelLabelKey(level: string): string {
+  return (
+    REASONING_LEVEL_LABEL_KEYS[level as SessionThinkingLevel] ??
+    "chat.reasoningLevelOff"
+  );
+}
+
+/**
+ * Levels the reasoning pill offers (D630). When the model publishes a ladder,
+ * use it (do-not-send first, then the enabled levels). When it does not, the
+ * pill still shows the full canonical ladder so the control is never hidden —
+ * a non-reasoning model simply starts at `off`, and the user can force a level
+ * up for a model whose catalog metadata is missing or stale (local / proxy /
+ * newly released). The wire value stays canonical; only the label is localized.
+ */
+export function reasoningPickerLevels(
+  available: readonly ThinkingLevel[] | undefined,
+): SessionThinkingLevel[] {
+  if (available && available.length > 0) {
+    return sessionThinkingMenuLevels(available);
+  }
+  return [...THINKING_LEVELS];
+}
 
 export function nextMode(mode: Mode): Mode {
   const index = MODE_CYCLE.indexOf(mode);

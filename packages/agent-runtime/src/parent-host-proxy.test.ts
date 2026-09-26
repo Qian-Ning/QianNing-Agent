@@ -34,9 +34,9 @@ describe("ParentHostProxy RPC deadlines", () => {
     const stdout = stubStdout();
     try {
       const proxy = new ParentHostProxy();
-      const pending = proxy.call("project.instructions.resolve", {}, 25);
+      const pending = proxy.call("provider.resolveAuth", {}, 25);
       const rejected = expect(pending).rejects.toThrow(
-        "parent host proxy timeout: project.instructions.resolve",
+        "parent host proxy timeout: provider.resolveAuth",
       );
 
       await vi.advanceTimersByTimeAsync(25);

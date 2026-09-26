@@ -194,9 +194,6 @@ import {
   type ReasoningReplayIdentity,
 } from "./reasoning-replay.js";
 import { genericModelConfig, visionFromModelConfig } from "./model-capabilities.js";
-import type { ProjectInstructions } from "./project-instructions.js";
-import { projectInstructionsPrompt } from "./project-instructions-prompt.js";
-import type { CustomSystemPrompt } from "./custom-system-prompt.js";
 import { projectMemoryPrompt } from "./project-memory-prompt.js";
 import {
   pluginSkillsPrompt,
@@ -658,14 +655,6 @@ function stripCompactionFallbackNotice(
 function emptyFileOps(): CompactionPreparation["fileOps"] {
   return { read: new Set(), written: new Set(), edited: new Set() };
 }
-/** Path-scoped rules are best-effort and must not stall a file tool turn. */
-export const PATH_INSTRUCTION_RESOLUTION_TIMEOUT_MS = 2_000;
-const PATH_SCOPED_INSTRUCTION_TOOLS = new Set([
-  "Read",
-  "Write",
-  "Edit",
-  "BrowserPreview",
-]);
 /** Tools whose `path` argument is rewritten, and which therefore must not run
  * concurrently against the same file (see `PathMutex`). */
 const PATH_MUTATING_TOOLS = new Set(["Write", "Edit"]);
@@ -729,17 +718,6 @@ type ToolCatalogEntry = {
   name: string;
   description: string;
 };
-
-type PathInstructionResolution = {
-  instructions?: ProjectInstructions;
-  fallback: boolean;
-};
-
-function pathInstructionScope(path: string): string {
-  const normalized = path.replaceAll("\\", "/");
-  const slash = normalized.lastIndexOf("/");
-  return slash >= 0 ? normalized.slice(0, slash) || "/" : ".";
-}
 
 /**
  * Appended for one automatic re-run after a turn that produced nothing the
@@ -907,15 +885,23 @@ export type AgentRuntimeOptions = {
   thinkingLevel: SessionThinkingLevel;
   /** Persisted opt-in for retrying transient provider failures until success. */
   infiniteProviderRetry?: boolean;
+  /**
+   * The persona this run answers with, already resolved by the launch: the
+   * conversation's own prompt, else the app-wide one, else absent for the
+   * built-in default. Only the product-persona line is replaced — the runtime
+   * always re-appends its operational rules.
+   */
   systemPrompt?: string;
-  /** pi-compatible SYSTEM.md / APPEND_SYSTEM.md resolved for the session (issue #542). */
-  customSystemPrompt?: CustomSystemPrompt;
-  /** Session-bound workspace root used for path-scoped instruction requests. */
+  /** Session-bound workspace root. */
   projectPath?: string;
-  /** Instructions resolved from the session's workspace. */
-  projectInstructions?: ProjectInstructions;
   /** Durable project context loaded from host-owned project memory. */
   projectMemory?: string;
+  /**
+   * Structural guidance for a grouped project whose folders span more than one
+   * root. It is session geography, not a user-authored instruction, so it
+   * composes alongside the persona rather than replacing it.
+   */
+  workspaceRootsGuide?: string;
   /** Persisted transcript to seed the agent with (session isolation: each
    * session's agent carries only its own history). */
   history?: UiMessage[];
@@ -964,10 +950,11 @@ export type RuntimeMatchConfig = {
   pluginTools?: PluginToolDef[];
   pluginSkills?: PluginSkillDef[];
   trustedExtensions?: TrustedExtensionSpec[];
-  customSystemPrompt?: CustomSystemPrompt;
-  projectInstructions?: ProjectInstructions;
-  projectMemory?: string;
+  /** Persona the launch resolved; a change retires the stale runtime. */
+  systemPrompt?: string;
   projectPath?: string;
+  projectMemory?: string;
+  workspaceRootsGuide?: string;
   commandShell: CommandShellOption;
   subagents?: SubagentDefinition[];
   subagentProviders?: Record<string, RuntimeProviderConfig>;
@@ -1574,7 +1561,6 @@ export class DesktopAgentRuntime {
   private onEvent: (envelope: AgentEventEnvelope) => void;
   private streamSink: StreamCoalescer;
   private baseSystemPrompt: string;
-  private customSystemPrompt?: CustomSystemPrompt;
   private planningState: PlanningState;
   private pendingPlanId?: string;
   private currentAssistant?: UiMessage;
@@ -1636,14 +1622,9 @@ export class DesktopAgentRuntime {
   private scratchDir?: string;
   private projectPath?: string;
   private commandShell: CommandShellOption;
-  private baseProjectInstructions?: ProjectInstructions;
-  private projectInstructions?: ProjectInstructions;
+  private systemPersona?: string;
   private projectMemory?: string;
-  /** Per-prompt claims prevent repeated path-resolution RPCs for one directory. */
-  private pathInstructionClaims = new Map<
-    string,
-    Promise<PathInstructionResolution>
-  >();
+  private workspaceRootsGuide?: string;
   /* Timing anchors (D137). `requestStartedAt` marks the moment the agent is
    * free to issue the next provider request — turn start, or the last tool
    * result coming back — so `providerWaitMs` below is the model's own latency
@@ -1801,10 +1782,10 @@ export class DesktopAgentRuntime {
     this.commandShell = opts.commandShell;
     this.scratchDir = opts.scratchDir;
     this.projectPath = opts.projectPath?.trim() || undefined;
-    this.customSystemPrompt = opts.customSystemPrompt;
-    this.baseProjectInstructions = opts.projectInstructions;
-    this.projectInstructions = opts.projectInstructions;
+    this.projectPath = opts.projectPath?.trim() || undefined;
+    this.systemPersona = opts.systemPrompt?.trim() || undefined;
     this.projectMemory = opts.projectMemory?.trim() || undefined;
+    this.workspaceRootsGuide = opts.workspaceRootsGuide?.trim() || undefined;
     this.compactionEnabled = compactionEnabled(opts.compactionSettings);
     this.compactionStrategy = resolveCompactionStrategy(opts.compactionStrategy);
 
@@ -1857,15 +1838,12 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       // Plugin skills (D174).
       ...(skillsPrompt ? [skillsPrompt] : []),
     ];
-    // A custom SYSTEM.md replaces only the product persona line, never the
-    // operational rules in the default parts: tool guidance, delegation
-    // steering and scratch mechanics keep the desktop working (issue #542).
+    // The persona is exactly what the session or the app-wide setting chose;
+    // with neither, the built-in default stands. The operational rules in the
+    // default parts are always re-appended below, so a custom persona cannot
+    // break tool guidance, delegation steering or scratch mechanics.
     this.baseSystemPrompt = [
-      (
-        opts.customSystemPrompt?.replace ??
-        opts.systemPrompt ??
-        DEFAULT_RUNTIME_SYSTEM_PROMPT
-      ).trim(),
+      (opts.systemPrompt ?? DEFAULT_RUNTIME_SYSTEM_PROMPT).trim(),
       ...defaultSystemPromptParts.slice(1),
     ].join("\n\n");
     this.agent = new Agent({
@@ -2125,8 +2103,8 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
   }
 
   private composeSystemPrompt(): string {
-    const projectPrompt = projectInstructionsPrompt(this.projectInstructions);
     const memoryPrompt = projectMemoryPrompt(this.projectMemory);
+    const rootsPrompt = this.workspaceRootsGuide;
     const optionalToolsPrompt = this.optionalToolsPrompt();
     const resumablePrompt =
       this.subagents.length > 0
@@ -2138,9 +2116,8 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       this.mode,
       [
         this.baseSystemPrompt,
-        ...(this.customSystemPrompt?.append ? [this.customSystemPrompt.append] : []),
         ...(optionalToolsPrompt ? [optionalToolsPrompt] : []),
-        ...(projectPrompt ? [projectPrompt] : []),
+        ...(rootsPrompt ? [rootsPrompt] : []),
         ...(memoryPrompt ? [memoryPrompt] : []),
         ...(resumablePrompt ? [resumablePrompt] : []),
       ].join("\n\n"),
@@ -2389,13 +2366,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         clampThinkingLevel(config.provider, config.thinkingLevel) &&
       current === next &&
       safeJson(this.commandShell) === safeJson(config.commandShell) &&
-      safeJson(this.baseProjectInstructions ?? null) ===
-        safeJson(config.projectInstructions ?? null) &&
-      // Editing SYSTEM.md / APPEND_SYSTEM.md retires the runtime so the next
-      // prompt recomposes from the fresh content.
-      safeJson(this.customSystemPrompt ?? null) ===
-        safeJson(config.customSystemPrompt ?? null) &&
       (this.projectMemory ?? "") === (config.projectMemory?.trim() ?? "") &&
+      (this.systemPersona ?? "") === (config.systemPrompt?.trim() ?? "") &&
+      (this.workspaceRootsGuide ?? "") === (config.workspaceRootsGuide?.trim() ?? "") &&
       (this.projectPath ?? "") === (config.projectPath?.trim() ?? "") &&
       // Enabling a plugin, revoking agent.prompt.inject or renaming a skill
       // changes the catalog digest, which retires the runtime and its stale
@@ -3017,7 +2990,6 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         signal,
         onUpdate,
       ) => {
-        await this.loadPathInstructions(toolName, params);
         const isBash = toolName === "Bash";
         const timeoutMs = isBash ? commandTimeoutMs(params) : undefined;
         let progress = "";
@@ -3904,8 +3876,6 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       const skillsPrompt = pluginSkillsPrompt(this.pluginSkills);
       if (skillsPrompt) blocks.push(skillsPrompt);
     }
-    const projectPrompt = projectInstructionsPrompt(this.projectInstructions);
-    if (projectPrompt) blocks.push(projectPrompt);
     return blocks;
   }
 
@@ -5424,54 +5394,6 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     for (const entry of pending) {
       entry.resolve(entry.request.questions.map(() => null));
     }
-  }
-
-  private async loadPathInstructions(
-    toolName: string,
-    params: unknown,
-  ): Promise<void> {
-    if (!PATH_SCOPED_INSTRUCTION_TOOLS.has(toolName)) {
-      return undefined;
-    }
-    const path = isRecord(params) && typeof params.path === "string"
-      ? params.path.trim()
-      : "";
-    if (!path) return undefined;
-
-    const key = `${this.projectPath ?? ""}\u0000${pathInstructionScope(path)}`;
-    let resolution = this.pathInstructionClaims.get(key);
-    if (!resolution) {
-      resolution = this.host
-        .call<ProjectInstructions | undefined>(
-          "project.instructions.resolve",
-          {
-            sessionId: this.sessionId,
-            path,
-            ...(this.projectPath ? { projectPath: this.projectPath } : {}),
-          },
-          PATH_INSTRUCTION_RESOLUTION_TIMEOUT_MS,
-        )
-        .then((instructions) => ({ instructions, fallback: false }))
-        .catch(() => ({
-          // Path-scoped rules are best-effort. Do not carry a sibling path's
-          // rules into this tool call when the resolver or host is unavailable.
-          instructions: undefined,
-          fallback: true,
-        }));
-      this.pathInstructionClaims.set(key, resolution);
-    }
-    const resolved = await resolution;
-    // Rules are scoped to the file currently being accessed. Rebuild the
-    // complete chain so sibling-directory rules never leak into one another
-    // and edits to an existing instruction file take effect immediately.
-    this.applyProjectInstructions(
-      resolved.fallback ? this.baseProjectInstructions : resolved.instructions,
-    );
-  }
-
-  private applyProjectInstructions(resolved: ProjectInstructions | undefined): void {
-    this.projectInstructions = resolved;
-    this.setAgentSystemPrompt(this.composeSystemPrompt());
   }
 
   /**
@@ -7818,9 +7740,6 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     this.subagentOverrideProviders = {};
     this.resetDeferredToolsForPrompt();
     this.refreshResumablePrompt();
-    // Claims are message-scoped: a later prompt must observe edited or newly
-    // created instruction files instead of reusing a previous chain.
-    this.pathInstructionClaims.clear();
     this.hostTurnId = durableTurnId;
     this.turnId = durableTurnId;
     this.acceptingSteering = true;
@@ -7935,11 +7854,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     this.gracefulStopRequested = false;
     this.runCancelled = false;
     this.turnSubagentUsage = undefined;
-    // Capabilities and path-scoped instruction claims belong to one prompt.
     this.subagentOverrideProviders = {};
     this.resetDeferredToolsForPrompt();
     this.refreshResumablePrompt();
-    this.pathInstructionClaims.clear();
     this.pendingUserMessageId = userMessageId;
     this.resetRunRecoveryState();
     this.autonomousExecution = false;
@@ -8250,7 +8167,6 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     this.resolvePendingAskTools();
     this.abortRunningDelegations();
     this.delegationWaitTargets = undefined;
-    this.pathInstructionClaims.clear();
     this.failedHostToolCalls.clear();
     this.mutationFailureCounts.clear();
     this.mutationRecoveryGraces.clear();

@@ -6,29 +6,23 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
-use std::fs;
-use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 #[path = "domains_capture.rs"]
 mod capture_impl;
-pub(crate) use capture_impl::{
-    capture, global_instruction_path_for_sync, remove_instruction_file, write_instruction_file,
-};
+pub(crate) use capture_impl::capture;
 #[cfg(test)]
-pub(crate) use capture_impl::{capture_instructions, capture_memory, capture_projects};
+pub(crate) use capture_impl::{capture_memory, capture_projects};
 
 pub const DOMAIN_APPLICATION: &str = "application";
 pub const DOMAIN_PROVIDERS: &str = "providers";
 pub const DOMAIN_MCP: &str = "mcp";
 pub const DOMAIN_SKILLS: &str = "skills";
 pub const DOMAIN_SUBAGENTS: &str = "subagents";
-pub const DOMAIN_INSTRUCTIONS: &str = "instructions";
 pub const DOMAIN_PROJECTS: &str = "projects";
 pub const DOMAIN_PLUGINS: &str = "plugins";
 pub const DOMAIN_AUTOMATION: &str = "automation";
 pub const DOMAIN_MEMORY: &str = "memory";
-pub const MAX_INSTRUCTION_BYTES: usize = 32 * 1024;
 
 pub(crate) const PORTABLE_APPLICATION_FIELDS: &[&str] = &[
     "theme",
@@ -46,8 +40,6 @@ pub(crate) const PORTABLE_APPLICATION_FIELDS: &[&str] = &[
     "linkOpenTarget",
     "contextUsageDisplay",
     "chatContentMaxWidth",
-    "promptEnhancementCustomTemplate",
-    "promptEnhancementUserTemplate",
     "promptEnhancementProviderId",
     "promptEnhancementModelId",
     "promptEnhancementThinkingLevel",
@@ -60,13 +52,12 @@ const PROJECT_IDENTITY_NAMESPACE: &str = "configSyncIdentities";
 const PROJECT_IDENTITY_KEY: &str = "projects";
 const PROJECT_GROUP_IDENTITY_KEY: &str = "groups";
 
-pub const ALL_DOMAINS: [&str; 10] = [
+pub const ALL_DOMAINS: [&str; 9] = [
     DOMAIN_APPLICATION,
     DOMAIN_PROVIDERS,
     DOMAIN_MCP,
     DOMAIN_SKILLS,
     DOMAIN_SUBAGENTS,
-    DOMAIN_INSTRUCTIONS,
     DOMAIN_PROJECTS,
     DOMAIN_PLUGINS,
     DOMAIN_AUTOMATION,
@@ -191,22 +182,6 @@ pub const DOMAIN_ADAPTERS: &[DomainAdapterSpec] = &[
         merge_granularity: "one definition",
         activation_policy: "approval required before discovery",
         recovery_policy: "capability write journal",
-    },
-    DomainAdapterSpec {
-        domain: DOMAIN_INSTRUCTIONS,
-        schema_version: 1,
-        exportable_fields: &[
-            "fixed global file",
-            "registered project-root file",
-            "group text",
-        ],
-        secret_fields: &["instruction content"],
-        local_overlays: &["unregistered repository files", "symlink targets"],
-        identity: "scope plus project/group identity",
-        references: &["project mapping"],
-        merge_granularity: "one file or group text",
-        activation_policy: "approval required before write",
-        recovery_policy: "atomic file replacement journal",
     },
     DomainAdapterSpec {
         domain: DOMAIN_PROJECTS,
@@ -682,31 +657,6 @@ mod tests {
         assert!(entity.mapping_required);
         assert!(entity.secret_bearing);
         assert_eq!(entity.payload["memory"]["entries"][0]["id"], "note-1");
-    }
-
-    #[test]
-    fn captures_only_the_app_managed_project_instruction_file() {
-        let data_dir = tempfile::tempdir().unwrap();
-        let project = data_dir.path().join("project");
-        let nested = project.join("nested");
-        std::fs::create_dir_all(&nested).unwrap();
-        std::fs::write(project.join("AGENTS.md"), "project guidance\n").unwrap();
-        std::fs::write(nested.join("AGENTS.md"), "nested guidance\n").unwrap();
-
-        let mut state = AppState::open(data_dir.path()).unwrap();
-        state
-            .db
-            .ensure_project(&project.to_string_lossy(), false)
-            .unwrap();
-        let entities =
-            capture_instructions(&mut state, &ProjectIdentityOverrides::default()).unwrap();
-        let project_entities = entities
-            .iter()
-            .filter(|entity| entity.payload["scope"] == "project")
-            .collect::<Vec<_>>();
-        assert_eq!(project_entities.len(), 1);
-        assert_eq!(project_entities[0].payload["content"], "project guidance\n");
-        assert!(project_entities[0].mapping_required);
     }
 
     #[test]

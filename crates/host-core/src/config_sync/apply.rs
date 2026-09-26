@@ -389,75 +389,6 @@ fn apply_entity(
         }
         return Ok(());
     }
-    if entity.domain == domains::DOMAIN_INSTRUCTIONS {
-        if let Some(scope) = entity.payload.get("scope").and_then(Value::as_str) {
-            if scope == "global" {
-                let path = domains::global_instruction_path_for_sync()?;
-                if entity.deleted {
-                    domains::remove_instruction_file(&path)?;
-                } else {
-                    let content = entity
-                        .payload
-                        .get("content")
-                        .and_then(Value::as_str)
-                        .ok_or_else(|| {
-                            anyhow!("CONFIG_SYNC_INVALID: global instructions are missing")
-                        })?;
-                    domains::write_instruction_file(&path, content)?;
-                }
-                return Ok(());
-            }
-            if scope == "project" {
-                let Some(path) = mapped_project_path(config, &entity.payload)? else {
-                    bail!("CONFIG_SYNC_MAPPING_REQUIRED: project instructions need a local folder");
-                };
-                let instruction_path = Path::new(&path).join("AGENTS.md");
-                if entity.deleted {
-                    domains::remove_instruction_file(&instruction_path)?;
-                } else {
-                    let content = entity
-                        .payload
-                        .get("content")
-                        .and_then(Value::as_str)
-                        .ok_or_else(|| {
-                            anyhow!("CONFIG_SYNC_INVALID: project instructions are missing")
-                        })?;
-                    domains::write_instruction_file(&instruction_path, content)?;
-                }
-                return Ok(());
-            }
-            bail!("CONFIG_SYNC_INVALID: unsupported instruction scope");
-        }
-        let paths = mapped_project_paths(config, &entity.payload)?;
-        let group_id = if let Some(paths) = paths {
-            if let Some(group) = st.db.project_group_for_path(&paths[0])? {
-                group.id
-            } else {
-                let name = entity
-                    .payload
-                    .get("projectGroupName")
-                    .and_then(Value::as_str)
-                    .unwrap_or("Imported project")
-                    .to_string();
-                st.db.create_project_group(&name, &paths)?.id
-            }
-        } else {
-            bail!("CONFIG_SYNC_MAPPING_REQUIRED: project instructions need a group")
-        };
-        st.db.set_project_group_instructions(
-            &group_id,
-            if entity.deleted {
-                ""
-            } else {
-                entity
-                    .payload
-                    .get("content")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-            },
-        )?;
-        return Ok(());
-    }
     if entity.domain == domains::DOMAIN_PROJECTS {
         let Some(paths) = mapped_project_paths(config, &entity.payload)? else {
             bail!("CONFIG_SYNC_MAPPING_REQUIRED: project folder is not mapped");
@@ -576,7 +507,6 @@ fn apply_priority(domain: &str) -> u8 {
         // files and application-level model bindings.
         domains::DOMAIN_PROJECTS => 10,
         domains::DOMAIN_PROVIDERS => 20,
-        domains::DOMAIN_INSTRUCTIONS => 30,
         domains::DOMAIN_MCP
         | domains::DOMAIN_SKILLS
         | domains::DOMAIN_SUBAGENTS

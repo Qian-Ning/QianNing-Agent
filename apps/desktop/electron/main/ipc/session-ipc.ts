@@ -334,7 +334,6 @@ export function registerSessionIpc({
     // Drop the session's pi-agent so a later session with the same id (or a
     // stale runtime) can't answer with this session's context.
     if (sidecar) {
-      sidecar.clearProjectInstructionRoot(id);
       sidecar.clearVendorAuthBindings(id);
       await sidecar
         .call("agent.disposeSession", { sessionId: id })
@@ -353,6 +352,25 @@ export function registerSessionIpc({
     if (!host) throw new Error("host unavailable");
     return host.call("session.rename", { id, title });
   });
+  handle(
+    IPC.invoke.sessionSetSystemPrompt,
+    async (id: string, systemPrompt: string | null) => {
+      rejectNativeMutation(id, "system prompt");
+      if (!host) throw new Error("host unavailable");
+      if (systemPrompt !== null && typeof systemPrompt !== "string") {
+        throw Object.assign(new Error("systemPrompt must be a string or null"), {
+          errorCode: ErrorCodes.INVALID_ARGUMENT,
+        });
+      }
+      const result = await host.call<{ session?: RuntimeSession | null }>(
+        "session.setSystemPrompt",
+        { id, systemPrompt },
+      );
+      if (!result.session) return result;
+      const { providers, defaults } = await sessionCapabilityContext();
+      return { ...result, session: enrichSession(result.session, providers, defaults) };
+    },
+  );
   handle(
     IPC.invoke.sessionMoveProject,
     async (input: { sessionId?: string; projectPath?: string } = {}) => {
@@ -393,18 +411,14 @@ export function registerSessionIpc({
       if (!result.session) return result;
       const movedProjectPath = result.session.projectPath?.trim() || null;
       sessionProjects.set(sessionId, movedProjectPath);
-      // The live pi-agent caches the project instruction root and vendor auth
-      // bindings. Drop it after a successful move so the next turn is rebuilt
-      // from the moved session's own project instead of the previous one.
+      // The live pi-agent caches vendor auth bindings. Drop it after a
+      // successful move so the next turn is rebuilt from the moved session's
+      // own project instead of the previous one.
       if (sidecar) {
-        sidecar.clearProjectInstructionRoot(sessionId);
         sidecar.clearVendorAuthBindings(sessionId);
         await sidecar
           .call("agent.disposeSession", { sessionId })
           .catch(() => undefined);
-        if (movedProjectPath) {
-          sidecar.setProjectInstructionRoot(sessionId, movedProjectPath);
-        }
       }
       const { providers, defaults } = await sessionCapabilityContext();
       logger.app("session", "info", "session project moved", {
@@ -430,7 +444,6 @@ export function registerSessionIpc({
       // Drop the live pi-agent so the next prompt reseeds from the truncated
       // transcript instead of replaying the discarded branch in memory.
       if (sidecar) {
-        sidecar.clearProjectInstructionRoot(sessionId);
         sidecar.clearVendorAuthBindings(sessionId);
         await sidecar
           .call("agent.disposeSession", { sessionId })
@@ -483,7 +496,6 @@ export function registerSessionIpc({
       const sessionId = String(input?.sessionId || "");
       rejectNativeMutation(sessionId, "revision activation");
       if (sidecar) {
-        sidecar.clearProjectInstructionRoot(sessionId);
         sidecar.clearVendorAuthBindings(sessionId);
         await sidecar
           .call("agent.disposeSession", { sessionId })

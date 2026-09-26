@@ -1,7 +1,6 @@
 import { IPC, type AgentEventEnvelope, type UiMessage } from "@pi-desktop/shared";
 import {
   findSubagentProviderSource,
-  loadInstructionChain,
   modelConfigWithBinding,
   subagentProviderLookupError,
 } from "@pi-desktop/agent-runtime";
@@ -302,43 +301,6 @@ export function createSidecarRuntime({
 
   const s = new AgentSidecar((text) => logger.child("agent", text));
   wireSidecar(s);
-  s.setProjectInstructionResolver(async ({ projectPath, path }) => {
-    // The root is registered by Electron main from the host-owned session
-    // record. The sidecar can provide a target path, never an arbitrary root.
-    const instructions = await loadInstructionChain(projectPath, path);
-    if (!projectPath || !runtimeState.host) return instructions;
-    try {
-      const result = await runtimeState.host.call<{
-        context?: {
-          roots?: Array<{ path?: string }>;
-          instructions?: string;
-        } | null;
-      }>("project.group.context", { path: projectPath });
-      const roots = result.context?.roots ?? [];
-      const rootGuide = roots.length > 1
-        ? [
-            `Primary root: ${roots[0]?.path ?? projectPath}`,
-            ...roots.slice(1).map((root) => `Additional root: ${root.path ?? ""}`),
-            "Use an absolute path when reading or editing an additional root.",
-          ].join("\n")
-        : "";
-      const groupInstructions = result.context?.instructions?.trim();
-      if (!rootGuide && !groupInstructions) return instructions;
-      return {
-        entries: [
-          ...(instructions?.entries ?? []),
-          ...(rootGuide
-            ? [{ source: "ChatGPT Project folders", content: rootGuide }]
-            : []),
-          ...(groupInstructions
-            ? [{ source: "ChatGPT Project instructions", content: groupInstructions }]
-            : []),
-        ],
-      };
-    } catch {
-      return instructions;
-    }
-  });
     // Request auth for a vendor account (ADR 0098). The sidecar names a provider
   // row it was launched with; main resolves that row's account and returns a
   // short-lived `ModelAuth`. The refresh token never crosses this boundary.

@@ -21,7 +21,6 @@ import {
   IconBot,
   IconChevronLeft,
   IconDownload,
-  IconFileText,
   IconGlobe,
   IconInfo,
   IconKeyboard,
@@ -57,9 +56,8 @@ import {
   SettingsCard,
   SettingsRow,
 } from "./primitives";
-import { AgentInstructionsSection, UpdatesRow } from "./agent-sections";
+import { UpdatesRow } from "./agent-sections";
 import { ImportSection } from "./import-page";
-import { PromptEnhancementCard } from "./prompt-enhancement-card";
 import { CloseBehaviorSection, DeveloperSection } from "./developer-sections";
 import { PluginScenicThemesDestination } from "../../components/settings/PluginScenicThemesDestination";
 import { ConfigSyncPage } from "../../components/settings/ConfigSyncPage";
@@ -223,7 +221,6 @@ export function SettingsPage() {
       general: <IconSliders size={14} />,
       ai: <IconSparkles size={14} />,
       shortcuts: <IconKeyboard size={14} />,
-      instructions: <IconFileText size={14} />,
       agent: <IconBot size={14} />,
       skills: <IconBookOpen size={14} />,
       mcp: <IconServer size={14} />,
@@ -520,11 +517,6 @@ export function SettingsPage() {
                   saveSettings={saveSettings}
                 />
               </SettingsCard>
-
-              <PromptEnhancementCard
-                settings={settings}
-                saveSettings={saveSettings}
-              />
             </div>
           )}
 
@@ -554,8 +546,6 @@ export function SettingsPage() {
 
           {tab === "subagents" && <AgentSubagentsPage />}
 
-          {tab === "instructions" && <AgentInstructionsSection />}
-
           {tab === "import" && <ImportSection />}
 
           {tab === "projects" && <ProjectsPage />}
@@ -570,7 +560,7 @@ export function SettingsPage() {
                 <SettingsRow title={t("settings.application")}>
                   <div className="settings-about-meta">
                     <div className="font-medium">
-                      {version?.name || "PI-Desktop"} {version?.version}
+                      {version?.name || "QianNing Agent"} {version?.version}
                     </div>
                     <div className="font-mono text-xs-plus text-text-muted">
                       protocol {version?.protocolVersion} · host {version?.hostVersion}

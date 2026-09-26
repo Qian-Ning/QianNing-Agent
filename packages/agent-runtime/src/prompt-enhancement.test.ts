@@ -79,38 +79,14 @@ describe("prompt enhancement", () => {
     expect(context.tools).toBeUndefined();
   });
 
-  it("uses the stored user template and the built-in system prompt", () => {
-    const context = promptEnhancementContext("draft text", {
-      customTemplate: true,
-      userTemplate: "custom {{draft}} template",
-    });
+  it("always composes both the system prompt and the user turn from the defaults", () => {
+    const context = promptEnhancementContext("draft text");
     expect(context.systemPrompt).toBe(PROMPT_ENHANCEMENT_DEFAULT_SYSTEM_PROMPT);
-    expect(context.messages[0]).toMatchObject({
-      role: "user",
-      content: "custom draft text template",
-    });
-  });
-
-  it("keeps the default template while the switch is off", () => {
-    const context = promptEnhancementContext("draft text", {
-      customTemplate: false,
-      userTemplate: "custom {{draft}} template",
-    });
+    // The rewrite instructions are the product's own; nothing in settings can
+    // replace them, so this context has exactly one possible shape.
+    expect(context.messages).toHaveLength(1);
+    expect(String((context.messages[0] as { content: string }).content)).toContain("draft text");
     expect(String((context.messages[0] as { content: string }).content)).toContain("<draft>");
-    expect(String((context.messages[0] as { content: string }).content)).not.toContain(
-      "custom",
-    );
-  });
-
-  it("ignores a stored template that lost the draft variable", () => {
-    const context = promptEnhancementContext("draft text", {
-      customTemplate: true,
-      userTemplate: "no placeholder",
-    });
-    expect(context.messages[0]).toMatchObject({ role: "user" });
-    expect(String((context.messages[0] as { content: string }).content)).toContain(
-      "draft text",
-    );
   });
 
   it("uses the mocked provider stream, passes reasoning, and trims text output", async () => {

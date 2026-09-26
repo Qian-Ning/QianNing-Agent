@@ -20,7 +20,6 @@ import {
   capabilitiesFromModelConfig,
   clampThinkingLevel,
   genericModelConfig,
-  loadInstructionChain,
   loadSubagentDefinitions,
   modelConfigWithBinding,
   optionalProviderHeaders,
@@ -257,12 +256,12 @@ export function createHeadlessLaunchResolver(options: HeadlessLaunchResolverOpti
     );
     const projectPath =
       typeof session.projectPath === "string" && session.projectPath.trim() ? session.projectPath.trim() : undefined;
-    let projectInstructions = await loadInstructionChain(projectPath);
     let projectMemory: string | undefined;
+    let workspaceRootsGuide: string | undefined;
     if (projectPath) {
       try {
         const result = await host.call<{
-          context?: { roots?: Array<{ path?: string }>; instructions?: string; memory?: { content?: string } } | null;
+          context?: { roots?: Array<{ path?: string }>; memory?: { content?: string } } | null;
         }>("project.group.context", { path: projectPath });
         const groupRoots = result.context?.roots ?? [];
         const groupRootGuide =
@@ -273,16 +272,7 @@ export function createHeadlessLaunchResolver(options: HeadlessLaunchResolverOpti
                 "Use an absolute path when reading or editing an additional root.",
               ].join("\n")
             : "";
-        const groupInstructions = result.context?.instructions?.trim();
-        if (groupRootGuide || groupInstructions) {
-          projectInstructions = {
-            entries: [
-              ...(projectInstructions?.entries ?? []),
-              ...(groupRootGuide ? [{ source: "ChatGPT Project folders", content: groupRootGuide }] : []),
-              ...(groupInstructions ? [{ source: "ChatGPT Project instructions", content: groupInstructions }] : []),
-            ],
-          };
-        }
+        if (groupRootGuide) workspaceRootsGuide = groupRootGuide;
         const groupMemory = result.context?.memory?.content?.trim();
         if (groupMemory) projectMemory = groupMemory;
         if (!result.context) {
@@ -380,8 +370,8 @@ export function createHeadlessLaunchResolver(options: HeadlessLaunchResolverOpti
         scratchDir: join(dataDir, "scratch", sessionId),
         attachmentsDir: join(dataDir, "attachments"),
         projectPath,
-        projectInstructions,
         projectMemory,
+        workspaceRootsGuide,
         provider: {
           id: provider.id,
           name: provider.name,

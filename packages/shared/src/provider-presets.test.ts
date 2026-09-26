@@ -194,6 +194,21 @@ describe("named endpoint presets", () => {
       })?.id,
     ).toBe("opencode_go");
   });
+
+  it("offers keyless local runtimes (Ollama, LM Studio) flagged for no-auth setup", () => {
+    const ollama = matchNamedPreset({ vendorKey: "ollama" });
+    expect(ollama?.id).toBe("ollama");
+    expect(ollama?.baseUrl).toBe("http://localhost:11434/v1");
+    expect(ollama?.apiStyle).toBe("chat_completions");
+    expect(ollama?.local).toBe(true);
+
+    const lmStudio = matchNamedPreset({ baseUrl: "http://localhost:1234/v1" });
+    expect(lmStudio?.id).toBe("lmstudio");
+    expect(lmStudio?.local).toBe(true);
+
+    // Cloud vendors are not marked local.
+    expect(matchNamedPreset({ vendorKey: "openai" })?.local).toBeUndefined();
+  });
 });
 
 describe("pi-ai built-in API-key services", () => {

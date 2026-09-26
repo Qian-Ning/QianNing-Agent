@@ -65,6 +65,7 @@ CREATE TABLE sessions (
                                           'high', 'xhigh', 'max', 'omit')),
   permission_mode TEXT NOT NULL DEFAULT 'inherit'
                 CHECK (permission_mode IN ('inherit', 'ask', 'accept-edits', 'auto')),
+  system_prompt TEXT,
   source      TEXT,
   deleted_at  INTEGER,
   pinned      INTEGER NOT NULL DEFAULT 0,

@@ -1242,38 +1242,30 @@ same gateway backend as the conversation it summarizes.
 ## 7. System prompt composition
 
 ```text
-[base product prompt in English]
+[persona: conversation prompt > built-in default]
 + [operating-state prompt: agent/plan/goal]
 + [workspace info]
 + [tool instructions]
-+ [project instruction chain, when present]
-+ [optional user custom instructions]
 ```
 
-### 7.0.1 User custom system prompt files (issue #542)
+### 7.0.1 Persona scopes
 
-The `[optional user custom instructions]` layer is the pi-compatible file pair
-`SYSTEM.md` / `APPEND_SYSTEM.md`, discovered per session launch from
-`<workspace>/.pi/` (project) and `~/.pi/agent/` (global), each kind picking a
-single winner with project over global, exactly like pi CLI. A change to the
-resolved content retires the runtime through the reuse match, so the next
-prompt recomposes; the files are not re-read per tool call like the project
-instruction chain. Native-pi sessions keep resolving them through the upstream
-`DefaultResourceLoader` as before.
+The persona the model receives has exactly one editable scope: the
+conversation's own prompt (`sessions.system_prompt`, schema v20). When a
+conversation sets no prompt of its own, the built-in product persona answers.
+A blank or whitespace-only value means "no override", never "empty persona":
+the built-in persona answers. The value is trimmed, and a change to the
+resolved persona retires the runtime through the reuse match, so the next
+prompt recomposes.
 
-Two deliberate deviations from pi CLI's semantics:
-
-- `SYSTEM.md` replaces only the base product persona line, not the whole
-  prompt: the operational rules below (collaboration, search, edit contract,
-  scratch, delegation, skills) are desktop mechanics a persona file must not
-  remove.
-- `APPEND_SYSTEM.md` is appended after the composed base prompt and before
-  the project instruction chain, matching pi's ordering, so the user's own
-  `AGENTS.md` keeps the last word.
-
-Both files are capped at 64 KiB, and a whitespace-only file counts as absent.
-Native `SYSTEM.md` / `APPEND_SYSTEM.md` resolution in a native-pi session is
-unaffected: it stays with the upstream loader.
+There is no app-wide persona setting and no file-based persona layer: the
+former `SYSTEM.md` / `APPEND_SYSTEM.md` pair and the `AGENTS.md` instruction
+chain are not read, and the earlier app-wide `globalSystemPrompt` scope was
+removed. A discoverable file could win one kind and lose the other behind the
+user's back, and an inherited app-wide value silently changed conversations
+the user never edited — exactly the confusion a single explicit per-conversation
+scope removes. Native-pi sessions are untouched and keep the upstream loader's
+resolution.
 
 The base prompt states collaboration rules explicitly, because omitting them
 is what produced silent sessions: "prefer concise, actionable answers" was the
@@ -1426,51 +1418,19 @@ Guidance blocks are the same text the session prompt uses, included only when
 the resolved tools include the matching name: search/read scoping for
 Read/Grep/Glob, edit discipline for Edit/Write, the command shell contract for
 Bash, the `# Skills` catalog when `Skill` is present, and the scratch-directory
-rule when the session has a scratch directory and the delegate can write. The
-project instruction chain (§7.3) is appended last, so a delegate follows the
-same project rules as its session.
+rule when the session has a scratch directory and the delegate can write. A
+delegate inherits its parent session's resolved persona (§7.0.1).
 
-### 7.3 Project instruction chain
+### 7.3 Project context
 
-The Electron main process first resolves the global
-`~/.pi/agent/AGENTS.md`, then project instruction files inside the
-session-bound project root when a runtime starts. For each project directory it
-uses at most one non-empty file in this order: `AGENTS.override.md`, `AGENTS.md`,
-`CLAUDE.md`, then `.claude/CLAUDE.md`. Entries are concatenated from project
-root to the target directory, so the closest file appears last and takes
-precedence. The initial chain targets the project root. Before a `Read`,
-`Write`, `Edit`, or `BrowserPreview` call, the sidecar asks Electron main to
-resolve the target path and replaces the active instruction section with that
-path's complete chain before the tool executes. This keeps rules lazy and
-prevents sibling-directory rules from persisting after the agent moves to a
-different file tree.
+A session's project contributes memory and, for a multi-root project group, an
+additional-roots guide to the prompt. Neither is a persona: project context
+never replaces or outranks the two persona scopes.
 
-The session-bound project root is passed with the runtime launch metadata and
-registered by Electron main before each prompt or compaction request. The
-sidecar cannot select a different root. During one prompt, path-resolution
-claims are cached by project root and target directory, so repeated file tools
-in the same directory do not perform another IPC request. Claims are discarded
-at the next prompt, allowing edits and newly created instruction files to take
-effect without a stale cross-message cache.
-
-Path-specific resolution is best-effort and has a 2-second deadline. If the
-resolver or its host RPC is unavailable or exceeds that deadline, the file
-tool continues with the runtime's base/root chain rather than waiting for the
-general host RPC timeout. A failed resolution never leaves a previously
-resolved sibling-directory chain active.
-
-All discovery stays within the session project root. Empty, unreadable, and
-out-of-root files are skipped. The combined UTF-8 content is capped at 32 KiB
-and source paths are labelled under `# Project instructions`.
-The sidecar never reads workspace instructions directly. A changed root chain
-recreates an idle runtime on its next prompt; nested instructions are resolved
-again when a relevant file tool runs. The resolver's timeout and fallback
-are operational safeguards; they do not emit a separate timing log record.
-
-Settings provides dedicated management for the fixed global path. The Projects
-view project-list menu provides an `AGENTS.md` editor for its corresponding
-registered project root. Its IPC does not accept arbitrary renderer file paths.
-Saves affect the next prompt without restarting the application.
+Project memory is durable user context. For a registered multi-root group it is
+read from the group record through `project.group.context`, falling back to the
+legacy per-project record (`project.memory.get`) when the path has no group.
+Both are best effort and never prevent a session launch.
 
 ## 8. Concurrency
 
