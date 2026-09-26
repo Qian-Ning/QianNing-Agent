@@ -3899,10 +3899,22 @@ struct UsageGroupAcc {
     output: i64,
     cache_read: i64,
     cache_write: i64,
+    /// Estimated USD cost accumulated from priced turns only.
+    cost: f64,
+    /// Turns whose model had no price entry, so they contribute no cost.
+    unpriced_turns: i64,
 }
 
 impl UsageGroupAcc {
-    fn add(&mut self, completed: bool, input: i64, output: i64, cache_read: i64, cache_write: i64) {
+    fn add(
+        &mut self,
+        completed: bool,
+        input: i64,
+        output: i64,
+        cache_read: i64,
+        cache_write: i64,
+        cost: Option<f64>,
+    ) {
         self.turns += 1;
         if completed {
             self.success += 1;
@@ -3911,6 +3923,10 @@ impl UsageGroupAcc {
         self.output += output;
         self.cache_read += cache_read;
         self.cache_write += cache_write;
+        match cost {
+            Some(c) => self.cost += c,
+            None => self.unpriced_turns += 1,
+        }
     }
 
     fn total_tokens(&self) -> i64 {
@@ -3937,6 +3953,7 @@ pub fn get_usage_breakdown(
     let recent_cap = recent_limit.clamp(1, 500);
 
     let conn = db.conn();
+    let pricing_map = crate::pricing::load_pricing_map(conn)?;
     let mut stmt = conn.prepare_cached(
         "SELECT provider_id, model_id, status, input_tokens, output_tokens, usage_json, started_at, ended_at
          FROM turns
@@ -3986,10 +4003,19 @@ pub fn get_usage_breakdown(
         let cache_read = usage_i64("cacheReadTokens");
         let cache_write = usage_i64("cacheWriteTokens");
 
+        // Estimated cost from the current pricing table. None when the model
+        // has no price row, so the group can report how much of it is unpriced.
+        let turn_cost = model_id
+            .as_deref()
+            .and_then(|m| crate::pricing::resolve(&pricing_map, m))
+            .map(|row| {
+                crate::pricing::cost_usd(row, input_tokens, output_tokens, cache_read, cache_write)
+            });
+
         by_provider
             .entry(provider_id.clone().unwrap_or_default())
             .or_default()
-            .add(completed, input_tokens, output_tokens, cache_read, cache_write);
+            .add(completed, input_tokens, output_tokens, cache_read, cache_write, turn_cost);
 
         let entry = by_model
             .entry(model_id.clone().unwrap_or_default())
@@ -3999,7 +4025,7 @@ pub fn get_usage_breakdown(
         }
         entry
             .1
-            .add(completed, input_tokens, output_tokens, cache_read, cache_write);
+            .add(completed, input_tokens, output_tokens, cache_read, cache_write, turn_cost);
 
         if (recent.len() as i64) < recent_cap {
             let duration_ms = (ended_at - started_at).max(0);
@@ -4012,6 +4038,7 @@ pub fn get_usage_breakdown(
                 "outputTokens": output_tokens,
                 "cacheTokens": cache_read + cache_write,
                 "durationMs": duration_ms,
+                "costUsd": turn_cost,
             }));
         }
     }
@@ -4032,6 +4059,8 @@ pub fn get_usage_breakdown(
                 "totalTokens": acc.total_tokens(),
                 "inputTokens": acc.input,
                 "outputTokens": acc.output,
+                "costUsd": acc.cost,
+                "unpricedTurns": acc.unpriced_turns,
             })
         })
         .collect();
@@ -4053,6 +4082,8 @@ pub fn get_usage_breakdown(
                 "totalTokens": acc.total_tokens(),
                 "inputTokens": acc.input,
                 "outputTokens": acc.output,
+                "costUsd": acc.cost,
+                "unpricedTurns": acc.unpriced_turns,
             })
         })
         .collect();
@@ -4063,12 +4094,31 @@ pub fn get_usage_breakdown(
             .cmp(&a["totalTokens"].as_i64().unwrap_or(0))
     });
 
+    // Grand totals for the hero: sum cost across providers, and note whether any
+    // turn was unpriced so the UI can mark the figure as a partial estimate.
+    let total_cost: f64 = providers
+        .iter()
+        .map(|p| p["costUsd"].as_f64().unwrap_or(0.0))
+        .sum();
+    let unpriced_turns: i64 = providers
+        .iter()
+        .map(|p| p["unpricedTurns"].as_i64().unwrap_or(0))
+        .sum();
+    let priced_turns: i64 = providers
+        .iter()
+        .map(|p| p["turnCount"].as_i64().unwrap_or(0))
+        .sum::<i64>()
+        - unpriced_turns;
+
     Ok(json!({
         "rangeStart": range_start,
         "rangeEnd": range_end,
         "byProvider": providers,
         "byModel": models,
         "recent": recent,
+        "totalCostUsd": total_cost,
+        "pricedTurns": priced_turns,
+        "unpricedTurns": unpriced_turns,
     }))
 }
 
@@ -7580,6 +7630,20 @@ mod tests {
         // An errored turn counts toward turns but not successes.
         assert_eq!(deepseek.get("successCount").unwrap().as_i64(), Some(0));
         assert_eq!(deepseek.get("successRate").unwrap().as_f64(), Some(0.0));
+
+        // Cost estimate: qwen2.5-coder is a local model with no seeded price, so
+        // ollama's turns are unpriced and cost 0. deepseek-chat is seeded
+        // ($0.28/M input), so its 200-input turn costs 200 * 0.28 / 1e6.
+        assert_eq!(ollama.get("costUsd").unwrap().as_f64(), Some(0.0));
+        assert_eq!(ollama.get("unpricedTurns").unwrap().as_i64(), Some(2));
+        let deepseek_cost = deepseek.get("costUsd").unwrap().as_f64().unwrap();
+        assert!((deepseek_cost - 200.0 * 0.28 / 1_000_000.0).abs() < 1e-12);
+        assert_eq!(deepseek.get("unpricedTurns").unwrap().as_i64(), Some(0));
+        // Grand totals expose the same split for the hero card.
+        let grand = breakdown.get("totalCostUsd").unwrap().as_f64().unwrap();
+        assert!((grand - deepseek_cost).abs() < 1e-12);
+        assert_eq!(breakdown.get("unpricedTurns").unwrap().as_i64(), Some(2));
+        assert_eq!(breakdown.get("pricedTurns").unwrap().as_i64(), Some(1));
 
         let models = breakdown.get("byModel").unwrap().as_array().unwrap();
         assert_eq!(models.len(), 2);

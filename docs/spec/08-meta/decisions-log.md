@@ -7255,3 +7255,38 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   URL is loopback (matching the D628 keyless local presets), so cost is never
   invented — paid providers read as "unpriced". See ADR 0171,
   `03-runtime/11-provider-model-system.md`, and E2E token-usage coverage.
+
+## 2026-09-27 — Editable model pricing and cost estimate (D632)
+
+- QianNing fork addition, extending D631. The user compared the usage page to
+  cc-switch and asked for real cost figures with "先定个默认的模板，但是也可以像
+  ccswitch一样手动设置" — a shipped default price table that stays editable.
+- Adds schema **v21**: a `model_pricing` table (`model_id` PK, `display_name`,
+  and four per-million USD rate columns stored as TEXT so a typed value
+  round-trips exactly). Migration `migrate_v20_to_v21` and fresh-DB creation both
+  call `pricing::ensure_seeded`, which uses `INSERT OR IGNORE`, so the shipped
+  defaults seed once and a user's later edits/deletions survive every reopen.
+  This is the fork's first additive schema change; no existing table, column, or
+  row is touched, and the standard migration backup is written first.
+- `stats.getUsageBreakdown` now estimates cost. Each completed turn's model is
+  resolved against the pricing table (case-insensitive, with a dated-snapshot
+  suffix fallback like `claude-sonnet-4-5-20250929` → `claude-sonnet-4-5`) and
+  costed as `tokens / 1e6 × rate` per stream (input/output/cache-read/
+  cache-write). A model with no row is counted as `unpricedTurns` and adds no
+  cost, so a figure is never invented. `UsageBreakdownResult` gains `costUsd` /
+  `unpricedTurns` per group and `totalCostUsd` / `pricedTurns` / `unpricedTurns`
+  grand totals. Cost is always derived on read from the current table and never
+  written onto the immutable `turns` ledger, so editing a price re-derives every
+  figure with no historical rewrite.
+- Four new stats RPCs — `stats.getModelPricing` (read) and
+  `updateModelPricing` / `deleteModelPricing` / `resetModelPricing` (write) —
+  are whitelisted IPC ids with typed `api.*` methods, workspace-ipc handlers,
+  and MCP-control specs. `resetModelPricing` restores the shipped rows
+  (overwriting edited defaults, re-adding deleted ones) while keeping
+  user-added custom models. The renderer adds `ModelPricingEditor.tsx`, a
+  cc-switch-style searchable/editable table reached from a "模型价格" button on
+  the usage toolbar; the hero shows an estimated total with an "est." marker and
+  an unpriced-turns note, and the model / recent-request tables show per-row
+  cost. Pricing/cost i18n keys land in all nine locales. The displayed cost is a
+  reference estimate from list prices, not a billing figure. See ADR 0171 and
+  `03-runtime/11-provider-model-system.md`.

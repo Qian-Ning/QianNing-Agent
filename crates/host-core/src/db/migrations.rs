@@ -978,3 +978,27 @@ pub(crate) fn migrate_v19_to_v20(conn: &Connection, path: &Path) -> Result<()> {
     })?;
     Ok(())
 }
+
+/// v21 adds the model_pricing table for the usage-statistics cost estimate
+/// (QianNing fork). It is purely additive — no existing table is touched — and
+/// is seeded with the shipped default price list. Reruns are harmless:
+/// `ensure_seeded` uses INSERT OR IGNORE, so a user's edits and deletions
+/// survive a repeated migration attempt.
+pub(crate) fn migrate_v20_to_v21_tx(tx: &rusqlite::Transaction<'_>) -> Result<()> {
+    crate::pricing::ensure_seeded(tx)?;
+    tx.pragma_update(None, "user_version", 21i64)?;
+    Ok(())
+}
+
+pub(crate) fn migrate_v20_to_v21(conn: &Connection, path: &Path) -> Result<()> {
+    let backup = create_migration_backup(conn, path, 20)?;
+    let tx = conn.unchecked_transaction()?;
+    migrate_v20_to_v21_tx(&tx)?;
+    tx.commit().with_context(|| {
+        format!(
+            "commit schema v20 to v21 migration; backup {} remains",
+            backup.display()
+        )
+    })?;
+    Ok(())
+}

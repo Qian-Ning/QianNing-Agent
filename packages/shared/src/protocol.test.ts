@@ -63,6 +63,22 @@ describe("Plan protocol contracts", () => {
       "pi-desktop/stats/getUsageBreakdown",
     );
     expect(IPC_WHITELIST.has(IPC.invoke.statsGetUsageBreakdown)).toBe(true);
+    expect(IPC.invoke.statsGetModelPricing).toBe(
+      "pi-desktop/stats/getModelPricing",
+    );
+    expect(IPC_WHITELIST.has(IPC.invoke.statsGetModelPricing)).toBe(true);
+    expect(IPC.invoke.statsUpdateModelPricing).toBe(
+      "pi-desktop/stats/updateModelPricing",
+    );
+    expect(IPC_WHITELIST.has(IPC.invoke.statsUpdateModelPricing)).toBe(true);
+    expect(IPC.invoke.statsDeleteModelPricing).toBe(
+      "pi-desktop/stats/deleteModelPricing",
+    );
+    expect(IPC_WHITELIST.has(IPC.invoke.statsDeleteModelPricing)).toBe(true);
+    expect(IPC.invoke.statsResetModelPricing).toBe(
+      "pi-desktop/stats/resetModelPricing",
+    );
+    expect(IPC_WHITELIST.has(IPC.invoke.statsResetModelPricing)).toBe(true);
     expect(IPC.invoke.fsReadImageDataUrl).toBe("pi-desktop/fs/readImageDataUrl");
     expect(IPC_WHITELIST.has(IPC.invoke.fsReadImageDataUrl)).toBe(true);
     expect(IPC.invoke.networkProxyTest).toBe("pi-desktop/network/testProxy");

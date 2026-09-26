@@ -3010,6 +3010,38 @@ async fn handle_request(
             Ok(breakdown)
         }
 
+        "stats.getModelPricing" => {
+            let st = state.lock().await;
+            let pricing = crate::pricing::list_pricing(st.db.conn())
+                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
+            Ok(pricing)
+        }
+
+        "stats.updateModelPricing" => {
+            let st = state.lock().await;
+            let pricing = crate::pricing::upsert_pricing(st.db.conn(), &params)
+                .map_err(|e| rpc_err(1001, e.to_string(), "INVALID_ARGUMENT"))?;
+            Ok(pricing)
+        }
+
+        "stats.deleteModelPricing" => {
+            let model_id = params
+                .get("modelId")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| rpc_err(1001, "modelId is required", "INVALID_ARGUMENT"))?;
+            let st = state.lock().await;
+            let pricing = crate::pricing::delete_pricing(st.db.conn(), model_id)
+                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
+            Ok(pricing)
+        }
+
+        "stats.resetModelPricing" => {
+            let st = state.lock().await;
+            let pricing = crate::pricing::reset_defaults(st.db.conn())
+                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
+            Ok(pricing)
+        }
+
         "artifacts.list" => {
             let session_id = params.get("sessionId").and_then(|v| v.as_str());
             let limit = params.get("limit").and_then(|v| v.as_i64()).unwrap_or(200);

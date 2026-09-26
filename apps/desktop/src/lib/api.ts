@@ -1381,6 +1381,24 @@ export const api = {
       IPC.invoke.statsGetUsageBreakdown,
       query,
     ),
+  getModelPricing: () =>
+    invoke<import("@pi-desktop/shared").ModelPricingResult>(
+      IPC.invoke.statsGetModelPricing,
+    ),
+  updateModelPricing: (row: import("@pi-desktop/shared").ModelPricingRow) =>
+    invoke<import("@pi-desktop/shared").ModelPricingResult>(
+      IPC.invoke.statsUpdateModelPricing,
+      row,
+    ),
+  deleteModelPricing: (modelId: string) =>
+    invoke<import("@pi-desktop/shared").ModelPricingResult>(
+      IPC.invoke.statsDeleteModelPricing,
+      { modelId },
+    ),
+  resetModelPricing: () =>
+    invoke<import("@pi-desktop/shared").ModelPricingResult>(
+      IPC.invoke.statsResetModelPricing,
+    ),
   menuRendererReady: () =>
     invoke<{ ready: boolean }>(IPC.invoke.menuRendererReady),
   setTraySessionPreferences: (preferences: TraySessionPreferences) =>

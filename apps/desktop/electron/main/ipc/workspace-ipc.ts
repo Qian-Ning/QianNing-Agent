@@ -642,6 +642,39 @@ export function registerWorkspaceIpc({
     },
   );
 
+  handle(IPC.invoke.statsGetModelPricing, async () => {
+    if (!host) throw new Error("host unavailable");
+    return host.call("stats.getModelPricing", {});
+  });
+
+  handle(
+    IPC.invoke.statsUpdateModelPricing,
+    async (input?: {
+      modelId?: string;
+      displayName?: string;
+      inputCostPerMillion?: string;
+      outputCostPerMillion?: string;
+      cacheReadCostPerMillion?: string;
+      cacheWriteCostPerMillion?: string;
+    }) => {
+      if (!host) throw new Error("host unavailable");
+      return host.call("stats.updateModelPricing", input ?? {});
+    },
+  );
+
+  handle(
+    IPC.invoke.statsDeleteModelPricing,
+    async (input?: { modelId?: string }) => {
+      if (!host) throw new Error("host unavailable");
+      return host.call("stats.deleteModelPricing", input ?? {});
+    },
+  );
+
+  handle(IPC.invoke.statsResetModelPricing, async () => {
+    if (!host) throw new Error("host unavailable");
+    return host.call("stats.resetModelPricing", {});
+  });
+
   handle(
     IPC.invoke.browserNavigate,
     async (input: { url?: string; sessionId?: string } = {}) => {

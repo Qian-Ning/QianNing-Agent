@@ -11,11 +11,22 @@ import { useAppStore } from "../../stores/app-store";
 import { providerDisplayName } from "../../lib/provider-display";
 import { Badge, Button, SegmentedControl } from "../ui";
 import { SettingsMenuSelect } from "./SettingsMenuSelect";
+import { ModelPricingEditor } from "./ModelPricingEditor";
 import { IconActivity, IconRefresh } from "../icons";
 
 type RangeId = "today" | "7d" | "30d";
 
 const DAY_MS = 86_400_000;
+
+/**
+ * Approximate USD cost for display. Sub-cent figures keep more precision so a
+ * genuinely tiny spend does not collapse to "$0.00".
+ */
+function formatCost(usd: number): string {
+  if (!Number.isFinite(usd) || usd <= 0) return "$0.00";
+  if (usd < 0.01) return `$${usd.toFixed(4)}`;
+  return `$${usd.toFixed(2)}`;
+}
 
 /** Local midnight `daysAgo` days before now, as an epoch-ms timestamp. */
 function startOfDay(daysAgo: number): number {
@@ -182,6 +193,7 @@ export function UsagePage() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
+  const [showPricing, setShowPricing] = useState(false);
 
   const providerById = useMemo(() => {
     const map = new Map<string, ProviderPublic>();
@@ -245,11 +257,14 @@ export function UsagePage() {
   }, [totals]);
 
   // The whole window is free only when every provider that produced usage is
-  // local; otherwise a paid provider was involved and cost is simply unpriced.
+  // local; otherwise a paid provider was involved and cost is estimated.
   const allLocal = useMemo(() => {
     const rows = breakdown?.byProvider ?? [];
     return rows.length > 0 && rows.every((p) => isLocalProvider(providerById.get(p.providerId)));
   }, [breakdown, providerById]);
+
+  const totalCost = breakdown?.totalCostUsd ?? 0;
+  const unpricedTurns = breakdown?.unpricedTurns ?? 0;
 
   const sourceOptions = useMemo(
     () => [
@@ -279,6 +294,13 @@ export function UsagePage() {
 
   const nf = (value: number) => value.toLocaleString();
 
+  if (showPricing) {
+    return <ModelPricingEditor onBack={() => {
+      setShowPricing(false);
+      setReloadNonce((n) => n + 1);
+    }} />;
+  }
+
   return (
     <div className="usage-page">
       <div className="usage-toolbar">
@@ -306,6 +328,12 @@ export function UsagePage() {
               { value: "30d", label: t("settings.usageStats.range30d") },
             ]}
           />
+          <Button
+            variant="secondary"
+            onClick={() => setShowPricing(true)}
+          >
+            {t("settings.usageStats.managePricing")}
+          </Button>
           <Button
             variant="secondary"
             onClick={() => setReloadNonce((n) => n + 1)}
@@ -345,10 +373,20 @@ export function UsagePage() {
                   <div className="usage-hero-sv">
                     {allLocal ? (
                       <span className="usage-free">{t("settings.usageStats.costLocalFree")}</span>
+                    ) : totalCost > 0 ? (
+                      <span>
+                        {formatCost(totalCost)}
+                        <small className="usage-cost-est"> {t("settings.usageStats.costEstimated")}</small>
+                      </span>
                     ) : (
                       <span className="usage-dim">{t("settings.usageStats.unpriced")}</span>
                     )}
                   </div>
+                  {!allLocal && unpricedTurns > 0 && (
+                    <div className="usage-cost-note">
+                      {t("settings.usageStats.costPartialNote", { count: unpricedTurns })}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -463,10 +501,12 @@ export function UsagePage() {
                         <td>{row.modelId || t("settings.usageStats.unknownModel")}</td>
                         <td>{nf(row.turnCount)}</td>
                         <td>{formatCompactTokenCount(row.totalTokens)}</td>
-                        <td className={local ? "usage-free" : "usage-dim"}>
+                        <td className={local ? "usage-free" : row.costUsd > 0 ? "usage-good" : "usage-dim"}>
                           {local
                             ? t("settings.usageStats.free")
-                            : t("settings.usageStats.unpriced")}
+                            : row.costUsd > 0
+                              ? formatCost(row.costUsd)
+                              : t("settings.usageStats.unpriced")}
                         </td>
                       </tr>
                     );
@@ -500,6 +540,7 @@ export function UsagePage() {
                   <th>{t("settings.usageStats.colInput")}</th>
                   <th>{t("settings.usageStats.colOutput")}</th>
                   <th>{t("settings.usageStats.colCache")}</th>
+                  <th>{t("settings.usageStats.colCost")}</th>
                   <th>{t("settings.usageStats.colDuration")}</th>
                   <th>{t("settings.usageStats.colStatus")}</th>
                 </tr>
@@ -513,6 +554,13 @@ export function UsagePage() {
                     <td>{nf(row.inputTokens)}</td>
                     <td>{nf(row.outputTokens)}</td>
                     <td>{nf(row.cacheTokens)}</td>
+                    <td className={row.costUsd && row.costUsd > 0 ? "usage-good" : "usage-dim"}>
+                      {row.costUsd == null
+                        ? t("settings.usageStats.unpriced")
+                        : row.costUsd > 0
+                          ? formatCost(row.costUsd)
+                          : t("settings.usageStats.free")}
+                    </td>
                     <td>{formatDuration(row.durationMs)}</td>
                     <td className={row.status === "completed" ? "usage-good" : "usage-warn"}>
                       {row.status === "completed"
@@ -523,7 +571,7 @@ export function UsagePage() {
                 ))}
                 {(breakdown?.recent ?? []).length === 0 && !loading && (
                   <tr>
-                    <td colSpan={8} className="usage-dim">
+                    <td colSpan={9} className="usage-dim">
                       {t("settings.usageStats.empty")}
                     </td>
                   </tr>

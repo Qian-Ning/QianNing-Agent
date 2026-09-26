@@ -150,6 +150,65 @@ fn v19_database_migrates_session_system_prompt_column() {
 }
 
 #[test]
+fn v20_database_migrates_and_seeds_model_pricing() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    {
+        let db = Database::open(&path).unwrap();
+        // Force the pre-v21 shape: drop the pricing table so the migration has
+        // real work, then rewind the version marker.
+        db.conn()
+            .execute_batch("DROP TABLE IF EXISTS model_pricing;")
+            .unwrap();
+        db.conn().pragma_update(None, "user_version", 20).unwrap();
+    }
+    let db = Database::open(&path).unwrap();
+    assert_eq!(schema_version(db.conn()), SCHEMA_VERSION);
+    assert!(migration_backup_path(&path, 20).exists());
+    // The table exists and is seeded with the shipped defaults.
+    let seeded: i64 = db
+        .conn()
+        .query_row("SELECT COUNT(*) FROM model_pricing", [], |row| row.get(0))
+        .unwrap();
+    assert!(seeded > 0, "default pricing is seeded on migration");
+    let gpt5_input: String = db
+        .conn()
+        .query_row(
+            "SELECT input_cost_per_million FROM model_pricing WHERE model_id = 'gpt-5'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(gpt5_input, "1.25");
+}
+
+#[test]
+fn model_pricing_user_edits_survive_reopen() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    {
+        let db = Database::open(&path).unwrap();
+        // Edit a seeded default; the seed must not clobber it on the next open.
+        db.conn()
+            .execute(
+                "UPDATE model_pricing SET input_cost_per_million = '999' WHERE model_id = 'gpt-5'",
+                [],
+            )
+            .unwrap();
+    }
+    let db = Database::open(&path).unwrap();
+    let gpt5_input: String = db
+        .conn()
+        .query_row(
+            "SELECT input_cost_per_million FROM model_pricing WHERE model_id = 'gpt-5'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(gpt5_input, "999", "reopen must not re-seed over a user edit");
+}
+
+#[test]
 fn boot_archives_and_drops_storage_removed_by_the_single_scope_persona_model() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("pi.sqlite");

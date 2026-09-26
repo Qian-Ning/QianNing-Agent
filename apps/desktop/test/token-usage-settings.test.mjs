@@ -25,6 +25,23 @@ test("settings exposes the usage destination wired to host token history", () =>
   assert.match(api, /getUsageBreakdown/);
 });
 
+// QianNing fork: the usage page estimates cost from an editable model pricing
+// table. The renderer reaches it through four typed stats.* IPC methods; assert
+// they exist so the UI's cost/pricing wiring cannot silently lose its backend.
+test("api exposes the editable model-pricing surface", () => {
+  assert.match(api, /getModelPricing/);
+  assert.match(api, /updateModelPricing/);
+  assert.match(api, /deleteModelPricing/);
+  assert.match(api, /resetModelPricing/);
+});
+
+test("model pricing editor component exists", async () => {
+  await access(
+    new URL("../src/components/settings/ModelPricingEditor.tsx", import.meta.url),
+    constants.F_OK,
+  );
+});
+
 test("settings usage page component exists", async () => {
   await access(
     new URL("../src/components/settings/UsagePage.tsx", import.meta.url),

@@ -84,6 +84,10 @@ export type UsageProviderStat = {
   totalTokens: number;
   inputTokens: number;
   outputTokens: number;
+  /** Estimated USD cost from priced turns only (unpriced turns add nothing). */
+  costUsd: number;
+  /** Turns whose model has no pricing row, excluded from `costUsd`. */
+  unpricedTurns: number;
 };
 
 export type UsageModelStat = {
@@ -94,6 +98,8 @@ export type UsageModelStat = {
   totalTokens: number;
   inputTokens: number;
   outputTokens: number;
+  costUsd: number;
+  unpricedTurns: number;
 };
 
 export type UsageRecentTurn = {
@@ -105,6 +111,8 @@ export type UsageRecentTurn = {
   outputTokens: number;
   cacheTokens: number;
   durationMs: number;
+  /** Estimated USD cost for this turn, or null when its model is unpriced. */
+  costUsd: number | null;
 };
 
 export type UsageBreakdownResult = {
@@ -113,6 +121,26 @@ export type UsageBreakdownResult = {
   byProvider: UsageProviderStat[];
   byModel: UsageModelStat[];
   recent: UsageRecentTurn[];
+  /** Grand total estimated USD across every priced turn in the window. */
+  totalCostUsd: number;
+  /** How many turns contributed a cost figure. */
+  pricedTurns: number;
+  /** How many turns were skipped from cost because their model is unpriced. */
+  unpricedTurns: number;
+};
+
+/** One editable per-model price row (per-million USD, stored as strings). */
+export type ModelPricingRow = {
+  modelId: string;
+  displayName: string;
+  inputCostPerMillion: string;
+  outputCostPerMillion: string;
+  cacheReadCostPerMillion: string;
+  cacheWriteCostPerMillion: string;
+};
+
+export type ModelPricingResult = {
+  models: ModelPricingRow[];
 };
 
 /**

@@ -14,6 +14,7 @@ mod plans;
 mod plugin_sessions;
 mod plugin_usage;
 mod plugins;
+mod pricing;
 mod providers;
 mod review;
 mod rpc;
