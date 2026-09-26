@@ -434,6 +434,19 @@ export function SettingsPage() {
               </SettingsCard>
 
               {platform !== "darwin" && <CloseBehaviorSection />}
+
+              <SettingsCard title={t("settings.companion")}>
+                <SettingsRow
+                  title={t("settings.petEnabled")}
+                  description={t("settings.petEnabledDesc")}
+                >
+                  <SettingsToggle
+                    checked={settings.petEnabled === true}
+                    label={t("settings.petEnabled")}
+                    onChange={() => void saveSettings({ petEnabled: settings.petEnabled !== true })}
+                  />
+                </SettingsRow>
+              </SettingsCard>
             </div>
           )}
 

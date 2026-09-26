@@ -7290,3 +7290,38 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   cost. Pricing/cost i18n keys land in all nine locales. The displayed cost is a
   reference estimate from list prices, not a billing figure. See ADR 0171 and
   `03-runtime/11-provider-model-system.md`.
+
+## 2026-09-27 — Opt-in desktop companion that mirrors agent state (D633)
+
+- QianNing fork addition. The user wanted a mascot-based desktop pet that is
+  "立体状态" and "活灵活现", rejecting a flat "圆圈里放图片" avatar, scoped to a
+  status-avatar only (no nurturing/affinity), "默认关，但可以手动开", using the nine
+  expressions from the mascot sheet, and approved shipping the 2D route first
+  with "可以就先按你说的建议来" / "先按照这个落地的吧，之后再慢慢修改".
+- The pet is a **passive, read-only mirror** of the active session's run state.
+  A pure `derivePetMood` (in `lib/pet-mood.ts`) maps a plain snapshot to one of
+  seven moods with a fixed priority: a pending permission outranks a live run
+  (thinking while the activity phase is a model/housekeeping wait, otherwise
+  working), then a shown error, then a transient "done" celebration window, then
+  a long-idle sleep, then plain idle. `use-pet-mood.ts` collects the snapshot
+  from the store (`runningSessions`, `agentStatuses[].activity.phase`,
+  `sessionOutcomes`, `latestTurnResults`, `error`, `pendingPermissions`) and
+  supplies the clock. It calls no store action and no `api.*`; the companion can
+  never drive, cancel, or answer the agent — a wiring test asserts this.
+- `DesktopPet.tsx` renders a transparent fox cutout driven by a single
+  requestAnimationFrame spring loop (breathe, blink, idle wander, cursor-follow
+  tilt, click bounce, grounded shadow, a working-state glow ring), so a flat
+  sprite reads as a live creature without a 3D model or Live2D rig. The nine
+  faces ship as `assets/pet/fox-*.png`, cut from the mascot sheet (caption strip
+  removed, alpha-cropped). Styling lives in `styles/pet.css` using surface
+  tokens, except the companion-local blue accents that match the mascot palette
+  while the rest of the UI stays grayscale.
+- Gated on a new optional setting `settings.petEnabled` (**default off**;
+  absent/false keep it hidden — the pet is opt-in). A "桌面伙伴" toggle is added
+  to Settings and to the settings search index. The overlay mounts only on the
+  chat page and only when the work panel is not maximized. Companion strings
+  (three `settings.*` keys plus a `pet` namespace of aria label and mood lines)
+  land in all nine locales.
+- This is the 2D "sprite puppet" route (route A). Richer routes — a Live2D
+  boned rig (B) or an image-to-3D GLB model (C) — remain open follow-ups; the
+  read-only mood wiring is designed to be reused by either.

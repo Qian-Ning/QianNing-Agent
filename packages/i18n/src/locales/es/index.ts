@@ -599,10 +599,26 @@ export const es = {
     "loadPlugin": "Cargue un complemento de desarrollo (opcional)",
     "dismiss": "Descartar"
   },
+  "pet": {
+    "ariaLabel": "Mascota de escritorio de QianNing",
+    "say": {
+      "idle": "Aquí estoy~",
+      "thinking": "Déjame pensar…",
+      "working": "¡Manos a la obra!",
+      "done": "¡Listo!",
+      "error": "Uy… algo salió mal",
+      "permission": "Necesito que confirmes algo",
+      "woke": "Mmm… me despertaste",
+      "poke": "¿Eh?",
+    },
+  },
   "settings": {
     "power": "Energía",
     "keepAwakeWhileRunning": "Mantener el equipo activo",
     "keepAwakeWhileRunningDesc": "Evita la suspensión por inactividad mientras QianNing Agent esté abierto. La pantalla puede apagarse; la suspensión manual y al cerrar la tapa siguen funcionando.",
+    "companion": "Compañero",
+    "petEnabled": "Mascota de escritorio",
+    "petEnabledDesc": "Muestra en la esquina un zorro flotante que reacciona a lo que hace el agente. Desactivado por defecto.",
     "imageModel": "Modelo de imágenes",
     "imageModelUnset": "Sin configurar",
     "imageModelUnavailable": "No disponible por ahora",

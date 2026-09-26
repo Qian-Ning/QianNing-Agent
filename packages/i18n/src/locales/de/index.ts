@@ -599,10 +599,26 @@ export const de = {
     "loadPlugin": "Laden Sie ein Entwicklungs-Plugin (optional)",
     "dismiss": "Verwerfen"
   },
+  "pet": {
+    "ariaLabel": "QianNing Desktop-Maskottchen",
+    "say": {
+      "idle": "Ich bin da~",
+      "thinking": "Lass mich überlegen…",
+      "working": "Bin dran!",
+      "done": "Fertig!",
+      "error": "Oje… etwas ist schiefgelaufen",
+      "permission": "Ich brauche deine Bestätigung",
+      "woke": "Mm… du hast mich geweckt",
+      "poke": "Hm?",
+    },
+  },
   "settings": {
     "power": "Energie",
     "keepAwakeWhileRunning": "Computer wach halten",
     "keepAwakeWhileRunningDesc": "Verhindert den Ruhezustand bei Inaktivität, solange QianNing Agent läuft. Der Bildschirm kann sich ausschalten; manuelles Schlafen und Zuklappen bleiben möglich.",
+    "companion": "Begleiter",
+    "petEnabled": "Desktop-Maskottchen",
+    "petEnabledDesc": "Zeigt in der Ecke einen schwebenden Fuchs, der auf die Aktivität des Agenten reagiert. Standardmäßig aus.",
     "imageModel": "Bildgenerierungsmodell",
     "imageModelUnset": "Nicht konfiguriert",
     "imageModelUnavailable": "Derzeit nicht verfügbar",

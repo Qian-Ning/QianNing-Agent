@@ -597,10 +597,26 @@ export const ptBR = {
     loadPlugin: "Carregar um plugin de desenvolvimento (opcional)",
     dismiss: "Dispensar"
   },
+  pet: {
+    ariaLabel: "Mascote de desktop QianNing",
+    say: {
+      idle: "Estou aqui~",
+      thinking: "Deixa eu pensar…",
+      working: "Já cuido disso!",
+      done: "Pronto!",
+      error: "Ops… algo deu errado",
+      permission: "Preciso que você confirme algo",
+      woke: "Mm… você me acordou",
+      poke: "Hã?",
+    },
+  },
   settings: {
     power: "Energia",
     keepAwakeWhileRunning: "Manter o computador ativo",
     keepAwakeWhileRunningDesc: "Impede a suspensão por inatividade enquanto o QianNing Agent estiver aberto. A tela pode apagar; a suspensão manual e ao fechar a tampa continuam funcionando.",
+    companion: "Companheiro",
+    petEnabled: "Mascote de desktop",
+    petEnabledDesc: "Mostra no canto uma raposa flutuante que reage ao que o agente está fazendo. Desativado por padrão.",
     imageModel: "Modelo de imagens",
     imageModelUnset: "Sem configurar",
     imageModelUnavailable: "Atualmente indisponível",

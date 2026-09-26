@@ -1,0 +1,169 @@
+/*
+ * Desktop companion ("千凝" pet, D633). A floating transparent fox that mirrors
+ * the agent state in the corner of the chat shell. The pet is deliberately
+ * blue-accented (its own palette from the mascot sheet) while the rest of the
+ * UI stays grayscale, so these few literals are companion-local brand color,
+ * not surface tokens. Radii/sizes use the token scale.
+ */
+
+.pet-slot {
+  position: absolute;
+  right: 26px;
+  bottom: 74px;
+  width: 132px;
+  height: 168px;
+  z-index: 45;
+  perspective: 900px;
+  perspective-origin: 50% 40%;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+/* The rig is the only interactive surface; the slot passes clicks through. */
+.pet-rig {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  width: 118px;
+  height: 118px;
+  margin-left: -59px;
+  transform-style: preserve-3d;
+  cursor: grab;
+  pointer-events: auto;
+  will-change: transform;
+}
+
+.pet-rig:active {
+  cursor: grabbing;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Motion-sensitive users keep the pet but lose the perpetual float; the
+     spring loop still runs but the idle bob is barely perceptible. */
+  .pet-rig {
+    transition: none;
+  }
+}
+
+.pet-glow {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 118px;
+  height: 118px;
+  margin-left: -59px;
+  margin-top: -59px;
+  border-radius: var(--radius-round);
+  transform: translateZ(-50px);
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.5), transparent 62%);
+  filter: blur(11px);
+  opacity: 0;
+  transition: opacity var(--motion-duration-slow) ease;
+}
+
+.pet-glow.on {
+  opacity: 1;
+  animation: pet-glow-pulse 1.3s ease-in-out infinite;
+}
+
+@keyframes pet-glow-pulse {
+  0%,
+  100% {
+    transform: translateZ(-50px) scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: translateZ(-50px) scale(1.16);
+    opacity: 0.85;
+  }
+}
+
+.pet-fox {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.pet-face,
+.pet-face-depth {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 118px;
+  transform: translate(-50%, -50%);
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.45));
+}
+
+/* A dim copy pushed back in Z gives the flat cutout a hint of thickness. */
+.pet-face-depth {
+  transform: translate(-50%, -50%) translateZ(-13px) scale(0.985);
+  filter: brightness(0.55) blur(1px);
+  opacity: 0.7;
+}
+
+.pet-rim {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: 104px;
+  height: 104px;
+  margin-left: -52px;
+  margin-top: -52px;
+  border-radius: var(--radius-round);
+  pointer-events: none;
+  transform: translateZ(6px);
+  background: radial-gradient(ellipse at 30% 22%, rgba(255, 255, 255, 0.28), transparent 58%);
+  mix-blend-mode: screen;
+}
+
+.pet-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 96px;
+  height: 22px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.5), transparent 68%);
+  filter: blur(4px);
+  pointer-events: none;
+}
+
+.pet-bubble {
+  position: absolute;
+  right: 128px;
+  bottom: 96px;
+  max-width: 190px;
+  width: max-content;
+  padding: 7px 11px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm-plus);
+  line-height: var(--leading-normal);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  animation: pet-bubble-in var(--motion-duration-fast) ease;
+}
+
+.pet-bubble::after {
+  content: "";
+  position: absolute;
+  right: -6px;
+  bottom: 14px;
+  border: 6px solid transparent;
+  border-left-color: var(--color-border, var(--ds-border));
+}
+
+@keyframes pet-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

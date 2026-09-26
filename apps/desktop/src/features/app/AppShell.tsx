@@ -10,6 +10,7 @@ import {
 import { ProjectCreateDialog } from "../../components/ProjectCreateDialog";
 import { SearchDialog } from "../../components/SearchDialog";
 import { Sidebar } from "../../components/Sidebar";
+import { DesktopPet } from "../../components/DesktopPet";
 import { StartupRecovery } from "../../components/StartupRecovery";
 import { ToastHost } from "../../components/Toast";
 import { UpdateBanner } from "../../components/UpdateBanner";
@@ -17,6 +18,7 @@ import { cx, TooltipButton } from "../../components/ui";
 import { WindowControls } from "../../components/WindowControls";
 import { WorkPanel } from "../../components/workpanel/WorkPanel";
 import { useCopyTex } from "../../hooks/use-copy-tex";
+import { useAppStore } from "../../stores/app-store";
 import { api } from "../../lib/api";
 import { PortalVisibilityProvider } from "../../lib/portal-visibility";
 import { CollapsedTitlebarActions, RoutePending } from "./chrome";
@@ -87,6 +89,7 @@ export function AppShell() {
     workPanelToggleTooltip,
   } = useAppShellRuntime();
   useCopyTex();
+  const petEnabled = useAppStore((state) => state.settings?.petEnabled === true);
 
   // A boot that never reaches the shell gets a surface it can act on instead of
   // a window that only knows how to wait (issue #831). Rendered as a direct child
@@ -295,6 +298,8 @@ export function AppShell() {
                 <IconPanelOpen size={15} />
               </span>
             </TooltipButton>
+
+            {petEnabled && page === "chat" && !workPanelMaximized ? <DesktopPet /> : null}
           </div>
         </PortalVisibilityProvider>
         {page === "settings" ? (

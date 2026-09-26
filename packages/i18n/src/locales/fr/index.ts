@@ -599,10 +599,26 @@ export const fr = {
     "loadPlugin": "Charger un plugin de développement (facultatif)",
     "dismiss": "Ignorer"
   },
+  "pet": {
+    "ariaLabel": "Mascotte de bureau QianNing",
+    "say": {
+      "idle": "Je suis là~",
+      "thinking": "Laisse-moi réfléchir…",
+      "working": "Je m'en occupe !",
+      "done": "Terminé !",
+      "error": "Oups… une erreur est survenue",
+      "permission": "J'ai besoin que tu confirmes",
+      "woke": "Mm… tu m'as réveillé",
+      "poke": "Hein ?",
+    },
+  },
   "settings": {
     "power": "Alimentation",
     "keepAwakeWhileRunning": "Garder l'ordinateur éveillé",
     "keepAwakeWhileRunningDesc": "Empêche la veille due à l'inactivité pendant l'exécution de QianNing Agent. L'écran peut s'éteindre ; la veille manuelle et la fermeture du capot restent possibles.",
+    "companion": "Compagnon",
+    "petEnabled": "Mascotte de bureau",
+    "petEnabledDesc": "Affiche dans le coin un renard flottant qui réagit à l'activité de l'agent. Désactivé par défaut.",
     "imageModel": "Modèle de génération d’images",
     "imageModelUnset": "Non configuré",
     "imageModelUnavailable": "Indisponible pour le moment",
