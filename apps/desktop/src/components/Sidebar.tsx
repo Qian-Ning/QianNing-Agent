@@ -72,6 +72,7 @@ import {
   IconArrowUpDown,
   IconPlug,
   IconBranch,
+  IconChartColumn,
   IconCheck,
   IconChevronDown,
   IconCopy,
@@ -270,6 +271,7 @@ export function Sidebar({
   const showToast = useAppStore((s) => s.showToast);
   const version = useAppStore((s) => s.version);
   const setSettingsTab = useAppStore((s) => s.setSettingsTab);
+  const settingsTab = useAppStore((s) => s.settingsTab);
   const setSettingsAnchor = useAppStore((s) => s.setSettingsAnchor);
   const update = useUpdateState();
 
@@ -2526,6 +2528,20 @@ export function Sidebar({
               <IconClock size={14} aria-hidden />
             </TooltipButton>
             <NotificationCenter onBeforeOpen={() => closeMenus(false)} />
+            <TooltipButton
+              type="button"
+              className={`footer-action ${page === "settings" && settingsTab === "usage" ? "active" : ""}`}
+              data-nav="usage"
+              tooltip={t("settings.usage")}
+              ariaLabel={t("settings.usage")}
+              onClick={() => {
+                setSettingsTab("usage");
+                setPage("settings");
+              }}
+              aria-pressed={page === "settings" && settingsTab === "usage"}
+            >
+              <IconChartColumn size={14} aria-hidden />
+            </TooltipButton>
           </div>
 
           <TooltipButton

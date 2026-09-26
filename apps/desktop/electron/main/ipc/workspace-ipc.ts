@@ -629,6 +629,20 @@ export function registerWorkspaceIpc({
   );
 
   handle(
+    IPC.invoke.statsGetUsageBreakdown,
+    async (input?: {
+      startDate?: number;
+      endDate?: number;
+      providerId?: string;
+      modelId?: string;
+      recentLimit?: number;
+    }) => {
+      if (!host) throw new Error("host unavailable");
+      return host.call("stats.getUsageBreakdown", input ?? {});
+    },
+  );
+
+  handle(
     IPC.invoke.browserNavigate,
     async (input: { url?: string; sessionId?: string } = {}) => {
       if (!plugins.getLoaded(BROWSER_PLUGIN_ID)) {

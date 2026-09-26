@@ -7229,3 +7229,29 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   and the host validates it against `THINKING_LEVELS`; no Rust, IPC contract,
   schema, or persisted-format change. See `04-ux/08-component-spec.md` §11 and
   `06-delivery/04-e2e-test-plan.md` E2E-050.
+
+## 2026-09-27 — Usage-statistics settings destination (D631)
+
+- QianNing fork addition. Upstream keeps completed-turn token usage host-only
+  (ADR 0171): the `stats.getTokenUsageHistory` RPC exists but has no settings
+  surface, and `token-usage-settings.test.mjs` asserted the absence of a usage
+  destination. The user asked for an in-app usage view ("使用统计也要写进来"),
+  landed to the reference prototype, so this reverses that absence.
+- A new Settings ▸ 使用统计 destination (`id: "usage"`, `settings.nav.usage`,
+  system group) renders `UsagePage.tsx`: a total-tokens hero with request count
+  and a local·free / unpriced cost marker, five mini metrics (input, output,
+  cache write, cache read, cache-hit rate), a hand-drawn grayscale SVG trend
+  (input/output lines over a cache-read area — no chart library), and provider,
+  model, and recent-request tables. Range (today / 7d / 30d) and source/model
+  filters drive both reads. Grayscale is preserved; only the local·free marker
+  and the cache-hit metric borrow the semantic success token.
+- Adds one read-only host query, `stats.getUsageBreakdown` (per-provider and
+  per-model aggregation plus a bounded recent-turn list over the completed
+  `turns` table), reached through a new `statsGetUsageBreakdown` IPC id
+  (whitelisted, `read`), the `getUsageBreakdown` renderer API, and the
+  `UsageBreakdownResult` shared type. No write path, schema, migration, or
+  persisted-format change; the existing `turns` columns already carry the data.
+  A provider is treated as local·free when its `authKind` is `none` or its base
+  URL is loopback (matching the D628 keyless local presets), so cost is never
+  invented — paid providers read as "unpriced". See ADR 0171,
+  `03-runtime/11-provider-model-system.md`, and E2E token-usage coverage.

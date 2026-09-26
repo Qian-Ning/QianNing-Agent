@@ -17,6 +17,8 @@ import {
 import { pluginViewIcon } from "../../lib/plugin-view-icons";
 import {
   IconArchive,
+  IconActivity,
+  IconChartColumn,
   IconBookOpen,
   IconBot,
   IconChevronLeft,
@@ -61,6 +63,7 @@ import { ImportSection } from "./import-page";
 import { CloseBehaviorSection, DeveloperSection } from "./developer-sections";
 import { PluginScenicThemesDestination } from "../../components/settings/PluginScenicThemesDestination";
 import { ConfigSyncPage } from "../../components/settings/ConfigSyncPage";
+import { UsagePage } from "../../components/settings/UsagePage";
 
 type SettingsTab = ReturnType<typeof useAppStore.getState>["settingsTab"];
 
@@ -230,6 +233,7 @@ export function SettingsPage() {
       sync: <IconCloudDown size={14} />,
       remoteHosts: <IconGlobe size={14} />,
       voice: <IconMic size={14} />,
+      usage: <IconChartColumn size={14} />,
       about: <IconInfo size={14} />,
     };
     return navEntries.map((entry) => ({
@@ -553,6 +557,8 @@ export function SettingsPage() {
           {tab === "sync" && !tabHidden && <ConfigSyncPage />}
 
           {tab === "remoteHosts" && !tabHidden && <RemoteHostsPage />}
+
+          {tab === "usage" && <UsagePage />}
 
           {tab === "about" && (
             <div className="settings-stack">

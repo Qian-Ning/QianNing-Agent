@@ -386,7 +386,7 @@ test("OAuth account identity is provider-scoped across IPC and pi-ai", () => {
 test("settings nav icons map each destination to a semantic lucide glyph", () => {
   assert.match(settingsPageSource, /general: <IconSliders/);
   assert.match(settingsPageSource, /ai: <IconSparkles/);
-  assert.doesNotMatch(settingsPageSource, /usage: <IconActivity/);
+  assert.match(settingsPageSource, /usage: <IconChartColumn/);
   assert.match(settingsPageSource, /shortcuts: <IconKeyboard/);
   assert.match(settingsPageSource, /agent: <IconBot/);
   assert.doesNotMatch(settingsPageSource, /instructions: <IconTextSelect/);
@@ -438,7 +438,8 @@ test("settings nav keeps a flat searchable index with titled visual groups", () 
   const shortcutsStart = settingsSearchSource.indexOf('id: "shortcuts"');
   const generalEntry = settingsSearchSource.slice(generalStart, aiStart);
   const aiEntry = settingsSearchSource.slice(aiStart, shortcutsStart);
-  assert.equal(settingsSearchSource.indexOf('id: "usage"'), -1);
+  // The usage-statistics destination was added (D631).
+  assert.ok(settingsSearchSource.indexOf('id: "usage"') >= 0);
   assert.doesNotMatch(generalEntry, /settings\.defaultsTitle/);
   assert.match(aiEntry, /settings\.defaultsTitle/);
   assert.match(aiEntry, /settings\.commandShell/);

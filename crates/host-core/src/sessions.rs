@@ -3891,6 +3891,187 @@ pub fn get_token_usage_history(
     }))
 }
 
+#[derive(Default, Clone)]
+struct UsageGroupAcc {
+    turns: i64,
+    success: i64,
+    input: i64,
+    output: i64,
+    cache_read: i64,
+    cache_write: i64,
+}
+
+impl UsageGroupAcc {
+    fn add(&mut self, completed: bool, input: i64, output: i64, cache_read: i64, cache_write: i64) {
+        self.turns += 1;
+        if completed {
+            self.success += 1;
+        }
+        self.input += input;
+        self.output += output;
+        self.cache_read += cache_read;
+        self.cache_write += cache_write;
+    }
+
+    fn total_tokens(&self) -> i64 {
+        self.input + self.output + self.cache_read + self.cache_write
+    }
+}
+
+/// Read-only per-provider and per-model aggregation plus a recent-turn detail
+/// list, over the same completed/errored turns that back the usage trend. This
+/// never writes and only reads the `turns` ledger the host already records.
+pub fn get_usage_breakdown(
+    db: &Database,
+    start_date: Option<i64>,
+    end_date: Option<i64>,
+    provider_filter: Option<&str>,
+    model_filter: Option<&str>,
+    recent_limit: i64,
+) -> Result<Value> {
+    use std::collections::BTreeMap;
+
+    let (range_start, range_end) = resolve_history_range(start_date, end_date, "day");
+    let provider_filter = provider_filter.filter(|s| !s.is_empty());
+    let model_filter = model_filter.filter(|s| !s.is_empty());
+    let recent_cap = recent_limit.clamp(1, 500);
+
+    let conn = db.conn();
+    let mut stmt = conn.prepare_cached(
+        "SELECT provider_id, model_id, status, input_tokens, output_tokens, usage_json, started_at, ended_at
+         FROM turns
+         WHERE ended_at IS NOT NULL
+           AND ended_at >= ?1 AND ended_at <= ?2
+           AND status IN ('completed', 'error')
+           AND (?3 IS NULL OR provider_id = ?3)
+           AND (?4 IS NULL OR model_id = ?4)
+         ORDER BY ended_at DESC",
+    )?;
+
+    let rows = stmt.query_map(
+        params![range_start, range_end, provider_filter, model_filter],
+        |row| {
+            Ok((
+                row.get::<_, Option<String>>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, i64>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, Option<String>>(5)?,
+                row.get::<_, i64>(6)?,
+                row.get::<_, i64>(7)?,
+            ))
+        },
+    )?;
+
+    let mut by_provider: BTreeMap<String, UsageGroupAcc> = BTreeMap::new();
+    let mut by_model: BTreeMap<String, (Option<String>, UsageGroupAcc)> = BTreeMap::new();
+    let mut recent: Vec<Value> = Vec::new();
+
+    for row in rows {
+        let (provider_id, model_id, status, input_tokens, output_tokens, usage_json, started_at, ended_at) =
+            row?;
+        let completed = status == "completed";
+
+        let parsed_usage = usage_json
+            .as_deref()
+            .and_then(|s| serde_json::from_str::<Value>(s).ok());
+        let usage_i64 = |key: &str| -> i64 {
+            parsed_usage
+                .as_ref()
+                .and_then(|u| u.get(key))
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0)
+        };
+        let cache_read = usage_i64("cacheReadTokens");
+        let cache_write = usage_i64("cacheWriteTokens");
+
+        by_provider
+            .entry(provider_id.clone().unwrap_or_default())
+            .or_default()
+            .add(completed, input_tokens, output_tokens, cache_read, cache_write);
+
+        let entry = by_model
+            .entry(model_id.clone().unwrap_or_default())
+            .or_insert_with(|| (provider_id.clone(), UsageGroupAcc::default()));
+        if entry.0.is_none() {
+            entry.0 = provider_id.clone();
+        }
+        entry
+            .1
+            .add(completed, input_tokens, output_tokens, cache_read, cache_write);
+
+        if (recent.len() as i64) < recent_cap {
+            let duration_ms = (ended_at - started_at).max(0);
+            recent.push(json!({
+                "timestamp": ended_at,
+                "providerId": provider_id,
+                "modelId": model_id,
+                "status": status,
+                "inputTokens": input_tokens,
+                "outputTokens": output_tokens,
+                "cacheTokens": cache_read + cache_write,
+                "durationMs": duration_ms,
+            }));
+        }
+    }
+
+    let mut providers: Vec<Value> = by_provider
+        .into_iter()
+        .map(|(provider_id, acc)| {
+            let success_rate = if acc.turns > 0 {
+                acc.success as f64 / acc.turns as f64
+            } else {
+                0.0
+            };
+            json!({
+                "providerId": provider_id,
+                "turnCount": acc.turns,
+                "successCount": acc.success,
+                "successRate": success_rate,
+                "totalTokens": acc.total_tokens(),
+                "inputTokens": acc.input,
+                "outputTokens": acc.output,
+            })
+        })
+        .collect();
+    providers.sort_by(|a, b| {
+        b["totalTokens"]
+            .as_i64()
+            .unwrap_or(0)
+            .cmp(&a["totalTokens"].as_i64().unwrap_or(0))
+    });
+
+    let mut models: Vec<Value> = by_model
+        .into_iter()
+        .map(|(model_id, (provider_id, acc))| {
+            json!({
+                "modelId": model_id,
+                "providerId": provider_id,
+                "turnCount": acc.turns,
+                "successCount": acc.success,
+                "totalTokens": acc.total_tokens(),
+                "inputTokens": acc.input,
+                "outputTokens": acc.output,
+            })
+        })
+        .collect();
+    models.sort_by(|a, b| {
+        b["totalTokens"]
+            .as_i64()
+            .unwrap_or(0)
+            .cmp(&a["totalTokens"].as_i64().unwrap_or(0))
+    });
+
+    Ok(json!({
+        "rangeStart": range_start,
+        "rangeEnd": range_end,
+        "byProvider": providers,
+        "byModel": models,
+        "recent": recent,
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -7357,5 +7538,109 @@ mod tests {
                 .as_i64(),
             Some(0)
         );
+    }
+
+    #[test]
+    fn usage_breakdown_groups_by_provider_and_model() {
+        let db = test_db();
+        let session = create_session(&db, None, None, None, None, None).unwrap();
+
+        // Two completed turns on the same provider/model, plus one errored turn
+        // on a different provider/model.
+        let t1 = begin_turn(&db, &session.id, Some("ollama"), Some("qwen2.5-coder:14b")).unwrap();
+        let usage1 = json!({ "inputTokens": 100, "outputTokens": 40, "cacheReadTokens": 20, "cacheWriteTokens": 5 });
+        end_turn_settling(&db, &t1, "completed", None, Some(&usage1), false, false).unwrap();
+
+        let t2 = begin_turn(&db, &session.id, Some("ollama"), Some("qwen2.5-coder:14b")).unwrap();
+        let usage2 = json!({ "inputTokens": 60, "outputTokens": 20 });
+        end_turn_settling(&db, &t2, "completed", None, Some(&usage2), false, false).unwrap();
+
+        let t3 = begin_turn(&db, &session.id, Some("deepseek"), Some("deepseek-chat")).unwrap();
+        let usage3 = json!({ "inputTokens": 200, "outputTokens": 0 });
+        end_turn_settling(&db, &t3, "error", None, Some(&usage3), false, false).unwrap();
+
+        let now = now_ms();
+        let breakdown =
+            get_usage_breakdown(&db, Some(now - 60_000), Some(now + 60_000), None, None, 100)
+                .unwrap();
+
+        let providers = breakdown.get("byProvider").unwrap().as_array().unwrap();
+        // Sorted by totalTokens desc: ollama (100+40+20+5 + 60+20 = 245) before deepseek (200).
+        assert_eq!(providers.len(), 2);
+        let ollama = &providers[0];
+        assert_eq!(ollama.get("providerId").unwrap().as_str(), Some("ollama"));
+        assert_eq!(ollama.get("turnCount").unwrap().as_i64(), Some(2));
+        assert_eq!(ollama.get("successCount").unwrap().as_i64(), Some(2));
+        assert_eq!(ollama.get("totalTokens").unwrap().as_i64(), Some(245));
+        assert_eq!(ollama.get("successRate").unwrap().as_f64(), Some(1.0));
+
+        let deepseek = &providers[1];
+        assert_eq!(deepseek.get("providerId").unwrap().as_str(), Some("deepseek"));
+        assert_eq!(deepseek.get("turnCount").unwrap().as_i64(), Some(1));
+        // An errored turn counts toward turns but not successes.
+        assert_eq!(deepseek.get("successCount").unwrap().as_i64(), Some(0));
+        assert_eq!(deepseek.get("successRate").unwrap().as_f64(), Some(0.0));
+
+        let models = breakdown.get("byModel").unwrap().as_array().unwrap();
+        assert_eq!(models.len(), 2);
+        assert_eq!(
+            models[0].get("modelId").unwrap().as_str(),
+            Some("qwen2.5-coder:14b")
+        );
+        assert_eq!(models[0].get("providerId").unwrap().as_str(), Some("ollama"));
+
+        // Recent detail carries all three turns, newest first, capped by limit.
+        let recent = breakdown.get("recent").unwrap().as_array().unwrap();
+        assert_eq!(recent.len(), 3);
+        assert_eq!(recent[0].get("status").unwrap().as_str(), Some("error"));
+
+        // The recent-limit clamp keeps at most `recent_limit` rows.
+        let capped =
+            get_usage_breakdown(&db, Some(now - 60_000), Some(now + 60_000), None, None, 2).unwrap();
+        assert_eq!(capped.get("recent").unwrap().as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn usage_breakdown_honors_provider_and_model_filters() {
+        let db = test_db();
+        let session = create_session(&db, None, None, None, None, None).unwrap();
+
+        let t1 = begin_turn(&db, &session.id, Some("ollama"), Some("llama3.1:8b")).unwrap();
+        end_turn_settling(
+            &db,
+            &t1,
+            "completed",
+            None,
+            Some(&json!({ "inputTokens": 10, "outputTokens": 5 })),
+            false,
+            false,
+        )
+        .unwrap();
+        let t2 = begin_turn(&db, &session.id, Some("deepseek"), Some("deepseek-chat")).unwrap();
+        end_turn_settling(
+            &db,
+            &t2,
+            "completed",
+            None,
+            Some(&json!({ "inputTokens": 30, "outputTokens": 10 })),
+            false,
+            false,
+        )
+        .unwrap();
+
+        let now = now_ms();
+        let only_ollama = get_usage_breakdown(
+            &db,
+            Some(now - 60_000),
+            Some(now + 60_000),
+            Some("ollama"),
+            None,
+            100,
+        )
+        .unwrap();
+        let providers = only_ollama.get("byProvider").unwrap().as_array().unwrap();
+        assert_eq!(providers.len(), 1);
+        assert_eq!(providers[0].get("providerId").unwrap().as_str(), Some("ollama"));
+        assert_eq!(only_ollama.get("recent").unwrap().as_array().unwrap().len(), 1);
     }
 }

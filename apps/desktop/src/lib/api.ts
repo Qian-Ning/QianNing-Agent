@@ -1370,6 +1370,17 @@ export const api = {
       IPC.invoke.statsGetTokenUsageHistory,
       query,
     ),
+  getUsageBreakdown: (query?: {
+    startDate?: number;
+    endDate?: number;
+    providerId?: string;
+    modelId?: string;
+    recentLimit?: number;
+  }) =>
+    invoke<import("@pi-desktop/shared").UsageBreakdownResult>(
+      IPC.invoke.statsGetUsageBreakdown,
+      query,
+    ),
   menuRendererReady: () =>
     invoke<{ ready: boolean }>(IPC.invoke.menuRendererReady),
   setTraySessionPreferences: (preferences: TraySessionPreferences) =>

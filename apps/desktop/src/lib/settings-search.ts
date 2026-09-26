@@ -18,6 +18,7 @@ export type SettingsTabId =
   | "sync"
   | "remoteHosts"
   | "voice"
+  | "usage"
   | "about";
 
 export type SettingsNavGroupId =
@@ -286,6 +287,20 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
       "settings.remoteHosts.statusOnline",
       "settings.remoteHosts.statusOffline",
       "settings.remoteHosts.experimental",
+    ],
+  },
+  {
+    id: "usage",
+    labelKey: "settings.nav.usage",
+    titleKey: "settings.usage",
+    group: "system",
+    keywordKeys: [
+      "settings.usageStats.subtitle",
+      "settings.usageStats.totalTokens",
+      "settings.usageStats.byProvider",
+      "settings.usageStats.byModel",
+      "settings.usageStats.trendTitle",
+      "settings.usageStats.detailTitle",
     ],
   },
   {

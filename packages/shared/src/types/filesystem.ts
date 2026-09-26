@@ -76,6 +76,45 @@ export type TokenUsageHistoryResult = {
   };
 };
 
+export type UsageProviderStat = {
+  providerId: string;
+  turnCount: number;
+  successCount: number;
+  successRate: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+};
+
+export type UsageModelStat = {
+  modelId: string;
+  providerId: string | null;
+  turnCount: number;
+  successCount: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+};
+
+export type UsageRecentTurn = {
+  timestamp: number;
+  providerId: string | null;
+  modelId: string | null;
+  status: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheTokens: number;
+  durationMs: number;
+};
+
+export type UsageBreakdownResult = {
+  rangeStart: number;
+  rangeEnd: number;
+  byProvider: UsageProviderStat[];
+  byModel: UsageModelStat[];
+  recent: UsageRecentTurn[];
+};
+
 /**
  * One folder of the project a chat reference may resolve into. A project can be
  * a logical group of several folders (ADR 0249), and only the primary one is

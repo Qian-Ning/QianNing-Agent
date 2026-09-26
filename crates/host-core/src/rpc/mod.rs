@@ -2993,6 +2993,23 @@ async fn handle_request(
             Ok(history)
         }
 
+        "stats.getUsageBreakdown" => {
+            let st = state.lock().await;
+            let breakdown = sessions::get_usage_breakdown(
+                &st.db,
+                params.get("startDate").and_then(|v| v.as_i64()),
+                params.get("endDate").and_then(|v| v.as_i64()),
+                params.get("providerId").and_then(|v| v.as_str()),
+                params.get("modelId").and_then(|v| v.as_str()),
+                params
+                    .get("recentLimit")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(100),
+            )
+            .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
+            Ok(breakdown)
+        }
+
         "artifacts.list" => {
             let session_id = params.get("sessionId").and_then(|v| v.as_str());
             let limit = params.get("limit").and_then(|v| v.as_i64()).unwrap_or(200);

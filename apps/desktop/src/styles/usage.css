@@ -1,0 +1,269 @@
+/*
+ * Usage statistics page. Grayscale by design: the app's accent stays neutral
+ * (see tokens.css), so the trend/series read as tonal weights, not color. Only
+ * the "local · free" success marker borrows the semantic success token.
+ */
+.usage-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.usage-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.usage-subtitle {
+  font-size: var(--text-sm-plus);
+  color: var(--color-text-muted);
+  margin: 0;
+  max-width: 46ch;
+}
+.usage-filters {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.usage-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md-plus);
+  padding: 16px 18px;
+}
+
+.usage-card-h {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.usage-card-t {
+  font-size: var(--text-md-plus);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.usage-card-r {
+  font-size: var(--text-xs-plus);
+  color: var(--color-text-faint);
+}
+
+/* Hero summary */
+.usage-hero {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.usage-hero-main {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.usage-hero-bolt {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  display: grid;
+  place-items: center;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+.usage-hero-k {
+  font-size: var(--text-xs-plus);
+  color: var(--color-text-muted);
+}
+.usage-hero-v {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-heading);
+  color: var(--color-text-primary);
+}
+.usage-hero-v small {
+  font-size: var(--text-md);
+  color: var(--color-text-faint);
+  font-weight: var(--font-weight-medium);
+  margin-left: 6px;
+}
+.usage-hero-side {
+  display: flex;
+  gap: 26px;
+  padding-top: 4px;
+}
+.usage-hero-sv {
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-top: 3px;
+}
+
+.usage-mini {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 15px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+.usage-m {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+}
+.usage-m-top {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-bottom: 7px;
+}
+.usage-m-v {
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.usage-m-v-good {
+  color: var(--color-success);
+}
+
+/* Trend chart */
+.usage-chartwrap {
+  position: relative;
+}
+.usage-chart {
+  width: 100%;
+  height: 220px;
+  display: block;
+}
+.usage-chart-grid {
+  stroke: var(--color-border-subtle);
+}
+.usage-chart-xlabel {
+  fill: var(--color-text-faint);
+  font-size: var(--text-3xs);
+}
+.usage-series-input {
+  stroke: var(--color-text-primary);
+  stroke-width: 2.4;
+}
+.usage-series-input-dot {
+  fill: var(--color-text-primary);
+}
+.usage-series-output {
+  stroke: var(--color-text-muted);
+  stroke-width: 2;
+}
+.usage-series-cache-line {
+  stroke: var(--color-border-strong);
+  stroke-width: 1.6;
+}
+.usage-series-cache-fill {
+  fill: var(--color-bg-hover);
+  opacity: 0.5;
+}
+.usage-legend {
+  display: flex;
+  gap: 16px;
+  font-size: var(--text-xs-plus);
+  color: var(--color-text-muted);
+  margin-top: 6px;
+}
+.usage-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-3xs);
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+.usage-swatch-input {
+  background: var(--color-text-primary);
+}
+.usage-swatch-output {
+  background: var(--color-text-muted);
+}
+.usage-swatch-cache {
+  background: var(--color-border-strong);
+}
+
+/* Tables */
+.usage-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.usage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm-plus);
+}
+.usage-table th {
+  text-align: right;
+  color: var(--color-text-faint);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--text-xs);
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--color-border-default);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+.usage-table th:first-child,
+.usage-table td:first-child {
+  text-align: left;
+}
+.usage-table td {
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  text-align: right;
+  color: var(--color-text-secondary);
+}
+.usage-table tr:last-child td {
+  border-bottom: none;
+}
+.usage-table td:first-child {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+.usage-provider-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.usage-tag {
+  font-size: var(--text-3xs);
+}
+.usage-good {
+  color: var(--color-success);
+}
+.usage-warn {
+  color: var(--color-warning);
+}
+.usage-free {
+  color: var(--color-success);
+  font-size: var(--text-xs-plus);
+}
+.usage-dim {
+  color: var(--color-text-faint);
+}
+
+.usage-empty {
+  padding: 40px 0;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm-plus);
+}
+
+@media (max-width: 720px) {
+  .usage-grid {
+    grid-template-columns: 1fr;
+  }
+  .usage-mini {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

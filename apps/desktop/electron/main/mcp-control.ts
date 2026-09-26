@@ -232,6 +232,7 @@ const CONTROL_OPERATION_SPECS: OperationSpec[] = [
   spec("projectClear", "project/clear", "Clear the active project.", "write", []),
   spec("workspaceDiff", "workspace/diff", "Read the active workspace diff.", "read", []),
   spec("statsGetTokenUsageHistory", "stats/getTokenUsageHistory", "Read completed-turn token usage history.", "read", ["input"]),
+  spec("statsGetUsageBreakdown", "stats/getUsageBreakdown", "Read per-provider and per-model usage breakdown.", "read", ["input"]),
   spec("browserGetState", "browser/getState", "Read embedded Browser state.", "read", []),
   spec("fsList", "fs/list", "List files in the active workspace.", "read", ["input"]),
   spec("fsRead", "fs/read", "Read an allowed workspace or session file.", "read", ["input"]),
