@@ -507,6 +507,7 @@ export const ptBR = {
     permissionMode: "Modo de permissão",
     reasoningLevel: "Nível de raciocínio",
     reasoningSupportedBy: "O modelo atual {{model}} suporta estes níveis de raciocínio",
+    reasoningUnavailableFor: "O modelo atual {{model}} não tem níveis de raciocínio integrados — deixe desativado ou force um",
     reasoningLevelOff: "Desligado",
     reasoningLevelMinimal: "Mínimo",
     reasoningLevelLow: "Baixo",

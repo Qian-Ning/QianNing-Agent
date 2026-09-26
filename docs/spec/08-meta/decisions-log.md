@@ -7100,8 +7100,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - The single combined chip is split into two independent pills that share one
   controller (`useComposerModelMenu`): each owns its open flag so only one
   popover shows at a time, but both share the selection writes, the latest-wins
-  reasoning commit queue, and the keyboard contract. The reasoning pill only
-  renders for a model that publishes a reasoning ladder. The draggable
+  reasoning commit queue, and the keyboard contract. The reasoning pill is
+  always present (superseded by D627); the draggable
   `ThinkingLevelSlider` is retained inside the reasoning menu.
 - Reasoning levels are now shown as localized labels (zh-CN 关闭 / 最小 / 低 /
   中 / 高 / 极高 / 最高 / 默认; English Off / Minimal / Low / Medium / High /
@@ -7120,3 +7120,25 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   without backend work. No Rust, IPC contract, schema, or persisted-format
   change. See `04-ux/08-component-spec.md` §11, `04-ux/06-settings-ia.md`, and
   `04-ux/12-prompt-enhancement.md`.
+
+## 2026-09-26 — Reasoning pill is always shown, never capability-hidden (D627)
+
+- Amend D626. The user requires the reasoning-strength control to remain
+  visible at all times: "模型识别到没有推理效果，可以默认关闭，但功能不能隐藏，
+  需要显示出来". D626 rendered the reasoning pill only for a model that
+  publishes a reasoning ladder, so selecting a non-reasoning model (or one whose
+  catalog metadata is missing/stale — common for local, proxy, and newly
+  released models) made the pill disappear entirely.
+- The reasoning pill now renders unconditionally (`hasReasoning = true` in
+  `useComposerModelMenu`). When the model publishes no ladder, the pill still
+  offers the full canonical ladder (`reasoningPickerLevels()` falls back to
+  `THINKING_LEVELS`), defaults to `off`, and shows the
+  `chat.reasoningUnavailableFor` heading ("no built-in reasoning levels — keep
+  it off, or force one" / zh-CN "没有内置推理等级——可保持关闭，也可手动指定") in
+  place of `chat.reasoningSupportedBy`. `modelPublishesReasoning` still tracks
+  the real capability for the heading text only.
+- The wire value stays canonical and the existing per-provider clamp
+  (`thinkingLevelForProvider`) is unchanged, so a forced level is sent verbatim
+  and the host validates it against `THINKING_LEVELS`; no Rust, IPC contract,
+  schema, or persisted-format change. See `04-ux/08-component-spec.md` §11 and
+  `06-delivery/04-e2e-test-plan.md` E2E-050.

@@ -2713,8 +2713,12 @@ model picker and a reasoning-level picker (D626).
   model pill and a reasoning-level pill — then the single Stop/Send submit slot
   (D347, D626). The inspector trigger shows the ring and percentage only. The
   model pill shows Bot plus the current model name; the reasoning pill shows an
-  activity glyph plus the current reasoning level and only appears for a model
-  that publishes a reasoning ladder. The reasoning level is rendered as a
+  activity glyph plus the current reasoning level and is always present (D627),
+  so the reasoning control is never hidden by a model's capability metadata. A
+  model that publishes a reasoning ladder shows that ladder; a non-reasoning
+  model, or one whose catalog metadata is missing or stale, still shows the full
+  canonical ladder, defaults to `off`, and lets the user force a level up. The
+  reasoning level is rendered as a
   localized label (关闭 / 最小 / 低 / 中 / 高 / 极高 / 最高 / 默认 in zh-CN, Off /
   Minimal / Low / Medium / High / Very high / Max / Default in English) while
   the wire value stays canonical (`off`, `low`, `high`, `xhigh`, `max`, …). The

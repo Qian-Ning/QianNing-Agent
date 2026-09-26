@@ -518,6 +518,7 @@ export const ko = {
     permissionMode: "권한 모드",
     reasoningLevel: "추론 수준",
     reasoningSupportedBy: "현재 모델 {{model}}은(는) 다음 추론 수준을 지원합니다",
+    reasoningUnavailableFor: "현재 모델 {{model}}에는 기본 추론 수준이 없습니다 — 끄거나 강제로 지정하세요",
     reasoningLevelOff: "끄기",
     reasoningLevelMinimal: "최소",
     reasoningLevelLow: "낮음",

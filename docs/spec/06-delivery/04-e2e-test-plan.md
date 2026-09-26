@@ -3436,8 +3436,11 @@ identify the platform validation still needed.
   selection and the reasoning pill stays untouched. 4) Reopen the reasoning
   pill and choose a level from the radio list; confirm it closes on selection.
   5) Confirm opening one pill closes the other so only one popover is visible.
-  6) Repeat with a non-reasoning provider (the reasoning pill is absent) and an
-  unknown free-form model id; exercise Escape, outside click, Up/Down, Enter,
+  6) Repeat with a non-reasoning provider and an
+  unknown free-form model id; the reasoning pill stays present in both cases
+  (D627): its heading switches to the "no built-in reasoning levels" note, the
+  level defaults to `off`, and the user can still force a level up. Exercise
+  Escape, outside click, Up/Down, Enter,
   and the slider's arrow keys. In both roomy and crowded toolbars, switch
   `omit`, `low`, `high`, `max`, and `off` without the menu drifting, and the
   triggers stay inside their slots, including with a long model name.

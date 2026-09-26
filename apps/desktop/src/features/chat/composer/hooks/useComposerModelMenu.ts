@@ -22,7 +22,7 @@ import {
 } from "../../../../lib/provider-display";
 import { providerThinkingLevels } from "../../../../lib/session-thinking";
 import {
-  sessionThinkingMenuLevels,
+  reasoningPickerLevels,
   thinkingLevelForProvider,
   thinkingProviderForModel,
 } from "../model";
@@ -121,10 +121,13 @@ export function useComposerModelMenu({
       provider ? providerModels[provider.id] : undefined,
     );
   const availableThinkingLevels = providerThinkingLevels(thinkingProvider);
-  const thinkingMenuLevels = sessionThinkingMenuLevels(availableThinkingLevels);
-  // The reasoning pill only appears for a model that actually publishes a
-  // reasoning ladder; a non-reasoning model shows the model pill alone.
-  const hasReasoning = availableThinkingLevels.length > 0;
+  const thinkingMenuLevels = reasoningPickerLevels(availableThinkingLevels);
+  // The reasoning pill is ALWAYS shown so the control is never hidden (D627):
+  // a model with a published ladder gets its ladder; a model that publishes no
+  // ladder (non-reasoning, or one whose catalog metadata is missing/stale)
+  // still gets the full canonical ladder and simply defaults to `off`.
+  const hasReasoning = true;
+  const modelPublishesReasoning = availableThinkingLevels.length > 0;
   const modelGroups = useMemo(
     () =>
       providers
@@ -403,6 +406,7 @@ export function useComposerModelMenu({
     flatModels,
     thinkingMenuLevels,
     hasReasoning,
+    modelPublishesReasoning,
     selectModel,
     commitThinkingLevel,
     selectThinkingLevel,

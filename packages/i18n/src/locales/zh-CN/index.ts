@@ -513,6 +513,7 @@ export const zhCN = {
     permissionMode: "权限模式",
     reasoningLevel: "推理等级",
     reasoningSupportedBy: "当前模型 {{model}} 支持的推理等级",
+    reasoningUnavailableFor: "当前模型 {{model}} 没有内置推理等级——可保持关闭，也可手动指定",
     reasoningLevelOff: "关闭",
     reasoningLevelMinimal: "最小",
     reasoningLevelLow: "低",

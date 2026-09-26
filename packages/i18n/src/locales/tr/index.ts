@@ -518,6 +518,7 @@ export const tr = {
     permissionMode: "İzin kipi",
     reasoningLevel: "Akıl yürütme düzeyi",
     reasoningSupportedBy: "Geçerli model {{model}} bu akıl yürütme düzeylerini destekliyor",
+    reasoningUnavailableFor: "Geçerli model {{model}} yerleşik akıl yürütme düzeyine sahip değil — kapalı bırakın veya birini zorlayın",
     reasoningLevelOff: "Kapalı",
     reasoningLevelMinimal: "Minimum",
     reasoningLevelLow: "Düşük",

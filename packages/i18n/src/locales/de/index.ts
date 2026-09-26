@@ -509,6 +509,7 @@ export const de = {
     "permissionMode": "Berechtigungsmodus",
     "reasoningLevel": "Argumentationsebene",
     "reasoningSupportedBy": "Aktuelles Modell {{model}} unterstützt diese Argumentationsebenen",
+    "reasoningUnavailableFor": "Aktuelles Modell {{model}} hat keine integrierten Argumentationsebenen – aus lassen oder eine erzwingen",
     "reasoningLevelOff": "Aus",
     "reasoningLevelMinimal": "Minimal",
     "reasoningLevelLow": "Niedrig",

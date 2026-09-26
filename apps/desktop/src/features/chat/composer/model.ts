@@ -88,6 +88,23 @@ export function reasoningLevelLabelKey(level: string): string {
   );
 }
 
+/**
+ * Levels the reasoning pill offers (D627). When the model publishes a ladder,
+ * use it (do-not-send first, then the enabled levels). When it does not, the
+ * pill still shows the full canonical ladder so the control is never hidden —
+ * a non-reasoning model simply starts at `off`, and the user can force a level
+ * up for a model whose catalog metadata is missing or stale (local / proxy /
+ * newly released). The wire value stays canonical; only the label is localized.
+ */
+export function reasoningPickerLevels(
+  available: readonly ThinkingLevel[] | undefined,
+): SessionThinkingLevel[] {
+  if (available && available.length > 0) {
+    return sessionThinkingMenuLevels(available);
+  }
+  return [...THINKING_LEVELS];
+}
+
 export function nextMode(mode: Mode): Mode {
   const index = MODE_CYCLE.indexOf(mode);
   return MODE_CYCLE[(index + 1) % MODE_CYCLE.length] ?? "agent";

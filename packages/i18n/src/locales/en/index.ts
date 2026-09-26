@@ -516,6 +516,7 @@ export const en = {
     permissionMode: "Permission mode",
     reasoningLevel: "Reasoning level",
     reasoningSupportedBy: "Current model {{model}} supports these reasoning levels",
+    reasoningUnavailableFor: "Current model {{model}} has no built-in reasoning levels — keep it off, or force one",
     reasoningLevelOff: "Off",
     reasoningLevelMinimal: "Minimal",
     reasoningLevelLow: "Low",

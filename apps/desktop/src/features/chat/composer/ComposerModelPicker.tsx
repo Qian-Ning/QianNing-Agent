@@ -63,6 +63,7 @@ export function ComposerModelPicker({
     modelGroups,
     thinkingMenuLevels,
     hasReasoning,
+    modelPublishesReasoning,
     selectModel,
     commitThinkingLevel,
     selectThinkingLevel,
@@ -159,7 +160,9 @@ export function ComposerModelPicker({
           )}
         >
           <div className="composer-thinking-heading">
-            {t("chat.reasoningSupportedBy", { model: modelLabel })}
+            {modelPublishesReasoning
+              ? t("chat.reasoningSupportedBy", { model: modelLabel })
+              : t("chat.reasoningUnavailableFor", { model: modelLabel })}
           </div>
           <div className="composer-thinking-list" ref={thinkingListRef}>
             {thinkingMenuLevels.map((level, index) => (

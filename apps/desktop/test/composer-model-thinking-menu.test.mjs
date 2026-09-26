@@ -21,8 +21,13 @@ test("Composer renders two independent pills sharing one controller (D626)", () 
   assert.match(pickerSource, /composer-model-thinking-chip composer-model-chip/);
   assert.match(pickerSource, /composer-model-thinking-chip composer-reasoning-chip/);
   assert.match(pickerSource, /menuClassName="composer-model-menu composer-model-thinking-menu"/);
-  // The reasoning pill only exists for a model that publishes a ladder.
-  assert.match(modelMenuSource, /const hasReasoning = availableThinkingLevels\.length > 0/);
+  // The reasoning pill is ALWAYS shown so the control is never hidden (D627);
+  // a model without a published ladder still gets the full canonical ladder.
+  assert.match(modelMenuSource, /const hasReasoning = true/);
+  assert.match(modelMenuSource, /const modelPublishesReasoning = availableThinkingLevels\.length > 0/);
+  // The heading switches copy by real capability, but the pill itself is shown either way (D627).
+  assert.match(pickerSource, /modelPublishesReasoning\s*\n?\s*\? t\("chat\.reasoningSupportedBy"/);
+  assert.match(pickerSource, /: t\("chat\.reasoningUnavailableFor", \{ model: modelLabel \}\)/);
   assert.match(pickerSource, /\{hasReasoning \? \(/);
   // No leftover combined-popover scaffolding.
   assert.doesNotMatch(pickerSource, /ComposerMenuView|showView|setView\(|composer-menu-back|IconChevronLeft/);
@@ -36,7 +41,7 @@ test("model and reasoning selection each close only their own pill", () => {
   assert.match(modelMenuSource, /setQuery\(""\);\s*\n\s*setModelOpen\(false\)/);
   assert.match(modelMenuSource, /const selectThinkingLevel = async/);
   assert.match(modelMenuSource, /setReasoningOpen\(false\);\s*\n\s*setThinkingHighlight\(-1\)/);
-  assert.match(modelMenuSource, /const thinkingMenuLevels = sessionThinkingMenuLevels\(availableThinkingLevels\)/);
+  assert.match(modelMenuSource, /const thinkingMenuLevels = reasoningPickerLevels\(availableThinkingLevels\)/);
   // closeMenus drops both at once for the mode/permission chips.
   assert.match(modelMenuSource, /const closeMenus = \(\) => \{\s*\n\s*setModelOpen\(false\);\s*\n\s*setReasoningOpen\(false\);/);
 });

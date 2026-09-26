@@ -513,6 +513,7 @@ export const zhTW = {
     permissionMode: "許可權模式",
     reasoningLevel: "推理等級",
     reasoningSupportedBy: "當前模型 {{model}} 支援的推理等級",
+    reasoningUnavailableFor: "當前模型 {{model}} 沒有內建推理等級——可保持關閉，也可手動指定",
     reasoningLevelOff: "關閉",
     reasoningLevelMinimal: "最小",
     reasoningLevelLow: "低",

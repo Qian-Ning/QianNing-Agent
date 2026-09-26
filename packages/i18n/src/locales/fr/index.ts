@@ -509,6 +509,7 @@ export const fr = {
     "permissionMode": "Mode d'autorisation",
     "reasoningLevel": "Niveau de raisonnement",
     "reasoningSupportedBy": "Le modèle actuel {{model}} prend en charge ces niveaux de raisonnement",
+    "reasoningUnavailableFor": "Le modèle actuel {{model}} n'a pas de niveaux de raisonnement intégrés — laissez désactivé ou forcez-en un",
     "reasoningLevelOff": "Désactivé",
     "reasoningLevelMinimal": "Minimal",
     "reasoningLevelLow": "Faible",
