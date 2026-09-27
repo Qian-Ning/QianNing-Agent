@@ -49,13 +49,15 @@ export function ThemeRow({
           ? "settings.themeLight"
           : id === "dark"
             ? "settings.themeDark"
-            : "settings.themeSystem",
+            : id === "fox"
+              ? "settings.themeFox"
+              : "settings.themeSystem",
       );
       return {
         id,
         title,
-        hint: null,
-        haystack: `${title} ${id}`.toLowerCase(),
+        hint: id === "fox" ? t("settings.themeFoxHint") : null,
+        haystack: `${title} ${id} fox qianning 千凝 狐狸`.toLowerCase(),
         kind: "builtin",
       };
     });

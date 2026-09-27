@@ -1344,6 +1344,8 @@ sklm: {
     "themeSystem": "Sistema",
     "themeLight": "Claro",
     "themeDark": "Oscuro",
+    "themeFox": "QianNing",
+    "themeFoxHint": "Tema azul marino inspirado en la mascota zorro.",
     "themeFromPlugin": "Proporcionado por el complemento {{plugin}}.",
     "themeSearchPlaceholder": "Buscar temas…",
     "permissionMode": "Modo de permiso",

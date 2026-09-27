@@ -1309,6 +1309,8 @@ export const ptBR = {
     themeSystem: "Sistema",
     themeLight: "Claro",
     themeDark: "Escuro",
+    themeFox: "QianNing",
+    themeFoxHint: "Tema azul-marinho inspirado no mascote raposa.",
     themeFromPlugin: "Tema fornecido pelo plugin “{{plugin}}”.",
     themeSearchPlaceholder: "Pesquisar temas…",
     permissionMode: "Modo de permissão",

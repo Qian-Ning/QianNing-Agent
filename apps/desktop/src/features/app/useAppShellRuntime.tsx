@@ -1,6 +1,9 @@
 import {
   type AppMenuCommand,
+  builtinAppearanceBase,
+  builtinAppearanceWindowBackground,
   isActiveInProject,
+  isBuiltinAppearance,
   isThemeColorScheme,
   KEYBOARD_SHORTCUTS,
   type KeyboardShortcutId,
@@ -475,13 +478,20 @@ export function useAppShellRuntime() {
     const pluginTheme = preference.startsWith("plugin:")
       ? pluginThemes.find((entry) => entry.id === preference)
       : undefined;
+    // A shipped appearance theme (e.g. `fox`) is a token override painted on a
+    // fixed color scheme, exactly like a plugin theme's base + CSS but authored
+    // in the app's own tokens.css. It sets `data-appearance` so the override
+    // block applies, and resolves its base scheme for `data-theme`.
+    const appearance = isBuiltinAppearance(preference) ? preference : undefined;
     // A plugin theme whose provider was disabled or uninstalled falls back to
     // `system` instead of leaving the shell on a half-applied palette.
     const base: "system" | "light" | "dark" = pluginTheme
       ? pluginTheme.base
-      : isThemeColorScheme(preference)
-        ? preference
-        : "system";
+      : appearance
+        ? builtinAppearanceBase(appearance)
+        : isThemeColorScheme(preference)
+          ? preference
+          : "system";
 
     let style = document.getElementById(PLUGIN_THEME_STYLE_ID) as HTMLStyleElement | null;
     if (pluginTheme) {
@@ -498,6 +508,14 @@ export function useAppShellRuntime() {
       delete document.documentElement.dataset.pluginTheme;
     }
 
+    // The shipped-appearance layer keys off `data-appearance`; a plugin theme or
+    // a plain palette clears it so its own rules win.
+    if (appearance) {
+      document.documentElement.dataset.appearance = appearance;
+    } else {
+      delete document.documentElement.dataset.appearance;
+    }
+
     const mq = window.matchMedia("(prefers-color-scheme: light)");
     const apply = () => {
       const resolvedTheme =
@@ -507,9 +525,13 @@ export function useAppShellRuntime() {
       // palette. Deriving it here (rather than remembering an applied value) is
       // what restores the host default on a switch, a disable, or an uninstall:
       // the plugin theme is gone from the catalog, so there is nothing left to
-      // pass and the host colour wins.
+      // pass and the host colour wins. A shipped appearance names its own plate
+      // (the fox theme's indigo) so the native window matches the painted base.
+      const windowBackground = appearance
+        ? builtinAppearanceWindowBackground(appearance)
+        : pluginTheme?.windowBackground?.[resolvedTheme];
       void api
-        .setWindowBackgroundColor(resolvedTheme, pluginTheme?.windowBackground?.[resolvedTheme])
+        .setWindowBackgroundColor(resolvedTheme, windowBackground)
         .catch(() => undefined);
     };
     apply();

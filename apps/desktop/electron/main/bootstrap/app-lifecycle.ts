@@ -8,6 +8,8 @@ import {
   APP_MENU_COMMANDS,
   APP_NAME,
   IPC,
+  builtinAppearanceBase,
+  isBuiltinAppearance,
   isThemeColorScheme,
   traySessionTitle,
   migrateKeybindingOverrides,
@@ -524,6 +526,11 @@ export function createApplicationLifecycle({
     let next: "system" | "light" | "dark" = "system";
     if (isThemeColorScheme(preference)) {
       next = preference;
+    } else if (isBuiltinAppearance(preference)) {
+      // A shipped appearance (`fox`) locks the native chrome to its base scheme
+      // (dark) just like an explicit palette, so the dock/menus cannot drift
+      // to a light plate under the navy UI.
+      next = builtinAppearanceBase(preference);
     } else if (typeof preference === "string" && preference.startsWith("plugin:")) {
       const pluginTheme = plugins.getThemes().find((theme) => theme.id === preference);
       if (pluginTheme?.base === "light" || pluginTheme?.base === "dark") {
@@ -550,12 +557,17 @@ export function createApplicationLifecycle({
   function applyAppThemePreference(preference: unknown) {
     appearanceState.appThemePreference = isThemeColorScheme(preference)
       ? preference
-      : typeof preference === "string" && preference.startsWith("plugin:")
+      : isBuiltinAppearance(preference)
         ? preference
-        : "system";
+        : typeof preference === "string" && preference.startsWith("plugin:")
+          ? preference
+          : "system";
     applyNativeThemeSource({ theme: preference });
     if (isThemeColorScheme(preference)) {
       appearanceState.pluginPanelTheme = preference;
+    } else if (isBuiltinAppearance(preference)) {
+      // Panels follow the appearance's base scheme (fox → dark).
+      appearanceState.pluginPanelTheme = builtinAppearanceBase(preference);
     } else if (typeof preference === "string" && preference.startsWith("plugin:")) {
       const pluginTheme = plugins.getThemes().find((theme) => theme.id === preference);
       appearanceState.pluginPanelTheme =

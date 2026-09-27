@@ -1344,6 +1344,8 @@ sklm: {
     "themeSystem": "System",
     "themeLight": "Hell",
     "themeDark": "Dunkel",
+    "themeFox": "QianNing",
+    "themeFoxHint": "Marineblaues Theme im Stil des Fuchs-Maskottchens.",
     "themeFromPlugin": "Wird vom {{plugin}}-Plugin bereitgestellt.",
     "themeSearchPlaceholder": "Themen durchsuchen…",
     "permissionMode": "Berechtigungsmodus",

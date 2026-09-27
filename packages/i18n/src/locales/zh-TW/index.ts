@@ -1331,6 +1331,8 @@ sklm: {
     themeSystem: "系統",
     themeLight: "淺色",
     themeDark: "深色",
+    themeFox: "千凝主題",
+    themeFoxHint: "呼應狐狸吉祥物的藏藍主題。",
     themeFromPlugin: "由外掛 {{plugin}} 提供。",
     themeSearchPlaceholder: "搜尋主題…",
     permissionMode: "許可權模式",

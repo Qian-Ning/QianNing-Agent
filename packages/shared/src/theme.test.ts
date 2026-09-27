@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   BUILTIN_THEME_PREFERENCES,
   BUILTIN_THEMES,
+  builtinAppearanceBase,
+  builtinAppearanceWindowBackground,
   builtinWindowBackground,
+  isBuiltinAppearance,
   isBuiltinThemePreference,
   isThemeColorScheme,
 } from "./theme.js";
@@ -19,7 +22,16 @@ describe("built-in themes", () => {
   });
 
   it("keeps the picker order stable", () => {
-    expect(BUILTIN_THEME_PREFERENCES).toEqual(["system", "light", "dark"]);
+    expect(BUILTIN_THEME_PREFERENCES).toEqual(["system", "light", "dark", "fox"]);
+  });
+
+  it("classifies the fox appearance as built-in but not a colour scheme", () => {
+    expect(isBuiltinAppearance("fox")).toBe(true);
+    expect(isBuiltinAppearance("dark")).toBe(false);
+    expect(isThemeColorScheme("fox")).toBe(false);
+    expect(isBuiltinThemePreference("fox")).toBe(true);
+    expect(builtinAppearanceBase("fox")).toBe("dark");
+    expect(builtinAppearanceWindowBackground("fox")).toMatch(/^#[0-9a-f]{6}$/);
   });
 
   it("separates a colour scheme from system and from a plugin theme", () => {

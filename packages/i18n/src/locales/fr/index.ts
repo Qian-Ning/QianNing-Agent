@@ -1344,6 +1344,8 @@ sklm: {
     "themeSystem": "Système",
     "themeLight": "Clair",
     "themeDark": "Foncé",
+    "themeFox": "QianNing",
+    "themeFoxHint": "Thème bleu marine inspiré de la mascotte renard.",
     "themeFromPlugin": "Fourni par le plugin {{plugin}}.",
     "themeSearchPlaceholder": "Thèmes de recherche…",
     "permissionMode": "Mode d'autorisation",

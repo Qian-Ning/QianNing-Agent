@@ -292,6 +292,58 @@
   --ds-bg-elevated-primary: color-mix(in oklab, #ffffff 70%, transparent);
 }
 
+/*
+  "千凝 / QianNing" appearance (D634). A third built-in theme that is NOT a raw
+  colour scheme: it layers a deep-navy token override on the DARK base, so Shiki,
+  Markdown, the native window chrome, and plugin panels all still resolve it as
+  `dark`. The renderer sets `data-appearance="fox"` alongside `data-theme="dark"`
+  (useAppShellRuntime), so this block out-orders the dark defaults on source
+  order at equal specificity. Palette sampled from the fox mascot's own pixels:
+  indigo-navy suit shadow (#0a1024), royal-blue suit (#5b8def), cyan tail glow
+  (#3cc0ea), cool-white fur (#eef3fd). Only surfaces + accent + focus are
+  overridden; text/border white-alpha tiers fall through and read correctly on
+  navy. This selector carries no `data-theme`, so it is outside the surface
+  guard's theme-override rule by design (styles/style-surface-tokens.mjs).
+*/
+:root[data-appearance="fox"] {
+  color-scheme: dark;
+  --ds-bg-primary: #0a1024;
+  --ds-bg-under: #060a18;
+  --ds-settings-rail-bg: var(--ds-bg-under);
+  --ds-bg-secondary: #111a33;
+  --ds-bg-tertiary: #182548;
+  --ds-bg-inset: #050912;
+  --ds-bg-dock: #0c1428;
+  --ds-bg-dock-raised: #111c39;
+  --ds-bg-elevated: color-mix(in oklab, #111a33 96%, transparent);
+  --ds-bg-elevated-opaque: #182548;
+  --ds-bg-composer: color-mix(in oklab, #111c39 97%, transparent);
+  --ds-bg-elevated-primary: color-mix(in oklab, #111a33 96%, transparent);
+  --ds-raised: #182548;
+  --ds-raised-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  /* Cool-white ink to match the fox fur; slightly warmer than pure gray-0. */
+  --ds-text-primary: #eef3fd;
+  /* Faint blue-tinted structure lines instead of neutral white-alpha. */
+  --ds-border-default: color-mix(in oklab, #9cc0ff 15%, transparent);
+  --ds-border-subtle: color-mix(in oklab, #9cc0ff 9%, transparent);
+  --ds-border-strong: color-mix(in oklab, #9cc0ff 24%, transparent);
+  /* Royal-blue suit accent (links, primary fill). btn-primary paints its ink
+     with --ds-bg-primary, so the navy base gives dark-on-blue text at ~5.8:1. */
+  --ds-accent: #5b8def;
+  --ds-accent-hover: #78a6ff;
+  --ds-accent-soft: #9cbcff;
+  /* Focus / active affordances glow with the tail's cyan, not the accent. */
+  --ds-focus: #3cc0ea;
+  --ds-settings-field-bg: #0d1730;
+  --ds-field-inset-bg: color-mix(in oklab, #9cc0ff 6%, transparent);
+  --ds-field-inset-focus-bg: color-mix(in oklab, #9cc0ff 9%, transparent);
+  /* On-knob reads on the blue track; keep a deep navy so the flip is visible. */
+  --ds-switch-knob-on: #08112a;
+  --ds-info: #9cbcff;
+  --ds-purple: #b79cff;
+  --ds-shadow-dialog: 0 16px 48px rgba(1, 4, 14, 0.6);
+}
+
 @theme {
   --color-bg-primary: var(--ds-bg-primary);
   --color-bg-secondary: var(--ds-bg-secondary);

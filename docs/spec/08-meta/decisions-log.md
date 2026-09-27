@@ -7332,3 +7332,41 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - This is the 2D "sprite puppet" route (route A). Richer routes — a Live2D
   boned rig (B) or an image-to-3D GLB model (C) — remain open follow-ups; the
   read-only mood wiring is designed to be reused by either.
+
+## 2026-09-28 — "千凝 / QianNing" built-in appearance theme (D634)
+
+- QianNing fork addition. The user asked for a theme skin feature — keep the
+  existing Light and Dark themes and add one more that matches the fox mascot's
+  look ("现在的浅色和深色主题方案保存，再加个符合我们吉祥物设计方案的主题"), leaving the
+  concrete design to the agent. The dsh-skins/dsh-web/dsh-pet projects were
+  cited as reference. Their approach is a full skin ecosystem (a skin-center
+  plugin, skins as asset directories, on-demand install from a market, a slider
+  editor). That is a whole subsystem; the user's need is one extra built-in
+  palette, so only the *data-driven token override* idea is borrowed and landed
+  as a third built-in theme, not a marketplace.
+- The palette was sampled from the mascot's own pixels (not invented): indigo
+  navy suit shadow `#0a1024` (base surface), royal-blue suit `#5b8def` (accent),
+  cyan tail glow `#3cc0ea` (focus), cool-white fur `#eef3fd` (ink). An earlier
+  sky-blue draft was rejected as not matching the mascot; the sampled royal-navy
+  version was approved ("可以的").
+- `fox` is a **built-in appearance**, not a raw colour scheme: `isThemeColorScheme`
+  stays false for it, so Shiki, Markdown, the native window source, and plugin
+  panels still resolve it as its base scheme (`dark`). `packages/shared/theme.ts`
+  adds `BuiltinAppearance`, `isBuiltinAppearance`, `builtinAppearanceBase`, and
+  `builtinAppearanceWindowBackground`, and appends `fox` to
+  `BUILTIN_THEME_PREFERENCES` after `dark`. `ThemePreference` gains `"fox"`.
+- The renderer sets `data-appearance="fox"` alongside `data-theme="dark"`
+  (`useAppShellRuntime`, mirrored in `PluginLauncher`); a new
+  `:root[data-appearance="fox"]` block in `styles/tokens.css` overrides only
+  surfaces, accent, and focus, so the white-alpha text/border tiers fall through
+  and read correctly on navy. The native window plate follows through
+  `builtinAppearanceWindowBackground` (the fox indigo), and the main-process
+  native theme source (`app-lifecycle.ts`) resolves `fox` to its dark base so the
+  dock/menus cannot drift to a light plate under the navy UI.
+- Light and Dark are unchanged (the grayscale token blocks are untouched). The
+  picker labels it from `settings.themeFox` / `settings.themeFoxHint` (all nine
+  locales) and it is searchable by mascot keywords. Contract tests cover the
+  shared helpers (`theme.test.ts`) and the picker option (`settings-theme-picker`).
+- This does not adopt the dsh skin-center, a skin asset-directory format, a skin
+  market, or a user color-slider editor. Those remain out of scope; the plugin
+  theme contribution path (ADR 0248) already covers third-party themes.

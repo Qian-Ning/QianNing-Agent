@@ -1355,6 +1355,8 @@ sklm: {
     themeSystem: "시스템",
     themeLight: "밝게",
     themeDark: "어둡게",
+    themeFox: "QianNing",
+    themeFoxHint: "여우 마스코트에서 영감을 받은 네이비 테마.",
     themeFromPlugin: "{{plugin}} 플러그인이 제공합니다.",
     themeSearchPlaceholder: "테마 검색…",
     permissionMode: "권한 모드",

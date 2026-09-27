@@ -37,11 +37,37 @@ const BUILTIN_THEME_BY_ID: Record<ThemeColorScheme, BuiltinTheme> = {
   dark: { id: "dark", base: "dark", windowBackground: "#181818" },
 };
 
+/**
+ * A shipped "appearance" theme: a named token override layered on a fixed base
+ * color scheme, exactly like a plugin theme's `base` + CSS, but authored in the
+ * app's own `tokens.css` (keyed on `data-appearance`) instead of contributed by
+ * a plugin. `fox` is the "千凝 / QianNing" palette — a deep navy dressing over
+ * the dark scheme that echoes the fox mascot (navy suit, cyan tail glow). It is
+ * NOT a raw color scheme (`isThemeColorScheme` stays false for it), so Shiki,
+ * Markdown, the native theme source, and window chrome all treat it as `dark`.
+ */
+export type BuiltinAppearance = "fox";
+
+type BuiltinAppearanceDef = {
+  /** Color scheme the appearance layers on; drives the `data-theme` attribute. */
+  base: ThemeColorScheme;
+  /** Native window background on Windows/Linux for this appearance, as `#rrggbb`. */
+  windowBackground: string;
+};
+
+const BUILTIN_APPEARANCE_BY_ID: Record<BuiltinAppearance, BuiltinAppearanceDef> = {
+  // #0a1024 is the indigo-navy base of the fox theme (styles/tokens.css
+  // `:root[data-appearance="fox"]`); keeping it here means the native window
+  // plate matches the painted surface the moment the theme applies.
+  fox: { base: "dark", windowBackground: "#0a1024" },
+};
+
 /** Picker order for the built-in section, ahead of any contributed theme. */
 export const BUILTIN_THEME_PREFERENCES: readonly BuiltinThemePreference[] = [
   "system",
   BUILTIN_THEME_BY_ID.light.id,
   BUILTIN_THEME_BY_ID.dark.id,
+  "fox",
 ];
 
 export const BUILTIN_THEMES: readonly BuiltinTheme[] = [
@@ -54,9 +80,24 @@ export function isThemeColorScheme(value: unknown): value is ThemeColorScheme {
   return value === "light" || value === "dark";
 }
 
+/** True when a stored preference names a shipped appearance theme (e.g. `fox`). */
+export function isBuiltinAppearance(value: unknown): value is BuiltinAppearance {
+  return value === "fox";
+}
+
 /** True when a stored preference is one of the built-in options. */
 export function isBuiltinThemePreference(value: unknown): value is BuiltinThemePreference {
-  return value === "system" || isThemeColorScheme(value);
+  return value === "system" || isThemeColorScheme(value) || isBuiltinAppearance(value);
+}
+
+/** The base color scheme a shipped appearance theme layers on. */
+export function builtinAppearanceBase(appearance: BuiltinAppearance): ThemeColorScheme {
+  return BUILTIN_APPEARANCE_BY_ID[appearance].base;
+}
+
+/** Native window background for a shipped appearance theme. */
+export function builtinAppearanceWindowBackground(appearance: BuiltinAppearance): string {
+  return BUILTIN_APPEARANCE_BY_ID[appearance].windowBackground;
 }
 
 /** Native window background for a resolved built-in palette. */

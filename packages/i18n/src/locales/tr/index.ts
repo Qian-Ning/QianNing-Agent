@@ -1345,6 +1345,8 @@ sklm: {
     themeSystem: "Sistem",
     themeLight: "Hafif",
     themeDark: "Koyu",
+    themeFox: "QianNing",
+    themeFoxHint: "Tilki maskotundan esinlenen lacivert tema.",
     themeFromPlugin: "{{plugin}} eklentisi tarafından sağlanır.",
     themeSearchPlaceholder: "Tema ara…",
     permissionMode: "İzin kipi",

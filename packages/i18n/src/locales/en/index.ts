@@ -1357,6 +1357,8 @@ sklm: {
     themeSystem: "System",
     themeLight: "Light",
     themeDark: "Dark",
+    themeFox: "QianNing",
+    themeFoxHint: "Navy theme styled after the fox mascot.",
     themeFromPlugin: "Provided by the {{plugin}} plugin.",
     themeSearchPlaceholder: "Search themes…",
     permissionMode: "Permission mode",

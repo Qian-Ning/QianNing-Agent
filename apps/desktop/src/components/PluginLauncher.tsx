@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { isThemeColorScheme, type PluginSummary } from "@pi-desktop/shared";
+import { isBuiltinAppearance, builtinAppearanceBase, isThemeColorScheme, type PluginSummary } from "@pi-desktop/shared";
 import { api } from "../lib/api";
 import { searchLaunchablePlugins } from "../lib/plugin-launcher-search";
 import {
@@ -33,6 +33,15 @@ export function PluginLauncher() {
     let onSystemThemeChange: (() => void) | undefined;
     const applyTheme = (preference: string) => {
       if (disposed) return;
+      // Mirror the shell's theme resolution (useAppShellRuntime): a shipped
+      // appearance (`fox`) paints its token override via `data-appearance` on
+      // its base scheme; a plain palette or system follows the OS.
+      if (isBuiltinAppearance(preference)) {
+        document.documentElement.dataset.appearance = preference;
+        document.documentElement.dataset.theme = builtinAppearanceBase(preference);
+        return;
+      }
+      delete document.documentElement.dataset.appearance;
       document.documentElement.dataset.theme = isThemeColorScheme(preference)
         ? preference
         : window.matchMedia("(prefers-color-scheme: light)").matches
@@ -44,7 +53,7 @@ export function PluginLauncher() {
       .getSettings()
       .then((settings) => {
         applyTheme(settings.theme);
-        if (isThemeColorScheme(settings.theme)) return;
+        if (isThemeColorScheme(settings.theme) || isBuiltinAppearance(settings.theme)) return;
         mediaQuery = window.matchMedia("(prefers-color-scheme: light)");
         onSystemThemeChange = () => applyTheme(settings.theme);
         mediaQuery.addEventListener("change", onSystemThemeChange);

@@ -36,6 +36,14 @@ test("theme is a searchable picker row, not a card grid", () => {
   assert.doesNotMatch(styles, /\.settings-theme-card\s*\{/);
 });
 
+test("the fox appearance is offered as a built-in picker option", () => {
+  // The shipped 千凝 theme is a built-in appearance, not a plugin theme, so the
+  // picker labels it from settings.themeFox and it stays searchable by mascot.
+  assert.match(rowSource, /id === "fox"/);
+  assert.match(rowSource, /settings\.themeFox/);
+  assert.match(rowSource, /settings\.themeFoxHint/);
+});
+
 test("plugin themes join the same searchable list after the built-ins", () => {
   assert.match(rowSource, /pluginThemes\.map/);
   assert.match(rowSource, /kind: "plugin"/);
