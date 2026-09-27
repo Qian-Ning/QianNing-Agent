@@ -1242,10 +1242,7 @@ fn tool_read(
 
     let meta = std::fs::metadata(&resolved).map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
-            (
-                "FILE_NOT_FOUND".into(),
-                format!("File not found: {path}"),
-            )
+            ("FILE_NOT_FOUND".into(), format!("File not found: {path}"))
         } else {
             ("TOOL_FAILED".into(), format!("read failed: {e}"))
         }
@@ -1279,10 +1276,7 @@ fn tool_read(
 
     let bytes = std::fs::read(&resolved).map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
-            (
-                "FILE_NOT_FOUND".into(),
-                format!("File not found: {path}"),
-            )
+            ("FILE_NOT_FOUND".into(), format!("File not found: {path}"))
         } else {
             ("TOOL_FAILED".into(), format!("read failed: {e}"))
         }
@@ -1393,10 +1387,7 @@ fn tool_write(
     }
     std::fs::write(&resolved, &content).map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
-            (
-                "FILE_NOT_FOUND".into(),
-                format!("File not found: {path}"),
-            )
+            ("FILE_NOT_FOUND".into(), format!("File not found: {path}"))
         } else {
             ("TOOL_FAILED".into(), format!("write failed: {e}"))
         }
@@ -4461,5 +4452,39 @@ mod tests {
 
         let written = std::fs::read_to_string(&target).unwrap();
         assert_eq!(written, "line one\r\nline TWO replaced\r\nline three\r\n");
+    }
+
+    #[tokio::test]
+    async fn read_missing_file_reports_file_not_found() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = execute_tool(
+            Some(dir.path()),
+            None,
+            "Read",
+            &serde_json::json!({ "path": "no-such-file.txt" }),
+            5_000,
+        )
+        .await;
+        assert!(!result.ok, "read of missing file must fail");
+        assert_eq!(result.error_code.as_deref(), Some("FILE_NOT_FOUND"));
+        let msg = result.content["message"].as_str().unwrap_or_default();
+        assert!(msg.contains("no-such-file.txt"), "diagnostic should name the path: {msg}");
+    }
+
+    #[tokio::test]
+    async fn write_missing_parent_reports_file_not_found() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = execute_tool(
+            Some(dir.path()),
+            None,
+            "Write",
+            &serde_json::json!({ "path": "no/such/dir/file.txt", "content": "x" }),
+            5_000,
+        )
+        .await;
+        assert!(!result.ok, "write under missing parent must fail");
+        assert_eq!(result.error_code.as_deref(), Some("FILE_NOT_FOUND"));
+        let msg = result.content["message"].as_str().unwrap_or_default();
+        assert!(msg.contains("no/such/dir/file.txt"), "diagnostic should name the path: {msg}");
     }
 }
