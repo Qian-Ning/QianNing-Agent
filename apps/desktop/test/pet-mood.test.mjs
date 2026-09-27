@@ -4,7 +4,7 @@ import {
   derivePetMood,
   PET_DONE_MS,
   PET_SLEEP_MS,
-  PET_MOOD_FACES,
+  PET_MOOD_ANIM,
   THINKING_PHASES,
 } from "../src/lib/pet-mood.ts";
 
@@ -87,19 +87,17 @@ test("long idle with no activity falls asleep", () => {
   );
 });
 
-test("every mood maps to a known fox sprite key", () => {
-  const sprites = new Set([
-    "happy",
-    "wink",
+test("every mood maps to a known animation clip", () => {
+  const clips = new Set([
+    "idle",
     "thinking",
-    "surprised",
-    "shy",
-    "smug",
-    "sleeping",
-    "scared",
-    "crying",
+    "working",
+    "success",
+    "error",
+    "sleep",
+    "searching",
   ]);
-  for (const [mood, face] of Object.entries(PET_MOOD_FACES)) {
-    assert.ok(sprites.has(face), `${mood} → ${face}`);
+  for (const [mood, clip] of Object.entries(PET_MOOD_ANIM)) {
+    assert.ok(clips.has(clip), `${mood} → ${clip}`);
   }
 });

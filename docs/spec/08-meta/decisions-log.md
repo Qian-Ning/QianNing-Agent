@@ -7308,14 +7308,21 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `sessionOutcomes`, `latestTurnResults`, `error`, `pendingPermissions`) and
   supplies the clock. It calls no store action and no `api.*`; the companion can
   never drive, cancel, or answer the agent — a wiring test asserts this.
-- `DesktopPet.tsx` renders a transparent fox cutout driven by a single
-  requestAnimationFrame spring loop (breathe, blink, idle wander, cursor-follow
-  tilt, click bounce, grounded shadow, a working-state glow ring), so a flat
-  sprite reads as a live creature without a 3D model or Live2D rig. The nine
-  faces ship as `assets/pet/fox-*.png`, cut from the mascot sheet (caption strip
-  removed, alpha-cropped). Styling lives in `styles/pet.css` using surface
-  tokens, except the companion-local blue accents that match the mascot palette
-  while the rest of the UI stays grayscale.
+- `DesktopPet.tsx` renders a transparent full-body fox that **plays a real
+  per-state frame animation** — seven foot-aligned looping WebP clips
+  (`assets/pet/anim/{idle,thinking,working,success,error,sleep,searching}.webp`)
+  rendered from the user's mascot state videos (image-to-video → ffmpeg frame
+  extract → rembg AI matte → foot-anchor align → pack). A light
+  requestAnimationFrame spring loop adds an idle float, a lean toward the
+  cursor, a click recoil and a grounded shadow, plus a working-state glow ring,
+  so the pet reads as a live creature rather than a static image, without a 3D
+  model or Live2D rig. `PET_MOOD_ANIM` maps the seven moods to clips: `done`
+  reuses the celebratory `success` clip and `permission` reuses `searching`
+  (the fox looks around, which reads best as "waiting on you"). Styling lives in
+  `styles/pet.css` using surface tokens, except the companion-local blue accents
+  that match the mascot palette while the rest of the UI stays grayscale. (The
+  first landing shipped nine static `fox-*.png` faces with a CSS-driven spring;
+  those were replaced by the animation clips in the same D633 scope.)
 - Gated on a new optional setting `settings.petEnabled` (**default off**;
   absent/false keep it hidden — the pet is opt-in). A "桌面伙伴" toggle is added
   to Settings and to the settings search index. The overlay mounts only on the

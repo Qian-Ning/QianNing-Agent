@@ -57,25 +57,15 @@ test("the pet only reads run state; it never drives the agent", () => {
   }
 });
 
-test("all nine mood sprites exist as bundled assets", async () => {
-  const faces = [
-    "happy",
-    "wink",
-    "thinking",
-    "surprised",
-    "shy",
-    "smug",
-    "sleeping",
-    "scared",
-    "crying",
-  ];
-  for (const face of faces) {
-    const url = new URL(`../src/assets/pet/fox-${face}.png`, import.meta.url);
-    await assert.doesNotReject(access(url), `missing fox-${face}.png`);
+test("all seven animation clips exist as bundled assets", async () => {
+  const clips = ["idle", "thinking", "working", "success", "error", "sleep", "searching"];
+  for (const clip of clips) {
+    const url = new URL(`../src/assets/pet/anim/${clip}.webp`, import.meta.url);
+    await assert.doesNotReject(access(url), `missing anim/${clip}.webp`);
   }
   // The component imports each one.
-  for (const face of faces) {
-    assert.match(petComponent, new RegExp(`assets/pet/fox-${face}\\.png`), face);
+  for (const clip of clips) {
+    assert.match(petComponent, new RegExp(`assets/pet/anim/${clip}\\.webp`), clip);
   }
 });
 

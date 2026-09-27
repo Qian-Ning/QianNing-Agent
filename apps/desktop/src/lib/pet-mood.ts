@@ -102,13 +102,28 @@ export function derivePetMood(input: PetMoodInput): PetMood {
   return "idle";
 }
 
-/** The nine mood → sprite keys; the pet renders one PNG per mood. */
-export const PET_MOOD_FACES: Record<PetMood, string> = {
-  idle: "happy",
+/** The seven shipping animation clips; the pet plays one looping WebP per mood. */
+export type PetAnim =
+  | "idle"
+  | "thinking"
+  | "working"
+  | "success"
+  | "error"
+  | "sleep"
+  | "searching";
+
+/**
+ * Mood → animation clip. Each clip is a foot-aligned transparent WebP rendered
+ * from the mascot state videos. `done` reuses the celebratory `success` clip,
+ * and `permission` reuses `searching` (the fox looks around / toward the user),
+ * since that reads best as "waiting on you" among the available clips.
+ */
+export const PET_MOOD_ANIM: Record<PetMood, PetAnim> = {
+  idle: "idle",
   thinking: "thinking",
-  working: "smug",
-  done: "happy",
-  error: "crying",
-  permission: "surprised",
-  sleep: "sleeping",
+  working: "working",
+  done: "success",
+  error: "error",
+  permission: "searching",
+  sleep: "sleep",
 };
