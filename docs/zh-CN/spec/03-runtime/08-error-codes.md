@@ -129,6 +129,7 @@ stdio 与 Tokio 的动态阻塞池隔离，因此后一种情况
 | `TOOL_TIMEOUT` | 是的 | 工具执行超时 |
 | `TOOL_FAILED` | 也许 | 工具已执行但失败 |
 | `TOOL_ABORTED` | 不 | 工具在完成前被用户停止或回合中止取消 |
+| `FILE_NOT_FOUND` | 不 | Read/Write/Edit 目标路径不存在（与 `TOOL_DENIED` 可区分） |
 | `MUTATION_RETRY_BUDGET_EXHAUSTED` | 是 | 重复保护在同路径 `Edit` 或 shell patch 反复失败后终止了本轮；携带 `details.kind`（`edit` 或 `patch-command`）与最后一个工具错误代码 |
 | `PROCESS_RESOURCE_EXHAUSTED` | 是的 | shell 进程无法启动，因为操作系统暂时耗尽了进程资源 |
 | `SHELL_NOT_FOUND` | 不 | 目录回退后没有有效的平台 shell 可用；消息承载指引 |
