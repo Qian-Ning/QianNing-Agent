@@ -1,4 +1,4 @@
-export type AppError = {
+﻿export type AppError = {
   code: string;
   message: string;
   details?: unknown;
@@ -117,7 +117,7 @@ export const ErrorCodes = {
   FILE_NOT_FOUND: "FILE_NOT_FOUND",
   /**
    * The mutation recovery guard stopped the turn after repeated same-path Edit
-   * or patch-command failures (spec 18-line-anchored-edit-contract 搂9.3). Retriable: the user may continue.
+   * or patch-command failures (spec 18-line-anchored-edit-contract §9.3). Retriable: the user may continue.
    */
   MUTATION_RETRY_BUDGET_EXHAUSTED: "MUTATION_RETRY_BUDGET_EXHAUSTED",
   PROCESS_RESOURCE_EXHAUSTED: "PROCESS_RESOURCE_EXHAUSTED",
@@ -260,3 +260,4 @@ export const ErrorCodes = {
   PLAN_ALREADY_ACTIVE: "PLAN_ALREADY_ACTIVE",
   PLAN_INTERNAL: "PLAN_INTERNAL",
 } as const;
+

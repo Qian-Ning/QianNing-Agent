@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+﻿use anyhow::{anyhow, Result};
 use ignore::WalkBuilder;
 use regex::RegexBuilder;
 use serde::{Deserialize, Serialize};
@@ -1379,12 +1379,6 @@ fn tool_write(
         std::fs::create_dir_all(parent)
             .map_err(|e| ("TOOL_FAILED".into(), format!("mkdir failed: {e}")))?;
     }
-    if !resolved.parent().map(|p| p.exists()).unwrap_or(false) {
-        return Err((
-            "FILE_NOT_FOUND".into(),
-            format!("File not found: {path} (parent directory is missing)"),
-        ));
-    }
     std::fs::write(&resolved, &content).map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             ("FILE_NOT_FOUND".into(), format!("File not found: {path}"))
@@ -1436,8 +1430,13 @@ fn tool_edit(
         let (code, message) = ignore_rules::denied_error(path);
         return Err(hashline::ToolError::new(code, message));
     }
-    let live = std::fs::read(&resolved)
-        .map_err(|e| hashline::ToolError::new("TOOL_FAILED", format!("read failed: {e}")))?;
+    let live = std::fs::read(&resolved).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            hashline::ToolError::new("FILE_NOT_FOUND", format!("File not found: {path}"))
+        } else {
+            hashline::ToolError::new("TOOL_FAILED", format!("read failed: {e}"))
+        }
+    })?;
     let display = display_tool_path(root_kind, root, &resolved);
     let canonical = hashline::canonical_key(&resolved);
     let (file, success) = hashline::apply_edit(
@@ -4467,12 +4466,18 @@ mod tests {
         .await;
         assert!(!result.ok, "read of missing file must fail");
         assert_eq!(result.error_code.as_deref(), Some("FILE_NOT_FOUND"));
-        let msg = result.content["message"].as_str().unwrap_or_default();
-        assert!(msg.contains("no-such-file.txt"), "diagnostic should name the path: {msg}");
+        // execute_tool_with_path_access serializes tool errors under content["error"]
+        let msg = result.content["error"].as_str().unwrap_or_default();
+        assert!(
+            msg.contains("no-such-file.txt"),
+            "diagnostic should name the path: {msg}"
+        );
     }
 
     #[tokio::test]
-    async fn write_missing_parent_reports_file_not_found() {
+    async fn write_creates_missing_parent_directories() {
+        // Write intentionally creates missing parent dirs (create_dir_all),
+        // so a missing parent is not FILE_NOT_FOUND.
         let dir = tempfile::tempdir().unwrap();
         let result = execute_tool(
             Some(dir.path()),
@@ -4482,9 +4487,36 @@ mod tests {
             5_000,
         )
         .await;
-        assert!(!result.ok, "write under missing parent must fail");
+        assert!(
+            result.ok,
+            "write under missing parent should create dirs: {:?}",
+            result.content
+        );
+        assert!(dir.path().join("no/such/dir/file.txt").is_file());
+    }
+
+    #[tokio::test]
+    async fn edit_missing_file_reports_file_not_found() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = execute_tool(
+            Some(dir.path()),
+            None,
+            "Edit",
+            &serde_json::json!({
+                "path": "no-such-file.txt",
+                "tag": "abcd",
+                "ops": "..."
+            }),
+            5_000,
+        )
+        .await;
+        assert!(!result.ok, "edit of missing file must fail");
         assert_eq!(result.error_code.as_deref(), Some("FILE_NOT_FOUND"));
-        let msg = result.content["message"].as_str().unwrap_or_default();
-        assert!(msg.contains("no/such/dir/file.txt"), "diagnostic should name the path: {msg}");
+        let msg = result.content["error"].as_str().unwrap_or_default();
+        assert!(
+            msg.contains("no-such-file.txt"),
+            "diagnostic should name the path: {msg}"
+        );
     }
 }
+
