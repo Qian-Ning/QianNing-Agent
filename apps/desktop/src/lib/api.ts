@@ -27,6 +27,8 @@ import type {
   AgentStatus,
   AskToolResolution,
   AppSettings,
+  Skin,
+  SkinImportAssetResult,
   CommandShellCatalog,
   AppVersionInfo,
   BrowserAction,
@@ -622,6 +624,14 @@ export const api = {
   getSettings: () => invoke<AppSettings>(IPC.invoke.settingsGet).then(normalizeSettings),
   setSettings: (settings: AppSettings) =>
     invoke(IPC.invoke.settingsSet, validateSettingsWrite(settings)),
+  /** Skin center (D635): host-side background media + bundle import/export. */
+  importSkinAsset: (path?: string) =>
+    invoke<SkinImportAssetResult | null>(IPC.invoke.skinImportAsset, { path }),
+  deleteSkinAsset: (assetId: string, ext: string) =>
+    invoke<{ ok: boolean }>(IPC.invoke.skinDeleteAsset, { assetId, ext }),
+  exportSkin: (skin: Skin) =>
+    invoke<{ ok: boolean; path?: string }>(IPC.invoke.skinExport, { skin }),
+  importSkin: () => invoke<{ skin: Skin } | null>(IPC.invoke.skinImport),
   configSyncGetState: () => invoke<ConfigSyncState>(IPC.invoke.configSyncGetState),
   configSyncConfigure: (input: ConfigSyncConfigureInput) =>
     invoke<ConfigSyncState>(IPC.invoke.configSyncConfigure, input),

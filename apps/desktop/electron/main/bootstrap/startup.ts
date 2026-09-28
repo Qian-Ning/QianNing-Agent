@@ -15,6 +15,10 @@ import {
   installPluginAssetProtocol,
   registerPluginAssetScheme,
 } from "../plugin-asset-protocol";
+import {
+  installSkinAssetProtocol,
+  registerSkinAssetScheme,
+} from "../skin-asset-protocol";
 import { applyNetworkProxyFromAppSettings } from "../network-proxy";
 import { readCloseBehavior } from "../window-preferences";
 import { createAgentHostBridge, type AgentHostBridge } from "../agent-host-bridge";
@@ -123,6 +127,8 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
   // Electron only accepts scheme privileges before the app is ready, and this
   // runs from the composition root, before the `whenReady` promise can settle.
   registerPluginAssetScheme();
+  // Reserve the skin-center background scheme in the same pre-ready window.
+  registerSkinAssetScheme();
   // Crashpad ships with Electron, so the reporter needs no native dependency.
   // Dumps stay local (`uploadToServer: false`) under the installation data
   // directory so a `PI_DESKTOP_DATA_DIR` profile does not share them. Started
@@ -193,6 +199,9 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
     installPluginAssetProtocol((pluginId, assetPath) =>
       plugins.resolveThemeAsset(pluginId, assetPath),
     );
+    // Serve skin-center background media over its own confined scheme, reserved
+    // alongside the plugin asset scheme in `registerApplicationStartup`.
+    installSkinAssetProtocol(dataDir);
     // Load the close-behavior preference before the first window exists: the
     // close handler reads `closeBehavior` synchronously, and a window created
     // while it still held the "ask" default would prompt a user who already

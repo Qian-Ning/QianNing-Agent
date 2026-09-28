@@ -129,6 +129,16 @@ export const IPC = {
     projectOpenFolder: "pi-desktop/project/openFolder",
     settingsGet: "pi-desktop/settings/get",
     settingsSet: "pi-desktop/settings/set",
+    /**
+     * Skin center (D635). Import a local image/video as a background asset
+     * (returns an opaque asset id), delete one, and export/import a whole skin
+     * as a `.qnskin` bundle. Assets never expose a filesystem path to the
+     * renderer; they are served back over the `skin-asset://` scheme.
+     */
+    skinImportAsset: "pi-desktop/skin/importAsset",
+    skinDeleteAsset: "pi-desktop/skin/deleteAsset",
+    skinExport: "pi-desktop/skin/export",
+    skinImport: "pi-desktop/skin/import",
     configSyncGetState: "pi-desktop/configSync/getState",
     configSyncConfigure: "pi-desktop/configSync/configure",
     configSyncTest: "pi-desktop/configSync/test",

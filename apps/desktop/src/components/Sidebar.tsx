@@ -71,6 +71,7 @@ import {
   IconArchiveRestore,
   IconArrowUpDown,
   IconPlug,
+  IconPalette,
   IconBranch,
   IconChartColumn,
   IconCheck,
@@ -2515,6 +2516,19 @@ export function Sidebar({
               aria-pressed={page === "plugins"}
             >
               <IconPlug size={14} aria-hidden />
+            </TooltipButton>
+            <TooltipButton
+              type="button"
+              className={`footer-action ${page === "skins" ? "active" : ""}`}
+              data-nav="skins"
+              tooltip={t("nav.skins")}
+              ariaLabel={t("nav.skins")}
+              onClick={() => page === "skins"
+                ? (canNavBack() ? navBack() : setPage("chat"))
+                : setPage("skins")}
+              aria-pressed={page === "skins"}
+            >
+              <IconPalette size={14} aria-hidden />
             </TooltipButton>
             <TooltipButton
               type="button"

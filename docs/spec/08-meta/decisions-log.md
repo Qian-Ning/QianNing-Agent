@@ -7370,3 +7370,54 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - This does not adopt the dsh skin-center, a skin asset-directory format, a skin
   market, or a user color-slider editor. Those remain out of scope; the plugin
   theme contribution path (ADR 0248) already covers third-party themes.
+
+## 2026-09-28 — Skin center: colour + media skins with a DIY editor (D635)
+
+- QianNing fork addition, and a deliberate scope reversal of D634's closing
+  note. After the fox appearance shipped, the user made a hard distinction:
+  "主题是主题，皮肤是皮肤" — a theme is the light/dark/fox base tone chosen in
+  Settings, whereas a *skin* (皮肤 / 换肤) is a whole-look swap with its own
+  dedicated sidebar entry, a card wall, a DIY editor, and import/export. The
+  earlier "one extra built-in palette, no skin-center" call (D634) was
+  explicitly overridden ("皮肤中心/市场这个方案可以，但也要支持DIY").
+- **Theme and skin are independent layers.** Applying a skin never changes the
+  `theme` preference: `data-theme` still resolves to light/dark (or the fox
+  appearance) so Shiki, Mermaid, the native window colour, capture, and plugin
+  panels are untouched. A skin layers on top by (1) injecting an allowlisted set
+  of `--ds-*` custom properties scoped to `:root[data-skin="<id>"]`, and (2)
+  optionally painting a local image/video wallpaper behind a translucent shell.
+  Clearing the skin (`activeSkinId` absent or `"none"`) restores the plain theme
+  byte-for-byte.
+- **A skin = colours + an optional background (none/image/video).** The user
+  required media, not just palettes ("颜色搭配方案，还需要有图片的，还要视频的").
+  Video is a first-class background alongside image and solid colour; to keep it
+  from burning power it pauses automatically when the window loses focus, and a
+  scrim + blur keep foreground text legible.
+- **Security: allowlist + fail-closed + local-only, no server.** A skin may only
+  set an audited token allowlist (accent/accentHover/bg/bgElevated/panel/fg/
+  border/focus) — never arbitrary CSS, selectors, scripts, or remote URLs. The
+  shared `sanitizeSkin`/`sanitizeQnskinBundle` are the single choke point every
+  entry path (settings load, `.qnskin` import, editor save) runs through; a bad
+  value is dropped and a shape that cannot be a skin returns null. Background
+  media is copied into a confined `~/.qianning-agent/skins/assets` directory
+  under an opaque id and served **only** over a new host-owned `skin-asset://`
+  scheme (mirrors the plugin-asset scheme, ADR 0248: realpath-confined,
+  format-checked, size-capped at 48 MB, 404 fail-closed) — the renderer names an
+  id, never a filesystem path.
+- **"Market" = shareable files, not an online store.** No server exists to host
+  a catalog and pulling remote CSS is a security risk, so the "install many
+  skins" experience is delivered as `.qnskin` file import/export (self-contained
+  JSON with the skin plus its media inlined as base64), re-validated on import.
+  A real online store remains a separate, server-first project.
+- **Persistence: zero Rust/schema change.** `activeSkinId` and `customSkins`
+  live in the existing settings JSON blob (kv ns `app`), which the host stores
+  as an opaque shallow-merged document, so no migration or `SCHEMA_VERSION` bump
+  is needed. Only the background media files require host code (the scheme +
+  import/delete/export IPC).
+- Five built-in skins ship (跟随主题/千凝/暖橙/森绿/米纸); the 千凝 preset mirrors
+  the fox appearance palette so the skin center and theme picker agree. New
+  surfaces: `packages/shared/src/skins.ts` (+tests), renderer `lib/skin-engine.ts`,
+  `pages/SkinCenterPage.tsx`, `features/skins/{SkinCard,SkinEditorDialog}.tsx`,
+  a dedicated sidebar footer entry, main-process `skin-asset-protocol.ts` +
+  `ipc/skin-ipc.ts`, and the `skins` i18n namespace + `nav.skins` in all nine
+  locales. Contract tests: `apps/desktop/test/skin-center-wiring.test.mjs`.

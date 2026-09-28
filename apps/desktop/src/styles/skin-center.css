@@ -1,0 +1,521 @@
+/*
+  Skin center (D635) — page, card wall, and DIY editor styling.
+
+  Colour comes exclusively from the live `--ds-*` tokens (and the skin's own
+  `--sk-*` preview vars set inline in TSX), so the style-token guard passes and
+  every surface follows the active theme/skin. No literal hex here.
+*/
+
+.skin-center {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6, 1.5rem);
+  padding: var(--space-6, 1.5rem);
+  overflow-y: auto;
+  height: 100%;
+}
+
+.skin-center-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4, 1rem);
+  flex-wrap: wrap;
+}
+
+.skin-center-title {
+  display: flex;
+  gap: var(--space-3, 0.75rem);
+  align-items: center;
+  color: var(--ds-text-primary);
+}
+
+.skin-center-title h1 {
+  font-size: var(--text-lg, 1.125rem);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+}
+
+.skin-center-title p {
+  margin: 0;
+  font-size: var(--text-sm, 0.875rem);
+  color: var(--ds-text-secondary);
+}
+
+.skin-center-actions {
+  display: flex;
+  gap: var(--space-2, 0.5rem);
+}
+
+.skin-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 0.75rem);
+}
+
+.skin-grid-heading {
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: var(--font-weight-semibold);
+  color: var(--ds-text-secondary);
+  margin: 0;
+}
+
+.skin-empty {
+  font-size: var(--text-sm, 0.875rem);
+  color: var(--ds-text-tertiary, var(--ds-text-secondary));
+  margin: 0;
+}
+
+.skin-grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-4, 1rem);
+}
+
+/* --- card --- */
+.skin-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  background: var(--ds-bg-secondary);
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+
+.skin-card:hover {
+  border-color: var(--ds-accent);
+  transform: translateY(-1px);
+}
+
+.skin-card.is-active {
+  border-color: var(--ds-accent);
+  box-shadow: 0 0 0 1px var(--ds-accent);
+}
+
+.skin-card-preview {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  background: var(--sk-bg, var(--ds-bg-primary));
+}
+
+.skin-card-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.9;
+}
+
+/* The little fake window that shows the palette at a glance. */
+.skin-card-mini {
+  position: absolute;
+  inset: 14% 12%;
+  display: flex;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.28);
+  background: var(--sk-bg, var(--ds-bg-primary));
+}
+
+.skin-card-mini-side {
+  width: 26%;
+  background: color-mix(in oklab, var(--sk-panel) 88%, var(--sk-bg));
+  border-right: 1px solid color-mix(in oklab, var(--sk-fg) 12%, transparent);
+}
+
+.skin-card-mini-main {
+  flex: 1;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--sk-bg);
+}
+
+.skin-card-mini-bar {
+  height: 6px;
+  width: 60%;
+  border-radius: var(--radius-3xs);
+  background: color-mix(in oklab, var(--sk-fg) 30%, transparent);
+}
+
+.skin-card-mini-bubble {
+  height: 18px;
+  width: 80%;
+  border-radius: var(--radius-2xs);
+  background: color-mix(in oklab, var(--sk-panel) 80%, var(--sk-bg));
+}
+
+.skin-card-mini-accent {
+  height: 10px;
+  width: 34%;
+  border-radius: var(--radius-2xs);
+  background: var(--sk-accent);
+}
+
+.skin-card-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-round);
+  color: var(--ds-accent-contrast, var(--ds-bg-primary));
+  background: var(--ds-accent);
+}
+
+.skin-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+}
+
+.skin-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.skin-card-name {
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: var(--font-weight-medium);
+  color: var(--ds-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.skin-card-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs, 0.75rem);
+  color: var(--ds-text-secondary);
+}
+
+.skin-card-tools {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.skin-card-tool {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--radius-2xs);
+  background: transparent;
+  color: var(--ds-text-secondary);
+  cursor: pointer;
+}
+
+.skin-card-tool:hover {
+  background: color-mix(in oklab, var(--ds-text-primary) 10%, transparent);
+  color: var(--ds-text-primary);
+}
+
+.skin-card-tool.is-danger:hover {
+  color: var(--ds-danger, var(--ds-text-primary));
+}
+
+/* --- editor dialog --- */
+.skin-editor-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 0.45);
+  padding: var(--space-4, 1rem);
+}
+
+.skin-editor {
+  width: min(860px, 96vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid var(--ds-border-default);
+  background: var(--ds-bg-secondary);
+  overflow: hidden;
+}
+
+.skin-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4, 1rem);
+  border-bottom: 1px solid var(--ds-border-subtle);
+}
+
+.skin-editor-head h2 {
+  margin: 0;
+  font-size: var(--text-base, 1rem);
+  font-weight: var(--font-weight-semibold);
+  color: var(--ds-text-primary);
+}
+
+.skin-editor-close {
+  border: none;
+  background: transparent;
+  color: var(--ds-text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-2xs);
+}
+
+.skin-editor-close:hover {
+  background: color-mix(in oklab, var(--ds-text-primary) 10%, transparent);
+}
+
+.skin-editor-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4, 1rem);
+  padding: var(--space-4, 1rem);
+  overflow-y: auto;
+}
+
+.skin-editor-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 1rem);
+}
+
+.skin-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 0.5rem);
+}
+
+.skin-editor-field > span {
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: var(--font-weight-medium);
+  color: var(--ds-text-secondary);
+}
+
+.skin-editor-base {
+  display: flex;
+  gap: var(--space-2, 0.5rem);
+}
+
+.skin-editor-base-opt {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--ds-border-default);
+  background: var(--ds-bg-primary);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm, 0.875rem);
+  cursor: pointer;
+}
+
+.skin-editor-base-opt.is-active {
+  border-color: var(--ds-accent);
+  color: var(--ds-text-primary);
+  background: color-mix(in oklab, var(--ds-accent) 14%, transparent);
+}
+
+.skin-editor-colors {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2, 0.5rem);
+}
+
+.skin-editor-color {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--ds-border-subtle);
+  background: var(--ds-bg-primary);
+}
+
+.skin-editor-color input[type="color"] {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--radius-2xs);
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.skin-editor-color-label {
+  flex: 1;
+  font-size: var(--text-sm, 0.875rem);
+  color: var(--ds-text-primary);
+}
+
+.skin-editor-color-hex {
+  font-size: var(--text-xs, 0.75rem);
+  font-variant-numeric: tabular-nums;
+  color: var(--ds-text-secondary);
+}
+
+.skin-editor-media {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-3, 0.75rem);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--ds-border-subtle);
+  background: var(--ds-bg-primary);
+}
+
+.skin-editor-media-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2, 0.5rem);
+}
+
+.skin-editor-media-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm, 0.875rem);
+  color: var(--ds-text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skin-editor-media-remove {
+  border: none;
+  background: transparent;
+  color: var(--ds-text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-2xs);
+}
+
+.skin-editor-media-remove:hover {
+  color: var(--ds-danger, var(--ds-text-primary));
+}
+
+.skin-editor-slider {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  font-size: var(--text-xs, 0.75rem);
+  color: var(--ds-text-secondary);
+}
+
+.skin-editor-slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--ds-accent);
+}
+
+.skin-editor-hint {
+  margin: 0;
+  font-size: var(--text-xs, 0.75rem);
+  color: var(--ds-text-tertiary, var(--ds-text-secondary));
+}
+
+/* live preview pane */
+.skin-editor-preview {
+  position: relative;
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  min-height: 260px;
+  border: 1px solid var(--ds-border-default);
+  background: var(--sk-bg, var(--ds-bg-primary));
+}
+
+.skin-editor-preview-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.skin-editor-preview-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--sk-bg, var(--ds-bg-primary));
+}
+
+.skin-editor-preview-ui {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 0.75rem);
+  padding: var(--space-4, 1rem);
+}
+
+.skin-editor-preview-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: var(--font-weight-semibold);
+  color: var(--sk-fg);
+}
+
+.skin-editor-preview-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-round);
+  background: var(--sk-focus, var(--sk-accent));
+}
+
+.skin-editor-preview-msg {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm, 0.875rem);
+  max-width: 85%;
+}
+
+.skin-editor-preview-msg.user {
+  align-self: flex-end;
+  background: var(--sk-accent);
+  color: var(--sk-bg);
+}
+
+.skin-editor-preview-msg.bot {
+  align-self: flex-start;
+  background: color-mix(in oklab, var(--sk-panel) 85%, var(--sk-bg));
+  color: var(--sk-fg);
+}
+
+.skin-editor-preview-cta {
+  align-self: flex-start;
+  padding: 6px 14px;
+  border-radius: var(--radius-xs);
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: var(--font-weight-medium);
+  background: var(--sk-accent);
+  color: var(--sk-bg);
+}
+
+.skin-editor-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-4, 1rem);
+  border-top: 1px solid var(--ds-border-subtle);
+}
+
+@media (max-width: 720px) {
+  .skin-editor-body {
+    grid-template-columns: 1fr;
+  }
+}

@@ -37,6 +37,7 @@ export * from "./skill-catalog.js";
 export * from "./skill-catalog-builtin.js";
 export * from "./model-config-import.js";
 export * from "./theme.js";
+export * from "./skins.js";
 export * from "./thinking-levels.js";
 export * from "./command-shells.js";
 export * from "./context-compaction.js";

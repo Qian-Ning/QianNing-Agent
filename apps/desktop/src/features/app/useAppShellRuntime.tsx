@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { installRendererApi } from "../../capture/renderer-api";
 import { StartupSplash } from "../../components/StartupSplash";
 import { api } from "../../lib/api";
+import { applySkin, resolveSkin } from "../../lib/skin-engine";
 import {
   clampSidebarWidth,
   loadSidebarWidth,
@@ -283,7 +284,7 @@ export function useAppShellRuntime() {
 
   useEffect(() => {
     const pageHidesWorkPanel =
-      page === "settings" || page === "plugins" || page === "scheduled";
+      page === "settings" || page === "plugins" || page === "scheduled" || page === "skins";
     const shouldPresent =
       ready && !pageHidesWorkPanel && workPanelOpen;
     const request = ++workPanelReservationRequest.current;
@@ -552,6 +553,17 @@ export function useAppShellRuntime() {
     }
   }, [settings?.fontFamily]);
 
+  // Skin center (D635): a whole-look layer on TOP of the theme. The palette
+  // override + optional image/video background are applied here whenever the
+  // active skin id or the user's custom skin list changes. This never touches
+  // `data-theme`, so it composes with light/dark/fox rather than replacing them.
+  const activeSkinId = settings?.activeSkinId;
+  const customSkins = settings?.customSkins;
+  useEffect(() => {
+    const skin = resolveSkin(activeSkinId, customSkins ?? []);
+    applySkin(skin);
+  }, [activeSkinId, customSkins]);
+
   // Global type scale: Settings persists a multiplier in
   // `AppSettings.fontScale`; the `--text-*` ramp multiplies from `--font-scale`.
   useEffect(() => {
@@ -787,7 +799,7 @@ export function useAppShellRuntime() {
             break;
           case "openWorkPanel": {
             const p = useAppStore.getState().page;
-            if (p !== "settings" && p !== "plugins" && p !== "scheduled") {
+            if (p !== "settings" && p !== "plugins" && p !== "scheduled" && p !== "skins") {
               useAppStore.getState().toggleWorkPanel();
             }
             break;

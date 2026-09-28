@@ -9,6 +9,7 @@ import type { GlobalPermissionMode } from "./permissions.js";
 import type { PluginMarketSource } from "./plugins.js";
 import type { SpeechSettings } from "./speech.js";
 import type { ThinkingLevel } from "./models.js";
+import type { Skin } from "../skins.js";
 
 export type ThemePreference = "system" | "light" | "dark" | "fox" | `plugin:${string}`;
 
@@ -153,6 +154,15 @@ export type AppSettings = {
    * drives the agent.
    */
   petEnabled?: boolean;
+  /**
+   * Skin center (D635). `activeSkinId` names the applied skin — a built-in id
+   * ("none"/"qianning"/"amber"/…) or a user skin's id; absent/"none" means
+   * follow the plain theme. `customSkins` holds the user's DIY and imported
+   * skins. Both are validated through `sanitizeSkin` on load, so a corrupt or
+   * tampered value fails closed to the theme instead of applying.
+   */
+  activeSkinId?: string;
+  customSkins?: Skin[];
   onboardingDismissed: boolean;
 };
 

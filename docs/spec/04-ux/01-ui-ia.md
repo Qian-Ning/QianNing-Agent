@@ -33,8 +33,11 @@ destination, chat as the home surface, tools and permissions inline.
   **Sessions** section with new-session and sort actions, retained open-project
   groups under a following **Projects** section with a persistent new-project
   action, and the WorkBuddy-inspired footer. The footer keeps compact Settings,
-  Extensions, Scheduled (clock), and notification icon actions; Pull requests
-  remains omitted from the home sidebar. Each retained project is a
+  Extensions, Skins (palette), Scheduled (clock), and notification icon actions;
+  Pull requests remains omitted from the home sidebar. The Skins entry opens the
+  skin center as a full page (a whole-look swap — colours plus an optional
+  image/video wallpaper — layered on top of the light/dark/QianNing theme, and
+  distinct from the Settings ▸ Appearance theme picker). Each retained project is a
   path-keyed tab/group that can be
   collapsed independently. Project and conversation rows expose
   non-destructive pin/archive actions, an independent conversation-branch

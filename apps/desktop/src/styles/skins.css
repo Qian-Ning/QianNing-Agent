@@ -1,0 +1,82 @@
+/*
+  Skin center (D635) — background media layer + wallpaper translucency.
+
+  The palette side of a skin is pure `--ds-*` token overrides injected at
+  runtime (see `lib/skin-engine.ts`); it needs no stylesheet. This file styles
+  only the optional image/video BACKGROUND layer and the small set of surface
+  adjustments that let a wallpaper show through without hurting legibility.
+
+  Everything here is gated on `:root[data-skin-bg]`, which the engine sets only
+  when the active skin actually carries an image or video. A colour-only skin
+  (or no skin) never sets it, so the default and themed layouts are untouched.
+*/
+
+.qn-skin-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* Scrim: a wash of the base surface colour over the media so foreground text
+     keeps its contrast. Strength is per-skin via --qn-skin-scrim (0–0.85). */
+  background: var(--ds-bg-primary);
+}
+
+.qn-skin-background > video,
+.qn-skin-background > .qn-skin-background-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.qn-skin-background-image {
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+/* The scrim sits above the media but below the app so the media is dimmed. */
+.qn-skin-background::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--ds-bg-primary);
+  opacity: var(--qn-skin-scrim, 0.42);
+}
+
+/*
+  When a wallpaper is active, let it show through the outermost surfaces. The
+  shell and the two structural panes become translucent; inner cards, the
+  composer, menus, and the sidebar keep their opaque fills so text stays sharp.
+  color-mix keeps these derived from the live token, so they follow the skin's
+  own palette and every theme.
+*/
+:root[data-skin-bg] body,
+:root[data-skin-bg] .app-shell {
+  background: transparent;
+}
+
+:root[data-skin-bg] .main-pane {
+  background: transparent;
+}
+
+:root[data-skin-bg] .chat-surface {
+  background: transparent;
+}
+
+/* The transcript scroller shows the wallpaper; message bubbles remain opaque. */
+:root[data-skin-bg] .chat-transcript {
+  background: transparent;
+}
+
+/*
+  A video background is the only element that can burn power. The engine already
+  pauses it on blur; this keeps a reduced-motion user from ever seeing it move.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .qn-skin-background > video {
+    display: none;
+  }
+}

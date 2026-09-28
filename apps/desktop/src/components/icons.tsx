@@ -28,6 +28,7 @@ import {
   Code2,
   Database,
   Download,
+  Upload,
   Copy,
   Dot,
   ExternalLink,
@@ -205,6 +206,7 @@ export const IconArrowUpRight = icon(ArrowUpRight);
 export const IconUndo2 = icon(Undo2);
 export const IconCloudDown = icon(CloudDownload);
 export const IconDownload = icon(Download);
+export const IconUpload = icon(Upload);
 export const IconImage = icon(Image);
 export const IconCamera = icon(Camera);
 /* Composer attachment chips: one glyph per file family. */

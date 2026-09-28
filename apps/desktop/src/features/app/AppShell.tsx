@@ -44,6 +44,11 @@ const PluginsPage = lazy(() =>
     default: module.PluginsPage,
   })),
 );
+const SkinCenterPage = lazy(() =>
+  import("../../pages/SkinCenterPage").then((module) => ({
+    default: module.SkinCenterPage,
+  })),
+);
 
 export function AppShell() {
   const {
@@ -259,6 +264,10 @@ export function AppShell() {
                   ) : page === "plugins" ? (
                     <div className="route-surface route-page">
                       <PluginsPage />
+                    </div>
+                  ) : page === "skins" ? (
+                    <div className="route-surface route-page">
+                      <SkinCenterPage />
                     </div>
                   ) : (
                     <ChatSurface visible={page === "chat"} />

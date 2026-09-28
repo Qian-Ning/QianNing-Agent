@@ -24,6 +24,7 @@ import { registerSessionIpc } from "./session-ipc";
 import { registerSettingsIpc } from "./settings-ipc";
 import { registerConfigSyncIpc } from "./config-sync-ipc";
 import { registerSkillsIpc } from "./skills-ipc";
+import { registerSkinIpc } from "./skin-ipc";
 import { registerAgentImportIpc } from "./agent-import-ipc";
 import { registerRemoteHostIpc } from "./remote-host-ipc";
 import { fetchSkillMarketDocument, searchSkillMarket } from "../skill-market-catalog";
@@ -310,6 +311,7 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
     executeNativeMenuAction,
   });
   registerPullsIpc({ registrar, getHost });
+  registerSkinIpc({ registrar, dataDir, getMainWindow });
   registerScheduledIpc({
     registrar,
     getHost,
