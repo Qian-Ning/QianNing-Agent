@@ -14,8 +14,6 @@ export function SkinCard({
   skin,
   active,
   onApply,
-  onPreviewStart,
-  onPreviewEnd,
   onEdit,
   onExport,
   onDelete,
@@ -25,8 +23,6 @@ export function SkinCard({
   skin: Skin;
   active: boolean;
   onApply: () => void;
-  onPreviewStart: () => void;
-  onPreviewEnd: () => void;
   onEdit?: () => void;
   onExport?: () => void;
   onDelete?: () => void;
@@ -53,8 +49,6 @@ export function SkinCard({
   return (
     <div
       className={cx("skin-card", active && "is-active")}
-      onMouseEnter={onPreviewStart}
-      onMouseLeave={onPreviewEnd}
     >
       <button
         type="button"

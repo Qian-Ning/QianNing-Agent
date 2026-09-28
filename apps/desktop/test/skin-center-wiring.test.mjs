@@ -18,9 +18,13 @@ const skinIpc = await read("../electron/main/ipc/skin-ipc.ts");
 const register = await read("../electron/main/ipc/register.ts");
 const startup = await read("../electron/main/bootstrap/startup.ts");
 const settingsType = await read("../../../packages/shared/src/types/settings.ts");
+const skinsShared = await read("../../../packages/shared/src/skins.ts");
+const indexHtml = await read("../index.html");
+const skinsCss = await read("../src/styles/skins.css");
 const enLocale = await read("../../../packages/i18n/src/locales/en/index.ts");
 const zhLocale = await read("../../../packages/i18n/src/locales/zh-CN/index.ts");
 const globals = await read("../src/styles/globals.css");
+const overlays = await read("../src/styles/overlays.css");
 
 test("the skin center has its own dedicated sidebar entry, distinct from settings/theme", () => {
   // A footer nav button that routes to the skins page.
@@ -44,6 +48,82 @@ test("applying a skin persists activeSkinId through settings, not a theme change
   // Settings type carries the skin fields.
   assert.match(settingsType, /activeSkinId\?: string;/);
   assert.match(settingsType, /customSkins\?: /);
+});
+
+test("a PURE-COLOUR skin's base scheme drives the foundation, but a WALLPAPER skin defers to the theme", () => {
+  // Bug A: 米纸 (a light-based colour skin) rendered near-white text on cream
+  // because the shell left data-theme on dark. A pure-colour skin's base scheme
+  // must fold into the resolved theme so un-overridden tokens match.
+  // Bug B (user: 设置里的主题没有真实生效): a skin carrying an image/video wallpaper
+  // must NOT hijack data-theme, or the Settings light/dark/fox picker looks dead.
+  // So the base-scheme fold is gated on background.kind === "none".
+  assert.match(runtime, /skinBaseScheme/);
+  assert.match(runtime, /activeSkin/);
+  // The fold happens only for a no-wallpaper skin.
+  assert.match(runtime, /activeSkin\.background\.kind === "none"/);
+  // The effect re-runs when the active skin or the custom list changes.
+  assert.match(runtime, /settings\?\.activeSkinId, settings\?\.customSkins/);
+  // The engine injects NO palette override for a wallpaper skin, so the theme
+  // owns every colour and the wallpaper is a theme-agnostic layer.
+  assert.match(skinEngine, /hasWallpaper/);
+  assert.match(skinEngine, /hasWallpaper \? \{\} : skinCssVariables/);
+});
+
+test("route pages drop the composer-dock fade mask so the last section is not clipped", () => {
+  // Bug: the Skin Center's bottom cards were cut off. `.thread-scroll` carries a
+  // fade mask tied to --composer-dock-height (a chat-only affordance); route
+  // pages reuse the scroller but have no composer, so the stale dock height
+  // faded out the bottom of the page. Route pages must clear the mask.
+  assert.match(overlays, /\.route-page > \.thread-scroll\s*\{[^}]*mask-image:\s*none/s);
+});
+
+test("the panel token recolours the sidebar, and skin-asset media is allowed by the CSP", () => {
+  // The left rail + settings rail must be driven by the skin, not left on the
+  // base theme (user report: sidebar not skinned).
+  assert.match(skinsShared, /--ds-bg-sidebar/);
+  assert.match(skinsShared, /--ds-settings-rail-bg/);
+  // The wallpaper scheme must be permitted for <img>/<video>, or the background
+  // silently fails to load (user report: image background not showing).
+  assert.match(indexHtml, /img-src[^;]*skin-asset:/);
+  assert.match(indexHtml, /media-src[^;]*skin-asset:/);
+  // The wallpaper layer sits behind the app and the shell goes transparent so
+  // it shows through instead of covering content (user report: content hidden).
+  assert.match(skinsCss, /z-index: -1/);
+  assert.match(skinsCss, /\[data-skin-bg\] #root/);
+});
+
+test("a wallpaper covers the WHOLE window: chrome transparent + content still backed", () => {
+  // User: 图片或视频要整个页面生效 (cover the whole app, not just the chat pane),
+  // and 左边搞成透明但文字清晰 (sidebar fully transparent, text still legible).
+  // 1. Every chrome surface — titlebar, topbar, sidebar — goes transparent so the
+  //    wallpaper reaches every edge with no seam.
+  assert.match(skinsCss, /\[data-skin-bg\] \.main-titlebar/);
+  assert.match(skinsCss, /\[data-skin-bg\] \.conversation-topbar/);
+  assert.match(skinsCss, /\[data-skin-bg\] \.sidebar-surface/);
+  // 2. The sidebar tint defaults to fully transparent (no dimming veil).
+  assert.match(skinsShared, /sidebarTint:\s*\{\s*min:\s*0,/);
+  // 3. Legibility over the photo comes from a text/icon halo, not a veil.
+  assert.match(skinsCss, /\[data-skin-bg\]\[data-theme="dark"\][\s\S]*?text-shadow/);
+  assert.match(skinsCss, /\[data-skin-bg\]\[data-theme="light"\][\s\S]*?text-shadow/);
+  // 4. Content surfaces do NOT dissolve: the transparent tile tokens are backed
+  //    with the skin panel at high opacity (user report: cards vanished).
+  assert.match(skinsCss, /\[data-skin-bg\]\s*\{[\s\S]*--ds-tile:/);
+  // The engine still publishes/clears the optional sidebar-backing property.
+  assert.match(skinEngine, /--qn-skin-sidebar-tint/);
+  assert.match(skinEngine, /removeProperty\("--qn-skin-sidebar-tint"\)/);
+});
+
+test("the DIY editor has no base-theme picker (a skin is not a theme)", () => {
+  // User: 新建皮肤这边不要有主题，会和设置里面的主题冲突. The editor must not render a
+  // dark/light/fox base selector; the base foundation is derived from the bg
+  // colour instead.
+  assert.doesNotMatch(skinEditor, /skin-editor-base-opt/);
+  assert.doesNotMatch(skinEditor, /setBase\(/);
+  assert.match(skinEditor, /deriveSkinBase/);
+  assert.match(skinsShared, /export function deriveSkinBase/);
+  // The sidebar-backing slider is still present and backed by the shared limit.
+  assert.match(skinEditor, /sidebarTint/);
+  assert.match(skinsShared, /sidebarTint:\s*\{/);
 });
 
 test("the apply engine only ever writes allowlisted --ds-* custom properties", () => {

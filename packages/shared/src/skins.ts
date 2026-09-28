@@ -44,7 +44,18 @@ export const SKIN_TOKEN_CSS_VARS: Record<SkinTokenKey, readonly string[]> = {
   accentHover: ["--ds-accent-hover", "--ds-accent-soft"],
   bg: ["--ds-bg-primary", "--ds-bg-under", "--ds-bg-inset"],
   bgElevated: ["--ds-bg-elevated-opaque", "--ds-bg-composer", "--ds-bg-dock"],
-  panel: ["--ds-bg-secondary", "--ds-bg-tertiary", "--ds-raised", "--ds-bg-dock-raised"],
+  panel: [
+    "--ds-bg-secondary",
+    "--ds-bg-tertiary",
+    "--ds-raised",
+    "--ds-bg-dock-raised",
+    // The left navigation rail and the settings rail read from these; without
+    // them a skin would recolour the chat pane but leave the sidebar on the
+    // base theme (and the light theme hard-codes the rail bg, breaking the
+    // var() chain), so the sidebar must be driven explicitly.
+    "--ds-bg-sidebar",
+    "--ds-settings-rail-bg",
+  ],
   fg: ["--ds-text-primary"],
   border: ["--ds-border-default", "--ds-border-subtle", "--ds-border-strong"],
   focus: ["--ds-focus"],
@@ -57,6 +68,12 @@ export const SKIN_BG_LIMITS = {
   opacity: { min: 0.2, max: 1, default: 1 },
   blur: { min: 0, max: 20, default: 2 },
   scrim: { min: 0, max: 0.85, default: 0.42 },
+  // How opaque the sidebar stays over a wallpaper. 0 = fully transparent (the
+  // wallpaper flows through at the same strength as the main area, no veil, no
+  // seam — the default, answering "左边搞成透明"); raise it only if a busy
+  // wallpaper needs a veil behind the navigation. Legibility at 0 comes from a
+  // text halo, not a dimming layer.
+  sidebarTint: { min: 0, max: 0.85, default: 0 },
 } as const;
 
 /**
@@ -76,6 +93,13 @@ export type SkinBackground = {
   opacity?: number;
   blur?: number;
   scrim?: number;
+  /**
+   * How opaque the shell surfaces (the sidebar chiefly) stay over the wallpaper,
+   * 0.15–0.9. A low value lets the wallpaper flow continuously under the sidebar
+   * instead of stopping at a hard seam; a backdrop blur behind the tint keeps
+   * the navigation text legible. Ignored when `kind === "none"`.
+   */
+  sidebarTint?: number;
 };
 
 export type Skin = {
@@ -115,6 +139,34 @@ function clamp(value: unknown, min: number, max: number, fallback: number): numb
 /** The base scheme a skin's chrome resolves to (fox → dark). */
 export function skinBaseScheme(base: SkinBase): ThemeColorScheme {
   return base === "light" ? "light" : "dark";
+}
+
+/**
+ * Relative luminance (0–1) of a `#rgb`/`#rrggbb` colour, ignoring any alpha.
+ * Used to decide whether a skin sits on the light or dark token foundation.
+ */
+function hexLuminance(hex: string): number {
+  const v = hex.trim().replace(/^#/, "");
+  const full = v.length === 3 ? v.replace(/(.)/g, "$1$1") : v.slice(0, 6);
+  if (full.length < 6) return 0;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  if ([r, g, b].some((n) => Number.isNaN(n))) return 0;
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+
+/**
+ * Derive a DIY skin's base scheme from its background colour instead of asking
+ * the user to pick a theme. A skin is NOT a theme (the app theme lives in
+ * Settings and must not be duplicated inside the skin editor); its base only
+ * decides which token foundation the un-overridden tokens read from, so a light
+ * background gets the light foundation and a dark one the dark foundation. This
+ * keeps 米纸-style light skins legible without a theme picker in the editor.
+ */
+export function deriveSkinBase(bg: string | undefined): ThemeColorScheme {
+  if (!bg || !isSkinColor(bg)) return "dark";
+  return hexLuminance(bg) >= 0.5 ? "light" : "dark";
 }
 
 /**
@@ -165,6 +217,7 @@ export function sanitizeSkin(input: unknown): Skin | null {
       background.opacity = clamp(rawBg.opacity, SKIN_BG_LIMITS.opacity.min, SKIN_BG_LIMITS.opacity.max, SKIN_BG_LIMITS.opacity.default);
       background.blur = clamp(rawBg.blur, SKIN_BG_LIMITS.blur.min, SKIN_BG_LIMITS.blur.max, SKIN_BG_LIMITS.blur.default);
       background.scrim = clamp(rawBg.scrim, SKIN_BG_LIMITS.scrim.min, SKIN_BG_LIMITS.scrim.max, SKIN_BG_LIMITS.scrim.default);
+      background.sidebarTint = clamp(rawBg.sidebarTint, SKIN_BG_LIMITS.sidebarTint.min, SKIN_BG_LIMITS.sidebarTint.max, SKIN_BG_LIMITS.sidebarTint.default);
     }
   }
 

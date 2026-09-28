@@ -9,9 +9,11 @@ import {
   type KeyboardShortcutId,
   keybindingDisplayParts,
   keybindingMatchesEvent,
+  NO_SKIN_ID,
   resolveFontScale,
   resolveKeybinding,
   type ShortcutPlatform,
+  skinBaseScheme,
 } from "@pi-desktop/shared";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -479,20 +481,47 @@ export function useAppShellRuntime() {
     const pluginTheme = preference.startsWith("plugin:")
       ? pluginThemes.find((entry) => entry.id === preference)
       : undefined;
-    // A shipped appearance theme (e.g. `fox`) is a token override painted on a
-    // fixed color scheme, exactly like a plugin theme's base + CSS but authored
-    // in the app's own tokens.css. It sets `data-appearance` so the override
-    // block applies, and resolves its base scheme for `data-theme`.
-    const appearance = isBuiltinAppearance(preference) ? preference : undefined;
+    const appearanceFromPref = isBuiltinAppearance(preference) ? preference : undefined;
+    // An active skin with an explicit base scheme drives the document color
+    // scheme. A light-based skin (e.g. 米纸) must lay its palette on the LIGHT
+    // token foundation, otherwise dozens of tokens the skin does NOT override
+    // (secondary/muted text, borders, hover fills) keep their dark-theme values
+    // and render near-white text on a cream surface. A plugin theme owns the
+    // whole palette, so it still wins over a skin.
+    const activeSkin = pluginTheme
+      ? null
+      : resolveSkin(settings?.activeSkinId, settings?.customSkins ?? []);
+    // A skin's base scheme drives the light/dark foundation ONLY for pure-colour
+    // skins (米纸-style legibility — the un-overridden secondary/border tokens
+    // must match, D635/bug4). A skin that carries an image or video WALLPAPER
+    // must NOT hijack the foundation: otherwise the Settings theme picker looks
+    // dead (user: 设置里的主题没有真实生效). For a media skin the foundation follows
+    // the Settings theme and the wallpaper is a theme-agnostic layer behind
+    // transparent chrome, so light / dark / fox all switch normally with no
+    // conflict. Pure-colour skins the user does not mind ("纯色方案无所谓").
+    const skinColorScheme =
+      activeSkin && activeSkin.id !== NO_SKIN_ID && activeSkin.background.kind === "none"
+        ? skinBaseScheme(activeSkin.base)
+        : undefined;
+    const skinAppearance =
+      activeSkin &&
+      activeSkin.id !== NO_SKIN_ID &&
+      activeSkin.background.kind === "none" &&
+      activeSkin.base === "fox"
+        ? "fox"
+        : undefined;
     // A plugin theme whose provider was disabled or uninstalled falls back to
     // `system` instead of leaving the shell on a half-applied palette.
+    const appearance = pluginTheme ? undefined : (skinAppearance ?? appearanceFromPref);
     const base: "system" | "light" | "dark" = pluginTheme
       ? pluginTheme.base
-      : appearance
-        ? builtinAppearanceBase(appearance)
-        : isThemeColorScheme(preference)
-          ? preference
-          : "system";
+      : skinColorScheme
+        ? skinColorScheme
+        : appearanceFromPref
+          ? builtinAppearanceBase(appearanceFromPref)
+          : isThemeColorScheme(preference)
+            ? preference
+            : "system";
 
     let style = document.getElementById(PLUGIN_THEME_STYLE_ID) as HTMLStyleElement | null;
     if (pluginTheme) {
@@ -540,7 +569,7 @@ export function useAppShellRuntime() {
     const onChange = () => apply();
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
-  }, [settings?.theme, pluginThemes]);
+  }, [settings?.theme, settings?.activeSkinId, settings?.customSkins, pluginThemes]);
 
   // Global UI font: the Settings picker stores a CSS `font-family` stack in
   // `AppSettings.fontFamily`; absent means the built-in token stack.

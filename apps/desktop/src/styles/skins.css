@@ -14,7 +14,7 @@
 .qn-skin-background {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   overflow: hidden;
   pointer-events: none;
   /* Scrim: a wash of the base surface colour over the media so foreground text
@@ -47,28 +47,154 @@
 }
 
 /*
-  When a wallpaper is active, let it show through the outermost surfaces. The
-  shell and the two structural panes become translucent; inner cards, the
-  composer, menus, and the sidebar keep their opaque fills so text stays sharp.
-  color-mix keeps these derived from the live token, so they follow the skin's
-  own palette and every theme.
+  When a wallpaper is active, it must cover the WHOLE window, not just the chat
+  pane (user: 图片或视频要整个页面生效). Two layers:
+
+    1. CHROME goes fully transparent so the wallpaper flows edge to edge with no
+       seam — the document root, shell, main pane, transcript, the top titlebar
+       band, the conversation topbar, and the left sidebar. None of them paint an
+       opaque fill of their own any more.
+    2. CONTENT stays readable — message bubbles, cards, rows, the composer, and
+       menus keep an opaque-enough backing (see the tile overrides below), and
+       chrome TEXT gets a halo so it reads over any wallpaper without a dimming
+       veil behind it.
+
+  A theme-matched halo (dark glow on dark skins, light glow on light skins) is
+  what replaces the old sidebar tint: it keeps text and icons legible directly
+  over the photo, so the sidebar itself can be glass-clear with no seam.
 */
 :root[data-skin-bg] body,
+:root[data-skin-bg] #root,
 :root[data-skin-bg] .app-shell {
   background: transparent;
 }
 
-:root[data-skin-bg] .main-pane {
-  background: transparent;
-}
-
-:root[data-skin-bg] .chat-surface {
+:root[data-skin-bg] .main-pane,
+:root[data-skin-bg] .chat-surface,
+:root[data-skin-bg] .route-page,
+:root[data-skin-bg] .route-surface {
   background: transparent;
 }
 
 /* The transcript scroller shows the wallpaper; message bubbles remain opaque. */
 :root[data-skin-bg] .chat-transcript {
   background: transparent;
+}
+
+/*
+  The top titlebar band and the conversation topbar both painted an opaque
+  --ds-bg-primary strip, which cut the wallpaper off below a hard horizontal
+  seam. Over a wallpaper they go transparent; their text/icons rely on the halo.
+*/
+:root[data-skin-bg] .main-titlebar,
+:root[data-skin-bg] .conversation-topbar {
+  background: transparent;
+}
+
+/*
+  The left sidebar (and the collapsed rail) is now GLASS-CLEAR over a wallpaper:
+  fully transparent by default (user: 左侧尽量透明不要形成遮挡 / 搞成透明), so the
+  photo flows through it exactly as it does through the main pane — no veil, no
+  blur, no seam. The optional per-skin --qn-skin-sidebar-tint (default 0) can add
+  a faint wash back if a busy wallpaper needs one, but it is off by default.
+  Legibility comes from the halo on the text, not from dimming the wallpaper.
+*/
+:root[data-skin-bg] .sidebar-surface,
+:root[data-skin-bg] .sidebar-rail {
+  background-color: color-mix(
+    in oklab,
+    var(--ds-bg-sidebar) calc(var(--qn-skin-sidebar-tint, 0) * 100%),
+    transparent
+  );
+  background-image: none;
+}
+
+/*
+  Text + icon halo for the transparent chrome. On a dark skin the halo is a
+  black glow, on a light skin a white glow, so the navigation, titlebar, and
+  greeting stay readable directly over the photo. The two blocks differ only in
+  the shadow colour; black/white shadow alphas are the allowed surface literals.
+*/
+:root[data-skin-bg][data-theme="dark"] .sidebar-surface,
+:root[data-skin-bg][data-theme="dark"] .sidebar-rail,
+:root[data-skin-bg][data-theme="dark"] .main-titlebar,
+:root[data-skin-bg][data-theme="dark"] .conversation-topbar,
+:root[data-skin-bg][data-theme="dark"] .empty-hero h1,
+:root[data-skin-bg][data-theme="dark"] .empty-hero .project-underline {
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.72),
+    0 0 8px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-skin-bg][data-theme="light"] .sidebar-surface,
+:root[data-skin-bg][data-theme="light"] .sidebar-rail,
+:root[data-skin-bg][data-theme="light"] .main-titlebar,
+:root[data-skin-bg][data-theme="light"] .conversation-topbar,
+:root[data-skin-bg][data-theme="light"] .empty-hero h1,
+:root[data-skin-bg][data-theme="light"] .empty-hero .project-underline {
+  text-shadow:
+    0 1px 3px rgba(255, 255, 255, 0.82),
+    0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+:root[data-skin-bg][data-theme="dark"] .sidebar-surface svg,
+:root[data-skin-bg][data-theme="dark"] .sidebar-rail svg,
+:root[data-skin-bg][data-theme="dark"] .main-titlebar svg,
+:root[data-skin-bg][data-theme="dark"] .conversation-topbar svg {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+:root[data-skin-bg][data-theme="light"] .sidebar-surface svg,
+:root[data-skin-bg][data-theme="light"] .sidebar-rail svg,
+:root[data-skin-bg][data-theme="light"] .main-titlebar svg,
+:root[data-skin-bg][data-theme="light"] .conversation-topbar svg {
+  filter: drop-shadow(0 1px 2px rgba(255, 255, 255, 0.7));
+}
+
+/*
+  Selected/hover conversation rows still need to read as selected over the
+  wallpaper, so keep a compact accent fill on just those rows (not a slab over
+  the whole panel).
+*/
+:root[data-skin-bg] .sidebar-surface .thread-item.active,
+:root[data-skin-bg] .sidebar-surface .thread-item:hover {
+  background-color: color-mix(in oklab, var(--ds-bg-sidebar) 62%, transparent);
+}
+
+/*
+  Content surfaces must NOT dissolve into the wallpaper. The base tile tokens are
+  ~96% transparent (fine over a solid theme, unreadable over a photo — user
+  report: extension cards vanished into the wallpaper). Over a wallpaper, back
+  them with the skin's own panel colour at high opacity so every card, row,
+  bubble, and tool block that reads these tokens becomes a legible frosted panel
+  at once, while still hinting the wallpaper at the edges.
+*/
+:root[data-skin-bg] {
+  --ds-tile: color-mix(in oklab, var(--ds-bg-secondary) 86%, transparent);
+  --ds-tile-hover: color-mix(in oklab, var(--ds-bg-secondary) 92%, transparent);
+  --ds-tile-deep: color-mix(in oklab, var(--ds-bg-secondary) 94%, transparent);
+  --ds-tool-row-bg: color-mix(in oklab, var(--ds-bg-secondary) 88%, transparent);
+}
+
+/* The user message bubble reads --ds-bg-hover (a 6% wash); give it a real panel
+   over a wallpaper so the prompt text is readable. */
+:root[data-skin-bg] .message-row.session-message .message-bubble,
+:root[data-skin-bg] .message-row.user .message-bubble:not(:has(.message-edit)) {
+  background: color-mix(in oklab, var(--ds-bg-secondary) 90%, transparent);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  /* Accessibility: fall back to a near-opaque sidebar when the OS asks to reduce
+     transparency, so low-vision users are not left reading over a photo. */
+  :root[data-skin-bg] .sidebar-surface,
+  :root[data-skin-bg] .sidebar-rail {
+    background-color: color-mix(in oklab, var(--ds-bg-sidebar) 94%, transparent);
+    text-shadow: none;
+  }
+  :root[data-skin-bg] .sidebar-surface svg,
+  :root[data-skin-bg] .sidebar-rail svg {
+    filter: none;
+  }
 }
 
 /*

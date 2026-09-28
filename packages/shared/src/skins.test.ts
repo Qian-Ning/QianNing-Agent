@@ -10,6 +10,7 @@ import {
   sanitizeQnskinBundle,
   sanitizeSkin,
   skinBaseScheme,
+  deriveSkinBase,
   skinCssVariables,
   skinMediaKindForExtension,
 } from "./skins.js";
@@ -79,6 +80,23 @@ describe("skins", () => {
     expect(Object.keys(vars).every((k) => k.startsWith("--ds-"))).toBe(true);
   });
 
+  it("drives the sidebar/rail off the panel token so the whole shell reskins", () => {
+    // Regression: a skin that recoloured only the chat pane left the sidebar on
+    // the base theme, because the light theme hard-codes --ds-settings-rail-bg
+    // and the sidebar reads --ds-bg-sidebar. The panel token must reach both.
+    const skin = sanitizeSkin({
+      id: "diy-panel",
+      name: "Panel",
+      base: "dark",
+      tokens: { panel: "#111a33" },
+      background: { kind: "none" },
+    })!;
+    const vars = skinCssVariables(skin);
+    expect(vars["--ds-bg-sidebar"]).toBe("#111a33");
+    expect(vars["--ds-settings-rail-bg"]).toBe("#111a33");
+    expect(vars["--ds-bg-secondary"]).toBe("#111a33");
+  });
+
   it("downgrades a media background with no stored asset to none", () => {
     const skin = sanitizeSkin({
       id: "diy-3",
@@ -96,11 +114,33 @@ describe("skins", () => {
       name: "Clamp",
       base: "dark",
       tokens: {},
-      background: { kind: "image", assetId: "abc", opacity: 5, blur: -3, scrim: 9 },
+      background: { kind: "image", assetId: "abc", opacity: 5, blur: -3, scrim: 9, sidebarTint: 9 },
     })!;
     expect(skin.background.opacity).toBeLessThanOrEqual(1);
     expect(skin.background.blur).toBeGreaterThanOrEqual(0);
     expect(skin.background.scrim).toBeLessThanOrEqual(0.85);
+    // The sidebar-backing control clamps to its own range (0–0.85).
+    expect(skin.background.sidebarTint).toBeLessThanOrEqual(0.85);
+    expect(skin.background.sidebarTint).toBeGreaterThanOrEqual(0);
+    // Default is 0 = fully transparent sidebar over a wallpaper.
+    const dflt = sanitizeSkin({
+      id: "diy-4b",
+      name: "Default",
+      base: "dark",
+      tokens: {},
+      background: { kind: "image", assetId: "abc" },
+    })!;
+    expect(dflt.background.sidebarTint).toBe(0);
+  });
+
+  it("derives a skin's base foundation from its background luminance (no theme picker)", () => {
+    // The editor no longer asks the user to pick dark/light/fox — a skin is not a
+    // theme. deriveSkinBase reads the bg colour: a light background lays the
+    // palette on the light foundation so un-overridden text stays legible.
+    expect(deriveSkinBase("#f7f2ea")).toBe("light");
+    expect(deriveSkinBase("#0a1024")).toBe("dark");
+    expect(deriveSkinBase(undefined)).toBe("dark");
+    expect(deriveSkinBase("not-a-color")).toBe("dark");
   });
 
   it("classifies media file extensions", () => {

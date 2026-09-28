@@ -741,6 +741,16 @@
 
 .route-page > .thread-scroll {
   flex: 1;
+  /*
+    The composer-dock fade mask on `.thread-scroll` exists only to melt the chat
+    transcript behind the docked composer. Route pages (Skins, Plugins,
+    Scheduled) reuse this scroller but have no composer, and `--composer-dock-
+    height` lingers on :root after leaving chat — so the mask would fade out the
+    bottom ~184px of the page and hide the last section. Route pages have no
+    composer, so clear it.
+  */
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
 .chat-error-layer {

@@ -3,17 +3,17 @@ import { useTranslation } from "react-i18next";
 import {
   SKIN_BG_LIMITS,
   builtinSkinById,
+  deriveSkinBase,
   sanitizeSkin,
   skinCssVariables,
   type Skin,
   type SkinBackground,
-  type SkinBase,
   type SkinTokenKey,
 } from "@pi-desktop/shared";
 import { api } from "../../lib/api";
 import { skinAssetUrl } from "../../lib/skin-engine";
 import { useAppStore } from "../../stores/app-store";
-import { Button, Input, cx, portalOverlay } from "../../components/ui";
+import { Button, Input, portalOverlay } from "../../components/ui";
 import { IconImage, IconTrash, IconVideo, IconX } from "../../components/icons";
 
 /** The palette keys the editor exposes, in display order, each with a fallback. */
@@ -28,17 +28,23 @@ const EDITOR_TOKENS: { key: SkinTokenKey; labelKey: string; fallbackDark: string
 type Draft = {
   id: string;
   name: string;
-  base: SkinBase;
   tokens: Partial<Record<SkinTokenKey, string>>;
   background: SkinBackground;
 };
 
 /**
- * The DIY skin editor. The user picks a light/dark base, tunes an allowlisted
- * set of colours with native pickers, optionally attaches a local image/video
- * background (with opacity/blur/scrim sliders), names it, and saves. A live
+ * The DIY skin editor. The user names the skin, tunes an allowlisted set of
+ * colours with native pickers, and optionally attaches a local image/video
+ * background (with opacity/blur/scrim/sidebar-transparency sliders). A live
  * preview pane on the right reflects every change. Only allowlisted tokens ever
  * leave this dialog — the shared sanitizer runs on save.
+ *
+ * There is deliberately NO base-theme (dark/light/fox) selector here: a skin is
+ * not a theme, and duplicating the Settings theme picker inside the editor
+ * confused the two (user: 新建皮肤这边不要有主题，会和设置里面的主题冲突). The base
+ * token foundation is derived automatically from the skin's own background
+ * colour, so a light palette lays on the light foundation and a dark one on the
+ * dark foundation without the user choosing a theme.
  */
 export function SkinEditorDialog({
   initial,
@@ -58,12 +64,14 @@ export function SkinEditorDialog({
   const setToken = (key: SkinTokenKey, value: string) => {
     setDraft((d) => ({ ...d, tokens: { ...d.tokens, [key]: value } }));
   };
-  const setBase = (base: SkinBase) => setDraft((d) => ({ ...d, base }));
+
+  // The base foundation follows the chosen background colour — no theme picker.
+  const derivedBase = deriveSkinBase(draft.tokens.bg);
 
   const fallbackFor = (key: SkinTokenKey): string => {
     const entry = EDITOR_TOKENS.find((e) => e.key === key);
     if (!entry) return "#5b8def";
-    return draft.base === "light" ? entry.fallbackLight : entry.fallbackDark;
+    return derivedBase === "light" ? entry.fallbackLight : entry.fallbackDark;
   };
 
   const attachMedia = async () => {
@@ -82,6 +90,7 @@ export function SkinEditorDialog({
           opacity: d.background.opacity ?? SKIN_BG_LIMITS.opacity.default,
           blur: d.background.blur ?? SKIN_BG_LIMITS.blur.default,
           scrim: d.background.scrim ?? SKIN_BG_LIMITS.scrim.default,
+          sidebarTint: d.background.sidebarTint ?? SKIN_BG_LIMITS.sidebarTint.default,
         },
       }));
     } catch (error) {
@@ -99,7 +108,7 @@ export function SkinEditorDialog({
     }
   };
 
-  const setBgControl = (key: "opacity" | "blur" | "scrim", value: number) => {
+  const setBgControl = (key: "opacity" | "blur" | "scrim" | "sidebarTint", value: number) => {
     setDraft((d) => ({ ...d, background: { ...d.background, [key]: value } }));
   };
 
@@ -113,7 +122,7 @@ export function SkinEditorDialog({
     const candidate: Skin = {
       id: draft.id,
       name,
-      base: draft.base,
+      base: derivedBase,
       tokens: draft.tokens,
       background: draft.background,
     };
@@ -134,17 +143,23 @@ export function SkinEditorDialog({
   const previewSkin: Skin = {
     id: draft.id,
     name: draft.name,
-    base: draft.base,
+    base: derivedBase,
     tokens: draft.tokens,
     background: draft.background,
   };
   const previewVars = useMemo(() => skinCssVariables(previewSkin), [draft]);
+  const hasBg = draft.background.kind !== "none";
   const previewStyle: Record<string, string> = {
     ["--sk-bg" as string]: previewVars["--ds-bg-primary"] ?? fallbackFor("bg"),
     ["--sk-panel" as string]: previewVars["--ds-bg-secondary"] ?? fallbackFor("panel"),
     ["--sk-accent" as string]: previewVars["--ds-accent"] ?? fallbackFor("accent"),
     ["--sk-fg" as string]: previewVars["--ds-text-primary"] ?? fallbackFor("fg"),
     ["--sk-focus" as string]: previewVars["--ds-focus"] ?? fallbackFor("focus"),
+    // Drives how translucent the preview sidebar is over a wallpaper, mirroring
+    // the live shell so the sidebar-transparency slider is actually visible here.
+    ["--sk-side-tint" as string]: hasBg
+      ? String(draft.background.sidebarTint ?? SKIN_BG_LIMITS.sidebarTint.default)
+      : "1",
   };
   const bgUrl =
     draft.background.kind !== "none" && draft.background.assetId && draft.background.ext
@@ -152,7 +167,7 @@ export function SkinEditorDialog({
       : null;
 
   return portalOverlay(
-    <div className="skin-editor-scrim" role="dialog" aria-modal="true" aria-label={t("skins.editorTitle")}>
+    <div className="overlay" role="dialog" aria-modal="true" aria-label={t("skins.editorTitle")}>
       <div className="skin-editor">
         <header className="skin-editor-head">
           <h2>{initial ? t("skins.editorEditTitle") : t("skins.editorTitle")}</h2>
@@ -174,23 +189,11 @@ export function SkinEditorDialog({
               />
             </label>
 
-            <div className="skin-editor-field">
-              <span>{t("skins.fieldBase")}</span>
-              <div className="skin-editor-base">
-                {(["dark", "light", "fox"] as SkinBase[]).map((base) => (
-                  <button
-                    key={base}
-                    type="button"
-                    className={cx("skin-editor-base-opt", draft.base === base && "is-active")}
-                    onClick={() => setBase(base)}
-                  >
-                    {base === "light" ? t("settings.themeLight") : base === "fox" ? t("settings.themeFox") : t("settings.themeDark")}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="skin-editor-colors">
+            <div
+              className="skin-editor-colors"
+              data-muted={hasBg ? "true" : undefined}
+              title={hasBg ? t("skins.bgThemeHint") : undefined}
+            >
               {EDITOR_TOKENS.map((entry) => {
                 const value = draft.tokens[entry.key] ?? fallbackFor(entry.key);
                 return (
@@ -248,6 +251,16 @@ export function SkinEditorDialog({
                     value={draft.background.scrim ?? SKIN_BG_LIMITS.scrim.default}
                     onChange={(v) => setBgControl("scrim", v)}
                   />
+                  <SliderRow
+                    label={t("skins.sidebarTint")}
+                    min={SKIN_BG_LIMITS.sidebarTint.min}
+                    max={SKIN_BG_LIMITS.sidebarTint.max}
+                    step={0.05}
+                    value={draft.background.sidebarTint ?? SKIN_BG_LIMITS.sidebarTint.default}
+                    onChange={(v) => setBgControl("sidebarTint", v)}
+                  />
+                  <p className="skin-editor-hint">{t("skins.sidebarTintHint")}</p>
+                  <p className="skin-editor-hint">{t("skins.bgThemeHint")}</p>
                   {draft.background.kind === "video" ? (
                     <p className="skin-editor-hint">{t("skins.videoHint")}</p>
                   ) : null}
@@ -265,14 +278,21 @@ export function SkinEditorDialog({
               )
             ) : null}
             <div className="skin-editor-preview-scrim" style={{ opacity: draft.background.kind === "none" ? 0 : (draft.background.scrim ?? SKIN_BG_LIMITS.scrim.default) }} />
-            <div className="skin-editor-preview-ui">
-              <div className="skin-editor-preview-topbar">
-                <span className="skin-editor-preview-dot" />
-                {t("skins.previewTitle")}
+            <div className="skin-editor-preview-app">
+              <aside className="skin-editor-preview-side" data-has-bg={hasBg ? "true" : undefined}>
+                <span className="skin-editor-preview-side-row is-active" />
+                <span className="skin-editor-preview-side-row" />
+                <span className="skin-editor-preview-side-row" />
+              </aside>
+              <div className="skin-editor-preview-ui">
+                <div className="skin-editor-preview-topbar">
+                  <span className="skin-editor-preview-dot" />
+                  {t("skins.previewTitle")}
+                </div>
+                <div className="skin-editor-preview-msg user">{t("skins.previewUser")}</div>
+                <div className="skin-editor-preview-msg bot">{t("skins.previewBot")}</div>
+                <div className="skin-editor-preview-cta">{t("skins.previewButton")}</div>
               </div>
-              <div className="skin-editor-preview-msg user">{t("skins.previewUser")}</div>
-              <div className="skin-editor-preview-msg bot">{t("skins.previewBot")}</div>
-              <div className="skin-editor-preview-cta">{t("skins.previewButton")}</div>
             </div>
           </div>
         </div>
@@ -321,18 +341,17 @@ function toDraft(initial: Skin | null): Draft {
     return {
       id: initial.id,
       name: initial.name,
-      base: initial.base,
       tokens: { ...initial.tokens },
       background: { ...initial.background },
     };
   }
-  // A fresh skin seeds from the fox palette so the first preview already looks
-  // intentional, but the user can retune every field.
+  // A fresh skin seeds from the 千凝 palette so the first preview already looks
+  // intentional, but the user can retune every field. The base foundation is
+  // derived from the background colour, so no theme choice is needed here.
   const seed = builtinSkinById("qianning");
   return {
     id: `diy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     name: "",
-    base: "dark",
     tokens: seed ? { ...seed.tokens } : {},
     background: { kind: "none" },
   };

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BUILTIN_SKINS,
@@ -8,7 +8,6 @@ import {
 } from "@pi-desktop/shared";
 import { useAppStore } from "../stores/app-store";
 import { api } from "../lib/api";
-import { applySkin, resolveSkin } from "../lib/skin-engine";
 import { Button } from "../components/ui";
 import { IconDownload, IconPalette, IconPlus } from "../components/icons";
 import { SkinEditorDialog } from "../features/skins/SkinEditorDialog";
@@ -30,17 +29,6 @@ export function SkinCenterPage() {
   const activeSkinId = settings?.activeSkinId ?? NO_SKIN_ID;
   const customSkins = useMemo(() => settings?.customSkins ?? [], [settings?.customSkins]);
 
-  // Live preview: hovering a card applies it transiently; leaving restores the
-  // saved active skin. The store is never written until the user commits.
-  const [previewId, setPreviewId] = useState<string | null>(null);
-  useEffect(() => {
-    const id = previewId ?? activeSkinId;
-    applySkin(resolveSkin(id, customSkins));
-    return () => {
-      applySkin(resolveSkin(activeSkinId, customSkins));
-    };
-  }, [previewId, activeSkinId, customSkins]);
-
   const persist = async (patch: {
     activeSkinId?: string;
     customSkins?: Skin[];
@@ -52,7 +40,6 @@ export function SkinCenterPage() {
   };
 
   const applyAndSave = async (id: string) => {
-    setPreviewId(null);
     try {
       await persist({ activeSkinId: id });
     } catch (error) {
@@ -116,74 +103,74 @@ export function SkinCenterPage() {
   if (!settings) return null;
 
   return (
-    <div className="skin-center">
-      <header className="skin-center-head">
-        <div className="skin-center-title">
-          <IconPalette size={20} aria-hidden />
-          <div>
-            <h1>{t("skins.title")}</h1>
-            <p>{t("skins.subtitle")}</p>
+    <div className="thread-scroll">
+      <div className="page-frame skin-center">
+        <div className="page-header skin-center-header">
+          <div className="skin-center-title-block">
+            <span className="skin-center-title-icon" aria-hidden>
+              <IconPalette size={14} />
+            </span>
+            <div className="skin-center-title-copy">
+              <h1 className="page-title">{t("skins.title")}</h1>
+              <p className="dest-row-meta">{t("skins.subtitle")}</p>
+            </div>
+          </div>
+          <div className="skin-center-actions">
+            <Button variant="secondary" size="sm" onClick={() => void importSkin()} disabled={busy}>
+              <IconDownload size={14} aria-hidden /> {t("skins.import")}
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => setEditing("new")}>
+              <IconPlus size={14} aria-hidden /> {t("skins.create")}
+            </Button>
           </div>
         </div>
-        <div className="skin-center-actions">
-          <Button variant="secondary" size="sm" onClick={() => void importSkin()} disabled={busy}>
-            <IconDownload size={14} aria-hidden /> {t("skins.import")}
-          </Button>
-          <Button variant="primary" size="sm" onClick={() => setEditing("new")}>
-            <IconPlus size={14} aria-hidden /> {t("skins.create")}
-          </Button>
-        </div>
-      </header>
 
-      <section className="skin-grid" aria-label={t("skins.builtinHeading")}>
-        <h2 className="skin-grid-heading">{t("skins.builtinHeading")}</h2>
-        <div className="skin-grid-cards">
-          {BUILTIN_SKINS.map((skin) => (
-            <SkinCard
-              key={skin.id}
-              skin={skin}
-              active={activeSkinId === skin.id}
-              onApply={() => void applyAndSave(skin.id)}
-              onPreviewStart={() => setPreviewId(skin.id)}
-              onPreviewEnd={() => setPreviewId(null)}
-              typeLabel={skinTypeLabel(skin, t)}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section className="skin-grid" aria-label={t("skins.customHeading")}>
-        <h2 className="skin-grid-heading">{t("skins.customHeading")}</h2>
-        {customSkins.length === 0 ? (
-          <p className="skin-empty">{t("skins.customEmpty")}</p>
-        ) : (
+        <section className="skin-grid" aria-label={t("skins.builtinHeading")}>
+          <h2 className="skin-grid-heading">{t("skins.builtinHeading")}</h2>
           <div className="skin-grid-cards">
-            {customSkins.map((skin) => (
+            {BUILTIN_SKINS.map((skin) => (
               <SkinCard
                 key={skin.id}
                 skin={skin}
                 active={activeSkinId === skin.id}
                 onApply={() => void applyAndSave(skin.id)}
-                onPreviewStart={() => setPreviewId(skin.id)}
-                onPreviewEnd={() => setPreviewId(null)}
-                onEdit={() => setEditing(skin)}
-                onExport={() => void exportSkin(skin)}
-                onDelete={() => void deleteSkin(skin.id)}
                 typeLabel={skinTypeLabel(skin, t)}
-                editable
               />
             ))}
           </div>
-        )}
-      </section>
+        </section>
 
-      {editing ? (
-        <SkinEditorDialog
-          initial={editing === "new" ? null : editing}
-          onCancel={() => setEditing(null)}
-          onSave={saveSkin}
-        />
-      ) : null}
+        <section className="skin-grid" aria-label={t("skins.customHeading")}>
+          <h2 className="skin-grid-heading">{t("skins.customHeading")}</h2>
+          {customSkins.length === 0 ? (
+            <p className="skin-empty">{t("skins.customEmpty")}</p>
+          ) : (
+            <div className="skin-grid-cards">
+              {customSkins.map((skin) => (
+                <SkinCard
+                  key={skin.id}
+                  skin={skin}
+                  active={activeSkinId === skin.id}
+                  onApply={() => void applyAndSave(skin.id)}
+                  onEdit={() => setEditing(skin)}
+                  onExport={() => void exportSkin(skin)}
+                  onDelete={() => void deleteSkin(skin.id)}
+                  typeLabel={skinTypeLabel(skin, t)}
+                  editable
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {editing ? (
+          <SkinEditorDialog
+            initial={editing === "new" ? null : editing}
+            onCancel={() => setEditing(null)}
+            onSave={saveSkin}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }

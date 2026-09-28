@@ -26,10 +26,22 @@ import {
  *     background pauses when the window loses focus so it does not burn CPU/GPU
  *     while the user is elsewhere.
  *
- * Applying a skin never changes the theme: `data-theme` continues to resolve to
- * light/dark (or the fox appearance) exactly as before, so code highlighting,
- * Mermaid, the native window colour, and plugin panels are untouched. A skin is
- * a layer on top, and clearing it (id === "none") restores the plain theme.
+ * Applying a skin layers on top of the theme, and the two never fight:
+ *
+ *   - A PURE-COLOUR skin (no wallpaper) owns the palette: it injects its
+ *     allowlisted `--ds-*` overrides and its `base` scheme drives the document
+ *     colour foundation (a light skin like 米纸 lays its colours on the LIGHT
+ *     token set so un-overridden text/border tokens stay legible). That base
+ *     resolution lives in the shell runtime, next to the theme resolution.
+ *   - A WALLPAPER skin (image/video) is a theme-AGNOSTIC layer only: it paints
+ *     the media behind transparent chrome and does NOT inject its palette or
+ *     drive the foundation. The Settings theme (light/dark/fox) keeps full
+ *     ownership of every colour, so switching the theme still works with a
+ *     wallpaper on (user: 设置里的主题要真实生效，图片/视频不和主题冲突). The skin
+ *     may still carry stored colours for when its wallpaper is later removed,
+ *     but they are ignored while the wallpaper is active.
+ *
+ * Clearing the skin (id === "none") restores the plain theme.
  */
 
 const SKIN_STYLE_ID = "qn-skin-tokens";
@@ -116,9 +128,14 @@ function clearBackgroundMedia(layer: HTMLDivElement): void {
 export function applySkin(skin: Skin): void {
   const safe = sanitizeSkin(skin) ?? builtinSkinById(NO_SKIN_ID)!;
   const root = document.documentElement;
+  const hasWallpaper = safe.background.kind !== "none" && !!safe.background.assetId && !!safe.background.ext;
 
   // --- palette layer ---
-  const vars = skinCssVariables(safe);
+  // A WALLPAPER skin injects NO palette: the media is a theme-agnostic layer and
+  // the Settings theme keeps full ownership of every colour, so light/dark/fox
+  // switch normally with no conflict (user: 图片/视频不要和主题冲突). A PURE-COLOUR
+  // skin owns the palette as before.
+  const vars = hasWallpaper ? {} : skinCssVariables(safe);
   const style = ensureStyleElement();
   const keys = Object.keys(vars);
   if (safe.id === NO_SKIN_ID || keys.length === 0) {
@@ -138,6 +155,7 @@ export function applySkin(skin: Skin): void {
   if (bg.kind === "none" || !bg.assetId || !bg.ext) {
     layer.style.display = "none";
     delete root.dataset.skinBg;
+    root.style.removeProperty("--qn-skin-sidebar-tint");
     return;
   }
   layer.style.display = "block";
@@ -148,7 +166,11 @@ export function applySkin(skin: Skin): void {
   const opacity = clampBg(bg.opacity, "opacity");
   const blur = clampBg(bg.blur, "blur");
   const scrim = clampBg(bg.scrim, "scrim");
+  const sidebarTint = clampBg(bg.sidebarTint, "sidebarTint");
   layer.style.setProperty("--qn-skin-scrim", String(scrim));
+  // Publish the sidebar translucency on the root so the wallpaper flows under
+  // the sidebar (no hard seam) while a backdrop blur keeps its text legible.
+  root.style.setProperty("--qn-skin-sidebar-tint", String(sidebarTint));
   const url = skinAssetUrl(bg.assetId, bg.ext);
 
   if (bg.kind === "video") {

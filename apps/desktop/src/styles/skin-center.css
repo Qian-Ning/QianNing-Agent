@@ -10,41 +10,41 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-6, 1.5rem);
-  padding: var(--space-6, 1.5rem);
-  overflow-y: auto;
-  height: 100%;
 }
 
-.skin-center-head {
-  display: flex;
+.skin-center-header {
   align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4, 1rem);
-  flex-wrap: wrap;
 }
 
-.skin-center-title {
+.skin-center-title-block {
   display: flex;
   gap: var(--space-3, 0.75rem);
-  align-items: center;
-  color: var(--ds-text-primary);
+  align-items: flex-start;
+  min-width: 0;
 }
 
-.skin-center-title h1 {
-  font-size: var(--text-lg, 1.125rem);
-  font-weight: var(--font-weight-semibold);
-  margin: 0;
+.skin-center-title-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--ds-accent) 16%, transparent);
+  color: var(--ds-accent);
 }
 
-.skin-center-title p {
-  margin: 0;
-  font-size: var(--text-sm, 0.875rem);
-  color: var(--ds-text-secondary);
+.skin-center-title-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .skin-center-actions {
   display: flex;
   gap: var(--space-2, 0.5rem);
+  flex: 0 0 auto;
 }
 
 .skin-grid {
@@ -232,16 +232,9 @@
 }
 
 /* --- editor dialog --- */
-.skin-editor-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  display: grid;
-  place-items: center;
-  background: rgb(0 0 0 / 0.45);
-  padding: var(--space-4, 1rem);
-}
-
+/* The scrim uses the shared `.overlay` host (fixed, centered, scrim fill, and
+   crucially pointer-events:auto inside the pointer-events:none portal root).
+   Only the panel sizing is skin-specific. */
 .skin-editor {
   width: min(860px, 96vw);
   max-height: 92vh;
@@ -307,32 +300,17 @@
   color: var(--ds-text-secondary);
 }
 
-.skin-editor-base {
-  display: flex;
-  gap: var(--space-2, 0.5rem);
-}
-
-.skin-editor-base-opt {
-  flex: 1;
-  padding: 6px 10px;
-  border-radius: var(--radius-xs);
-  border: 1px solid var(--ds-border-default);
-  background: var(--ds-bg-primary);
-  color: var(--ds-text-secondary);
-  font-size: var(--text-sm, 0.875rem);
-  cursor: pointer;
-}
-
-.skin-editor-base-opt.is-active {
-  border-color: var(--ds-accent);
-  color: var(--ds-text-primary);
-  background: color-mix(in oklab, var(--ds-accent) 14%, transparent);
-}
-
 .skin-editor-colors {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-2, 0.5rem);
+}
+
+/* While a wallpaper is attached the palette does not apply (the theme owns the
+   colours), so dim the swatches to show they are inactive until the wallpaper
+   is removed. Kept interactive so the user can still pre-set colours. */
+.skin-editor-colors[data-muted="true"] {
+  opacity: 0.5;
 }
 
 .skin-editor-color {
@@ -451,6 +429,52 @@
   position: absolute;
   inset: 0;
   background: var(--sk-bg, var(--ds-bg-primary));
+}
+
+/* A miniature two-column app: sidebar + chat, so the sidebar-transparency
+   slider is visible in the preview exactly as it applies to the live shell. */
+.skin-editor-preview-app {
+  position: relative;
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  min-height: 260px;
+}
+
+.skin-editor-preview-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--space-3, 0.75rem) 10px;
+  /* Opaque panel by default; over a wallpaper it drops to the tinted glass the
+     live sidebar uses, driven by the same --sk-side-tint the slider sets. */
+  background: color-mix(in oklab, var(--sk-panel) 92%, var(--sk-bg));
+  border-right: 1px solid color-mix(in oklab, var(--sk-fg) 12%, transparent);
+}
+
+.skin-editor-preview-side[data-has-bg="true"] {
+  /* Mirror the live shell: over a wallpaper the sidebar is glass-clear by default
+     (--sk-side-tint 0) and the rows carry a halo so they stay legible. */
+  background: color-mix(
+    in oklab,
+    var(--sk-panel) calc(var(--sk-side-tint, 0) * 100%),
+    transparent
+  );
+  border-right: none;
+}
+
+.skin-editor-preview-side-row {
+  height: 12px;
+  border-radius: var(--radius-2xs);
+  background: color-mix(in oklab, var(--sk-fg) 22%, transparent);
+}
+
+.skin-editor-preview-side[data-has-bg="true"] .skin-editor-preview-side-row {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
+.skin-editor-preview-side-row.is-active {
+  background: var(--sk-accent);
+  opacity: 0.85;
 }
 
 .skin-editor-preview-ui {
