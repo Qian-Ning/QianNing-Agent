@@ -11747,6 +11747,27 @@ are withdrawn with ADR 0165.
   (`apps/desktop/test/chat-ref-resolve.test.mjs`); full UI journey Draft (run
   only in a capable environment when this surface changes)
 
+#### E2E-CHAT-spaced-absolute-file-paths
+
+- **Preconditions**: On Windows, open a project rooted at a directory whose
+  name contains a space. Create `readme.md` there through a chat Write tool
+  call; keep a same-name file in another project directory and one file outside
+  every allowed root. Repeat the path-recognition checks with a POSIX project
+  path containing a space on macOS or Linux.
+- **Steps**: 1) Click the full path in the Write row. 2) Click the same full
+  path as inline code and as ordinary text in the assistant reply. 3) Click a
+  relative path containing a space. 4) Click the outside absolute path.
+- **Expected**: Every allowed reference opens the exact file in the existing
+  side file view; no path is truncated to its suffix or redirected to the
+  same-name file. The outside path opens nothing and reports the access limit,
+  while a missing in-root file reports that no file matches.
+- **Specs linked**: `03-runtime/01-ipc-protocol.md` § fs,
+  `04-ux/08-component-spec.md` §8.3.
+- **Acceptance**: C (conversation & stream), D (workspace), Quality
+- **Milestone**: M5
+- **Status**: Unit/component-covered (`chat-links.test.mjs`,
+  `chat-ref-resolve.test.mjs`, `tool-row-file-refs.test.mjs`); full UI journey Draft.
+
 #### E2E-CHAT-file-ref-opens-the-surface-that-owns-it
 
 - **Preconditions**: The bundled File Manager plugin is loaded and enabled and

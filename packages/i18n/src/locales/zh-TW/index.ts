@@ -346,6 +346,8 @@ export const zhTW = {
     errorModel: "模型",
     previewFile: "在側邊面板預覽",
     fileRefMissing: "沒有匹配 {{name}} 的檔案",
+    fileRefRestricted: "{{name}} 不在應用程式允許存取的範圍內",
+    fileRefLookupFailed: "無法檢查此檔案參照。",
     revealFileInFolder: "在資料夾中顯示",
     fileRevealFailed: "無法在資料夾中開啟該檔案。",
     copyFullPath: "複製完整位址",

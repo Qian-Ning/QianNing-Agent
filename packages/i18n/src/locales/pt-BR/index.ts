@@ -343,6 +343,8 @@ export const ptBR = {
     errorModel: "Modelo",
     previewFile: "Pré-visualizar no painel lateral",
     fileRefMissing: "Nenhum arquivo corresponde a {{name}}",
+    fileRefRestricted: "{{name}} está fora dos locais que o aplicativo pode acessar",
+    fileRefLookupFailed: "Não foi possível verificar esta referência de arquivo.",
     revealFileInFolder: "Mostrar na pasta",
     fileRevealFailed: "Não foi possível mostrar o arquivo na pasta.",
     copyFullPath: "Copiar caminho completo",

@@ -344,6 +344,8 @@ export const de = {
     "errorModel": "Modell",
     "previewFile": "Vorschau im Seitenbereich",
     "fileRefMissing": "Keine Datei entspricht {{name}}",
+    "fileRefRestricted": "{{name}} liegt außerhalb der für die App zugänglichen Orte",
+    "fileRefLookupFailed": "Dieser Dateiverweis konnte nicht geprüft werden.",
     "revealFileInFolder": "Im Ordner anzeigen",
     "fileRevealFailed": "Die Datei konnte nicht im Ordner angezeigt werden.",
     "copyFullPath": "Vollständigen Pfad kopieren",

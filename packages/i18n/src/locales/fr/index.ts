@@ -344,6 +344,8 @@ export const fr = {
     "errorModel": "Modèle",
     "previewFile": "Aperçu dans le panneau latéral",
     "fileRefMissing": "Aucun fichier ne correspond à {{name}}",
+    "fileRefRestricted": "{{name}} se trouve hors des emplacements accessibles à l'application",
+    "fileRefLookupFailed": "Impossible de vérifier cette référence de fichier.",
     "revealFileInFolder": "Afficher dans le dossier",
     "fileRevealFailed": "Impossible d'afficher le fichier dans son dossier.",
     "copyFullPath": "Copier le chemin complet",

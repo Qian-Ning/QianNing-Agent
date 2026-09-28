@@ -19,8 +19,7 @@ import { getWorkspaceFileIndex } from "./fs-index.js";
  *
  * Resolution order is the product contract:
  *
- *   1. an absolute reference that already names a real file inside a known
- *      root wins outright — that is path equality, not a guess;
+ *   1. an absolute reference only names that exact file inside a known root;
  *   2. an `attachments/<sha256>` blob names a stored file by hash rather than
  *      by path, so it resolves against the attachment store directly;
  *   3. otherwise the roots are searched in priority order — the open project
@@ -163,6 +162,15 @@ function relativeInside(rootPath: string, absolute: string): string | null {
   return toPosix(rel);
 }
 
+export function isChatRefOutsideRoots(ref: string, roots: ChatRefRoots): boolean {
+  const parsed = parseChatRef(ref);
+  if (!parsed?.absolute) return false;
+  const cleaned = cleanRef(ref);
+  if (!isAbsolute(cleaned)) return true;
+  const absolutePath = resolve(cleaned);
+  return !orderedRoots(roots).some((root) => relativeInside(root.path, absolutePath) !== null);
+}
+
 function segmentsOf(path: string): string[] {
   return toPosix(path).split("/").filter(Boolean);
 }
@@ -278,12 +286,11 @@ export async function resolveChatFileRef(
   const cleanedPosixRef = toPosix(cleanRef(ref));
   const isAttachmentRef = /^attachments(?:\/|$)/i.test(cleanedPosixRef);
 
-  // 1. An absolute reference that already names a real path inside a known root
-  //    is unambiguous evidence, so it outranks every shorthand rule below. A
-  //    POSIX-style path on Windows finds nothing here, which is correct: step 2
-  //    then treats its tail as the shorthand it is.
+  // Absolute references must not select an unrelated in-root file by suffix.
   if (parsed.absolute) {
-    const absolutePath = resolve(cleanRef(ref));
+    const cleaned = cleanRef(ref);
+    if (!isAbsolute(cleaned)) return null;
+    const absolutePath = resolve(cleaned);
     for (const root of rootList) {
       const relativePath = relativeInside(root.path, absolutePath);
       if (!relativePath) continue;
@@ -297,6 +304,7 @@ export async function resolveChatFileRef(
         };
       }
     }
+    return null;
   }
 
   // 2. A content-addressed attachment blob (`attachments/<sha256>`) is not a
@@ -333,17 +341,15 @@ export async function resolveChatFileRef(
     tails.push(parsed.segments.slice(parsed.segments.length - length));
   }
   for (const root of rootList) {
-    if (!parsed.absolute) {
-      const absolutePath = join(root.path, ...parsed.segments);
-      if (await isRegularFile(absolutePath)) {
-        return {
-          root: root.kind,
-          relativePath: parsed.segments.join("/"),
-          absolutePath,
-          matchedBy: "exact-relative",
-          ...(root.projectRoot ? { projectRoot: root.projectRoot } : {}),
-        };
-      }
+    const absolutePath = join(root.path, ...parsed.segments);
+    if (await isRegularFile(absolutePath)) {
+      return {
+        root: root.kind,
+        relativePath: parsed.segments.join("/"),
+        absolutePath,
+        matchedBy: "exact-relative",
+        ...(root.projectRoot ? { projectRoot: root.projectRoot } : {}),
+      };
     }
     const candidate = bestFuzzyCandidate(
       await listRootFiles(root.kind, root.path),

@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 register(pathToFileURL(join(here, "helpers/ts-import-hooks.mjs")));
-const { parseChatRef, resolveChatFileRef } = await import(
+const { isChatRefOutsideRoots, parseChatRef, resolveChatFileRef } = await import(
   "../electron/main/chat-ref-resolve.ts"
 );
 
@@ -80,14 +80,21 @@ test("a bare leaf name resolves through the workspace index", async () => {
   assert.equal(match?.relativePath, "src/dir/openimage.js");
 });
 
-test("the reported case: a POSIX absolute path from a tool call is completed by tail", async () => {
-  // The agent printed `/root/dir/openimage.js`; on this machine the real file
-  // only ever existed as `src/dir/openimage.js` inside the project.
+test("an absolute path outside the project cannot select a same-name file by tail", async () => {
   const workspace = tempTree("ws", ["src/dir/openimage.js"]);
   const match = await resolve("/root/dir/openimage.js", { workspace });
-  assert.equal(match?.root, "workspace");
-  assert.equal(match?.matchedBy, "path-suffix");
-  assert.equal(match?.relativePath, "src/dir/openimage.js");
+  assert.equal(match, null);
+});
+
+test("an exact absolute path with spaces resolves only inside an allowed root", async () => {
+  const workspace = tempTree("spaced ws", ["my project/page.md", "other/page.md"]);
+  const absolute = join(workspace, "my project", "page.md");
+  const match = await resolve(absolute, { workspace });
+  assert.equal(match?.matchedBy, "exact-absolute");
+  assert.equal(match?.absolutePath, absolute);
+  assert.equal(await resolve(join(dirname(workspace), "page.md"), { workspace }), null);
+  assert.equal(isChatRefOutsideRoots(absolute, roots({ workspace })), false);
+  assert.equal(isChatRefOutsideRoots(join(dirname(workspace), "page.md"), roots({ workspace })), true);
 });
 
 test("a longer matching tail beats a bare leaf name", async () => {

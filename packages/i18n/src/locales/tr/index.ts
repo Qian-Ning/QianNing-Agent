@@ -353,6 +353,8 @@ export const tr = {
     errorModel: "Model",
     previewFile: "Yan panelde önizle",
     fileRefMissing: "{{name}} ile eşleşen dosya yok",
+    fileRefRestricted: "{{name}} uygulamanın erişebildiği konumların dışında",
+    fileRefLookupFailed: "Bu dosya başvurusu denetlenemedi.",
     revealFileInFolder: "Klasörde göster",
     fileRevealFailed: "Dosya klasörde gösterilemedi.",
     copyFullPath: "Tam yolu kopyala",
