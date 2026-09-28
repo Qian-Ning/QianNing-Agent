@@ -44,47 +44,44 @@ test("renderer surfaces the QianNing Agent brand instead of the Codex shell bran
   assert.match(chinese, /importSourceCodex:\s*"Codex"/);
 });
 
-test("app chrome uses the shared brand asset without branding the composer input", async () => {
-  // Renderer-sized brand marks, not the 1024px electron-builder installer icons.
-  assert.match(brandLogo, /import brandLogoUrlLight from\s*"\.\.\/assets\/brand\/logo-light\.png"/);
-  assert.match(brandLogo, /import brandLogoUrlDark from\s*"\.\.\/assets\/brand\/logo-dark\.png"/);
-  assert.match(brandLogo, /import brandLogoUrlFox from\s*"\.\.\/assets\/brand\/logo-fox\.png"/);
+test("app chrome uses a single transparent brand mark that needs no theme adaptation", async () => {
+  // One transparent-background cutout, no per-theme/appearance variants: the PNG
+  // carries real alpha so it reads on any theme, appearance, or skin wallpaper.
+  assert.match(brandLogo, /import brandLogoUrl from\s*"\.\.\/assets\/brand\/logo\.png"/);
+  assert.doesNotMatch(brandLogo, /logo-(light|dark|fox)\.png/);
   assert.doesNotMatch(brandLogo, /\.\.\/\.\.\/build\//);
   assert.match(brandLogo, /export function BrandLogo/);
-  assert.match(brandLogo, /src=\{.*BRAND_SRC/);
-  // The brand mark tracks the active theme AND the 千凝 appearance.
-  assert.match(brandLogo, /data-appearance/);
-  assert.match(brandLogo, /attributeFilter:\s*\["data-theme",\s*"data-appearance"\]/);
+  assert.match(brandLogo, /src=\{brandLogoUrl\}/);
+  // No theme/appearance observation: the transparent mark never swaps per look.
+  assert.doesNotMatch(brandLogo, /data-appearance|data-theme|attributeFilter|MutationObserver|useState|useEffect/);
   assert.match(icons, /export const IconNewSession/);
   assert.doesNotMatch(icons, /IconCodexHome|IconCompose|IconPiMark|IconPiHome/);
-  await access(new URL("../src/assets/home-mascot-dark.gif", import.meta.url));
-  await access(new URL("../src/assets/home-mascot-light.gif", import.meta.url));
-  await access(new URL("../src/assets/home-mascot-fox.gif", import.meta.url));
-  await access(new URL("../src/assets/home-mascot-still-dark.png", import.meta.url));
-  await access(new URL("../src/assets/home-mascot-still-light.png", import.meta.url));
-  await access(new URL("../src/assets/home-mascot-still-fox.png", import.meta.url));
+  // Single shared transparent assets exist; the old themed plates are gone.
+  await access(new URL("../src/assets/home-mascot.png", import.meta.url));
+  await access(new URL("../src/assets/brand/logo.png", import.meta.url));
+  await assert.rejects(
+    () => access(new URL("../src/assets/home-mascot-dark.gif", import.meta.url)),
+  );
+  await assert.rejects(
+    () => access(new URL("../src/assets/home-mascot-still-fox.png", import.meta.url)),
+  );
+  await assert.rejects(
+    () => access(new URL("../src/assets/brand/logo-dark.png", import.meta.url)),
+  );
   await assert.rejects(
     () => access(new URL("../src/assets/home-mascot-groups.png", import.meta.url)),
   );
   assert.match(chatSurface, /<HomeMascotLogo \/>/);
-  assert.match(mascotLogo, /import mascotMotionDarkUrl from\s*"\.\.\/assets\/home-mascot-dark\.gif"/);
-  assert.match(mascotLogo, /import mascotMotionLightUrl from\s*"\.\.\/assets\/home-mascot-light\.gif"/);
-  assert.match(mascotLogo, /import mascotMotionFoxUrl from\s*"\.\.\/assets\/home-mascot-fox\.gif"/);
-  assert.match(mascotLogo, /import mascotStillDarkUrl from\s*"\.\.\/assets\/home-mascot-still-dark\.png"/);
-  assert.match(mascotLogo, /import mascotStillLightUrl from\s*"\.\.\/assets\/home-mascot-still-light\.png"/);
-  assert.match(mascotLogo, /import mascotStillFoxUrl from\s*"\.\.\/assets\/home-mascot-still-fox\.png"/);
+  assert.match(mascotLogo, /import mascotUrl from\s*"\.\.\/assets\/home-mascot\.png"/);
+  assert.doesNotMatch(mascotLogo, /home-mascot-(dark|light|fox)\.gif|home-mascot-still/);
   assert.match(mascotLogo, /className="home-mascot-logo"/);
+  assert.match(mascotLogo, /className="home-mascot-mark"/);
   assert.match(mascotLogo, /aria-hidden="true"/);
-  assert.match(mascotLogo, /className="home-mascot-motion home-mascot-dark"/);
-  assert.match(mascotLogo, /className="home-mascot-motion home-mascot-light"/);
-  assert.match(mascotLogo, /className="home-mascot-motion home-mascot-fox"/);
-  assert.match(mascotLogo, /className="home-mascot-still home-mascot-dark"/);
-  assert.match(mascotLogo, /className="home-mascot-still home-mascot-light"/);
-  assert.match(mascotLogo, /className="home-mascot-still home-mascot-fox"/);
+  assert.match(mascotLogo, /src=\{mascotUrl\}/);
   assert.doesNotMatch(mascotLogo, /<svg/);
   assert.doesNotMatch(
     mascotLogo,
-    /home-mascot-groups\.png|home-mascot-orbit|Math\.random\(\)|setTimeout|backgroundPosition|onMouseEnter|onMouseLeave|useState|useEffect|matchMedia/,
+    /home-mascot-groups\.png|home-mascot-orbit|home-mascot-motion|home-mascot-still|Math\.random\(\)|setTimeout|backgroundPosition|onMouseEnter|onMouseLeave|useState|useEffect|matchMedia|data-appearance/,
   );
   assert.doesNotMatch(chatSurface, /<BrandLogo/);
   assert.match(styles, /\.empty-hero-icon\s*\{[\s\S]*?height:\s*100px;[\s\S]*?width:\s*100px;/);
@@ -92,22 +89,9 @@ test("app chrome uses the shared brand asset without branding the composer input
     styles,
     /\.home-mascot-logo\s*\{[\s\S]*?display:\s*block;[\s\S]*?width:\s*100px;[\s\S]*?height:\s*100px;/,
   );
-  assert.match(
-    styles,
-    /\.home-mascot-logo \.home-mascot-motion\.home-mascot-dark/,
-  );
-  assert.match(
-    styles,
-    /\.home-mascot-logo \.home-mascot-motion\.home-mascot-light/,
-  );
-  assert.match(
-    styles,
-    /\[data-appearance="fox"\] \.home-mascot-logo \.home-mascot-motion\.home-mascot-fox/,
-  );
-  assert.match(
-    styles,
-    /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.home-mascot-still\.home-mascot-dark,[\s\S]*?\.home-mascot-still\.home-mascot-light[\s\S]*?display:\s*block;/,
-  );
+  assert.match(styles, /\.home-mascot-logo \.home-mascot-mark\s*\{/);
+  // No per-theme mascot swap rules or sprite animation survive the transparent redesign.
+  assert.doesNotMatch(styles, /\.home-mascot-motion|\.home-mascot-still/);
   assert.match(appLanguage, /document\.documentElement\.lang\s*=\s*target/);
   assert.doesNotMatch(styles, /@keyframes home-mascot-orbit|@keyframes home-mascot-breathe|@keyframes home-mascot-blink/);
   assert.doesNotMatch(styles, /background-size:\s*5000px 100px|image-rendering:\s*pixelated/);

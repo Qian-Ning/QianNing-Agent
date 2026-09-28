@@ -1,10 +1,11 @@
-import mascotMotionDarkUrl from "../assets/home-mascot-dark.gif";
-import mascotMotionLightUrl from "../assets/home-mascot-light.gif";
-import mascotMotionFoxUrl from "../assets/home-mascot-fox.gif";
-import mascotStillDarkUrl from "../assets/home-mascot-still-dark.png";
-import mascotStillLightUrl from "../assets/home-mascot-still-light.png";
-import mascotStillFoxUrl from "../assets/home-mascot-still-fox.png";
+import mascotUrl from "../assets/home-mascot.png";
 
+/**
+ * The home empty-state brand mark. A single transparent-background cutout of the
+ * fox — no theme/skin variants: because the PNG has real alpha (no baked plate),
+ * it sits cleanly on any theme, appearance, or skin wallpaper without a dark
+ * square behind it, so there is nothing to adapt per look.
+ */
 export function HomeMascotLogo() {
   return (
     <span
@@ -13,48 +14,8 @@ export function HomeMascotLogo() {
       aria-hidden="true"
     >
       <img
-        className="home-mascot-motion home-mascot-dark"
-        src={mascotMotionDarkUrl}
-        alt=""
-        width={100}
-        height={100}
-        draggable={false}
-      />
-      <img
-        className="home-mascot-motion home-mascot-light"
-        src={mascotMotionLightUrl}
-        alt=""
-        width={100}
-        height={100}
-        draggable={false}
-      />
-      <img
-        className="home-mascot-motion home-mascot-fox"
-        src={mascotMotionFoxUrl}
-        alt=""
-        width={100}
-        height={100}
-        draggable={false}
-      />
-      <img
-        className="home-mascot-still home-mascot-dark"
-        src={mascotStillDarkUrl}
-        alt=""
-        width={100}
-        height={100}
-        draggable={false}
-      />
-      <img
-        className="home-mascot-still home-mascot-light"
-        src={mascotStillLightUrl}
-        alt=""
-        width={100}
-        height={100}
-        draggable={false}
-      />
-      <img
-        className="home-mascot-still home-mascot-fox"
-        src={mascotStillFoxUrl}
+        className="home-mascot-mark"
+        src={mascotUrl}
         alt=""
         width={100}
         height={100}
