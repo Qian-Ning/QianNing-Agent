@@ -653,9 +653,9 @@
   display: inline-flex;
   align-items: center;
   gap: 0;
-  padding: 2px;
+  padding: 0;
   border-radius: var(--radius-md);
-  background: var(--ds-tile);
+  background: transparent;
 }
 
 /* Keep the sole work-panel toggle anchored to the viewport while the in-flow

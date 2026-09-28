@@ -27,20 +27,22 @@ const composer = readFileSync(
 );
 
 const identity = (key) => key;
-const experimentalIds = ["voice", "sync", "remoteHosts"];
+const developerOnlyIds = ["sync", "remoteHosts"];
 
 test("developer mode retains the experimental destinations in development", () => {
   const off = visibleSettingsNav(false).map((entry) => entry.id);
   const on = visibleSettingsNav(true).map((entry) => entry.id);
 
-  for (const id of experimentalIds) {
+  assert.equal(off.includes("voice"), true);
+  assert.equal(on.includes("voice"), true);
+  for (const id of developerOnlyIds) {
     assert.equal(off.includes(id), false);
     assert.equal(on.includes(id), true);
   }
-  assert.deepEqual(off, on.filter((id) => !experimentalIds.includes(id)));
+  assert.deepEqual(off, on.filter((id) => !developerOnlyIds.includes(id)));
   assert.deepEqual(
     SETTINGS_NAV.filter((entry) => entry.developerOnly === true).map((entry) => entry.id),
-    experimentalIds,
+    developerOnlyIds,
   );
   assert.ok(
     SETTINGS_NAV.filter((entry) => entry.developerOnly === true)
@@ -48,9 +50,11 @@ test("developer mode retains the experimental destinations in development", () =
   );
 });
 
-test("packaged builds hide voice, cloud sync, and remote hosts", () => {
+test("packaged builds retain voice while hiding cloud sync and remote hosts", () => {
   const packaged = visibleSettingsNav(true, false).map((entry) => entry.id);
-  for (const id of experimentalIds) {
+  assert.equal(packaged.includes("voice"), true);
+  assert.equal(isSettingsDestinationHidden("voice", false, false), false);
+  for (const id of developerOnlyIds) {
     assert.equal(packaged.includes(id), false);
     assert.equal(isSettingsDestinationHidden(id, true, false), true);
   }
@@ -67,10 +71,17 @@ test("settings search mirrors developer and packaged visibility", () => {
       .some((hit) => hit.tab === "sync"),
   );
 
-  for (const query of ["voiceEnable", "configSync.connectionTitle", "remotehosts"]) {
+  assert.ok(
+    searchSettings("voiceEnable", identity, {
+      developerMode: false,
+      includeDevelopmentOnly: false,
+    }).some((hit) => hit.tab === "voice"),
+  );
+
+  for (const query of ["configSync.connectionTitle", "remotehosts"]) {
     assert.ok(
       searchSettings(query, identity, { developerMode: true })
-        .some((hit) => experimentalIds.includes(hit.tab)),
+        .some((hit) => developerOnlyIds.includes(hit.tab)),
     );
     assert.deepEqual(
       searchSettings(query, identity, {
@@ -91,6 +102,7 @@ test("settings routes, global search, and composer use build visibility", () => 
   assert.match(settingsPage, /tab === "sync" && !tabHidden && <ConfigSyncPage \/>/);
   assert.match(settingsPage, /tab === "remoteHosts" && !tabHidden && <RemoteHostsPage \/>/);
   assert.match(searchDialog, /includeDevelopmentOnly: import\.meta\.env\.DEV/);
-  assert.match(composer, /const voiceEnabled = import\.meta\.env\.DEV && !!settings\?\.voice\?\.enabled/);
-  assert.match(composer, /\{import\.meta\.env\.DEV && \([\s\S]*<VoiceOverlay/);
+  assert.match(composer, /const voiceEnabled = !!settings\?\.voice\?\.enabled/);
+  assert.match(composer, /<VoiceOverlay t=\{t\} state=\{voice\.state\} onCancel=\{voice\.cancel\} \/>/);
+  assert.doesNotMatch(composer, /import\.meta\.env\.DEV && !!settings\?\.voice\?\.enabled/);
 });

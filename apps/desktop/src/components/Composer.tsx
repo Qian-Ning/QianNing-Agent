@@ -436,7 +436,7 @@ export function Composer({
     return submit(steering);
   };
 
-  const voiceEnabled = import.meta.env.DEV && !!settings?.voice?.enabled;
+  const voiceEnabled = !!settings?.voice?.enabled;
   const voice = useVoiceInput({
     enabled: voiceEnabled,
     onTranscriptionComplete: (text) => {
@@ -593,9 +593,7 @@ export function Composer({
               persistDraft();
             }}
           />
-          {import.meta.env.DEV && (
-            <VoiceOverlay t={t} state={voice.state} onCancel={voice.cancel} />
-          )}
+          <VoiceOverlay t={t} state={voice.state} onCancel={voice.cancel} />
           <ComposerToolbar
             t={t}
             mode={mode}

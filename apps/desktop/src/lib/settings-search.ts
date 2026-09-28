@@ -125,8 +125,6 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
     labelKey: "settings.nav.voice",
     titleKey: "settings.voice",
     group: "preferences",
-    developerOnly: true,
-    developmentOnly: true,
     experimentalBadgeKey: "settings.voiceExperimental",
     keywordKeys: [
       "settings.voiceEnable",

@@ -56,7 +56,9 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   9. **Projects / 项目** — Lucide `Archive` (durable project index)
   10. **Cloud sync / 云同步** — Lucide `CloudDownload` (encrypted portable configuration backup and bidirectional sync; developer mode only)
   11. **Remote Hosts / 远程主机** — Lucide `Globe` (SSH bootstrap and pairing inventory; developer mode only)
-  12. **Voice / 语音输入** — Lucide `Mic` (local offline transcription)
+  12. **Voice / 语音输入** — Lucide `Mic` (local offline transcription;
+      available in packaged builds, with the microphone button shown after the
+      user enables Voice)
   13. **Info / 信息** — Lucide `Info` (versions, logs, updates, developer)
   Icons are decorative (`aria-hidden` via the SVG default) and stay monochrome
   with the rail label; do not reuse refresh/rotate glyphs here.

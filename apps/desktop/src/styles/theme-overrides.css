@@ -126,47 +126,6 @@
   background: transparent;
 }
 
-/* Build chip: quiet by default, accented only when an update is actionable. */
-.footer-build {
-  display: inline-flex;
-  min-width: 0;
-  margin-left: auto;
-  align-items: center;
-  gap: 6px;
-  border-radius: var(--radius-sm);
-  padding: 5px 8px;
-  color: var(--ds-text-muted);
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: var(--tracking-normal);
-  line-height: var(--leading-none);
-  transition: background var(--motion-duration-fast) var(--motion-ease-out),
-    color var(--motion-duration-fast) var(--motion-ease-out);
-}
-
-.footer-build:hover {
-  background: var(--ds-bg-hover);
-  color: var(--ds-text-secondary);
-}
-
-.footer-build-version {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.footer-build.has-update {
-  color: var(--ds-text-primary);
-}
-
-.footer-build-dot {
-  width: 5px;
-  height: 5px;
-  flex: 0 0 auto;
-  border-radius: var(--radius-full);
-  background: var(--ds-accent);
-}
-
 .footer-actions {
   display: flex;
   align-items: center;
