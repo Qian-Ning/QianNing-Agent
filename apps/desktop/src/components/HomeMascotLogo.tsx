@@ -1,7 +1,9 @@
 import mascotMotionDarkUrl from "../assets/home-mascot-dark.gif";
 import mascotMotionLightUrl from "../assets/home-mascot-light.gif";
+import mascotMotionFoxUrl from "../assets/home-mascot-fox.gif";
 import mascotStillDarkUrl from "../assets/home-mascot-still-dark.png";
 import mascotStillLightUrl from "../assets/home-mascot-still-light.png";
+import mascotStillFoxUrl from "../assets/home-mascot-still-fox.png";
 
 export function HomeMascotLogo() {
   return (
@@ -27,6 +29,14 @@ export function HomeMascotLogo() {
         draggable={false}
       />
       <img
+        className="home-mascot-motion home-mascot-fox"
+        src={mascotMotionFoxUrl}
+        alt=""
+        width={100}
+        height={100}
+        draggable={false}
+      />
+      <img
         className="home-mascot-still home-mascot-dark"
         src={mascotStillDarkUrl}
         alt=""
@@ -37,6 +47,14 @@ export function HomeMascotLogo() {
       <img
         className="home-mascot-still home-mascot-light"
         src={mascotStillLightUrl}
+        alt=""
+        width={100}
+        height={100}
+        draggable={false}
+      />
+      <img
+        className="home-mascot-still home-mascot-fox"
+        src={mascotStillFoxUrl}
         alt=""
         width={100}
         height={100}

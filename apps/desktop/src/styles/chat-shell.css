@@ -733,19 +733,22 @@
   user-select: none;
 }
 
-:root:not([data-theme="light"]) .home-mascot-logo .home-mascot-motion.home-mascot-dark,
-:root[data-theme="light"] .home-mascot-logo .home-mascot-motion.home-mascot-light {
+:root:not([data-theme="light"]):not([data-appearance="fox"]) .home-mascot-logo .home-mascot-motion.home-mascot-dark,
+:root[data-theme="light"]:not([data-appearance="fox"]) .home-mascot-logo .home-mascot-motion.home-mascot-light,
+:root[data-appearance="fox"] .home-mascot-logo .home-mascot-motion.home-mascot-fox {
   display: block;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root:not([data-theme="light"]) .home-mascot-logo .home-mascot-motion.home-mascot-dark,
-  :root[data-theme="light"] .home-mascot-logo .home-mascot-motion.home-mascot-light {
+  :root:not([data-theme="light"]):not([data-appearance="fox"]) .home-mascot-logo .home-mascot-motion.home-mascot-dark,
+  :root[data-theme="light"]:not([data-appearance="fox"]) .home-mascot-logo .home-mascot-motion.home-mascot-light,
+  :root[data-appearance="fox"] .home-mascot-logo .home-mascot-motion.home-mascot-fox {
     display: none;
   }
 
-  :root:not([data-theme="light"]) .home-mascot-logo .home-mascot-still.home-mascot-dark,
-  :root[data-theme="light"] .home-mascot-logo .home-mascot-still.home-mascot-light {
+  :root:not([data-theme="light"]):not([data-appearance="fox"]) .home-mascot-logo .home-mascot-still.home-mascot-dark,
+  :root[data-theme="light"]:not([data-appearance="fox"]) .home-mascot-logo .home-mascot-still.home-mascot-light,
+  :root[data-appearance="fox"] .home-mascot-logo .home-mascot-still.home-mascot-fox {
     display: block;
   }
 }

@@ -48,29 +48,39 @@ test("app chrome uses the shared brand asset without branding the composer input
   // Renderer-sized brand marks, not the 1024px electron-builder installer icons.
   assert.match(brandLogo, /import brandLogoUrlLight from\s*"\.\.\/assets\/brand\/logo-light\.png"/);
   assert.match(brandLogo, /import brandLogoUrlDark from\s*"\.\.\/assets\/brand\/logo-dark\.png"/);
+  assert.match(brandLogo, /import brandLogoUrlFox from\s*"\.\.\/assets\/brand\/logo-fox\.png"/);
   assert.doesNotMatch(brandLogo, /\.\.\/\.\.\/build\//);
   assert.match(brandLogo, /export function BrandLogo/);
-  assert.match(brandLogo, /src=\{.*brandLogoUrl/);
+  assert.match(brandLogo, /src=\{.*BRAND_SRC/);
+  // The brand mark tracks the active theme AND the 千凝 appearance.
+  assert.match(brandLogo, /data-appearance/);
+  assert.match(brandLogo, /attributeFilter:\s*\["data-theme",\s*"data-appearance"\]/);
   assert.match(icons, /export const IconNewSession/);
   assert.doesNotMatch(icons, /IconCodexHome|IconCompose|IconPiMark|IconPiHome/);
   await access(new URL("../src/assets/home-mascot-dark.gif", import.meta.url));
   await access(new URL("../src/assets/home-mascot-light.gif", import.meta.url));
+  await access(new URL("../src/assets/home-mascot-fox.gif", import.meta.url));
   await access(new URL("../src/assets/home-mascot-still-dark.png", import.meta.url));
   await access(new URL("../src/assets/home-mascot-still-light.png", import.meta.url));
+  await access(new URL("../src/assets/home-mascot-still-fox.png", import.meta.url));
   await assert.rejects(
     () => access(new URL("../src/assets/home-mascot-groups.png", import.meta.url)),
   );
   assert.match(chatSurface, /<HomeMascotLogo \/>/);
   assert.match(mascotLogo, /import mascotMotionDarkUrl from\s*"\.\.\/assets\/home-mascot-dark\.gif"/);
   assert.match(mascotLogo, /import mascotMotionLightUrl from\s*"\.\.\/assets\/home-mascot-light\.gif"/);
+  assert.match(mascotLogo, /import mascotMotionFoxUrl from\s*"\.\.\/assets\/home-mascot-fox\.gif"/);
   assert.match(mascotLogo, /import mascotStillDarkUrl from\s*"\.\.\/assets\/home-mascot-still-dark\.png"/);
   assert.match(mascotLogo, /import mascotStillLightUrl from\s*"\.\.\/assets\/home-mascot-still-light\.png"/);
+  assert.match(mascotLogo, /import mascotStillFoxUrl from\s*"\.\.\/assets\/home-mascot-still-fox\.png"/);
   assert.match(mascotLogo, /className="home-mascot-logo"/);
   assert.match(mascotLogo, /aria-hidden="true"/);
   assert.match(mascotLogo, /className="home-mascot-motion home-mascot-dark"/);
   assert.match(mascotLogo, /className="home-mascot-motion home-mascot-light"/);
+  assert.match(mascotLogo, /className="home-mascot-motion home-mascot-fox"/);
   assert.match(mascotLogo, /className="home-mascot-still home-mascot-dark"/);
   assert.match(mascotLogo, /className="home-mascot-still home-mascot-light"/);
+  assert.match(mascotLogo, /className="home-mascot-still home-mascot-fox"/);
   assert.doesNotMatch(mascotLogo, /<svg/);
   assert.doesNotMatch(
     mascotLogo,
@@ -84,11 +94,15 @@ test("app chrome uses the shared brand asset without branding the composer input
   );
   assert.match(
     styles,
-    /:root:not\(\[data-theme="light"\]\) \.home-mascot-logo \.home-mascot-motion\.home-mascot-dark/,
+    /\.home-mascot-logo \.home-mascot-motion\.home-mascot-dark/,
   );
   assert.match(
     styles,
-    /:root\[data-theme="light"\] \.home-mascot-logo \.home-mascot-motion\.home-mascot-light/,
+    /\.home-mascot-logo \.home-mascot-motion\.home-mascot-light/,
+  );
+  assert.match(
+    styles,
+    /\[data-appearance="fox"\] \.home-mascot-logo \.home-mascot-motion\.home-mascot-fox/,
   );
   assert.match(
     styles,
