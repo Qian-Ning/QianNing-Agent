@@ -99,6 +99,13 @@ export const es = {
   "updates": {
     "title": "Actualizaciones",
     "desc": "Las actualizaciones se descargan de las versiones de GitHub.",
+    "preferenceTitle": "Comportamiento de actualización",
+    "preferenceDesc": "El modo automático descarga e instala actualizaciones; el manual comprueba y avisa una vez por versión nueva.",
+    "automatic": "Automático",
+    "manual": "Manual",
+    "automaticUnsupported": "Este paquete no admite la instalación automática.",
+    "automaticPortableWarning": "Las actualizaciones automáticas pueden reemplazar una copia portable por la versión instalada.",
+    "preferenceSaveFailed": "No se pudo guardar la preferencia de actualización.",
     "check": "Buscar actualizaciones",
     "checking": "Buscando actualizaciones...",
     "upToDate": "Estás en la última versión.",
@@ -131,6 +138,7 @@ export const es = {
     "checkForUpdates": "Buscar actualizaciones",
     "buildUnknown": "Versión desconocida",
     "search": "Buscar",
+    "actionWithShortcut": "{{action}} ({{shortcut}})",
     "temporarySessions": "Chats temporales",
     "newTemporarySession": "Nuevo chat temporal",
     "noProjectSessions": "No chats en este proyecto todavía",
@@ -276,7 +284,6 @@ export const es = {
     "moveQueuedPromptDown": "Bajar",
     "editQueuedPrompt": "Editar",
     "editQueuedPromptBusy": "Vacía el campo antes de editar este mensaje en cola",
-    "enhancePrompt": "Mejorar mensaje",
     "conversationPromptTitle": "Prompt de esta conversación",
     "conversationPromptDesc": "Se aplica solo a esta conversación. Las demás usan el prompt integrado.",
     "conversationPromptPlaceholder": "Déjalo vacío para usar el prompt integrado",
@@ -285,12 +292,6 @@ export const es = {
     "conversationPromptSave": "Guardar",
     "conversationPromptClear": "Restablecer al integrado",
     "conversationPromptSaved": "Prompt de la conversación guardado",
-    "enhancingPrompt": "Mejorando...",
-    "undoEnhancement": "Deshacer mejora",
-    "enhancementFailed": "Error en la mejora de solicitud",
-    "enhancementTimeout":
-      "La reescritura tardó demasiado. Vuelve a intentarlo o elige un modelo más rápido en Ajustes.",
-    "dismissEnhancementError": "Descartar error de mejora",
     sendWhileRunning: "Enviar seguimiento · {{shortcut}} para orientar",
     steeringUnavailable: "Este turno ya no acepta indicaciones. Se conservó el borrador.",
     nativeSessionBusy: "Esta sesión nativa de Pi sigue respondiendo. Detenla o espera a que termine antes de enviar.",
@@ -1607,6 +1608,9 @@ sklm: {
     "maxOutput": "Salida máxima",
     "supportedThinkingLevels": "Niveles de pensamiento",
     "defaultThinkingLevel": "Nivel de pensamiento predeterminado",
+    "thinkingProtocol": "Protocolo de pensamiento",
+    "thinkingProtocolLegacy": "Estándar",
+    "thinkingProtocolAdaptive": "Adaptativo",
     "modelCapabilities": "Capacidades",
     "imageInput": "Imágenes",
     "documentInput": "PDF",
@@ -1676,20 +1680,6 @@ sklm: {
     "fontSizeXl": "Trenta",
     "fontSizeScale": "Escala de tamaño de texto",
     "fontSizePercent": "{{value}}%",
-    "promptEnhancementTitle": "Mejora de prompts",
-    "promptEnhancementDesc":
-      "Se aplica solo a la acción «Mejorar prompt» del compositor: eliges qué modelo hace la reescritura. Nunca cambia la personalidad del asistente.",
-    "promptEnhancementModelTitle": "Mejora de prompts",
-    "promptEnhancementModel": "Modelo predeterminado",
-    "promptEnhancementThinking": "Esfuerzo de razonamiento",
-    "promptEnhancementThinkingDesc":
-      "Esfuerzo de razonamiento para la reescritura. Desactivado es el valor predeterminado y el más rápido.",
-    "promptEnhancementThinkingOff": "Desactivado",
-    "promptEnhancementModelFollow": "Seguir el modelo actual",
-    "promptEnhancementModelUnavailable":
-      "No disponible: la mejora usará el modelo actual",
-    "promptEnhancementMissingDraftVariable":
-      "La plantilla de usuario debe contener la variable del borrador; de lo contrario el borrador no puede enviarse.",
   },
   "project": {
     "open": "Abrir proyecto",
@@ -1797,18 +1787,6 @@ sklm: {
     "foldersLabel": "Carpetas del proyecto",
     "notFound": "Proyecto no encontrado",
     "noProjects": "Aún no hay proyectos"
-  },
-  "pulls": {
-    "title": "Solicitudes de extracción",
-    "refresh": "Actualizar",
-    "emptyTitle": "No hay solicitudes de extracción",
-    "review": "Revisar con el agente",
-    "filters": "Filtros de solicitud de extracción",
-    "filterOpen": "Abierto",
-    "filterDraft": "Borrador",
-    "filterAll": "Todos",
-    "open": "Abierto",
-    "draft": "Borrador"
   },
   "scheduled": {
     "description": "Ejecuta tareas recurrentes mientras QianNing Agent está abierto.",
@@ -1972,7 +1950,8 @@ sklm: {
       "back": "Volver a los archivos",
       "reveal": "Mostrar en el Finder",
       "binary": "Archivo binario: vista previa no disponible",
-      "tooLarge": "El archivo es demasiado grande para obtener una vista previa"
+      "tooLarge": "El archivo es demasiado grande para obtener una vista previa",
+      "openFailed": "No se pudo abrir el archivo con la aplicación predeterminada."
     }
   },
   "palette": {
@@ -2557,7 +2536,7 @@ sklm: {
     "failedTitle": "{{sessionTitle}} necesita atención",
     "failedBody": "El chat no finalizó exitosamente.",
     "failedBodyWithCode": "El chat se detuvo con el error {{code}}.",
-    "askTitle": "{{sessionTitle}} necesita su respuesta",
+    "askTitle": "Hay una pregunta que requiere su respuesta",
     "askBody": "{{question}}",
     "askBodyFallback": "La tarea requiere su respuesta para continuar.",
     "permissionTitle": "{{sessionTitle}} necesita aprobación de herramienta",
@@ -2588,6 +2567,8 @@ sklm: {
     "SUBAGENT_CONTEXT_OVERFLOW": "La tarea de un subagente superó el límite de contexto de su modelo. Reduce el alcance de la tarea, dale al subagente un modelo con una ventana de contexto más grande o haz que lea menos a la vez.",
     "AGENT_BUSY": "Este chat ya está funcionando. Espere a que termine o deténgalo primero.",
     "TURN_ABORTED": "Detenido.",
+    "AGENT_SIDECAR_CRASHED": "El runtime de IA falló mientras trabajaba en esto. El turno se detuvo; inténtalo de nuevo.",
+    "AGENT_SIDECAR_OOM": "Esta conversación superó la memoria del runtime de IA. Inicia un chat nuevo o reduce lo que el agente esté procesando e inténtalo de nuevo.",
     "workspaceActivationFailed": "No se pudo activar el espacio de trabajo del proyecto",
     "sessionNotFound": "Sesión no encontrada",
     "noActiveSession": "No hay ninguna sesión activa",

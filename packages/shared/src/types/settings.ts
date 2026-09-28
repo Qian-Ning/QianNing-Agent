@@ -10,6 +10,7 @@ import type { PluginMarketSource } from "./plugins.js";
 import type { SpeechSettings } from "./speech.js";
 import type { ThinkingLevel } from "./models.js";
 import type { Skin } from "../skins.js";
+import type { UpdatePreference } from "./platform.js";
 
 export type ThemePreference = "system" | "light" | "dark" | "fox" | `plugin:${string}`;
 
@@ -29,6 +30,10 @@ export type AppSettings = {
   imageGenerationModels?: import("../image-generation.js").ImageGenerationBinding[] | null;
   defaultProviderId?: string;
   defaultModelId?: string;
+  /** Per-install update behavior; absent uses the package's safe default. */
+  updatePreference?: UpdatePreference;
+  /** Last manually announced release; kept local to avoid repeating notices. */
+  lastNotifiedUpdateVersion?: string;
   /** Host speech bindings. Absent means voice actions stay disabled. */
   speech?: SpeechSettings;
   defaultMode: Mode;
@@ -41,21 +46,7 @@ export type AppSettings = {
   keepAwakeWhileRunning?: boolean;
   /** Configured command shell for the agent Bash protocol tool. */
   defaultCommandShell?: CommandShellId;
-  /**
-   * Model the one-shot enhancement runs on. Absent means "follow the Composer's
-   * current model". When the pinned pair is unusable, main falls back to the
-   * Composer model and logs a warning (ADR 0121).
-   */
-  promptEnhancementProviderId?: string;
-  promptEnhancementModelId?: string;
-  /**
-   * Reasoning effort for the one-shot enhancement. Absent means `off`: the
-   * enhancement never inherits the session's level, because a rewrite rarely
-   * benefits from reasoning and reasoning is the slow path. The value is clamped
-   * onto the resolved model's ladder, and switching model re-clamps it, so a
-   * stored level is always one the model can run.
-   */
-  promptEnhancementThinkingLevel?: ThinkingLevel;
+
   defaultPermissionMode?: GlobalPermissionMode;
   theme: ThemePreference;
   /** UI language; `auto` (and absent) follows the OS locale. */

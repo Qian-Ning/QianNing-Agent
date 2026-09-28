@@ -15,8 +15,6 @@ import type {
 import {
   formatCompactTokenCount,
   isCertificateVerificationError,
-  THINKING_LEVELS,
-  type ThinkingLevel,
 } from "@pi-desktop/shared";
 import { useOpenChatFileRef, useOpenPreviewTarget } from "../../../hooks/use-preview-target";
 import { useChatFileMenu } from "../../../hooks/use-chat-file-menu";
@@ -31,7 +29,7 @@ import { useReferencedImageDataUrl } from "../../../lib/use-referenced-image-dat
 import { useVerifiedChatText } from "../../../hooks/use-verified-chat-text";
 import { isHtmlFilePath } from "../../../lib/chat-links";
 import type { SourcePositionProps } from "../../../lib/markdown-source";
-import { getToolAction, type ToolAction } from "../../../lib/tool-display";
+import type { ToolAction } from "../../../lib/tool-display";
 import { calculateTokenRate } from "../../../lib/context-usage";
 import { useAppStore } from "../../../stores/app-store";
 import { Markdown, useCopy } from "../../../components/Markdown";
@@ -41,7 +39,6 @@ import {
   IconBot,
   IconBranch,
   IconCheck,
-  IconChevronDown,
   IconChevronRight,
   IconCircleAlert,
   IconCode,
@@ -419,13 +416,15 @@ export function FileRefChip({
   name,
   path,
   kind,
+  mimeType,
   onOpen,
   ...position
 }: {
   name: string;
   path: string;
   kind?: "image" | "file";
-  onOpen: (path: string) => void;
+  mimeType?: string;
+  onOpen: (path: string, baseDir?: string, mimeType?: string) => void;
 } & SourcePositionProps) {
   const { t } = useTranslation();
   const Icon = fileChipIcon(name, kind);
@@ -439,7 +438,7 @@ export function FileRefChip({
         {...position}
         title={`${html ? t("chat.previewUrl") : t("chat.openFile")} — ${path}`}
         aria-label={`${name} — ${path}`}
-        onClick={() => onOpen(path)}
+        onClick={() => onOpen(path, undefined, mimeType)}
         onContextMenu={(event) => openFileMenu(event, { path })}
       >
         <span className="composer-chip-icon" aria-hidden>
@@ -462,7 +461,7 @@ export function MessageAttachmentImage({
   onOpenFile,
 }: {
   attachment: MessageAttachment;
-  onOpenFile: (path: string) => void;
+  onOpenFile: (path: string, baseDir?: string, mimeType?: string) => void;
 }) {
   const { fileMenu, openFileMenu, closeFileMenu } = useChatFileMenu();
   const dataUrl = useReferencedImageDataUrl(attachment.ref, attachment.mimeType);
@@ -472,6 +471,7 @@ export function MessageAttachmentImage({
         name={attachment.name}
         path={attachment.ref}
         kind="image"
+        mimeType={attachment.mimeType}
         onOpen={onOpenFile}
       />
     );

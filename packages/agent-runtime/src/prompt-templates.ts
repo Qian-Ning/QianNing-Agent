@@ -22,7 +22,7 @@ import { NodeExecutionEnv } from "@earendil-works/pi-agent-core/node";
 /**
  * Prompt-enhancement templates live in `@pi-desktop/shared` so the runtime,
  * the settings UI, and the "restore default" action all read one copy
- * (`packages/shared/src/prompt-enhancement.ts`).
+ * for legacy prompt-template migration compatibility.
  */
 export type ComposerTemplateSource = "project" | "user";
 

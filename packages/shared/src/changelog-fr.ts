@@ -2,28 +2,18 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
-    "version": "0.15.8",
-    "date": "2026-09-26",
+    "version": "0.15.10",
+    "date": "2026-09-28",
     "highlights": [
-      "Refond les réglages des modèles IA avec un sélecteur de services, des modèles recommandés et des conseils plus clairs pour les endpoints personnalisés.",
-      "Les endpoints personnalisés utilisent les éditeurs fournis par PI-Desktop pour compléter les métadonnées, capacités et formats d’API des modèles.",
-      "Les requêtes Google Gemini redeviennent fiables, conservent les en-têtes du fournisseur et suppriment les valeurs d’image obsolètes lorsqu’un fournisseur est supprimé.",
-      "Les cartes de sous-agents s’adaptent à la largeur du panneau et reprennent leur liaison de modèle privée avec les autorisations de délégation à jour.",
-      "Renforce l’annulation et l’arrêt des extensions de confiance afin de retirer sûrement les mises à jour tardives, files d’attente et sous-processus.",
-      "Améliore la relecture et la reprise après redémarrage de la recherche web hébergée ; les modèles OAuth OpenAI Codex peuvent activer la recherche native.",
-      "Copiez, téléchargez ou développez les tableaux Markdown dans le chat ; ouvrez les fichiers reconnus ou copiez leurs chemins complets et relatifs.",
-      "Améliore les contrôles de raisonnement du Composer, le parcours des images générées, les badges de tâches non lues Windows et les réglages vocaux localisés.",
+      "Les plugins de la marketplace s’affichent désormais dans un ordre aléatoire plutôt que par ordre alphabétique.",
     ],
   },
 
   {
-    "version": "0.15.7",
-    "date": "2026-09-25",
+    "version": "0.15.9",
+    "date": "2026-09-27",
     "highlights": [
-      "Célébrez la Fête de la mi-automne avec une animation lunaire plein écran et temporaire au premier lancement, rejouable depuis les Réglages.",
-      "Utilisez la saisie vocale locale facultative dans le Composer, avec des contrôles développeur, des téléchargements de modèles vérifiés et annulables, et une protection contre les transcriptions obsolètes.",
-      "Ajoute une version Windows portable en un seul exécutable, en plus de l’installateur et des ZIP.",
-      "Améliore la fiabilité des agents avec des annulations et reprises plus sûres, des catalogues de modèles plus robustes, une meilleure navigation des lots d’images générées et un panneau de travail plus réactif.",
+      "Supprime les anciens fichiers d'aide au premier démarrage des paquets macOS DMG et ZIP.",
     ],
   },
 

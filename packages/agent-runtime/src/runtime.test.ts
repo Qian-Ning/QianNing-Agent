@@ -902,6 +902,33 @@ describe("DesktopAgentRuntime configuration matching", () => {
     await runtime.dispose();
   });
 
+  it("formats scratch directory with forward slashes for POSIX shells", async () => {
+    const gitBash: CommandShellOption = {
+      id: "git-bash",
+      label: "Git Bash",
+      dialect: "posix",
+      available: true,
+      isDefault: false,
+    };
+    const windowsScratch = "C:\\Users\\User\\.pi-desktop\\scratch\\sess-123";
+    const runtime = createRuntime({
+      commandShell: gitBash,
+      scratchDir: windowsScratch,
+    });
+    const systemPrompt = (runtime as any).agent.state.systemPrompt as string;
+    const bash = (runtime as any).agent.state.tools.find(
+      (tool: any) => tool.name === "Bash",
+    );
+
+    const posixScratch = "C:/Users/User/.pi-desktop/scratch/sess-123";
+    expect(systemPrompt).toContain(`\`${posixScratch}\``);
+    expect(systemPrompt).toContain("in Bash: $PI_SCRATCH_DIR");
+    expect(systemPrompt).not.toContain(windowsScratch);
+    expect(bash.description).toContain(posixScratch);
+
+    await runtime.dispose();
+  });
+
   it("sends the default Bash timeout and preserves explicit overrides", async () => {
     const host = {
       call: vi.fn().mockResolvedValue({ ok: true, content: "done" }),
@@ -1017,8 +1044,8 @@ describe("DesktopAgentRuntime configuration matching", () => {
       call: vi.fn().mockResolvedValue({ ok: true, content: "done" }),
     };
     const runtime = createRuntime({ host });
-    // Read the catalog, not the active set: Glob and Grep are deferred tools
-    // and are only activated on demand.
+    // Read the full registry so aliases can be exercised independently of the
+    // active set selected for a particular session mode.
     const tool = (name: string) => (runtime as any).toolCatalog.get(name);
 
     for (const name of ["Read", "Write", "Edit"]) {
@@ -1631,7 +1658,7 @@ describe("DesktopAgentRuntime live activity", () => {
 });
 
 describe("DesktopAgentRuntime deferred tool catalog", () => {
-  it("keeps the first agent request on core tools plus discovery", async () => {
+  it("starts Agent with core tools plus workspace search and discovery", async () => {
     const runtime = createRuntime({
       pluginTools: [
         {
@@ -1656,6 +1683,8 @@ describe("DesktopAgentRuntime deferred tool catalog", () => {
       "Bash",
       "Edit",
       "Write",
+      "Glob",
+      "Grep",
       "asktool",
       "Skill",
       "EnterPlanMode",
@@ -1663,6 +1692,8 @@ describe("DesktopAgentRuntime deferred tool catalog", () => {
       "new_context",
       "ToolSearch",
     ]);
+    expect((runtime as any).deferredToolNames.has("Glob")).toBe(false);
+    expect((runtime as any).deferredToolNames.has("Grep")).toBe(false);
     expect(names).not.toContain("A2A");
     expect(names).not.toContain("Peer");
     expect(names).not.toContain("BrowserPreview");
@@ -1686,9 +1717,29 @@ describe("DesktopAgentRuntime deferred tool catalog", () => {
     const askTool = (runtime as any).agent.state.tools.find(
       (tool: any) => tool.name === "asktool",
     );
+    const optionVariants =
+      (askTool.parameters as any).properties.questions.items.properties.options.items.anyOf;
+    expect(optionVariants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "string" }),
+        expect.objectContaining({
+          type: "object",
+          properties: expect.objectContaining({
+            label: expect.objectContaining({ type: "string" }),
+            description: expect.objectContaining({ type: "string" }),
+          }),
+        }),
+      ]),
+    );
     const pending = askTool.execute("ask-call-1", {
       questions: [
-        { question: "Color?", options: ["Blue", "Green"] },
+        {
+          question: "**Color?**",
+          options: [
+            { label: "**Blue**", description: "A calm, cool color." },
+            "Green",
+          ],
+        },
         { question: "Targets?", options: ["Web", "Desktop"], multiSelect: true },
       ],
     });
@@ -1701,7 +1752,13 @@ describe("DesktopAgentRuntime deferred tool catalog", () => {
       sessionId: "session-1",
       toolCallId: "ask-call-1",
       questions: [
-        { question: "Color?", options: ["Blue", "Green"] },
+        {
+          question: "**Color?**",
+          options: [
+            { label: "**Blue**", description: "A calm, cool color." },
+            "Green",
+          ],
+        },
         { question: "Targets?", options: ["Web", "Desktop"], multiSelect: true },
       ],
     });
@@ -1709,12 +1766,12 @@ describe("DesktopAgentRuntime deferred tool catalog", () => {
       runtime.resolveAskTool({
         requestId: request.requestId,
         sessionId: "session-1",
-        answers: [["Blue"], null],
+        answers: [["**Blue**"], null],
       }),
     ).toEqual({ ok: true });
     await expect(pending).resolves.toMatchObject({
-      content: [{ text: "Color?：Blue\n---\nTargets?：" }],
-      details: { answers: [["Blue"], null] },
+      content: [{ text: "**Color?**：**Blue**\n---\nTargets?：" }],
+      details: { answers: [["**Blue**"], null] },
     });
     await runtime.dispose();
   });
@@ -1891,6 +1948,8 @@ describe("DesktopAgentRuntime mode and tool composition", () => {
     expect(agentTools).toEqual(
       expect.arrayContaining([
         "Read",
+        "Glob",
+        "Grep",
         "Write",
         "Edit",
         "Bash",
@@ -3307,6 +3366,39 @@ describe("DesktopAgentRuntime session collaboration provenance", () => {
     await runtime.dispose();
     await restored.dispose();
   });
+  it("replays every under-budget historical image as a provider image block", async () => {
+    const history: UiMessage[] = Array.from({ length: 6 }, (_, index) => {
+      const payload = Buffer.from(`historical-image-${index + 1}`).toString("base64");
+      return {
+        id: `image-${index + 1}`,
+        role: "user",
+        content: `image ${index + 1}`,
+        createdAt: new Date(Date.now() + index).toISOString(),
+        attachments: [
+          {
+            name: `image-${index + 1}.png`,
+            ref: `attachments/image-${index + 1}`,
+            kind: "image",
+            mimeType: "image/png",
+            data: payload,
+          },
+        ],
+      };
+    });
+    const runtime = createRuntime({ history });
+    try {
+      const messages = buildSessionContext((runtime as any).fullEntries).messages;
+      const imageBlocks = messages.flatMap((message) =>
+        message.role === "user" && Array.isArray(message.content)
+          ? message.content.filter((block) => block.type === "image")
+          : [],
+      );
+      expect(imageBlocks).toHaveLength(6);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
 });
 
 describe("DesktopAgentRuntime tool history restore (D120)", () => {
@@ -8379,9 +8471,9 @@ describe("DesktopAgentRuntime deferred tool restore (#225)", () => {
         assistantRow,
         searchRow({
           toolResult: {
-            content: [{ type: "text", text: "Activated on-demand tools: BrowserPreview, Glob." }],
+            content: [{ type: "text", text: "Activated on-demand tools: BrowserPreview, PluginCheck." }],
             details: {
-              addedToolNames: ["BrowserPreview", "Glob"],
+              addedToolNames: ["BrowserPreview", "PluginCheck"],
             },
           },
         }),
@@ -8402,7 +8494,7 @@ describe("DesktopAgentRuntime deferred tool restore (#225)", () => {
 
     (runtime as any).resetDeferredToolsForPrompt();
     expect(hasTool(runtime, "BrowserPreview")).toBe(true);
-    expect(hasTool(runtime, "Glob")).toBe(true);
+    expect(hasTool(runtime, "PluginCheck")).toBe(true);
     await runtime.dispose();
   });
 

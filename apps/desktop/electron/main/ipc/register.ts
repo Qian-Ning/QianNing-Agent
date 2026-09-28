@@ -18,7 +18,6 @@ import { registerNotificationIpc } from "./notification-ipc";
 import { registerPluginIpc } from "./plugin-ipc";
 import { registerPluginUiIpc } from "./plugin-ui-ipc";
 import { registerProviderIpc } from "./provider-ipc";
-import { registerPullsIpc } from "./pulls-ipc";
 import { registerScheduledIpc } from "./scheduled-ipc";
 import { registerSessionIpc } from "./session-ipc";
 import { registerSettingsIpc } from "./settings-ipc";
@@ -269,6 +268,7 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
     applyDeveloperMode,
     applyPreventScreenSleep,
     applyKeepAwakeWhileRunning,
+    applyUpdatePreference: (preference) => updater.setPreference(preference),
     resolveEffectiveCommandShell,
   });
   registerConfigSyncIpc({
@@ -310,7 +310,6 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
     markMenuRendererReady,
     executeNativeMenuAction,
   });
-  registerPullsIpc({ registrar, getHost });
   registerSkinIpc({ registrar, dataDir, getMainWindow });
   registerScheduledIpc({
     registrar,
@@ -333,7 +332,6 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
     plugins,
     browserHost,
     clipboardHistory,
-    logger,
     recordPastedClipboardFiles,
     currentWorkspacePath,
     setCurrentWorkspacePath,

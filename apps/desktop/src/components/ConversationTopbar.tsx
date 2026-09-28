@@ -1,4 +1,10 @@
 import { useState } from "react";
+import {
+  KEYBOARD_SHORTCUTS,
+  keybindingDisplayParts,
+  resolveKeybinding,
+  type ShortcutPlatform,
+} from "@pi-desktop/shared";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../stores/app-store";
 import { ConversationPromptButton, SessionPromptDialog } from "./SessionPromptDialog";
@@ -39,6 +45,40 @@ export function ConversationTopbar({
     (s) => s.setActiveSessionSystemPrompt,
   );
   const [promptOpen, setPromptOpen] = useState(false);
+  const keybindings = useAppStore((s) => s.settings?.keybindings);
+  const platform = (
+    typeof window === "undefined" ? "darwin" : window.piDesktop?.platform ?? "darwin"
+  ) as ShortcutPlatform;
+  const newTaskShortcut = KEYBOARD_SHORTCUTS.find(
+    (shortcut) => shortcut.id === "newTask",
+  );
+  const searchShortcut = KEYBOARD_SHORTCUTS.find(
+    (shortcut) => shortcut.id === "openSearch",
+  );
+  const newTaskBinding = newTaskShortcut
+    ? resolveKeybinding(newTaskShortcut, keybindings, platform)
+    : null;
+  const searchBinding = searchShortcut
+    ? resolveKeybinding(searchShortcut, keybindings, platform)
+    : null;
+  const newTaskShortcutLabel = keybindingDisplayParts(newTaskBinding, platform).join(
+    platform === "darwin" ? "" : "+",
+  );
+  const searchShortcutLabel = keybindingDisplayParts(searchBinding, platform).join(
+    platform === "darwin" ? "" : "+",
+  );
+  const newTaskTooltip = newTaskShortcutLabel
+    ? t("nav.actionWithShortcut", {
+        action: t("nav.newTask"),
+        shortcut: newTaskShortcutLabel,
+      })
+    : t("nav.newTask");
+  const searchTooltip = searchShortcutLabel
+    ? t("nav.actionWithShortcut", {
+        action: t("nav.search"),
+        shortcut: searchShortcutLabel,
+      })
+    : t("nav.search");
 
   const activeSession = sessions.find((session) => session.id === activeSessionId);
   // A native (imported) session's prompt belongs to its origin app, so the
@@ -96,7 +136,7 @@ export function ConversationTopbar({
           <TooltipButton
             type="button"
             className="ct-icon-btn"
-            tooltip={t("nav.newTask")}
+            tooltip={newTaskTooltip}
             ariaLabel={t("nav.newTask")}
             onClick={onNewTask}
           >
@@ -105,7 +145,7 @@ export function ConversationTopbar({
           <TooltipButton
             type="button"
             className="ct-icon-btn"
-            tooltip={t("nav.search")}
+            tooltip={searchTooltip}
             ariaLabel={t("nav.search")}
             onClick={onOpenSearch}
           >

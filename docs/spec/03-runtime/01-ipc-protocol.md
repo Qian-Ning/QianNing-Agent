@@ -33,7 +33,7 @@ Principles:
 | `fs` | Work panel workspace file listing/reading/reveal, chat file-reference completion against the project, session scratch, and attachment roots, plus user-initiated open with the OS default handler (read-only) |
 | `window` | Frameless window state, controls, and compatibility work-panel geometry channels |
 | `menu` | Allowlisted application-menu commands and native editing/window actions |
-| `notification` | Durable inbox list/read/clear and new/activated events |
+| `notification` | Durable inbox list/read/clear, new/activated events, and native-notification sound cues |
 | `stats` | Completed-turn token history (host RPC; dashboard is plugin-owned) |
 
 ## 3. Channel Conventions
@@ -201,13 +201,15 @@ content-addressed attachment store, and derives the effective model transport
 from the published model record plus the exact binding's `supportsImages`
 override. An absent or `null` override follows the published image capability;
 `true` enables and `false` disables image input for that configured model.
-Eligible images become transient pi-ai image blocks when the effective
-capability is enabled. Unknown/custom models without an explicit override,
-non-vision models, and images above the 10 MB inline bound receive a safe
-`@path` fallback.
-Main uses streamed hashing and file copying for images above that bound, and the
-sidecar uses the same bounded-read rule when rebuilding history. The durable
-user message stores `content` plus attachment metadata/ref, never base64.
+For a vision-capable model, images within the 10 MB per-image bound become
+transient pi-ai image blocks. Restored history also has a 30 MB aggregate raw
+image-byte budget: the sidecar considers persisted attachments newest-first and
+preserves every eligible image when the total fits. If the budget is exceeded,
+older images use the existing safe `@path` fallback. Unknown/custom models
+without an explicit image override, non-vision models, oversized images, and
+unavailable refs also use the safe fallback. Main uses streamed hashing and file
+copying for oversized images. The durable user message stores `content` plus
+attachment metadata/ref, never base64.
 Invalid attachment paths fail with `PATH_OUTSIDE_WORKSPACE`.
 
 Regenerate history (D109) also uses session channels:
@@ -219,11 +221,13 @@ Regenerate history (D109) also uses session channels:
 Root user turns may include `revisionRootId`, `revisionCount`, and
 `activeRevision`. Activating a revision replaces the live tail with
 `prefix + archived branch` and disposes the session agent.
-The sidecar receives only the prepared attachment subset needed for the
-current turn. On a vision runtime, persisted image refs are hydrated from the
-session-bound attachment/scratch roots when history is rebuilt; oversized or
-unavailable images remain path fallbacks. This keeps renderer, main, sidecar, the models.dev catalog, and host
-persistence on one capability-aware contract.
+The sidecar receives only the prepared attachment subset needed for the current
+turn. On a vision runtime, persisted refs are hydrated from session-bound
+attachment/scratch/project roots. The current prompt row is excluded by message
+id before hydration, so it does not consume the history budget; oversized,
+over-budget, or unavailable images remain safe path fallbacks. This keeps
+renderer, main, sidecar, the models.dev catalog, and host persistence on one
+capability-aware contract.
 
 ### 5.1a Steer an active turn
 
@@ -841,6 +845,11 @@ Main sends two events:
 - `pi-desktop/notification/event/activated` after the user clicks Electron's
   native system notification. Renderer follows its existing session-selection
   path, including project activation for a project-bound session.
+- `pi-desktop/notification/event/sound` is a payload-free, one-way cue for a
+  plugin-native notification that Electron successfully showed. Renderer plays
+  the shared soft chime; the event carries no notification content and creates
+  no inbox row. Native task, interactive, and plugin banners are silent so the
+  in-app chime is not doubled by a platform-specific sound.
 
 Plugin-owned session mutations additionally emit
 `pi-desktop/session/event/changed` after a successful write. The renderer
@@ -1742,12 +1751,16 @@ Renderer IPC kept for the Plan-safe preview facade and URL fallback:
 
 - `browser/openExternal({url?})` — allowlisted http(s)/mailto, or the current
   guest URL when omitted
-- event: `browser/event/state {url, title, isLoading, canGoBack, canGoForward}`
+- Renderer plugin-view open/close requests may carry `sessionId` and `tabId`.
+  Open binds the resource tab after checking the plugin contribution and scope;
+  close releases only that tab's retained page (or the session's pages when no
+  tab id is supplied). The shared plugin chrome is not closed with a sibling page.
+- event: `browser/event/state {url, title, isLoading, canGoBack, canGoForward, loadError?, sessionId?, tabId?}`
   (also pushed to plugin views as `browser:state`)
 - agent preview event: `browser/event/preview {sessionId, path?, url?}`.
   Electron Main validates a workspace `path` inside that session's project,
-  loads the guest when that conversation's plugin view is visible, and the
-  renderer opens `plugin:pi.browser/browser` with `location` in the matching
+  asks the renderer to create a Browser resource tab before navigation, with
+  `location` in the matching
   runtime panel context. Navigation of a background session does not steal the
   visible guest.
 
@@ -1770,8 +1783,12 @@ Renderer IPC kept for the Plan-safe preview facade and URL fallback:
   containment as `fs/read`. Never returns non-image bytes. Renderer-only;
   not a plugin host API.
 - `fs/reveal({path})` → reveal in Finder. Same containment as `fs/read`.
-- `fs/open({path})` → open with the OS default application. Same lexical
-  containment as `fs/read` (without the extra realpath step used by reads).
+- `fs/open({path, mimeType?})` → open an existing regular file with the OS
+  default application. It uses the same realpath containment as `fs/read`,
+  including rejection of symlink escapes. For a content-addressed
+  `attachments/<sha256>` blob declared as `video/mp4`, the host creates a
+  `.mp4` symlink inside its private app-data directory before the OS handoff,
+  so the extensionless blob has a media association without copying its bytes.
 - `fs/resolveRef({ref, sessionId?})` → `FsChatRefResolveResult`
   (`{ match: FsChatRefMatch | null }`, the match naming the answering `root`
   (`workspace` / `scratch` / `attachments`), the `relativePath` relative to that

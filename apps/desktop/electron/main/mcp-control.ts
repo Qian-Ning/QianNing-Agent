@@ -199,7 +199,7 @@ const CONTROL_OPERATION_SPECS: OperationSpec[] = [
   spec("notificationMarkRead", "notification/markRead", "Mark one notification as read.", "write", ["id"]),
   spec("notificationMarkAllRead", "notification/markAllRead", "Mark all notifications as read.", "write", []),
   spec("agentPrompt", "agent/prompt", "Send a prompt to a session's Agent.", "write", ["request"]),
-  spec("promptEnhance", "prompt/enhance", "Enhance a prompt using the configured model.", "write", ["request"]),
+
   spec("agentCompact", "agent/compact", "Compact an idle session context.", "write", ["request"]),
   spec("agentAbort", "agent/abort", "Abort an active Agent turn.", "write", ["request"]),
   spec("agentStop", "agent/stop", "Request a graceful Agent stop.", "write", ["request"]),
@@ -244,7 +244,6 @@ const CONTROL_OPERATION_SPECS: OperationSpec[] = [
   spec("fsIndex", "fs/index", "Index files in the active workspace.", "read", ["input"]),
   spec("composerCommands", "composer/commands", "List composer commands and skills.", "read", []),
   spec("closeBehaviorGet", "window/closeBehavior/get", "Read close behavior.", "read", []),
-  spec("pullsList", "pulls/list", "List pull requests for the active workspace.", "read", []),
   spec("scheduledList", "scheduled/list", "List scheduled tasks.", "read", []),
   spec("toolResolvePermission", "tool/resolvePermission", "Resolve a pending tool permission request.", "dangerous", ["resolution"]),
   spec("askToolResolve", "agent/askTool/resolve", "Answer an Agent question.", "dangerous", ["resolution"]),

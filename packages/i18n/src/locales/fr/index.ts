@@ -99,6 +99,13 @@ export const fr = {
   "updates": {
     "title": "Mises à jour",
     "desc": "Les mises à jour sont téléchargées à partir des versions de GitHub.",
+    "preferenceTitle": "Mode de mise à jour",
+    "preferenceDesc": "Le mode automatique télécharge et installe les mises à jour ; le mode manuel vérifie et avertit une fois par nouvelle version.",
+    "automatic": "Automatique",
+    "manual": "Manuel",
+    "automaticUnsupported": "Ce paquet ne prend pas en charge l'installation automatique.",
+    "automaticPortableWarning": "Les mises à jour automatiques peuvent remplacer une copie portable par la version installée.",
+    "preferenceSaveFailed": "Impossible d'enregistrer le mode de mise à jour.",
     "check": "Vérifier les mises à jour",
     "checking": "Vérifier les mises à jour…",
     "upToDate": "Vous utilisez la dernière version.",
@@ -131,6 +138,7 @@ export const fr = {
     "checkForUpdates": "Vérifier les mises à jour",
     "buildUnknown": "Version inconnue",
     "search": "Recherche",
+    "actionWithShortcut": "{{action}} ({{shortcut}})",
     "temporarySessions": "Chats temporaires",
     "newTemporarySession": "Nouveau chat temporaire",
     "noProjectSessions": "Aucun chat dans ce domaine projet pour l'instant",
@@ -276,7 +284,6 @@ export const fr = {
     "moveQueuedPromptDown": "Descendre",
     "editQueuedPrompt": "Modifier",
     "editQueuedPromptBusy": "Videz le champ avant de modifier ce message en attente",
-    "enhancePrompt": "Améliorer l'invite",
     "conversationPromptTitle": "Prompt de cette conversation",
     "conversationPromptDesc": "S'applique uniquement à cette conversation. Les autres utilisent le prompt intégré.",
     "conversationPromptPlaceholder": "Laisser vide pour utiliser le prompt intégré",
@@ -285,12 +292,6 @@ export const fr = {
     "conversationPromptSave": "Enregistrer",
     "conversationPromptClear": "Rétablir le prompt intégré",
     "conversationPromptSaved": "Prompt de la conversation enregistré",
-    "enhancingPrompt": "Amélioration…",
-    "undoEnhancement": "Annuler l'amélioration",
-    "enhancementFailed": "L'amélioration de l'invite a échoué",
-    "enhancementTimeout":
-      "La réécriture a pris trop de temps. Réessayez, ou choisissez un modèle plus rapide dans les réglages.",
-    "dismissEnhancementError": "Ignorer l'erreur d'amélioration",
     sendWhileRunning: "Envoyer à la suite · {{shortcut}} pour réorienter",
     steeringUnavailable: "Ce tour ne peut plus recevoir de consignes. Votre brouillon a été conservé.",
     nativeSessionBusy: "Cette session Pi native répond encore. Arrêtez-la ou attendez la fin de la réponse avant d'envoyer.",
@@ -1607,6 +1608,9 @@ sklm: {
     "maxOutput": "Sortie maximale",
     "supportedThinkingLevels": "Niveaux de réflexion",
     "defaultThinkingLevel": "Niveau de réflexion par défaut",
+    "thinkingProtocol": "Protocole de réflexion",
+    "thinkingProtocolLegacy": "Standard",
+    "thinkingProtocolAdaptive": "Adaptatif",
     "modelCapabilities": "Capacités",
     "imageInput": "Images",
     "documentInput": "PDF",
@@ -1676,20 +1680,6 @@ sklm: {
     "fontSizeXl": "Trenta",
     "fontSizeScale": "Échelle de taille du texte",
     "fontSizePercent": "{{value}}%",
-    "promptEnhancementTitle": "Amélioration du prompt",
-    "promptEnhancementDesc":
-      "S'applique uniquement à l'action « Améliorer le prompt » du composeur : vous choisissez le modèle qui effectue la réécriture. Cela ne change jamais le rôle de l'assistant.",
-    "promptEnhancementModelTitle": "Amélioration du prompt",
-    "promptEnhancementModel": "Modèle par défaut",
-    "promptEnhancementThinking": "Effort de raisonnement",
-    "promptEnhancementThinkingDesc":
-      "Effort de raisonnement pour la réécriture. Désactivé est la valeur par défaut et la plus rapide.",
-    "promptEnhancementThinkingOff": "Désactivé",
-    "promptEnhancementModelFollow": "Suivre le modèle actuel",
-    "promptEnhancementModelUnavailable":
-      "Indisponible — l'amélioration utilisera le modèle actuel",
-    "promptEnhancementMissingDraftVariable":
-      "Le modèle utilisateur doit contenir la variable de brouillon, sinon le brouillon ne peut pas être envoyé.",
   },
   "project": {
     "open": "Ouvrir le projet",
@@ -1797,18 +1787,6 @@ sklm: {
     "foldersLabel": "Dossiers du projet",
     "notFound": "Projet introuvable",
     "noProjects": "Aucun projet pour l'instant"
-  },
-  "pulls": {
-    "title": "Demandes d'extraction",
-    "refresh": "Actualiser",
-    "emptyTitle": "Aucune demande d'extraction",
-    "review": "Révision avec l'agent",
-    "filters": "Filtres de demande d'extraction",
-    "filterOpen": "Ouvrir",
-    "filterDraft": "Brouillon",
-    "filterAll": "Tous",
-    "open": "Ouvrir",
-    "draft": "Brouillon"
   },
   "scheduled": {
     "description": "Exécutez des tâches récurrentes tant que QianNing Agent est ouvert.",
@@ -1972,7 +1950,8 @@ sklm: {
       "back": "Retour aux fichiers",
       "reveal": "Révéler dans le Finder",
       "binary": "Fichier binaire — aperçu indisponible",
-      "tooLarge": "Le fichier est trop volumineux pour être prévisualisé"
+      "tooLarge": "Le fichier est trop volumineux pour être prévisualisé",
+      "openFailed": "Impossible d’ouvrir le fichier avec l’application par défaut."
     }
   },
   "palette": {
@@ -2557,7 +2536,7 @@ sklm: {
     "failedTitle": "{{sessionTitle}} a besoin d'attention",
     "failedBody": "La conversation n'a pas abouti.",
     "failedBodyWithCode": "Le chat s'est arrêté avec l'erreur {{code}}.",
-    "askTitle": "{{sessionTitle}} a besoin de votre réponse",
+    "askTitle": "Une question attend votre réponse",
     "askBody": "{{question}}",
     "askBodyFallback": "La tâche nécessite votre réponse pour continuer.",
     "permissionTitle": "{{sessionTitle}} nécessite une autorisation d'outil",
@@ -2588,6 +2567,8 @@ sklm: {
     "SUBAGENT_CONTEXT_OVERFLOW": "La tâche d'un sous-agent a dépassé la limite de contexte de son modèle. Réduisez la tâche, confiez au sous-agent un modèle doté d'une fenêtre de contexte plus grande, ou faites-lui lire moins de choses à la fois.",
     "AGENT_BUSY": "Ce chat fonctionne déjà. Attendez qu'il se termine ou arrêtez-le d'abord.",
     "TURN_ABORTED": "Arrêté.",
+    "AGENT_SIDECAR_CRASHED": "Le moteur d'IA a planté pendant le traitement. Ce tour a été arrêté ; réessayez.",
+    "AGENT_SIDECAR_OOM": "Cette conversation a dépassé la mémoire du moteur d'IA. Démarrez une nouvelle conversation ou réduisez ce que l'agent traite, puis réessayez.",
     "workspaceActivationFailed": "Impossible d'activer l'espace de travail du projet",
     "sessionNotFound": "Session introuvable",
     "noActiveSession": "Aucune session active",

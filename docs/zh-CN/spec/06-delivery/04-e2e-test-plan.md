@@ -276,6 +276,14 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
 - **里程碑**：M2
 - **状态**：自动（协议烟雾：提供商创建+秘密，无明文回显）
 
+#### E2E-PROVIDER-keep-explicit-model-overrides：目录刷新不覆盖用户限额与能力选择
+
+- **前提条件**：已配置一个目录发布上下文窗口、最大输出 token 和图片输入能力的模型。
+- **步骤**：编辑该模型，将最大输出 token 设为通用种子值 8,192；将图片输入开关先关再开，使显式选择与当前目录值相同；保存并重开设置。再用更新后的目录记录刷新该模型。
+- **预期**：最大输出 token 仍是 8,192，且来源标记为 `user`，即使上下文窗口来源为 `catalog`；图片输入仍保持用户显式选择。目录修正只更新来源标记为 `catalog` 的限额，不会把用户显式设置重新解释为跟随目录。
+- **关联规格**：`03-runtime/11-provider-model-system.md`、`03-runtime/12-provider-config-schema.md`、`03-runtime/13-model-catalog-and-selection.md`
+- **状态**：由 shared/runtime 与 host-core 回归测试覆盖；真实桌面 UI 验收待执行
+
 #### E2E-PROVIDER-defaults-survive-an-added-provider：新增提供商不改写应用默认值
 
 - **前提条件**：应用运行；提供商 A 已保存并设为应用默认模型；另有提供商 B 提供不同的模型；A 上配置了一个图片模型，另一家服务上也配置了一个。
@@ -386,12 +394,12 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
 #### E2E-005J：GitHub Copilot OAuth 请求携带原生 IDE 标头
 
 - **前提条件**：已有一个登录的 GitHub Copilot OAuth 账户并选定模型；确定性的捕获代理会记录模型请求标头。
-- **步骤**：1）针对该账户发起 Agent 回合并记录请求标头。2）助手回复后发送后续回合并记录下一次请求。3）选定模型支持视觉时，用图像附件重复测试。4）设置一个与 Copilot 默认标头同名的已保存自定义 header，再发送一次回合。
-- **预期**：每次 Copilot 模型请求都包含固定 pin 的 pi-ai 传输身份标头 `Editor-Version`、`Editor-Plugin-Version` 与 `Copilot-Integration-Id`。用户发起的请求中 `X-Initiator` 为 `user`，延续请求中为 `agent`；`Openai-Intent` 为 `conversation-edits`，图像请求包含 `Copilot-Vision-Request: true`。OAuth 行继续使用本地 provider id 进行账户绑定，已保存的自定义 header 仍是最后的覆盖层。
+- **步骤**：1）针对该账户发起 Agent 回合并记录请求标头。2）助手回复后发送后续回合并记录下一次请求。3）选定模型支持视觉时，用图像附件重复测试。4）设置一个与 Copilot 默认标头同名的已保存自定义 header，再发送一次回合。5）在同一账户上选择 Claude 模型（Anthropic Messages）并发送回合，记录认证与身份标头。
+- **预期**：每次 Copilot 模型请求都包含固定 pin 的 pi-ai 传输身份标头 `Editor-Version`、`Editor-Plugin-Version` 与 `Copilot-Integration-Id`。用户发起的请求中 `X-Initiator` 为 `user`，延续请求中为 `agent`；`Openai-Intent` 为 `conversation-edits`，图像请求包含 `Copilot-Vision-Request: true`。OAuth 行继续使用本地 provider id 进行账户绑定，已保存的自定义 header 仍是最后的覆盖层。Claude 请求携带 `Authorization: Bearer <Copilot token>`，不携带 `X-Api-Key`，并保留相同的 IDE 身份与上下文标头。
 - **链接规格**：`03-runtime/11-provider-model-system.md`、`03-runtime/12-provider-config-schema.md`、ADR 0095
 - **验收**：B（模型配置）、F（运行时提供商请求）
 - **里程碑**：M2
-- **状态**：单元覆盖（行级模型标头与请求上下文标头）；真实 Copilot 账户旅程待验证
+- **状态**：单元覆盖（行级模型标头、请求上下文标头、Anthropic Messages Bearer 认证与令牌轮换）；真实 Copilot 账户旅程待验证
 
 #### E2E-006：密钥在重启后仍然存在
 
@@ -695,8 +703,8 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
   交谈区。 3) 确认其显示简洁的 session/task 标题和新任务/搜索/命令
   动作按钮；确认
 侧边栏切换**仅在侧边栏折叠时出现**（展开时，
-  侧边栏拥有该控件）。 4）切换到Pull requests，Scheduled，
-  插件或设置路由并检查同一顶部区域。
+  侧边栏拥有该控件）。 4）切换到 Scheduled、插件或设置路由，
+  并检查同一顶部区域。
 - **预期**：在聊天路径上，对话顶部栏仅显示标题和操作；
   它没有模型或 Agent|Plan|Goal 模式控制。左侧输入 Composer 芯片拥有
   活动会话的 Agent/Plan/Goal 开关，Composer 右侧组合芯片拥有模型和推理选择。的
@@ -721,7 +729,7 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
 - **先决条件**：macOS 构建；至少安装一个插件。
 - **步骤**：1) 在默认窗口尺寸下打开插件路由。 2) 检查页面顶部：
   “插件”标题行、主操作按钮和溢出菜单按钮。 3) 将页面滚到顶部，
-  确认没有内容被 46px 带遮挡。 4) 在定时任务和合并请求路由上重复。
+  确认没有内容被 46px 带遮挡。 4) 在定时任务路由上重复。
   5) 打开某个插件的详情侧面板并检查其标头。
 - **预期**：页面标头在 macOS 上完整渲染在无框拖拽带下方，与
   Windows/Linux 一致：标题行不被裁切，已安装 / 插件市场分段控件和
@@ -733,6 +741,7 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
 - **里程碑**：M2
 - **状态**：已覆盖源级回归测试
   （`apps/desktop/test/plugins-page-style.test.mjs`）；完整 UI 场景为草案
+
 
 #### E2E-088：Composer Agent/Plan/Goal 芯片更新会话
 
@@ -2244,12 +2253,16 @@ MainChat 弥补了缺口。 Maximized/fullscreen 调用保留最新的
 #### E2E-059：嵌入式浏览器预览隔离和覆盖
 
 - **前提条件**：本地开发服务器正在运行；存在 URL 或 BrowserPreview 工件。
-- **步骤**： 1) 激活工件，输入 `localhost:<port>`（不带方案），然后提交。
+- **步骤**： 1) 激活工件，依次输入不带协议的 `localhost:<port>` 和
+  `localhost:<port>/index.html` 并提交；再输入带端口的点分主机名
+  （如 `example.com:8080`），验证显式 HTTP(S) 地址及被拒绝的 `javascript:` 地址。
   2) 导航站点链接；使用 back/forward/reload/stop。 3) 触发
   `window.open` 弹出窗口和权限请求页面（例如通知
   提示）。 4) 打开全局搜索，然后打开设置。返回聊天
   并触发内联工具权限卡。 5) 切换到另一个面板选项卡
-  然后回来；关闭面板。 6) 使用开放式外部。
+  然后回来；关闭面板。 6) 使用开放式外部。7) 分别从已有页面和空白浏览器标签页，
+  使用 `file:` 地址和绝对路径打开工作区内已存在的 HTML 文件；再输入指向工作区外
+  已存在文件的 `file:///tmp/demo.html` 和 `/tmp/demo.html`。
 - **预期**：无方案输入标准化为 http；导航状态（URL 栏，
   back/forward 启用、加载微调器）镜像页面。弹出窗口仅在 URL 解析为
   http(s) 或 mailto 时打开默认浏览器（绝不在应用程序内）；
@@ -2260,7 +2273,9 @@ MainChat 弥补了缺口。 Maximized/fullscreen 调用保留最新的
   并与占位符矩形对齐，不再闪出黑色面板底色。打开工作面板上下文下拉框时，
   原生视图在不透明菜单边界下方保持可见，菜单关闭后恢复完整表面矩形。
   Open-external 对 http(s) 页走系统浏览器，对根内文件预览走 `openPath`。
-  视图使用隔离的持久分区（应用程序外壳中没有会话流失）。
+  视图使用隔离的持久分区（应用程序外壳中没有会话流失）。工作区内的两种地址
+  都能打开；工作区外的两种地址都不会进入 guest 加载，地址栏保留提交的地址，
+  浏览器用当前语言说明只能打开工作区内已存在的文件。
 - **链接规格**：`03-runtime/01-ipc-protocol.md` §13a、ADR 0019、ADR 0168
 - **验收**：质量、安全
 - **里程碑**：M5
@@ -2277,11 +2292,25 @@ MainChat 弥补了缺口。 Maximized/fullscreen 调用保留最新的
   也不能显示它。只有最新导航可以显示 guest，旧 B 查询迟到不能覆盖 C。切回 A 恢复 A，
   空会话保持空白。迟到完成不能撤销关闭或销毁。同会话正常导航保留当前页面。
   非法目标、失败或超时不能把上一个文档报告为目标会话已经就绪。切换导航超过既有
-  15 秒等待上限后保持隐藏，需重试，不承诺迟到完成自动显示。
+  15 秒主框架等待上限后保持隐藏并显示错误，需重试。慢图片或子框架不阻塞已提交页面的显示；
+  页面尚未加载完成就导航时，旧请求的 ERR_ABORTED 不得阻止新地址、标题和加载状态更新。
 - **关联规范**：`04-ux/08-component-spec.md` §5.3；ADR 0028、ADR 0170。
 - **状态**：`browser-host-session.test.mjs` 与 `browser-pane-navigation.test.mjs`
   覆盖生产 BrowserHost/BrowserPane 服务路径，控制原生浏览器与 Host 边界，采用确定性
   时钟。尚不覆盖原生 Electron 合成显示或报告者的真实会话。
+
+#### E2E-BROWSER-responsive-resource-tabs
+
+- **前提**：浏览器已启用；隔离配置；本地页面包含延迟 17 秒的图片、延迟主响应及普通/新窗口链接。
+- **步骤**：输入慢图片页面地址，检查加载反馈及图片完成前的显示；打开两个聊天链接和网页新窗口链接，
+  切换标签，在其中一个标签内导航后再切走、切回；检查慢主响应、停止、失败、重试及外部打开设置。
+- **预期**：主框架导航提交后显示页面；新链接保留原标签，各标签保留表单、滚动位置、JS 状态和独立历史，切换不重新请求页面；
+  普通导航只更新原标签。失败/停止后地址栏仍可用；外部模式不新建工作面板标签。
+  会话切换、非法协议的隔离和可见性规则继续生效。
+- **补充路径**：通过 ToolSearch/BrowserPreview 预览文件，原标签的未提交表单和地址不被改写；
+  后台导航恢复到对应会话的标签，旧加载完成不能覆盖新意图；新空白标签地址和状态为空；
+  关闭后台标签销毁对应 WebContents，不影响其他标签，删除会话或销毁插件/窗口释放所属页面。
+- **状态**：隔离 Electron 定向验证；不新增仓库测试套件。
 
 #### E2E-BROWSER-in-page-navigation：浏览器工具栏跟随同文档导航
 
@@ -3426,6 +3455,7 @@ IPC 请求无法关闭。
 - **预期**：
   - 当前助手行逐步显示内容并固定关注
     保持在最晚，没有明显的振荡。
+  - 在模拟的 120Hz 显示器上，平滑文本最多以 60Hz 更新；追上后动画帧循环停止。
   - 可替换的 message/tool 部分会合并到下一个油漆，同时
     终端、许可、计划和错误状态仍然是即时的。
   - 失败的工具行仍然带有错误色调并且可以局部扩展，但永远不会标记
@@ -3462,7 +3492,8 @@ IPC 请求无法关闭。
   `pnpm test:e2e:transcript` 自动验证 React/Chromium 渲染回归（无需提供商
   凭据；需安装 Electron，并有图形会话，Linux 可用 Xvfb）。该测试挂载生产
   聊天组件，统计 100 个已完成活动组在 20 次文本更新中的 ActivityGroup
-  渲染次数，并检查工具内容变化和跨活动段的 Task 终态及耗时更新。
+  渲染次数，并检查工具内容变化、跨活动段的 Task 终态及耗时更新，以及使用
+  确定性 120Hz 动画帧验证生产平滑文本 hook。
   测试不加载样式；完整提供商流式响应与 shell 交互响应性仍为草稿。
 
 #### E2E-084：长工具循环在提供程序上下文限制之前压缩
@@ -3651,23 +3682,15 @@ IPC 请求无法关闭。
 - **里程碑**：M6+
 - **状态**：可选调试通道；标签发布必须满足 E2E-196c。
 
-#### E2E-196b：未签名的 macOS 软件包展示首次启动指引
+#### E2E-196b：macOS 软件包不附带首次启动助手
 
-- **先决条件**：默认未签名的 macOS 发布已为至少一个本机架构生成 DMG 和 ZIP 工件；
-  测试 macOS 账户可以将应用复制到 `/Applications` 或 `~/Applications`。
-- **步骤**：1) 打开 DMG 并检查根目录和布局。2) 确认窗口里只有应用与 Applications
-  链接。3) 确认 DMG 不含 command 助手，也不含 `If app won't open, read this.txt`。
-  4) 不解压应用内容，检查 ZIP 根目录，并确认其中同时存在
-  `PI-Desktop-macOS-opening-help.txt` 和可执行的 `PI-Desktop-macOS-open.command`。
-  5) 阅读说明，将应用移动到 `/Applications`，然后双击 ZIP 中的助手。
-- **预期**：DMG 使用带品牌的 720×440 背景，只包含应用和 Applications 链接，不包含或
-  暴露 command 助手或打开说明。ZIP 根目录包含助手和同一份说明。说明包含
-  `xattr -r -d com.apple.quarantine /Applications/PI-Desktop.app`，并说明兜底方式仅适用
-  于 macOS 对可信未签名工件提示应用已损坏或应用打不开的场景；已签名/公证版本无需
-  执行。ZIP 助手只查找 `/Applications/PI-Desktop.app` 和 `~/Applications/PI-Desktop.app`，
-  在存在时只删除 `com.apple.quarantine` 属性，然后打开应用，不使用 `sudo`，也不接受
-  任意路径；助手会在修改属性前校验 `CFBundleIdentifier=net.aiuo.pi-desktop`。说明不会
-  声称未签名工件已通过 Gatekeeper 资质验证。
+- **先决条件**：未签名的 macOS 调试打包已为至少一个本机架构生成 DMG 和 ZIP 工件。
+- **步骤**：1) 检查 DMG，确认窗口里只有应用与 Applications 链接。2) 不解压应用内容，
+  检查 ZIP 根目录，确认既没有 `PI-Desktop-macOS-opening-help.txt`，也没有
+  `PI-Desktop-macOS-open.command`。3) 确认 ZIP 中的应用仍可正常安装。
+- **预期**：DMG 使用带品牌的 720×440 背景，只包含应用与 Applications 链接；ZIP 包含
+  应用，但两种首次启动指引文件都不存在。签名和未签名 macOS 工件均遵循此规则；签名、
+  公证和更新程序行为保持不变。
 - **关联规格**：`06-delivery/06-release-runbook.md`、`05-security/01-security.md`
 - **验收**：质量、安全
 - **里程碑**：M6+
@@ -4986,7 +5009,7 @@ eleven-tool-round desktop paths are verified by
 - **关联规范**：`03-runtime/01-ipc-protocol.md` §12a–§12d、
   `03-runtime/02-agent-runtime.md` §5f、
   `03-runtime/13-model-catalog-and-selection.md` §2（子智能体编辑器）、
-  `04-ux/01-ui-ia.md` §3.5–§3.6、
+  `04-ux/01-ui-ia.md` §3.4–§3.5、
   `04-ux/06-settings-ia.md` §2（智能体能力页面）、§4.21–§4.25、
   `07-plugins/01-plugin-system.md` §12.2–§12.3、
   `08-meta/decisions-log.md`（D193、D194、D202、D257）、ADR 0112、ADR 0126
@@ -5243,9 +5266,9 @@ eleven-tool-round desktop paths are verified by
   市场连接。
 - **步骤**：1) 选择会话，输入未发送草稿，从页脚进入插件页，再次点击同一
   按钮。2) 重开插件页，在已安装列表输入搜索文本，返回后再次打开。3) 在
-  导航测试中分别从 `pulls`、`scheduled` 和设置进入；再测试插件前同时存在
-  定时任务和设置的历史。4) 前进到插件页后再次点击插件按钮。5) 没有可后退
-  历史时打开插件页并点击按钮。
+  导航测试中分别从定时任务和设置进入，并测试插件前同时存在
+  定时任务与设置的历史项。4) 前进到插件页后再次点击插件按钮。
+  5) 没有可后退历史时打开插件页并点击按钮。
 - **预期**：第二次点击执行一次现有后退操作，不追加返回条目，也不跳过设置。
   聊天历史条目复用现有会话选择和加载行为，返回后会话及未发送草稿仍可用。
   无法后退时打开聊天页。按下状态反映插件页是否激活。插件浏览标签、搜索
@@ -5335,6 +5358,7 @@ eleven-tool-round desktop paths are verified by
 | C / G / Quality — Plugins navigation | E2E-NAV-plugins-button-goes-back |
 | C / D / Quality — 侧边栏行状态 | E2E-LAYOUT-sidebar-row-states |
 | A / C / Quality — 侧栏材质与设置返回 | E2E-LAYOUT-sidebar-settings |
+| C / Quality — 目的页加载与焦点 | E2E-087b |
 | A / H / Quality — 渲染器进程崩溃恢复 | E2E-RUNTIME-renderer-crash-recovery |
 | B / F / Security — 提供商复制 | E2E-PROVIDER-copy-config-without-credentials |
 | B / F / Quality — 已选模型顺序 | E2E-MODEL-selected-order-persists |
@@ -5351,7 +5375,7 @@ eleven-tool-round desktop paths are verified by
 | G——插件 | E2E-022、E2E-022A、E2E-022B、E2E-022C、E2E-023、E2E-024、E2E-024B、E2E-024C、E2E-024D、E2E-024AA、E2E-024E、E2E-024W、E2E-024F、E2E-024G、E2E-024H、 E2E-024I、E2E-024J、E2E-024K、E2E-024L、E2E-024M、E2E-024N、E2E-024O、E2E-024P、E2E-025、E2E-026、E2E-105、E2E-117、E2E-120、E2E-122、E2E-123、E2E-148、E2E-153、E2E-PLUGIN-imported-pi-package-skills、E2E-PLUGIN-imported-pi-package-wrapper、E2E-PLUGIN-import-extension-installs-dependencies、E2E-PLUGIN-import-extension-reports-missing-dependency、E2E-PLUGIN-global-shortcut-owns-only-its-own-command、E2E-PLUGIN-permission-gate-for-real-time-capabilities、E2E-PLUGIN-background-audio-and-realtime-connection |
 | H——诊断 | E2E-027、E2E-031、E2E-034、E2E-042、E2E-096、E2E-098、E2E-104、E2E-107、E2E-108、E2E-109、E2E-110、E2E-113、E2E-115、E2E-116、 E2E-118、E2E-121、E2E-146、E2E-194、E2E-195 |
 | 安全性 | E2E-028、E2E-029、E2E-030、E2E-024J、E2E-024K、E2E-024M、E2E-049、E2E-068、E2E-086、E2E-105、E2E-106、E2E-107、E2E-108、E2E-109、 E2E-110、E2E-112、E2E-113、E2E-115、E2E-116、E2E-117、E2E-119、E2E-121、E2E-122、E2E-123、E2E-142、E2E-148、E2E-151、E2E-153 |
-| 品质 | E2E-CHAT-running-status-survives-output-pauses、E2E-032、E2E-033、E2E-039、E2E-043、E2E-044、E2E-045、E2E-046、E2E-047、E2E-048、E2E-048A、E2E-049、E2E-050、E2E-053、E2E-055、 E2E-056、E2E-057、E2E-058、E2E-059、E2E-060、E2E-061、E2E-062、E2E-063、E2E-064、E2E-065、E2E-066、E2E-067、E2E-068、E2E-069、 E2E-070、E2E-071、E2E-072、E2E-073、E2E-074、E2E-075、E2E-076、E2E-077、E2E-078、E2E-079、E2E-080、E2E-081、E2E-082、E2E-083、 E2E-084、E2E-085、E2E-086、E2E-092、E2E-093、E2E-094、E2E-095、E2E-096、E2E-097、E2E-098、E2E-099、E2E-100、E2E-101、E2E-102、 E2E-102a、E2E-102b、E2E-103、E2E-AGENTS-001、E2E-024N、E2E-024O、E2E-059a、E2E-060b、E2E-060c、E2E-060d、E2E-061a、E2E-073a、E2E-111、 E2E-114、E2E-117、E2E-118、E2E-119、E2E-120、E2E-122、E2E-123、E2E-142、E2E-143、E2E-144、E2E-145、E2E-146、E2E-147、E2E-148、E2E-150、E2E-151、E2E-153、E2E-194、E2E-195、E2E-199、E2E-200、E2E-201、E2E-202、E2E-203、E2E-204、E2E-209、E2E-210、E2E-250、E2E-PLUGIN-imported-pi-package-skills、E2E-SUBAGENT-resume-a-settled-delegation |
+| 品质 | E2E-CHAT-running-status-survives-output-pauses、E2E-032、E2E-033、E2E-039、E2E-043、E2E-044、E2E-045、E2E-046、E2E-047、E2E-048、E2E-048A、E2E-049、E2E-050、E2E-053、E2E-055、 E2E-056、E2E-057、E2E-058、E2E-059、E2E-060、E2E-061、E2E-062、E2E-063、E2E-064、E2E-065、E2E-066、E2E-067、E2E-068、E2E-069、 E2E-070、E2E-071、E2E-072、E2E-073、E2E-074、E2E-075、E2E-076、E2E-077、E2E-078、E2E-079、E2E-080、E2E-081、E2E-082、E2E-083、 E2E-084、E2E-085、E2E-086、E2E-092、E2E-093、E2E-094、E2E-095、E2E-096、E2E-097、E2E-098、E2E-099、E2E-100、E2E-101、E2E-102、 E2E-102a、E2E-102b、E2E-103、E2E-AGENTS-001、E2E-024N、E2E-024O、E2E-059a、E2E-060b、E2E-060c、E2E-060d、E2E-061a、E2E-073a、E2E-111、 E2E-114、E2E-117、E2E-118、E2E-119、E2E-120、E2E-122、E2E-123、E2E-142、E2E-143、E2E-144、E2E-145、E2E-146、E2E-147、E2E-148、E2E-150、E2E-151、E2E-153、E2E-194、E2E-195、E2E-199、E2E-200、E2E-201、E2E-202、E2E-203、E2E-204、E2E-209、E2E-210、E2E-UPDATE-preference-and-once-only-reminder、E2E-250、E2E-PLUGIN-imported-pi-package-skills、E2E-SUBAGENT-resume-a-settled-delegation |
 | 品质（项目排序） | E2E-253 |
 | C — 对话和直播（输入法斜杠别名） | E2E-255 |
 | E——工具和权限（Skill 常驻） | E2E-254 |
@@ -5359,6 +5383,7 @@ eleven-tool-round desktop paths are verified by
 | C — 对话和直播（导入可见性） | E2E-257 |
 | F——持久化（导入可见性） | E2E-257 |
 | C — 对话和直播（聊天文件引用） | E2E-CHAT-shorthand-file-ref-opens-the-matching-file、E2E-CHAT-file-ref-opens-the-surface-that-owns-it |
+| C / 质量 / 安全（对话 MP4 附件） | E2E-CHAT-mp4-attachment-opens-in-system-player |
 | G——插件（聊天文件引用） | E2E-CHAT-file-ref-opens-the-surface-that-owns-it、E2E-PLUGIN-file-view-collapse-persists |
 | 品质（聊天文件引用） | E2E-CHAT-shorthand-file-ref-opens-the-matching-file、E2E-CHAT-file-ref-opens-the-surface-that-owns-it、E2E-PLUGIN-file-view-collapse-persists |
 | G——插件（项目文件夹根） | E2E-PLUGIN-file-view-switches-folder-per-project |
@@ -5371,6 +5396,7 @@ eleven-tool-round desktop paths are verified by
 | 品质（Session Orchestrator） | E2E-PLUGIN-session-orchestrator-real-workers |
 | C — 对话与流式（会话列表响应性） | E2E-SESSION-list-refresh-keeps-desktop-responsive |
 | 品质（会话列表响应性） | E2E-SESSION-list-refresh-keeps-desktop-responsive |
+| 品质（Windows 更新缓存） | E2E-260 |
 | 安全性（导入扩展依赖） | E2E-PLUGIN-import-extension-installs-dependencies、E2E-PLUGIN-import-extension-reports-missing-dependency |
 | 品质（导入扩展依赖） | E2E-PLUGIN-import-extension-installs-dependencies、E2E-PLUGIN-import-extension-reports-missing-dependency |
 | F / G / 安全性 / 品质 — 导入扩展的 npm 恢复 | E2E-PLUGIN-import-extension-recovers-missing-npm |
@@ -5402,12 +5428,15 @@ eleven-tool-round desktop paths are verified by
 | M2（输入法斜杠别名） | E2E-255 |
 | M5（Skill 常驻） | E2E-254 |
 | M6 | E2E-104、E2E-105、E2E-106、E2E-107、E2E-108、E2E-109、E2E-110、E2E-111、E2E-112、E2E-113、E2E-114、E2E-115、E2E-116、E2E-117、 E2E-118、E2E-119、E2E-120、E2E-103 |
-| M6+ | E2E-121、E2E-122、E2E-123、E2E-142、E2E-148、E2E-150、E2E-151、E2E-168、E2E-199、E2E-200、E2E-202、E2E-203、E2E-209、E2E-211、E2E-212、E2E-213、E2E-214、E2E-215、E2E-216、E2E-217、E2E-257、E2E-166、E2E-SUBAGENT-resume-a-settled-delegation |
+| M6+ | E2E-121、E2E-122、E2E-123、E2E-142、E2E-148、E2E-150、E2E-151、E2E-168、E2E-199、E2E-200、E2E-202、E2E-203、E2E-209、E2E-211、E2E-UPDATE-preference-and-once-only-reminder、E2E-212、E2E-213、E2E-214、E2E-215、E2E-216、E2E-217、E2E-257、E2E-166、E2E-SUBAGENT-resume-a-settled-delegation |
 | M6+（Session Orchestrator） | E2E-PLUGIN-session-orchestrator-real-workers |
 | M6+（已选模型顺序） | E2E-MODEL-selected-order-persists |
+| M6+（目的页加载与焦点） | E2E-087b |
 | M6+（会话列表响应性） | E2E-SESSION-list-refresh-keeps-desktop-responsive |
+| M6+（Windows 更新缓存） | E2E-260 |
 | M6+（独立会话通信） | E2E-SESSION-independent-top-level-communication、E2E-SESSION-hover-card-model-and-links |
 | M5（聊天文件引用） | E2E-CHAT-shorthand-file-ref-opens-the-matching-file、E2E-CHAT-file-ref-opens-the-surface-that-owns-it |
+| M5（对话 MP4 附件） | E2E-CHAT-mp4-attachment-opens-in-system-player |
 | M6+（聊天文件引用） | E2E-PLUGIN-file-view-collapse-persists |
 | M6+（项目文件夹根） | E2E-PLUGIN-file-view-switches-folder-per-project |
 | 后MVP | E2E-022A、E2E-022B、E2E-022C、E2E-024I、E2E-024J、E2E-024K、E2E-024L、E2E-024M（插件路线图 R2/R3/R6） |
@@ -5507,7 +5536,7 @@ eleven-tool-round desktop paths are verified by
 
 ### US-UI-03 侧边栏目的地
 - 预计扩展的主页侧边栏将显示会话和项目，而无需
-独立插件、拉取请求或计划行。
+独立插件或计划行。
 - 单击侧栏页脚右侧的插件图标
   设置，并期望它用专用页面取代主窗格。
 - 打开设置→项目存档并使用它来打开、切换和关闭本地
@@ -5521,7 +5550,7 @@ eleven-tool-round desktop paths are verified by
 
 ### US-UI-05 区域设置 chrome
 - 在 zh-CN 系统语言环境中，侧边栏标签以中文呈现（项目/临时会话），
-  没有拉取请求或已安排条目。页脚插件图标显示
+  不出现额外的独立目的地行；页脚插件图标显示
   本地化的可访问名称插件。
 - 空线英雄和辅助线均为汉化汉化副本；项目
   当工作区打开时，名称仍然是点下划线操作。
@@ -7002,6 +7031,16 @@ eleven-tool-round desktop paths are verified by
 - **里程碑**：M5
 - **状态**：单元已覆盖（`apps/desktop/test/transcript-file-chips.test.mjs`）；完整 UI 旅程仍为草稿（除非用户明确要求，否则不要在本地跑 E2E）
 
+#### E2E-CHAT-mp4-attachment-opens-in-system-player
+
+- **前提条件**：对话中有一个粘贴到会话临时目录的 MP4，以及两个没有后缀、按内容哈希存储的 MP4 附件；后两者分别大于 512 KiB 和小于该上限，三者均保留 `video/mp4` 元数据。
+- **步骤**：点击每个对话附件，再在宿主文件选项卡选择“用系统默认应用打开”。对工作区内的 `.mp4` 文件重复操作。
+- **预期**：大附件提示体积超过内嵌预览上限，小附件提示二进制内容；二者均有系统打开操作。宿主校验真实路径包含范围，并为无后缀 blob 提供指向原始字节的 `.mp4` 别名。允许范围外的文件和符号链接逃逸均被拒绝；系统打开失败会提示用户。
+- **链接规格**：`03-runtime/01-ipc-protocol.md` § fs、`04-ux/09-interaction-patterns.md` §8a.2
+- **验收**：C（对话和直播）、质量、安全
+- **里程碑**：M5
+- **状态**：Electron 隔离测试已覆盖粘贴到临时目录的 MP4 及两种大小的 blob（`test:e2e:composer-paste`）；安装版与系统播放器的完整旅程仍待验收。
+
 #### E2E-181：导入的技能会出现在下一个会话的目录里
 
 - **前提条件**：设置 > 智能体 > 技能已打开。一份约定的 `<skill>/SKILL.md` 文档带有非 ASCII 的 frontmatter 名称和折叠 YAML 描述。同一项目上有一个空的 Agent 会话，技能将导入到该项目。
@@ -7211,11 +7250,13 @@ eleven-tool-round desktop paths are verified by
   有干净用户配置；账户是无需管理员提升的标准用户。
 - **步骤**：1) 检查发布目录和 `latest.yml`。2) 将便携版 ZIP 解压到用户可写目录，
   不运行 NSIS 安装程序。3) 启动解压后的 `PI-Desktop.exe`。4) 确认没有管理员提示，
-  且运行中的应用显示 PI-Desktop 图标和任务栏入口。5) 调用检查更新。6) 确认设置 → 信息
-  提供发布页而不是“重启以更新”。7) 退出并再次启动解压后的可执行文件。
+  且运行中的应用显示 PI-Desktop 图标和任务栏入口。5) 打开设置 → 关于，确认默认选择
+  手动；短暂选择自动并查看替换警告，再恢复手动。6) 调用检查更新。7) 确认设置 → 关于
+  提供发布页而不是“重启以更新”。8) 退出并再次启动解压后的可执行文件。
 - **预期**：两个 Windows 工件都无空格并已上传。`latest.yml` 只指向 NSIS 安装程序。
   ZIP 解压后的应用无需安装向导或管理员提示即可启动，保持正常的 PI-Desktop 任务栏
-  标识和图标，使用现有应用数据目录，并报告更新模式 `manual`。可用更新不会下载或运行
+  标识和图标，使用现有应用数据目录，并默认选择更新偏好 `manual`、报告有效更新模式
+  `manual`。可用更新不会下载或运行
   `PI-Desktop-Setup-<version>.exe`。再次启动从同一配置恢复会话。
 - **链接规格**：`01-product/01-product-scope.md`、
   `06-delivery/06-release-runbook.md`、`03-runtime/07-process-model.md`、
@@ -7224,6 +7265,26 @@ eleven-tool-round desktop paths are verified by
 - **里程碑**：M6+
 - **状态**：单元/源合同已覆盖（`auto-update.test.mjs`）；本机 Windows 启动仍为
   运行器验证（除非明确要求，否则不要在本地跑 E2E）
+
+#### E2E-UPDATE-preference-and-once-only-reminder：更新偏好与单次提醒
+
+- **前提条件**：有隔离的打包应用配置（支持自动安装的 Windows NSIS 安装版和
+  Windows 便携 ZIP），并可在不运行生产安装程序的情况下让更新发现路径在多次检查中
+  返回同一个稳定版。
+- **步骤**：1) 在已安装包中打开设置 → 关于，确认默认选择自动。2) 选择手动，关闭并重新
+  打开设置，再重启应用，确认手动偏好仍保留。3) 让检查发现一个稳定版；确认没有自动下载
+  或安装，只显示一次提醒。关闭提醒、离开再返回，重复检查后重启并再次检查。4) 确认同一
+  版本不会再次提醒，但设置行仍显示版本并可打开发布页。5) 选择自动，确认受支持平台恢复
+  现有应用内下载/安装行为。6) 启动便携 ZIP，确认默认手动；明确选择自动前先查看风险警告。
+- **预期**：偏好按安装实例持久化。手动模式只检查，并保存最近提醒版本，避免重复检查和
+  重启后重复提示；关于页中的状态与发布页入口始终可用。自动模式在支持的平台维持现有行为。
+  ZIP/便携包默认手动，只有经过带警告的明确选择才可改为自动。
+- **链接规格**：`03-runtime/07-process-model.md`、`04-ux/09-interaction-patterns.md`、
+  ADR 0022 / D628
+- **验收**：质量（设置交互与更新安全）
+- **里程碑**：M6+
+- **状态**：`pnpm test:e2e:settings-scroll` 覆盖设置选择与持久化；
+  `update-preference.test.mjs` 覆盖模式/提醒策略。打包 Windows 安装器旅程仍需运行器验证。
 
 #### E2E-201：为已配置模型设置别名并复制模型 id
 
@@ -7868,7 +7929,7 @@ runner 会在运行时的隔离临时目录中生成六个插件形态 fixture�
   3. 在布局收起左栏后手动重开左栏。
   4. 关闭工作面板并确认左栏恢复；再在手动收起左栏后重复一次。
   5. 用 `ArrowLeft`、`ArrowRight`、`Home`、`End` 重复调整分隔线。
-  6. Navigate to the real Plugins, Pull requests, and Scheduled routes with the
+  6. Navigate to the real Plugins and Scheduled routes with the
      work panel closed, then collapse the sidebar. In light and dark themes,
      measure both titlebar actions and compare their rest/hover styling with the
      shared work-panel toggle. Reopen the sidebar, collapse it again, and use
@@ -8511,7 +8572,7 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **预期：** 项目、权限和精确 provider/model 只保存在该任务，重新打开仍显示相同值并实际传到 sidecar，其他任务不受影响；项目、权限和模型控件保持嵌在“指令”框的 Composer 风格底栏中，窄窗口也不产生横向溢出；缺少新增字段的旧记录保持原默认行为。配置持久化并显示下次时间；暂停后不触发；手动与自动入口均调用真实
   Agent sidecar；历史记录链接到持久化会话；自动执行不依赖渲染器发送提示词。
   宿主测试补充验证重复准入、错过时段、无效输入和重启恢复。
-- **规格：** 04-ux/01-ui-ia §3.4；03-runtime/04-data-storage §4.11；
+- **规格：** 04-ux/01-ui-ia §3.3；03-runtime/04-data-storage §4.11；
   ADR scheduled-desktop-automations；ADR 0305。
 - **验收：** 定时执行与可恢复的运行历史。
 - **里程碑：** MVP 后的桌面自动化。
@@ -8570,23 +8631,28 @@ the latest destination. These assertions measure work counts, not device FPS.
 
 - **先决条件：** 一个回合包含进度段落 A、多次搜索及思考、进度段落 B、多条命令及
   思考和最终回答；详细与紧凑显示模式。
-- **步骤：** 在详细模式静态审查嵌套披露路径，包括相互独立的组／条目切换、父级收起
-  与恢复、单项片段、字面最后一项选择、失败／被拒／恢复和保留窗格重新挂载。
-  随后在紧凑模式重复，并覆盖权限／提问／计划／目标操作卡、中止的部分回答、
-  助手错误和委派子任务。
+- **步骤：** 在详细模式确认活动过程默认展开，让同一回合在无人操作时完成，并确认过程
+  收起。另一个回合中，明确展开已完成过程，并确认后续更新仍保留该选择。检查嵌套路径，
+  包括相互独立的组／条目切换、父级收起与恢复、单项片段、字面最后一项选择、失败／被拒／
+  恢复、保留窗格重新挂载和旧版搜索定位。随后在紧凑模式重复，并覆盖权限／提问／计划／
+  目标操作卡、中止的部分回答、助手错误和委派子任务。
 - **预期：** 两种模式都使用一个整体过程披露，并把最终回答、助手错误、中止后的末尾
-  文字和待处理操作留在过程之外。详细模式的活动中／已完成过程默认展开；活动多项组
-  展开，未操作组在完成时收起。紧凑模式的过程、组和载荷默认收起，隐藏推理；记录过
-  失败／被拒工具的未操作活动过程会在恢复期间保持展开，并在完成后收起。单项没有组。
-  详细模式只自动展开最后一个活动组中符合条件的字面最后工具／搜索项；不会越过思考
-  向前查找，失败／被拒叶子保持关闭。父级、子级和同级状态相互独立；窗格拥有的用户
-  选择跨更新、模式切换和重新挂载保留，渲染器重启后重新应用默认值。已保存模式跨重启
-  保留，缺失或未知设置按详细模式处理。
+  文字和待处理操作留在过程之外。详细模式的活动过程默认展开；未操作的过程在回合完成时
+  收起，用户明确选择的状态继续保留。活动多项组默认展开，未操作组在完成时收起。紧凑模式
+  的过程、组和载荷默认收起，隐藏推理；记录过失败／被拒工具的未操作活动过程会在恢复期间
+  保持展开，并在完成后收起。单项没有组。详细模式只自动展开最后一个活动组中符合条件的
+  字面最后工具／搜索项；不会越过思考向前查找，失败／被拒叶子保持关闭。父级、子级和同级
+  状态相互独立；窗格拥有的用户选择跨更新、模式切换和重新挂载保留，渲染器重启后重新应用
+  默认值。搜索只展开拥有目标消息的过程和活动组，每个请求应用一次；条目级精确定位不在
+  本次范围内，紧凑模式推理仍需显式切换到详细模式。已保存模式跨重启保留，缺失或未知设置
+  按详细模式处理。
 - **2026-09-20 变更的验证范围：** 本次变更只包含多级折叠与活动组呈现；精确转录搜索
   定位不在本次范围内，保持原有搜索行为。
+- **自动化：** `pnpm test:e2e:transcript` 覆盖默认及运行中到完成时的过程披露行为；
+  `pnpm test:e2e:transcript-disclosure` 验证手动展开状态保留和视口锚定；
+  `apps/desktop/test/turn-process.test.mjs` 覆盖默认选择。
 - **规格：** 04-ux/06-settings-ia、04-ux/08-component-spec、
   04-ux/09-interaction-patterns；ADR turn-process-and-thinking-display。
-
 ### E2E-CONTEXT-estimate-calibration-stays-safe
 
 - **先决条件：** 可脚本化上报用量的确定性提供商夹具；占用接近硬边界的会话；不使用真实凭据。
@@ -8712,7 +8778,7 @@ the latest destination. These assertions measure work counts, not device FPS.
   one hour away. Prompt, paused state and saved configuration survive. Rename
   does not reset the interval. RPC tests also cover required Daily/Weekly times
   and retention of an existing custom schedule.
-- **Specs:** 04-ux/01-ui-ia §3.4.
+- **Specs:** 04-ux/01-ui-ia §3.3.
 - **Acceptance:** C / F — task configuration and persistence.
 - **Milestone:** Maintenance.
 - **Status:** `node scripts/e2e-scheduled-hourly-update.mjs` exercises the real
@@ -8728,7 +8794,7 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **Expected:** Each result session and edited task retain the original binding,
   including no-project tasks. Legacy cadence-only tasks keep their previous
   fallback until explicitly configured (covered by host RPC tests).
-- **Specs:** 04-ux/01-ui-ia §3.4.
+- **Specs:** 04-ux/01-ui-ia §3.3.
 - **Acceptance:** Saved workspace binding across run, edit and restart.
 - **Milestone:** Maintenance.
 - **Status:** Automated by `node --experimental-strip-types
@@ -8946,3 +9012,13 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **里程碑：** 提供商配置维护。
 - **状态：** `pnpm test:e2e:provider-api-style`、`official-native-search.test.ts`；
   共享路由测试覆盖伪装域名、不安全地址和未知中转站。未验证线上服务或 Host/SQLite 保存。
+
+#### E2E-260：Windows 更新缓存可安全迁移和回收
+
+- **前提：** 已打包的 Windows x64 NSIS 安装、隔离用户配置，以及非系统卷上的可写缓存目录。使用本地更新源 fixture；不得访问 GitHub 或付费服务。
+- **步骤：** 1）在旧 `%LOCALAPPDATA%` 更新缓存中准备 `installer.exe`、`current.blockmap` 和待安装更新。2）设置 `PI_DESKTOP_UPDATE_CACHE_DIR` 为隔离缓存根目录后启动。3）确认 Main 将差分基线和待安装更新迁移至配置目录，并清理旧目录。4）完成更新并启动新版本。5）fixture 报告没有更新后检查配置目录。
+- **预期：** 缓存子目录名以 `app-update.yml` 为准；迁移保留待安装更新及差分基线。确认当前版本已是最新版本后，只移除 `pending/`，`installer.exe` 和 `current.blockmap` 仍供下次增量更新使用。未设置覆盖变量时默认路径保持不变；应用不会将下载写入 `Program Files`。
+- **规格：** `03-runtime/07-process-model.md`、ADR 0022。
+- **验收：** 缓存路径、迁移和清理单测通过；Windows task-candidate 验证应覆盖更新源传输、安装器交接和文件系统行为，且不连接真实发布源。
+- **里程碑：** M6+
+- **状态：** 单测和源码契约覆盖（`update-cache.test.mjs`、`auto-update.test.mjs`）；仍需 Windows 安装器/E2E 验证。

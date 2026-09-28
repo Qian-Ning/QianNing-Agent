@@ -2,7 +2,7 @@ export const PROTOCOL_VERSION = 11 as const;
 export const SCHEMA_VERSION = 16 as const;
 export const APP_ID = "com.qianning.agent";
 export const APP_NAME = "QianNing Agent";
-export const APP_VERSION = "0.15.8";
+export const APP_VERSION = "0.15.10";
 
 export const APP_MENU_COMMANDS = [
   "newTask",
@@ -76,7 +76,7 @@ export const IPC = {
     notificationSetViewingSession: "pi-desktop/notification/setViewingSession",
     agentPrompt: "pi-desktop/agent/prompt",
     agentSteer: "pi-desktop/agent/steer",
-    promptEnhance: "pi-desktop/prompt/enhance",
+
     speechTranscribe: "pi-desktop/speech/transcribe",
     speechSynthesize: "pi-desktop/speech/synthesize",
     speechGetStatus: "pi-desktop/speech/getStatus",
@@ -174,7 +174,6 @@ export const IPC = {
     projectSet: "pi-desktop/project/set",
     projectClear: "pi-desktop/project/clear",
     projectRemove: "pi-desktop/project/remove",
-    pullsList: "pi-desktop/pulls/list",
     scheduledList: "pi-desktop/scheduled/list",
     scheduledCreate: "pi-desktop/scheduled/create",
     scheduledUpdate: "pi-desktop/scheduled/update",
@@ -393,6 +392,7 @@ export const IPC = {
     notificationChanged: "pi-desktop/notification/event/changed",
     sessionsChanged: "pi-desktop/session/event/changed",
     notificationActivated: "pi-desktop/notification/event/activated",
+    notificationSound: "pi-desktop/notification/event/sound",
     plansChanged: "pi-desktop/plans/event/changed",
     providersOauth: "pi-desktop/providers/oauth/event",
     mcpOauth: "pi-desktop/mcp/oauth/event",

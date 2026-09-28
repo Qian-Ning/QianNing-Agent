@@ -99,6 +99,13 @@ export const de = {
   "updates": {
     "title": "Updates",
     "desc": "Updates werden von GitHub Releases heruntergeladen.",
+    "preferenceTitle": "Update-Verhalten",
+    "preferenceDesc": "Automatisch lädt Updates herunter und installiert sie; Manuell prüft und erinnert einmal pro neuer Version.",
+    "automatic": "Automatisch",
+    "manual": "Manuell",
+    "automaticUnsupported": "Dieses Paket unterstützt keine automatische Installation.",
+    "automaticPortableWarning": "Bei automatischen Updates kann eine portable Kopie durch die installierte Version ersetzt werden.",
+    "preferenceSaveFailed": "Die Update-Einstellung konnte nicht gespeichert werden.",
     "check": "Nach Updates suchen",
     "checking": "Nach Updates suchen…",
     "upToDate": "Sie sind auf der neuesten Version.",
@@ -131,6 +138,7 @@ export const de = {
     "checkForUpdates": "Auf Updates prüfen",
     "buildUnknown": "Version unbekannt",
     "search": "Suche",
+    "actionWithShortcut": "{{action}} ({{shortcut}})",
     "temporarySessions": "Temporäre Chats",
     "newTemporarySession": "Neuer temporärer Chat",
     "noProjectSessions": "Nr Chats in diesem Projekt bisher",
@@ -276,7 +284,6 @@ export const de = {
     "moveQueuedPromptDown": "Nach unten",
     "editQueuedPrompt": "Bearbeiten",
     "editQueuedPromptBusy": "Leere das Eingabefeld, bevor du diese wartende Nachricht bearbeitest",
-    "enhancePrompt": "Eingabeaufforderung verbessern",
     "conversationPromptTitle": "Prompt dieser Unterhaltung",
     "conversationPromptDesc": "Gilt nur für diese Unterhaltung. Alle anderen verwenden den integrierten Prompt.",
     "conversationPromptPlaceholder": "Leer lassen, um den integrierten Prompt zu verwenden",
@@ -285,12 +292,6 @@ export const de = {
     "conversationPromptSave": "Speichern",
     "conversationPromptClear": "Auf integrierten Prompt zurücksetzen",
     "conversationPromptSaved": "Prompt der Unterhaltung gespeichert",
-    "enhancingPrompt": "Verbesserung…",
-    "undoEnhancement": "Verbesserung rückgängig machen",
-    "enhancementFailed": "Eingabeaufforderung zur Verbesserung fehlgeschlagen",
-    "enhancementTimeout":
-      "Die Umschreibung hat zu lange gedauert. Erneut versuchen oder in den Einstellungen ein schnelleres Modell wählen.",
-    "dismissEnhancementError": "Verbesserungsfehler verwerfen",
     sendWhileRunning: "Folgenachricht senden · {{shortcut}} zum Lenken",
     steeringUnavailable: "Diese Runde nimmt keine weiteren Eingaben an. Dein Entwurf wurde behalten.",
     nativeSessionBusy: "Diese native Pi-Sitzung antwortet noch. Stoppe sie oder warte auf die Antwort, bevor du sendest.",
@@ -1607,6 +1608,9 @@ sklm: {
     "maxOutput": "Maximale Ausgabe",
     "supportedThinkingLevels": "Denkebenen",
     "defaultThinkingLevel": "Standard-Denkebene",
+    "thinkingProtocol": "Denkprotokoll",
+    "thinkingProtocolLegacy": "Standard",
+    "thinkingProtocolAdaptive": "Adaptiv",
     "modelCapabilities": "Fähigkeiten",
     "imageInput": "Bilder",
     "documentInput": "PDF",
@@ -1676,20 +1680,6 @@ sklm: {
     "fontSizeXl": "Trenta",
     "fontSizeScale": "Textgrößenskala",
     "fontSizePercent": "{{value}}%",
-    "promptEnhancementTitle": "Prompt-Verbesserung",
-    "promptEnhancementDesc":
-      "Betrifft nur die Aktion „Prompt verbessern“ im Eingabefeld: Sie wählen, welches Modell die Umformulierung ausführt. Die Rolle des Assistenten ändert sich dadurch nie.",
-    "promptEnhancementModelTitle": "Prompt-Verbesserung",
-    "promptEnhancementModel": "Standardmodell",
-    "promptEnhancementThinking": "Denkaufwand",
-    "promptEnhancementThinkingDesc":
-      "Denkaufwand für die Umschreibung. Standard ist Aus und am schnellsten.",
-    "promptEnhancementThinkingOff": "Aus (kein Denken)",
-    "promptEnhancementModelFollow": "Aktuellem Modell folgen",
-    "promptEnhancementModelUnavailable":
-      "Nicht verfügbar — die Verbesserung fällt auf das aktuelle Modell zurück",
-    "promptEnhancementMissingDraftVariable":
-      "Die Benutzer-Vorlage muss die Entwurfsvariable enthalten, sonst kann der Entwurf nicht gesendet werden.",
   },
   "project": {
     "open": "Projekt öffnen",
@@ -1797,18 +1787,6 @@ sklm: {
     "foldersLabel": "Projektordner",
     "notFound": "Projekt nicht gefunden",
     "noProjects": "Noch keine Projekte"
-  },
-  "pulls": {
-    "title": "Pull-Anfragen",
-    "refresh": "Aktualisieren",
-    "emptyTitle": "Keine Pull-Anfragen",
-    "review": "Überprüfung mit Agent",
-    "filters": "Pull-Request-Filter",
-    "filterOpen": "Offen",
-    "filterDraft": "Entwurf",
-    "filterAll": "Alle",
-    "open": "Offen",
-    "draft": "Entwurf"
   },
   "scheduled": {
     "description": "Wiederkehrende Agent-Aufgaben ausführen, solange QianNing Agent geöffnet ist.",
@@ -1972,7 +1950,8 @@ sklm: {
       "back": "Zurück zu Dateien",
       "reveal": "Im Finder anzeigen",
       "binary": "Binärdatei – Vorschau nicht verfügbar",
-      "tooLarge": "Datei ist zu groß für die Vorschau"
+      "tooLarge": "Datei ist zu groß für die Vorschau",
+      "openFailed": "Die Datei konnte nicht mit der Standardanwendung geöffnet werden."
     }
   },
   "palette": {
@@ -2557,7 +2536,7 @@ sklm: {
     "failedTitle": "{{sessionTitle}} benötigt Aufmerksamkeit",
     "failedBody": "Der Chat wurde nicht erfolgreich beendet.",
     "failedBodyWithCode": "Der Chat wurde mit dem Fehler {{code}} beendet.",
-    "askTitle": "{{sessionTitle}} benötigt Ihre Eingabe",
+    "askTitle": "Eine Frage braucht Ihre Antwort",
     "askBody": "{{question}}",
     "askBodyFallback": "Die Aufgabe erfordert Ihre Antwort, um fortzufahren.",
     "permissionTitle": "{{sessionTitle}} benötigt Tool-Genehmigung",
@@ -2588,6 +2567,8 @@ sklm: {
     "SUBAGENT_CONTEXT_OVERFLOW": "Die Aufgabe eines Subagenten hat das Kontextlimit seines Modells überschritten. Grenzen Sie die Aufgabe ein, geben Sie dem Subagenten ein Modell mit größerem Kontextfenster oder lassen Sie ihn weniger auf einmal lesen.",
     "AGENT_BUSY": "Dieser Chat funktioniert bereits. Warten Sie, bis der Vorgang abgeschlossen ist, oder stoppen Sie ihn zuerst.",
     "TURN_ABORTED": "Gestoppt.",
+    "AGENT_SIDECAR_CRASHED": "Die KI-Laufzeit ist bei der Bearbeitung abgestürzt. Dieser Durchlauf wurde gestoppt; versuchen Sie es erneut.",
+    "AGENT_SIDECAR_OOM": "Diese Unterhaltung hat den Speicher der KI-Laufzeit überschritten. Beginnen Sie einen neuen Chat oder reduzieren Sie, womit der Agent arbeitet, und versuchen Sie es erneut.",
     "workspaceActivationFailed": "Projekt-Arbeitsbereich konnte nicht aktiviert werden",
     "sessionNotFound": "Sitzung nicht gefunden",
     "noActiveSession": "Keine aktive Sitzung",

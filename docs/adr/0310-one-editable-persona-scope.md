@@ -1,4 +1,4 @@
-# ADR 0308: One editable persona scope, the per-conversation prompt
+# ADR 0310: One editable persona scope, the per-conversation prompt
 
 - Status: Accepted
 - Date: 2026-09-25
@@ -6,7 +6,7 @@
 - Amends: ADR 0121
 - Related: [Agent runtime](../spec/03-runtime/02-agent-runtime.md) ·
   [Settings IA](../spec/04-ux/06-settings-ia.md) ·
-  [Prompt enhancement](../spec/04-ux/12-prompt-enhancement.md)
+  the former prompt-enhancement surface
 
 ## Context
 
@@ -55,11 +55,9 @@ requirement settled on one editable persona: the conversation you are in.
    conversation topbar editor. Settings has no persona destination — the
    Prompts / 提示词 tab and its `globalSystemPrompt` field are removed, and the
    `globalSystemPrompt` setting is no longer accepted, stored, or synced.
-5. The prompt-enhancement card keeps only its model and reasoning rows. Its
-   rewrite system prompt and user template become product constants in
-   `packages/shared/src/prompt-enhancement.ts`; host-core no longer accepts or
-   stores `promptEnhancementCustomTemplate`,
-   `promptEnhancementUserTemplate`, or `promptEnhancementSystemPrompt`.
+5. The former prompt-enhancement card and one-shot rewrite path are removed.
+   The editable persona is only the per-conversation system prompt; legacy
+   settings are handled by migration compatibility code and are not exposed.
 6. There is no config-sync `instructions` domain and no app-wide persona field
    to sync. A conversation's prompt is session state, not portable application
    configuration.

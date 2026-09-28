@@ -45,7 +45,6 @@ test("model and reasoning selection each close only their own pill", () => {
   // closeMenus drops both at once for the mode/permission chips.
   assert.match(modelMenuSource, /const closeMenus = \(\) => \{\s*\n\s*setModelOpen\(false\);\s*\n\s*setReasoningOpen\(false\);/);
 });
-
 test("the reasoning pill carries a localized radio list and the drag slider", () => {
   // The radio list uses the localized reasoning-level labels (D629); the wire
   // value stays canonical, only the display label is translated.
@@ -165,7 +164,7 @@ test("Composer uses alias labels while preserving the exact selected wire id", a
 test("reasoning projection uses the selected exact catalog row and binding", async () => {
   const source = await readComposerModule("model.ts");
   assert.match(source, /sameComposerModelId\(candidate\.modelId, modelId\)/);
-  assert.match(source, /sameComposerModelId\(candidate\.id, model\.modelId\)/);
+  assert.match(source, /sameComposerModelId\(candidate\.id, modelId\)/);
 });
 
 test("the reasoning-level label helper maps every canonical level to an i18n key", async () => {

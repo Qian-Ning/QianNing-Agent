@@ -289,12 +289,9 @@ the settings blob during startup maintenance
 (`prune_removed_prompt_storage`), archive first, so nothing is deleted without a
 readable copy.
 
-The blob also stores which model and how much reasoning the one-shot ✨ rewrite
-uses (`promptEnhancementProviderId`, `promptEnhancementModelId`, and
-`promptEnhancementThinkingLevel`, ADR 0121). The rewrite's own instructions are
-not settings: `promptEnhancementCustomTemplate`,
-`promptEnhancementUserTemplate`, and `promptEnhancementSystemPrompt` are gone,
-and host-core no longer accepts them. No schema version bump is required.
+Legacy prompt-enhancement settings are ignored by the current UI and runtime.
+Migration code retains their keys only to safely discard or preserve archived
+configuration from older versions.
 
 New config domains (e.g. MCP servers) start as a namespace; they graduate to
 tables only when they need relations or indexes.

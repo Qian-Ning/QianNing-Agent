@@ -11,13 +11,11 @@ import type {
   UiMessage,
   MessageRevisionSummary,
   AgentPromptResponse,
-  PromptEnhancementRequest,
-  PromptEnhancementResponse,
+
   SpeechStatus,
   SpeechSynthesizeRequest,
   SpeechSynthesizeResult,
   SpeechTranscribeRequest,
-  SpeechTranscribeResult,
   SessionSummarizeTitleRequest,
   SessionSummarizeTitleResponse,
   AgentStopResponse,
@@ -73,7 +71,6 @@ import type {
   ProjectMemory,
   ProjectMemoryEntry,
   ProjectWorkspace,
-  PullRequestSummary,
   ScheduledTask,
   ProviderCreateInput,
   ProviderPublic,
@@ -392,6 +389,8 @@ export function validateSettingsWrite(settings: AppSettings): AppSettings {
     chatContentMaxWidth?: unknown;
     infiniteProviderRetry?: unknown;
     smoothStreaming?: unknown;
+    updatePreference?: unknown;
+    lastNotifiedUpdateVersion?: unknown;
     networkProxy?: unknown;
     networkPolicy?: unknown;
   };
@@ -441,6 +440,25 @@ export function validateSettingsWrite(settings: AppSettings): AppSettings {
     typeof value.smoothStreaming !== "boolean"
   ) {
     throw Object.assign(new Error("smoothStreaming is invalid"), {
+      errorCode: "INVALID_PARAMS",
+    });
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(value, "updatePreference") &&
+    value.updatePreference !== "automatic" &&
+    value.updatePreference !== "manual"
+  ) {
+    throw Object.assign(new Error("updatePreference is invalid"), {
+      errorCode: "INVALID_PARAMS",
+    });
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(value, "lastNotifiedUpdateVersion") &&
+    (typeof value.lastNotifiedUpdateVersion !== "string" ||
+      value.lastNotifiedUpdateVersion.trim().length === 0 ||
+      value.lastNotifiedUpdateVersion.length > 128)
+  ) {
+    throw Object.assign(new Error("lastNotifiedUpdateVersion is invalid"), {
       errorCode: "INVALID_PARAMS",
     });
   }
@@ -849,8 +867,6 @@ export const api = {
     ),
   setProject: (path: string) =>
     invoke<{ workspace: ProjectWorkspace | null }>(IPC.invoke.projectSet, path),
-  listPullRequests: () =>
-    invoke<{ pulls: PullRequestSummary[]; error?: string }>(IPC.invoke.pullsList),
   listScheduled: () =>
     invoke<{ tasks: ScheduledTask[] }>(IPC.invoke.scheduledList),
   createScheduled: (input: {
@@ -907,8 +923,7 @@ export const api = {
     invoke<AgentPromptResponse>(IPC.invoke.agentSteer, req),
   prompt: (req: AgentPromptRequest) =>
     invoke<AgentPromptResponse>(IPC.invoke.agentPrompt, req),
-  enhancePrompt: (req: PromptEnhancementRequest) =>
-    invoke<PromptEnhancementResponse>(IPC.invoke.promptEnhance, req),
+
   speechStatus: () => invoke<SpeechStatus>(IPC.invoke.speechGetStatus),
   speechTranscribe: (req: SpeechTranscribeRequest) =>
     invoke<{ text: string }>(IPC.invoke.speechTranscribe, req),
@@ -1206,10 +1221,10 @@ export const api = {
   pluginViewOpen: (
     pluginId: string,
     viewId: string,
-    extra?: { sessionId?: string; location?: string },
+    extra?: { sessionId?: string; location?: string; tabId?: string },
   ) => invoke(IPC.invoke.pluginViewOpen, { pluginId, viewId, ...extra }),
-  pluginViewClose: (pluginId: string, viewId: string) =>
-    invoke(IPC.invoke.pluginViewClose, { pluginId, viewId }),
+  pluginViewClose: (pluginId: string, viewId: string, extra?: { sessionId: string; tabId?: string }) =>
+    invoke(IPC.invoke.pluginViewClose, { pluginId, viewId, ...extra }),
   pluginViewSetBounds: (bounds: {
     x: number;
     y: number;
@@ -1336,7 +1351,8 @@ export const api = {
       ...(mimeType ? { mimeType } : {}),
     }),
   fsReveal: (path: string) => invoke(IPC.invoke.fsReveal, { path }),
-  fsOpen: (path: string) => invoke(IPC.invoke.fsOpen, { path }),
+  fsOpen: (path: string, mimeType?: string) =>
+    invoke(IPC.invoke.fsOpen, { path, mimeType }),
   fsIndex: () => invoke<FsIndexResult>(IPC.invoke.fsIndex),
   /**
    * Complete a file reference from chat text to a real file (D320 follow-up).
@@ -1540,6 +1556,10 @@ export const api = {
     return window.piDesktop.on(IPC.event.notificationChanged, (payload) =>
       listener((payload as { notification: AppNotification }).notification),
     );
+  },
+  onNotificationSound: (listener: () => void) => {
+    if (!window.piDesktop?.on) return () => undefined;
+    return window.piDesktop.on(IPC.event.notificationSound, () => listener());
   },
 
   // --- Remote hosts (R2b pairing UX) -----------------------------------------

@@ -239,13 +239,9 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   is remaining. The threshold controls when a text-only paste becomes a
   temporary session-scratch file; it defaults to 600 characters and accepts
   integer values from 1 through 1,000,000.
-- **Prompt enhancement** (removed, D626). The Composer's Enhance prompt action
-  and its Settings card were both removed in this build: the persona model was
-  reduced to a single editable scope (the per-conversation prompt), so a
-  separate one-shot draft rewriter no longer earns a place in the AI tab. The
-  host bridge and one-shot runtime are retained (see `04-ux/12-prompt-enhancement.md`)
-  but have no Settings entry, and Settings search no longer indexes any
-  prompt-enhancement row.
+- **Prompt enhancement** is not part of this build. The editable prompt scope
+  is the per-conversation system prompt; no separate draft-rewriting action,
+  Settings card, host bridge, or Settings search entry is provided.
 - **Thinking display mode** uses a menu select with Detailed (default) and
   Compact. Both modes use one whole-process disclosure. Detailed starts the
   process open, keeps reasoning visible, opens the active multi-item activity

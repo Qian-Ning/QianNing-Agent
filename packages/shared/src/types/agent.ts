@@ -78,19 +78,6 @@ export type AgentPromptResponse = {
   turnId: string;
 };
 
-/** One-shot Composer draft enhancement; this never reads session history. */
-export type PromptEnhancementRequest = {
-  sessionId?: string | null;
-  draft: string;
-  /** Renderer snapshot of the model currently shown in the Composer. */
-  providerId?: string;
-  modelId?: string;
-  thinkingLevel?: ThinkingLevel;
-};
-
-export type PromptEnhancementResponse = {
-  enhancedDraft: string;
-};
 
 export type SessionSummarizeTitleRequest = {
   sessionId: string;
@@ -184,10 +171,45 @@ export type ToolPermissionResolution = {
   decision: PermissionDecision;
 };
 
+/** A selectable asktool answer: a plain label or a label with supporting copy. */
+export type AskToolOption =
+  | string
+  | {
+      label: string;
+      description?: string;
+    };
+
+/** Normalize a model-provided asktool option and discard malformed/empty values. */
+export function normalizeAskToolOption(value: unknown): AskToolOption | undefined {
+  if (typeof value === "string") {
+    const label = value.trim();
+    return label || undefined;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const option = value as Record<string, unknown>;
+  const label = typeof option.label === "string" ? option.label.trim() : "";
+  if (!label) return undefined;
+  const description =
+    typeof option.description === "string" ? option.description.trim() : "";
+  return description ? { label, description } : { label };
+}
+
+export function askToolOptionLabel(option: AskToolOption): string {
+  return typeof option === "string" ? option : option.label;
+}
+
+export function askToolOptionDescription(
+  option: AskToolOption,
+): string | undefined {
+  if (typeof option === "string") return undefined;
+  const description = option.description?.trim();
+  return description || undefined;
+}
+
 /** A model-created question shown in the inline asktool card. */
 export type AskToolQuestion = {
   question: string;
-  options: string[];
+  options: AskToolOption[];
   multiSelect?: boolean;
 };
 

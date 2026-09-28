@@ -2,12 +2,11 @@ import { BrowserWindow, dialog, shell, type OpenDialogOptions } from "electron";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
 import { existsSync, statSync } from "node:fs";
-import { realpath } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 import {
   ErrorCodes,
   IPC,
-  type ComposerCommand,
   type ComposerPasteFile,
   type FsChatRefProjectRoot,
   type FsChatRefResolveResult,
@@ -33,9 +32,9 @@ import {
   listDir,
   readOpenableFile,
   readOpenableImage,
-  resolveOpenablePath,
   resolveRealOpenablePath,
 } from "@pi-desktop/host-runtime";
+import { openableMp4Path } from "../open-attachment-video";
 import { resolveChatFileRef } from "../chat-ref-resolve";
 import { getWorkspaceFileIndex } from "../fs-index";
 import {
@@ -83,7 +82,6 @@ export type WorkspaceIpcDependencies = {
   plugins: PluginRuntime;
   browserHost: BrowserHost;
   clipboardHistory: ClipboardHistory;
-  logger: Pick<Logger, "app">;
   recordPastedClipboardFiles: (files: ComposerPasteFile[]) => void;
   currentWorkspacePath: () => string | null;
   setCurrentWorkspacePath: (path: string | null) => void;
@@ -101,7 +99,6 @@ export function registerWorkspaceIpc({
   plugins,
   browserHost,
   clipboardHistory,
-  logger,
   recordPastedClipboardFiles,
   currentWorkspacePath,
   setCurrentWorkspacePath,
@@ -901,10 +898,11 @@ export function registerWorkspaceIpc({
     return { ok: true };
   });
 
-  handle(IPC.invoke.fsOpen, async (input: { path?: string } = {}) => {
+  handle(IPC.invoke.fsOpen, async (input: { path?: string; mimeType?: string } = {}) => {
     const workspaceRoot = await optionalWorkspaceRoot();
-    const target = resolveOpenablePath(
-      String(input.path ?? ""),
+    const requested = String(input.path ?? "").trim();
+    const target = await resolveRealOpenablePath(
+      requested,
       workspaceRoot,
       await fsExtraRoots(workspaceRoot),
     );
@@ -913,7 +911,13 @@ export function registerWorkspaceIpc({
         errorCode: ErrorCodes.INVALID_ARGUMENT,
       });
     }
-    const openError = await shell.openPath(stripWinLongPrefix(target));
+    if (!(await stat(target)).isFile()) {
+      throw Object.assign(new Error("not a file"), {
+        errorCode: ErrorCodes.INVALID_ARGUMENT,
+      });
+    }
+    const openPath = await openableMp4Path(dataDir, target, input.mimeType);
+    const openError = await shell.openPath(stripWinLongPrefix(openPath));
     if (openError) throw new Error(openError);
     return { ok: true };
   });

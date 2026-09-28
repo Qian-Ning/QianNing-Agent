@@ -1187,11 +1187,8 @@ outbox 排空。渲染器侧的停止绝不重写已有已开始回复的转录
 再从设置 JSON 中删除（`prune_removed_prompt_storage`，先归档后删除），因此不会
 在没有可读副本的情况下丢失任何内容。
 
-该 JSON 还存储一次性「✨增强」使用哪个模型、多少推理（`promptEnhancementProviderId`、
-`promptEnhancementModelId` 与 `promptEnhancementThinkingLevel`，ADR 0121）。
-增强自身的指令不是设置项：`promptEnhancementCustomTemplate`、
-`promptEnhancementUserTemplate` 与 `promptEnhancementSystemPrompt` 已移除，
-host-core 不再接受这三个键。无需提升 schema 版本。
+旧版本的提示词增强设置在当前 UI 和运行时中会被忽略。迁移代码仍保留这些键名，
+仅用于安全丢弃或归档旧版本配置。
 - Plan 和 Goal 工件永远不会根据转录内容重建。开
   启动,
   一笔交易标志着每笔 `pending` 批准和每笔 `queued` 或
