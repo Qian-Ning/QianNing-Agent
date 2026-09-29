@@ -515,7 +515,7 @@ export const frEntries: ChangelogEntry[] = [
       "Connectez-vous à plusieurs comptes de fournisseurs et choisissez le compte utilisé pour chaque fournisseur.",
       "Utilisez les capacités de chaque modèle pour décider quand les pièces jointes d'images sont prises en charge.",
       "Choisissez l'effort de raisonnement directement auprès du compositeur pour les modèles qui l'exposent.",
-      "Conservez une instance PI-Desktop par répertoire de données pour éviter les sessions conflictuelles.",
+      "Conservez une instance QianNing Agent par répertoire de données pour éviter les sessions conflictuelles.",
       "Organisez les paramètres en groupes plus clairs et simplifiez la gestion des comptes des fournisseurs.",
       "Gardez les sous-agents intégrés alignés sur le mode d'autorisation de la conversation parent."
     ]
@@ -559,7 +559,7 @@ export const frEntries: ChangelogEntry[] = [
       "Mémorisez les plugins récemment utilisés dans le lanceur pour un accès plus rapide.",
       "Ajoutez le chemin de la session de copie au menu contextuel pour le mode développeur.",
       "Correction des problèmes d'écrêtage du sélecteur de polices et de réinitialisation du système par défaut.",
-      "Conservez macOS PI-Desktop dans le Dock et Cmd+Tab après la fermeture de la fenêtre.",
+      "Conservez macOS QianNing Agent dans le Dock et Cmd+Tab après la fermeture de la fenêtre.",
       "Gardez la transcription du chat épinglée lorsque le compositeur s'effondre après l'envoi.",
       "Donnez au panneau de travail un véritable état vide avec des conseils plus clairs."
     ]
@@ -599,7 +599,7 @@ export const frEntries: ChangelogEntry[] = [
     "date": "2026-08-12",
     "highlights": [
       "Restaurez le lanceur global de plug-in Windows Alt+Space, y compris lorsqu'une autre application est ciblée.",
-      "Gardez PI-Desktop disponible dans la barre d'état système lorsqu'il est réduit sur macOS, Windows et Linux.",
+      "Gardez QianNing Agent disponible dans la barre d'état système lorsqu'il est réduit sur macOS, Windows et Linux.",
       "Améliorez la lisibilité du menu de sélection natif dans les thèmes clairs et sombres."
     ]
   },
@@ -675,8 +675,8 @@ export const frEntries: ChangelogEntry[] = [
     "version": "0.4.1",
     "date": "2026-08-02",
     "highlights": [
-      "Mettez à jour les versions de GitHub et mettez à jour automatiquement les liens vers le référentiel canonique PI-Desktop.",
-      "Actualisez la documentation du projet, du plug-in et de la version pour utiliser le nom du référentiel PI-Desktop."
+      "Mettez à jour les versions de GitHub et mettez à jour automatiquement les liens vers le référentiel canonique QianNing Agent.",
+      "Actualisez la documentation du projet, du plug-in et de la version pour utiliser le nom du référentiel QianNing Agent."
     ]
   },
   {

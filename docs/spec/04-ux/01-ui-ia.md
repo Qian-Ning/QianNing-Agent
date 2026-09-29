@@ -45,7 +45,7 @@ destination, chat as the home surface, tools and permissions inline.
   discoverable through Settings → Project archive.
   Collapsible to an icon rail (Cmd/Ctrl+B). Its expanded column is user-resizable
   from 240px to 520px (default 275px); dragging below 160px collapses it.
-- **Product identity**: runtime shell copy uses `PI-Desktop`; the home hero and
+- **Product identity**: runtime shell copy uses `QianNing Agent`; the home hero and
   sidebar reuse the derived `src/assets/brand/logo-*.png` marks, while composer prompt
   rows have no leading brand icon and session-creation controls use a dedicated
   message-plus icon. On

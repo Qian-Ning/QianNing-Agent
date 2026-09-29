@@ -316,7 +316,7 @@ function mainJs(template: TemplateName, vars: TemplateVars): string {
   }
 
   return `/**
- * ${vars.name} — PI-Desktop plugin entry.
+ * ${vars.name} — QianNing Agent plugin entry.
  *
  * The host injects the global \`pi\` object. Every call is gated by the
  * permissions declared in manifest.json, so widening what this file does
@@ -375,7 +375,7 @@ function panelHtml(vars: TemplateVars): string {
         color: var(--fg);
       }
       /*
-       * PI-Desktop reserves exactly a transparent 46px drag band and overlays
+       * QianNing Agent reserves exactly a transparent 46px drag band and overlays
        * only the host-owned three-button capsule. The visible panel header belongs
        * to the plugin. Development panels show a reminder that this
        * band is not clickable outside the capsule. For fixed/sticky top UI,
@@ -437,7 +437,7 @@ function panelHtml(vars: TemplateVars): string {
         if (window.pluginBridge?.invoke) {
           await window.pluginBridge.invoke("ui.showToast", { message: "${vars.name} panel bridge" });
         } else {
-          alert("pluginBridge is unavailable outside PI-Desktop");
+          alert("pluginBridge is unavailable outside QianNing Agent");
         }
       });
     </script>
@@ -495,7 +495,7 @@ ${contributions.join("\n")}
 ## Develop
 
 1. Open the Plugins page and use **Load development plugin**, pointing at this
-   directory. PI-Desktop reloads the plugin whenever you save a file here.
+   directory. QianNing Agent reloads the plugin whenever you save a file here.
 2. Verify the contributions from the command palette.
 3. Validate and package:
 
@@ -533,7 +533,7 @@ install time.
 }
 ### Panel top drag band
 
-PI-Desktop reserves exactly a transparent 46px frameless drag band above panel
+QianNing Agent reserves exactly a transparent 46px frameless drag band above panel
 content and renders a minimal fixed three-button window-control capsule in its
 top-right corner. Normal-flow content is offset automatically. The panel title,
 toolbar, and every other visible surface belong to the plugin. Development

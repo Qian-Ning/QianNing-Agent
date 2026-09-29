@@ -1,4 +1,4 @@
-export const GITHUB_REPO = "vastsa/PI-Desktop";
+export const GITHUB_REPO = "QianNing/QianNing-Agent";
 export const GITHUB_BUG_TEMPLATE = "bug_report.yml";
 export const GITHUB_ISSUE_ORIGIN = "https://github.com";
 
@@ -27,7 +27,7 @@ export function osLabelForFeedback(platform: string): FeedbackOsLabel {
 
 export function formatFeedbackEnvironment(info: FeedbackIssueContext): string {
   const host = info.hostVersion?.trim() || "unknown";
-  return `PI-Desktop ${info.version} · ${info.platform} ${info.arch} · protocol ${info.protocolVersion} · host ${host}`;
+  return `QianNing Agent ${info.version} · ${info.platform} ${info.arch} · protocol ${info.protocolVersion} · host ${host}`;
 }
 
 export function buildBugReportUrl(info: FeedbackIssueContext): string {

@@ -5,7 +5,7 @@ import type { PluginSkillDef } from "@pi-desktop/agent-runtime";
 import type { LoadedSkillDocument } from "./skill-document";
 
 /**
- * Skills PI-Desktop ships itself.
+ * Skills QianNing Agent ships itself.
  *
  * These ride the same catalog-plus-`Skill`-tool path as plugin-contributed
  * skills (D174), so a first-party skill and a third-party one are

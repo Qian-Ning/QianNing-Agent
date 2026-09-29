@@ -119,8 +119,9 @@ export class VoiceService {
 
   // ---- Models ----
 
-  getModels(): ModelState[] {
-    return this.modelManager?.getAllStates() ?? [];
+  async getModels(): Promise<ModelState[]> {
+    await this.ensureRuntime();
+    return this.modelManager!.getAllStates();
   }
 
   async downloadModel(modelId: string): Promise<void> {

@@ -133,10 +133,11 @@ test("core Settings navigation dismisses an active plugin destination", () => {
   assert.match(source, /setActiveExtension\(null\);\s*setSettingsTab\(item\.id\);/s);
 });
 
-test("host window-control band inherits the active theme palette without plugin geometry", () => {
+test("host window-control capsule inherits the active theme palette without plugin geometry", () => {
   const chromeCss = readFileSync(join(desktopRoot, "src/styles/chrome.css"), "utf8");
   const scenicSettingsCss = readFileSync(join(desktopRoot, "src/styles/settings.css"), "utf8");
-  assert.match(chromeCss, /\.window-controls\s*\{[^}]*position:\s*fixed;[^}]*background:\s*var\(--ds-bg-primary\)/s);
+  assert.match(chromeCss, /\.window-controls\s*\{[^}]*position:\s*fixed;[^}]*background:\s*var\(--ds-tile\)/s);
+  assert.doesNotMatch(chromeCss, /\.window-controls\s*\{[^}]*background:\s*var\(--ds-bg-primary\)/s);
   assert.match(chromeCss, /\.app-shell\s*>\s*\.window-controls\s*\{[^}]*z-index:\s*1100/s);
   assert.doesNotMatch(scenicSettingsCss, /\.window-controls\s*\{/);
 });

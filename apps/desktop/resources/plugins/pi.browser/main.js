@@ -27,7 +27,7 @@ export async function onLoad() {
   await pi.agent.registerTool({
     name: "Browser",
     description:
-      "Drive PI-Desktop's work-panel browser via CDP: snapshot the accessibility tree, click/fill by uid, screenshot, evaluate JavaScript, read console output, or send an allowlisted raw CDP method. Call ToolSearch for \"browser\" or \"cdp\" to load this tool. Use BrowserPreview to open a workspace HTML file with live reload.",
+      "Drive QianNing Agent's work-panel browser via CDP: snapshot the accessibility tree, click/fill by uid, screenshot, evaluate JavaScript, read console output, or send an allowlisted raw CDP method. Call ToolSearch for \"browser\" or \"cdp\" to load this tool. Use BrowserPreview to open a workspace HTML file with live reload.",
     risk: "medium",
     planSafeActions: PLAN_SAFE_ACTIONS,
     schema: {

@@ -110,7 +110,7 @@
 
 ## Frozen Decisions
 
-1. Product name: **PI-Desktop**
+1. Product name: **QianNing Agent** (Chinese name: **千凝**)
 2. Desktop shell: **Electron**
 3. UI: **React + TypeScript + Vite + Tailwind**
 4. UI language default: **English**

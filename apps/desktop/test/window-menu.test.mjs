@@ -207,11 +207,11 @@ test("Windows and Linux use menu-free frameless chrome with window controls", ()
   );
   assert.match(
     stylesSource,
-    /\.window-controls\s*\{[^}]*-webkit-app-region:\s*no-drag;[^}]*pointer-events:\s*auto;[^}]*width:\s*var\(--ds-window-controls-width\);/s,
+    /\.window-controls\s*\{[^}]*-webkit-app-region:\s*no-drag;[^}]*pointer-events:\s*auto;[^}]*width:\s*112px;/s,
   );
   assert.match(
     stylesSource,
-    /\.window-controls\s*\{[^}]*height:\s*var\(--ds-toolbar-height\)[^}]*padding-left:\s*8px;[^}]*background:\s*var\(--ds-bg-primary\);/s,
+    /\.window-controls\s*\{[^}]*height:\s*32px;[^}]*padding:\s*2px;[^}]*background:\s*var\(--ds-tile\);/s,
   );
   // D297: no side seam between the control band and the titlebar.
   assert.doesNotMatch(stylesSource, /\.window-controls\s*\{[^}]*border-left/s);
@@ -331,7 +331,7 @@ test("Windows/Linux explicit minimize paths use the native taskbar", () => {
   assert.deepEqual(packageJson.build.mac.extraResources, [
     {
       from: "../../target/release/pi-desktop-host-core",
-      to: "bin/pi-desktop-host-core",
+      to: "bin/QianNing-Agent-Host-Core",
     },
     {
       from: "build/tray-icon-mac.png",
@@ -397,9 +397,9 @@ test("desktop packaging builds the native host before every local target", () =>
       `${name} must build the native host before the packaging command`,
     );
   }
-  assert.equal(packageJson.build.win.extraResources[0].to, "bin/pi-desktop-host-core.exe");
-  assert.equal(packageJson.build.linux.extraResources[0].to, "bin/pi-desktop-host-core");
-  assert.equal(packageJson.build.mac.extraResources[0].to, "bin/pi-desktop-host-core");
+  assert.equal(packageJson.build.win.extraResources[0].to, "bin/QianNing-Agent-Host-Core.exe");
+  assert.equal(packageJson.build.linux.extraResources[0].to, "bin/QianNing-Agent-Host-Core");
+  assert.equal(packageJson.build.mac.extraResources[0].to, "bin/QianNing-Agent-Host-Core");
   assert.match(iconScriptSource, /package_icon = BUILD \/ "icon\.png"/);
   assert.match(iconScriptSource, /shutil\.which\("iconutil"\)/);
 });

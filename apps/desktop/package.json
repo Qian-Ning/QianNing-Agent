@@ -1,7 +1,7 @@
 {
   "name": "@pi-desktop/desktop",
   "version": "0.15.10",
-  "desktopName": "pi-desktop.desktop",
+  "desktopName": "qianning-agent.desktop",
   "private": true,
   "description": "QianNing Agent — personal AI coding agent desktop app",
   "homepage": "https://github.com/QianNing/QianNing-Agent",
@@ -87,8 +87,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "vastsa",
-        "repo": "PI-Desktop"
+        "owner": "QianNing",
+        "repo": "QianNing-Agent"
       }
     ],
     "extraMetadata": {
@@ -141,7 +141,7 @@
       }
     ],
     "mac": {
-      "artifactName": "PI-Desktop-${version}-${arch}-mac.${ext}",
+      "artifactName": "QianNing-Agent-${version}-${arch}-mac.${ext}",
       "target": [
         {
           "target": "dmg"
@@ -157,8 +157,8 @@
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
-        "NSLocalNetworkUsageDescription": "PI-Desktop needs local network access so agents can reach OpenAI-compatible providers, Ollama, and other AI endpoints running on your LAN. / PI-Desktop 需要本地网络访问权限，以便助手请求同一局域网中的 OpenAI 兼容服务、Ollama 等本地 AI 端点。",
-        "NSMicrophoneUsageDescription": "PI-Desktop plugins may use the microphone after you grant them audio access. / 在你授权后，PI-Desktop 插件可以使用麦克风。",
+        "NSLocalNetworkUsageDescription": "QianNing Agent needs local network access so agents can reach OpenAI-compatible providers, Ollama, and other AI endpoints running on your LAN. / QianNing Agent 需要本地网络访问权限，以便助手请求同一局域网中的 OpenAI 兼容服务、Ollama 等本地 AI 端点。",
+        "NSMicrophoneUsageDescription": "QianNing Agent plugins may use the microphone after you grant them audio access. / 在你授权后，QianNing Agent 插件可以使用麦克风。",
         "NSBonjourServices": [
           "_http._tcp",
           "_https._tcp"
@@ -167,7 +167,7 @@
       "extraResources": [
         {
           "from": "../../target/release/pi-desktop-host-core",
-          "to": "bin/pi-desktop-host-core"
+          "to": "bin/QianNing-Agent-Host-Core"
         },
         {
           "from": "build/tray-icon-mac.png",
@@ -176,7 +176,7 @@
       ]
     },
     "dmg": {
-      "artifactName": "PI-Desktop-${version}-${arch}.${ext}",
+      "artifactName": "QianNing-Agent-${version}-${arch}.${ext}",
       "background": "build/dmg-background.png",
       "icon": "build/icon.icns",
       "window": {
@@ -225,7 +225,7 @@
       "extraResources": [
         {
           "from": "../../target/release/pi-desktop-host-core.exe",
-          "to": "bin/pi-desktop-host-core.exe"
+          "to": "bin/QianNing-Agent-Host-Core.exe"
         },
         {
           "from": "build/icon.ico",
@@ -243,19 +243,19 @@
       "artifactName": "QianNing-Agent-Portable-${version}.${ext}"
     },
     "deb": {
-      "packageName": "pi-desktop",
-      "artifactName": "pi-desktop_${version}_${arch}.${ext}"
+      "packageName": "qianning-agent",
+      "artifactName": "qianning-agent_${version}_${arch}.${ext}"
     },
     "rpm": {
-      "packageName": "pi-desktop",
-      "artifactName": "pi-desktop-${version}-${arch}.${ext}",
+      "packageName": "qianning-agent",
+      "artifactName": "qianning-agent-${version}-${arch}.${ext}",
       "fpm": [
         "--rpm-rpmbuild-define",
         "_build_id_links none"
       ]
     },
     "linux": {
-      "executableName": "pi-desktop",
+      "executableName": "qianning-agent",
       "syncDesktopName": true,
       "target": [
         {
@@ -282,7 +282,7 @@
       "extraResources": [
         {
           "from": "../../target/release/pi-desktop-host-core",
-          "to": "bin/pi-desktop-host-core"
+          "to": "bin/QianNing-Agent-Host-Core"
         }
       ]
     },

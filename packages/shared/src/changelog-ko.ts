@@ -515,7 +515,7 @@ export const koEntries: ChangelogEntry[] = [
       "여러 공급업체 계정에 로그인하고 각 서비스 제공자에 사용할 계정을 선택합니다.",
       "각 모델의 기능을 사용해 이미지 첨부를 지원하는 시점을 결정합니다.",
       "추론 수준을 제공하는 모델에서 Composer로 직접 추론 강도를 선택합니다.",
-      "충돌하는 세션을 방지하도록 데이터 디렉터리마다 PI-Desktop 인스턴스 하나만 유지합니다.",
+      "충돌하는 세션을 방지하도록 데이터 디렉터리마다 QianNing Agent 인스턴스 하나만 유지합니다.",
       "더 명확한 그룹으로 Settings를 정리하고 서비스 제공자 계정 관리를 간소화합니다.",
       "내장 하위 에이전트가 부모 대화의 권한 모드를 따르도록 합니다.",
     ],
@@ -559,7 +559,7 @@ export const koEntries: ChangelogEntry[] = [
       "더 빠르게 접근할 수 있도록 실행기에서 최근 사용한 플러그인을 기억합니다.",
       "개발자 모드의 컨텍스트 메뉴에 세션 경로 복사를 추가합니다.",
       "글꼴 선택기 잘림과 System 기본값 재설정 문제를 수정합니다.",
-      "창을 닫은 후에도 macOS PI-Desktop을 Dock과 Cmd+Tab에 유지합니다.",
+      "창을 닫은 후에도 macOS QianNing Agent을 Dock과 Cmd+Tab에 유지합니다.",
       "전송 후 Composer가 접혀도 채팅 transcript를 최신 위치에 고정합니다.",
       "더 명확한 안내와 함께 작업 패널에 실제 빈 상태를 제공합니다.",
     ],
@@ -599,7 +599,7 @@ export const koEntries: ChangelogEntry[] = [
     date: "2026-08-12",
     highlights: [
       "다른 앱에 포커스가 있을 때도 Windows Alt+Space 전역 플러그인 실행기를 복원합니다.",
-      "macOS, Windows, Linux에서 최소화한 후 시스템 트레이로 PI-Desktop을 계속 사용할 수 있게 합니다.",
+      "macOS, Windows, Linux에서 최소화한 후 시스템 트레이로 QianNing Agent을 계속 사용할 수 있게 합니다.",
       "라이트 및 다크 테마에서 네이티브 선택 메뉴의 가독성을 개선합니다.",
     ],
   },
@@ -675,8 +675,8 @@ export const koEntries: ChangelogEntry[] = [
     version: "0.4.1",
     date: "2026-08-02",
     highlights: [
-      "GitHub Releases와 자동 업데이트 링크를 공식 PI-Desktop 저장소로 통일합니다.",
-      "프로젝트, 플러그인, 릴리스 문서가 PI-Desktop 저장소 이름을 사용하도록 갱신합니다.",
+      "GitHub Releases와 자동 업데이트 링크를 공식 QianNing Agent 저장소로 통일합니다.",
+      "프로젝트, 플러그인, 릴리스 문서가 QianNing Agent 저장소 이름을 사용하도록 갱신합니다.",
     ],
   },
   {

@@ -515,7 +515,7 @@ export const esEntries: ChangelogEntry[] = [
       "Inicie sesión en varias cuentas de proveedores y elija la cuenta utilizada para cada proveedor.",
       "Utilice las capacidades de cada modelo para decidir cuándo se admiten archivos adjuntos de imágenes.",
       "Elija el esfuerzo de razonamiento directamente del compositor para los modelos que lo exponen.",
-      "Mantenga una instancia de PI-Desktop por directorio de datos para evitar sesiones conflictivas.",
+      "Mantenga una instancia de QianNing Agent por directorio de datos para evitar sesiones conflictivas.",
       "Organice las configuraciones en grupos más claros y simplifique la administración de cuentas de proveedores.",
       "Mantenga los subagentes integrados alineados con el modo de permiso de la conversación principal."
     ]
@@ -559,7 +559,7 @@ export const esEntries: ChangelogEntry[] = [
       "Recuerde los complementos utilizados recientemente en el iniciador para un acceso más rápido.",
       "Agregue la ruta de la sesión de copia al menú contextual para el modo desarrollador.",
       "Solucionar problemas de recorte del selector de fuentes y restablecimiento predeterminado del sistema.",
-      "Mantenga macOS PI-Desktop en el Dock y presione Cmd+Tab después de cerrar la ventana.",
+      "Mantenga macOS QianNing Agent en el Dock y presione Cmd+Tab después de cerrar la ventana.",
       "Mantener fijada la transcripción del chat cuando el compositor colapsa después del envío.",
       "Dale al panel de trabajo un estado vacío real con una guía más clara."
     ]
@@ -599,7 +599,7 @@ export const esEntries: ChangelogEntry[] = [
     "date": "2026-08-12",
     "highlights": [
       "Restaura el iniciador global de complementos Alt+Espacio de Windows, incluso cuando otra aplicación está enfocada.",
-      "Mantenga PI-Desktop disponible en la bandeja del sistema cuando esté minimizado en macOS, Windows y Linux.",
+      "Mantenga QianNing Agent disponible en la bandeja del sistema cuando esté minimizado en macOS, Windows y Linux.",
       "Mejore la legibilidad del menú de selección nativo en temas claros y oscuros."
     ]
   },
@@ -675,8 +675,8 @@ export const esEntries: ChangelogEntry[] = [
     "version": "0.4.1",
     "date": "2026-08-02",
     "highlights": [
-      "Actualice las versiones de GitHub y actualice automáticamente los enlaces al repositorio canónico de PI-Desktop.",
-      "Actualice la documentación del proyecto, el complemento y la versión para usar el nombre del repositorio de PI-Desktop."
+      "Actualice las versiones de GitHub y actualice automáticamente los enlaces al repositorio canónico de QianNing Agent.",
+      "Actualice la documentación del proyecto, el complemento y la versión para usar el nombre del repositorio de QianNing Agent."
     ]
   },
   {

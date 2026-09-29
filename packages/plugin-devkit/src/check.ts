@@ -300,7 +300,7 @@ export async function check(dirInput: string): Promise<CheckResult> {
     }
     errors.push({
       code: "permission.unknown",
-      message: `permission "${permission}" is not a known PI-Desktop permission`,
+      message: `permission "${permission}" is not a known QianNing Agent permission`,
     });
   }
   // A write or delete permission with no declared range installs and then

@@ -21,20 +21,28 @@ test("shell titlebar surfaces share the toolbar metric and borderless surface", 
   }
 });
 
-test("window chrome reserves the same titlebar height and native control band", () => {
+test("window chrome reserves a compact control capsule inside the titlebar", () => {
   const controls = styleBlock("\\.window-controls");
-  assert.match(controls, /height:\s*var\(--ds-toolbar-height\);/);
-  assert.match(controls, /width:\s*var\(--ds-window-controls-width\);/);
+  assert.match(controls, /top:\s*7px;/);
+  assert.match(controls, /right:\s*4px;/);
+  assert.match(controls, /height:\s*32px;/);
+  assert.match(controls, /width:\s*112px;/);
   assert.match(stylesSource, /--ds-window-controls-width:\s*120px;/);
   assert.match(stylesSource, /--ds-toolbar-height:\s*46px;/);
 });
 
-test("window control band draws no boundary of its own", () => {
-  // D297: the band paints the titlebar tone and nothing else; no side seam.
+test("window controls match the adjacent topbar action capsule", () => {
   const controls = styleBlock("\\.window-controls");
   assert.doesNotMatch(controls, /border-bottom:/);
   assert.doesNotMatch(controls, /border-left/);
-  assert.match(controls, /background:\s*var\(--ds-bg-primary\);/);
+  assert.match(controls, /padding:\s*2px;/);
+  assert.match(controls, /border-radius:\s*var\(--radius-md\);/);
+  assert.match(controls, /background:\s*var\(--ds-tile\);/);
+  assert.doesNotMatch(controls, /background:\s*var\(--ds-bg-primary\);/);
+
+  const actions = styleBlock("\\.conversation-topbar \\.ct-actions");
+  assert.match(actions, /padding:\s*2px;/);
+  assert.match(actions, /background:\s*var\(--ds-tile\);/);
 });
 
 test("sidebar and work-panel headers use the shared toolbar metric", () => {

@@ -219,7 +219,7 @@ export class McpOAuthManager {
           params: {
             protocolVersion: "2025-06-18",
             capabilities: {},
-            clientInfo: { name: "PI-Desktop", version: "1" },
+            clientInfo: { name: "QianNing Agent", version: "1" },
           },
         }),
       });
@@ -335,7 +335,7 @@ export class McpOAuthManager {
     registrationEndpoint: string,
     redirectUris: string | string[],
     trustedUrl?: string,
-    clientName = "PI-Desktop",
+    clientName = "QianNing Agent",
   ): Promise<{ clientId: string; clientSecret?: string }> {
     assertTlsProtectedUrl(registrationEndpoint, "registration_endpoint", trustedUrl);
     const uris = Array.isArray(redirectUris) ? redirectUris : [redirectUris];
@@ -627,7 +627,7 @@ export class McpOAuthManager {
             res.end(
               this.renderHtml(
                 true,
-                "Authorization successful! You can close this tab and return to PI-Desktop.",
+                "Authorization successful! You can close this tab and return to QianNing Agent.",
               ),
             );
 

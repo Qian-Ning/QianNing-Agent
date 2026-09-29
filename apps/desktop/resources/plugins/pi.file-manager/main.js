@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * 文件管理器 — PI-Desktop 插件主进程
+ * 文件管理器 — QianNing Agent 插件主进程
  *
  * 插件 id: pi.file-manager
  * 视图:    contributes.views[0] → views/index.html（右侧工作面板）

@@ -76,7 +76,7 @@ test("Windows packages and windows use the canonical QianNing Agent icon", () =>
 });
 
 test("Linux packages align the desktop entry with the Wayland app identity", () => {
-  assert.equal(packageJson.desktopName, "pi-desktop.desktop");
+  assert.equal(packageJson.desktopName, "qianning-agent.desktop");
   assert.equal(packageJson.build.linux.syncDesktopName, true);
 });
 

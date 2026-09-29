@@ -515,7 +515,7 @@ export const trEntries: ChangelogEntry[] = [
       "Birden fazla satıcı hesabında oturum açın ve her sağlayıcı için kullanılan hesabı seçin.",
       "Resim eklerinin ne zaman destekleneceğine karar vermek için her modelin yeteneklerini kullanın.",
       "Ortaya çıkaran modeller için doğrudan bestecinin akıl yürütme çabasını seçin.",
-      "Çakışan oturumları önlemek için veri dizini başına bir PI-Desktop örneğini tutun.",
+      "Çakışan oturumları önlemek için veri dizini başına bir QianNing Agent örneğini tutun.",
       "Ayarları daha net gruplar halinde düzenleyin ve sağlayıcı hesap yönetimini basitleştirin.",
       "Yerleşik alt aracıları üst konuşmanın izin moduyla uyumlu tutun."
     ]
@@ -559,7 +559,7 @@ export const trEntries: ChangelogEntry[] = [
       "Daha hızlı erişim için başlatıcıda yakın zamanda kullanılan eklentileri hatırlayın.",
       "Geliştirici modu için içerik menüsüne oturum yolunu kopyala ekleyin.",
       "Yazı tipi seçici kırpmasını ve Sistem varsayılan sıfırlama sorunlarını düzeltin.",
-      "Pencere kapatıldıktan sonra macOS PI-Desktop'u Dock'ta ve Cmd+Sekme'de tutun.",
+      "Pencere kapatıldıktan sonra macOS QianNing Agent'u Dock'ta ve Cmd+Sekme'de tutun.",
       "Besteci gönderildikten sonra çöktüğünde sohbet metnini sabit tutun.",
       "Çalışma paneline daha net bir yönlendirmeyle gerçek bir boş durum verin."
     ]
@@ -599,7 +599,7 @@ export const trEntries: ChangelogEntry[] = [
     "date": "2026-08-12",
     "highlights": [
       "Başka bir uygulamaya odaklanıldığında Windows Alt+Space genel eklenti başlatıcısını geri yükleyin.",
-      "MacOS, Windows ve Linux'ta simge durumuna küçültüldüğünde PI-Desktop'un sistem tepsisinde kullanılabilir olmasını sağlayın.",
+      "MacOS, Windows ve Linux'ta simge durumuna küçültüldüğünde QianNing Agent'un sistem tepsisinde kullanılabilir olmasını sağlayın.",
       "Açık ve koyu temalarda yerel seçim menüsünün okunabilirliğini iyileştirin."
     ]
   },
@@ -675,8 +675,8 @@ export const trEntries: ChangelogEntry[] = [
     "version": "0.4.1",
     "date": "2026-08-02",
     "highlights": [
-      "GitHub Sürümlerini güncelleyin ve standart PI-Desktop deposuna olan bağlantıları otomatik olarak güncelleyin.",
-      "PI-Desktop veri havuzu adını kullanmak için projeyi, eklentiyi ve sürüm belgelerini yenileyin."
+      "GitHub Sürümlerini güncelleyin ve standart QianNing Agent deposuna olan bağlantıları otomatik olarak güncelleyin.",
+      "QianNing Agent veri havuzu adını kullanmak için projeyi, eklentiyi ve sürüm belgelerini yenileyin."
     ]
   },
   {

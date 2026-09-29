@@ -838,7 +838,7 @@ function bindingFromGenericModel(
 }
 
 /**
- * A config exported by PI-Desktop carries the provenance marker; an older or
+ * A config exported by QianNing Agent carries the provenance marker; an older or
  * foreign config does not.
  */
 function importedModelLimitSource(value: unknown): ModelLimitSource | undefined {

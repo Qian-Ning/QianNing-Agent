@@ -1,7 +1,7 @@
 /**
  * Boot failures that no restart can fix and the UI should name outright:
  *
- * - `DB_SCHEMA_TOO_NEW`: a newer PI-Desktop already migrated the local data
+ * - `DB_SCHEMA_TOO_NEW`: a newer QianNing Agent already migrated the local data
  *   directory; this older build's host-core refuses to open it. Looping
  *   restarts only repeats the same stderr line.
  * - `ARCH_MISMATCH`: the installed build is not native to this CPU (typically
@@ -33,7 +33,7 @@ export class DbSchemaTooNewError extends Error {
 
   constructor(schema: SchemaTooNew) {
     super(
-      `Local data uses database schema ${schema.found}, but this build supports ${schema.supported}. Install the newer PI-Desktop that last opened this data.`,
+      `Local data uses database schema ${schema.found}, but this build supports ${schema.supported}. Install the newer QianNing Agent that last opened this data.`,
     );
     this.name = "DbSchemaTooNewError";
     this.found = schema.found;
