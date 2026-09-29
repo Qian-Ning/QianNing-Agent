@@ -1,15 +1,15 @@
 ---
 layout: home
-title: PI-Desktop
-titleTemplate: 可拆卸的 AI Agent 桌面工作台
+title: QianNing Agent
+titleTemplate: 千凝 · 本地优先的 AI Agent 桌面工作台
 hero:
-  name: PI-Desktop
-  text: 可拆卸的 AI Agent 桌面工作台。
-  tagline: 把项目、Agent、模型、插件和工作流，装进一个长期可用的桌面环境。
+  name: QianNing Agent
+  text: 千凝 · 本地优先的 AI Agent 桌面工作台。
+  tagline: 长期项目、多模型、语音输入、插件、费用统计、皮肤与 Agent 工作流。
   actions:
     - theme: brand
       text: 立即下载
-      link: https://github.com/vastsa/PI-Desktop/releases/latest
+      link: https://github.com/Qian-Ning/QianNing-Agent/releases
     - theme: alt
       text: 使用文档
       link: /zh-CN/guide/

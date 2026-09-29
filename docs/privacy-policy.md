@@ -1,227 +1,95 @@
 # Privacy Policy
 
-**Effective date: 2026-09-20**
+**Effective date: 2026-09-29**
 
-This Privacy Policy describes how PI-Desktop handles information when you use
-the PI-Desktop desktop application. PI-Desktop is a local-first, open-source
-project maintained by contributors to [vastsa/PI-Desktop](https://github.com/vastsa/PI-Desktop).
+This policy describes how the QianNing Agent desktop application handles information. QianNing Agent is a local-first open-source distribution maintained at [Qian-Ning/QianNing-Agent](https://github.com/Qian-Ning/QianNing-Agent) and derived from PI-Desktop.
 
-This policy describes the current application behavior. It is not legal advice;
-operators who distribute a modified build or offer an additional hosted service
-are responsible for providing any notices required for that service.
+## Privacy at a glance
 
-The documentation website is a separate static service. Its current
-configuration loads fonts from Google Fonts, so a page visit can send a request
-and network metadata to Google. The website host may also process ordinary
-server access logs. Those providers' own privacy policies apply to that
-processing.
+- QianNing Agent does not require a QianNing Agent account.
+- Projects, sessions, settings, transcripts, logs, and model pricing are stored locally by default.
+- The default shipped data directory is `~/.qianning-agent`.
+- QianNing Agent does not operate a remote telemetry or cloud crash-analytics pipeline.
+- Prompts, files, tool results, and attachments may be sent to the model provider, gateway, plugin, or MCP server that you select or authorize.
+- API keys and OAuth credentials are kept in the application's encrypted local secret store.
+- Automatic application updates are disabled in the current customized distribution.
 
-## 1. Privacy at a glance
+## Information stored locally
 
-- PI-Desktop does not require a PI-Desktop account.
-- Projects, sessions, settings, transcripts, and application logs are stored
-  locally by default.
-- PI-Desktop does not currently operate a remote telemetry pipeline or cloud
-  crash-analytics service. Crash minidumps stay on this machine.
-- Your prompts, files, tool results, and other content may be sent to the model
-  provider, gateway, local model server, plugin, or MCP server that you choose
-  or invoke.
-- API keys and OAuth credentials are stored in the application's local
-  encrypted secret store. The current host implementation uses AES-256-GCM
-  encrypted files and a machine-local key.
+Depending on the features you use, QianNing Agent may store:
 
-## 2. Information stored locally
+- project paths, project metadata, sessions, transcripts, prompts, responses, attachments, and tool results;
+- provider, model, interface, permission, voice, skin, pet, and application settings;
+- encrypted provider credentials and OAuth tokens;
+- plugin code, plugin settings, plugin-owned data, MCP configuration, and local logs;
+- token usage, estimated model costs, and locally edited model pricing;
+- downloaded voice transcription models and their installation state;
+- temporary files, caches, review snapshots, audit records, and crash minidumps; and
+- a bounded in-memory clipboard history when clipboard features are used.
 
-Depending on the features you use, PI-Desktop may store the following on your
-computer:
+This data can include personal information or confidential source code. QianNing Agent does not upload local data merely because it is stored by the application.
 
-- project paths and project/session metadata;
-- prompts, model responses, thinking blocks, attachments, tool calls, tool
-  results, and Plan or Goal artifacts;
-- provider, model, interface, and application settings;
-- API-key and OAuth-credential metadata, while raw credentials remain in the
-  encrypted local secret store and are not shown in the UI;
-- plugin code, plugin settings, plugin-owned data, and plugin logs;
-- application, host, agent, and audit logs;
-- local Crashpad minidumps of Chromium processes (main, renderer, GPU,
-  utility) under the data directory, never uploaded;
-- temporary files, caches, review snapshots, and other operational data; and
-- a bounded in-memory clipboard history containing explicit clipboard writes
-  and user-initiated paste events. It may retain up to 500 entries or 256 MB for
-  up to 30 days, and plugins with clipboard permission may read it.
+## Information sent to other services
 
-Some of this information can contain personal data or confidential source code.
-PI-Desktop treats it as user data and does not upload it to PI-Desktop merely
-because it is stored locally.
+### Model providers and gateways
 
-## 3. Information sent to other services
+When you send a prompt or start an agent turn, the application sends the content required for that request to the provider, gateway, or local model server you configured. This may include conversation history, project excerpts, tool results, attachments, model metadata, and workspace instructions.
 
-PI-Desktop is a client. Network destinations depend on your configuration and
-actions.
+The selected provider's privacy and retention terms apply. Review the endpoint before sending confidential information.
 
-### 3.1 Model providers and gateways
+### Plugins and MCP servers
 
-When you send a prompt or start an agent turn, the application sends the
-content needed for that request to the provider, gateway, or local model server
-selected by you. Depending on the request, this can include conversation
-history, project excerpts, tool results, attachments, provider/model metadata,
-and instructions loaded from your workspace.
+Plugins and MCP servers can process data involved in operations you invoke or authorize. Remote MCP servers may receive initialization and tool-catalog requests before a tool call. Plugin code runs locally with user-level operating-system privileges and is not fully capability-sandboxed. Install only software you trust.
 
-The selected provider's privacy policy and retention practices apply to data it
-receives. A provider may be hosted by a third party even when it is configured
-through an OpenAI-compatible endpoint. Review the endpoint and provider terms
-before sending confidential information.
+QianNing Agent does not intentionally expose raw credentials through documented plugin APIs.
 
-### 3.2 Plugins and MCP servers
+### Catalogs, downloads, links, and media
 
-Plugins and MCP servers can be local or remote. Through PI-Desktop host APIs,
-a plugin or MCP server receives data involved in an operation you invoke or
-authorize, but its own code and service may process that data under its own
-terms. A remote MCP server may also receive protocol initialization and tool
-catalog requests (including `initialize` and `tools/list`) before any tool is
-called. Review permissions, source, and privacy practices before installing or
-enabling one.
+Features you enable may contact model catalogs, voice-model download sources, plugin services, provider OAuth endpoints, GitHub, or other configured services. Those services can receive ordinary network metadata such as IP address and user agent.
 
-PI-Desktop does not intentionally expose the host secret store through its
-documented plugin APIs. However, plugin code currently runs locally with the
-user's operating-system privileges and is not fully capability-sandboxed. Treat
-all plugins, especially marketplace packages, as user-privileged third-party
-code. Marketplace packages and remote MCP servers are third-party software and
-services.
+External links open in the operating system's browser. Remote images, audio, or video referenced by content may cause network requests to their hosts.
 
-### 3.3 Catalogs, updates, links, and media
+### Local control interfaces
 
-The application may contact configured model catalogs, plugin marketplace
-endpoints, GitHub release/update endpoints, provider OAuth endpoints, and
-other services required by features you enable. Those services may receive
-network metadata such as your IP address and user agent.
+The optional local MCP control plane is disabled by default and binds to loopback when enabled. Protect the local data directory and its bearer token. Do not expose it to untrusted local users or remote networks.
 
-Installing or updating a plugin through the official plugin channel also
-contacts the plugin marketplace endpoint used by that channel, the plugin
-center at `https://plugins.aiuo.net/api/v1/download/resolve`. That request
-carries a device identifier: a SHA-256 digest derived from a machine identifier
-the operating system exposes, or, when no machine identifier can be read, a
-random identifier generated once and stored in the application data directory.
-The value sent is the digest, not the machine code, and the machine code cannot
-be recovered from it. The service uses the identifier to de-duplicate and
-rate-limit a download, and it keeps counts for a device rather than the identity
-behind it. The two backup channels and a custom source do not send it.
+## What QianNing Agent does not do
 
-Links opened through the application are handled by the operating system or an
-external browser. Markdown written by a model may include remote images,
-audio, or video; when rendered, the relevant host may receive a request from
-your computer. Do not include sensitive data in URLs or remote media requests.
-
-### 3.4 Local control interfaces
-
-The optional local MCP control plane is disabled by default and binds to the
-loopback interface when enabled. It is intended for trusted local clients, not
-for remote access or untrusted local users. Protect the local user-data
-directory and its bearer token.
-
-## 4. What PI-Desktop does not do
-
-PI-Desktop does not currently:
+QianNing Agent does not currently:
 
 - sell personal information or use it for advertising;
-- require registration with PI-Desktop to use the desktop application;
-- send application telemetry to a PI-Desktop-operated remote analytics service;
-  or
-- send raw provider credentials to the renderer, application logs, or plugins.
+- require product registration;
+- upload application telemetry or crash dumps to a QianNing-operated analytics service;
+- use local projects or transcripts to train a QianNing model; or
+- expose raw provider credentials to the renderer, normal application logs, or plugins through documented APIs.
 
-A modified build, third-party plugin, configured provider, marketplace, MCP
-server, or hosting provider may have different practices.
+Third-party providers, plugins, MCP servers, websites, and modified builds can have different practices.
 
-## 5. How information is used
+## Retention and deletion
 
-Information is used to:
+Local data remains until you remove it, subject to filesystem backups and operating-system behavior.
 
-- run agent sessions and provide the features you request;
-- save and restore local sessions, projects, settings, and review history;
-- execute and audit tools according to the permission policy;
-- store, load, update, and remove plugins and their local data;
-- diagnose failures through local logs; and
-- check for application, model-catalog, or plugin updates. Packaged builds
-  may check the configured GitHub release endpoint after startup and roughly
-  every six hours while running.
+- Delete sessions in the application to remove their records and transcript files.
+- Remove providers or credentials to remove their saved authentication data.
+- Downloaded voice models remain until deleted from Voice settings or from local application data.
+- Logs and audit records are rotated or pruned according to application limits.
+- Crash minidumps remain local until deleted.
+- Uninstalling the application may leave `~/.qianning-agent` behind so reinstalling does not destroy user data.
 
-PI-Desktop does not use your local project or transcript content for its own
-model training. A model provider or other service may have its own training and
-retention policy; consult that service before using it.
+Deleting local data does not delete copies already sent to a provider, plugin, MCP server, or other third party.
 
-## 6. Retention and deletion
+## Security
 
-PI-Desktop keeps local data until you remove it, subject to normal filesystem,
-backup, and operating-system behavior.
+QianNing Agent uses process boundaries, renderer sandboxing, workspace path checks, permission prompts, secret redaction, and encrypted local secret files. No security control is perfect. Agent tools and allowed shell commands execute with the current user's operating-system privileges.
 
-- Sessions and transcripts are not automatically deleted by age. Delete a
-  session from the application to remove its session records and transcript
-  files.
-- Application, host, and agent logs are size-capped and rotated. Audit records
-  are retained locally and normally pruned after 90 days.
-- Crashpad minidumps remain in the data directory until you delete them; they
-  are never uploaded.
-- Temporary session scratch data is removed with the session, and disposable
-  caches may be recreated or removed during maintenance.
-- Provider credentials remain until you remove the provider or credential,
-  or remove the application's local data. Ordinary application uninstall may
-  leave the local data directory behind; filesystem and backup copies require
-  separate removal.
-- Plugin code, plugin data, and plugin-specific logs are removed according to
-  the uninstall flow. Plugin diagnostics written to shared application logs
-  may remain until log rotation or application-data deletion. A plugin may also
-  maintain data outside PI-Desktop if its own code creates it there.
+Treat prompts, model output, plugins, MCP servers, downloaded models, and remote content as untrusted. Do not grant permissions to software you do not trust.
 
-Deleting local data does not delete copies already sent to a provider, plugin,
-MCP server, update service, or other third party. Request deletion from that
-service under its own policy.
+## Your choices
 
-## 7. Security
+You can reduce data exposure by choosing local models, reviewing endpoints and permissions, disabling optional network features, and deleting local sessions, models, credentials, plugins, logs, and application data.
 
-PI-Desktop uses local process boundaries, renderer sandboxing, workspace path
-checks, permission prompts, secret redaction, and encrypted local secret files.
-Plugin capability sandboxing is not complete. No security measure is perfect.
-You are responsible for protecting your computer, project files, credentials,
-local user-data directory, and any local control token.
+For privacy questions, use the [QianNing Agent repository](https://github.com/Qian-Ning/QianNing-Agent) without posting confidential information. For vulnerabilities, follow the [security policy](https://github.com/Qian-Ning/QianNing-Agent/security/policy).
 
-Agent tools and shell commands run with the user's operating-system privileges
-when allowed. Treat prompts, model output, plugins, MCP servers, and remote
-content as untrusted. Do not grant permissions to software you do not trust.
+## Upstream notice
 
-## 8. Your choices and privacy requests
-
-You can control data collection and exposure by:
-
-- choosing a local model or a provider you trust;
-- reviewing provider, plugin, MCP, and shell permissions before use;
-- disabling plugins and optional network features;
-- deleting sessions, credentials, logs, plugins, and application data locally;
-  and
-- avoiding personal or confidential information in prompts, public issue
-  reports, URLs, and remote media.
-
-Where applicable law gives you rights to access, correct, export, restrict, or
-delete personal information, contact the maintainers first. Because PI-Desktop
-is local-first, the maintainers generally do not possess your local project,
-transcript, or credential data and may be unable to retrieve or delete it for
-you. You can contact the project through the
-[GitHub repository](https://github.com/vastsa/PI-Desktop); do not post personal
-or confidential information in a public issue.
-
-## 9. Children
-
-PI-Desktop is a general-purpose developer tool and is not directed to children.
-We do not knowingly collect personal information from children through a
-PI-Desktop-operated service.
-
-## 10. Changes to this policy
-
-This policy may be updated when the application's data practices change. The
-effective date at the top will identify the current version. Material changes
-will be communicated through the repository or release notes when practical.
-
-## 11. Contact
-
-For privacy questions, use the [PI-Desktop GitHub repository](https://github.com/vastsa/PI-Desktop).
-For security vulnerabilities, follow the repository's security reporting
-instructions rather than disclosing sensitive details in a public issue.
+QianNing Agent is derived from [PI-Desktop](https://github.com/vastsa/PI-Desktop). Upstream documentation can describe services or release behavior that differ from this customized distribution. This policy describes the QianNing Agent configuration maintained in this repository.

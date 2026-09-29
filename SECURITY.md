@@ -1,64 +1,43 @@
 # Security Policy
 
-PI-Desktop is an early-preview, local-first desktop application. We take
-security reports seriously and appreciate responsible disclosure.
+QianNing Agent is a local-first desktop application derived from PI-Desktop. Security reports are handled for the QianNing distribution and its customizations through this repository.
 
-## Supported Versions
+## Supported versions
 
-Security fixes are provided for the latest release published on the
-[GitHub Releases page](https://github.com/vastsa/PI-Desktop/releases). Older
-releases and development builds may not receive security fixes.
+Security fixes are provided for the latest version published in the [QianNing Agent releases](https://github.com/Qian-Ning/QianNing-Agent/releases). Older releases and development builds may not receive fixes.
 
-## Reporting a Vulnerability
+## Report a vulnerability
 
-**Please do not report security vulnerabilities through public GitHub issues,
-pull requests, or discussions.**
+**Do not report security vulnerabilities through public issues, pull requests, or discussions.**
 
-Send a private report to **hhxk666@gmail.com** with the subject:
+Use GitHub's private security advisory form:
 
-```text
-[PI-Desktop Security] <short description>
-```
+<https://github.com/Qian-Ning/QianNing-Agent/security/advisories/new>
 
-If private vulnerability reporting is enabled for this repository, you may
-also use GitHub's private security advisory form:
+If private vulnerability reporting is unavailable, contact the repository owner through a private channel before disclosing technical details. Do not post credentials, private source code, personal data, exploit payloads, or unredacted logs publicly.
 
-<https://github.com/vastsa/PI-Desktop/security/advisories/new>
+Include:
 
-Please include as much of the following information as you can:
+- a description of the vulnerability and its impact;
+- the affected QianNing Agent version, operating system, and package type;
+- minimal reproduction steps or a proof of concept;
+- the affected component or security boundary; and
+- redacted logs, screenshots, stack traces, or remediation ideas when useful.
 
-- A clear description of the vulnerability and its security impact.
-- The affected PI-Desktop version, operating system, and installation type.
-- Reproduction steps or a minimal proof of concept.
-- The affected component, feature, configuration, or extension boundary.
-- Any relevant logs, screenshots, stack traces, or suggested remediation.
-
-Please remove API keys, access tokens, passwords, private source code, personal
-data, and other sensitive information before sending a report. Do not test
-against other users, access data that does not belong to you, or perform
-destructive actions. PI-Desktop does not currently operate a bug bounty
-program.
-
-## Response and Disclosure
-
-We aim to acknowledge a report within 7 calendar days and provide an initial
-assessment within 14 calendar days. We will keep the reporter informed about
-triage, remediation, and release plans when appropriate.
-
-Please allow us reasonable time to investigate and release a fix before making
-the vulnerability public. We will coordinate a disclosure date with the
-reporter whenever possible and will credit the reporter in release notes only
-with their permission.
+Do not test against other users, access data that does not belong to you, or perform destructive actions. QianNing Agent does not operate a bug-bounty program.
 
 ## Scope
 
-Reports are generally in scope when they affect the PI-Desktop application,
-official release artifacts, Electron main or preload boundaries, the Rust host
-core, the agent runtime, or the handling of credentials, permissions, local
-files, plugins, MCP servers, or IPC/RPC messages.
+Reports are generally in scope when they affect:
 
-Issues that affect only a third-party provider, model service, operating
-system, dependency, or user-installed extension should also be reported to the
-relevant maintainer. They are still in scope for PI-Desktop if the application
-introduces an exploitable integration, permission, sandbox, or credential
-handling weakness.
+- QianNing Agent release artifacts or custom branding/distribution behavior;
+- Electron main, preload, renderer sandboxing, IPC, or RPC boundaries;
+- the Rust host core, agent runtime, local database, or filesystem restrictions;
+- credentials, permission prompts, tool execution, plugins, MCP, or local control interfaces; or
+- voice models, update/release links, and other QianNing-specific integrations.
+
+Issues inherited unchanged from the upstream PI-Desktop project may also need to be reported to the [upstream security process](https://github.com/vastsa/PI-Desktop/security). Do not disclose a vulnerability publicly in either repository before maintainers have had reasonable time to investigate.
+
+## Disclosure
+
+We aim to acknowledge private reports within seven calendar days and provide an initial assessment within fourteen calendar days. Timelines can vary with severity, reproducibility, and upstream coordination requirements.

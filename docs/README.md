@@ -1,4 +1,4 @@
-# PI-Desktop Docs
+# QianNing Agent Docs
 
 `docs/` is a VitePress project. The published site starts at [`index.md`](index.md);
 the repository's English technical source of truth remains organized under
@@ -26,6 +26,7 @@ pnpm docs:check
 
 - [English documentation site](index.md)
 - [中文入口](zh-CN/index.md)
+- [QianNing brand contract](spec/01-qianning-brand.md)
 - [Quick guide](guide/index.md)
 - [Specification index](spec/README.md)
 - [ADR index](adr/README.md)

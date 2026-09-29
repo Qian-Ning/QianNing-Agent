@@ -8,6 +8,7 @@
 
 ## 0. 基线
 - [00-baseline.md](/zh-CN/spec/00-baseline)
+- [01-qianning-brand.md](/zh-CN/spec/01-qianning-brand)
 
 ## 1. 产品
 - [README.md](/zh-CN/spec/01-product/README)

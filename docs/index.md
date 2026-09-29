@@ -1,15 +1,15 @@
 ---
 layout: home
-title: PI-Desktop
-titleTemplate: A modular desktop workspace for AI agents
+title: QianNing Agent
+titleTemplate: A local-first desktop workspace for AI agents
 hero:
-  name: PI-Desktop
-  text: A desktop workspace for AI agents.
-  tagline: Bring projects, agents, models, plugins, and workflows into one persistent desktop environment.
+  name: QianNing Agent
+  text: A local-first desktop workspace for AI agents.
+  tagline: Persistent projects, configurable models, voice input, plugins, usage pricing, skins, and agent workflows.
   actions:
     - theme: brand
       text: Download
-      link: https://github.com/vastsa/PI-Desktop/releases/latest
+      link: https://github.com/Qian-Ning/QianNing-Agent/releases
     - theme: alt
       text: Documentation
       link: /guide/

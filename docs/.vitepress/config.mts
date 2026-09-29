@@ -152,7 +152,7 @@ const enNav: DefaultTheme.NavItem[] = [
   { text: 'ADRs', link: '/adr/README' },
   { text: 'Plugin guide', link: '/plugin-development' },
   { text: 'Privacy policy', link: '/privacy-policy' },
-  { text: 'GitHub', link: 'https://github.com/vastsa/PI-Desktop' },
+  { text: 'GitHub', link: 'https://github.com/Qian-Ning/QianNing-Agent' },
 ]
 
 const zhNav: DefaultTheme.NavItem[] = [
@@ -161,12 +161,12 @@ const zhNav: DefaultTheme.NavItem[] = [
   { text: 'ADR', link: '/zh-CN/adr/' },
   { text: '插件开发', link: '/zh-CN/plugin-development' },
   { text: '隐私政策（英文）', link: '/privacy-policy' },
-  { text: 'GitHub', link: 'https://github.com/vastsa/PI-Desktop' },
+  { text: 'GitHub', link: 'https://github.com/Qian-Ning/QianNing-Agent' },
 ]
 
 export default defineConfig({
-  title: 'PI-Desktop',
-  description: 'A modular desktop workspace for AI agents',
+  title: 'QianNing Agent',
+  description: 'A local-first desktop workspace for AI agents',
   // Product shell is dark-base; lock docs to the same charcoal system.
   appearance: 'force-dark',
   cleanUrls: true,
@@ -180,8 +180,8 @@ export default defineConfig({
     'zh-CN': {
       label: '简体中文',
       lang: 'zh-CN',
-      title: 'PI-Desktop 文档',
-      description: '面向 AI 智能体的模块化桌面工作区',
+      title: 'QianNing Agent 文档',
+      description: '千凝：本地优先的 AI Agent 桌面工作台',
       themeConfig: {
         nav: zhNav,
         sidebar: zhSidebar,
@@ -193,8 +193,8 @@ export default defineConfig({
         sidebarMenuLabel: '目录',
         darkModeSwitchLabel: '外观',
         langMenuLabel: '切换语言',
-        editLink: { pattern: 'https://github.com/vastsa/PI-Desktop/edit/main/docs/:path', text: '在 GitHub 上编辑此页' },
-        footer: { message: '本地优先 · 模型可替换 · 插件可扩展。 <a href="https://aiuo.net" target="_blank" rel="noreferrer">AIUO.NET</a>', copyright: 'Copyright © 2026 PI-Desktop 贡献者' },
+        editLink: { pattern: 'https://github.com/Qian-Ning/QianNing-Agent/edit/main/docs/:path', text: '在 GitHub 上编辑此页' },
+        footer: { message: '本地优先 · 模型可替换 · 插件可扩展。', copyright: 'Copyright © 2026 QianNing Agent contributors' },
       },
     },
   },
@@ -205,13 +205,13 @@ export default defineConfig({
   },
   themeConfig: {
     logo: '/app-icon.png',
-    siteTitle: 'PI-Desktop',
+    siteTitle: 'QianNing Agent',
     search: { provider: 'local' },
-    socialLinks: [{ icon: 'github', link: 'https://github.com/vastsa/PI-Desktop' }],
-    editLink: { pattern: 'https://github.com/vastsa/PI-Desktop/edit/main/docs/:path', text: 'Edit this page on GitHub' },
+    socialLinks: [{ icon: 'github', link: 'https://github.com/Qian-Ning/QianNing-Agent' }],
+    editLink: { pattern: 'https://github.com/Qian-Ning/QianNing-Agent/edit/main/docs/:path', text: 'Edit this page on GitHub' },
     outline: { level: 'deep', label: 'On this page' },
     docFooter: { prev: 'Previous', next: 'Next' },
-    footer: { message: 'Local-first · Model-agnostic · Plugin-powered. <a href="https://aiuo.net" target="_blank" rel="noreferrer">AIUO.NET</a>', copyright: 'Copyright © 2026 PI-Desktop contributors' },
+    footer: { message: 'Local-first · Model-agnostic · Plugin-powered.', copyright: 'Copyright © 2026 QianNing Agent contributors' },
     nav: enNav,
     sidebar: enSidebar,
   },

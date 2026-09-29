@@ -5,6 +5,7 @@
 
 ## 0. Baseline
 - [00-baseline.md](00-baseline.md)
+- [01-qianning-brand.md](01-qianning-brand.md)
 
 ## 1. Product
 - [README.md](01-product/README.md)

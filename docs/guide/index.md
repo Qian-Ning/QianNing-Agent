@@ -1,11 +1,11 @@
 ---
 title: Start here
-description: A short orientation to the PI-Desktop product and its documentation.
+description: A short orientation to QianNing Agent and its documentation.
 ---
 
 # Start here
 
-PI-Desktop is a local-first AI coding agent desktop client. The app keeps the
+QianNing Agent is a local-first AI coding agent desktop client. The app keeps the
 workspace, host process, agent runtime, and provider configuration visible and
 inspectable while still making everyday coding work feel direct.
 
