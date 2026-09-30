@@ -15320,6 +15320,13 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **Coverage**: `chat-links.test.mjs`; native desktop click-through with the normal browser destination.
 - **Specs linked**: `04-ux/08-component-spec.md` §8.3.
 
+#### E2E-CHAT-user-link-selection: URLs in user messages are selectable text
+
+- **Steps**: Send `介绍一下这个项目：https://github.com/vastsa/PI-Desktop` in a user message. Drag from the start of the message past the end of the URL, then copy. Click the URL once afterwards.
+- **Expected**: The selection highlights the prose and the URL together, and the copied text is the whole message including the URL. A plain click on the URL still opens it through the Link open destination.
+- **Coverage**: `transcript-style.test.mjs` asserts `.chat-text-link` opts back into text selection over the unselectable `button` baseline; drag-and-copy checked in Chromium against the full renderer stylesheet (issue #1243).
+- **Specs linked**: `04-ux/08-component-spec.md` §8.3.
+
 #### E2E-IME-escape: Composition cancellation preserves drafts
 
 - **Steps**: Edit a user message; type a draft; dispatch composing Escape and Cmd/Ctrl+Enter. Open global search and dispatch composing Escape from its input. Repeat with legacy keyCode 229, then ordinary Escape and retry shortcuts.
