@@ -34,6 +34,7 @@ const enEntries: ChangelogEntry[] = [
     date: "2026-09-28",
     highlights: [
       "Marketplace plugins now appear in a randomized order instead of alphabetically.",
+      "The composer model menu is now a two-pane browser with favorites, recents, capability filters, and cross-provider search.",
     ],
   },
 
@@ -863,6 +864,7 @@ const zhCNEntries: ChangelogEntry[] = [
     date: "2026-09-28",
     highlights: [
       "插件市场列表改为随机顺序展示，不再按名称排序。",
+      "输入框的模型选择改为双栏浏览：收藏置顶、最近使用、能力过滤与跨服务商搜索。",
     ],
   },
 
@@ -1692,6 +1694,7 @@ const zhTWEntries: ChangelogEntry[] = [
     date: "2026-09-28",
     highlights: [
       "外掛市集改為隨機順序顯示，不再按名稱排序。",
+      "輸入框的模型選擇改為雙欄瀏覽：收藏置頂、最近使用、能力篩選與跨服務商搜尋。",
     ],
   },
 

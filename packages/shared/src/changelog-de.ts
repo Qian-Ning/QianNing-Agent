@@ -6,6 +6,7 @@ export const deEntries: ChangelogEntry[] = [
     "date": "2026-09-28",
     "highlights": [
       "Marketplace-Plugins werden jetzt in zufälliger statt alphabetischer Reihenfolge angezeigt.",
+      "Die Modellauswahl im Eingabefeld ist jetzt ein zweispaltiger Browser mit Favoriten, zuletzt verwendeten Modellen, Fähigkeitsfiltern und anbieterübergreifender Suche.",
     ],
   },
 

@@ -7565,3 +7565,44 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   covers native DMG and ZIP archive inspection.
 - D634 amends D457 / ADR 0296 and supersedes the macOS distribution provisions
   of ADR 0232 / ADR 0204. See ADR 0309.
+
+## 2026-10-01 — Composer model menu becomes a two-pane browser (D636)
+
+- QianNing fork addition. The user runs many AI services, each exposing many
+  models, so the single vertical provider→model list the model pill opened
+  (D625/D627 settings share the catalog, but the composer menu was one long
+  column) grew unusable: "如果我接入的服务商很多，且每个服务商有很多模型，这样就会
+  一竖来展示会很杂乱". The agreed direction, confirmed against an interactive HTML
+  prototype, is a command-palette-style two-pane browser: favorites on top,
+  recents, capability filters, and fuzzy cross-provider search.
+- The model menu widens to `min(560px, 100vw - 24px)` and splits into a left
+  source rail and a right model pane (`composer-model-browser-menu`). The rail
+  lists a Favorites bucket and a Recent bucket first — each shown only when it
+  resolves to at least one currently configured model that also passes the
+  active capability filters — then every configured provider under a "Providers"
+  heading with its account-aware display name and a count badge. Selecting a rail
+  source swaps the right pane without closing the menu.
+- A capability-filter chip row (Reasoning / Vision / Tools / PDF) narrows both
+  the rail buckets and the pane; a non-empty search needle searches across every
+  provider (id, alias, published name, family, provider name) regardless of the
+  selected rail source, prefixes each result with its provider name, and still
+  respects the chips. The right pane shows one row per model with the
+  alias-or-wire-id label, reasoning/vision glyphs, context window, and a trailing
+  favorite (star) toggle; within a provider view favorited models float to the
+  top. Choosing a model records it in the Recent bucket.
+- Favorites and Recent persist as renderer-only UI preferences in `localStorage`
+  (`pi.desktop.composerModelFavorites`, `pi.desktop.composerModelRecents`,
+  mirroring D632's input-history pattern), never in host state, and are re-read
+  each time the menu opens. The selection wire contract is unchanged: the exact
+  `providerId`/`modelId` pair is still what `configureActiveSession` commits
+  (latest-wins), the D630 reasoning pill is untouched, and no protocol, host,
+  schema, or persisted-format change is introduced.
+- Pure logic lives in `src/lib/composer-model-selector.ts` (rail sources, filter
+  predicates, flat pane entries, active-index math) and
+  `src/lib/composer-model-preferences.ts` (favorites/recents storage), each
+  behind unit tests (`composer-model-selector.test.mjs`,
+  `composer-model-preferences.test.mjs`); the two-pane markup is asserted by
+  `composer-model-thinking-menu.test.mjs`. New i18n keys
+  (`modelFilterReasoning/Vision/Tools/Pdf`, `modelSourceFavorites/Recents/
+  Providers`, `modelFavoriteAdd/Remove`) ship in all nine shell locales. See
+  `04-ux/08-component-spec.md` §11.

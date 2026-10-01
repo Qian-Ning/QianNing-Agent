@@ -662,6 +662,252 @@
   text-align: center;
 }
 
+/* Two-pane model browser (left rail of sources + right pane of models). The
+   menu grows wider than the single-column picker so provider rows and model
+   rows sit side by side instead of a single scrolling column. */
+.composer-model-browser-menu {
+  width: min(560px, calc(100vw - 24px));
+}
+
+.composer-model-browser {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.composer-model-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 3px 6px;
+}
+
+.composer-model-filter-chip {
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-xs-plus);
+  cursor: pointer;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    border-color var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.composer-model-filter-chip:hover {
+  background: var(--ds-bg-hover);
+  color: var(--ds-text-primary);
+}
+
+.composer-model-filter-chip.active {
+  border-color: transparent;
+  background: var(--ds-accent);
+  color: var(--ds-text-on-accent, #fff);
+}
+
+.composer-model-browser-body {
+  display: grid;
+  grid-template-columns: minmax(120px, 160px) minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Left rail: pinned buckets then providers; scrolls independently so the pane
+   on the right can be long without pushing the rail out of reach. */
+.composer-model-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 2px;
+  border-right: 1px solid var(--ds-border-subtle);
+}
+
+.composer-model-rail-heading {
+  padding: 8px 8px 2px;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+:lang(zh-CN) .composer-model-rail-heading,
+:lang(zh-TW) .composer-model-rail-heading {
+  letter-spacing: var(--tracking-normal);
+  text-transform: none;
+}
+
+.composer-model-rail-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 30px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.composer-model-rail-item:hover {
+  background: var(--ds-bg-hover);
+  color: var(--ds-text-primary);
+}
+
+.composer-model-rail-item.active {
+  background: var(--ds-bg-active);
+  color: var(--ds-text-primary);
+}
+
+.composer-model-rail-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  color: var(--ds-text-muted);
+}
+
+.composer-model-rail-label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-model-rail-count {
+  flex: 0 0 auto;
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--ds-tile-deep);
+  color: var(--ds-text-muted);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* Right pane: the model rows for the active rail source or search result. */
+.composer-model-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/* A model row is a select button plus a trailing favorite toggle, so the row
+   is a flex container and the select button carries the inner layout. */
+.composer-model-pane .composer-model-option {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+}
+
+.composer-model-option-select {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 8px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.composer-model-option-provider {
+  flex: 0 0 auto;
+  color: var(--ds-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.composer-model-option-provider::after {
+  content: "·";
+  margin-left: 8px;
+  color: var(--ds-text-faint);
+}
+
+/* The favorite toggle stays faint until hovered or set, so it never competes
+   with the model label but is always one click away. */
+.composer-model-fav {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ds-text-faint);
+  opacity: 0;
+  cursor: pointer;
+  transition:
+    opacity var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    background var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.composer-model-option:hover .composer-model-fav,
+.composer-model-fav:focus-visible {
+  opacity: 1;
+}
+
+.composer-model-fav:hover {
+  background: var(--ds-bg-hover);
+  color: var(--ds-text-secondary);
+}
+
+.composer-model-fav.active {
+  opacity: 1;
+  color: var(--ds-accent);
+}
+
+.composer-model-fav.active svg {
+  fill: currentColor;
+}
+
+/* Narrow windows: stack the rail above the pane so neither is clipped. */
+@container composer-stack (max-width: 480px) {
+  .composer-model-browser-menu {
+    width: min(360px, calc(100vw - 24px));
+  }
+
+  .composer-model-browser-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .composer-model-rail {
+    flex-direction: row;
+    flex-wrap: wrap;
+    max-height: none;
+    padding-right: 0;
+    padding-bottom: 4px;
+    border-right: none;
+    border-bottom: 1px solid var(--ds-border-subtle);
+  }
+
+  .composer-model-rail-heading {
+    display: none;
+  }
+}
+
 /* Plan approval mode menu. The split trigger lives in composer.css; this
    partial owns the floating menu surface and its keyboard-highlight states. */
 .plan-approval-menu {

@@ -60,7 +60,8 @@ export function ComposerModelPicker({
     modelSearchRef,
     modelListRef,
     thinkingListRef,
-    modelGroups,
+    selector,
+    flatModels,
     thinkingMenuLevels,
     hasReasoning,
     modelPublishesReasoning,
@@ -77,7 +78,7 @@ export function ComposerModelPicker({
         className="composer-model-thinking"
         open={modelOpen}
         onClose={() => setModelOpen(false)}
-        menuClassName="composer-model-menu composer-model-thinking-menu"
+        menuClassName="composer-model-menu composer-model-thinking-menu composer-model-browser-menu"
         label={t("chat.model")}
         role="menu"
         align="end"
@@ -116,9 +117,10 @@ export function ComposerModelPicker({
         <ComposerModelList
           t={t} query={query} setQuery={setQuery}
           modelSearchRef={modelSearchRef} modelListRef={modelListRef}
-          modelGroups={modelGroups} modelHighlight={modelHighlight}
+          paneEntries={flatModels} modelHighlight={modelHighlight}
           setModelHighlight={setModelHighlight} selectModel={selectModel}
           selectedProviderId={selectedProviderId} selectedModelId={selectedModelId}
+          selector={selector}
         />
       </AnchoredMenu>
 

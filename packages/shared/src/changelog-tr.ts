@@ -6,6 +6,7 @@ export const trEntries: ChangelogEntry[] = [
     "date": "2026-09-28",
     "highlights": [
       "Eklenti pazarı artık eklentileri alfabetik sıra yerine rastgele sırada gösteriyor.",
+      "Yazı alanındaki model seçimi artık favoriler, son kullanılanlar, yetenek filtreleri ve sağlayıcılar arası aramayla iki bölmeli bir tarayıcı.",
     ],
   },
 

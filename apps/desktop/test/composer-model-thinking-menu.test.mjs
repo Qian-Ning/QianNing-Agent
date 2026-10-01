@@ -121,44 +121,65 @@ test("both pills meet the compact accessible visual contract", () => {
   assert.match(stylesSource, /@media \(prefers-reduced-motion: reduce\)/);
 });
 
-test("model options share the compact provider heading inset", () => {
-  assert.match(composerSource, /composer-plus-item composer-model-option/);
-  assert.match(
-    stylesSource,
-    /\.composer-model-group \.composer-model-option\s*\{[\s\S]*?padding-left:\s*8px/,
-  );
+test("the model browser renders a source rail, filter chips and a search field", () => {
+  // Two-pane layout: a left rail of favorites/recents/providers and a right
+  // pane of model rows, with cross-provider search and capability filters.
+  assert.match(listSource, /className="composer-model-browser"/);
+  assert.match(listSource, /className="composer-model-rail"/);
+  assert.match(listSource, /className="composer-model-pane"/);
+  assert.match(listSource, /className="composer-model-filters"/);
+  assert.match(listSource, /COMPOSER_MODEL_FILTERS\.map/);
+  assert.match(listSource, /selector\.toggleFilter\(filter\)/);
+  assert.match(listSource, /selector\.setActiveSource\(source\.id\)/);
+  // The rail counts come from the pure selector; the pane list is the flat
+  // entry list the controller also drives for keyboard navigation.
+  assert.match(listSource, /selector\.railSources\.map/);
+  assert.match(listSource, /paneEntries\.map/);
+  assert.match(stylesSource, /\.composer-model-browser-body\s*\{[\s\S]*?grid-template-columns/);
+  assert.match(stylesSource, /\.composer-model-rail\s*\{[\s\S]*?overflow-y:\s*auto/);
+  assert.match(stylesSource, /\.composer-model-pane\s*\{[\s\S]*?overflow-y:\s*auto/);
+});
+
+test("each model row carries a select action and a favorite toggle", () => {
+  assert.match(listSource, /className="composer-model-option-select"/);
+  assert.match(listSource, /onClick=\{onSelect\}/);
+  assert.match(listSource, /className=\{`composer-model-fav/);
+  assert.match(listSource, /onClick=\{onToggleFavorite\}/);
+  assert.match(listSource, /aria-pressed=\{favorite\}/);
+  // Selecting a model records it as recent so the rail's "Recent" bucket fills.
+  assert.match(modelMenuSource, /selector\.markRecent\(candidate\.id, nextModelId\)/);
+  assert.match(stylesSource, /\.composer-model-fav\s*\{[\s\S]*?opacity:\s*0/);
+  assert.match(stylesSource, /\.composer-model-option:hover \.composer-model-fav/);
 });
 
 test("model groups use the account-aware display name", () => {
   assert.match(composerSource, /providerDisplayName: providerDisplayName\(candidate\)/);
   assert.match(composerSource, /providerSearchText: providerSearchText\(candidate\)/);
-  assert.match(composerSource, /aria-label=\{group\.providerDisplayName\}/);
-  assert.match(composerSource, /\{group\.providerDisplayName\}/);
+  // The rail labels a provider source with its account-aware display name.
+  assert.match(listSource, /return source\.displayName/);
+  assert.match(listSource, /className="composer-model-rail-label"/);
 });
 
-test("provider headings establish a stronger type level than model rows", () => {
+test("rail headings and filter chips establish the browser's type levels", () => {
   assert.match(
     stylesSource,
-    /\.composer-model-group-label\s*\{[^}]*font-size:\s*var\(--text-xs-plus\)[^}]*font-weight:\s*var\(--font-weight-strong\)/,
+    /\.composer-model-rail-heading\s*\{[^}]*font-weight:\s*var\(--font-weight-strong\)/,
   );
   assert.match(
     stylesSource,
-    /\.composer-model-group \.composer-model-option\s*\{[^}]*font-size:\s*var\(--text-sm\)[^}]*font-weight:\s*var\(--font-weight-normal\)/,
+    /:lang\(zh-CN\) \.composer-model-rail-heading[\s\S]*?text-transform:\s*none/,
   );
-  assert.match(
-    stylesSource,
-    /:lang\(zh-CN\) \.composer-model-group-label\s*\{[\s\S]*?text-transform:\s*none/,
-  );
+  assert.match(stylesSource, /\.composer-model-filter-chip\.active\s*\{[\s\S]*?background:\s*var\(--ds-accent\)/);
 });
 
 test("Composer uses alias labels while preserving the exact selected wire id", async () => {
   const chipSource = await readFile(new URL("../src/components/Composer.tsx", import.meta.url), "utf8");
   assert.match(chipSource, /composerModelDisplayName\(provider, modelId, selectedModelInfo\?\.displayName\)/);
-  assert.match(listSource, /const optionTitle = model\.modelId/);
-  assert.match(listSource, /sameComposerModelId\(selectedModelId \?\? "", model\.modelId\)/);
+  assert.match(listSource, /title=\{model\.modelId\}/);
+  assert.match(listSource, /sameComposerModelId\(selectedModelId \?\? "", entry\.model\.modelId\)/);
   assert.match(modelMenuSource, /modelId: nextModelId/);
   assert.match(modelMenuSource, /sameComposerModelId\(entry\.id, nextModelId\)/);
-  assert.match(modelMenuSource, /sameComposerModelId\(entry\.model\.modelId, modelId \?\? ""\)/);
+  assert.match(modelMenuSource, /composerActiveEntryIndex\(flatModels, provider\?\.id, modelId\)/);
 });
 
 test("reasoning projection uses the selected exact catalog row and binding", async () => {

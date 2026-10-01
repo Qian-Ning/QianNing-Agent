@@ -6,6 +6,7 @@ export const ptBREntries: ChangelogEntry[] = [
     "date": "2026-09-28",
     "highlights": [
       "Os plugins do marketplace agora aparecem em ordem aleatória, em vez de alfabética.",
+      "A seleção de modelo do campo de mensagem agora é um navegador de dois painéis com favoritos, recentes, filtros de recursos e busca entre provedores.",
     ],
   },
 

@@ -11,11 +11,10 @@ import {
 } from "@pi-desktop/shared";
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
-  composerModelBinding,
-  composerModelMatchesQuery,
   composerModelsForProvider,
   sameComposerModelId,
 } from "../../../../lib/composer-models";
+import { composerActiveEntryIndex } from "../../../../lib/composer-model-selector";
 import {
   providerDisplayName,
   providerSearchText,
@@ -28,6 +27,7 @@ import {
   thinkingProviderForModel,
 } from "../model";
 import { createLatestCommitQueue } from "../thinking-commit-queue";
+import { useComposerModelSelector } from "./useComposerModelSelector";
 
 type UseComposerModelMenuOptions = {
   mode: Mode;
@@ -153,44 +153,22 @@ export function useComposerModelMenu({
         .filter((group) => group.models.length > 0),
     [providers, providerModels, imageGenerationCandidates],
   );
-  const queryNeedle = query.trim().toLowerCase();
-  const filteredModelGroups = useMemo(
-    () =>
-      queryNeedle
-        ? modelGroups
-            .map((group) => ({
-              ...group,
-              models: group.models.filter((model) =>
-                composerModelMatchesQuery(
-                  model,
-                  group.providerSearchText,
-                  queryNeedle,
-                  composerModelBinding(group.provider, model.modelId)?.alias,
-                ),
-              ),
-            }))
-            .filter((group) => group.models.length > 0)
-        : modelGroups,
-    [modelGroups, queryNeedle],
-  );
-  const flatModels = useMemo(
-    () =>
-      filteredModelGroups.flatMap((group) =>
-        group.models.map((model) => ({ provider: group.provider, model })),
-      ),
-    [filteredModelGroups],
-  );
+  // Favorites, recents, capability filters and the active rail source live in a
+  // dedicated hook; the pane it derives IS the flat, keyboard-navigable list.
+  const selector = useComposerModelSelector({
+    groups: modelGroups,
+    query,
+    menuOpen: modelOpen,
+    selectedProviderId: provider?.id,
+    selectedModelId: modelId,
+  });
+  const flatModels = selector.paneEntries;
   const flatModelsKey = useMemo(
-    () => flatModels.map((entry) => `${entry.provider.id}:${entry.model.modelId}`).join("|"),
+    () => flatModels.map((entry) => entry.key).join("|"),
     [flatModels],
   );
   const activeFlatIndex = useMemo(
-    () =>
-      flatModels.findIndex(
-        (entry) =>
-          entry.provider.id === provider?.id &&
-          sameComposerModelId(entry.model.modelId, modelId ?? ""),
-      ),
+    () => composerActiveEntryIndex(flatModels, provider?.id, modelId),
     [flatModels, provider?.id, modelId],
   );
 
@@ -201,8 +179,10 @@ export function useComposerModelMenu({
 
   useEffect(() => {
     if (!modelOpen) return;
-    setModelHighlight(queryNeedle ? (flatModels.length ? 0 : -1) : activeFlatIndex);
-  }, [activeFlatIndex, flatModels.length, flatModelsKey, modelOpen, queryNeedle]);
+    setModelHighlight(
+      selector.paneSearching ? (flatModels.length ? 0 : -1) : activeFlatIndex,
+    );
+  }, [activeFlatIndex, flatModels.length, flatModelsKey, modelOpen, selector.paneSearching]);
 
   useEffect(() => {
     if (!reasoningOpen) return;
@@ -321,6 +301,7 @@ export function useComposerModelMenu({
         modelId: nextModelId,
         thinkingLevel: nextThinkingLevel,
       });
+      selector.markRecent(candidate.id, nextModelId);
       setQuery("");
       setModelOpen(false);
       setModelHighlight(-1);
@@ -415,7 +396,7 @@ export function useComposerModelMenu({
     modelSearchRef,
     modelListRef,
     thinkingListRef,
-    modelGroups: filteredModelGroups,
+    selector,
     flatModels,
     thinkingMenuLevels,
     hasReasoning,

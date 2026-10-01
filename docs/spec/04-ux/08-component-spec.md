@@ -2776,17 +2776,34 @@ model picker and a reasoning-level picker (D629).
   targets without clipping or overlapping toolbar content. Home and
   thread-docked composers use the same responsive rules.
 - Each pill opens its own anchored menu above itself; opening one closes the
-  other so only a single popover is visible at a time. The model menu lists
-  provider → model options with a search field; the reasoning menu lists the
-  selected model's reasoning ladder as a localized radio list plus a draggable
-  slider that commits latest-wins without leaving the menu. Both menus are
-  `min(280px, 100vw - 24px)`, use the large radius/dialog shadow tokens, and
-  enter with a short upward fade.
-- The Model submenu establishes a clear provider → model hierarchy: sticky
-  provider headings use the stronger `--text-md` section treatment, while
-  indented model options use normal-weight `--text-sm` text. In zh-CN, provider
-  headings remove uppercase transformation and wide tracking so localized labels
-  remain readable.
+  other so only a single popover is visible at a time. The reasoning menu lists
+  the selected model's reasoning ladder as a localized radio list plus a
+  draggable slider that commits latest-wins without leaving the menu, is
+  `min(280px, 100vw - 24px)`, uses the large radius/dialog shadow tokens, and
+  enters with a short upward fade.
+- The Model menu is a two-pane browser built for many providers each exposing
+  many models (D636). It carries a top search field, a capability-filter chip
+  row (Reasoning / Vision / Tools / PDF), a left source rail, and a right model
+  pane; it widens to `min(560px, 100vw - 24px)` so the rail and pane sit side by
+  side instead of a single long column. The left rail lists a Favorites bucket
+  and a Recent bucket first (each shown only when it resolves to at least one
+  currently configured model that also passes the active filters), then every
+  configured provider under a "Providers" heading, each with its account-aware
+  display name and a count badge. Selecting a rail source swaps the right pane
+  without closing the menu. The right pane renders one row per model with the
+  alias-or-wire-id label, reasoning/vision capability glyphs, context window,
+  and a trailing favorite (star) toggle that pins the model to the Favorites
+  bucket; within a provider view, favorited models float to the top. A non-empty
+  search needle searches across every provider (id, alias, published name,
+  family, provider name) regardless of the active rail source, prefixes each
+  result row with its provider name, and respects the capability filters.
+  Choosing a model records it in the Recent bucket. Favorites and Recent persist
+  as renderer UI preferences in `localStorage` (`pi.desktop.composerModelFavorites`,
+  `pi.desktop.composerModelRecents`), never in host state, and are re-read each
+  time the menu opens. Keyboard navigation (↑/↓ over the flat pane list, Enter to
+  select, Escape to close) and the latest-wins session-commit contract are
+  unchanged. In zh-CN/zh-TW the rail's "Providers" heading drops uppercase
+  transformation and wide tracking so the localized label stays readable.
 - Width: Home and thread-docked composers share one `24px` horizontal gutter
   and a `768px` maximum content envelope. The left-edge conversation minimap
   is absolutely positioned outside that envelope, so its appearance or

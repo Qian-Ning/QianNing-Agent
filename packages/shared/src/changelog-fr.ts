@@ -6,6 +6,7 @@ export const frEntries: ChangelogEntry[] = [
     "date": "2026-09-28",
     "highlights": [
       "Les plugins de la marketplace s’affichent désormais dans un ordre aléatoire plutôt que par ordre alphabétique.",
+      "La sélection de modèle du champ de saisie est désormais un navigateur à deux volets avec favoris, récents, filtres de capacités et recherche multi-fournisseurs.",
     ],
   },
 

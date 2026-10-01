@@ -6,6 +6,7 @@ export const esEntries: ChangelogEntry[] = [
     "date": "2026-09-28",
     "highlights": [
       "Los plugins del mercado aparecen ahora en orden aleatorio en lugar de alfabético.",
+      "La selección de modelo del cuadro de mensaje ahora es un navegador de dos paneles con favoritos, recientes, filtros de capacidades y búsqueda entre proveedores.",
     ],
   },
 
