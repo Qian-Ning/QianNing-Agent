@@ -7635,3 +7635,31 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `runtime.test.ts` "session persona" asserts both new lines survive a custom
   persona; `03-runtime/02-agent-runtime.md` §7 lists them among the required base
   behaviours.
+
+## 2026-10-02 — Composer gains a saved quick-prompt strip (D638)
+
+- QianNing fork addition. Adapted from the prompt-template gallery pattern in
+  the OpenDesign project: let the user save a draft as a reusable "quick prompt"
+  and insert it again with one click, so recurring instructions do not have to be
+  retyped. This is a renderer-only convenience; it is explicitly **not** a return
+  of prompt-enhancement, an app-wide `SYSTEM.md`, or any project-instruction
+  layer — nothing is injected on the user's behalf, and the inserted text lands
+  in the visible draft for the user to edit or send.
+- A strip (`ComposerPromptCards.tsx`, owned by `useComposerPromptCards.ts`) sits
+  in the composer stack above the input. It is mutually exclusive by draft state:
+  with an empty draft it lists saved cards for one-click insertion; while a
+  draft of at least four non-space characters is being written it offers a single
+  "save as quick prompt" affordance. Inserting appends on a new line when a draft
+  already exists, otherwise it starts the draft, and always routes through
+  `applyEditorDraft` so the contenteditable, caret, and file-reference chips stay
+  consistent.
+- Cards are a UI preference, persisted in `localStorage` under
+  `pi.desktop.composerPromptCards` (same namespace as the model picker favorites,
+  D636), newest-first, de-duplicated by text, and bounded to twelve. Pure logic
+  lives in `src/lib/composer-prompt-cards.ts` behind
+  `composer-prompt-cards.test.mjs`; the mounting/insert/i18n/style wiring is
+  asserted by `composer-prompt-cards-wiring.test.mjs`. New i18n keys
+  (`promptCards`, `promptCardInsert`, `promptCardRemove`, `promptCardSave`,
+  `promptCardSaved`, `promptCardSaveEmpty`) ship in all nine shell locales.
+- No host, schema, protocol, IPC, or persisted-database change; the Rust-owned
+  store is untouched. See `04-ux/08-component-spec.md` §11.

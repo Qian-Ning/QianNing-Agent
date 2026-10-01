@@ -723,3 +723,93 @@
 .composer-directory-drop-action:hover {
   background: var(--ds-tile-hover);
 }
+
+/* Quick-prompt strip: saved one-click prompts above the input, or a single
+ * save affordance while a substantial draft is being written. It sits in the
+ * composer stack flow like the queued-prompt and folder-drop rows. */
+.composer-prompt-cards {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 0 0 8px;
+}
+
+.composer-prompt-card {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  border-radius: var(--radius-full);
+  background: var(--ds-tile);
+  box-shadow: var(--ds-shadow-composer);
+  color: var(--ds-text-secondary);
+}
+
+.composer-prompt-card-insert {
+  min-width: 0;
+  max-width: 220px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  padding: 4px 4px 4px 11px;
+  color: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-compact);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.composer-prompt-card-insert:hover:not(:disabled),
+.composer-prompt-card-insert:focus-visible {
+  color: var(--ds-text-primary);
+}
+
+.composer-prompt-card-remove {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  border-radius: var(--radius-full);
+  color: var(--ds-text-muted);
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.composer-prompt-card-remove:hover:not(:disabled),
+.composer-prompt-card-remove:focus-visible {
+  background: var(--ds-tile-hover);
+  color: var(--ds-text-primary);
+}
+
+.composer-prompt-card-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: var(--radius-full);
+  padding: 4px 11px;
+  background: var(--ds-tile);
+  box-shadow: var(--ds-shadow-composer);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-compact);
+  cursor: pointer;
+}
+
+.composer-prompt-card-save:hover:not(:disabled),
+.composer-prompt-card-save:focus-visible {
+  color: var(--ds-text-primary);
+}
+
+.composer-prompt-card-insert:disabled,
+.composer-prompt-card-remove:disabled,
+.composer-prompt-card-save:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+

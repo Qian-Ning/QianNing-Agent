@@ -57,6 +57,8 @@ import { useComposerSubmit } from "../features/chat/composer/hooks/useComposerSu
 import { ComposerImageAttachments } from "../features/chat/composer/ComposerImageAttachments";
 import { ComposerInput } from "../features/chat/composer/ComposerInput";
 import { useComposerModelMenu } from "../features/chat/composer/hooks/useComposerModelMenu";
+import { useComposerPromptCards } from "../features/chat/composer/hooks/useComposerPromptCards";
+import { ComposerPromptCards } from "../features/chat/composer/ComposerPromptCards";
 import { ComposerToolbar } from "../features/chat/composer/ComposerToolbar";
 import { useVoiceInput } from "../features/voice/useVoiceInput";
 import { VoiceOverlay } from "../features/voice/VoiceOverlay";
@@ -456,6 +458,24 @@ export function Composer({
     composing,
     enabled: !inputBlocked,
   });
+  const promptCards = useComposerPromptCards();
+
+  // Insert a saved quick prompt into the draft: it starts the draft when empty
+  // and appends on its own line otherwise, keeping any text already typed.
+  const insertPromptCard = (text: string) => {
+    if (inputBlocked) return;
+    const current = readLiveDraft();
+    const next = current.trim() ? `${current}\n${text}` : text;
+    applyEditorDraft(next, fileReferencesRef.current, next.length);
+  };
+
+  const savePromptCardFromDraft = () => {
+    const saved = promptCards.save(readLiveDraft());
+    showToast(
+      t(saved ? "chat.promptCardSaved" : "chat.promptCardSaveEmpty"),
+      { variant: saved ? "success" : "info" },
+    );
+  };
 
   const acceptCompletion = (index: number) => {
     const result = composerAc.accept(index);
@@ -545,6 +565,15 @@ export function Composer({
           dismissDroppedDirectories={dismissDroppedDirectories}
         />
         <ComposerImageAttachments controller={draft.imagePreview} onRemove={draft.removeImage} disabled={inputBlocked} />
+        <ComposerPromptCards
+          t={t}
+          cards={promptCards.cards}
+          draftText={value}
+          disabled={inputBlocked}
+          onInsert={insertPromptCard}
+          onSave={savePromptCardFromDraft}
+          onRemove={promptCards.remove}
+        />
         <div
           ref={composerShellRef}
           className={`composer-shell${inputBlocked ? " is-gated" : ""}${

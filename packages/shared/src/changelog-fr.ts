@@ -7,6 +7,7 @@ export const frEntries: ChangelogEntry[] = [
     "highlights": [
       "Les plugins de la marketplace s’affichent désormais dans un ordre aléatoire plutôt que par ordre alphabétique.",
       "La sélection de modèle du champ de saisie est désormais un navigateur à deux volets avec favoris, récents, filtres de capacités et recherche multi-fournisseurs.",
+      "Enregistrez n'importe quel brouillon comme prompt rapide et réinsérez-le en un clic depuis le haut du champ de saisie.",
     ],
   },
 

@@ -7,6 +7,7 @@ export const esEntries: ChangelogEntry[] = [
     "highlights": [
       "Los plugins del mercado aparecen ahora en orden aleatorio en lugar de alfabético.",
       "La selección de modelo del cuadro de mensaje ahora es un navegador de dos paneles con favoritos, recientes, filtros de capacidades y búsqueda entre proveedores.",
+      "Guarda cualquier borrador como prompt rápido e insértalo de nuevo con un clic desde encima del cuadro de mensaje.",
     ],
   },
 

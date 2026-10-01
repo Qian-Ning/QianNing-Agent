@@ -2837,6 +2837,23 @@ model picker and a reasoning-level picker (D629).
   renderer-owned FIFO list above the shell. Rows show the visible prompt (or
   file-reference names), expose independent Remove and Send now actions, and
   increase the dock height measured by `--composer-dock-height`.
+- Quick-prompt strip (D638): a renderer-only convenience row sits in the
+  composer stack above the input, between the image-attachment row and the
+  shell. It is mutually exclusive by draft state. With an empty draft it lists
+  saved quick prompts as pill-shaped rows, each a one-click insert plus a
+  trailing remove control; the strip renders nothing when no cards are saved.
+  While a draft of at least four non-space characters is being written it shows
+  a single "Save as quick prompt" affordance instead, so it never competes with
+  the saved list. Inserting a card appends its text on a new line when a draft
+  already exists, otherwise starts the draft, routing through the same
+  `applyEditorDraft` path as autocomplete so the contenteditable, caret, and
+  chips stay consistent. Saving reports success or an empty-draft notice through
+  a toast. Cards persist as renderer UI preferences in `localStorage`
+  (`pi.desktop.composerPromptCards`), newest-first, de-duplicated by text, and
+  bounded to twelve; they are never host state and never injected into a prompt
+  on the user's behalf. New i18n keys: `chat.promptCards`,
+  `chat.promptCardInsert`, `chat.promptCardRemove`, `chat.promptCardSave`,
+  `chat.promptCardSaved`, `chat.promptCardSaveEmpty`.
 
 ### 11.4 States
 
