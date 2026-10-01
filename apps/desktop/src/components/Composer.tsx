@@ -59,6 +59,10 @@ import { ComposerInput } from "../features/chat/composer/ComposerInput";
 import { useComposerModelMenu } from "../features/chat/composer/hooks/useComposerModelMenu";
 import { useComposerPromptCards } from "../features/chat/composer/hooks/useComposerPromptCards";
 import { ComposerPromptCards } from "../features/chat/composer/ComposerPromptCards";
+import {
+  exportPromptCards as serializePromptCards,
+  COMPOSER_PROMPT_CARDS_EXPORT_FILENAME,
+} from "../lib/composer-prompt-cards";
 import { ComposerToolbar } from "../features/chat/composer/ComposerToolbar";
 import { useVoiceInput } from "../features/voice/useVoiceInput";
 import { VoiceOverlay } from "../features/voice/VoiceOverlay";
@@ -477,6 +481,51 @@ export function Composer({
     );
   };
 
+  // Download the saved quick prompts as a shareable JSON file. A Blob + object
+  // URL anchor is the renderer-local path: there is no host file dialog on the
+  // preload surface, and the CSP already allows blob: for this kind of save.
+  const exportPromptCards = () => {
+    if (promptCards.cards.length === 0) {
+      showToast(t("chat.promptCardsExportEmpty"), { variant: "info" });
+      return;
+    }
+    try {
+      const json = serializePromptCards(promptCards.cards);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = COMPOSER_PROMPT_CARDS_EXPORT_FILENAME;
+      anchor.click();
+      // Revoke on the next tick so the click's navigation has consumed the URL.
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch {
+      showToast(t("chat.promptCardsImportFailed"), { variant: "error" });
+    }
+  };
+
+  const importPromptCardsFromFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = promptCards.importText(String(reader.result ?? ""));
+      if (!result.ok) {
+        showToast(t("chat.promptCardsImportFailed"), { variant: "error" });
+        return;
+      }
+      showToast(
+        t("chat.promptCardsImported", {
+          added: result.added,
+          skipped: result.skipped,
+        }),
+        { variant: result.added > 0 ? "success" : "info" },
+      );
+    };
+    reader.onerror = () => {
+      showToast(t("chat.promptCardsImportFailed"), { variant: "error" });
+    };
+    reader.readAsText(file);
+  };
+
   const acceptCompletion = (index: number) => {
     const result = composerAc.accept(index);
     if (!result) return;
@@ -573,6 +622,8 @@ export function Composer({
           onInsert={insertPromptCard}
           onSave={savePromptCardFromDraft}
           onRemove={promptCards.remove}
+          onExport={exportPromptCards}
+          onImportFile={importPromptCardsFromFile}
         />
         <div
           ref={composerShellRef}

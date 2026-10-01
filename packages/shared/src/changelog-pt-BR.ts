@@ -7,7 +7,7 @@ export const ptBREntries: ChangelogEntry[] = [
     "highlights": [
       "Os plugins do marketplace agora aparecem em ordem aleatória, em vez de alfabética.",
       "A seleção de modelo do campo de mensagem agora é um navegador de dois painéis com favoritos, recentes, filtros de recursos e busca entre provedores.",
-      "Salve qualquer rascunho como prompt rápido e insira-o novamente com um clique acima do campo de mensagem.",
+      "Salve qualquer rascunho como prompt rápido, insira-o novamente com um clique acima do campo de mensagem e exporte ou importe sua biblioteca de prompts para compartilhá-la.",
     ],
   },
 

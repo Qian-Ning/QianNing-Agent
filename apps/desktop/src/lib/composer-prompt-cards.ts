@@ -133,5 +133,93 @@ export function removePromptCard(id: string): PromptCard[] {
   return next;
 }
 
+/** Marker and schema version written into an exported file for recognition. */
+const EXPORT_KIND = "qianning.promptCards";
+const EXPORT_VERSION = 1;
+
+type PromptCardExport = {
+  kind: typeof EXPORT_KIND;
+  version: number;
+  cards: Array<{ text: string; label: string }>;
+};
+
+/**
+ * Serialize the given cards into a shareable, human-readable JSON string. Ids
+ * are intentionally dropped: they are local list keys, regenerated on import so
+ * a shared file never collides with another machine's ids.
+ */
+export function exportPromptCards(cards: readonly PromptCard[]): string {
+  const payload: PromptCardExport = {
+    kind: EXPORT_KIND,
+    version: EXPORT_VERSION,
+    cards: cards.map((card) => ({ text: card.text, label: card.label })),
+  };
+  return JSON.stringify(payload, null, 2);
+}
+
+export type PromptCardImportResult = {
+  /** The merged list, written back to storage. */
+  cards: PromptCard[];
+  /** How many cards were newly added. */
+  added: number;
+  /** How many entries were skipped (blank, duplicate, or over the cap). */
+  skipped: number;
+  /** False when the text was unparseable or not a recognizable card export. */
+  ok: boolean;
+};
+
+/** Pull a card-like array out of either the wrapped export or a bare array. */
+function extractImportedCards(parsed: unknown): unknown[] | null {
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && typeof parsed === "object") {
+    const cards = (parsed as Record<string, unknown>).cards;
+    if (Array.isArray(cards)) return cards;
+  }
+  return null;
+}
+
+/**
+ * Parse an exported payload and merge its cards into the stored list, keeping
+ * existing cards ahead of imported ones, de-duplicating by trimmed text against
+ * both the existing list and earlier entries in the same file, and bounding the
+ * result to {@link COMPOSER_PROMPT_CARDS_MAX}. The merged list is written back
+ * and returned alongside a count of what was added versus skipped. Unparseable
+ * or wrong-shape input returns `ok: false` and leaves storage untouched.
+ */
+export function importPromptCards(json: string): PromptCardImportResult {
+  const existing = readCards();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return { cards: existing, added: 0, skipped: 0, ok: false };
+  }
+  const incoming = extractImportedCards(parsed);
+  if (incoming === null) {
+    return { cards: existing, added: 0, skipped: 0, ok: false };
+  }
+  const seen = new Set(existing.map((card) => card.text.trim()));
+  const merged = [...existing];
+  let added = 0;
+  let skipped = 0;
+  for (const entry of incoming) {
+    const text =
+      entry && typeof entry === "object" && typeof (entry as Record<string, unknown>).text === "string"
+        ? ((entry as Record<string, unknown>).text as string).trim()
+        : "";
+    if (!text || seen.has(text) || merged.length >= MAX_CARDS) {
+      skipped += 1;
+      continue;
+    }
+    seen.add(text);
+    merged.push({ id: newId(), text, label: promptCardLabel(text) });
+    added += 1;
+  }
+  writeCards(merged);
+  return { cards: merged, added, skipped, ok: true };
+}
+
 export const COMPOSER_PROMPT_CARDS_STORAGE_KEY = STORAGE_KEY;
 export const COMPOSER_PROMPT_CARDS_MAX = MAX_CARDS;
+export const COMPOSER_PROMPT_CARDS_EXPORT_KIND = EXPORT_KIND;
+export const COMPOSER_PROMPT_CARDS_EXPORT_FILENAME = "qianning-prompt-cards.json";

@@ -1,9 +1,11 @@
 import { useCallback, useState } from "react";
 import {
+  importPromptCards,
   loadPromptCards,
   removePromptCard,
   savePromptCard,
   type PromptCard,
+  type PromptCardImportResult,
 } from "../../../../lib/composer-prompt-cards";
 
 export type ComposerPromptCardsController = {
@@ -13,13 +15,15 @@ export type ComposerPromptCardsController = {
   save: (text: string) => boolean;
   /** Remove a saved quick prompt by id. */
   remove: (id: string) => void;
+  /** Merge an exported payload into the saved list; returns a result summary. */
+  importText: (json: string) => PromptCardImportResult;
 };
 
 /**
  * Own the composer's quick-prompt cards: load the saved list once, then mirror
- * every save/remove back into both React state and `localStorage`. The insert
- * action belongs to the draft, so it is wired by the Composer rather than held
- * here — this hook only owns the persisted card list.
+ * every save/remove/import back into both React state and `localStorage`. The
+ * insert action belongs to the draft, so it is wired by the Composer rather
+ * than held here — this hook only owns the persisted card list.
  */
 export function useComposerPromptCards(): ComposerPromptCardsController {
   const [cards, setCards] = useState<PromptCard[]>(() => loadPromptCards());
@@ -34,5 +38,11 @@ export function useComposerPromptCards(): ComposerPromptCardsController {
     setCards(removePromptCard(id));
   }, []);
 
-  return { cards, save, remove };
+  const importText = useCallback((json: string): PromptCardImportResult => {
+    const result = importPromptCards(json);
+    if (result.ok) setCards(result.cards);
+    return result;
+  }, []);
+
+  return { cards, save, remove, importText };
 }

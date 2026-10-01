@@ -7663,3 +7663,31 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `promptCardSaved`, `promptCardSaveEmpty`) ship in all nine shell locales.
 - No host, schema, protocol, IPC, or persisted-database change; the Rust-owned
   store is untouched. See `04-ux/08-component-spec.md` §11.
+
+## 2026-10-02 — Quick-prompt library gains export/import (D639)
+
+- QianNing fork addition, continuing the OpenDesign adaptation: make the
+  quick-prompt cards (D638) a portable "tool drawer" the user can carry between
+  machines. The empty-library state, which previously rendered nothing, now
+  shows a single import control so a shared file can seed a fresh install; with
+  saved cards present the strip trails the list with export and import controls.
+- Export serializes the saved cards into a wrapped, human-readable JSON payload
+  (`{ kind: "qianning.promptCards", version, cards:[{text,label}] }`) with local
+  ids intentionally dropped, and downloads it as `qianning-prompt-cards.json`.
+  The download stays renderer-local — a `Blob` + object-URL anchor click, not a
+  host save dialog — because the preload surface exposes no file dialog and the
+  renderer CSP already permits `blob:` here. Import reads the picked file with
+  `FileReader`, accepts either the wrapped export or a bare array, merges by
+  de-duplicating against existing and already-seen text, keeps existing cards
+  ahead of imported ones, regenerates local ids so a shared file never collides,
+  bounds the result to the same twelve-card cap, and reports an added/skipped
+  count via toast. Unparseable or wrong-shape input is rejected with an error
+  toast and leaves storage untouched.
+- Pure `exportPromptCards`/`importPromptCards` logic lives in
+  `src/lib/composer-prompt-cards.ts` behind `composer-prompt-cards.test.mjs`; the
+  component tray, blob download, and `FileReader` wiring are asserted by
+  `composer-prompt-cards-wiring.test.mjs`. Five new i18n keys
+  (`promptCardsExport`, `promptCardsImport`, `promptCardsExportEmpty`,
+  `promptCardsImported`, `promptCardsImportFailed`) ship in all nine shell
+  locales. Still renderer-only: no host, schema, protocol, IPC, or
+  persisted-database change. See `04-ux/08-component-spec.md` §11.

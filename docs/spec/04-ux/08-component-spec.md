@@ -2851,9 +2851,20 @@ model picker and a reasoning-level picker (D629).
   a toast. Cards persist as renderer UI preferences in `localStorage`
   (`pi.desktop.composerPromptCards`), newest-first, de-duplicated by text, and
   bounded to twelve; they are never host state and never injected into a prompt
-  on the user's behalf. New i18n keys: `chat.promptCards`,
-  `chat.promptCardInsert`, `chat.promptCardRemove`, `chat.promptCardSave`,
-  `chat.promptCardSaved`, `chat.promptCardSaveEmpty`.
+  on the user's behalf. The strip also carries a small library tray: with saved
+  cards it trails the list with export (download the library as
+  `qianning-prompt-cards.json`) and import (merge a picked JSON file) controls,
+  and with an empty library it still shows the import control alone so a shared
+  file can be brought in on a fresh machine. Export is a renderer-local
+  Blob + object-URL download (no host dialog); import reads the picked file with
+  `FileReader`, parses either the wrapped export or a bare array, merges by
+  de-duplicating against existing text, bounds to twelve, regenerates local ids,
+  and reports an added/skipped count through a toast. New i18n keys:
+  `chat.promptCards`, `chat.promptCardInsert`, `chat.promptCardRemove`,
+  `chat.promptCardSave`, `chat.promptCardSaved`, `chat.promptCardSaveEmpty`,
+  `chat.promptCardsExport`, `chat.promptCardsImport`,
+  `chat.promptCardsExportEmpty`, `chat.promptCardsImported`,
+  `chat.promptCardsImportFailed`.
 
 ### 11.4 States
 

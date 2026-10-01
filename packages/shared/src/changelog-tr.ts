@@ -7,7 +7,7 @@ export const trEntries: ChangelogEntry[] = [
     "highlights": [
       "Eklenti pazarı artık eklentileri alfabetik sıra yerine rastgele sırada gösteriyor.",
       "Yazı alanındaki model seçimi artık favoriler, son kullanılanlar, yetenek filtreleri ve sağlayıcılar arası aramayla iki bölmeli bir tarayıcı.",
-      "Herhangi bir taslağı hızlı istem olarak kaydedin ve yazı alanının üstünden tek tıkla yeniden ekleyin.",
+      "Herhangi bir taslağı hızlı istem olarak kaydedin, yazı alanının üstünden tek tıkla yeniden ekleyin ve istem kitaplığınızı paylaşmak için dışa veya içe aktarın.",
     ],
   },
 

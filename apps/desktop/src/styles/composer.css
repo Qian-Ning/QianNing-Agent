@@ -808,8 +808,42 @@
 
 .composer-prompt-card-insert:disabled,
 .composer-prompt-card-remove:disabled,
-.composer-prompt-card-save:disabled {
+.composer-prompt-card-save:disabled,
+.composer-prompt-card-tool:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* Export/import controls for the saved library, trailing the card list. */
+.composer-prompt-card-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 2px;
+}
+
+.composer-prompt-card-tool {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  color: var(--ds-text-muted);
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.composer-prompt-card-tool:hover:not(:disabled),
+.composer-prompt-card-tool:focus-visible {
+  background: var(--ds-tile-hover);
+  color: var(--ds-text-primary);
+}
+
+/* The native file picker is driven by the import button; keep it out of flow. */
+.composer-prompt-card-import-input {
+  display: none;
 }
 
