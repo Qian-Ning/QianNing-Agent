@@ -349,6 +349,8 @@ describe("session persona", () => {
     expect(prompt).not.toContain("You are QianNing Agent");
     expect(prompt).toContain("Complete the requested work and relevant checks");
     expect(prompt).toContain("Before each tool batch, briefly state its purpose");
+    expect(prompt).toContain("ask one or two focused questions before acting");
+    expect(prompt).toContain("silently verify it against the request");
     expect(prompt).toContain("Editing workflow: inside the advertised workspace");
     expect(prompt).toContain("You are operating in Agent mode.");
 

@@ -1280,6 +1280,13 @@ Required behaviours, each one an observed failure inverted:
   to them and does not count as an answer
 - the final message is self-contained
 - work is carried through end to end rather than stopping at analysis
+- a genuinely ambiguous request whose wrong assumption would waste significant
+  work or cause an irreversible effect earns one or two focused questions before
+  acting; otherwise the agent proceeds on the most reasonable interpretation and
+  states it, and never asks about choices it can make itself
+- before a result is presented it is silently checked against the request —
+  code builds or runs, every stated requirement is covered, no obvious defect
+  remains — and the checklist itself is not narrated
 - tool calls go through the native tool-call interface; a call written as prose
   (notably an OpenAI-style `multi_tool_use.parallel` wrapper) does not run, and
   the runtime logs it when a model emits one

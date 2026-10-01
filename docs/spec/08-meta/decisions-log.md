@@ -7606,3 +7606,32 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   (`modelFilterReasoning/Vision/Tools/Pdf`, `modelSourceFavorites/Recents/
   Providers`, `modelFavoriteAdd/Remove`) ship in all nine shell locales. See
   `04-ux/08-component-spec.md` §11.
+
+## 2026-10-01 — Base runtime prompt gains clarify-first and self-check rules (D637)
+
+- QianNing fork addition. After reviewing the agent-native loop OpenDesign builds
+  on (ask before improvising, critique the output before delivery), the user
+  asked to fold the useful habits into QianNing's own built-in operating rules
+  rather than re-introduce any removed prompt-enhancement, app-wide `SYSTEM.md`,
+  or project-instruction surface. The decision tightens the base runtime prompt
+  only; it does not touch user input, add a persona layer, or add a settings
+  surface.
+- Two operational rules join `defaultSystemPromptParts` in
+  `packages/agent-runtime/src/runtime.ts`, in the operational-rules tail that a
+  custom persona cannot drop (§7.0.1): a clarify-first rule ("when the request is
+  genuinely ambiguous and a wrong assumption would waste significant work or
+  cause an irreversible effect, ask one or two focused questions before acting;
+  otherwise proceed on the most reasonable interpretation and state it; do not
+  ask about choices you can make yourself") and a self-check rule ("before
+  presenting a result, silently verify it against the request — builds/runs,
+  every requirement covered, no obvious defect — and do not narrate the
+  checklist").
+- Both rules are deliberately bounded so they do not regress the behaviours the
+  base prompt already inverts (no stalling on analysis, no invented objections,
+  no visible checklist narration). They apply across agent/plan/goal because they
+  live in the shared base, before `composeModeSystemPrompt` appends the
+  operating-state block.
+- No input rewriting, no new UI, no protocol/IPC/schema/persisted-format change.
+  `runtime.test.ts` "session persona" asserts both new lines survive a custom
+  persona; `03-runtime/02-agent-runtime.md` §7 lists them among the required base
+  behaviours.

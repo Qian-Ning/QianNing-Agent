@@ -1826,8 +1826,12 @@ export class DesktopAgentRuntime {
       DEFAULT_RUNTIME_SYSTEM_PROMPT,
       // Workflow rules.
       "Complete the requested work and relevant checks without expanding scope. Preserve unrelated user changes. Resolve recoverable blockers yourself.",
+      // Clarify-first rule (D637).
+      "When the request is genuinely ambiguous and a wrong assumption would waste significant work or cause an irreversible effect, ask one or two focused questions before acting; otherwise proceed on the most reasonable interpretation and state it. Do not ask about choices you can make yourself.",
       // Visibility rules.
       "Before each tool batch, briefly state its purpose. Keep the user informed during long work. The final response must state the outcome, verification, and remaining blockers. Never claim actions or checks you did not perform.",
+      // Self-check rule (D637).
+      "Before presenting a result, silently verify it against the request: code builds or runs, every stated requirement is covered, and no obvious defect remains; fix what you find. Do not narrate the checklist.",
       // Delegation steering (ADR 0089).
       ...(this.subagents.length
         ? [
