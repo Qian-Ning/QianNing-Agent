@@ -2971,6 +2971,28 @@ identify the platform validation still needed.
   `07-plugins/04-plugin-security.md` §8.1
 - **Status**: Client and session-isolation unit-covered; full desktop journey Draft
 
+#### E2E-MCP-tool-requires-approval: User MCP tools prompt under ask and accept-edits
+
+- **Preconditions**: A project-bound Agent session; one user-configured stdio
+  MCP server whose tool list annotates a tool as read-only/low risk.
+- **Steps**: 1) With the session in `ask`, ask the agent to call the MCP tool.
+  2) Answer the card with allow-once, call it again, then answer with
+  allow-session and call it a third time. 3) Switch to `accept-edits` in a new
+  session and repeat the call. 4) Switch to `auto` and call it. 5) Switch to
+  Plan, then Goal, and call it.
+- **Expected**: Under `ask` and `accept-edits` every call shows an approval card
+  with reason "MCP server tool requires approval" at `medium` risk, regardless of
+  the server's self-declared annotation. Allow-once covers only that call;
+  allow-session suppresses further cards for the same `mcp_<serverId>_<tool>`
+  name in that session only, and does not cover other tools of the server.
+  `auto` runs the tool without a card. Plan and Goal deny it even with a
+  session grant.
+- **Specs linked**: `03-runtime/03-tools-and-permissions.md`,
+  `05-security/01-security.md`, D640, ADR `mcp-tool-approval-risk`
+- **Acceptance**: E (tools & permissions) + Security
+- **Status**: Unit-covered (host-core `permissions.rs` MCP risk and mode tests);
+  desktop journey Draft
+
 #### E2E-024L: Resident plugin service is supervised and visible
 
 - **Preconditions**: `examples/plugins/hello` enabled with `background.service` granted.
