@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.13",
+    "date": "2026-10-03",
+    "highlights": [
+      "「연결 테스트」가 이제 실제 대화가 쓰는 것과 같은 경로를 확인하므로, 모델 목록은 불러오지만 채팅 요청이 거부되는 제공자는 더 이상 초록으로 통과하지 않습니다.",
+      "제공자 앞의 CDN이나 WAF가 자체 차단 페이지로 응답하면, API 키를 탓하는 대신 엣지 차단으로 보고합니다.",
+    ],
+  },
+
+  {
     "version": "0.15.11",
     "date": "2026-10-02",
     "highlights": [

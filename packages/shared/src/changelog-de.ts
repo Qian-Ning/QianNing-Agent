@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.13",
+    "date": "2026-10-03",
+    "highlights": [
+      "„Verbindung testen“ prüft jetzt dieselbe Route, die ein echter Turn nutzt – ein Anbieter, dessen Modellliste lädt, dessen Chat-Anfragen aber abgelehnt werden, meldet nicht länger grün.",
+      "Antwortet ein CDN oder WAF vor dem Anbieter mit seiner eigenen Sperrseite, wird jetzt eine Edge-Sperre gemeldet, statt den API-Schlüssel zu beschuldigen.",
+    ],
+  },
+
+  {
     "version": "0.15.11",
     "date": "2026-10-02",
     "highlights": [

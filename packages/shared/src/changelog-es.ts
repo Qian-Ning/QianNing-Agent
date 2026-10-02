@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.13",
+    "date": "2026-10-03",
+    "highlights": [
+      "«Probar conexión» ahora sondea la misma ruta que usa un turno real, así que un proveedor cuya lista de modelos carga pero cuyas peticiones de chat se rechazan ya no da verde.",
+      "Cuando un CDN o WAF delante del proveedor responde con su propia página de bloqueo, ahora se informa de un bloqueo de borde en lugar de culpar a tu clave de API.",
+    ],
+  },
+
+  {
     "version": "0.15.11",
     "date": "2026-10-02",
     "highlights": [

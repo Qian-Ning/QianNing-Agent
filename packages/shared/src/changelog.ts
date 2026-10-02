@@ -30,6 +30,15 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "0.15.13",
+    date: "2026-10-03",
+    highlights: [
+      "Test Provider now probes the same route a real turn uses, so a provider whose model list loads but whose chat requests are refused no longer tests green.",
+      "A request that a CDN or WAF in front of the provider answers with its own block page now reports an edge block instead of blaming your API key.",
+    ],
+  },
+
+  {
     version: "0.15.11",
     date: "2026-10-02",
     highlights: [
@@ -872,6 +881,15 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "0.15.13",
+    date: "2026-10-03",
+    highlights: [
+      "「测试连接」现在会探测真实对话所用的那条路由，模型列表能拉、但对话请求被拒的服务商不会再测出绿灯。",
+      "服务商前面的 CDN/WAF 用自己的拦截页回应请求时，现在会报告「被边缘拦截」，不再甩锅给你的 API 密钥。",
+    ],
+  },
+
+  {
     version: "0.15.11",
     date: "2026-10-02",
     highlights: [
@@ -1713,6 +1731,15 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "0.15.13",
+    date: "2026-10-03",
+    highlights: [
+      "「測試連線」現在會探測真實對話所用的那條路由，模型清單能拉、但對話請求被拒的服務商不會再測出綠燈。",
+      "服務商前面的 CDN/WAF 用自己的攔截頁回應請求時，現在會回報「被邊緣攔截」，不再把責任推給你的 API 金鑰。",
+    ],
+  },
+
   {
     version: "0.15.11",
     date: "2026-10-02",
