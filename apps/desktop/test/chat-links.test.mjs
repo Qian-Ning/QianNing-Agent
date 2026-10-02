@@ -215,7 +215,7 @@ test("splitChatText turns composer @paths into leaf-name chips", () => {
   assert.equal(files[2].label, "uuid-photo.png");
 });
 
-test("linkifyMdastTree turns bare paths into links and skips code", () => {
+test("linkifyMdastTree turns bare paths and resolvable inline code into links", () => {
   const tree = {
     type: "root",
     children: [
@@ -224,6 +224,7 @@ test("linkifyMdastTree turns bare paths into links and skips code", () => {
         children: [{ type: "text", value: "See apps/desktop/src/App.tsx please" }],
       },
       { type: "inlineCode", value: "apps/desktop/src/App.tsx" },
+      { type: "inlineCode", value: "not a real file at all.txt" },
       {
         type: "link",
         url: "https://example.com",
@@ -234,8 +235,30 @@ test("linkifyMdastTree turns bare paths into links and skips code", () => {
   linkifyMdastTree(tree, ROOT);
   assert.equal(tree.children[0].children[1].type, "link");
   assert.equal(tree.children[0].children[1].url, "apps/desktop/src/App.tsx");
-  assert.equal(tree.children[1].type, "inlineCode");
-  assert.equal(tree.children[2].children[0].type, "text");
+  // A resolvable inline-code path becomes a link whose child stays inline code (#1169).
+  assert.equal(tree.children[1].type, "link");
+  assert.equal(tree.children[1].url, "apps/desktop/src/App.tsx");
+  assert.equal(tree.children[1].children[0].type, "inlineCode");
+  // An unresolvable code run stays plain inline code.
+  assert.equal(tree.children[2].type, "inlineCode");
+  assert.equal(tree.children[3].children[0].type, "text");
+});
+
+test("linkifyMdastTree links a spaced Windows path in inline code (#1169)", () => {
+  const tree = {
+    type: "root",
+    children: [
+      {
+        type: "paragraph",
+        children: [{ type: "inlineCode", value: "C:/demo project/readme.md" }],
+      },
+    ],
+  };
+  // The issue's workspace root is the spaced directory itself, so the
+  // reference resolves under it; a foreign drive stays plain text.
+  linkifyMdastTree(tree, "C:\\demo project");
+  assert.equal(tree.children[0].children[0].type, "link");
+  assert.equal(tree.children[0].children[0].url, "readme.md");
 });
 
 test("linkifyMdastTree ignores a missing tree instead of reading type", () => {
