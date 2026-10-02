@@ -137,12 +137,21 @@ export function runActivityLabel(
       return t("chat.compactingContext");
     case "recovering":
       return t("chat.recoveringTurn");
-    case "retrying":
-      return t("chat.retryingModel", {
-        delaySeconds: retryDelaySeconds(activity, now),
+    case "retrying": {
+      const delaySeconds = retryDelaySeconds(activity, now);
+      const values = {
         attempt: activity.attempt,
         maxAttempts: activity.infinite ? "∞" : PROVIDER_RETRY_MAX_RETRIES,
-      });
+      };
+      // The countdown describes only the backoff the runtime announced. Once it
+      // elapses, the next attempt is already in flight and the retry stream will
+      // not update this activity again until that attempt fails too — so a row
+      // left counting down at "0s" reads as a hang for however long the attempt
+      // itself takes. Say the attempt is running instead.
+      return delaySeconds > 0
+        ? t("chat.retryingModel", { ...values, delaySeconds })
+        : t("chat.retryingAttempt", values);
+    }
     case "waiting-subagents":
       return waitingSubagentsLabel(activity, t);
   }

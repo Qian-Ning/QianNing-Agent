@@ -498,6 +498,7 @@ export const es = {
     "compactingContext": "Compactando contexto…",
     "recoveringTurn": "Recuperando respuesta vacía…",
     "retryingModel": "Reintentando en {{delaySeconds}} s · intento {{attempt}}/{{maxAttempts}}",
+    "retryingAttempt": "Reintentando · intento {{attempt}}/{{maxAttempts}}",
     "waitingForSubagentNamed": "Esperando a {{name}}",
     "waitingForSubagents_one": "Esperando {{count}} subagente",
     "waitingForSubagents_other": "Esperando {{count}} subagentes",

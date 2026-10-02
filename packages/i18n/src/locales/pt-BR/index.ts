@@ -497,6 +497,7 @@ export const ptBR = {
     compactingContext: "Compactando contexto…",
     recoveringTurn: "Recuperando resposta vazia…",
     retryingModel: "Tentando novamente em {{delaySeconds}}s · tentativa {{attempt}}/{{maxAttempts}}",
+    retryingAttempt: "Tentando novamente · tentativa {{attempt}}/{{maxAttempts}}",
     waitingForSubagentNamed: "Aguardando {{name}}",
     waitingForSubagents_one: "Esperando {{count}} subagente",
     waitingForSubagents_other: "Esperando {{count}} subagentes",

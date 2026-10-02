@@ -503,6 +503,7 @@ export const zhCN = {
     compactingContext: "正在压缩上下文…",
     recoveringTurn: "正在补救空回复…",
     retryingModel: "将在 {{delaySeconds}} 秒后重试 · 第 {{attempt}}/{{maxAttempts}} 次",
+    retryingAttempt: "正在重试 · 第 {{attempt}}/{{maxAttempts}} 次",
     waitingForSubagentNamed: "正在等待 {{name}}",
     waitingForSubagents_one: "正在等待 {{count}} 个 Subagent",
     waitingForSubagents_other: "正在等待 {{count}} 个 Subagent",

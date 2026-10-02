@@ -503,6 +503,7 @@ export const zhTW = {
     compactingContext: "正在壓縮上下文…",
     recoveringTurn: "正在補救空回覆…",
     retryingModel: "將在 {{delaySeconds}} 秒後重試 · 第 {{attempt}}/{{maxAttempts}} 次",
+    retryingAttempt: "正在重試 · 第 {{attempt}}/{{maxAttempts}} 次",
     waitingForSubagentNamed: "正在等待 {{name}}",
     waitingForSubagents_one: "正在等待 {{count}} 個 Subagent",
     waitingForSubagents_other: "正在等待 {{count}} 個 Subagent",

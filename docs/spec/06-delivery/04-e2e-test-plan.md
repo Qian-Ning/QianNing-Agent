@@ -6180,7 +6180,11 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
     phase, delay, and attempt number.
   - Delay precedence is `retry-after-ms`, `retry-after` seconds, HTTP-date,
     then exponential backoff with positive jitter. Server and fallback waits
-    are capped at 30 seconds and the wait is abortable.
+    are capped at 30 seconds and the wait is abortable. While the announced
+    wait is still running the active-turn row counts down and names the budget
+    (`Retrying in 8s · attempt 3/10`); once that wait elapses the row drops the
+    countdown and reports the attempt in flight (`Retrying · attempt 3/10`),
+    so a slow attempt never leaves the row frozen at `in 0s`.
   - Exhaustion emits one terminal `PROVIDER_RATE_LIMITED` assistant error and
     lifecycle event with `retryAttempt: 10` and `providerStatus: 429`; no
     eleventh retry occurs after the eleven provider attempts. The structured

@@ -507,6 +507,7 @@ export const tr = {
     compactingContext: "Bağlam sıkıştırılıyor…",
     recoveringTurn: "Boş yanıt kurtarılıyor…",
     retryingModel: "{{delaySeconds}} sn içinde yeniden deneniyor · {{attempt}}/{{maxAttempts}}. deneme",
+    retryingAttempt: "Yeniden deneniyor · {{attempt}}/{{maxAttempts}}. deneme",
     waitingForSubagentNamed: "{{name}} bekleniyor",
     waitingForSubagents_one: "{{count}} alt ajan bekleniyor",
     waitingForSubagents_other: "{{count}} alt ajan bekleniyor",

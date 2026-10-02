@@ -39,6 +39,18 @@ presentation.
 - Older status payloads without `error` continue to render the ordinary retry
   label.
 
+### Amendment: the retry label has two states (2026-10-02)
+
+The compact retry row is amended so its text distinguishes the announced
+backoff from the attempt that follows it: while the delay is still running the
+row counts down (`Retrying in 8s · attempt 3/10`), and once the delay has
+elapsed it drops the countdown and reports the attempt in flight
+(`Retrying · attempt 3/10`). Previously the row stayed on `… in 0s` for the
+whole of the next attempt, which the runtime does not report on until that
+attempt succeeds or fails — on a throttled provider that is minutes of a row
+that looks frozen. Cause details, tooltip, accessible name, and dismissal
+behavior are unchanged; see ADR 0206 for the label choice itself.
+
 ## Alternatives
 
 ### Use only a native `title`

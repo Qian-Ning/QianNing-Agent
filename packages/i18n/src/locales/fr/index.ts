@@ -498,6 +498,7 @@ export const fr = {
     "compactingContext": "Compactage du contexte…",
     "recoveringTurn": "Récupération d’une réponse vide…",
     "retryingModel": "Nouvel essai dans {{delaySeconds}} s · tentative {{attempt}}/{{maxAttempts}}",
+    "retryingAttempt": "Nouvel essai · tentative {{attempt}}/{{maxAttempts}}",
     "waitingForSubagentNamed": "En attente de {{name}}",
     "waitingForSubagents_one": "En attente de {{count}} sous-agents",
     "waitingForSubagents_other": "En attente de {{count}} sous-agents",

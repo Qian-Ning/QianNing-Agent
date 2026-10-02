@@ -505,6 +505,7 @@ export const en = {
     compactingContext: "Compacting context…",
     recoveringTurn: "Recovering empty response…",
     retryingModel: "Retrying in {{delaySeconds}}s · attempt {{attempt}}/{{maxAttempts}}",
+    retryingAttempt: "Retrying · attempt {{attempt}}/{{maxAttempts}}",
     waitingForSubagentNamed: "Waiting for {{name}}",
     waitingForSubagents_one: "Waiting for {{count}} subagent",
     waitingForSubagents_other: "Waiting for {{count}} subagents",
