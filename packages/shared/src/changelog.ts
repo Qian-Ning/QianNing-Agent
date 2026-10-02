@@ -30,6 +30,16 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "0.15.11",
+    date: "2026-10-02",
+    highlights: [
+      "Links inside your own messages can now be selected and copied.",
+      "The window can shrink to 800×560 and is always capped to fit your screen, even at high display scaling.",
+      "File paths in the chat transcript now resolve in full, and a missing Read/Write/Edit target reports a clear \"file not found\" error.",
+    ],
+  },
+
+  {
     version: "0.15.10",
     date: "2026-09-28",
     highlights: [
@@ -862,6 +872,16 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "0.15.11",
+    date: "2026-10-02",
+    highlights: [
+      "自己消息里的链接现在可以选中和复制了。",
+      "窗口最小可缩到 800×560，并始终被限制在屏幕可用范围内，高缩放比例下也不会超出屏幕。",
+      "聊天记录里的文件路径现在会完整显示，Read/Write/Edit 找不到目标文件时会给出清晰的「文件不存在」提示。",
+    ],
+  },
+
+  {
     version: "0.15.10",
     date: "2026-09-28",
     highlights: [
@@ -1693,6 +1713,16 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "0.15.11",
+    date: "2026-10-02",
+    highlights: [
+      "自己訊息裡的連結現在可以選取和複製了。",
+      "視窗最小可縮到 800×560，並始終被限制在螢幕可用範圍內，高縮放比例下也不會超出螢幕。",
+      "聊天記錄裡的檔案路徑現在會完整顯示，Read/Write/Edit 找不到目標檔案時會給出清晰的「檔案不存在」提示。",
+    ],
+  },
+
   {
     version: "0.15.10",
     date: "2026-09-28",

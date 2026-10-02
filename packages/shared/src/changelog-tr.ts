@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.11",
+    "date": "2026-10-02",
+    "highlights": [
+      "Kendi mesajlarınızdaki bağlantılar artık seçilip kopyalanabiliyor.",
+      "Pencere 800×560'a kadar küçültülebilir ve yüksek görüntü ölçeklemesinde bile her zaman ekranınıza sığacak şekilde sınırlanır.",
+      "Sohbet dökümündeki dosya yolları artık tam olarak çözümleniyor ve eksik bir Read/Write/Edit hedefi net bir \"dosya bulunamadı\" hatası bildiriyor.",
+    ],
+  },
+
+  {
     "version": "0.15.10",
     "date": "2026-09-28",
     "highlights": [

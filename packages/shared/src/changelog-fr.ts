@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.11",
+    "date": "2026-10-02",
+    "highlights": [
+      "Les liens dans vos propres messages peuvent désormais être sélectionnés et copiés.",
+      "La fenêtre peut être réduite à 800×560 et reste toujours limitée à la taille de votre écran, même à forte mise à l'échelle de l'affichage.",
+      "Les chemins de fichiers dans l'historique de conversation sont désormais résolus en entier, et une cible Read/Write/Edit manquante renvoie une erreur claire « fichier introuvable ».",
+    ],
+  },
+
+  {
     "version": "0.15.10",
     "date": "2026-09-28",
     "highlights": [

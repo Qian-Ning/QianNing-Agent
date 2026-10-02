@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.11",
+    "date": "2026-10-02",
+    "highlights": [
+      "자신의 메시지 안에 있는 링크를 이제 선택하고 복사할 수 있습니다.",
+      "창을 800×560까지 줄일 수 있으며, 높은 디스플레이 배율에서도 항상 화면 크기에 맞게 제한됩니다.",
+      "채팅 기록의 파일 경로가 이제 전체로 표시되고, Read/Write/Edit 대상이 없으면 명확한 \"파일을 찾을 수 없음\" 오류를 보고합니다.",
+    ],
+  },
+
+  {
     "version": "0.15.10",
     "date": "2026-09-28",
     "highlights": [

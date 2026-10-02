@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.11",
+    "date": "2026-10-02",
+    "highlights": [
+      "Los enlaces dentro de tus propios mensajes ahora se pueden seleccionar y copiar.",
+      "La ventana puede reducirse a 800×560 y siempre se limita al tamaño de tu pantalla, incluso con una escala de pantalla alta.",
+      "Las rutas de archivo en la transcripción del chat ahora se resuelven por completo, y un destino Read/Write/Edit inexistente informa de un error claro de «archivo no encontrado».",
+    ],
+  },
+
+  {
     "version": "0.15.10",
     "date": "2026-09-28",
     "highlights": [

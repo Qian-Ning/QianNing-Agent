@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.11",
+    "date": "2026-10-02",
+    "highlights": [
+      "Links in deinen eigenen Nachrichten lassen sich jetzt markieren und kopieren.",
+      "Das Fenster kann auf 800×560 verkleinert werden und wird stets auf die Bildschirmgröße begrenzt, auch bei hoher Anzeigeskalierung.",
+      "Dateipfade im Chatverlauf werden jetzt vollständig aufgelöst, und ein fehlendes Read/Write/Edit-Ziel meldet einen klaren \"Datei nicht gefunden\"-Fehler.",
+    ],
+  },
+
+  {
     "version": "0.15.10",
     "date": "2026-09-28",
     "highlights": [

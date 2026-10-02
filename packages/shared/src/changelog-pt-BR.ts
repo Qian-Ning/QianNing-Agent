@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    "version": "0.15.11",
+    "date": "2026-10-02",
+    "highlights": [
+      "Os links dentro das suas próprias mensagens agora podem ser selecionados e copiados.",
+      "A janela pode ser reduzida para 800×560 e é sempre limitada ao tamanho da sua tela, mesmo em alta escala de exibição.",
+      "Os caminhos de arquivo na transcrição do chat agora são resolvidos por completo, e um destino Read/Write/Edit ausente informa um erro claro de \"arquivo não encontrado\".",
+    ],
+  },
+
+  {
     "version": "0.15.10",
     "date": "2026-09-28",
     "highlights": [
