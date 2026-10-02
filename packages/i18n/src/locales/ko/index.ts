@@ -304,6 +304,9 @@ export const ko = {
     promptCardsExportEmpty: "내보낼 빠른 프롬프트가 아직 없습니다",
     promptCardsImported: "빠른 프롬프트 {{added}}개를 가져오고 {{skipped}}개를 건너뛰었습니다",
     promptCardsImportFailed: "이 파일은 빠른 프롬프트 내보내기 파일이 아닙니다",
+    summarizeNewSession: "요약하고 새 대화 시작",
+    summarizeNewSessionBusy: "요약하기 전에 현재 작업을 끝내세요",
+    summarizeNewSessionWorking: "요약 중…",
     conversationPromptTitle: "이 대화의 프롬프트",
     conversationPromptDesc: "이 대화에만 적용됩니다. 다른 대화는 내장 프롬프트를 사용합니다.",
     conversationPromptPlaceholder: "비워 두면 내장 프롬프트를 사용합니다",
@@ -2575,6 +2578,10 @@ importConfirm: "가져온 확장은 에이전트 프로세스 안에서 에이�
     failed: "컨텍스트 압축 실패",
     longThreadWarning:
       "컨텍스트가 압축되었습니다. 긴 대화는 압축할 때마다 이전 세부 정보가 줄어드니 관련 없는 작업은 새 세션을 시작하세요.",
+  },
+  contextSummary: {
+    empty: "이 대화에는 아직 요약할 내용이 없습니다",
+    failed: "이 대화를 요약할 수 없습니다",
   },
   notifications: {
     title: "알림",

@@ -36,6 +36,7 @@ const enEntries: ChangelogEntry[] = [
       "Marketplace plugins now appear in a randomized order instead of alphabetically.",
       "The composer model menu is now a two-pane browser with favorites, recents, capability filters, and cross-provider search.",
       "Save any draft as a quick prompt, insert it again with one click from above the message box, and export or import your prompt library to share it.",
+      "Summarize a long conversation and start a fresh chat from it — the summary pre-fills the new message box for review, and a project conversation's summary stays inside that project.",
     ],
   },
 
@@ -867,6 +868,7 @@ const zhCNEntries: ChangelogEntry[] = [
       "插件市场列表改为随机顺序展示，不再按名称排序。",
       "输入框的模型选择改为双栏浏览：收藏置顶、最近使用、能力过滤与跨服务商搜索。",
       "可以把任意草稿存成常用指令，之后在输入框上方一键填入，还能导出/导入整套常用指令与他人分享。",
+      "可以把一长段对话总结后新开对话续聊——总结会预填到新对话输入框供你过目，项目内对话的总结也会留在该项目里。",
     ],
   },
 
@@ -1698,6 +1700,7 @@ const zhTWEntries: ChangelogEntry[] = [
       "外掛市集改為隨機順序顯示，不再按名稱排序。",
       "輸入框的模型選擇改為雙欄瀏覽：收藏置頂、最近使用、能力篩選與跨服務商搜尋。",
       "可以把任意草稿存成常用指令，之後在輸入框上方一鍵填入，還能匯出/匯入整套常用指令與他人分享。",
+      "可以把一長段對話總結後新開對話續聊——總結會預填到新對話輸入框供你過目，專案內對話的總結也會留在該專案裡。",
     ],
   },
 

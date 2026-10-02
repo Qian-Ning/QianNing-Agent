@@ -8,6 +8,7 @@ export const trEntries: ChangelogEntry[] = [
       "Eklenti pazarı artık eklentileri alfabetik sıra yerine rastgele sırada gösteriyor.",
       "Yazı alanındaki model seçimi artık favoriler, son kullanılanlar, yetenek filtreleri ve sağlayıcılar arası aramayla iki bölmeli bir tarayıcı.",
       "Herhangi bir taslağı hızlı istem olarak kaydedin, yazı alanının üstünden tek tıkla yeniden ekleyin ve istem kitaplığınızı paylaşmak için dışa veya içe aktarın.",
+      "Uzun bir sohbeti özetleyip ondan yeni bir sohbet başlatın — özet, gözden geçirmeniz için yeni yazı alanına önceden doldurulur ve bir proje sohbetinin özeti o projenin içinde kalır.",
     ],
   },
 

@@ -12,6 +12,10 @@ import {
   mergeLiveSessionMessages,
 } from "../../lib/session-transcript";
 import { optimisticUserMessage } from "../../lib/session-transcript";
+import {
+  clampTranscriptForSummary,
+  conversationPlainText,
+} from "../../lib/chat-transcript-text";
 import { withReviewChangeState } from "../../lib/workspace-review";
 import { settleStoppedAssistantMetrics } from "../../lib/context-usage";
 import type { AppState } from "../app-state";
@@ -41,6 +45,7 @@ export function createTranscriptSlice({
 }: TranscriptSliceDependencies): Pick<
   AppState,
   | "compactContext"
+  | "summarizeAndStartNewSession"
   | "retryAssistantMessage"
   | "editUserMessage"
   | "prepareUserMessageEdit"
@@ -82,6 +87,78 @@ export function createTranscriptSlice({
             { variant: "error" },
           );
         }
+      }
+    },
+
+    summarizeAndStartNewSession: async () => {
+      const state = get();
+      const sessionId = state.activeSessionId;
+      if (!sessionId || state.isRunning) return;
+      if (sessionId.startsWith("native-pi:")) return;
+      const source = state.sessions.find((session) => session.id === sessionId);
+      // The new session inherits the current one's project so a project
+      // conversation's summary stays inside that project (null = no project).
+      const projectPath = source?.projectPath ?? null;
+      set({ summarizingSessionId: sessionId });
+      try {
+        // Read the full session, not just the loaded window, so the summary
+        // reflects the whole thread rather than the visible tail.
+        const { session } = await api.getSession(sessionId);
+        if (!session) {
+          get().showToast(i18n.t("contextSummary.failed"), { variant: "error" });
+          return;
+        }
+        const transcript = clampTranscriptForSummary(
+          conversationPlainText(
+            mergeLiveSessionMessages(session.messages ?? [], get().messages),
+            {
+              user: i18n.t("chat.speakerYou"),
+              assistant: i18n.t("chat.speakerAssistant"),
+            },
+          ),
+        );
+        if (!transcript.trim()) {
+          get().showToast(i18n.t("contextSummary.empty"), { variant: "error" });
+          return;
+        }
+        const { summary } = await api.summarizeSessionContext({
+          sessionId,
+          transcript,
+          providerId: source?.providerId,
+          modelId: source?.modelId,
+        });
+        const prefill = summary.trim();
+        if (!prefill) {
+          get().showToast(i18n.t("contextSummary.empty"), { variant: "error" });
+          return;
+        }
+        // Open a fresh conversation in the same project, then drop the summary
+        // into its composer as an editable draft — never auto-sent, never a
+        // system prompt. The user reads, edits, and sends it themselves.
+        await get().newSession({ projectPath });
+        const newSessionId = get().activeSessionId;
+        if (!newSessionId) {
+          get().showToast(i18n.t("contextSummary.failed"), { variant: "error" });
+          return;
+        }
+        set({
+          composerPrefill: {
+            sessionId: newSessionId,
+            text: prefill,
+            fileReferences: [],
+          },
+        });
+      } catch (error) {
+        get().showToast(
+          error instanceof Error ? error.message : i18n.t("contextSummary.failed"),
+          { variant: "error" },
+        );
+      } finally {
+        set((current) =>
+          current.summarizingSessionId === sessionId
+            ? { summarizingSessionId: null }
+            : {},
+        );
       }
     },
 

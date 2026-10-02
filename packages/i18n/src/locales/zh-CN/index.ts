@@ -297,6 +297,9 @@ export const zhCN = {
     promptCardsExportEmpty: "还没有常用指令可导出",
     promptCardsImported: "已导入 {{added}} 条常用指令，跳过 {{skipped}} 条",
     promptCardsImportFailed: "这个文件不是常用指令导出文件",
+    summarizeNewSession: "总结并新开对话",
+    summarizeNewSessionBusy: "请先结束当前任务，再做总结",
+    summarizeNewSessionWorking: "总结中…",
     conversationPromptTitle: "本对话的提示词",
     conversationPromptDesc: "只对当前这个对话生效，其他对话使用软件内置提示词。",
     conversationPromptPlaceholder: "留空则使用内置提示词",
@@ -2529,6 +2532,10 @@ sklm: {
     recovered: "上下文摘要失败，已保留近期上下文并继续任务",
     failed: "上下文压缩失败",
     longThreadWarning: "上下文已压缩。每压缩一次都会丢掉更早的细节，无关的新任务建议开新会话。",
+  },
+  contextSummary: {
+    empty: "这个对话还没有可总结的内容",
+    failed: "无法总结这个对话",
   },
   notifications: {
     title: "通知",

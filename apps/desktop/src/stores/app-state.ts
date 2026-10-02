@@ -129,6 +129,8 @@ export type AppState = {
   draftConfiguration: DraftSessionConfiguration | null;
   /** Latest user-selected session while its transcript/workspace is resolving. */
   selectingSessionId?: string;
+  /** Session whose context is being summarized for a new conversation, if any. */
+  summarizingSessionId?: string | null;
   messages: UiMessage[];
   /** Renderer-only visibility overrides; never persisted with transcript messages. */
   dismissedAssistantErrorMessages: Record<string, true>;
@@ -239,6 +241,12 @@ export type AppState = {
   refreshQueuedPrompts: (sessionId: string) => Promise<void>;
   applyQueueChanged: (event: AgentQueueChangedEvent) => void;
   compactContext: () => Promise<void>;
+  /**
+   * Summarize the active conversation and open a fresh session (same project)
+   * with the summary pre-filled in the composer as an editable draft. Additive:
+   * it never mutates or compacts the source conversation.
+   */
+  summarizeAndStartNewSession: () => Promise<void>;
   retryAssistantMessage: (messageId: string) => Promise<void>;
   /** Read canonical text before opening a user-message editor. */
   prepareUserMessageEdit: (messageId: string, signal?: AbortSignal) => Promise<UiMessage | null>;

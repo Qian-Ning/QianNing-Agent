@@ -1,6 +1,6 @@
-import { IPC, ErrorCodes, compactionRecordId, findSkillMentions, isGlobalPermissionMode, isRpcTimeoutError, type AgentEventEnvelope, type AgentPromptRequest, type AgentSteerRequest, type UiMessage, type AgentQueuePushRequest, type AgentStopRequest, type AskToolResolution, type GlobalPermissionMode, type MessageUsage, type PlanExecutionFinishStatus, type PlanResolutionResult, type PlanResolveRequest, type SessionSummarizeTitleRequest } from "@pi-desktop/shared";
+import { IPC, ErrorCodes, compactionRecordId, findSkillMentions, isGlobalPermissionMode, isRpcTimeoutError, type AgentEventEnvelope, type AgentPromptRequest, type AgentSteerRequest, type UiMessage, type AgentQueuePushRequest, type AgentStopRequest, type AskToolResolution, type GlobalPermissionMode, type MessageUsage, type PlanExecutionFinishStatus, type PlanResolutionResult, type PlanResolveRequest, type SessionSummarizeTitleRequest, type SessionSummarizeContextRequest } from "@pi-desktop/shared";
 import type { FinishTurn } from "../runtime/plans";
-import { expandSlashInvocation, summarizeSessionTitle, visionFromModelConfig, type ComposerTemplate, type RuntimeProviderConfig } from "@pi-desktop/agent-runtime";
+import { expandSlashInvocation, summarizeSessionTitle, summarizeSessionContext, visionFromModelConfig, type ComposerTemplate, type RuntimeProviderConfig } from "@pi-desktop/agent-runtime";
 import { OAUTH_AUTH_KIND, type VendorOAuth } from "../oauth";
 import { appendPromptFallbackPaths, durableUserMessageId, preparePromptAttachments, type PreparedPromptAttachment } from "../prompt-attachments";
 import { executionFromResponse, resolveSessionMessageInput } from "@pi-desktop/host-runtime";
@@ -144,6 +144,53 @@ export function registerAgentIpc({
       data: { title, providerId: launch.providerId, modelId: launch.modelId },
     });
     return { title };
+  });
+
+  handle(IPC.invoke.sessionSummarizeContext, async (req: SessionSummarizeContextRequest) => {
+    if (!host) throw new Error("backend unavailable");
+    const sessionId = typeof req?.sessionId === "string" ? req.sessionId.trim() : "";
+    const transcript = typeof req?.transcript === "string" ? req.transcript.trim() : "";
+    if (!sessionId || !transcript) {
+      throw Object.assign(new Error("sessionId and transcript required"), {
+        errorCode: ErrorCodes.INVALID_ARGUMENT,
+      });
+    }
+    const session = (await host.call<{ session?: any }>("session.get", { id: sessionId })).session;
+    if (!session) {
+      throw Object.assign(new Error("Session not found"), {
+        errorCode: ErrorCodes.NOT_FOUND,
+      });
+    }
+    const settings = await host.call<any>("settings.get");
+    const launch = await resolveAgentRuntimeLaunch(
+      `context-summary:${sessionId}`,
+      session,
+      settings,
+      {
+        mode: "agent",
+        providerId: typeof req.providerId === "string" ? req.providerId.trim() : undefined,
+        modelId: typeof req.modelId === "string" ? req.modelId.trim() : undefined,
+        thinkingLevel: "off",
+      },
+    );
+    const runtimeProvider = {
+      ...launch.sidecarParams.provider,
+      ...(launch.sidecarParams.provider.authKind === OAUTH_AUTH_KIND
+        ? { resolveAuth: () => vendorOAuth.resolveAuth(launch.providerId) }
+        : {}),
+    } as RuntimeProviderConfig;
+
+    const summary = await summarizeSessionContext(
+      runtimeProvider,
+      transcript,
+      "off",
+      { sessionId },
+    );
+    logger.app("session", "info", "session context summarized", {
+      sessionId,
+      data: { providerId: launch.providerId, modelId: launch.modelId, length: summary.length },
+    });
+    return { summary };
   });
 
   handle(IPC.invoke.agentSteer, async (req: AgentSteerRequest) => {

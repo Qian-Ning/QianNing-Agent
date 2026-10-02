@@ -92,6 +92,19 @@ export type SessionSummarizeTitleResponse = {
   title: string;
 };
 
+export type SessionSummarizeContextRequest = {
+  sessionId: string;
+  /** The transcript to condense, already assembled and bounded by the caller. */
+  transcript: string;
+  providerId?: string;
+  modelId?: string;
+  thinkingLevel?: ThinkingLevel;
+};
+
+export type SessionSummarizeContextResponse = {
+  summary: string;
+};
+
 export type AgentExecuteApprovedPlanRequest = {
   sessionId: string;
   turnId: string;

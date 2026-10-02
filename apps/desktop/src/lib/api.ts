@@ -18,6 +18,8 @@ import type {
   SpeechTranscribeRequest,
   SessionSummarizeTitleRequest,
   SessionSummarizeTitleResponse,
+  SessionSummarizeContextRequest,
+  SessionSummarizeContextResponse,
   AgentStopResponse,
   AgentQueueChangedEvent,
   AgentQueuePushRequest,
@@ -615,6 +617,8 @@ export const api = {
     }).then((result) => ({ ...result, session: normalizeSession(result.session) })),
   summarizeSessionTitle: (req: SessionSummarizeTitleRequest) =>
     invoke<SessionSummarizeTitleResponse>(IPC.invoke.sessionSummarizeTitle, req),
+  summarizeSessionContext: (req: SessionSummarizeContextRequest) =>
+    invoke<SessionSummarizeContextResponse>(IPC.invoke.sessionSummarizeContext, req),
   configureSession: (
     id: string,
     config: Pick<SessionSummary, "mode" | "providerId" | "modelId"> &

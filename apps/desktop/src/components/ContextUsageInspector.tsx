@@ -15,6 +15,7 @@ import {
 } from "@pi-desktop/shared";
 import { useAppStore } from "../stores/app-store";
 import { TooltipButton } from "./ui";
+import { IconSparkles } from "./icons";
 import {
   aggregateToolTokenUsage,
   calculateCacheRate,
@@ -58,6 +59,23 @@ export function ContextUsageInspector({
       ? state.sessionCompactions[state.activeSessionId]?.at(-1)
       : undefined,
   );
+  // "Summarize & start new chat" lives here because the context ring is where a
+  // user looks when the window fills up. It never touches the current session —
+  // it summarizes it, opens a fresh one in the same project, and pre-fills the
+  // summary as an editable draft.
+  const activeSessionId = useAppStore((state) => state.activeSessionId);
+  const isRunning = useAppStore((state) => state.isRunning);
+  const summarizing = useAppStore((state) =>
+    Boolean(
+      state.summarizingSessionId &&
+        state.summarizingSessionId === state.activeSessionId,
+    ),
+  );
+  const summarizeAndStartNewSession = useAppStore(
+    (state) => state.summarizeAndStartNewSession,
+  );
+  const canSummarize =
+    Boolean(activeSessionId) && !activeSessionId!.startsWith("native-pi:");
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -355,6 +373,31 @@ export function ContextUsageInspector({
             {t("chat.usageCompaction", { times: compaction.generation })}
           </span>
           <strong title={compaction.summarized && !compaction.fallback && compaction.summary?.trim() ? compaction.summary : undefined}>~{formatCompactTokenCount(compaction.summaryTokens)}</strong>
+        </div>
+      ) : null}
+      {canSummarize ? (
+        <div className="context-inspector-actions">
+          <button
+            type="button"
+            className="context-inspector-summarize"
+            disabled={isRunning || summarizing}
+            title={
+              isRunning
+                ? t("chat.summarizeNewSessionBusy")
+                : t("chat.summarizeNewSession")
+            }
+            onClick={() => {
+              closeInspector();
+              void summarizeAndStartNewSession();
+            }}
+          >
+            <IconSparkles size={14} />
+            <span>
+              {summarizing
+                ? t("chat.summarizeNewSessionWorking")
+                : t("chat.summarizeNewSession")}
+            </span>
+          </button>
         </div>
       ) : null}
     </div>

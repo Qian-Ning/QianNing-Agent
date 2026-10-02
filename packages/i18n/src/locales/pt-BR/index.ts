@@ -294,6 +294,9 @@ export const ptBR = {
     promptCardsExportEmpty: "Nenhum prompt rápido para exportar ainda",
     promptCardsImported: "{{added}} prompt(s) rápido(s) importado(s), {{skipped}} ignorado(s)",
     promptCardsImportFailed: "Esse arquivo não é uma exportação de prompts rápidos",
+    summarizeNewSession: "Resumir e iniciar novo chat",
+    summarizeNewSessionBusy: "Conclua a tarefa atual antes de resumir",
+    summarizeNewSessionWorking: "Resumindo…",
     conversationPromptTitle: "Prompt desta conversa",
     conversationPromptDesc: "Aplica-se somente a esta conversa. As outras usam o prompt integrado.",
     conversationPromptPlaceholder: "Deixe vazio para usar o prompt integrado",
@@ -2501,6 +2504,10 @@ export const ptBR = {
     recovered: "Falha ao resumir o contexto; o contexto recente foi mantido e a tarefa continua",
     failed: "Falha na compactação do contexto",
     longThreadWarning: "O contexto foi compactado. Conversas longas perdem detalhes anteriores a cada compactação — inicie uma nova sessão para tarefas não relacionadas.",
+  },
+  contextSummary: {
+    empty: "Esta conversa ainda não tem nada para resumir",
+    failed: "Não foi possível resumir esta conversa",
   },
   notifications: {
     title: "Notificações",

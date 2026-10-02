@@ -115,6 +115,8 @@ export const IPC = {
     /** Set or clear a conversation's own system prompt (schema v20). */
     sessionSetSystemPrompt: "pi-desktop/session/setSystemPrompt",
     sessionSummarizeTitle: "pi-desktop/session/summarizeTitle",
+    /** Condense a transcript into a carry-forward brief for a fresh session. */
+    sessionSummarizeContext: "pi-desktop/session/summarizeContext",
     sessionConfigure: "pi-desktop/session/configure",
     sessionImportScan: "pi-desktop/session/importScan",
     sessionImportRun: "pi-desktop/session/importRun",

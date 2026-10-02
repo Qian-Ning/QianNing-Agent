@@ -295,6 +295,9 @@ export const es = {
     "promptCardsExportEmpty": "Aún no hay prompts rápidos para exportar",
     "promptCardsImported": "{{added}} prompt(s) rápido(s) importado(s), {{skipped}} omitido(s)",
     "promptCardsImportFailed": "Ese archivo no es una exportación de prompts rápidos",
+    "summarizeNewSession": "Resumir e iniciar nuevo chat",
+    "summarizeNewSessionBusy": "Termina la tarea actual antes de resumir",
+    "summarizeNewSessionWorking": "Resumiendo…",
     "conversationPromptTitle": "Prompt de esta conversación",
     "conversationPromptDesc": "Se aplica solo a esta conversación. Las demás usan el prompt integrado.",
     "conversationPromptPlaceholder": "Déjalo vacío para usar el prompt integrado",
@@ -2538,6 +2541,10 @@ sklm: {
     "recovered": "Error en el resumen de contexto; Se retuvo el contexto reciente y la tarea continúa.",
     "failed": "Error en la compactación del contexto.",
     "longThreadWarning": "Contexto compactado. Los hilos largos pierden detalles anteriores con cada compactación: inicie una nueva sesión para trabajos no relacionados."
+  },
+  "contextSummary": {
+    "empty": "Esta conversación aún no tiene nada que resumir",
+    "failed": "No se pudo resumir esta conversación"
   },
   "notifications": {
     "title": "Notificaciones",

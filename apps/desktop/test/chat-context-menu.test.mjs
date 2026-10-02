@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { placeContextMenu } from "../src/lib/context-menu.ts";
-import { conversationPlainText, copySelectionOrFallback } from "../src/lib/chat-transcript-text.ts";
+import { conversationPlainText, copySelectionOrFallback, clampTranscriptForSummary } from "../src/lib/chat-transcript-text.ts";
 
 test("a menu that fits the viewport stays at the pointer", () => {
   assert.deepEqual(
@@ -52,4 +52,22 @@ test("copy prefers a live selection over the whole turn", () => {
   assert.equal(copySelectionOrFallback("  this line  ", "whole message"), "  this line  ");
   assert.equal(copySelectionOrFallback("", "whole message"), "whole message");
   assert.equal(copySelectionOrFallback(undefined, "whole message"), "whole message");
+});
+
+test("a short transcript passes through the summary clamp untouched", () => {
+  const text = "You:\nHello\n\nAssistant:\nHi there";
+  assert.equal(clampTranscriptForSummary(text, 1000), text);
+});
+
+test("a long transcript keeps the opening and the latest exchange", () => {
+  const head = "GOAL_" + "a".repeat(400);
+  const middle = "m".repeat(2000);
+  const tail = "b".repeat(400) + "_LATEST";
+  const clamped = clampTranscriptForSummary(`${head}${middle}${tail}`, 1000);
+  // The elision marker bridges a preserved head and a preserved tail; the
+  // middle is dropped so the result fits the budget.
+  assert.ok(clamped.includes("[...]"));
+  assert.ok(clamped.startsWith("GOAL_"));
+  assert.ok(clamped.endsWith("_LATEST"));
+  assert.ok(clamped.length < `${head}${middle}${tail}`.length);
 });

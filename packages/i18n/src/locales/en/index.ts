@@ -302,6 +302,9 @@ export const en = {
     promptCardsExportEmpty: "No quick prompts to export yet",
     promptCardsImported: "Imported {{added}} quick prompt(s), skipped {{skipped}}",
     promptCardsImportFailed: "That file was not a quick-prompt export",
+    summarizeNewSession: "Summarize & start new chat",
+    summarizeNewSessionBusy: "Finish the current task before summarizing",
+    summarizeNewSessionWorking: "Summarizing…",
     conversationPromptTitle: "This conversation's prompt",
     conversationPromptDesc: "Applies to this conversation only. Every other conversation uses the built-in prompt.",
     conversationPromptPlaceholder: "Leave empty to use the built-in prompt",
@@ -2579,6 +2582,10 @@ importConfirm: "Imported extensions run inside the agent process with the same a
     failed: "Context compaction failed",
     longThreadWarning:
       "Context compacted. Long threads lose earlier detail with each compaction — start a new session for unrelated work.",
+  },
+  contextSummary: {
+    empty: "This conversation has nothing to summarize yet",
+    failed: "Could not summarize this conversation",
   },
   notifications: {
     title: "Notifications",

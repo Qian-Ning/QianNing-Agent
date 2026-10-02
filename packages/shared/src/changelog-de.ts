@@ -8,6 +8,7 @@ export const deEntries: ChangelogEntry[] = [
       "Marketplace-Plugins werden jetzt in zufälliger statt alphabetischer Reihenfolge angezeigt.",
       "Die Modellauswahl im Eingabefeld ist jetzt ein zweispaltiger Browser mit Favoriten, zuletzt verwendeten Modellen, Fähigkeitsfiltern und anbieterübergreifender Suche.",
       "Speichere jeden Entwurf als Schnell-Prompt, füge ihn mit einem Klick über dem Eingabefeld wieder ein und exportiere oder importiere deine Prompt-Sammlung zum Teilen.",
+      "Fasse ein langes Gespräch zusammen und starte daraus einen neuen Chat – die Zusammenfassung wird zur Durchsicht in das neue Eingabefeld vorausgefüllt, und die Zusammenfassung eines Projektgesprächs bleibt in diesem Projekt.",
     ],
   },
 

@@ -297,6 +297,9 @@ export const zhTW = {
     promptCardsExportEmpty: "還沒有常用指令可匯出",
     promptCardsImported: "已匯入 {{added}} 則常用指令，略過 {{skipped}} 則",
     promptCardsImportFailed: "這個檔案不是常用指令匯出檔",
+    summarizeNewSession: "總結並新開對話",
+    summarizeNewSessionBusy: "請先結束目前任務，再做總結",
+    summarizeNewSessionWorking: "總結中…",
     conversationPromptTitle: "本對話的提示詞",
     conversationPromptDesc: "只對目前這個對話生效，其他對話使用軟體內建提示詞。",
     conversationPromptPlaceholder: "留空則使用內建提示詞",
@@ -2527,6 +2530,10 @@ sklm: {
     recovered: "上下文摘要失敗，已保留近期上下文並繼續任務",
     failed: "上下文壓縮失敗",
     longThreadWarning: "上下文已壓縮。每壓縮一次都會丟掉更早的細節，無關的新任務建議開新會話。",
+  },
+  contextSummary: {
+    empty: "這個對話還沒有可總結的內容",
+    failed: "無法總結這個對話",
   },
   notifications: {
     title: "通知",

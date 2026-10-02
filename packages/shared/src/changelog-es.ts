@@ -8,6 +8,7 @@ export const esEntries: ChangelogEntry[] = [
       "Los plugins del mercado aparecen ahora en orden aleatorio en lugar de alfabético.",
       "La selección de modelo del cuadro de mensaje ahora es un navegador de dos paneles con favoritos, recientes, filtros de capacidades y búsqueda entre proveedores.",
       "Guarda cualquier borrador como prompt rápido, insértalo de nuevo con un clic desde encima del cuadro de mensaje y exporta o importa tu biblioteca de prompts para compartirla.",
+      "Resume una conversación larga y empieza un chat nuevo a partir de ella: el resumen se rellena en el nuevo cuadro de mensaje para que lo revises, y el resumen de una conversación de proyecto permanece dentro de ese proyecto.",
     ],
   },
 

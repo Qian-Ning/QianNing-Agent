@@ -295,6 +295,9 @@ export const fr = {
     "promptCardsExportEmpty": "Aucun prompt rapide à exporter pour l'instant",
     "promptCardsImported": "{{added}} prompt(s) rapide(s) importé(s), {{skipped}} ignoré(s)",
     "promptCardsImportFailed": "Ce fichier n'est pas un export de prompts rapides",
+    "summarizeNewSession": "Résumer et démarrer un nouveau chat",
+    "summarizeNewSessionBusy": "Terminez la tâche en cours avant de résumer",
+    "summarizeNewSessionWorking": "Résumé en cours…",
     "conversationPromptTitle": "Prompt de cette conversation",
     "conversationPromptDesc": "S'applique uniquement à cette conversation. Les autres utilisent le prompt intégré.",
     "conversationPromptPlaceholder": "Laisser vide pour utiliser le prompt intégré",
@@ -2537,7 +2540,11 @@ sklm: {
     "retrying": "Contexte compacté ; nouvelle tentative de demande de modèle",
     "recovered": "Le résumé du contexte a échoué ; le contexte récent a été conservé et la tâche se poursuit",
     "failed": "Échec du compactage du contexte",
-    "longThreadWarning": "Contexte compacté. Les threads longs perdent les détails antérieurs à chaque compactage : démarrez une nouvelle session pour un travail sans rapport."
+    "longThreadWarning": "Contexte compacté. Les threads longs perdent les détails antérieurs à chaque compactage : démarrez une nouvelle session pour un travail sans rapport."
+  },
+  "contextSummary": {
+    "empty": "Cette conversation n'a encore rien à résumer",
+    "failed": "Impossible de résumer cette conversation"
   },
   "notifications": {
     "title": "Notifications",

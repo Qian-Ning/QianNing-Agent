@@ -8,6 +8,7 @@ export const frEntries: ChangelogEntry[] = [
       "Les plugins de la marketplace s’affichent désormais dans un ordre aléatoire plutôt que par ordre alphabétique.",
       "La sélection de modèle du champ de saisie est désormais un navigateur à deux volets avec favoris, récents, filtres de capacités et recherche multi-fournisseurs.",
       "Enregistrez n'importe quel brouillon comme prompt rapide, réinsérez-le en un clic depuis le haut du champ de saisie, et exportez ou importez votre bibliothèque de prompts pour la partager.",
+      "Résumez une longue conversation et démarrez-en un nouveau chat — le résumé est pré-rempli dans le nouveau champ de saisie pour relecture, et le résumé d'une conversation de projet reste dans ce projet.",
     ],
   },
 

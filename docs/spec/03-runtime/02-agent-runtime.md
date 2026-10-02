@@ -102,6 +102,22 @@ that is neither a recognized default nor the deterministic first-prompt
 fallback, which protects manual and already-summarized titles after restart.
 No host RPC or storage schema change is required.
 
+### 4.2 Context summarization for a new session
+
+A separate, user-triggered one-shot condenses a whole conversation into a
+carry-forward brief for a brand-new session. It is distinct from automatic
+context compaction (§ on compaction): compaction summarizes in place and keeps
+the same session, whereas this path leaves the source session untouched and
+opens a fresh one. Electron main resolves the session's effective provider/model
+and invokes the runtime's `summarizeSessionContext` one-shot path with thinking
+disabled, over the `session/summarizeContext` channel. The caller supplies the
+transcript text — already clamped to a bounded head+tail budget by the renderer
+— and the runtime returns only sanitized summary text in the conversation's
+language, treating an empty/failing completion as a non-fatal result. No durable
+session history, tools, host RPC, or storage schema change is involved; the
+renderer pre-fills the returned summary into the new session's composer as an
+editable draft (never a system prompt, never auto-sent).
+
 ## 5. Prompt flow
 
 1. load the durable session and reject a missing session

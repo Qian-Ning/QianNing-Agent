@@ -304,6 +304,9 @@ export const tr = {
     promptCardsExportEmpty: "Dışa aktarılacak hızlı istem henüz yok",
     promptCardsImported: "{{added}} hızlı istem içe aktarıldı, {{skipped}} tanesi atlandı",
     promptCardsImportFailed: "Bu dosya bir hızlı istem dışa aktarımı değil",
+    summarizeNewSession: "Özetle ve yeni sohbet başlat",
+    summarizeNewSessionBusy: "Özetlemeden önce geçerli görevi bitirin",
+    summarizeNewSessionWorking: "Özetleniyor…",
     conversationPromptTitle: "Bu sohbetin istemi",
     conversationPromptDesc: "Yalnızca bu sohbet için geçerlidir. Diğer sohbetler yerleşik istemi kullanır.",
     conversationPromptPlaceholder: "Yerleşik istemi kullanmak için boş bırakın",
@@ -2565,6 +2568,10 @@ importConfirm: "İçe aktarılan uzantılar ajan sürecinde, ajanın kendi araç
     failed: "Bağlam sıkıştırılamadı",
     longThreadWarning:
       "Bağlam sıkıştırıldı. Uzun diziler her sıkıştırmada erken ayrıntıyı kaybeder — ilgisiz iş için yeni oturum açın.",
+  },
+  contextSummary: {
+    empty: "Bu sohbette özetlenecek bir şey yok",
+    failed: "Bu sohbet özetlenemedi",
   },
   notifications: {
     title: "Bildirimler",

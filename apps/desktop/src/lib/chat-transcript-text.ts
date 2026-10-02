@@ -52,3 +52,26 @@ export function copySelectionOrFallback(
 ): string {
   return selection ? selection : fallback;
 }
+
+/** Upper bound on transcript characters handed to the context summarizer. */
+export const SUMMARY_TRANSCRIPT_MAX_CHARS = 24000;
+
+/**
+ * Keep a long transcript inside the summarizer's input budget by preserving the
+ * opening (where the goal is stated) and the most recent exchange (where the
+ * live state lives), dropping the middle. Short transcripts pass through
+ * untouched. The elision marker is language-neutral so it never nudges the
+ * summary's output language.
+ */
+export function clampTranscriptForSummary(
+  text: string,
+  maxChars: number = SUMMARY_TRANSCRIPT_MAX_CHARS,
+): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxChars) return trimmed;
+  const headChars = Math.floor(maxChars * 0.4);
+  const tailChars = maxChars - headChars;
+  const head = trimmed.slice(0, headChars).trimEnd();
+  const tail = trimmed.slice(trimmed.length - tailChars).trimStart();
+  return `${head}\n\n[...]\n\n${tail}`;
+}

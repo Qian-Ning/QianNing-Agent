@@ -295,6 +295,9 @@ export const de = {
     "promptCardsExportEmpty": "Noch keine Schnell-Prompts zum Exportieren",
     "promptCardsImported": "{{added}} Schnell-Prompt(s) importiert, {{skipped}} übersprungen",
     "promptCardsImportFailed": "Diese Datei ist kein Schnell-Prompt-Export",
+    "summarizeNewSession": "Zusammenfassen & neuen Chat starten",
+    "summarizeNewSessionBusy": "Beende die aktuelle Aufgabe vor dem Zusammenfassen",
+    "summarizeNewSessionWorking": "Wird zusammengefasst…",
     "conversationPromptTitle": "Prompt dieser Unterhaltung",
     "conversationPromptDesc": "Gilt nur für diese Unterhaltung. Alle anderen verwenden den integrierten Prompt.",
     "conversationPromptPlaceholder": "Leer lassen, um den integrierten Prompt zu verwenden",
@@ -2538,6 +2541,10 @@ sklm: {
     "recovered": "Kontextzusammenfassung fehlgeschlagen; Der aktuelle Kontext wurde beibehalten und die Aufgabe wird fortgesetzt.",
     "failed": "Kontextkomprimierung fehlgeschlagen.",
     "longThreadWarning": "Kontext komprimiert. Lange Threads verlieren mit jeder Komprimierung frühere Details. Starten Sie eine neue Sitzung für nicht zusammenhängende Arbeiten."
+  },
+  "contextSummary": {
+    "empty": "Diese Unterhaltung hat noch nichts zusammenzufassen",
+    "failed": "Diese Unterhaltung konnte nicht zusammengefasst werden"
   },
   "notifications": {
     "title": "Benachrichtigungen",

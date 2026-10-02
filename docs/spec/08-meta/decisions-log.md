@@ -7691,3 +7691,44 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `promptCardsImported`, `promptCardsImportFailed`) ship in all nine shell
   locales. Still renderer-only: no host, schema, protocol, IPC, or
   persisted-database change. See `04-ux/08-component-spec.md` §11.
+
+## 2026-10-02 — Manual "summarize & start new chat" (D640)
+
+- QianNing fork addition. Problem: a very long thread degrades regardless of
+  automatic compaction, and the user wants to carry its gist into a clean
+  conversation on demand — and, when the thread belongs to a project, keep the
+  continuation inside that project. The existing automatic context compaction
+  (summarize-in-place, same session) stays untouched; this is a separate,
+  manual, opt-in path that opens a *new* session instead of mutating the
+  current one. The two are complementary, not alternatives.
+- Flow: from the context-usage inspector popover the user clicks "Summarize &
+  start new chat". The renderer reads the full source session (not just the
+  loaded window), renders it to plain dialogue text via `conversationPlainText`,
+  clamps it to a bounded head+tail budget (`clampTranscriptForSummary`,
+  24k chars) so an enormous thread still fits the model input, and asks a new
+  one-shot IPC (`session/summarizeContext`) for a dense carry-forward brief in
+  the conversation's own language. It then opens a fresh session with
+  `newSession({ projectPath })` — inheriting the source session's project so a
+  project conversation's summary lands back in that project — and drops the
+  summary into the new composer as an editable `composerPrefill` draft.
+- The summary is **pre-filled for review, never auto-sent and never written to
+  any system-prompt layer**. The user reads, edits, and sends it themselves, so
+  the model's summary stays correctable, the single-editable-persona invariant
+  (one per-session system prompt, no app-wide prompt) is preserved, and once
+  sent the summary is simply the new conversation's opening turn — which keeps
+  it inside the project naturally.
+- The backend is a one-shot twin of session-title summarization: new
+  `summarizeSessionContext` in `packages/agent-runtime/src/session-context-summarize.ts`
+  reuses `completeOneShot`, with its own handoff system prompt. No Rust change,
+  no durable session history, no tools. The channel is declared in
+  `shared/src/protocol.ts`, exposed on `src/lib/api.ts`, and handled in
+  `electron/main/ipc/agent-ipc.ts` beside the title channel.
+- Source contracts in `session-summarize-new.test.mjs` assert the full IPC
+  wiring and that the store action never calls `api.compact` or
+  `setActiveSessionSystemPrompt`; `session-context-summarize.test.ts` covers the
+  summary cleaner and context builder; `chat-context-menu.test.mjs` covers the
+  transcript clamp. Three new i18n keys (`chat.summarizeNewSession`,
+  `summarizeNewSessionBusy`, `summarizeNewSessionWorking`) and a
+  `contextSummary.{empty,failed}` pair ship in all nine shell locales. Purely
+  additive: no change to automatic compaction, sessions, projects, persistence,
+  or any existing contract.
