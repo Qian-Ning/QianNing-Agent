@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.12",
+    "date": "2026-10-02",
+    "highlights": [
+      "Un turno fallido o detenido conserva el texto, el razonamiento y los pasos de herramienta ya emitidos en lugar de plegarse y parecer vacío, y su encabezado se lee como interrumpido.",
+      "El estado de reintento muestra la espera restante mientras retrocede y, al terminar, informa del intento en curso en lugar de quedarse en \"en 0 s\".",
+    ],
+  },
+
+  {
     "version": "0.15.11",
     "date": "2026-10-02",
     "highlights": [

@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.12",
+    "date": "2026-10-02",
+    "highlights": [
+      "Un tour échoué ou arrêté conserve le texte, le raisonnement et les étapes d'outil déjà diffusés au lieu de se replier et de paraître vide, et son en-tête indique une interruption.",
+      "L'état de nouvelle tentative affiche l'attente restante pendant le délai, puis signale la tentative en cours au lieu de rester sur « dans 0 s ».",
+    ],
+  },
+
+  {
     "version": "0.15.11",
     "date": "2026-10-02",
     "highlights": [

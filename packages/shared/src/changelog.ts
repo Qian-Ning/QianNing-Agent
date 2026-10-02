@@ -30,6 +30,15 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "0.15.12",
+    date: "2026-10-02",
+    highlights: [
+      "A turn that fails or is stopped keeps the text, reasoning and tool steps it already streamed instead of collapsing and looking empty, and its header now reads as interrupted.",
+      "The retry status shows how long the wait is while backing off, then reports the attempt in flight instead of sitting at \"Retrying in 0s\".",
+    ],
+  },
+
+  {
     version: "0.15.11",
     date: "2026-10-02",
     highlights: [
@@ -872,6 +881,15 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "0.15.12",
+    date: "2026-10-02",
+    highlights: [
+      "失败或被中止的那一轮，已经流出的正文、推理和工具步骤都会保留下来，不会坍缩成空的，标题也会标成「已中断」。",
+      "重试状态在退避期间会显示还要等多久，等完就改为「正在重试」，不再一直卡在「将在 0 秒后重试」。",
+    ],
+  },
+
+  {
     version: "0.15.11",
     date: "2026-10-02",
     highlights: [
@@ -1713,6 +1731,15 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "0.15.12",
+    date: "2026-10-02",
+    highlights: [
+      "失敗或被中止的那一輪，已經串流出的正文、推理與工具步驟都會保留下來，不會收合看似空白，標題也會標成「已中斷」。",
+      "重試狀態在退避期間會顯示還要等多久，等待結束後改為「正在重試」，不再一直停在「將在 0 秒後重試」。",
+    ],
+  },
+
   {
     version: "0.15.11",
     date: "2026-10-02",
