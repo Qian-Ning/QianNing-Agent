@@ -498,6 +498,7 @@ export const tr = {
     },
     processingFor: "İşleniyor · {{time}}",
     processedFor: "{{time}} işlendi",
+    interruptedFor: "{{time}} sonra kesildi",
     thinkingFor: "Düşünülüyor · {{time}}",
     thoughtFor: "{{time}} düşünüldü",
     waitingForModel: "Model bekleniyor",

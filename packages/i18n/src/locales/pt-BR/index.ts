@@ -488,6 +488,7 @@ export const ptBR = {
     },
     processingFor: "Processando · {{time}}",
     processedFor: "Processado durante {{time}}",
+    interruptedFor: "Interrompido após {{time}}",
     thinkingFor: "Pensando · {{time}}",
     thoughtFor: "Pensado durante {{time}}",
     waitingForModel: "Aguardando o modelo…",

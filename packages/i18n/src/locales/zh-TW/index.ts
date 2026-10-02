@@ -494,6 +494,7 @@ export const zhTW = {
     },
     processingFor: "處理中 · {{time}}",
     processedFor: "已處理 {{time}}",
+    interruptedFor: "已中斷 {{time}}",
     thinkingFor: "思考中 · {{time}}",
     thoughtFor: "已思考 {{time}}",
     waitingForModel: "等待模型響應",

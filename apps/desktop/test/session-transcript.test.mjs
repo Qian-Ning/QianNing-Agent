@@ -5,6 +5,7 @@ import {
   durableCoversLiveSessionMessages,
   mergeLiveSessionMessages,
   optimisticUserMessage,
+  projectMessageEnd,
   removeLiveSessionMessage,
   upsertLiveSessionMessage,
 } from "../src/lib/session-transcript.ts";
@@ -259,4 +260,105 @@ test("a durable-only new user row stays ahead of a live streaming tail (D317)", 
     mergeLiveSessionMessages(durable, live).map((row) => row.id),
     ["keep", "prompt", "answer"],
   );
+});
+
+const failure = (overrides = {}) => ({
+  code: "PROVIDER_RATE_LIMITED",
+  message: "429 status code (no body)",
+  retriable: true,
+  ...overrides,
+});
+
+test("a failed terminal payload keeps the text its live row already streamed", () => {
+  const live = message("answer", { content: "半个章节", status: "streaming" });
+  const settled = projectMessageEnd([live], {
+    type: "message_end",
+    message: message("answer", {
+      content: "",
+      status: "error",
+      error: failure(),
+    }),
+  });
+
+  assert.equal(settled.length, 1);
+  assert.equal(settled[0].content, "半个章节");
+  assert.equal(settled[0].status, "error");
+  assert.equal(settled[0].error.code, "PROVIDER_RATE_LIMITED");
+});
+
+test("a failed terminal payload keeps streamed reasoning when it has no answer of its own", () => {
+  const live = message("answer", {
+    content: "",
+    thinking: "把整章写进了推理里",
+    status: "streaming",
+  });
+  const settled = projectMessageEnd([live], {
+    type: "message_end",
+    message: message("answer", { content: "", status: "error", error: failure() }),
+  });
+
+  assert.equal(settled.length, 1);
+  assert.equal(settled[0].thinking, "把整章写进了推理里");
+  assert.equal(settled[0].status, "error");
+});
+
+test("an aborted re-key carries the provisional row's stream onto the durable row", () => {
+  const live = message("stream-new-turn", {
+    content: "partial reply",
+    status: "streaming",
+  });
+  const settled = projectMessageEnd([live], {
+    type: "message_end",
+    message: message("new-durable", { content: "", status: "aborted" }),
+    replacesMessageId: "stream-new-turn",
+  });
+
+  assert.deepEqual(settled.map((row) => row.id), ["new-durable"]);
+  assert.equal(settled[0].content, "partial reply");
+  assert.equal(settled[0].status, "aborted");
+});
+
+test("an empty failure with nothing streamed still clears its row", () => {
+  const live = message("answer", { content: "", status: "streaming" });
+  const aborted = projectMessageEnd([live], {
+    type: "message_end",
+    message: message("answer", { content: "", status: "aborted" }),
+  });
+  assert.deepEqual(aborted, []);
+
+  const errored = projectMessageEnd([live], {
+    type: "message_end",
+    message: message("answer", { content: "", status: "error", error: failure() }),
+  });
+  assert.equal(errored.length, 1);
+  assert.equal(errored[0].status, "error");
+});
+
+test("a failed payload carrying its own output stands on its own", () => {
+  const live = message("answer", { content: "live", status: "streaming" });
+  const settled = projectMessageEnd([live], {
+    type: "message_end",
+    message: message("answer", {
+      content: "terminal",
+      thinking: "terminal reasoning",
+      status: "error",
+      error: failure(),
+    }),
+  });
+
+  assert.equal(settled.length, 1);
+  assert.equal(settled[0].content, "terminal");
+  assert.equal(settled[0].thinking, "terminal reasoning");
+});
+
+test("a completed terminal payload still replaces the live row outright", () => {
+  const live = message("answer", { content: "live", status: "streaming" });
+  const settled = projectMessageEnd([live], {
+    type: "message_end",
+    message: message("answer", { content: "final", status: "complete" }),
+  });
+
+  assert.equal(settled.length, 1);
+  assert.equal(settled[0].content, "final");
+  assert.equal(settled[0].status, "complete");
 });

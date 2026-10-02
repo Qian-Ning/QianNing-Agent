@@ -496,6 +496,7 @@ export const en = {
     },
     processingFor: "Processing · {{time}}",
     processedFor: "Processed for {{time}}",
+    interruptedFor: "Interrupted after {{time}}",
     thinkingFor: "Thinking · {{time}}",
     thoughtFor: "Thought for {{time}}",
     waitingForModel: "Waiting for model",

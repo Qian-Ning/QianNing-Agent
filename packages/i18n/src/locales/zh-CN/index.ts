@@ -494,6 +494,7 @@ export const zhCN = {
     },
     processingFor: "处理中 · {{time}}",
     processedFor: "已处理 {{time}}",
+    interruptedFor: "已中断 {{time}}",
     thinkingFor: "思考中 · {{time}}",
     thoughtFor: "已思考 {{time}}",
     waitingForModel: "等待模型响应",

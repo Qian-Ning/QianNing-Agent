@@ -10,6 +10,7 @@ import {
   processContainsMessage,
   resolveThinkingDisplayMode,
   shouldAutoOpenTurnProcess,
+  turnHasError,
   turnProcessTiming,
   visibleProcessSteps,
 } from "../../../lib/turn-process";
@@ -44,8 +45,9 @@ export function TurnProcess({
     ? search.requestId : undefined;
   const summary = activitySummary(processParts.flatMap((part) => part.kind === "activity" ? part.items : []), delegationStatuses);
   const thinkingNow = isTurnThinking(turnParts, isActive);
+  const failed = turnHasError(turnParts);
   const disclosure = useAutomaticDisclosure(
-    shouldAutoOpenTurnProcess(mode, isActive, summary.issues > 0),
+    shouldAutoOpenTurnProcess(mode, isActive, summary.issues > 0, failed),
     revealRequest,
     disclosureKey("turn", turnId),
   );
@@ -74,9 +76,16 @@ export function TurnProcess({
       >
         <span className="tool-activity-icon" aria-hidden><IconSparkles size={14} /></span>
         <span className={`tool-activity-label${isActive ? " running" : ""}`}>
-          {t(isActive ? thinkingNow ? "chat.thinkingFor" : "chat.processingFor" : "chat.processedFor", {
-            time: formatToolDuration(seconds),
-          })}
+          {t(
+            isActive
+              ? thinkingNow
+                ? "chat.thinkingFor"
+                : "chat.processingFor"
+              : failed
+                ? "chat.interruptedFor"
+                : "chat.processedFor",
+            { time: formatToolDuration(seconds) },
+          )}
         </span>
         {summary.issues > 0 ? (
           <span className="turn-process-error">

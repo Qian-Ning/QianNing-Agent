@@ -498,6 +498,7 @@ export const ko = {
     },
     processingFor: "처리 중 · {{time}}",
     processedFor: "{{time}} 동안 처리됨",
+    interruptedFor: "{{time}} 후 중단됨",
     thinkingFor: "생각 중 · {{time}}",
     thoughtFor: "{{time}} 동안 생각함",
     waitingForModel: "모델 대기 중",

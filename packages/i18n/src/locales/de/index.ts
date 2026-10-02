@@ -489,6 +489,7 @@ export const de = {
     },
     "processingFor": "Verarbeitung · {{time}}",
     "processedFor": "Verarbeitet für {{time}}",
+    "interruptedFor": "Nach {{time}} unterbrochen",
     "thinkingFor": "Nachdenken · {{time}}",
     "thoughtFor": "Nachgedacht für {{time}}",
     "waitingForModel": "Warten auf Modell",

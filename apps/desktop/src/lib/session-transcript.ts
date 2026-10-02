@@ -51,12 +51,23 @@ export function optimisticUserMessage(
  * in `replacesMessageId`. Only that exact row is re-keyed; a generic Desktop
  * terminal event carries no metadata and must leave every other row alone
  * (parallel delegate streams, replayed historical completions).
+ *
+ * A failed attempt settles with whatever the provider had emitted, and its
+ * terminal payload is routinely empty: a retry that gave up before the first
+ * byte, or a turn the model spent entirely inside its reasoning. The live row
+ * is then the only copy of what already streamed, so a failed payload with no
+ * output of its own merges onto that row — status, error, usage and timing come
+ * from the terminal event while content and thinking stay what the stream
+ * produced. Replacing the row outright, or dropping it as an empty failure,
+ * erased a still-visible run the moment its retry gave up. A re-key counts as
+ * the same row: the provisional id it retires is where that content lives.
  */
 export function projectMessageEnd(
   messages: UiMessage[],
   event: Extract<AgentEvent, { type: "message_end" }>,
 ): UiMessage[] {
   let next = messages;
+  let previous: UiMessage | undefined;
   const replacesMessageId = event.replacesMessageId;
   if (replacesMessageId && replacesMessageId !== event.message.id) {
     const index = messages.findIndex(
@@ -64,17 +75,46 @@ export function projectMessageEnd(
         message.id === replacesMessageId && message.role === "assistant",
     );
     if (index >= 0) {
+      previous = messages[index];
       next = [...messages.slice(0, index), ...messages.slice(index + 1)];
     }
   }
+  // The stream lives on the provisional row a re-key retires; when nothing was
+  // re-keyed it lives on the terminal id's own row.
+  const carried =
+    previous ??
+    next.find(
+      (message) =>
+        message.id === event.message.id && message.role === "assistant",
+    );
   const failed =
     event.message.status === "error" || event.message.status === "aborted";
-  const empty =
-    !(event.message.content || "").trim() &&
-    !(event.message.thinking || "").trim();
-  return failed && empty && !event.message.error
-    ? removeLiveSessionMessage(next, event.message.id)
-    : upsertLiveSessionMessage(next, event.message);
+  if (!failed) return upsertLiveSessionMessage(next, event.message);
+  const content = (event.message.content || "").trim()
+    ? event.message.content
+    : "";
+  const thinking = (event.message.thinking || "").trim()
+    ? event.message.thinking
+    : "";
+  // A payload that carries its own output stands on its own, and a failed row
+  // with nothing on either side is still dropped when it never had an error to
+  // show. Only a failed payload with no output of its own falls through to the
+  // merge below.
+  if (content || thinking) return upsertLiveSessionMessage(next, event.message);
+  const streamedContent =
+    carried && (carried.content || "").trim() ? carried.content : "";
+  const streamedThinking =
+    carried && (carried.thinking || "").trim() ? carried.thinking : "";
+  if (!streamedContent && !streamedThinking) {
+    return event.message.error
+      ? upsertLiveSessionMessage(next, event.message)
+      : removeLiveSessionMessage(next, event.message.id);
+  }
+  return upsertLiveSessionMessage(next, {
+    ...event.message,
+    content: streamedContent,
+    ...(streamedThinking ? { thinking: streamedThinking } : {}),
+  });
 }
 
 /**

@@ -384,13 +384,17 @@ test("a duplicate historical completion keeps an unrelated live stream", async (
     replacesMessageId: "stream-new-turn",
   });
   assert.deepEqual(nativeSettled.map((row) => row.id), ["old-answer", "new-durable"]);
-  // An empty failed terminal removes the provisional row and leaves nothing.
+  // A re-key retires the provisional row. An empty aborted payload has nothing
+  // of its own to show, so the stream that provisional row carried survives on
+  // the durable id instead of being erased with it.
   const aborted = projectMessageEnd([historical, live], {
     type: "message_end",
     message: assistantRow("new-durable", "aborted", ""),
     replacesMessageId: "stream-new-turn",
   });
-  assert.deepEqual(aborted.map((row) => row.id), ["old-answer"]);
+  assert.deepEqual(aborted.map((row) => row.id), ["old-answer", "new-durable"]);
+  assert.equal(aborted[1].content, "new reply");
+  assert.equal(aborted[1].status, "aborted");
   // Replaying the same durable completion is idempotent.
   const replayed = projectMessageEnd(nativeSettled, {
     type: "message_end",

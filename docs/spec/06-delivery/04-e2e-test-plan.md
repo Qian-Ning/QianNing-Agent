@@ -14958,7 +14958,12 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   is open and an untouched group closes on completion. Compact starts processes
   and groups closed, hides reasoning, and keeps payloads closed; an untouched
   active process with a recorded failed/denied tool stays open through recovery
-  and closes on completion. Singletons have no group. Detailed auto-opens only
+  and closes on completion. Singletons have no group. A turn that settles on an
+  error keeps its process open in either mode and its header reads as
+  interrupted rather than processed; a failed or stopped terminal payload that
+  carries no output of its own never replaces the text or reasoning its live row
+  already streamed, including when the payload re-keys that row to a durable id.
+  Detailed auto-opens only
   an eligible literal final tool/search item of the last activity group; it does
   not scan past thinking, and failed/denied leaves stay closed. Parent/child/
   sibling states remain independent, pane-owned user choices survive updates,
@@ -14973,7 +14978,8 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 - **Automation:** `pnpm test:e2e:transcript` covers default and active-to-completed
   process disclosure behavior; `pnpm test:e2e:transcript-disclosure` verifies
   manual-open retention and viewport anchoring; `apps/desktop/test/turn-process.test.mjs`
-  covers default selection.
+  covers default selection; `apps/desktop/test/session-transcript.test.mjs`
+  covers a failed or stopped terminal payload preserving the streamed row.
 - **Specs:** 04-ux/06-settings-ia, 04-ux/08-component-spec,
   04-ux/09-interaction-patterns; ADR turn-process-and-thinking-display.
 

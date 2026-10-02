@@ -489,6 +489,7 @@ export const fr = {
     },
     "processingFor": "Traitement · {{time}}",
     "processedFor": "Traité pendant {{time}}",
+    "interruptedFor": "Interrompu après {{time}}",
     "thinkingFor": "Réflexion · {{time}}",
     "thoughtFor": "Pensé pendant {{time}}",
     "waitingForModel": "En attente du modèle",
