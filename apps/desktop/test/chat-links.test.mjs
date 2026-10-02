@@ -224,7 +224,7 @@ test("linkifyMdastTree turns bare paths and resolvable inline code into links", 
         children: [{ type: "text", value: "See apps/desktop/src/App.tsx please" }],
       },
       { type: "inlineCode", value: "apps/desktop/src/App.tsx" },
-      { type: "inlineCode", value: "not a real file at all.txt" },
+      { type: "inlineCode", value: "some ordinary prose here" },
       {
         type: "link",
         url: "https://example.com",
@@ -239,7 +239,7 @@ test("linkifyMdastTree turns bare paths and resolvable inline code into links", 
   assert.equal(tree.children[1].type, "link");
   assert.equal(tree.children[1].url, "apps/desktop/src/App.tsx");
   assert.equal(tree.children[1].children[0].type, "inlineCode");
-  // An unresolvable code run stays plain inline code.
+  // A spaced prose code run is not path-like and stays plain inline code.
   assert.equal(tree.children[2].type, "inlineCode");
   assert.equal(tree.children[3].children[0].type, "text");
 });
@@ -255,10 +255,10 @@ test("linkifyMdastTree links a spaced Windows path in inline code (#1169)", () =
     ],
   };
   // The issue's workspace root is the spaced directory itself, so the
-  // reference resolves under it; a foreign drive stays plain text.
+  // reference resolves under it; the link keeps the full source path.
   linkifyMdastTree(tree, "C:\\demo project");
   assert.equal(tree.children[0].children[0].type, "link");
-  assert.equal(tree.children[0].children[0].url, "readme.md");
+  assert.equal(tree.children[0].children[0].url, "C:/demo project/readme.md");
 });
 
 test("linkifyMdastTree ignores a missing tree instead of reading type", () => {
