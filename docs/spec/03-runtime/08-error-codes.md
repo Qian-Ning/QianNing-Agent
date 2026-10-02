@@ -101,6 +101,7 @@ does not turn temporary thread pressure into a host process exit.
 | `MODEL_NOT_CONFIGURED` | no | no usable model selected, or provider rejects the selected model as unknown |
 | `PROVIDER_ERROR` | yes | upstream provider failure; a retryable one (5xx gateway) gets up to ten same-turn retries, while a malformed 400/422 request or a request option the adapter itself refuses (a custom `fetch` for the Google adapters, issue #1072) is terminal |
 | `PROVIDER_UNAUTHORIZED` | no | bad/missing provider credentials |
+| `PROVIDER_EDGE_BLOCKED` | no | a CDN/WAF in front of the provider answered the request itself with an HTML interstitial, so the credential was never evaluated; classified from a 403/503 whose payload is a document rather than from the status alone, which is what keeps a provider's own JSON 403 an authorization verdict |
 | `PROVIDER_RATE_LIMITED` | yes | provider rate limited; runtime silently retries up to ten times across setup/stream before the terminal event |
 | `CONTEXT_TOO_LARGE` | no | prompt/context still exceeds the safe model budget after recovery, the second provider overflow occurred, or automatic recovery is disabled |
 | `CONTEXT_COMPACTION_FAILED` | no | automatic retained-tail recovery could not prepare, persist, or fit a checkpoint, or manual checkpoint summary generation / durable append failed; the guarded next provider request does not start |
@@ -320,6 +321,7 @@ Example: host `1004` → `TOOL_DENIED`.
 Node sidecar maps provider SDK errors into:
 
 - `PROVIDER_UNAUTHORIZED`
+- `PROVIDER_EDGE_BLOCKED`
 - `PROVIDER_RATE_LIMITED`
 - `MODEL_NOT_CONFIGURED` (provider rejects the selected model with 404)
 - `PROVIDER_ERROR`

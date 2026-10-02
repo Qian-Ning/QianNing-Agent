@@ -3863,7 +3863,12 @@ default nor provider configuration. OAuth accounts remain in their separate sect
 - Save creates or updates the provider with `models: ModelBinding[]`, stores
   the secret, sets the first configured model as the legacy/default model for
   older consumers, and refreshes the list
-- Test connection calls `providers.testConnection` and toasts success/failure
+- Test connection calls `providers.testConnection` and toasts success/failure.
+  A coded failure shows the localized string for its `errorCode` — so a request
+  an edge intermediary refused reads as that, never as a rejected key — and
+  falls back to the operation's own `message`, then to the status form. Both
+  the model configuration page and the provider dialog render it through
+  `describeProviderTestResult`, so the wording cannot drift between them.
 - Edit account saves `oauthAccountLabel`, `defaultModelId`, and the full
   `models: ModelBinding[]` with explicit thinking selections through
   `providers.update`, exactly like the provider dialog; the account's default

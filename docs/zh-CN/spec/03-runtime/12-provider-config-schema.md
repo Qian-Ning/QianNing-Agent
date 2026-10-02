@@ -391,9 +391,20 @@ Copilot 的上下文相关请求标头；已保存的同名自定义 header 会�
 
 ### `providers.testConnection`
 - 在：`{ id, modelId?: string }`
-- 输出：`{ ok: boolean, latencyMs?: number, error?: AppError, sampleModelId?: string }`
+- 输出：`{ ok: boolean, network: "ok"|"failed"|"skipped", status?: number,
+  errorCode?: string, message?: string, edge?: string }`
 - `authKind: "oauth"` 行通过解析厂商认证（必要时刷新令牌）来自证，而不是用
   它并不持有的密钥去访问网络
+- API 密钥行由同一来源下的两次探测证明，两者共用一份时间预算（12 秒），
+  因为能应答其一并不代表能应答其二：
+  1. 模型列表，走发现流程相同的请求构造器，所以「列表加载成功」与「测试通过」
+     不可能指向两个不同的端点；
+  2. 传输适配器实际 POST 的生成路由（`generationProbeUrl`），以不带凭据的
+     `OPTIONS` 探测，所以绿色的测试不可能描述一条任何回合都不会使用的路由。
+- 服务未实现生成路由的 `OPTIONS` 不算失败：JSON `404` 是 API 在应答，模型列表
+  的结果仍然有效。只有中间层自己的文档才算判定，此时以
+  `errorCode: "PROVIDER_EDGE_BLOCKED"` 上报；若它自报家门，`edge` 给出其名称。
+  生成路径带模型 id 的样式（`google_generative_ai`）没有可探测的 URL，跳过第 2 步。
 
 ### `providers.listModels`
 - 渲染器 IPC 位于：`{ providerId, source?: "cache"|"refresh" }`； `cache`

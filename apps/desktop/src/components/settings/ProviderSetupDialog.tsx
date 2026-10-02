@@ -23,6 +23,7 @@ import { api } from "../../lib/api";
 import { pairsToRecord, recordToPairs } from "../extensions/KeyValueRows";
 import { Button, Field, HelpIcon, Input, portalOverlay } from "../ui";
 import { ProviderHeadersEditor } from "./ProviderHeadersEditor";
+import { describeProviderTestResult, type ProviderTestResult } from "./provider-test-result";
 import { useProviderModels } from "./useProviderModels";
 import { ModelSelectionPanes, useModelSelection } from "./ModelSelectionPanes";
 import { ConnectionStatus, ProviderConnectionFields } from "./ProviderConnectionFields";
@@ -258,19 +259,8 @@ export function ProviderSetupDialog({
     setTesting(true);
     setTestResult("");
     try {
-      const result = (await api.testProvider(provider.id)) as {
-        ok?: boolean;
-        message?: string;
-        status?: number;
-      };
-      setTestResult(
-        result?.ok
-          ? t("settings.testOk")
-          : result?.message ||
-              (result?.status
-                ? t("settings.testFailedStatus", { status: result.status })
-                : t("settings.testFailed")),
-      );
+      const result = (await api.testProvider(provider.id)) as ProviderTestResult;
+      setTestResult(describeProviderTestResult(result, t));
     } catch (cause) {
       setTestResult(cause instanceof Error ? cause.message : String(cause));
     } finally {

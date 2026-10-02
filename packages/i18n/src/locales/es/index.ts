@@ -2582,6 +2582,7 @@ sklm: {
     "PROVIDER_SECRET_MISSING": "Agregue una clave API para este proveedor de IA antes de usarlo.",
     "PROTOCOL_MISMATCH": "Los componentes de la aplicación no están sincronizados. Reinstale o reconstruya la aplicación.",
     "PROVIDER_UNAUTHORIZED": "La clave API fue rechazada. Compruébalo en Configuración.",
+    "PROVIDER_EDGE_BLOCKED": "El borde del proveedor bloqueó esta solicitud antes de que llegara a la API (normalmente un CDN/WAF). La clave no se comprobó.",
     "PROVIDER_RATE_LIMITED": "El proveedor de IA limita la velocidad de las solicitudes. Espere un momento y vuelva a intentarlo.",
     "PROVIDER_ERROR": "El proveedor de IA devolvió un error.",
     "NETWORK_ERROR": "No se puede comunicar con el proveedor de IA. Verifique su red o URL base.",

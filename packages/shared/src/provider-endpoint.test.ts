@@ -6,6 +6,7 @@ import {
   canonicalEndpointUrl,
   discoveryProbeUrl,
   discoveryStyleForApiStyle,
+  generationProbeUrl,
   inferEndpointProfile,
   matchEndpointOperation,
   parseEndpointInput,
@@ -298,6 +299,67 @@ describe("discovery probe urls", () => {
     expect(discoveryProbeUrl("https://generativelanguage.googleapis.com/v1beta", "google_models")).toBe(
       "https://generativelanguage.googleapis.com/v1beta/models",
     );
+  });
+});
+
+describe("generation probe urls", () => {
+  it("addresses the route the transport adapter posts to", () => {
+    expect(generationProbeUrl("https://api.foo.com/v1", "chat_completions")).toBe(
+      "https://api.foo.com/v1/chat/completions",
+    );
+    expect(generationProbeUrl("https://api.foo.com/v1/", "responses")).toBe(
+      "https://api.foo.com/v1/responses",
+    );
+    // A trailing slash and a doubled one normalize the same way discovery does.
+    expect(generationProbeUrl("https://gw.example/v1///", "chat_completions")).toBe(
+      "https://gw.example/v1/chat/completions",
+    );
+  });
+
+  it("appends /v1 for an Anthropic base that omits it, and not twice", () => {
+    expect(generationProbeUrl("https://api.anthropic.com", "anthropic_messages")).toBe(
+      "https://api.anthropic.com/v1/messages",
+    );
+    expect(generationProbeUrl("https://api.anthropic.com/v1", "anthropic_messages")).toBe(
+      "https://api.anthropic.com/v1/messages",
+    );
+  });
+
+  it("follows the wire family of an alias style", () => {
+    // The aliases address the same two routes as their base styles, so a probe
+    // must not fall back to a Chat Completions guess for a Responses provider.
+    expect(generationProbeUrl("https://api.foo.com/v1", "opencode_go")).toBe(
+      "https://api.foo.com/v1/chat/completions",
+    );
+    expect(generationProbeUrl("https://api.foo.com/v1", "openai_codex_responses")).toBe(
+      "https://api.foo.com/v1/responses",
+    );
+    expect(generationProbeUrl("https://api.foo.com/v1", "pi_messages")).toBe(
+      "https://api.foo.com/v1/messages",
+    );
+  });
+
+  it("has no route to probe for a style whose path carries the model id", () => {
+    // Google's generation route is `{base}/models/{model}:generateContent`, so
+    // the caller must skip the probe rather than invent a URL.
+    expect(generationProbeUrl("https://generativelanguage.googleapis.com/v1beta", "google_generative_ai"))
+      .toBeUndefined();
+    expect(generationProbeUrl("https://api.foo.com/v1", "unknown-style")).toBe(
+      "https://api.foo.com/v1/chat/completions",
+    );
+  });
+
+  it("only uses suffixes the operation table already knows", () => {
+    // One table for URL rules: a suffix added here and forgotten there would let
+    // a pasted operation URL stop being recognized.
+    const suffixes = new Set(
+      ["chat_completions", "responses", "anthropic_messages", "opencode_go", "openai_codex_responses", "pi_messages"]
+        .map((style) => generationProbeUrl("https://api.foo.com", style))
+        .map((url) => new URL(url!).pathname),
+    );
+    for (const pathname of suffixes) {
+      expect(matchEndpointOperation(pathname), pathname).toBeDefined();
+    }
   });
 });
 

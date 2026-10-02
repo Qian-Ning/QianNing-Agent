@@ -2545,6 +2545,7 @@ export const ptBR = {
     PROVIDER_SECRET_MISSING: "Adicione uma chave de API para este provedor de IA antes de usá-lo.",
     PROTOCOL_MISMATCH: "Os componentes do aplicativo estão fora de sincronia. Reinstale ou recompile o aplicativo.",
     PROVIDER_UNAUTHORIZED: "A chave de API foi rejeitada. Verifique-a em Configurações.",
+    PROVIDER_EDGE_BLOCKED: "A borda do provedor bloqueou esta solicitação antes que ela chegasse à API (normalmente um CDN/WAF). A chave não foi verificada.",
     PROVIDER_RATE_LIMITED: "O provedor de IA está limitando o número de solicitações. Aguarde um momento e tente novamente.",
     PROVIDER_ERROR: "O provedor de IA retornou um erro.",
     NETWORK_ERROR: "Não foi possível alcançar o provedor de IA. Verifique sua conexão ou a URL base.",

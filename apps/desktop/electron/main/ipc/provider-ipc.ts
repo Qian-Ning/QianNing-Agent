@@ -9,7 +9,7 @@ import {
   type OAuthRespondInput,
 } from "@pi-desktop/shared";
 import { OAUTH_AUTH_KIND, type VendorOAuth } from "../oauth";
-import { probeProviderEndpoint } from "../model-discovery";
+import { probeGenerationRoute, probeProviderEndpoint } from "../model-discovery";
 import {
   probeDiscoveryCandidates,
   type DiscoveryAttempt,
@@ -23,6 +23,16 @@ import {
 import type { HostProcess } from "../host-process";
 import type { Logger } from "../logger";
 import type { IpcRegistrar } from "./types";
+
+/**
+ * Budget for one connection test.
+ *
+ * Covers both probes it performs — the model list, then the generation route —
+ * because they run in sequence on one abort signal. Raised from the single-probe
+ * budget it replaced so the second request is not charged against the first
+ * one's time.
+ */
+const TEST_CONNECTION_TIMEOUT_MS = 12_000;
 /**
  * One line explaining why a candidate sweep found nothing: every endpoint that
  * was tried and what it answered. The list is the explanation the settings
@@ -235,7 +245,7 @@ export function registerProviderIpc({
     if (!baseUrl) return { ...local, network: "skipped" };
     const secret = await host.call<{ value?: string }>("providers.getSecret", { id });
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    const timer = setTimeout(() => controller.abort(), TEST_CONNECTION_TIMEOUT_MS);
     try {
       /*
         The same request builder discovery uses, so "the list loaded" and "the
@@ -249,6 +259,33 @@ export function registerProviderIpc({
         headers: detail.provider?.headers,
         signal: controller.signal,
       });
+      /*
+        Discovery answering does not prove the route a turn uses is reachable.
+        An edge in front of the provider can hold a rule against the generation
+        path while `/models` sails through, and the user then sees a green test
+        and a failing turn — the one combination a connection test exists to
+        prevent. Probe that route too, and report the edge verdict instead of
+        "ok".
+
+        A throw here is deliberately swallowed: some services do not answer
+        `OPTIONS` at all, and an unanswerable probe is not evidence of a block.
+        The model-list result stands in that case, so this cannot turn a passing
+        test into a failing one.
+      */
+      const route = await probeGenerationRoute({
+        baseUrl,
+        apiStyle: detail.provider?.apiStyle,
+        signal: controller.signal,
+      }).catch(() => undefined);
+      if (route?.edge) {
+        return {
+          ok: false,
+          network: "failed",
+          status: route.status,
+          errorCode: ErrorCodes.PROVIDER_EDGE_BLOCKED,
+          ...(route.edge.edge ? { edge: route.edge.edge } : {}),
+        };
+      }
       return { ok: true, network: "ok", status: probe.status };
     } catch (e) {
       const status = (e as { status?: unknown }).status;

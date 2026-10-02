@@ -2672,7 +2672,11 @@ CLAUDE CODE                                                                1
 - 别名只是展示标签：非空别名用于 Composer 芯片和选择器命名，配置行和
   转录本徽章仍显示真实 id。清空字段后恢复目录发布名。
 - 保存创建提供商，存储秘密，成功后将其设置为默认值，并刷新列表
-- 测试连接调用 `providers.testConnection` 并祝酒 success/failure
+- 测试连接调用 `providers.testConnection` 并祝酒 success/failure。带错误码的失败
+  展示该 `errorCode` 的本地化文案——所以被边缘中间层拦截的请求就读作拦截，
+  绝不会读成密钥被拒——找不到时依次回落到操作自身的 `message` 与状态码形式。
+  模型配置页与提供商对话框都通过 `describeProviderTestResult` 渲染，
+  两处措辞不会走偏。
 - 思考预设更新通过具有 D102 语义的 `providers.update` 持续存在
 - 仅对 `defaultProviderId` / `defaultModelId` 进行默认更新
 

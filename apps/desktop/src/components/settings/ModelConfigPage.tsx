@@ -37,6 +37,10 @@ import { copyProviderConfiguration, type ProviderCopyDraft } from "./provider-co
 import { ImageGenerationModelRow } from "./ImageGenerationModelRow";
 import { OAuthLoginDialog } from "./OAuthLoginDialog";
 import { ProviderSetupDialog } from "./ProviderSetupDialog";
+import {
+  describeProviderTestResult,
+  type ProviderTestResult,
+} from "./provider-test-result";
 import { ServiceList } from "./ServiceList";
 import { serviceRowKind } from "./service-row-status";
 import { useVendorAccounts } from "./useVendorAccounts";
@@ -365,21 +369,11 @@ export function ModelConfigPage() {
   const testProvider = async (provider: ProviderPublic) => {
     setTestingId(provider.id);
     try {
-      const result = (await api.testProvider(provider.id)) as {
-        ok?: boolean;
-        message?: string;
-        status?: number;
-      };
+      const result = (await api.testProvider(provider.id)) as ProviderTestResult;
       if (result?.ok) {
         showToast(t("settings.testOk"), { variant: "success" });
       } else {
-        showToast(
-          result?.message ||
-            (result?.status
-              ? t("settings.testFailedStatus", { status: result.status })
-              : t("settings.testFailed")),
-          { variant: "error" },
-        );
+        showToast(describeProviderTestResult(result, t), { variant: "error" });
       }
     } catch (error) {
       showToast(error instanceof Error ? error.message : String(error), {

@@ -16,7 +16,11 @@ const {
   DISCOVERY_SWEEP_BUDGET_MS,
   probeDiscoveryCandidates,
 } = await import("../electron/main/provider-endpoint-probe.ts");
-const { probeModelList, probeProviderEndpoint } = await import("../electron/main/model-discovery.ts");
+const {
+  probeGenerationRoute,
+  probeModelList,
+  probeProviderEndpoint,
+} = await import("../electron/main/model-discovery.ts");
 
 function jsonResponse(body, status = 200, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -280,4 +284,127 @@ test("a typed path that answers keeps the row, even when a sibling path also ans
   assert.deepEqual(calls.map((call) => call.url), ["https://open.bigmodel.cn/api/v1/models"]);
   assert.equal(result.outcome.effectiveBaseUrl, "https://open.bigmodel.cn/api/v1");
   assert.deepEqual(result.outcome.models, [{ modelId: "glm-5.3", displayName: "glm-5.3" }]);
+});
+
+/**
+ * The generation-route probe exists because model discovery answering does not
+ * prove the route a turn uses is reachable. These pin the two halves of that:
+ * an edge page on the generation path is reported, and a route that simply does
+ * not answer OPTIONS is not mistaken for one.
+ */
+
+const CLOUDFLARE_403 = [
+  "<!DOCTYPE html>",
+  '<html class="no-js" lang="en-US">',
+  "<head>",
+  "<title>Attention Required! | Cloudflare</title>",
+  '<meta charset="UTF-8" />',
+  "</head>",
+  "<body></body>",
+  "</html>",
+].join("\n");
+
+function htmlResponse(body, status, headers = {}) {
+  return new Response(body, {
+    status,
+    headers: { "content-type": "text/html; charset=UTF-8", ...headers },
+  });
+}
+
+test("a block page on the generation route is reported as an edge block", async () => {
+  const { calls, result } = await withFetch(
+    () => htmlResponse(CLOUDFLARE_403, 403, { server: "cloudflare" }),
+    () => probeGenerationRoute({
+      baseUrl: "https://api.justwoker.icu/v1",
+      apiStyle: "chat_completions",
+    }),
+  );
+  assert.equal(result.url, "https://api.justwoker.icu/v1/chat/completions");
+  assert.equal(result.status, 403);
+  // The label comes from a fixed signature list, never from provider text.
+  assert.deepEqual(result.edge, { edge: "cloudflare", status: 403 });
+  assert.deepEqual(calls, [
+    {
+      url: "https://api.justwoker.icu/v1/chat/completions",
+      method: "OPTIONS",
+      headers: {},
+      redirect: "manual",
+    },
+  ]);
+});
+
+test("the generation probe sends no credential", async () => {
+  /*
+    The verdict is decided by the edge before authorization, so the probe reads
+    the same with or without the key — and a connection test has no reason to
+    send one.
+  */
+  const { calls } = await withFetch(
+    () => htmlResponse(CLOUDFLARE_403, 403),
+    () => probeGenerationRoute({ baseUrl: "https://api.foo.com/v1", apiStyle: "chat_completions" }),
+  );
+  assert.equal(calls[0].headers.authorization, undefined);
+  assert.equal(calls[0].headers.Authorization, undefined);
+});
+
+test("a route that simply does not answer OPTIONS is not a block", async () => {
+  // Every provider observed answers its generation path with a JSON 404 for a
+  // method it does not serve. That is the API answering, so the test stays green
+  // exactly as it did before the second probe existed.
+  const { result } = await withFetch(
+    () => jsonResponse({ error: { message: "not found" } }, 404),
+    () => probeGenerationRoute({ baseUrl: "https://api.foo.com/v1", apiStyle: "chat_completions" }),
+  );
+  assert.equal(result.status, 404);
+  assert.equal(result.edge, undefined);
+});
+
+test("a provider's own JSON 403 on the generation route is not a block", async () => {
+  const { result } = await withFetch(
+    () => jsonResponse({ error: { message: "no access", type: "permission_error" } }, 403),
+    () => probeGenerationRoute({ baseUrl: "https://api.foo.com/v1", apiStyle: "chat_completions" }),
+  );
+  assert.equal(result.status, 403);
+  assert.equal(result.edge, undefined);
+});
+
+test("a style whose generation path needs a model id has nothing to probe", async () => {
+  let called = false;
+  await withFetch(
+    () => {
+      called = true;
+      return jsonResponse({});
+    },
+    async () => {
+      const result = await probeGenerationRoute({
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+        apiStyle: "google_generative_ai",
+      });
+      assert.equal(result, undefined);
+    },
+  );
+  assert.equal(called, false);
+});
+
+test("the generation probe addresses the same origin the user typed", async () => {
+  /*
+    The URL is built from the stored Base URL rather than accepted from a caller,
+    so the credential origin rule and the discovery rule stay one rule. A base
+    URL that wrapped another host would be caught here rather than silently
+    probed.
+  */
+  const { calls, result } = await withFetch(
+    () => htmlResponse(CLOUDFLARE_403, 403),
+    () => probeGenerationRoute({ baseUrl: "https://api.foo.com/v1/", apiStyle: "responses" }),
+  );
+  assert.equal(result.url, "https://api.foo.com/v1/responses");
+  assert.equal(calls.length, 1);
+  await assert.rejects(
+    () => probeGenerationRoute({
+      baseUrl: "https://api.foo.com/v1",
+      apiStyle: "chat_completions",
+      allowOrigin: "https://other.example",
+    }),
+    /left the configured origin/,
+  );
 });

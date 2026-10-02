@@ -16,9 +16,12 @@
  */
 
 import {
+  detectEdgeBlock,
   discoveryProbeUrl,
   discoveryStyleForApiStyle,
+  generationProbeUrl,
   type DiscoveryStyle,
+  type EdgeBlock,
 } from "@pi-desktop/shared";
 
 export type DiscoveredModel = {
@@ -31,6 +34,11 @@ export const DISCOVERY_TIMEOUT_MS = 10_000;
 export const DISCOVERY_TOTAL_BUDGET_MS = 12_000;
 const MAX_MODELS = 500;
 const MAX_REDIRECTS = 3;
+/**
+ * How much of a generation-route response is read to identify an edge block.
+ * An interstitial names itself in its `<head>`; nothing beyond this is used.
+ */
+const EDGE_BODY_SNIFF_CHARS = 8_192;
 const RESERVED_DISCOVERY_HEADERS = new Set([
   "authorization",
   "proxy-authorization",
@@ -252,6 +260,79 @@ export async function probeProviderEndpoint(opts: Parameters<typeof probeModelLi
     });
     return { ...fallback, models: [] };
   }
+}
+
+/** What the generation-route probe found. `edge` is set only on a block. */
+export type GenerationRouteProbe = {
+  url: string;
+  status: number;
+  edge?: EdgeBlock;
+};
+
+/**
+ * Whether the route a real turn uses is reachable through to the API.
+ *
+ * A provider can answer model discovery and still fail every turn: the edge in
+ * front of it may hold a rule against the generation path specifically. The
+ * connection test therefore probes this route too, so "test passed" and "a turn
+ * works" describe the same thing.
+ *
+ * The probe is an `OPTIONS` and carries no credentials, deliberately:
+ *
+ * - `OPTIONS` is not a billable model request, so a connection test costs
+ *   nothing and cannot consume the user's quota; and
+ * - a block rule belongs to the edge and is decided before authorization, so
+ *   the verdict is the same with or without the key — and an unnecessary
+ *   credential leaving the process is worth avoiding on principle.
+ *
+ * Only the URL and the two fields the verdict needs are inspected. Not all
+ * services answer `OPTIONS` on a route they serve (`404` is normal), and that
+ * is fine: a 404 from the API is not a block, so the probe reports "the API
+ * answered" and the test stays green as before.
+ *
+ * Returns `undefined` for a style with no fixed generation suffix (Google's
+ * route carries the model id), so the caller skips the second check rather than
+ * probing a URL it had to invent.
+ */
+export async function probeGenerationRoute(opts: {
+  baseUrl: string;
+  apiStyle?: string;
+  /**
+   * Credentials may only travel to this origin. Defaults to the configured base
+   * URL's own origin, so a caller cannot widen it by accident.
+   */
+  allowOrigin?: string;
+  signal?: AbortSignal;
+}): Promise<GenerationRouteProbe | undefined> {
+  const url = generationProbeUrl(opts.baseUrl, opts.apiStyle);
+  if (!url) return undefined;
+  const allowOrigin = opts.allowOrigin ?? originOf(opts.baseUrl);
+  if (allowOrigin && originOf(url) !== allowOrigin) {
+    throw new Error("generation route probe refused: it left the configured origin");
+  }
+
+  const response = await fetch(url, {
+    method: "OPTIONS",
+    // No headers at all, not even the configured ones: this probe reads only the
+    // status, the content type and the body, so forwarding a per-provider
+    // override would add a variable without adding information.
+    signal: opts.signal ?? defaultTimeoutSignal(),
+    // Never let fetch follow a hop to another origin on its own.
+    redirect: "manual",
+  });
+
+  const contentType = response.headers.get("content-type");
+  const server = response.headers.get("server");
+  // A block page is small and its markers sit in the head; cap the read so a
+  // chatty gateway cannot pull megabytes into the main process.
+  const body = (await response.text().catch(() => "")).slice(0, EDGE_BODY_SNIFF_CHARS);
+  const edge = detectEdgeBlock({
+    status: response.status,
+    body,
+    contentType,
+    server,
+  });
+  return { url, status: response.status, ...(edge ? { edge } : {}) };
 }
 
 function originOf(value: string): string | undefined {

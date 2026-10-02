@@ -19,6 +19,7 @@
  */
 
 import type { CatalogApiStyle } from "./model-catalog.js";
+import { normalizeApiStyle } from "./model-catalog.js";
 import { NAMED_ENDPOINT_PRESETS } from "./provider-presets.js";
 
 /**
@@ -132,6 +133,53 @@ export function discoveryProbeUrl(baseUrl: string, discoveryStyle: DiscoveryStyl
     return `${base.endsWith("/v1") ? base : `${base}/v1`}/models`;
   }
   return `${base}/models`;
+}
+
+/**
+ * Suffix the generation request uses for one wire style, or `undefined` when
+ * the style addresses its route through something other than a fixed suffix.
+ *
+ * `google_generative_ai` is the `undefined` case: its route is
+ * `{base}/models/{model}:generateContent`, so there is no suffix that can be
+ * built without a model id. The connection test skips its second probe rather
+ * than inventing one.
+ *
+ * Every suffix here also appears in {@link OPERATION_SUFFIXES}; a test pins
+ * that, so a URL rule cannot be added in one table and forgotten in the other.
+ */
+const GENERATION_SUFFIX_BY_STYLE: Readonly<Partial<Record<CatalogApiStyle, string>>> = {
+  chat_completions: "/chat/completions",
+  opencode_go: "/chat/completions",
+  responses: "/responses",
+  openai_codex_responses: "/responses",
+  anthropic_messages: "/messages",
+  pi_messages: "/messages",
+};
+
+/**
+ * The URL a generation request addresses for one wire style.
+ *
+ * The provider connection test probes this in addition to the model list,
+ * because an edge rule can block the generation route while discovery still
+ * answers — a green test that only proved `GET {base}/models` would describe a
+ * route no turn ever uses.
+ *
+ * The base-URL normalization is deliberately `discoveryProbeUrl`'s: one rule
+ * for how a typed Base URL becomes an addressed URL, so the probe and the real
+ * request can never disagree about the path.
+ */
+export function generationProbeUrl(
+  baseUrl: string,
+  apiStyle?: string | null,
+): string | undefined {
+  const suffix = GENERATION_SUFFIX_BY_STYLE[normalizeApiStyle(apiStyle)];
+  if (!suffix) return undefined;
+  const base = baseUrl.trim().replace(/\/+$/, "");
+  if (suffix === "/messages") {
+    // Anthropic base URLs conventionally exclude /v1; the endpoint appends it.
+    return `${base.endsWith("/v1") ? base : `${base}/v1`}${suffix}`;
+  }
+  return `${base}${suffix}`;
 }
 
 function hostOf(value: string | undefined): string | undefined {
