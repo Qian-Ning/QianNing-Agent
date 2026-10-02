@@ -59,8 +59,8 @@ QianNing Agent 是一个独立运行的 AI Agent 桌面应用。它不依附某�
 Windows x64 构建会生成：
 
 ```text
-QianNing-Agent-Setup-0.15.10.exe
-QianNing-Agent-Portable-0.15.10.exe
+QianNing-Agent-Setup-0.15.13.exe
+QianNing-Agent-Portable-0.15.13.exe
 ```
 
 发布后的安装包位于本仓库的 [Releases](https://github.com/Qian-Ning/QianNing-Agent/releases)。如果 Releases 尚无附件，可按下方步骤从源码构建。

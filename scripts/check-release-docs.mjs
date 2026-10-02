@@ -194,8 +194,10 @@ if (!read("packages/shared/src/changelog.test.ts").includes(`"${documentVersion}
   );
 }
 
-// 4. READMEs declare the current release line.
-for (const relPath of ["README.md", "README.zh-CN.md"]) {
+// 4. READMEs declare the current release line. README.en.md is the English
+// mirror README.md itself links to; leaving it unguarded is how it drifted
+// three releases behind while the other two stayed current.
+for (const relPath of ["README.md", "README.en.md", "README.zh-CN.md"]) {
   if (!read(relPath).includes(releaseLine)) {
     fail(relPath, `status section does not mention the ${releaseLine} release line`);
   }

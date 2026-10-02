@@ -404,7 +404,10 @@ sidecar 请求
 提供商。
 
 这类行的模型发现读取已登录账户自己的模型列表；连接测试仍通过解析认证来证明
-账户。请求失败，或返回的不是模型列表时，才回退到 pi-ai（`models.getAvailable`，
+账户——`authKind: "oauth"` 的行永远不会跑
+[12-provider-config-schema](12-provider-config-schema.md) §3 定义的 API 密钥探测，
+因为它根本没有密钥可探。请求失败，或返回的不是模型列表时，才回退到 pi-ai
+（`models.getAvailable`，
 含厂商自己的 `filterModels`）。各厂商打自己的接口：ChatGPT Plus/Pro
 （`openai-codex`）是 `GET {base}/codex/models`，因此 `gpt-6-luna` 这类账户
 已经提供、pin 里还没有的 id 也能出现；普通 `{ data: [...] }` 不当成 Codex
@@ -584,6 +587,7 @@ UI 可能会显示层级提示，但默认情况下不得硬阻止未知模型�
 | 代码 | 状态 | 意义 | 面向用户的指导 |
 |---|---|---|---|
 | `PROVIDER_UNAUTHORIZED` | 直播 | invalid/expired 密钥或身份验证被拒绝 | 重新输入秘密/检查帐户 |
+| `PROVIDER_EDGE_BLOCKED` | 直播 | 提供商前面的 CDN/WAF 用自己的拦截页作答，请求根本没到 API，凭据也从未被校验 | 重新输入密钥无效——换服务商或换端点 |
 | `PROVIDER_RATE_LIMITED` | 直播 | 429/名额 | 稍后重试/切换模型 |
 | `PROVIDER_SECRET_MISSING` | 直播 | 无秘密启用的提供商 | 完成设置 |
 | `MODEL_NOT_CONFIGURED` | 直播 | 没有选定的模型或提供商拒绝选定的模型并返回 404 | 选择或配置可用模型 |
@@ -596,6 +600,11 @@ UI 可能会显示层级提示，但默认情况下不得硬阻止未知模型�
 | `PROVIDER_TIMEOUT` | 保留 → `TIMEOUT` | 网络或服务器超时 | 重试/检查网络 |
 | `PROVIDER_UNSUPPORTED_CAPABILITY` | 保留 → `PROVIDER_ERROR` | tools/vision/reasoning 不支持 | 切换模型或禁用功能 |
 | `PROVIDER_DISABLED` | 保留 → `MODEL_NOT_CONFIGURED` | 提供程序存在但已禁用 | 启用提供商 |
+
+`PROVIDER_EDGE_BLOCKED` 与 `PROVIDER_UNAUTHORIZED` 的区分依据是响应体，不是状态码：
+`403`/`503` 且响应体是文档，或正文带挑战特征词的，是边缘判定；而 `401`——以及
+提供商自己的 JSON `403`——仍然算鉴权判定。边缘拦截只有提供商的边缘配置能改变，
+所以指导文案绝不能把用户推回去重输一个本来就能用的密钥。
 
 ## 16. OpenAI兼容的一级路径
 

@@ -15165,6 +15165,45 @@ the latest destination. These assertions measure work counts, not device FPS.
   antivirus installation or claim native macOS/Linux verification.
 
 
+### E2E-PROVIDER-edge-block-is-not-an-auth-failure
+
+- **Preconditions:** A loopback fixture that answers `GET /v1/models` with a
+  JSON model list and its generation route with a `403` HTML interstitial
+  carrying `Server: cloudflare`; a second fixture answering both routes with
+  JSON; isolated test process/profile. No real provider or credentials.
+- **Steps:** Create an API-key provider against the first fixture and press Test
+  connection. Submit a chat prompt against that provider. Point a provider at
+  the second fixture, whose generation route refuses with a `403` that carries a
+  JSON body, and test it. Then test a provider whose generation route answers
+  the probe with a JSON `404`.
+- **Expected:** The first failure is classified `PROVIDER_EDGE_BLOCKED`, not
+  `PROVIDER_UNAUTHORIZED`, and its guidance names the edge rather than sending
+  the user back to re-enter a working key. The failed turn reaches the same
+  classification, so the transcript and the test cannot disagree about one
+  response. The JSON `403` provider stays `PROVIDER_UNAUTHORIZED`, and the JSON
+  `404` provider tests green — an API answering the probe is not a block. The
+  generation probe sends no credential, and no API key or Authorization value
+  appears in logs, events, or details.
+- **UI:** The model configuration page and the provider dialog both render the
+  coded failure through the same wording rule, so an edge block never reads as a
+  rejected key on one surface and a block on the other.
+- **Lower-level coverage:** `provider-edge-response.test.ts` covers the
+  classifier's positive and negative cases, including a `200` challenge page and
+  a real JSON `401`/`403` that must not be swallowed; `provider-endpoint.test.ts`
+  covers the probe URL per API style; `agent-errors.test.ts` covers the runtime
+  mapping; `provider-endpoint-probe.test.mjs` covers the settings path.
+- **Limits:** The fixtures stand in for a real edge, so no live WAF is
+  contacted. The `google_generative_ai` style has no probeable generation URL and
+  is covered only for the skip.
+- **Specs linked:** `03-runtime/11-provider-model-system.md` §15,
+  `03-runtime/12-provider-config-schema.md` §3,
+  `04-ux/08-component-spec.md`
+- **Acceptance:** B (model configuration), Quality
+- **Milestone:** M2
+- **Status:** Unit- and component-covered; no suite drives a live edge
+  intermediary.
+
+
 ### E2E-PROVIDER-stored-binding-array-reads-entry-by-entry
 
 - **Preconditions:** A throwaway data directory and the host-core binary; a
