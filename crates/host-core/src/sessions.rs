@@ -3962,7 +3962,10 @@ pub fn get_usage_breakdown(
            AND status IN ('completed', 'error')
            AND (?3 IS NULL OR provider_id = ?3)
            AND (?4 IS NULL OR model_id = ?4)
-         ORDER BY ended_at DESC",
+         -- Ties are real: `ended_at` is milliseconds, and a fast turn can land
+         -- in the same one. `rowid` breaks them by insertion order, so
+         -- newest-first is a stable fact rather than whatever SQLite walks.
+         ORDER BY ended_at DESC, rowid DESC",
     )?;
 
     let rows = stmt.query_map(
