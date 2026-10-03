@@ -30,6 +30,16 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "0.15.16",
+    date: "2026-10-03",
+    highlights: [
+      "The usage page's Today view shows the day hour by hour instead of a single dot: a curve across your active hours with y-axis values, a peak marker, and a readout that follows the pointer, plus the exact counts for the period under it.",
+      "When a period has only one bucket to draw, that period's composition is shown instead of an empty frame with one point — input, output, cache write and cache read, each with its count and share.",
+      "A reply that stops because the model's output limit filled up with reasoning now says so and points at that limit, instead of suggesting a retry that cannot change the outcome.",
+    ],
+  },
+
+  {
     version: "0.15.15",
     date: "2026-10-03",
     highlights: [
@@ -909,6 +919,16 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "0.15.16",
+    date: "2026-10-03",
+    highlights: [
+      "使用统计的「当天」改为按小时显示，不再是一个孤零零的点：按活跃时段画出的曲线、Y 轴数值、峰值标注，以及跟随指针的读数条，并给出对应时段的精确用量。",
+      "某个时段只有一个桶可画时，改为显示该时段的构成而不是空画框里的一点 —— 输入、输出、缓存创建、缓存命中，各自给出数值与占比。",
+      "当回复因为模型的输出上限被推理占满而中断时，现在会明确说明并指向该上限，而不是建议你重试一个不会改变结果的请求。",
+    ],
+  },
+
+  {
     version: "0.15.15",
     date: "2026-10-03",
     highlights: [
@@ -1787,6 +1807,16 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "0.15.16",
+    date: "2026-10-03",
+    highlights: [
+      "使用統計的「當天」改為按小時顯示，不再是一個孤零零的點：依活躍時段畫出的曲線、Y 軸數值、峰值標註，以及跟隨指標的讀數條，並給出對應時段的精確用量。",
+      "某個時段只有一個桶可畫時，改為顯示該時段的構成而不是空畫框裡的一點 —— 輸入、輸出、快取建立、快取命中，各自給出數值與佔比。",
+      "當回覆因為模型輸出上限被推理佔滿而中斷時，現在會明確說明並指向該上限，而不是建議你重試一個不會改變結果的請求。",
+    ],
+  },
+
   {
     version: "0.15.15",
     date: "2026-10-03",

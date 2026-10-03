@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "0.15.16",
+    date: "2026-10-03",
+    highlights: [
+      "La vista Hoy de la página de uso muestra el día hora a hora en lugar de un único punto: una curva sobre tus horas activas con valores en el eje, marca del máximo y una lectura que sigue al puntero, además de los recuentos exactos de cada periodo.",
+      "Cuando un periodo solo tiene un tramo que dibujar, se muestra su composición en vez de un marco vacío con un punto: entrada, salida, escritura y lectura de caché, cada uno con su recuento y su proporción.",
+      "Una respuesta que se detiene porque el límite de salida del modelo se llenó de razonamiento ahora lo indica y señala ese límite, en lugar de sugerir un reintento que no puede cambiar el resultado.",
+    ],
+  },
+
+  {
     version: "0.15.15",
     date: "2026-10-03",
     highlights: [

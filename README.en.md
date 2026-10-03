@@ -21,7 +21,7 @@ Windows-first · Local data · Multi-model · Plugin-extensible · Voice input
 
 </div>
 
-> Current release line: `0.15.x` (latest `0.15.15`). This customized distribution is primarily maintained for Windows desktop use.
+> Current release line: `0.15.x` (latest `0.15.16`). This customized distribution is primarily maintained for Windows desktop use.
 
 ## About
 
@@ -59,8 +59,8 @@ Remote model providers, plugins, and MCP servers may receive data required for t
 Windows x64 builds produce:
 
 ```text
-QianNing-Agent-Setup-0.15.15.exe
-QianNing-Agent-Portable-0.15.15.exe
+QianNing-Agent-Setup-0.15.16.exe
+QianNing-Agent-Portable-0.15.16.exe
 ```
 
 Published installers belong in this repository's [Releases](https://github.com/Qian-Ning/QianNing-Agent/releases). If no release asset is available, build from source.

@@ -1,6 +1,6 @@
 {
   "name": "@pi-desktop/desktop",
-  "version": "0.15.15",
+  "version": "0.15.16",
   "desktopName": "qianning-agent.desktop",
   "private": true,
   "description": "QianNing Agent — personal AI coding agent desktop app",
