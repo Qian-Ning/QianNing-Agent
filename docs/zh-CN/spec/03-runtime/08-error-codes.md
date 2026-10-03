@@ -108,6 +108,7 @@ stdio 与 Tokio 的动态阻塞池隔离，因此后一种情况
 | `CONTEXT_COMPACTION_FAILED` | 不 | 自动保留尾部恢复无法准备、持久或适合检查点，或手动检查点摘要生成/持久追加失败；受保护的下一个提供程序请求不会启动 |
 | `STREAM_FAILED` | 是的 | 提供程序流在完整响应之前终止、提前关闭或以其他方式结束；最多四次同回合重试可能会在终止事件之前发生 |
 | `EMPTY_MODEL_RESPONSE` | 是的 | 模型在没有工具调用且没有可见文本的情况下结束了两次：一次是流式传输，一次是在自动重新运行后；对 Host 账本完成通知的第一条回复除外（规范 02-agent-runtime §5e、D446） |
+| `OUTPUT_BUDGET_EXHAUSTED` | 是的 | 同样是第二次静音，但结算的响应已经到达该请求实际发送的输出上限，并且报告的推理 token 非零：输出额度全用在推理上，没余量写正文。它把「调大该模型的输出上限」作为补救措施，这正是它与 `EMPTY_MODEL_RESPONSE` 的区别；自动重跑不会因此被跳过，这个错误码只改变重跑同样落空后用户看到的话（规范 02-agent-runtime §5e、D646） |
 | `PROMPT_ENHANCEMENT_EMPTY` | 不 | 一次性增强模型没有返回任何文本 |
 | `SPEECH_NOT_CONFIGURED` | 不 | 设置里没有绑定转写或朗读 |
 | `SPEECH_PROTOCOL_UNSUPPORTED` | 不 | 语音协议未知或不支持该角色 |

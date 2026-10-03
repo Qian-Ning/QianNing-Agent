@@ -2631,6 +2631,7 @@ importConfirm: "İçe aktarılan uzantılar ajan sürecinde, ajanın kendi araç
     STREAM_FAILED: "Yanıt kesildi.",
     EMPTY_MODEL_RESPONSE:
       "Model iki tur üst üste hiçbir şey söylemeden bitirdi. Yeniden deneyin veya isteği başka türlü sorun.",
+    OUTPUT_BUDGET_EXHAUSTED: "Model tüm çıktı sınırını düşünmeye harcadı ve yanıtı yazacak yer kalmadı. Ayarlar → Agent bölümünden bu modelin çıktı sınırını yükseltin ya da düşünme düzeyini düşürüp yeniden deneyin.",
     MUTATION_RETRY_BUDGET_EXHAUSTED:
       "Aynı düzenleme üç kez başarısız oldu, bu yüzden körü körüne yeniden denemek yerine tur durdu. Devam etmek için yeniden sorun.",
     CONTEXT_TOO_LARGE: "Bağlam kurtarmadan sonra bu sohbet hâlâ çok uzun. İletinizi kısaltın veya yeni sohbet açın.",

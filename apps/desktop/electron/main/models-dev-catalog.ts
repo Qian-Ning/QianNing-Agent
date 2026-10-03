@@ -1053,27 +1053,6 @@ function sameModelSpelling(catalogId: string, requested: string): boolean {
 }
 
 /**
- * Record to use when nothing identifies the row's provider.
- *
- * A relay or a gateway the catalog cannot place still serves models the catalog
- * knows, and asking for one of them by id used to answer nothing at all. What
- * every publisher of that model agrees on can be claimed instead: the same
- * intersection and median `borrowedModel` computes for an anchored row.
- *
- * One thing is deliberately not claimed. Which *wire shape* a deployment accepts
- * for reasoning is a property of that deployment — the same model behind an
- * OpenAI-compatible gateway and behind Anthropic's own API takes different
- * reasoning fields — so a record borrowed this way drops its `reasoningOptions`
- * rather than speaking for an endpoint no publisher describes. `catalogModelConfigFor`
- * still applies Anthropic's own shape to an Anthropic Messages row that is left
- * without one.
- */
-function unanchoredConsensus(entries: readonly ModelsDevModel[]): ModelsDevModel | undefined {
-  const consensus = borrowedModel(entries);
-  return consensus ? { ...consensus, reasoningOptions: undefined } : undefined;
-}
-
-/**
  * Which publisher's records answer for an id the row's own publisher lacks.
  *
  * Two preferences, in order. The app's supported publishers are read first:
@@ -1087,6 +1066,13 @@ function unanchoredConsensus(entries: readonly ModelsDevModel[]): ModelsDevModel
  * every publisher that does — siblings included, as this borrow has always read
  * them — because a relay-only id would otherwise be shown as a generic 128k
  * text-only row although the catalog publishes it.
+ *
+ * A deployment marker is deliberately not read as a spelling of the id it is
+ * appended to (`deepseek-v4-pro-free` → `deepseek-v4-pro`). D630 superseded
+ * those aliases: a marker names this deployment's variant, and the limits a
+ * free or preview tier serves are not the published model's. A fallback that
+ * stripped one used to live here; it was never reached, because this pool is
+ * only consulted for a row that resolved to a known catalog provider.
  */
 function borrowPool(
   entries: readonly IndexedModel[],
@@ -1112,71 +1098,6 @@ function borrowPool(
   ];
   const pool = tiers.find((tier) => tier.length > 0) ?? [];
   return pool.map((entry) => entry.model);
-}
-
-/**
- * Markers a deployment appends to a published id to name its own variant of it:
- * a canary label, a context size, a preview channel. `test/mimo-v2.5-pro-test`
- * and `gemini-2.5-pro-1m` are the published models with such a marker appended.
- *
- * Only a marker on this list is read that way. `-asr`, `-pro` or `-mini` name
- * models of their own, so an unpublished id that carries one of those stays
- * unknown instead of borrowing a sibling model's limits.
- */
-const DEPLOYMENT_MARKER_SUFFIXES: ReadonlySet<string> = new Set([
-  "test",
-  "staging",
-  "canary",
-  "dev",
-  "alpha",
-  "beta",
-  "rc",
-  "exp",
-  "experimental",
-  "preview",
-  "free",
-  "trial",
-  "thinking",
-  "think",
-  "agent",
-  "latest",
-  "1k",
-  "2k",
-  "4k",
-  "32k",
-  "64k",
-  "128k",
-  "200k",
-  "256k",
-  "512k",
-  "1m",
-  "2m",
-  "4m",
-]);
-
-/** The id without one trailing deployment marker, or the id unchanged. */
-function dropDeploymentMarker(value: string): string {
-  const match = /^(.*)[-_:]([a-z0-9]+)$/i.exec(value);
-  if (!match) return value;
-  return DEPLOYMENT_MARKER_SUFFIXES.has(match[2].toLowerCase()) ? match[1] : value;
-}
-
-/**
- * Published ids to read when nothing the catalog publishes matches the id the
- * service serves: the id behind a route prefix, and that id without one
- * deployment marker. Each is looked up as a whole published id, so nothing here
- * follows a chain of aliases.
- */
-function fallbackLookupIds(requested: string): string[] {
-  const ids: string[] = [];
-  const push = (value: string) => {
-    if (value && value !== requested && !ids.includes(value)) ids.push(value);
-  };
-  const leaf = requested.slice(requested.lastIndexOf("/") + 1);
-  push(leaf);
-  push(dropDeploymentMarker(leaf));
-  push(dropDeploymentMarker(requested));
-  return ids;
 }
 
 /**

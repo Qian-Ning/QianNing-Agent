@@ -2594,6 +2594,7 @@ sklm: {
     TIMEOUT: "请求 AI 服务超时。",
     STREAM_FAILED: "回复中断了。",
     EMPTY_MODEL_RESPONSE: "模型连续两轮都没有输出内容。可以重试，或换一种说法。",
+    OUTPUT_BUDGET_EXHAUSTED: "模型的推理占满了本次输出上限，没余量写正文。请在 设置 → Agent → 该模型的「输出上限」调大它，或降低思考级别后重试。",
     MUTATION_RETRY_BUDGET_EXHAUSTED:
       "同一处修改连续失败三次，本轮已停止，不再盲目重试。再说一次即可继续。",
     CONTEXT_TOO_LARGE: "上下文恢复后对话仍然过长。请缩短消息内容或新开对话。",
