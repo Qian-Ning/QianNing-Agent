@@ -60,7 +60,6 @@ class FakeSidecar implements RuntimeSidecarLink {
   calls: Call[] = [];
   notify: ((method: string, params: unknown) => void) | null = null;
   exit: ((info: { intentional: boolean; code: number | null; signal: NodeJS.Signals | null }) => void) | null = null;
-  roots = new Map<string, string | undefined>();
   rejectPrompt = false;
   running = false;
   /** Error `agent.compact` answers with; `null` accepts the compaction. */
@@ -212,7 +211,6 @@ describe("RuntimeService prompt lifecycle", () => {
     const prompt = sidecar.calls.find((call) => call.method === "agent.prompt");
     expect(prompt?.params.turnId).toBe("turn-1");
     expect(prompt?.params.content).toBe("hello");
-    expect(sidecar.roots.get("s1")).toBe("/work/project");
     expect(service.isBusy("s1")).toBe(true);
     expect(service.activeTurnId("s1")).toBe("turn-1");
     // The user row is announced to subscribers before the runtime answers.
