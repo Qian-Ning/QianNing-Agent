@@ -142,3 +142,21 @@ test("switch on-track outranks the per-theme off-track", () => {
     assert.ok(defs.length >= 2, `${token} should be defined in both base themes`);
   }
 });
+
+test("composer toolbar chips brighten on hover in both palettes", () => {
+  // The theme-qualified resting rules carry one attribute more than the base
+  // hover rules, so the light pair (which is also `!important`) and the dark
+  // icon button kept their resting ink on hover — a hover fill with frozen
+  // text. Each theme needs the state-qualified companion. `:hover` sits outside
+  // the state-shadow rule in scripts/style-surface-tokens.mjs on purpose, so
+  // `pnpm test:e2e:theme-surfaces` samples the rendered state and this pins the
+  // source shape the two have to agree on.
+  assert.match(
+    styles,
+    /:root\[data-theme="light"\] \.composer-toolbar \.icon-btn:hover,\s*\n:root\[data-theme="light"\] \.mode-chip:hover\s*\{[^}]*color:\s*var\(--ds-text-primary\) !important/,
+  );
+  assert.match(
+    styles,
+    /:root\[data-theme="dark"\] \.composer-toolbar \.icon-btn:hover\s*\{[^}]*color:\s*var\(--ds-text-primary\) !important/,
+  );
+});

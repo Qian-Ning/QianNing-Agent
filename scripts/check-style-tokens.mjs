@@ -12,13 +12,19 @@
  *  - CSS: font-size / font-weight / line-height / letter-spacing /
  *    border-radius values must be var(...) based (token definitions on
  *    `--custom-property` lines are exempt).
+ *  - CSS: a theme-qualified rule must not shadow an interaction state
+ *    (`:root[data-theme="light"] .x` outranks `.x:disabled`) without carrying a
+ *    state-qualified companion or excluding the state.
  *  - TSX: arbitrary-value utilities text-[...], rounded-[...], leading-[...],
  *    tracking-[...], font-[...] are forbidden.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { findLiteralSurfaceColors } from "./style-surface-tokens.mjs";
+import {
+  findLiteralSurfaceColors,
+  findShadowedStateRulesAcross,
+} from "./style-surface-tokens.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const srcDir = join(root, "apps/desktop/src");
@@ -46,12 +52,29 @@ function stripVars(value) {
 
 const violations = [];
 
-for (const file of walk(srcDir)) {
+// Rule 4 reads the cascade as a whole: a theme rule in one partial can shadow a
+// state rule in another.
+const files = walk(srcDir);
+const shadowedByPath = new Map();
+for (const violation of findShadowedStateRulesAcross(
+  files
+    .filter((file) => file.endsWith(".css"))
+    .map((file) => ({ path: relative(root, file), css: readFileSync(file, "utf8") })),
+)) {
+  const list = shadowedByPath.get(violation.path) ?? [];
+  list.push(violation);
+  shadowedByPath.set(violation.path, list);
+}
+
+for (const file of files) {
   const rel = relative(root, file);
   const source = readFileSync(file, "utf8");
   if (file.endsWith(".css")) {
     for (const violation of findLiteralSurfaceColors(source)) {
       violations.push(`${rel}:${violation.line} raw ${violation.property} value "${violation.value}" — use a surface token`);
+    }
+    for (const violation of shadowedByPath.get(rel) ?? []) {
+      violations.push(`${rel}:${violation.line} ${violation.reason}`);
     }
   }
   const lines = source.split("\n");

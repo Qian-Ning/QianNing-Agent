@@ -1,7 +1,7 @@
 /**
  * Surface-colour guard for the renderer stylesheets (issue #341, extends #339).
  *
- * Two rules:
+ * Four rules:
  *
  *  1. THEME OVERRIDE RULE — inside a `:root[data-theme="…"]` rule every colour
  *     declaration in `COLOR_PROPERTIES` (plus `box-shadow`) must resolve through
@@ -12,11 +12,6 @@
  *     token blocks are exactly where literal values belong. A custom property
  *     holding a literal colour on any other selector is a violation, because it
  *     shadows the root token for that subtree.
- *     Custom-property definitions are allowed when the rule *is* a theme root
- *     (`:root`, `:root[data-theme="…"]`): the token blocks are exactly where
- *     literal values belong. A custom property holding a literal colour on any
- *     other selector is a violation, because it shadows the root token for that
- *     subtree.
  *
  *  2. CHROME FAMILY RULE — the base rules of the chrome families migrated in
  *     #339/#341 (settings rail, settings search, settings nav item, switch
@@ -36,6 +31,17 @@
  *     root blocks are exempt — they are where the tokens themselves are
  *     defined.
  *
+ *  4. STATE SHADOWING RULE — a theme-qualified rule carries one attribute more
+ *     than the plain rule it mirrors, so `:root[data-theme="light"] .x`
+ *     (0,3,0) outranks `.x:disabled` (0,2,0) and the state stops painting.
+ *     `fc45db811` documents the shape of the answer: the theme must carry a
+ *     state-qualified companion (`:root[data-theme="light"] .x:disabled`) or
+ *     exclude the state (`:not(:disabled)`), or the state rule's own
+ *     `!important` must outrank it. Without one of the three the state silently
+ *     keeps the theme's paint, which is how the light composer's disabled send
+ *     chip came to look enabled. Scoped to the affordance-bearing states
+ *     (`:disabled`, `:checked`, `:focus-visible`, `:focus-within`).
+ *
  * Exemptions are enumerated here with reasons instead of being invisible gaps:
  *
  *  - `SHIKI_PALETTE` — the `one-dark-pro` / `one-light` syntax plate and its
@@ -54,9 +60,9 @@
  *    non-theme palette (the image-viewer lightbox chrome, the project-tile
  *    glyph ink over the fixed tile colours), each with the reason.
  *
- * Known boundary: this guard is static CSS text analysis. It cannot see a
- * cascade conflict between two token rules (#339's root cause) or a plugin's
- * own stylesheet; `pnpm test:e2e:theme-surfaces` covers the rendered cascade.
+ * Known boundary: this guard is static CSS text analysis. A cascade conflict
+ * between two token rules is now covered by rule 4; a plugin's own stylesheet
+ * is not; and `pnpm test:e2e:theme-surfaces` still owns the rendered cascade.
  */
 
 /** Selectors whose base rules must not paint a literal colour (rule 2). */
@@ -201,3 +207,206 @@ export function findLiteralSurfaceColors(css) {
   }
   return violations;
 }
+
+/**
+ * Interaction states a theme-qualified rule can silently outrank (rule 4).
+ *
+ * Scoped to the states that carry an *affordance*: a control that looks
+ * pressable while disabled, or a field that never shows its focus ring, is a
+ * bug a mechanical guard can call without taste. `:hover` / `:active` ink drift
+ * is left out — the tree holds deliberate theme-level `!important` ink pins on
+ * hover, so judging those is a design pass, not a guard (see the `.mode-chip`
+ * note in the delivery report).
+ */
+export const STATE_SUFFIXES = [
+  ":disabled",
+  ":focus-visible",
+  ":focus-within",
+  ":checked",
+];
+
+/** `:root[data-theme="…"] .thing` → the theme name and the part after it. */
+const THEME_SCOPED = /^(?::root)?\[data-theme=["']([^"']+)["']\]\s*(.*)$/;
+
+/** Property names a declaration block sets, mapped to whether they say `!important`. */
+function declaredProperties(body) {
+  const declared = new Map();
+  for (const match of body.matchAll(/(?:^|;|\n)\s*([-\w]+)\s*:([^;{}]*)/g)) {
+    declared.set(match[1], /!\s*important/i.test(match[2]));
+  }
+  return declared;
+}
+
+/** [ids, classes+attributes+pseudo-classes, elements] — enough to rank two selectors. */
+function specificity(selector) {
+  const bare = selector.replace(/:not\(([^)]*)\)/g, "$1");
+  const pseudoElements = (bare.match(/::[\w-]+/g) ?? []).length;
+  const rest = bare.replace(/::[\w-]+/g, " ");
+  return [
+    (rest.match(/#[\w-]+/g) ?? []).length,
+    (rest.match(/\.[\w-]+/g) ?? []).length +
+      (rest.match(/\[[^\]]*\]/g) ?? []).length +
+      (rest.match(/:[\w-]+/g) ?? []).length,
+    (rest.match(/(?:^|[\s>+~])[a-zA-Z][\w-]*/g) ?? []).length + pseudoElements,
+  ];
+}
+
+/** Lexicographic rank: specificity first, source order to break a tie. */
+const rank = ([ids, classes, elements], index) => [ids, classes, elements, index];
+
+/** True when the left side wins the cascade against the right side. */
+const outranks = (left, right) => {
+  for (let i = 0; i < left.length; i += 1) {
+    if (left[i] !== right[i]) return left[i] > right[i];
+  }
+  return false;
+};
+
+/** Rules in a stylesheet, with comment text blanked so line numbers hold. */
+function parseRules(css) {
+  // Retain newlines so diagnostics keep their source line numbers.
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, " "));
+  const rules = [];
+  for (const match of source.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    // A rule nested in `@media` keeps the at-rule prelude in the capture, so
+    // drop it and compare selector text only.
+    const selector = match[1].replace(/@[^{}]*|\{/g, " ").replace(/\s+/g, " ").trim();
+    if (!selector) continue;
+    rules.push({
+      selector,
+      properties: declaredProperties(match[2]),
+      line: source.slice(0, match.index + match[1].length + 1).split("\n").length,
+    });
+  }
+  return rules;
+}
+
+/** Theme-qualified parts of a selector list that already carry a tracked state. */
+function themeStateSelectors(selector) {
+  return selector
+    .split(",")
+    .map((part) => part.trim())
+    .flatMap((part) => {
+      const scoped = THEME_SCOPED.exec(part);
+      if (!scoped?.[2]) return [];
+      const state = STATE_SUFFIXES.find((value) => scoped[2].endsWith(value));
+      return state ? [{ theme: scoped[1], selector: scoped[2] }] : [];
+    });
+}
+
+const stateCompanionKey = (theme, selector) => `${theme}\u0000${selector}`;
+
+/**
+ * Collect every theme-qualified state rule across the stylesheets the renderer
+ * concatenates. A companion normally sits beside the rule it backs, but nothing
+ * requires that, so rule 4 checks each file against the whole set.
+ * @param {string[]} sources
+ * @returns {Map<string, Set<string>>}
+ */
+export function collectStateCompanions(sources) {
+  const companions = new Map();
+  for (const css of sources) {
+    for (const rule of parseRules(css)) {
+      for (const { theme, selector } of themeStateSelectors(rule.selector)) {
+        const key = stateCompanionKey(theme, selector);
+        const properties = companions.get(key) ?? new Set();
+        for (const property of rule.properties.keys()) properties.add(property);
+        companions.set(key, properties);
+      }
+    }
+  }
+  return companions;
+}
+
+/**
+ * Report theme-qualified rules that outrank an interaction state on the same
+ * element without a state-qualified companion (rule 4).
+ *
+ * `:root[data-theme="light"] .x` carries one attribute more than `.x:disabled`,
+ * so the theme wins on specificity and the state stops painting. The sanctioned
+ * shapes are a theme-qualified companion that re-states the same properties, or
+ * a `:not(<state>)` on the theme rule.
+ *
+ * @param {string} css
+ * @param {Map<string, Set<string>>} [companions] from `collectStateCompanions`
+ * @returns {Array<{line: number, theme: string, element: string, properties: string[], reason: string}>}
+ */
+export function findShadowedStateRules(css, companions = collectStateCompanions([css])) {
+  const rules = parseRules(css);
+
+  const violations = [];
+  for (const [index, rule] of rules.entries()) {
+    const parts = rule.selector.split(",").map((part) => part.trim()).filter(Boolean);
+    for (const part of parts) {
+      const scoped = THEME_SCOPED.exec(part);
+      if (!scoped) continue;
+      const [, theme, inner] = scoped;
+      // A theme root block defines tokens; it shadows no element rule.
+      if (!inner) continue;
+      for (const state of STATE_SUFFIXES) {
+        // `:not(:disabled)` is the other sanctioned shape: the theme simply
+        // stops applying to the state it would have broken.
+        if (inner.includes(`:not(${state})`)) continue;
+        const mirrored = `${inner}${state}`;
+        for (const base of rules) {
+          if (base.selector !== mirrored) continue;
+          const shared = [];
+          for (const [property, themeImportant] of rule.properties) {
+            if (!base.properties.has(property)) continue;
+            const baseImportant = base.properties.get(property);
+            // A disagreement on `!important` is settled by importance alone;
+            // only a tie reaches specificity and source order.
+            const themeWins =
+              themeImportant !== baseImportant
+                ? themeImportant
+                : outranks(rank(specificity(part), index), rank(specificity(mirrored), base.index));
+            if (themeWins) shared.push(property);
+          }
+          if (!shared.length) continue;
+          const companion = companions.get(stateCompanionKey(theme, mirrored));
+          if (companion && shared.every((property) => companion.has(property))) continue;
+          violations.push({
+            line: rule.line,
+            theme,
+            element: mirrored,
+            properties: [...shared].sort(),
+            reason:
+              `\`${mirrored}\` loses ${[...shared].sort().join(" / ")} to \`${part}\` in the ` +
+              `${theme} palette — add \`:root[data-theme="${theme}"] ${mirrored}\` or ` +
+              `exclude the state with \`:not(${state})\``,
+          });
+        }
+      }
+    }
+  }
+  return violations;
+}
+
+/**
+ * Rule 4 across the stylesheets the renderer concatenates. A theme rule in one
+ * partial can shadow a state rule in another — the light `.composer-shell`
+ * override in `theme-overrides.css` flattened `.composer-shell:focus-within`
+ * from `composer.css` — so the tree is compared as one cascade, and each
+ * violation is mapped back to the file that owns it.
+ *
+ * @param {Array<{path: string, css: string}>} sources in load order
+ * @returns {Array<{path: string, line: number, theme: string, element: string, properties: string[], reason: string}>}
+ */
+export function findShadowedStateRulesAcross(sources) {
+  const companions = collectStateCompanions(sources.map(({ css }) => css));
+  const offsets = [];
+  let lines = 0;
+  for (const { path, css } of sources) {
+    offsets.push({ path, start: lines });
+    lines += css.split("\n").length;
+  }
+  const violations = findShadowedStateRules(
+    sources.map(({ css }) => css).join("\n"),
+    companions,
+  );
+  return violations.map((violation) => {
+    const owner = offsets.findLast((entry) => entry.start < violation.line);
+    return { ...violation, path: owner.path, line: violation.line - owner.start };
+  });
+}
+

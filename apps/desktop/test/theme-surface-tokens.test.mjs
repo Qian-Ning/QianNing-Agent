@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import test from "node:test";
-import { findLiteralSurfaceColors } from "../../../scripts/style-surface-tokens.mjs";
+import { fileURLToPath } from "node:url";
+import {
+  collectStateCompanions,
+  findLiteralSurfaceColors,
+  findShadowedStateRules,
+  findShadowedStateRulesAcross,
+} from "../../../scripts/style-surface-tokens.mjs";
 
 test("surface guard catches literal fills on base, theme, and focus rules", () => {
   const violations = findLiteralSurfaceColors(`
@@ -110,4 +118,68 @@ test("surface guard rejects static non-token variable references", () => {
       [4, "color"],
     ],
   );
+});
+
+test("state-shadow guard names the interaction state a theme rule outranks", () => {
+  /*
+    `:root[data-theme="light"] .send-btn` carries one attribute more than
+    `.send-btn:disabled`, so the theme wins on specificity and the disabled chip
+    paints exactly like the enabled one. That shape reached the shipped light
+    composer because the theme-surfaces probe is not part of CI; the guard is
+    what makes the fast suite catch it instead of a rendered cascade run.
+  */
+  const violations = findShadowedStateRules(`
+.send-btn { background: var(--ds-accent); }
+:root[data-theme="light"] .send-btn { background: var(--ds-bg-inset); }
+.send-btn:disabled { background: var(--ds-send-disabled-bg); }`);
+  assert.deepEqual(
+    violations.map(({ line, element, properties }) => [line, element, properties]),
+    [[3, ".send-btn:disabled", ["background"]]],
+  );
+});
+
+test("state-shadow guard accepts a companion, a :not() exemption, and a base !important", () => {
+  /*
+    Three shapes settle the cascade on purpose, so none of them is a shadow: a
+    theme-qualified companion that re-states the property, a theme rule that
+    excludes the state, and a state rule whose own `!important` outranks the
+    theme. The companion may live in another partial — that is why the guard
+    takes the collectors' map rather than comparing each file with itself.
+  */
+  const violations = findShadowedStateRules(`
+:root[data-theme="light"] .send-btn { background: var(--ds-bg-inset); }
+.send-btn:disabled { background: var(--ds-send-disabled-bg); }
+.mode-chip:focus-visible { color: var(--ds-text-secondary); }
+:root[data-theme="light"] .mode-chip:not(:focus-visible) { color: var(--ds-text-primary); }
+:root[data-theme="light"] .icon-btn { color: var(--ds-text-primary); }
+.icon-btn:focus-within { color: var(--ds-text-secondary) !important; }
+`, collectStateCompanions([`
+:root[data-theme="light"] .send-btn:disabled { background: var(--ds-send-disabled-bg); }
+`]));
+  assert.deepEqual(violations, []);
+});
+
+test("state-shadow guard reports an !important theme pin that silences the state", () => {
+  /*
+    `!important` on the theme declaration wins outright, so the state rule can
+    never paint — the same loss of an affordance as a plain specificity shadow,
+    reached by a different route. The theme must still carry the companion (or
+    exclude the state) for the guard to stay quiet.
+  */
+  const violations = findShadowedStateRules(`
+:root[data-theme="light"] .icon-btn { color: var(--ds-text-primary) !important; }
+.icon-btn:focus-within { color: var(--ds-text-secondary); }`);
+  assert.deepEqual(
+    violations.map(({ line, properties }) => [line, properties]),
+    [[2, ["color"]]],
+  );
+});
+
+test("state-shadow guard holds the shipped stylesheets", () => {
+  const stylesDir = join(dirname(fileURLToPath(import.meta.url)), "../src/styles");
+  const sources = readdirSync(stylesDir)
+    .filter((name) => name.endsWith(".css"))
+    .sort()
+    .map((name) => ({ path: name, css: readFileSync(join(stylesDir, name), "utf8") }));
+  assert.deepEqual(findShadowedStateRulesAcross(sources), []);
 });

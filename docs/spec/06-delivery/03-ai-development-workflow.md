@@ -344,6 +344,10 @@ Every change follows this sequence. Steps may be iterated if the implementation 
   the remote merge, rerun the affected suites when the landed executable
   content differs from the commit the gate ran on. Otherwise the recorded
   result stands.
+- The `theme-surfaces` job in `.github/workflows/ci.yml` runs
+  `pnpm test:e2e:theme-surfaces` against the built renderer on every pull
+  request, so a theme override that outranks an interaction state fails CI
+  instead of shipping unnoticed.
 
 ### Marketplace/update diagnosis gate
 

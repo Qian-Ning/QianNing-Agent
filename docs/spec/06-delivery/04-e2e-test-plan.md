@@ -5498,6 +5498,15 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   - Tool output keeps its cascade: light paints the same lighter tile over error
     output and over plain tool blocks, while dark shows the error tint and leaves
     plain blocks transparent.
+  - The disabled send chip reads `--ds-send-disabled-bg` in both palettes — light
+    `#8e8e90` with white ink, dark a 18% white wash — so it never matches the
+    enabled chip's paint, and a custom `--ds-send-disabled-bg` repaints it.
+  - The composer shell deepens its lift on focus in both palettes: the theme
+    overrides no longer restate the resting `--ds-shadow-composer` at (0,3,0)
+    over `.composer-shell:focus-within`.
+  - The composer mode chip and the toolbar icon button brighten to full
+    `--ds-text-primary` on hover in both palettes, so no theme-qualified resting
+    rule leaves the ink frozen while the hover fill moves.
   - Custom variables repaint the corresponding fills, keycap ink, and search
     focus states; removing them restores the built-in 8-bit RGBA paint and the
     existing shadows/focus rings. Prose ink mixes follow `--ds-text-primary`,
@@ -5509,8 +5518,10 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Status detail**: `pnpm test:e2e:theme-surfaces` exercises these ordinary fills,
   focus states, and built-in restoration with real Chromium, production CSS,
   and deterministic DOM fixtures; plugin installation/lifecycle is not covered.
-  Branch runs do not replace post-integration E2E. Other surfaces in this
-  scenario retain manual visual checks.
+  The `theme-surfaces` CI job runs it on every pull request, so a theme override
+  that outranks a state rule cannot ship unnoticed again. Branch runs do not
+  replace post-integration E2E. Other surfaces in this scenario retain manual
+  visual checks.
 
 #### E2E-079: User-facing catalog copy in English and Chinese
 

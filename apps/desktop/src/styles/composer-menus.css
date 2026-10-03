@@ -6,9 +6,12 @@
 
 /* DARK_COMPOSER_BOX — Codex elevated-primary + elevation-prominent */
 :root[data-theme="dark"] .composer-shell {
-  /* Codex elevated-primary: #212121f5 / gray-800 96% (not flat solid) */
+  /* Codex elevated-primary: #212121f5 / gray-800 96% (not flat solid).
+   * No `box-shadow` here: the base rule already paints the resting
+   * `--ds-shadow-composer`, and re-stating it at (0,3,0) outranks
+   * `.composer-shell:focus-within` (0,2,0) and flattens the focus lift. The
+   * style-token guard fails the build if that shape returns. */
   background: var(--ds-bg-elevated-primary);
-  box-shadow: var(--ds-shadow-composer);
   border: 0;
   outline: 0;
 }
@@ -28,6 +31,16 @@
 :root[data-theme="dark"] .composer-toolbar .icon-btn,
 :root[data-theme="dark"] .mode-chip {
   color: color-mix(in oklab, var(--ds-text-primary) 78%, transparent);
+}
+
+/* Same state-shadow shape as the light palette's companion: at (0,3,0) the dark
+ * resting rule outranks `.icon-btn:hover` (0,2,0), so the icon button showed a
+ * hover background with the ink frozen at 78%. This re-states the hover ink at
+ * (0,4,0). `!important` is deliberate rather than required — the light
+ * counterpart needs it, so keeping both sides identical means the pair cannot
+ * drift into a silent half-fix if the resting rules gain importance later. */
+:root[data-theme="dark"] .composer-toolbar .icon-btn:hover {
+  color: var(--ds-text-primary) !important;
 }
 
 :root[data-theme="dark"] .empty-hero-icon {

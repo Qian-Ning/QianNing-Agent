@@ -22,11 +22,11 @@ try {
   const css = [...appHtml.matchAll(/href="([^" ]+\.css)"/g)].map((match) => match[1]);
   assert(css.length, "Build the app with pnpm build:js before running this check");
   await cp(join(renderer, "assets"), join(temp, "assets"), { recursive: true });
-  await writeFile(join(temp, "index.html"), `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:"><title>Theme surface regression</title>${css.map((path) => `<link rel="stylesheet" href="${path}">`).join("")}<style>body { padding: 32px; display: flex; gap: 32px; align-items: flex-start; } .fixture-controls { width: 420px; display: grid; gap: 24px; } .fixture-prose { width: 420px; display: grid; gap: 12px; } .settings-shell-full { width: 275px; height: 340px; } .settings-toggle { margin: 20px; } /* Fixed/absolute app layers stay in flow here so they do not cover other fixtures. Only position changes, never paint. */ .fixture-controls .overlay, .fixture-controls .plugins-modal-backdrop, .fixture-controls .composer-dock-docked { position: static; inset: auto; padding: 12px; animation: none; }</style><body>
+  await writeFile(join(temp, "index.html"), `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:"><title>Theme surface regression</title>${css.map((path) => `<link rel="stylesheet" href="${path}">`).join("")}<style>body { padding: 32px; display: flex; gap: 32px; align-items: flex-start; } .fixture-controls { width: 420px; display: grid; gap: 24px; } .fixture-prose { width: 420px; display: grid; gap: 12px; } .settings-shell-full { width: 275px; height: 340px; } .settings-toggle { margin: 20px; } /* Fixed/absolute app layers stay in flow here so they do not cover other fixtures. Only position changes, never paint. */ .fixture-controls .overlay, .fixture-controls .plugins-modal-backdrop, .fixture-controls .composer-dock-docked { position: static; inset: auto; padding: 12px; animation: none; } .fixture-primary-ink { color: var(--ds-text-primary); }</style><body>
     <section class="settings-shell-full"><nav class="settings-nav sidebar-surface"><div class="settings-nav-top"><input class="settings-search" placeholder="Search settings"></div><div class="settings-nav-scroll"><button class="settings-nav-item active">General</button><button class="settings-nav-item">Appearance</button><button class="settings-toggle on" aria-label="Enabled"><span class="settings-toggle-thumb"></span></button></div></nav></section>
-    <section class="fixture-controls"><div class="composer-shell">Composer surface</div><div class="composer-dock composer-dock-docked">Transparent composer dock</div><div class="thread-scroll">Transcript scroller</div><input class="plugins-search" placeholder="Search plugins"><div class="agent-capability-search-wrap"><input class="agent-capability-search" placeholder="Search capabilities"></div><div class="overlay">Dialog scrim</div><div class="plugins-modal-backdrop">Permission veil</div></section>
+    <section class="fixture-controls"><div class="composer-shell">Composer surface</div><div class="composer-dock composer-dock-docked">Transparent composer dock</div><div class="thread-scroll">Transcript scroller</div><div class="composer-toolbar"><button class="icon-btn" aria-label="Attach"></button><button class="mode-chip">Agent</button></div><input class="plugins-search" placeholder="Search plugins"><div class="agent-capability-search-wrap"><input class="agent-capability-search" placeholder="Search capabilities"></div><div class="overlay">Dialog scrim</div><div class="plugins-modal-backdrop">Permission veil</div></section>
     <section class="fixture-controls"><div class="composer-stack"><section class="asktool-card"><div class="asktool-card-header"><span class="asktool-card-title">Question</span></div><button class="asktool-option">Blue</button><button class="asktool-option selected">Green</button><input class="asktool-custom-input" placeholder="Other" aria-label="Other"></section></div></section>
-    <section class="fixture-prose"><div class="prose-chat"><p>Answer prose with a <kbd>K</kbd> keycap and an <code>inline chip</code>.</p></div><div class="thinking-prose"><code>thinking code</code></div><div class="code-block-head">Code card head band</div><div class="mermaid-block-body">Mermaid canvas</div><button class="send-btn" disabled>Send</button></section>
+    <section class="fixture-prose"><div class="prose-chat"><p>Answer prose with a <kbd>K</kbd> keycap and an <code>inline chip</code>.</p></div><div class="thinking-prose"><code>thinking code</code></div><div class="code-block-head">Code card head band</div><div class="mermaid-block-body">Mermaid canvas</div><button class="send-btn" disabled>Send</button><span class="fixture-primary-ink">Primary ink</span></section>
     <section class="fixture-tools"><div class="tool-row-content">Tool output</div><div class="tool-block is-plain"><div class="tool-row-content">Plain tool output</div></div><div class="tool-row-content is-error">Error tool output</div></section>
     <script src="renderer.js"></script>`);
   await writeFile(
@@ -59,11 +59,39 @@ app.whenReady().then(async () => {
       "else target.addEventListener('focus', () => resolve(), { once: true });" +
       "})"
     );
+    // Script cannot produce the hover pseudo class, so the driver forces it on
+    // a resolved node and samples the ink around it. The mechanical style guard
+    // skips hover states, so this is the only automated check on this one.
+    await window.webContents.debugger.sendCommand("DOM.enable");
+    await window.webContents.debugger.sendCommand("CSS.enable");
+    const { root: documentRoot } = await window.webContents.debugger.sendCommand("DOM.getDocument");
+    const hoverNodes = {};
+    for (const [id, selector] of [["chip", ".mode-chip"], ["icon", ".composer-toolbar .icon-btn"]]) {
+      const { nodeId } = await window.webContents.debugger.sendCommand("DOM.querySelector", { nodeId: documentRoot.nodeId, selector });
+      if (!nodeId) throw new Error("fixture node missing: " + selector);
+      hoverNodes[id] = nodeId;
+    }
+    const forceHover = async (id, on) => {
+      await window.webContents.debugger.sendCommand("CSS.forcePseudoState", { nodeId: hoverNodes[id], forcedPseudoClasses: on ? ["hover"] : [] });
+    };
+    const hoverChecks = [];
     const checks = [];
     for (const theme of ["light", "dark"]) {
       for (const custom of [false, true, false]) {
         const result = await window.webContents.executeJavaScript("globalThis.${probeName}(" + JSON.stringify(theme) + "," + custom + ")");
         checks.push(result);
+        if (${probeName === "themeSurfacesProbe"}) {
+          const resting = await window.webContents.executeJavaScript("globalThis.modeChipInk()");
+          for (const id of Object.keys(hoverNodes)) await forceHover(id, true);
+          const hovered = await window.webContents.executeJavaScript("globalThis.modeChipInk()");
+          for (const id of Object.keys(hoverNodes)) await forceHover(id, false);
+          const failures = [];
+          for (const id of ["chip", "icon"]) {
+            if (String(hovered[id].rgba) === String(resting[id].rgba)) failures.push(id + " keeps its resting ink on hover");
+            else if (String(hovered[id].rgba) !== String(resting.primary.rgba)) failures.push(id + " hover ink is not --ds-text-primary");
+          }
+          hoverChecks.push({ theme, custom, resting, hovered, failures });
+        }
         if (process.env.PI_E2E_ARTIFACT_DIR) {
           const fs = require("node:fs");
           fs.mkdirSync(process.env.PI_E2E_ARTIFACT_DIR, { recursive: true });
@@ -71,7 +99,7 @@ app.whenReady().then(async () => {
         }
       }
     }
-    console.log("THEME_SURFACES_PROBE " + JSON.stringify({ ok: checks.every((check) => check.ok), checks }));
+    console.log("THEME_SURFACES_PROBE " + JSON.stringify({ ok: checks.every((check) => check.ok) && hoverChecks.every((check) => check.failures.length === 0), checks, hoverChecks }));
     app.quit();
   } catch (error) {
     console.error("THEME_SURFACES_PROBE " + JSON.stringify({ ok: false, error: String(error) }));
@@ -111,6 +139,14 @@ app.whenReady().then(async () => {
   const result = JSON.parse(line.slice("THEME_SURFACES_PROBE ".length));
   console.log("THEME_SURFACES_PROBE " + JSON.stringify(result));
   assert.equal(code, 0, output.slice(-6000));
+  for (const check of result.hoverChecks ?? []) {
+    assert.deepEqual(
+      check.failures,
+      [],
+      `${check.theme} (custom=${check.custom}) composer hover: ${JSON.stringify(check.failures)}\n` +
+        `resting ${JSON.stringify(check.resting)}\nhover ${JSON.stringify(check.hovered)}`,
+    );
+  }
   assert.equal(result.ok, true);
 } finally {
   await rm(temp, { recursive: true, force: true });

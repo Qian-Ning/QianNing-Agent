@@ -420,10 +420,12 @@
   transition: opacity var(--motion-duration-fast) var(--motion-ease-out), transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
-:root[data-theme="light"] .send-btn {
-  background: var(--ds-bg-inset);
-  color: var(--ds-text-primary);
-}
+/* No light-qualified override: the accent contract already inverts per theme
+ * (light resolves `--ds-accent` to ink, dark to white), so a
+ * `:root[data-theme="light"] .send-btn` rule could only outrank
+ * `.send-btn:disabled` — 0,3,0 against 0,2,0 — and strand the disabled state on
+ * the enabled fill. The style-token guard in `scripts/check-style-tokens.mjs`
+ * fails the build if that shape returns. */
 
 .send-btn:hover:not(:disabled) {
   opacity: 0.9;

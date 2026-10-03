@@ -156,6 +156,21 @@ globalThis.themeSurfacesProbe = async (theme, custom) => {
     elevatedRgba: rgba(getComputedStyle(document.documentElement).getPropertyValue("--ds-bg-elevated-primary").trim()) };
 };
 
+// The composer mode chip and the icon button beside it, sampled after the
+// driver has (or has not) forced `:hover` on each. Both exist because the
+// theme-qualified resting rules carry one attribute more than the base hover
+// rules, so the resting ink used to own the hover state and neither control
+// brightened. `settle()` runs first because `color` is transitioned, and a
+// sample taken mid-transition would report a half-way ink as a failure.
+globalThis.modeChipInk = async () => {
+  await settle();
+  const read = (selector) => {
+    const value = getComputedStyle(document.querySelector(selector)).color;
+    return { color: value, rgba: rgba(value) };
+  };
+  return { chip: read(".mode-chip"), icon: read(".composer-toolbar .icon-btn"), primary: read(".fixture-primary-ink") };
+};
+
 // D624 replaced the opaque dock band with a mask on the transcript scrollport,
 // so this mode asserts the occlusion regression from both ends and needs
 // neither the theme-surface table nor the keyboard-focus checks: the dock must
