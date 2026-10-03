@@ -76,9 +76,13 @@
  * through `--ds-text-primary`. The mechanical guard skips `:hover` on purpose
  * (see `style-surface-tokens.mjs`), so `pnpm test:e2e:theme-surfaces` samples
  * this state for real. */
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 :root[data-theme="light"] .composer-toolbar .icon-btn:hover,
 :root[data-theme="light"] .mode-chip:hover {
   color: var(--ds-text-primary) !important;
+}
 }
 
 :root[data-theme="light"] .composer-input::placeholder,
@@ -115,9 +119,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .footer-notification:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .footer-notification.active {
@@ -164,9 +172,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .footer-action:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .footer-action.active {
@@ -223,9 +235,13 @@
   line-height: var(--leading-compact);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .mode-chip:hover {
   background: var(--ds-bg-hover) !important;
   color: var(--ds-text-primary) !important;
+}
 }
 
 /* Goal keeps the same chip geometry while presenting a non-editable Auto state. */
@@ -234,9 +250,13 @@
   opacity: 1;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .composer-permission .mode-chip:disabled:hover {
   background: transparent !important;
   color: var(--ds-text-secondary) !important;
+}
 }
 
 /* Tone and truncation only. The label-driven chip sets its own padding with
@@ -264,7 +284,8 @@
   line-height: var(--leading-compact);
   text-align: left;
   cursor: pointer;
-  transition: background var(--motion-duration-fast) var(--motion-ease-out);
+  transition: background var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
 .composer-plus-item svg {
@@ -272,8 +293,12 @@
   color: var(--ds-text-secondary);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .composer-plus-item:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .composer-plus-item span {
@@ -283,4 +308,13 @@
 /* Menu sections are separated by space, not a rule (D297). */
 .composer-plus-sep {
   height: 6px;
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.composer-plus-item:active:not(:disabled) {
+  transform: scale(0.97);
 }

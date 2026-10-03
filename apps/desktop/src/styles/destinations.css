@@ -32,9 +32,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .dest-filter:hover {
   color: var(--ds-text-primary);
   background: var(--ds-bg-hover);
+}
 }
 
 .dest-filter.active {
@@ -61,8 +65,12 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .dest-row:hover {
   background: var(--ds-tile-hover);
+}
 }
 
 .dest-row-icon {

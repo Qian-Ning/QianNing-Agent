@@ -61,9 +61,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .project-create-dialog-close:hover:not(:disabled) {
   background: var(--ds-tile-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .project-create-dialog-form {
@@ -171,9 +175,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .project-create-dialog-source-option:hover:not(:disabled) {
   background: var(--ds-tile-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .project-create-dialog-source-option.is-active {
@@ -216,8 +224,12 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .project-create-dialog-location:hover:not(:disabled) {
   background: var(--ds-tile-hover);
+}
 }
 
 .project-create-dialog-location-icon {
@@ -312,8 +324,12 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .project-create-folder-row:hover {
   background: var(--ds-tile-hover);
+}
 }
 
 .project-create-folder-row.is-primary {
@@ -392,9 +408,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .project-create-folder-remove:hover:not(:disabled) {
   background: color-mix(in oklab, var(--ds-error) 13%, transparent);
   color: var(--ds-error);
+}
 }
 
 .project-create-add-folder {
@@ -413,9 +433,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .project-create-add-folder:hover:not(:disabled) {
   background: var(--ds-tile-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .project-create-add-folder.is-empty {
@@ -424,8 +448,12 @@
   background: var(--ds-tile-hover);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .project-create-add-folder.is-empty:hover:not(:disabled) {
   background: var(--ds-tile-deep);
+}
 }
 
 .project-create-add-folder-icon {

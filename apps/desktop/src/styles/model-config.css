@@ -212,6 +212,7 @@
 
 .provider-service-chip-change,
 .service-chooser-empty-action {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   flex: none;
   margin: 0;
   padding: 0 8px;
@@ -225,10 +226,14 @@
   cursor: pointer;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .provider-service-chip-change:hover:not(:disabled),
 .service-chooser-empty-action:hover:not(:disabled) {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .provider-service-chip-change:focus-visible,
@@ -286,6 +291,7 @@
 }
 
 .provider-service-trigger {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -677,6 +683,7 @@
 }
 
 .provider-models-reload {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -693,9 +700,13 @@
   cursor: pointer;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .provider-models-reload:hover:not(:disabled) {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .provider-models-reload:disabled {
@@ -838,8 +849,12 @@
   border-radius: var(--radius-3xs);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .provider-models-row:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .provider-models-row:has(.provider-models-check:checked) {
@@ -855,6 +870,7 @@
 }
 
 .provider-models-check {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   flex: none;
   width: 13px;
   height: 13px;
@@ -1016,9 +1032,13 @@
   cursor: grabbing;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .provider-chosen-reorder:hover:not(:disabled) {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .provider-chosen-reorder:disabled {
@@ -1068,6 +1088,7 @@
 }
 
 .provider-chosen-advanced-toggle {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   flex: none;
   padding: 2px 8px;
   border-radius: var(--radius-full);
@@ -1093,6 +1114,7 @@
 }
 
 .provider-chosen-remove {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -1106,9 +1128,13 @@
   cursor: pointer;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .provider-chosen-remove:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 /*
@@ -1264,6 +1290,7 @@
 }
 
 .provider-chosen-capability {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   display: flex;
   align-items: center;
   gap: 5px;
@@ -1302,12 +1329,17 @@
   cursor: pointer;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
-    color var(--motion-duration-fast) var(--motion-ease-out);
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .provider-thinking-chip:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 /* The chosen level is the raised segment of the track (D297). */
@@ -1337,8 +1369,12 @@
   transition: color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .provider-chosen-delegation-help:hover {
   color: var(--ds-text-secondary);
+}
 }
 
 
@@ -1605,11 +1641,16 @@
   text-align: left;
   cursor: pointer;
   transition: background var(--motion-duration-fast) var(--motion-ease-out),
-    box-shadow var(--motion-duration-fast) var(--motion-ease-out);
+    box-shadow var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .model-default-option:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .model-default-option.is-current {
@@ -1955,4 +1996,22 @@
 .model-provider-list[aria-busy="true"] .model-provider-row { cursor: default; transition: none; }
 @media (prefers-reduced-motion: reduce) {
   .model-provider-row { transition: none; }
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.provider-service-chip-change:active:not(:disabled),
+.service-chooser-empty-action:active:not(:disabled),
+.provider-service-trigger:active:not(:disabled),
+.provider-models-reload:active:not(:disabled),
+.provider-models-check:active:not(:disabled),
+.provider-chosen-advanced-toggle:active:not(:disabled),
+.provider-chosen-remove:active:not(:disabled),
+.provider-chosen-capability:active:not(:disabled),
+.provider-thinking-chip:active:not(:disabled),
+.model-default-option:active:not(:disabled) {
+  transform: scale(0.97);
 }

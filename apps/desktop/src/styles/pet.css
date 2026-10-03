@@ -130,3 +130,15 @@
     transform: translateY(0);
   }
 }
+
+/*
+ * The companion keeps stating its mode without breathing (design-system §8.5).
+ * Both rules only drop motion: `.pet-glow.on` holds `opacity: 1`, and the
+ * bubble's own appearance is its base state, so nothing is left invisible.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .pet-glow.on,
+  .pet-bubble {
+    animation: none;
+  }
+}

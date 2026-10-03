@@ -127,9 +127,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .password-input-toggle:hover:not(:disabled) {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .btn {
@@ -155,25 +159,37 @@
   background: var(--ds-accent);
   color: var(--ds-bg-primary);
 }
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .btn-primary:hover:not(:disabled) {
   background: var(--ds-accent-hover);
   opacity: 1;
+}
 }
 
 .btn-secondary {
   background: var(--ds-tile-hover);
   color: var(--ds-text-primary);
 }
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .btn-secondary:hover:not(:disabled) {
   background: var(--ds-tile-deep);
+}
 }
 
 .btn-ghost {
   color: var(--ds-text-secondary);
 }
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .btn-ghost:hover:not(:disabled) {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 /* Icon-only control geometry. `.icon-btn` (styles/composer.css) is shared with
@@ -353,7 +369,8 @@
   position: relative;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
-    border-color var(--motion-duration-fast) var(--motion-ease-out);
+    border-color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
 .ds-checkbox:checked {
@@ -376,4 +393,13 @@
 .ds-checkbox:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.ds-checkbox:active:not(:disabled) {
+  transform: scale(0.97);
 }

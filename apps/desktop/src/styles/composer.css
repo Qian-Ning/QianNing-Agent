@@ -154,9 +154,13 @@
   opacity: 0.4;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .composer-queued-prompt-action:disabled:hover {
   background: transparent;
   color: var(--ds-text-muted);
+}
 }
 
 .composer-shell {
@@ -305,6 +309,7 @@
 }
 
 .composer-chip[data-action="expand-text-reference"] {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   cursor: pointer;
 }
 
@@ -397,9 +402,13 @@
     transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .icon-btn:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .icon-btn.active {
@@ -427,8 +436,12 @@
  * the enabled fill. The style-token guard in `scripts/check-style-tokens.mjs`
  * fails the build if that shape returns. */
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .send-btn:hover:not(:disabled) {
   opacity: 0.9;
+}
 }
 
 .send-btn:disabled {
@@ -453,8 +466,12 @@
     transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .stop-btn:hover {
   background: color-mix(in oklab, var(--ds-text-primary) 22%, transparent);
+}
 }
 
 .send-btn:active:not(:disabled),
@@ -479,9 +496,13 @@
     transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .nav-item:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .nav-item.active {
@@ -606,9 +627,13 @@
   white-space: nowrap;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plan-approval-reject:hover:not(:disabled) {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .plan-approval-split {
@@ -631,9 +656,13 @@
   overflow-wrap: anywhere;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plan-approval-approve-main:hover:not(:disabled),
 .plan-approval-approve-menu:hover:not(:disabled) {
   background: var(--ds-bg-hover);
+}
 }
 
 .plan-approval-approve-menu {
@@ -709,6 +738,7 @@
 }
 
 .composer-directory-drop-action {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   border: 0;
   border-radius: var(--radius-sm);
   padding: 3px 8px;
@@ -722,8 +752,12 @@
   margin-left: auto;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .composer-directory-drop-action:hover {
   background: var(--ds-tile-hover);
+}
 }
 
 /* Quick-prompt strip: saved one-click prompts above the input, or a single
@@ -750,6 +784,7 @@
 }
 
 .composer-prompt-card-insert {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   min-width: 0;
   max-width: 220px;
   overflow: hidden;
@@ -790,6 +825,7 @@
 }
 
 .composer-prompt-card-save {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -849,3 +885,14 @@
   display: none;
 }
 
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.composer-chip[data-action="expand-text-reference"]:active:not(:disabled),
+.composer-directory-drop-action:active:not(:disabled),
+.composer-prompt-card-insert:active:not(:disabled),
+.composer-prompt-card-save:active:not(:disabled) {
+  transform: scale(0.97);
+}

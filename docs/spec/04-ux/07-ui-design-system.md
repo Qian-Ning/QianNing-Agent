@@ -811,6 +811,15 @@ All motion tokens must respect `prefers-reduced-motion: reduce`:
 }
 ```
 
+This net lives in `styles/responsive.css`, the last partial `globals.css`
+imports, so it sits at the tail of the cascade. It stays near-zero rather than `none`
+because exit unmounts listen for `animationend`.
+
+An `infinite` animation needs more than the net: a near-zero *infinite* loop
+still repaints every frame. Every repeating animation therefore names its own
+`animation: none` companion in a `prefers-reduced-motion` block — usually beside
+the rest of the batch in `responsive.css`.
+
 Boot splash, overlay/dialog enters, running-status pulses, and continuous bars
 are also explicitly suppressed or collapsed to a static state.
 
@@ -836,7 +845,13 @@ High-frequency workstation feedback must remain compositor-friendly and bounded:
 - Icon, navigation, message-action, tab, sidebar tool, and standard button
   controls provide a subtle pressed scale while active. The base transition
   includes `transform`, so press and release never snap; hover styling never
-  changes element dimensions or surrounding layout.
+  changes element dimensions or surrounding layout. The compact controls state
+  their pressed scale once per file as a single block rather than per selector.
+- Hover styling is gated on `@media (hover: hover) and (pointer: fine)`: a touch
+  tap latches `:hover` until the next tap, so an ungated reveal sticks to the
+  finger that caused it. A rule that pairs `:hover` with `:focus`,
+  `:focus-visible`, `:focus-within`, or `:active` in one selector list stays
+  whole — gating it would drop the keyboard state on touch.
 - Composer focus lifts by 1px with a restrained token-based shadow. Its
   near-opaque surface must not use backdrop blur: transcript updates beneath a
   blur layer would force avoidable repaint/compositing work while streaming.
@@ -854,6 +869,19 @@ High-frequency workstation feedback must remain compositor-friendly and bounded:
 - Reduced-motion mode keeps every state change and scroll destination but uses
   near-zero animation durations and instant rather than smooth programmatic
   scrolling.
+
+### 8.8 Mechanical guard
+
+`scripts/check-motion.mjs`, wired into the `apps/desktop` `lint` script, holds
+the mechanical parts of this section: no `transition: all`, no `scale(0)` enter
+state, every hover-only rule inside the pointer query, every `infinite`
+animation with a reduced-motion companion, and `var(--motion-duration-*)` in
+place of a raw 150ms / 200ms / 300ms. A companion only counts when it wins: the
+lookup runs across every partial in `globals.css` import order, and a guard that
+sits before the rule it switches off is reported, because source order would
+hand the declaration back. Extend that script rather than adding prose here
+(AGENTS.md §19). `apps/desktop/test/motion-contract.test.mjs` pins the outcomes
+it protects.
 
 ## 8.0 Home empty stack and bottom composer (D111/D204/D206)
 

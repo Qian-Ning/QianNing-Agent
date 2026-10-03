@@ -304,9 +304,13 @@
   opacity: 1;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .work-panel-tab-close:hover {
   background: var(--ds-bg-active);
   color: var(--ds-text-primary);
+}
 }
 
 :root[data-work-panel-tab-reordering="true"],
@@ -504,8 +508,12 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .work-panel-launcher-row:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .work-panel-launcher-row:focus-visible {
@@ -761,9 +769,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .file-tree-row:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .file-tree-row.active {

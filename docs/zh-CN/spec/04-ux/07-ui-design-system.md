@@ -721,6 +721,13 @@ Toast enter/exit 保留现有移除合同（`animationend` 于
 }
 ```
 
+这套兜底位于 `styles/responsive.css`——`globals.css` 最后导入的那份，因此它处在级联的末端。它取「接近零」而不是 `none`，因为退场卸载要靠
+`animationend` 触发。
+
+`infinite` 动画只靠兜底还不够：接近零的无限循环仍然每一帧都在重绘。因此每一条
+循环动画都必须自己配一条 `prefers-reduced-motion` 下的 `animation: none`——
+通常和同批规则一起放在 `responsive.css`。
+
 启动启动画面、overlay/dialog 输入、流脉冲和连续条
 也明确地抑制或折叠到静态状态。
 
@@ -746,7 +753,13 @@ Toast enter/exit 保留现有移除合同（`animationend` 于
 - 图标、导航、消息操作、选项卡、侧边栏工具和标准按钮
   控件在活动时提供微妙的按下比例。基础过渡
   包括 `transform`，因此按下和释放不会突然发生；悬停样式从不
-  更改元素尺寸或周围布局。
+  更改元素尺寸或周围布局。紧凑控件把按下比例写成每份样式表一整段，
+  而不是逐个选择器重复。
+- 悬停样式统一收在 `@media (hover: hover) and (pointer: fine)` 之下：触摸轻点
+  会把 `:hover` 一直锁到下一次轻点，未收口的显示效果就会粘在触发它的那根手指上。
+  在同一条选择器列表里把 `:hover` 与 `:focus`、`:focus-visible`、
+  `:focus-within` 或 `:active` 配对的规则保持整条不动——包起来会让触摸设备丢掉
+  键盘态。
 - 输入框焦点提升 1 像素，并带有基于令牌的受限阴影。其
   近乎不透明的表面不得使用背景模糊：转录本在
   模糊层会在流式传输时强制执行可避免的 repaint/compositing 工作。
@@ -764,6 +777,15 @@ Toast enter/exit 保留现有移除合同（`animationend` 于
 - 减少运动模式保留每个状态变化和滚动目的地，但使用
   接近零的动画持续时间和即时而非流畅的程序化
   滚动。
+
+### 8. 8 机械守卫
+
+`scripts/check-motion.mjs` 挂进 `apps/desktop` 的 `lint` 脚本，负责本节中可机械
+判定的部分：不得出现 `transition: all`，不得用 `scale(0)` 作为入场起点，仅有
+`:hover` 的规则必须位于指针查询之内，每条 `infinite` 动画都必须有减弱运动下的
+伴随规则，时长必须用 `var(--motion-duration-*)` 而不是裸写 150ms / 200ms /
+300ms。伴随规则只有真正生效才算数：查找会按 `globals.css` 的导入顺序跑遍每一份样式表，写在它所关闭的那条规则之前的守卫会被报出来，因为同权重下源码顺序会把动画交还给基础规则。要改就改这个脚本，不要再往这里加文字（AGENTS.md §19）。
+`apps/desktop/test/motion-contract.test.mjs` 固定它所保护的可见结果。
 
 ## 8. 0 Home 空栈和底部 Composer (D111/D204/D206)
 

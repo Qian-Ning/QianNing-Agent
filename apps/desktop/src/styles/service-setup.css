@@ -92,7 +92,8 @@
   cursor: pointer;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
-    box-shadow var(--motion-duration-fast) var(--motion-ease-out);
+    box-shadow var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
 .service-chooser-tile:hover:not(:disabled),
@@ -164,4 +165,13 @@
   color: var(--ds-text-muted);
   font-size: var(--text-2xs);
   line-height: var(--leading-relaxed);
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.service-chooser-tile:active:not(:disabled) {
+  transform: scale(0.97);
 }

@@ -39,8 +39,12 @@
  * (0,4,0). `!important` is deliberate rather than required — the light
  * counterpart needs it, so keeping both sides identical means the pair cannot
  * drift into a silent half-fix if the resting rules gain importance later. */
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 :root[data-theme="dark"] .composer-toolbar .icon-btn:hover {
   color: var(--ds-text-primary) !important;
+}
 }
 
 :root[data-theme="dark"] .empty-hero-icon {
@@ -144,9 +148,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .composer-model-thinking-chip:hover {
   background: var(--ds-bg-hover) !important;
   color: var(--ds-text-primary) !important;
+}
 }
 
 /* The menu measures this button on release. A press-scale transition would
@@ -209,7 +217,8 @@
   cursor: pointer;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
-    color var(--motion-duration-fast) var(--motion-ease-out);
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
 .composer-menu-entry:hover,
@@ -449,7 +458,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
-  transition: color var(--motion-duration-fast) var(--motion-ease-out);
+  transition: color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
 .composer-thinking-tick[data-hovered],
@@ -707,12 +717,17 @@
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
     color var(--motion-duration-fast) var(--motion-ease-out),
-    border-color var(--motion-duration-fast) var(--motion-ease-out);
+    border-color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .composer-model-filter-chip:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .composer-model-filter-chip.active {
@@ -770,12 +785,17 @@
   cursor: pointer;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
-    color var(--motion-duration-fast) var(--motion-ease-out);
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .composer-model-rail-item:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .composer-model-rail-item.active {
@@ -831,6 +851,7 @@
 }
 
 .composer-model-option-select {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   display: flex;
   flex: 1;
   min-width: 0;
@@ -874,7 +895,8 @@
   transition:
     opacity var(--motion-duration-fast) var(--motion-ease-out),
     color var(--motion-duration-fast) var(--motion-ease-out),
-    background var(--motion-duration-fast) var(--motion-ease-out);
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
 .composer-model-option:hover .composer-model-fav,
@@ -882,9 +904,13 @@
   opacity: 1;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .composer-model-fav:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-secondary);
+}
 }
 
 .composer-model-fav.active {
@@ -973,4 +999,19 @@
 .plan-approval-menu-item svg {
   flex: 0 0 auto;
   margin-left: auto;
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.composer-menu-entry:active:not(:disabled),
+.composer-menu-back:active:not(:disabled),
+.composer-thinking-tick:active:not(:disabled),
+.composer-model-filter-chip:active:not(:disabled),
+.composer-model-rail-item:active:not(:disabled),
+.composer-model-option-select:active:not(:disabled),
+.composer-model-fav:active:not(:disabled) {
+  transform: scale(0.97);
 }
