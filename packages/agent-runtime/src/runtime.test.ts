@@ -236,6 +236,7 @@ function runtimeMatches(
     pluginTools: (runtime as any).pluginTools,
     pluginSkills: (runtime as any).pluginSkills,
     workspaceRootsGuide: (runtime as any).workspaceRootsGuide,
+    systemPrompt: (runtime as any).systemPersona,
     projectMemory: (runtime as any).projectMemory,
     projectPath: (runtime as any).projectPath,
     commandShell: (runtime as any).commandShell,
@@ -606,10 +607,11 @@ describe("DesktopAgentRuntime configuration matching", () => {
   });
 
   it("terminates a repeated Edit mismatch on the third failed attempt", async () => {
+    // A file tool reaches the host exactly once per call — for the tool
+    // itself. There is no instruction-lookup round trip to stub out first.
     const host = {
       call: vi
         .fn()
-        .mockResolvedValueOnce(undefined)
         .mockResolvedValue({
           ok: false,
           isError: true,
@@ -6797,7 +6799,6 @@ describe("DesktopAgentRuntime subagents", () => {
     );
     expect(readOnly).toContain("Grep takes a file-or-directory `path`");
     expect(readOnly).not.toContain("use Edit for one small unique replacement");
-    expect(readOnly).toContain("Use project rules.");
 
     const withShell = ((runtime as any).subagentGuidance(pinned) as string[]).join(
       "\n\n",
