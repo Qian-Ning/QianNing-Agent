@@ -2146,7 +2146,7 @@ app/openFeedback() -> { ok: true }
 ```
 
 Electron Main builds a fixed GitHub bug-form URL
-(`https://github.com/QianNing/QianNing-Agent/issues/new?template=bug_report.yml`)
+(`https://github.com/Qian-Ning/QianNing-Agent/issues/new?template=bug_report.yml`)
 and opens it with `shell.openExternal`. Query fields `app-version`, `os`, and
 `environment` are filled from Main-owned version info. The renderer cannot
 supply a URL. Construction that leaves that origin or template is rejected.

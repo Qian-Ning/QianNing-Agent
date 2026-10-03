@@ -59,7 +59,7 @@ const copy = computed(() =>
         ctaBody: 'macOS · Windows · Linux',
         download: '立即下载',
         docs: '使用文档',
-        downloadHref: 'https://github.com/vastsa/PI-Desktop/releases/latest',
+        downloadHref: 'https://github.com/Qian-Ning/QianNing-Agent/releases/latest',
         docsHref: '/zh-CN/guide/',
       }
     : {
@@ -115,7 +115,7 @@ const copy = computed(() =>
         ctaBody: 'macOS · Windows · Linux',
         download: 'Download',
         docs: 'Documentation',
-        downloadHref: 'https://github.com/vastsa/PI-Desktop/releases/latest',
+        downloadHref: 'https://github.com/Qian-Ning/QianNing-Agent/releases/latest',
         docsHref: '/guide/',
       }
 )

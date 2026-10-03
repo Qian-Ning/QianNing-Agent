@@ -49,7 +49,7 @@ describe("GitHub feedback issue URL", () => {
     ).toThrow(/origin/);
     expect(() =>
       assertFeedbackIssueUrl(
-        "https://github.com/QianNing/QianNing-Agent/issues/new?template=feature_request.yml",
+        "https://github.com/Qian-Ning/QianNing-Agent/issues/new?template=feature_request.yml",
       ),
     ).toThrow(/template/);
   });

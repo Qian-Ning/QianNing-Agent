@@ -1,4 +1,4 @@
-export const GITHUB_REPO = "QianNing/QianNing-Agent";
+export const GITHUB_REPO = "Qian-Ning/QianNing-Agent";
 export const GITHUB_BUG_TEMPLATE = "bug_report.yml";
 export const GITHUB_ISSUE_ORIGIN = "https://github.com";
 

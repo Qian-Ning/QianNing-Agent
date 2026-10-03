@@ -135,7 +135,7 @@ test("updater gates delivery mode by platform and delivery policy", () => {
   assert.match(updaterSource, /autoUpdater\.on\("error"/);
   assert.match(
     updaterSource,
-    /github\.com\/QianNing\/QianNing-Agent\/releases/,
+    /github\.com\/Qian-Ning\/QianNing-Agent\/releases/,
     "releases fallback URL",
   );
   assert.match(
