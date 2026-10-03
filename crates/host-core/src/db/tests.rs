@@ -205,7 +205,10 @@ fn model_pricing_user_edits_survive_reopen() {
             |row| row.get(0),
         )
         .unwrap();
-    assert_eq!(gpt5_input, "999", "reopen must not re-seed over a user edit");
+    assert_eq!(
+        gpt5_input, "999",
+        "reopen must not re-seed over a user edit"
+    );
 }
 
 #[test]

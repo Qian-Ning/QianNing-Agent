@@ -1370,9 +1370,7 @@ pub fn set_session_system_prompt(
     let normalized = normalize_session_system_prompt(system_prompt)?;
     let changed = db
         .conn()
-        .prepare_cached(
-            "UPDATE sessions SET system_prompt = ?2, updated_at = ?3 WHERE id = ?1",
-        )?
+        .prepare_cached("UPDATE sessions SET system_prompt = ?2, updated_at = ?3 WHERE id = ?1")?
         .execute(params![id, normalized, now_ms()])?;
     if changed == 0 {
         return Ok(None);
@@ -3989,8 +3987,16 @@ pub fn get_usage_breakdown(
     let mut recent: Vec<Value> = Vec::new();
 
     for row in rows {
-        let (provider_id, model_id, status, input_tokens, output_tokens, usage_json, started_at, ended_at) =
-            row?;
+        let (
+            provider_id,
+            model_id,
+            status,
+            input_tokens,
+            output_tokens,
+            usage_json,
+            started_at,
+            ended_at,
+        ) = row?;
         let completed = status == "completed";
 
         let parsed_usage = usage_json
@@ -4018,7 +4024,14 @@ pub fn get_usage_breakdown(
         by_provider
             .entry(provider_id.clone().unwrap_or_default())
             .or_default()
-            .add(completed, input_tokens, output_tokens, cache_read, cache_write, turn_cost);
+            .add(
+                completed,
+                input_tokens,
+                output_tokens,
+                cache_read,
+                cache_write,
+                turn_cost,
+            );
 
         let entry = by_model
             .entry(model_id.clone().unwrap_or_default())
@@ -4026,9 +4039,14 @@ pub fn get_usage_breakdown(
         if entry.0.is_none() {
             entry.0 = provider_id.clone();
         }
-        entry
-            .1
-            .add(completed, input_tokens, output_tokens, cache_read, cache_write, turn_cost);
+        entry.1.add(
+            completed,
+            input_tokens,
+            output_tokens,
+            cache_read,
+            cache_write,
+            turn_cost,
+        );
 
         if (recent.len() as i64) < recent_cap {
             let duration_ms = (ended_at - started_at).max(0);
@@ -4194,15 +4212,17 @@ mod tests {
     #[test]
     fn session_system_prompt_is_scoped_and_survives_reload() {
         let db = test_db();
-        let with_prompt =
-            create_session(&db, Some("A".into()), None, None, None, None).unwrap();
+        let with_prompt = create_session(&db, Some("A".into()), None, None, None, None).unwrap();
         let without = create_session(&db, Some("B".into()), None, None, None, None).unwrap();
         set_session_system_prompt(&db, &with_prompt.id, Some("Only for A")).unwrap();
 
         // The override belongs to one conversation: reading it back through
         // get_session must not leak onto the sibling session.
         let reloaded = get_session(&db, &with_prompt.id).unwrap().unwrap();
-        assert_eq!(reloaded.summary.system_prompt.as_deref(), Some("Only for A"));
+        assert_eq!(
+            reloaded.summary.system_prompt.as_deref(),
+            Some("Only for A")
+        );
         let sibling = get_session(&db, &without.id).unwrap().unwrap();
         assert_eq!(sibling.summary.system_prompt, None);
 
@@ -7629,7 +7649,10 @@ mod tests {
         assert_eq!(ollama.get("successRate").unwrap().as_f64(), Some(1.0));
 
         let deepseek = &providers[1];
-        assert_eq!(deepseek.get("providerId").unwrap().as_str(), Some("deepseek"));
+        assert_eq!(
+            deepseek.get("providerId").unwrap().as_str(),
+            Some("deepseek")
+        );
         assert_eq!(deepseek.get("turnCount").unwrap().as_i64(), Some(1));
         // An errored turn counts toward turns but not successes.
         assert_eq!(deepseek.get("successCount").unwrap().as_i64(), Some(0));
@@ -7655,7 +7678,10 @@ mod tests {
             models[0].get("modelId").unwrap().as_str(),
             Some("qwen2.5-coder:14b")
         );
-        assert_eq!(models[0].get("providerId").unwrap().as_str(), Some("ollama"));
+        assert_eq!(
+            models[0].get("providerId").unwrap().as_str(),
+            Some("ollama")
+        );
 
         // Recent detail carries all three turns, newest first, capped by limit.
         let recent = breakdown.get("recent").unwrap().as_array().unwrap();
@@ -7664,7 +7690,8 @@ mod tests {
 
         // The recent-limit clamp keeps at most `recent_limit` rows.
         let capped =
-            get_usage_breakdown(&db, Some(now - 60_000), Some(now + 60_000), None, None, 2).unwrap();
+            get_usage_breakdown(&db, Some(now - 60_000), Some(now + 60_000), None, None, 2)
+                .unwrap();
         assert_eq!(capped.get("recent").unwrap().as_array().unwrap().len(), 2);
     }
 
@@ -7708,7 +7735,13 @@ mod tests {
         .unwrap();
         let providers = only_ollama.get("byProvider").unwrap().as_array().unwrap();
         assert_eq!(providers.len(), 1);
-        assert_eq!(providers[0].get("providerId").unwrap().as_str(), Some("ollama"));
-        assert_eq!(only_ollama.get("recent").unwrap().as_array().unwrap().len(), 1);
+        assert_eq!(
+            providers[0].get("providerId").unwrap().as_str(),
+            Some("ollama")
+        );
+        assert_eq!(
+            only_ollama.get("recent").unwrap().as_array().unwrap().len(),
+            1
+        );
     }
 }

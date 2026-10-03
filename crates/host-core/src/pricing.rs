@@ -30,18 +30,102 @@ pub const DEFAULT_PRICING: &[(&str, &str, &str, &str, &str, &str)] = &[
     // Anthropic Claude
     ("claude-opus-5-5", "Claude Opus 5.5", "4", "20", "0.20", "5"),
     ("claude-opus-5", "Claude Opus 5", "5", "25", "0.50", "6.25"),
-    ("claude-opus-4-8", "Claude Opus 4.8", "5", "25", "0.50", "6.25"),
-    ("claude-opus-4-7", "Claude Opus 4.7", "5", "25", "0.50", "6.25"),
-    ("claude-opus-4-6", "Claude Opus 4.6", "5", "25", "0.50", "6.25"),
-    ("claude-opus-4-5", "Claude Opus 4.5", "5", "25", "0.50", "6.25"),
-    ("claude-sonnet-5", "Claude Sonnet 5", "2", "10", "0.20", "2.50"),
-    ("claude-sonnet-4-6", "Claude Sonnet 4.6", "3", "15", "0.30", "3.75"),
-    ("claude-sonnet-4-5", "Claude Sonnet 4.5", "3", "15", "0.30", "3.75"),
-    ("claude-fable-5-1", "Claude Fable 5.1", "10", "50", "0.25", "12.50"),
-    ("claude-mythos-5-1", "Claude Mythos 5.1", "10", "50", "0.25", "12.50"),
-    ("claude-fable-5", "Claude Fable 5", "10", "50", "1.00", "12.50"),
-    ("claude-mythos-5", "Claude Mythos 5", "10", "50", "1.00", "12.50"),
-    ("claude-3-5-haiku", "Claude 3.5 Haiku", "0.80", "4", "0.08", "1"),
+    (
+        "claude-opus-4-8",
+        "Claude Opus 4.8",
+        "5",
+        "25",
+        "0.50",
+        "6.25",
+    ),
+    (
+        "claude-opus-4-7",
+        "Claude Opus 4.7",
+        "5",
+        "25",
+        "0.50",
+        "6.25",
+    ),
+    (
+        "claude-opus-4-6",
+        "Claude Opus 4.6",
+        "5",
+        "25",
+        "0.50",
+        "6.25",
+    ),
+    (
+        "claude-opus-4-5",
+        "Claude Opus 4.5",
+        "5",
+        "25",
+        "0.50",
+        "6.25",
+    ),
+    (
+        "claude-sonnet-5",
+        "Claude Sonnet 5",
+        "2",
+        "10",
+        "0.20",
+        "2.50",
+    ),
+    (
+        "claude-sonnet-4-6",
+        "Claude Sonnet 4.6",
+        "3",
+        "15",
+        "0.30",
+        "3.75",
+    ),
+    (
+        "claude-sonnet-4-5",
+        "Claude Sonnet 4.5",
+        "3",
+        "15",
+        "0.30",
+        "3.75",
+    ),
+    (
+        "claude-fable-5-1",
+        "Claude Fable 5.1",
+        "10",
+        "50",
+        "0.25",
+        "12.50",
+    ),
+    (
+        "claude-mythos-5-1",
+        "Claude Mythos 5.1",
+        "10",
+        "50",
+        "0.25",
+        "12.50",
+    ),
+    (
+        "claude-fable-5",
+        "Claude Fable 5",
+        "10",
+        "50",
+        "1.00",
+        "12.50",
+    ),
+    (
+        "claude-mythos-5",
+        "Claude Mythos 5",
+        "10",
+        "50",
+        "1.00",
+        "12.50",
+    ),
+    (
+        "claude-3-5-haiku",
+        "Claude 3.5 Haiku",
+        "0.80",
+        "4",
+        "0.08",
+        "1",
+    ),
     // OpenAI GPT / o-series
     ("gpt-6-astra", "GPT-6 Astra", "10", "50", "1", "12.5"),
     ("gpt-6-sol", "GPT-6 Sol", "2", "10", "0.20", "2.50"),
@@ -79,8 +163,22 @@ pub const DEFAULT_PRICING: &[(&str, &str, &str, &str, &str, &str)] = &[
     ("codex-mini", "Codex Mini", "0.75", "3", "0.025", "0"),
     // DeepSeek
     ("deepseek-v3", "DeepSeek V3", "0.28", "1.11", "0.028", "0"),
-    ("deepseek-chat", "DeepSeek Chat", "0.28", "1.11", "0.028", "0"),
-    ("deepseek-reasoner", "DeepSeek Reasoner", "0.55", "2.19", "0.14", "0"),
+    (
+        "deepseek-chat",
+        "DeepSeek Chat",
+        "0.28",
+        "1.11",
+        "0.028",
+        "0",
+    ),
+    (
+        "deepseek-reasoner",
+        "DeepSeek Reasoner",
+        "0.55",
+        "2.19",
+        "0.14",
+        "0",
+    ),
     // Moonshot Kimi
     ("kimi-k2-0905", "Kimi K2", "0.55", "2.20", "0.10", "0"),
     ("kimi-k2.5", "Kimi K2.5", "0.60", "3.00", "0.10", "0"),
@@ -127,7 +225,12 @@ pub struct PricingRow {
 }
 
 fn parse_rate(value: &str) -> f64 {
-    value.trim().parse::<f64>().ok().filter(|v| v.is_finite() && *v >= 0.0).unwrap_or(0.0)
+    value
+        .trim()
+        .parse::<f64>()
+        .ok()
+        .filter(|v| v.is_finite() && *v >= 0.0)
+        .unwrap_or(0.0)
 }
 
 /// Create the pricing table if missing. Idempotent; safe on every open.
@@ -215,10 +318,7 @@ fn strip_date_suffix(id: &str) -> Option<&str> {
 /// Resolve a model id to its pricing row: exact (case-insensitive) match first,
 /// then retry after dropping a dated snapshot suffix. Returns None when the
 /// model has no price, so callers can flag the usage as unpriced.
-pub fn resolve<'a>(
-    map: &'a HashMap<String, PricingRow>,
-    model_id: &str,
-) -> Option<&'a PricingRow> {
+pub fn resolve<'a>(map: &'a HashMap<String, PricingRow>, model_id: &str) -> Option<&'a PricingRow> {
     let key = model_id.trim().to_lowercase();
     if key.is_empty() {
         return None;
@@ -289,7 +389,9 @@ fn normalize_rate(value: Option<&str>) -> Result<String> {
         .parse::<f64>()
         .map_err(|_| anyhow::anyhow!("invalid price value: {raw}"))?;
     if !parsed.is_finite() || parsed < 0.0 {
-        return Err(anyhow::anyhow!("price must be a non-negative number: {raw}"));
+        return Err(anyhow::anyhow!(
+            "price must be a non-negative number: {raw}"
+        ));
     }
     // Store the trimmed, canonical string the user typed (already validated).
     Ok(raw.to_string())
@@ -310,12 +412,26 @@ pub fn upsert_pricing(conn: &Connection, params_json: &Value) -> Result<Value> {
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .unwrap_or(model_id);
-    let input = normalize_rate(params_json.get("inputCostPerMillion").and_then(|v| v.as_str()))?;
-    let output = normalize_rate(params_json.get("outputCostPerMillion").and_then(|v| v.as_str()))?;
-    let cache_read =
-        normalize_rate(params_json.get("cacheReadCostPerMillion").and_then(|v| v.as_str()))?;
-    let cache_write =
-        normalize_rate(params_json.get("cacheWriteCostPerMillion").and_then(|v| v.as_str()))?;
+    let input = normalize_rate(
+        params_json
+            .get("inputCostPerMillion")
+            .and_then(|v| v.as_str()),
+    )?;
+    let output = normalize_rate(
+        params_json
+            .get("outputCostPerMillion")
+            .and_then(|v| v.as_str()),
+    )?;
+    let cache_read = normalize_rate(
+        params_json
+            .get("cacheReadCostPerMillion")
+            .and_then(|v| v.as_str()),
+    )?;
+    let cache_write = normalize_rate(
+        params_json
+            .get("cacheWriteCostPerMillion")
+            .and_then(|v| v.as_str()),
+    )?;
 
     ensure_table(conn)?;
     conn.execute(
@@ -329,7 +445,14 @@ pub fn upsert_pricing(conn: &Connection, params_json: &Value) -> Result<Value> {
              output_cost_per_million = excluded.output_cost_per_million,
              cache_read_cost_per_million = excluded.cache_read_cost_per_million,
              cache_write_cost_per_million = excluded.cache_write_cost_per_million",
-        params![model_id, display_name, input, output, cache_read, cache_write],
+        params![
+            model_id,
+            display_name,
+            input,
+            output,
+            cache_read,
+            cache_write
+        ],
     )?;
     list_pricing(conn)
 }
@@ -403,7 +526,12 @@ mod tests {
 
     #[test]
     fn cost_is_tokens_times_rate_over_million() {
-        let row = PricingRow { input: 3.0, output: 15.0, cache_read: 0.3, cache_write: 3.75 };
+        let row = PricingRow {
+            input: 3.0,
+            output: 15.0,
+            cache_read: 0.3,
+            cache_write: 3.75,
+        };
         // 1000*3/1e6 + 500*15/1e6 + 200*0.3/1e6 + 100*3.75/1e6
         let cost = cost_usd(&row, 1000, 500, 200, 100);
         assert!((cost - 0.010935).abs() < 1e-9);
