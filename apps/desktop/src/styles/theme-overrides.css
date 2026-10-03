@@ -47,10 +47,13 @@
 
 /* LIGHT_CODEX_OVERRIDES — density/chrome tweaks on top of semantic tokens */
 :root[data-theme="light"] .composer-shell {
-  /* WorkBuddy-style restraint: one solid plate, no decorative gradient. */
+  /* WorkBuddy-style restraint: one solid plate, no decorative gradient.
+   * No `box-shadow` here: the base rule already paints the resting
+   * `--ds-shadow-composer`, and re-stating it at (0,3,0) would outrank
+   * `.composer-shell:focus-within` (0,2,0) and flatten the focus lift. The
+   * style-token guard fails the build if that shape returns. */
   background: var(--ds-bg-composer);
   background-image: none;
-  box-shadow: var(--ds-shadow-composer);
   outline: none;
   border: 0;
 }
@@ -61,6 +64,21 @@
 :root[data-theme="light"] .composer-toolbar .icon-btn,
 :root[data-theme="light"] .mode-chip {
   color: color-mix(in oklab, var(--ds-text-primary) 84%, transparent) !important;
+}
+
+/* The softened resting ink must not own the hover state. As written above the
+ * light rule is (0,3,0) plus `!important`, so it outranked `.mode-chip:hover`
+ * (0,2,0) and `.icon-btn:hover` (0,2,0, not important): light showed a hover
+ * background with the ink frozen at the resting value, and the chip and icon
+ * button beside it never brightened. This companion re-states the hover ink at
+ * (0,4,0) so both resolve to the theme's full primary ink — the same ink the
+ * rest of the shell uses on hover, and the one a contributed theme repaints
+ * through `--ds-text-primary`. The mechanical guard skips `:hover` on purpose
+ * (see `style-surface-tokens.mjs`), so `pnpm test:e2e:theme-surfaces` samples
+ * this state for real. */
+:root[data-theme="light"] .composer-toolbar .icon-btn:hover,
+:root[data-theme="light"] .mode-chip:hover {
+  color: var(--ds-text-primary) !important;
 }
 
 :root[data-theme="light"] .composer-input::placeholder,
