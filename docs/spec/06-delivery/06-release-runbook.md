@@ -219,6 +219,11 @@ Developer account. Cutting a release is therefore two commands: run
 `git push origin main v<version>`. The tag push is the whole trigger — no
 manual asset upload.
 
+Re-publishing the same tag is supported: each publish run first deletes the
+assets already attached to that tag, then uploads the ones it produced, so the
+published set always matches the run that last succeeded. Force-pushing a tag
+after a repair therefore never leaves the earlier run's assets behind.
+
 The GitHub Release workflow validates that the pushed tag matches
 `apps/desktop/package.json` on every runner immediately after checkout, before
 package inputs are prepared.

@@ -327,6 +327,32 @@ jobs:
       - name: List artifacts
         run: ls -la dist/
 
+      # Re-publishing a tag — after a repaired commit, or after a build failed
+      # halfway — lands on the release that is already there, and
+      # `action-gh-release` merges rather than replaces: an asset the new run
+      # no longer produces would linger beside the fresh ones. Clear the slate
+      # first so the published set always matches this run exactly.
+      - name: Clear assets from an earlier run of this tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            echo "No release for $TAG yet; nothing to clear."
+            exit 0
+          fi
+          stale=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          if [ -z "$stale" ]; then
+            echo "Release for $TAG has no assets yet."
+            exit 0
+          fi
+          while IFS= read -r name; do
+            [ -n "$name" ] || continue
+            echo "Deleting stale asset: $name"
+            gh release delete-asset "$TAG" "$name" --yes
+          done <<< "$stale"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:

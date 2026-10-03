@@ -178,6 +178,8 @@ scripts/release-macos.sh
 
 **千凝分支的发布通道。** 本分支的 `release.yml` 构建 Windows x64 安装包（`dist:win`：NSIS 安装程序、便携版、win zip）与 Linux `pi-host` 远程主机包，然后自行创建 GitHub Release。上游的 macOS 通道不属于本分支流水线：它们需要 Apple Developer ID 签名与公证密钥，并固定上游维护者的 Apple 团队 ID，在本仓库只可能失败；而发布作业依赖全部构建通道，任一通道失败都会让 Release 整个不生成。下文 macOS 部分记录的是本分支继承的上游流水线；重新启用需要恢复这些作业并提供真实的 Apple 开发者账号。因此发版只需两条命令：在 `main` 上运行 `node scripts/release.mjs <version> --tag`，然后 `git push origin main v<version>`。推送标签即是全部触发条件——不需要手动上传产物。
 
+同一标签可以重复发布：每次发布运行会先删除该标签下已有的产物，再上传本次生成的产物，因此已发布的产物集合始终等于最后一次成功运行的结果。修复后强推标签不会残留上一次运行的产物。
+
 GitHub Release 工作流程会在每个运行器上、检出后立即验证推送的标签与 `apps/desktop/package.json` 匹配，然后才准备打包输入。
 
 在每个平台上，发布准备步骤都会启动锁定的 Rust 主机
