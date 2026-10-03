@@ -3623,6 +3623,7 @@ pub fn search_messages(db: &Database, query: &str, limit: i64) -> Result<Vec<Sea
 
 fn normalize_usage_bucket(bucket: &str) -> &'static str {
     match bucket {
+        "hour" => "hour",
         "week" => "week",
         "month" => "month",
         _ => "day",
@@ -3635,6 +3636,7 @@ fn local_from_ms(ms: i64) -> Option<chrono::DateTime<chrono::Local>> {
 
 fn usage_bucket_key(dt: &chrono::DateTime<chrono::Local>, bucket: &str) -> String {
     match bucket {
+        "hour" => dt.format("%Y-%m-%dT%H").to_string(),
         "month" => dt.format("%Y-%m").to_string(),
         "week" => dt.format("%G-W%V").to_string(),
         _ => dt.format("%Y-%m-%d").to_string(),
@@ -3646,6 +3648,7 @@ fn default_history_start(
     bucket: &str,
 ) -> chrono::DateTime<chrono::Local> {
     match bucket {
+        "hour" => end - chrono::Duration::hours(24),
         "month" => end - chrono::Duration::days(365 * 2),
         "week" => end - chrono::Duration::weeks(52),
         _ => end - chrono::Duration::weeks(53),
@@ -3684,11 +3687,27 @@ fn naive_local_midnight(date: chrono::NaiveDate) -> Option<chrono::DateTime<chro
 }
 
 fn filled_history_keys(start_ms: i64, end_ms: i64, bucket: &str) -> Vec<(String, i64)> {
-    use chrono::{Datelike, TimeZone};
+    use chrono::{Datelike, TimeZone, Timelike};
     let start = local_from_ms(start_ms).unwrap_or_else(chrono::Local::now);
     let end = local_from_ms(end_ms).unwrap_or_else(chrono::Local::now);
     let mut keys = Vec::new();
     match bucket {
+        "hour" => {
+            // Every hour the window touches, so an intraday range keeps its
+            // empty hours as gaps in the curve rather than compressing them.
+            let mut cursor = start
+                .with_minute(0)
+                .and_then(|dt| dt.with_second(0))
+                .and_then(|dt| dt.with_nanosecond(0))
+                .unwrap_or(start);
+            while cursor <= end {
+                keys.push((
+                    cursor.format("%Y-%m-%dT%H").to_string(),
+                    cursor.timestamp_millis(),
+                ));
+                cursor += chrono::Duration::hours(1);
+            }
+        }
         "month" => {
             let mut year = start.year();
             let mut month = start.month();
@@ -7594,6 +7613,86 @@ mod tests {
             active.get("date").and_then(|v| v.as_str()),
             Some("2026-W01")
         );
+    }
+
+    #[test]
+    fn token_usage_history_buckets_by_local_hour() {
+        let db = test_db();
+        let session = create_session(&db, None, None, None, None, None).unwrap();
+        let turn = begin_turn(&db, &session.id, None, None).unwrap();
+        let usage = json!({ "inputTokens": 5, "outputTokens": 7 });
+        end_turn_settling(&db, &turn, "completed", None, Some(&usage), false, false).unwrap();
+        // A whole hour in UTC is a whole hour in every fixed-offset zone, which
+        // keeps the expected floor stable wherever the suite runs.
+        let ended_at = chrono::TimeZone::with_ymd_and_hms(&chrono::Utc, 2026, 3, 17, 12, 0, 0)
+            .unwrap()
+            .timestamp_millis();
+        db.conn()
+            .execute(
+                "UPDATE turns SET ended_at = ?1 WHERE id = ?2",
+                params![ended_at, turn],
+            )
+            .unwrap();
+
+        let hour_ms = 3_600_000_i64;
+        let history = get_token_usage_history(
+            &db,
+            Some(ended_at - 2 * hour_ms),
+            Some(ended_at + 2 * hour_ms),
+            "hour",
+        )
+        .unwrap();
+        assert_eq!(history.get("bucket").and_then(|v| v.as_str()), Some("hour"));
+
+        let items = history.get("items").unwrap().as_array().unwrap();
+        // The two hours either side of the turn, filled so the curve keeps them.
+        assert_eq!(items.len(), 5);
+        let stamps: Vec<i64> = items
+            .iter()
+            .map(|item| item.get("timestamp").unwrap().as_i64().unwrap())
+            .collect();
+        // Flooring to the hour: every bucket starts on one, one hour apart.
+        for stamp in &stamps {
+            assert_eq!(stamp % hour_ms, 0, "bucket {stamp} is not on the hour");
+        }
+        for pair in stamps.windows(2) {
+            assert_eq!(pair[1] - pair[0], hour_ms);
+        }
+        // The key names the local hour, not the UTC one the row was written in.
+        let expected = chrono::DateTime::from_timestamp_millis(ended_at)
+            .unwrap()
+            .with_timezone(&chrono::Local)
+            .format("%Y-%m-%dT%H")
+            .to_string();
+        let active = items
+            .iter()
+            .find(|item| item.get("turnCount").and_then(|v| v.as_i64()) == Some(1))
+            .expect("active hour");
+        assert_eq!(
+            active.get("date").and_then(|v| v.as_str()),
+            Some(&expected[..])
+        );
+        assert_eq!(active.get("totalTokens").and_then(|v| v.as_i64()), Some(12));
+        assert_eq!(history["totals"]["turnCount"].as_i64(), Some(1));
+    }
+
+    #[test]
+    fn token_usage_history_falls_back_to_a_daily_bucket() {
+        // An unrecognised bucket must land on the daily default rather than
+        // reach `filled_history_keys` unnormalised.
+        let db = test_db();
+        let session = create_session(&db, None, None, None, None, None).unwrap();
+        let turn = begin_turn(&db, &session.id, None, None).unwrap();
+        let usage = json!({ "inputTokens": 1, "outputTokens": 1 });
+        end_turn_settling(&db, &turn, "completed", None, Some(&usage), false, false).unwrap();
+
+        let history = get_token_usage_history(&db, None, None, "fortnight").unwrap();
+        assert_eq!(history.get("bucket").and_then(|v| v.as_str()), Some("day"));
+        let items = history.get("items").unwrap().as_array().unwrap();
+        for item in items {
+            let date = item.get("date").and_then(|v| v.as_str()).unwrap();
+            assert_eq!(date.len(), 10, "expected a daily key, got {date}");
+        }
     }
 
     #[test]
