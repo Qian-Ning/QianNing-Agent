@@ -78,6 +78,13 @@ jobs:
         # the Tailwind reset, so the renderer has to exist before it runs.
         run: pnpm build:js
 
+      - name: Install the Electron binary
+        # `pnpm install` restores Electron from the cached pnpm store without
+        # re-running its download script, so `node_modules/electron/dist` can be
+        # absent even though the package is present. install.js is idempotent:
+        # it exits as soon as a matching dist is on disk.
+        run: node apps/desktop/node_modules/electron/install.js
+
       - name: Run the cascade probe
         # A real BrowserWindow needs a display, and the downloaded Electron's
         # setuid sandbox helper cannot be root-owned on a hosted runner.
