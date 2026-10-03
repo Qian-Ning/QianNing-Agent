@@ -30,6 +30,16 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "0.15.17",
+    date: "2026-10-04",
+    highlights: [
+      "In the light theme, the disabled send button now reads as disabled — it used to look exactly like the enabled one, so there was no way to tell whether a message could be sent.",
+      "The composer box now lifts and deepens its shadow while you are typing in it, on both the light and dark themes; that focused state had never reached the screen.",
+      "The mode chip and the toolbar icons in the composer brighten when you hover them, on both themes, instead of holding their resting ink.",
+      "The usage charts give each series its own colour and the legend each series' total and share, so input, output and cache can be told apart at a glance rather than by line weight.",
+    ],
+  },
+  {
     version: "0.15.16",
     date: "2026-10-03",
     highlights: [
@@ -919,6 +929,16 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "0.15.17",
+    date: "2026-10-04",
+    highlights: [
+      "浅色主题下，禁用的发送键终于看得出来是禁用的 —— 此前它和启用状态一模一样，无法判断这条消息能不能发出去。",
+      "输入框在你打字时会抬起并加深阴影，浅色和深色主题都生效；此前这个聚焦状态从未真正作用到界面上。",
+      "输入框的模式胶囊与工具条图标在悬停时会提亮，两套主题都生效，不再停在静止态的墨色。",
+      "使用统计图表改为每条序列一种颜色，图例带上各自的期内总量与占比，输入、输出、缓存一眼可分，不再靠线宽区分。",
+    ],
+  },
+  {
     version: "0.15.16",
     date: "2026-10-03",
     highlights: [
@@ -1807,6 +1827,16 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "0.15.17",
+    date: "2026-10-04",
+    highlights: [
+      "淺色主題下，停用的傳送鍵終於看得出來是停用的 —— 先前它和啟用狀態一模一樣，無法判斷這則訊息能不能送出去。",
+      "輸入框在你打字時會抬起並加深陰影，淺色與深色主題都生效；先前這個聚焦狀態從未真正作用到介面上。",
+      "輸入框的模式膠囊與工具列圖示在游標移入時會提亮，兩套主題都生效，不再停在靜止態的墨色。",
+      "使用統計圖表改為每條序列一種顏色，圖例帶上各自的期內總量與佔比，輸入、輸出、快取一眼可分，不再靠線寬區分。",
+    ],
+  },
   {
     version: "0.15.16",
     date: "2026-10-03",

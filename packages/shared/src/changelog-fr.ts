@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "0.15.17",
+    date: "2026-10-04",
+    highlights: [
+      "En thème clair, le bouton d'envoi désactivé se voit désormais comme désactivé — il était auparavant identique au bouton actif, impossible donc de savoir si un message pouvait être envoyé.",
+      "La zone de saisie se relève et approfondit son ombre pendant que vous y écrivez, en thème clair comme en thème sombre ; cet état de focus n'atteignait jamais l'écran.",
+      "La pastille de mode et les icônes de la barre d'outils de la saisie s'éclaircissent au survol, dans les deux thèmes, au lieu de conserver leur encre au repos.",
+      "Les graphiques d'usage donnent à chaque série sa propre couleur et à la légende le total et la part de chacune, si bien qu'entrée, sortie et cache se distinguent d'un coup d'œil et non par l'épaisseur du trait.",
+    ],
+  },
+  {
     version: "0.15.16",
     date: "2026-10-03",
     highlights: [
