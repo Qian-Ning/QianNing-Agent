@@ -365,6 +365,36 @@ export function networkFailureDiagnostics(
   return { category: network.category, fields: networkDetailFields(network) };
 }
 
+/**
+ * Whether a completed turn that showed the user nothing spent its whole output
+ * allowance on reasoning.
+ *
+ * A reasoning model shares one output budget between its reasoning and the text
+ * it finally writes. When a request caps that budget below what the model wants
+ * to think, the stream ends at the ceiling with every produced token inside
+ * `reasoning` and no visible text — which is indistinguishable from a model
+ * that simply went quiet. The two need different advice: a quiet model is worth
+ * re-asking, while an exhausted allowance cannot be repaired by sending the
+ * same request again.
+ *
+ * Decided from the ceiling this request was actually sent with, so a response
+ * that stopped short of it is never reported this way even if it was silent.
+ */
+export function outputBudgetExhausted(
+  usage: { outputTokens?: number | null; reasoningTokens?: number | null } | undefined,
+  outputCeiling: number | undefined,
+): boolean {
+  if (!usage) return false;
+  if (typeof outputCeiling !== "number" || !Number.isFinite(outputCeiling) || outputCeiling <= 0) {
+    return false;
+  }
+  const output = usage.outputTokens ?? 0;
+  const reasoning = usage.reasoningTokens ?? 0;
+  // At (or past) the ceiling with reasoning accounting for produced tokens: the
+  // allowance went to thinking, leaving nothing for an answer.
+  return output >= outputCeiling && reasoning > 0;
+}
+
 export function classifyAgentError(err: unknown): ClassifiedAgentError {
   const envelope = err !== null && typeof err === "object"
     ? err as Record<string, unknown> : undefined;

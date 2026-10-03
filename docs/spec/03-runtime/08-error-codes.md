@@ -107,6 +107,7 @@ does not turn temporary thread pressure into a host process exit.
 | `CONTEXT_COMPACTION_FAILED` | no | automatic retained-tail recovery could not prepare, persist, or fit a checkpoint, or manual checkpoint summary generation / durable append failed; the guarded next provider request does not start |
 | `STREAM_FAILED` | yes | provider stream was terminated, closed prematurely, or otherwise ended before a complete response; up to ten same-turn retries may precede the terminal event |
 | `EMPTY_MODEL_RESPONSE` | yes | the model ended its turn with no tool call and no visible text twice: once as streamed, once after the automatic re-run; the first reply to a Host-ledger completion notice is exempt (spec 02-agent-runtime §5e, D446) |
+| `OUTPUT_BUDGET_EXHAUSTED` | yes | the same second silence, but the settled response reached the output ceiling the request was sent with and reported reasoning tokens: the allowance went to thinking and none was left to write. Names the model's output limit as the remedy, which is what separates it from `EMPTY_MODEL_RESPONSE`; the automatic re-run is not skipped, the code only replaces what the user is told once it has also come back empty (spec 02-agent-runtime §5e, D646) |
 | `PROMPT_ENHANCEMENT_EMPTY` | no | the one-shot enhancement model returned no text |
 | `SPEECH_NOT_CONFIGURED` | no | host speech ASR or TTS is not bound in settings |
 | `SPEECH_PROTOCOL_UNSUPPORTED` | no | the speech protocol is unknown or does not support this role |

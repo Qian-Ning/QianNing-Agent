@@ -327,6 +327,19 @@ If the re-run is silent too, the turn ends as a visible assistant error with
 retriable `EMPTY_MODEL_RESPONSE`, which gives the transcript its normal retry
 action. No empty assistant message is persisted in either case.
 
+One silent shape is classified separately because the remedy is different. A
+reasoning model shares one output allowance between its reasoning and the
+answer it finally writes, so a request capped below what the model wants to
+think ends the stream at the ceiling with every produced token inside
+`reasoning` and no text at all. When the settled response reached the ceiling
+that request was sent with (`clampOutputToContext`, kept as the runtime's
+`outputCeiling`) and reported reasoning tokens, the turn ends as retriable
+`OUTPUT_BUDGET_EXHAUSTED` instead. Its message names the model's output limit
+as the remedy, because re-sending the same request stops at the same ceiling.
+Nothing else about the path changes: the re-run still happens, the re-run's
+own silence is still what surfaces, and the D446 completion-notice exception
+still applies.
+
 A Host-ledger completion notice (ADR 0239, D446) is the narrow exception:
 its prompt already permits no acknowledgement. Main resolves the queued message
 by ID, verifies its target session, and constructs provenance from the ledger.

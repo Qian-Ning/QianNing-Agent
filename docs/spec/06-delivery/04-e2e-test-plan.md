@@ -7018,6 +7018,12 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   - The second silence emits one terminal retriable `EMPTY_MODEL_RESPONSE`
     assistant error and lifecycle event; the message names both attempts, and
     the retry action re-sends the last prompt.
+  - When that second silence also reached the output ceiling the request was
+    sent with and reported reasoning tokens, the same position carries
+    retriable `OUTPUT_BUDGET_EXHAUSTED` instead, whose message names the
+    model's output limit as the remedy. A silence that stopped short of the
+    ceiling, and one whose usage is absent, both keep
+    `EMPTY_MODEL_RESPONSE`.
   - A turn whose text is empty because it requested tools is untouched, and so
     is an aborted or already-failed turn.
   - Only one re-run happens per prompt, including after context-overflow

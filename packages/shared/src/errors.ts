@@ -92,6 +92,13 @@ export const ErrorCodes = {
   STREAM_FAILED: "STREAM_FAILED",
   EMPTY_MODEL_RESPONSE: "EMPTY_MODEL_RESPONSE",
   /**
+   * A completed turn showed nothing because its whole output allowance went to
+   * reasoning. Distinct from `EMPTY_MODEL_RESPONSE` because the remedy is the
+   * model's output limit, not another try: the request that produced it would
+   * stop at the same ceiling again.
+   */
+  OUTPUT_BUDGET_EXHAUSTED: "OUTPUT_BUDGET_EXHAUSTED",
+  /**
    * The Node agent sidecar process died mid-turn (native crash, kill, or an
    * unclassified abort). Main and the headless runtime settle the owning turn
    * with this code so a crash is visible in the durable transcript instead of

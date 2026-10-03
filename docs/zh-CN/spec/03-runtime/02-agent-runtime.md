@@ -251,6 +251,15 @@ not temporary retry activity. See the English source section 5d and ADR 0206.
 可重试的 `EMPTY_MODEL_RESPONSE`，它为转录本提供正常的重试
 行动。在这两种情况下都不会保留空的助理消息。
 
+有一种静音形态要单独归类，因为补救办法不同。推理模型的推理与最终写出的正文
+共享同一份输出额度，所以当请求给出的上限低于模型想思考的量时，流会在到达上限处
+结束：产出的 token 全在 `reasoning` 里，正文一个字都没有。当结算的响应到达了该
+请求实际发送的上限（`clampOutputToContext`，运行时保留为 `outputCeiling`）并且
+报告的推理 token 非零时，本回合以可重试的 `OUTPUT_BUDGET_EXHAUSTED` 结束。它的
+提示把「调大该模型的输出上限」作为补救办法，因为重发同一个请求只会在同一个上限处
+再次停下。这条路径的其他部分都不变：重跑照旧发生，浮现出来的仍是重跑自身的静音
+结果，D446 的完成通知例外依然适用。
+
 Host 账本完成通知（ADR 0239、D446）是唯一例外：其提示已经允许无需确认。
 Main 按 ID 从账本读取排队消息、检查目标会话，再构造来源元数据。只有
 `kind: completion`、目标为当前会话、消息 ID 和回复目标 ID 均非空时，运行时

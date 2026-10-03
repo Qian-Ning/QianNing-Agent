@@ -205,6 +205,8 @@ function createRuntime(
 function assistantMessage(overrides: {
   content: unknown[];
   stopReason?: string;
+  /** Merged over the default usage, so a case can report a real token split. */
+  usage?: Record<string, unknown>;
 }) {
   return {
     role: "assistant",
@@ -218,6 +220,7 @@ function assistantMessage(overrides: {
       cacheWrite: 0,
       totalTokens: 2,
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      ...(overrides.usage ?? {}),
     },
     stopReason: overrides.stopReason ?? "stop",
     timestamp: 2,
@@ -4595,6 +4598,135 @@ describe("DesktopAgentRuntime assistant thinking events", () => {
     );
     // An assistant message with nothing in it is not worth resending.
     expect((runtime as any).fullEntries).toHaveLength(0);
+
+    await runtime.dispose();
+  });
+
+  it("names an exhausted output allowance instead of a silent model", async () => {
+    const onEvent = vi.fn();
+    const runtime = createRuntime({ onEvent });
+    const agent = (runtime as any).agent;
+    const handleAgentEvent = (runtime as any).handleAgentEvent.bind(runtime);
+    // The shape a reasoning model behind a low `max_tokens` produces: the whole
+    // allowance inside `reasoning`, nothing in `text`. Reported as 8192 output
+    // tokens because that is the ceiling the request was sent with.
+    const reasonedMessage = assistantMessage({
+      content: [{ type: "thinking", thinking: "working through the outline…" }],
+      usage: { output: 8192, reasoning: 8192, totalTokens: 60_000 },
+    });
+    // The instance field the provider path sets from `clampOutputToContext`.
+    (runtime as any).outputCeiling = 8192;
+
+    agent.prompt = vi.fn(async () => {
+      agent.state.messages = [
+        { role: "user", content: "continue", timestamp: 1 },
+        reasonedMessage,
+      ];
+      await handleAgentEvent({ type: "message_start", message: reasonedMessage });
+      await handleAgentEvent({ type: "message_end", message: reasonedMessage });
+      await handleAgentEvent({ type: "turn_end" });
+      await handleAgentEvent({ type: "agent_end", messages: [] });
+    });
+    agent.waitForIdle = vi.fn(async () => undefined);
+    agent.continue = vi.fn(async () => {
+      await handleAgentEvent({ type: "agent_start" });
+      await handleAgentEvent({ type: "turn_start" });
+      await handleAgentEvent({
+        type: "message_start",
+        message: { role: "assistant", content: [] },
+      });
+      await handleAgentEvent({ type: "message_end", message: reasonedMessage });
+      await handleAgentEvent({ type: "turn_end" });
+      await handleAgentEvent({ type: "agent_end", messages: [] });
+    });
+
+    await runtime.prompt("continue", "user-1");
+
+    const events = onEvent.mock.calls.map(([envelope]) => (envelope as any).event);
+    // The recovery re-run is unchanged — what changed is the advice the user
+    // gets once it has also come back empty.
+    expect(agent.continue).toHaveBeenCalledOnce();
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        error: expect.objectContaining({
+          code: "OUTPUT_BUDGET_EXHAUSTED",
+          retriable: true,
+        }),
+      }),
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "message_end",
+        message: expect.objectContaining({
+          status: "error",
+          isError: true,
+          error: expect.objectContaining({ code: "OUTPUT_BUDGET_EXHAUSTED" }),
+        }),
+      }),
+    );
+    // The generic silent-turn code must not also fire: one cause, one message.
+    expect(
+      events.filter(
+        (event) =>
+          event.type === "error" &&
+          event.error?.code === "EMPTY_MODEL_RESPONSE",
+      ),
+    ).toHaveLength(0);
+
+    await runtime.dispose();
+  });
+
+  it("keeps the silent-turn code when the response stopped short of the ceiling", async () => {
+    const onEvent = vi.fn();
+    const runtime = createRuntime({ onEvent });
+    const agent = (runtime as any).agent;
+    const handleAgentEvent = (runtime as any).handleAgentEvent.bind(runtime);
+    // A silent turn that did not reach the ceiling is a model that went quiet,
+    // not one that ran out of room: the default usage reports 1 output token
+    // against a 8192 ceiling.
+    const quietMessage = assistantMessage({ content: [] });
+    (runtime as any).outputCeiling = 8192;
+
+    agent.prompt = vi.fn(async () => {
+      agent.state.messages = [
+        { role: "user", content: "continue", timestamp: 1 },
+        quietMessage,
+      ];
+      await handleAgentEvent({ type: "message_start", message: quietMessage });
+      await handleAgentEvent({ type: "message_end", message: quietMessage });
+      await handleAgentEvent({ type: "turn_end" });
+      await handleAgentEvent({ type: "agent_end", messages: [] });
+    });
+    agent.waitForIdle = vi.fn(async () => undefined);
+    agent.continue = vi.fn(async () => {
+      await handleAgentEvent({ type: "agent_start" });
+      await handleAgentEvent({ type: "turn_start" });
+      await handleAgentEvent({
+        type: "message_start",
+        message: { role: "assistant", content: [] },
+      });
+      await handleAgentEvent({ type: "message_end", message: quietMessage });
+      await handleAgentEvent({ type: "turn_end" });
+      await handleAgentEvent({ type: "agent_end", messages: [] });
+    });
+
+    await runtime.prompt("continue", "user-1");
+
+    const events = onEvent.mock.calls.map(([envelope]) => (envelope as any).event);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        error: expect.objectContaining({ code: "EMPTY_MODEL_RESPONSE" }),
+      }),
+    );
+    expect(
+      events.filter(
+        (event) =>
+          event.type === "error" &&
+          event.error?.code === "OUTPUT_BUDGET_EXHAUSTED",
+      ),
+    ).toHaveLength(0);
 
     await runtime.dispose();
   });
