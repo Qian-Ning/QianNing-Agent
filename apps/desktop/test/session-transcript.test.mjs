@@ -113,7 +113,12 @@ test("an orphan optimistic prompt collapses into its durable echo (D334)", () =>
   // durable page carries the same prompt under the host id.
   const orphan = message(
     "11111111-2222-4333-8444-555555555555",
-    { role: "user", content: "1", createdAt: "2026-08-31T00:00:00.000Z" },
+    {
+      role: "user",
+      content: "1",
+      createdAt: "2026-08-31T00:00:00.000Z",
+      status: "complete",
+    },
   );
   const echoed = message("sdk-user-1", {
     role: "user",
@@ -138,7 +143,12 @@ test("a genuinely repeated prompt stays visible after a switch", () => {
   // may consume one, but the second repeat must survive the merge.
   const orphan = message(
     "11111111-2222-4333-8444-555555555555",
-    { role: "user", content: "1", createdAt: "2026-08-31T00:02:00.000Z" },
+    {
+      role: "user",
+      content: "1",
+      createdAt: "2026-08-31T00:02:00.000Z",
+      status: "complete",
+    },
   );
   const first = message("sdk-user-1", {
     role: "user",
@@ -156,6 +166,45 @@ test("a genuinely repeated prompt stays visible after a switch", () => {
   assert.deepEqual(
     mergeLiveSessionMessages(durable, live).map(({ id }) => id),
     ["sdk-user-1", "sdk-user-2"],
+  );
+});
+
+test("an earlier identical durable prompt cannot hide a new optimistic prompt", () => {
+  const previous = message("sdk-user-old", {
+    role: "user",
+    content: "same prompt",
+    createdAt: "2026-08-31T00:00:00.000Z",
+  });
+  const optimistic = message("11111111-2222-4333-8444-555555555555", {
+    role: "user",
+    content: "same prompt",
+    createdAt: "2026-08-31T00:01:00.000Z",
+    status: "complete",
+  });
+
+  assert.deepEqual(
+    mergeLiveSessionMessages([previous], [previous, optimistic]).map(({ id }) => id),
+    ["sdk-user-old", "11111111-2222-4333-8444-555555555555"],
+  );
+});
+
+test("matching text does not collapse an optimistic prompt with attachments", () => {
+  const optimistic = message("11111111-2222-4333-8444-555555555555", {
+    role: "user",
+    content: "same prompt",
+    createdAt: "2026-08-31T00:00:00.000Z",
+    status: "complete",
+    attachments: [{ kind: "file", name: "notes.txt", ref: "/notes.txt" }],
+  });
+  const durable = message("sdk-user-1", {
+    role: "user",
+    content: "same prompt",
+    createdAt: "2026-08-31T00:00:01.000Z",
+  });
+
+  assert.deepEqual(
+    mergeLiveSessionMessages([durable], [optimistic, durable]).map(({ id }) => id),
+    ["11111111-2222-4333-8444-555555555555", "sdk-user-1"],
   );
 });
 

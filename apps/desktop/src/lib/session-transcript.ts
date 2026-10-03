@@ -9,6 +9,9 @@ type OptimisticFileReference = {
   token?: string;
 };
 
+const OPTIMISTIC_USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_OPTIMISTIC_ECHO_DELAY_MS = 30_000;
+
 /**
  * The user row shown the moment a prompt is sent, before the host has
  * persisted or echoed it (D288). The host reuses `id`, so its echo replaces
@@ -231,36 +234,47 @@ export function mergeLiveSessionMessages(
 
   const used = new Set<string>();
   // An optimistic prompt whose reconcile event was missed survives with its
-  // temporary id, so id-based merging replays it next to the durable echo of
-  // the same prompt (#1308: prompt reappears after switching away and back).
-  // Each durable completed user row grants one collapse credit: an orphan
-  // live user row with equal text consumes one and is dropped. A genuinely
-  // repeated prompt keeps every durable row because two sends persist two
-  // rows while each live orphan still only consumes one credit.
-  const durableUserTextCredits = new Map<string, number>();
-  for (const message of durable) {
-    if (message.role !== "user") continue;
-    durableUserTextCredits.set(
-      message.content,
-      (durableUserTextCredits.get(message.content) ?? 0) + 1,
-    );
+  // temporary UUID id, so id-based merging can replay it next to the durable
+  // echo (#1308). Content alone is not identity: only collapse an attachment-
+  // free optimistic row when one same-text durable user row was persisted
+  // shortly after that optimistic row. This keeps an older identical prompt
+  // from hiding a newly submitted one.
+  const matchedDurableUserIds = new Set<string>();
+  const collapsedOptimisticIds = new Set<string>();
+  for (const optimistic of liveNormalized) {
+    if (
+      optimistic.role !== "user" ||
+      optimistic.status !== "complete" ||
+      !OPTIMISTIC_USER_ID.test(optimistic.id) ||
+      durableIds.has(optimistic.id) ||
+      optimistic.attachments?.length
+    ) continue;
+    const optimisticTime = Date.parse(optimistic.createdAt ?? "");
+    if (!Number.isFinite(optimisticTime)) continue;
+    const candidates = durable
+      .filter((message) =>
+        message.role === "user" &&
+        !message.attachments?.length &&
+        !matchedDurableUserIds.has(message.id) &&
+        message.content === optimistic.content,
+      )
+      .map((message) => ({
+        message,
+        delay: Date.parse(message.createdAt ?? "") - optimisticTime,
+      }))
+      .filter(({ delay }) => delay >= 0 && delay <= MAX_OPTIMISTIC_ECHO_DELAY_MS)
+      .sort((left, right) => left.delay - right.delay);
+    if (!candidates.length) continue;
+    if (candidates.length > 1 && candidates[0].delay === candidates[1].delay) continue;
+    matchedDurableUserIds.add(candidates[0].message.id);
+    collapsedOptimisticIds.add(optimistic.id);
   }
   const merged: UiMessage[] = [];
   const push = (message: UiMessage) => {
     if (used.has(message.id)) return;
-    if (
-      message.role === "user" &&
-      !isInFlightMessage(message) &&
-      !durableIds.has(message.id)
-    ) {
-      const credits = durableUserTextCredits.get(message.content) ?? 0;
-      if (credits > 0) {
-        durableUserTextCredits.set(message.content, credits - 1);
-        // Record the drop so a later merge pass cannot replay the orphan
-        // after its collapse credit has been consumed.
-        used.add(message.id);
-        return;
-      }
+    if (collapsedOptimisticIds.has(message.id)) {
+      used.add(message.id);
+      return;
     }
     used.add(message.id);
     merged.push(message);
@@ -304,17 +318,6 @@ export function mergeLiveSessionMessages(
 
   for (const message of liveNormalized) {
     if (used.has(message.id)) continue;
-    if (
-      message.role === "user" &&
-      !isInFlightMessage(message) &&
-      !durableIds.has(message.id)
-    ) {
-      const credits = durableUserTextCredits.get(message.content) ?? 0;
-      if (credits > 0) {
-        durableUserTextCredits.set(message.content, credits - 1);
-        continue;
-      }
-    }
     push(message);
   }
 
