@@ -498,7 +498,7 @@ Native-runner 输出矩阵：
 - Windows x64：NSIS 安装程序 `PI-Desktop-Setup-<version>.exe` 和便携版
   ZIP `PI-Desktop-Portable-<version>.zip`
 - Linux x64：AppImage、deb 和 rpm
-- Linux x64 系统 Electron 产物：`PI-Desktop-<version>-linux-x64.asar`
+- Linux x64 系统 Electron 产物：`QianNing-Agent-<version>-linux-x64.asar`
 
 便携版 Windows ZIP 目标不会写入 `latest.yml`。Windows 发布脚本会分别构建 NSIS
 和 ZIP，并给 ZIP 的应用元数据写入 `piDistribution = "zip"`；已打包的 ZIP 运行使用
@@ -515,7 +515,7 @@ Electron 二进制文件的应用发生冲突。
 与目标软件包内的本机主机及其他资源放在一起，然后用以下命令启动：
 
 ```bash
-electron PI-Desktop-<version>-linux-x64.asar
+electron QianNing-Agent-<version>-linux-x64.asar
 ```
 
 每个本机运行器上的外壳冒烟测试：

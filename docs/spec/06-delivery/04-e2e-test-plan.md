@@ -411,7 +411,7 @@ identify the platform validation still needed.
   available for repackaging validation.
 - **Steps**: 1) Run the tag release workflow. 2) Inspect the published GitHub
   Release assets. 3) Confirm the versioned
-  `PI-Desktop-X.Y.Z-linux-x64.asar` asset is present. 4) Place that archive in
+  `QianNing-Agent-X.Y.Z-linux-x64.asar` asset is present. 4) Place that archive in
   the target Electron resources layout with the target package's native host
   and other resources, then launch it with `electron <archive>.asar`.
 - **Expected**: The ASAR is copied byte-for-byte from

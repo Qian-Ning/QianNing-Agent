@@ -282,7 +282,7 @@ compressed or compression-insensitive. The workflow therefore uploads their
 temporary Actions artifacts with compression level zero before the publish job
 assembles the GitHub Release. The Linux runner also copies
 `linux-unpacked/resources/app.asar` to the versioned
-`PI-Desktop-<version>-linux-x64.asar` asset before upload. This preserves the
+`QianNing-Agent-<version>-linux-x64.asar` asset before upload. This preserves the
 exact archive used by the Linux installers for downstream repackaging with a
 system Electron.
 
@@ -606,7 +606,7 @@ Native-runner output matrix:
 - Windows x64: NSIS installer `PI-Desktop-Setup-<version>.exe` and portable
   ZIP `PI-Desktop-Portable-<version>.zip`
 - Linux x64: AppImage, deb, and rpm
-- Linux x64 system Electron asset: `PI-Desktop-<version>-linux-x64.asar`
+- Linux x64 system Electron asset: `QianNing-Agent-<version>-linux-x64.asar`
 
 The portable Windows ZIP target does not write `latest.yml`. The Windows
 release helper builds NSIS and ZIP separately and stamps the ZIP app metadata
@@ -627,7 +627,7 @@ target Electron resources layout together with the native host and other
 resources from the target package, then launch it with:
 
 ```bash
-electron PI-Desktop-<version>-linux-x64.asar
+electron QianNing-Agent-<version>-linux-x64.asar
 ```
 
 Shell smoke on each native runner:

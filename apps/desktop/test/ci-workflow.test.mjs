@@ -159,7 +159,7 @@ test("release workflow publishes the Linux ASAR beside installers", () => {
   );
   assert.match(
     releaseAsarScriptSource,
-    /PI-Desktop-\$\{releaseVersion\}-linux-x64\.asar/,
+    /QianNing-Agent-\$\{releaseVersion\}-linux-x64\.asar/,
   );
 });
 
