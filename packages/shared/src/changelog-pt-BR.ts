@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "0.15.16",
+    date: "2026-10-03",
+    highlights: [
+      "A visão Hoje da página de uso mostra o dia hora a hora em vez de um único ponto: uma curva sobre as suas horas ativas, valores no eixo, marca do pico e uma leitura que segue o ponteiro, além das contagens exatas de cada período.",
+      "Quando um período tem apenas um trecho a desenhar, é mostrada a sua composição em vez de um quadro vazio com um ponto: entrada, saída, escrita e leitura de cache, cada um com a sua contagem e proporção.",
+      "Uma resposta que para porque o limite de saída do modelo foi preenchido pelo raciocínio agora diz isso e aponta esse limite, em vez de sugerir uma nova tentativa que não pode mudar o resultado.",
+    ],
+  },
+
+  {
     version: "0.15.15",
     date: "2026-10-03",
     highlights: [

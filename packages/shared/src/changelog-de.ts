@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "0.15.16",
+    date: "2026-10-03",
+    highlights: [
+      "Die Heute-Ansicht der Nutzungsseite zeigt den Tag jetzt stundenweise statt als einzelnen Punkt: eine Kurve über Ihre aktiven Stunden mit Achsenwerten, Spitzenmarkierung und einer Anzeige, die dem Zeiger folgt, dazu die genauen Zahlen des jeweiligen Zeitraums.",
+      "Hat ein Zeitraum nur einen einzigen Balken zu zeichnen, wird dessen Zusammensetzung gezeigt statt eines leeren Rahmens mit einem Punkt — Eingabe, Ausgabe, Cache-Schreiben und Cache-Lesen, jeweils mit Anzahl und Anteil.",
+      "Eine Antwort, die abbricht, weil das Ausgabelimit des Modells mit Reasoning gefüllt wurde, sagt das jetzt und nennt dieses Limit — statt einen erneuten Versuch vorzuschlagen, der am Ergebnis nichts ändern kann.",
+    ],
+  },
+
+  {
     version: "0.15.15",
     date: "2026-10-03",
     highlights: [

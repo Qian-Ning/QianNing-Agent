@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "0.15.16",
+    date: "2026-10-03",
+    highlights: [
+      "La vue Aujourd'hui de la page d'utilisation affiche la journée heure par heure au lieu d'un point unique : une courbe sur vos heures actives, des valeurs d'axe, le marquage du pic et une lecture qui suit le pointeur, avec les chiffres exacts de chaque période.",
+      "Quand une période n'a qu'un seul segment à dessiner, sa composition s'affiche au lieu d'un cadre vide avec un point : entrée, sortie, écriture et lecture de cache, chacune avec son nombre et sa part.",
+      "Une réponse qui s'arrête parce que la limite de sortie du modèle a été remplie par le raisonnement l'indique désormais et nomme cette limite, au lieu de suggérer une nouvelle tentative qui ne peut rien changer.",
+    ],
+  },
+
+  {
     version: "0.15.15",
     date: "2026-10-03",
     highlights: [

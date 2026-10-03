@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "0.15.16",
+    date: "2026-10-03",
+    highlights: [
+      "Kullanım sayfasındaki Bugün görünümü artık tek bir nokta yerine günü saat saat gösteriyor: etkin saatleriniz boyunca bir eğri, eksen değerleri, tepe işareti ve imleci izleyen bir okuma, ayrıca her dönemin kesin sayıları.",
+      "Bir dönemde çizilecek tek bir dilim varsa, boş bir çerçevede tek nokta yerine o dönemin bileşimi gösteriliyor: giriş, çıkış, önbellek yazma ve önbellek okuma, her biri sayısı ve payıyla.",
+      "Modelin çıktı sınırı akıl yürütmeyle dolduğu için duran bir yanıt artık bunu söylüyor ve o sınıra işaret ediyor; sonucu değiştiremeyecek bir yeniden deneme önermiyor.",
+    ],
+  },
+
+  {
     version: "0.15.15",
     date: "2026-10-03",
     highlights: [
