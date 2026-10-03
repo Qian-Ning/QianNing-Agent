@@ -123,7 +123,7 @@ export const ptBR = {
     manualHint: "Baixe a nova versão na página de lançamentos.",
     error: "Não foi possível verificar atualizações: {{message}}",
     dismiss: "Dispensar",
-    devDisabled: "As atualizações estão desativadas em compilações de desenvolvimento."
+    devDisabled: "Compilações de desenvolvimento não verificam atualizações."
   },
   nav: {
     pinnedSessions: "Fixadas",

@@ -124,7 +124,7 @@ export const es = {
     "manualHint": "Descargue la nueva versión desde la página de lanzamientos.",
     "error": "No se pudieron buscar actualizaciones: {{message}}",
     "dismiss": "Descartar",
-    "devDisabled": "Las actualizaciones están deshabilitadas en las compilaciones de desarrollo."
+    "devDisabled": "Las compilaciones de desarrollo no buscan actualizaciones."
   },
   "nav": {
     "pinnedSessions": "Fijadas",

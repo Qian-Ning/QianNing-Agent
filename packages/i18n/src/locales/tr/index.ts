@@ -133,7 +133,7 @@ export const tr = {
     manualHint: "Yeni sürümü yayınlar sayfasından indirin.",
     error: "Güncellemeler denetlenemedi: {{message}}",
     dismiss: "Kapat",
-    devDisabled: "Geliştirme derlemelerinde güncellemeler kapalıdır.",
+    devDisabled: "Geliştirme derlemeleri güncellemeleri denetlemez.",
   },
   nav: {
     "pinnedSessions": "Sabitlenmiş",

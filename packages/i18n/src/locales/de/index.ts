@@ -124,7 +124,7 @@ export const de = {
     "manualHint": "Laden Sie die neue Version von der Release-Seite herunter.",
     "error": "Konnte nicht nach Updates suchen: {{message}}",
     "dismiss": "Verwerfen",
-    "devDisabled": "Updates sind in Entwicklungs-Builds deaktiviert."
+    "devDisabled": "Entwicklungs-Builds prüfen nicht auf Aktualisierungen."
   },
   "nav": {
     "pinnedSessions": "Angeheftet",

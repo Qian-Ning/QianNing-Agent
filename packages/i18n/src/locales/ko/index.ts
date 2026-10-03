@@ -133,7 +133,7 @@ export const ko = {
     manualHint: "릴리스 페이지에서 새 버전을 다운로드하세요.",
     error: "업데이트를 확인할 수 없습니다: {{message}}",
     dismiss: "닫기",
-    devDisabled: "개발 빌드에서는 업데이트가 비활성화됩니다.",
+    devDisabled: "개발 빌드는 업데이트를 확인하지 않습니다.",
   },
   nav: {
     "pinnedSessions": "고정됨",

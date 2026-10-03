@@ -126,7 +126,7 @@ export const zhTW = {
     manualHint: "請前往釋出頁下載新版本。",
     error: "檢查更新失敗：{{message}}",
     dismiss: "忽略",
-    devDisabled: "開發版本不支援自動更新。",
+    devDisabled: "開發版本不檢查更新。",
   },
   nav: {
     pinnedSessions: "釘選",
