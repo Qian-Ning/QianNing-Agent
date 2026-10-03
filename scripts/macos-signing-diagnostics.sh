@@ -2,7 +2,7 @@
 # Record a non-sensitive snapshot of the macOS code-signing environment before
 # electron-builder starts packaging.
 #
-# Why this exists: @electron/osx-sign walks the whole `PI-Desktop.app` and runs
+# Why this exists: @electron/osx-sign walks the whole app bundle and runs
 # one `codesign --sign <identity> --force --timestamp --entitlements ...` per
 # Mach-O file and per nested bundle, strictly serially. When a release signing
 # step stalls, every interesting question is environmental: is a usable
@@ -14,9 +14,13 @@
 # Usage: scripts/macos-signing-diagnostics.sh [--require-identity]
 #
 # Environment:
-#   MAC_SIGNING_IDENTITY   bare common name ("XingYu Liu (DUV63RKYTW)") or the
-#                          full certificate label
-#                          ("Developer ID Application: XingYu Liu (DUV63RKYTW)").
+#   MAC_SIGNING_IDENTITY   bare common name ("Example Signer (ABCDE12345)") or
+#                          the full certificate label
+#                          ("Developer ID Application: Example Signer (ABCDE12345)").
+#                          When unset, the identity section is skipped: the
+#                          release lane only knows the identity once it has the
+#                          certificate's secrets, and this step runs before
+#                          electron-builder imports them.
 #
 # Exit status:
 #   0  snapshot printed. A missing certificate is only a warning by default:
@@ -47,8 +51,9 @@ for arg in "$@"; do
 done
 
 # Accepts either the bare common name or the full certificate label, matching
-# scripts/verify-macos-release.sh.
-IDENTITY_NAME="${MAC_SIGNING_IDENTITY:-XingYu Liu (DUV63RKYTW)}"
+# scripts/verify-macos-release.sh. No default: the certificate belongs to the
+# account that owns it, so there is no name this script could assume.
+IDENTITY_NAME="${MAC_SIGNING_IDENTITY:-}"
 IDENTITY_NAME="${IDENTITY_NAME#Developer ID Application: }"
 EXPECTED_IDENTITY="Developer ID Application: ${IDENTITY_NAME}"
 
@@ -205,7 +210,15 @@ fi
 # ---------------------------------------------------------------------------
 
 echo "==> Signing identity"
-if [[ -n "$IDENTITY_OUTPUT" && "$IDENTITY_OUTPUT" == *"$EXPECTED_IDENTITY"* ]]; then
+if [[ -z "$IDENTITY_NAME" ]]; then
+  # Informational only: this step runs before electron-builder imports the
+  # certificate, so the release lane has no identity to compare against yet.
+  echo "warning: MAC_SIGNING_IDENTITY is not set; skipping the Developer ID identity check."
+  if [[ "$REQUIRE_IDENTITY" == "true" ]]; then
+    echo "error: --require-identity needs MAC_SIGNING_IDENTITY to know which identity to require." >&2
+    exit 1
+  fi
+elif [[ "$IDENTITY_OUTPUT" == *"$EXPECTED_IDENTITY"* ]]; then
   echo "==> Developer ID identity available: ${EXPECTED_IDENTITY}"
   IDENTITY_LINE="$(printf '%s\n' "$IDENTITY_OUTPUT" | grep -F -- "$EXPECTED_IDENTITY" | head -n 1 || true)"
   echo_redacted "$IDENTITY_LINE"

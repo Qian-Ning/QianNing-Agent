@@ -14,18 +14,18 @@ const notarizeScript = new URL(
   import.meta.url,
 );
 
-const SIGNING_IDENTITY = "Developer ID Application: XingYu Liu (DUV63RKYTW)";
-const SIGNING_IDENTITY_NAME = "XingYu Liu (DUV63RKYTW)";
+const SIGNING_IDENTITY = "Developer ID Application: Example Signer (ABCDE12345)";
+const SIGNING_IDENTITY_NAME = "Example Signer (ABCDE12345)";
 const SUBMISSION_ID = "11111111-2222-3333-4444-555555555555";
 const NOTARY_ENV = {
   APPLE_ID: "release@example.com",
   APPLE_APP_SPECIFIC_PASSWORD: "app-specific-password",
-  APPLE_TEAM_ID: "DUV63RKYTW",
+  APPLE_TEAM_ID: "ABCDE12345",
 };
 
 async function writeSignedAppFixture(release) {
   const app = join(release, "mac-arm64", "PI-Desktop.app");
-  const hostCore = join(app, "Contents", "Resources", "bin", "pi-desktop-host-core");
+  const hostCore = join(app, "Contents", "Resources", "bin", "QianNing-Agent-Host-Core");
   const dmg = join(release, "PI-Desktop-0.14.2-arm64.dmg");
   await mkdir(join(app, "Contents", "Resources", "bin"), { recursive: true });
   await writeFile(hostCore, "fixture");
@@ -205,7 +205,7 @@ test("the notarization step fails closed without team-scoped credentials", async
     APPLE_TEAM_ID: "WRONGTEAMID",
   });
   assert.equal(wrongTeam.status, 1);
-  assert.match(wrongTeam.stderr, /APPLE_TEAM_ID must be DUV63RKYTW/);
+  assert.match(wrongTeam.stderr, /APPLE_TEAM_ID must be a ten-character Apple Developer Team ID/);
 
   assert.equal(
     await readFile(log, "utf8").catch(() => ""),
@@ -284,7 +284,11 @@ test("macOS release verification rejects a Developer ID app without notarization
 
   const result = spawnSync("bash", [verifyScript.pathname, release], {
     encoding: "utf8",
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+    env: {
+      ...process.env,
+      MAC_SIGNING_IDENTITY: SIGNING_IDENTITY_NAME,
+      PATH: `${bin}:${process.env.PATH}`,
+    },
   });
 
   assert.equal(result.status, 1);
@@ -356,4 +360,75 @@ test("macOS release verification rejects a different signing identity", async (t
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /is not signed with/);
+});
+
+test("macOS release verification requires a configured signing identity", async (t) => {
+  // The script has no baked-in certificate name, so an unset identity must be
+  // a hard error: verifying against an assumed name could pass on the wrong
+  // certificate.
+  const root = await mkdtemp(join(tmpdir(), "pi-desktop-macos-no-id-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const release = join(root, "release");
+  const bin = join(root, "bin");
+  await writeSignedAppFixture(release);
+  await mkdir(bin, { recursive: true });
+  await writeFile(join(bin, "codesign"), "#!/usr/bin/env bash\nexit 0\n");
+  await writeFile(join(bin, "spctl"), "#!/usr/bin/env bash\nexit 0\n");
+  await writeFile(join(bin, "xcrun"), "#!/usr/bin/env bash\nexit 0\n");
+  await Promise.all(
+    ["codesign", "spctl", "xcrun"].map((name) => chmod(join(bin, name), 0o755)),
+  );
+
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  delete env.MAC_SIGNING_IDENTITY;
+  const result = spawnSync("bash", [verifyScript.pathname, release], {
+    encoding: "utf8",
+    env,
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /MAC_SIGNING_IDENTITY is required/);
+});
+
+test("macOS release verification discovers the app bundle instead of naming it", async (t) => {
+  // The bundle directory is the electron-builder `productName`, which tracks
+  // the product. Verification must follow it rather than a name this script
+  // remembers.
+  const root = await mkdtemp(join(tmpdir(), "pi-desktop-macos-discovery-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const release = join(root, "release");
+  const bin = join(root, "bin");
+  const app = join(release, "mac-arm64", "QianNing Agent.app");
+  const hostCore = join(app, "Contents", "Resources", "bin", "QianNing-Agent-Host-Core");
+  await mkdir(join(app, "Contents", "Resources", "bin"), { recursive: true });
+  await writeFile(hostCore, "fixture");
+  await writeFile(join(release, "QianNing-Agent-0.15.13-arm64.dmg"), "fixture");
+  await mkdir(bin, { recursive: true });
+  await writeFile(
+    join(bin, "codesign"),
+    `#!/usr/bin/env bash\nif [[ "$*" == *"-dv"* ]]; then echo 'Authority=${SIGNING_IDENTITY}' >&2; echo 'flags=0x10000(runtime)' >&2; fi\nexit 0\n`,
+  );
+  await writeFile(
+    join(bin, "spctl"),
+    "#!/usr/bin/env bash\necho 'source=Notarized Developer ID' >&2\n",
+  );
+  await writeFile(join(bin, "xcrun"), "#!/usr/bin/env bash\nexit 0\n");
+  await Promise.all(
+    ["codesign", "spctl", "xcrun"].map((name) => chmod(join(bin, name), 0o755)),
+  );
+
+  const result = spawnSync("bash", [verifyScript.pathname, release], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      MAC_SIGNING_IDENTITY: SIGNING_IDENTITY_NAME,
+      PATH: `${bin}:${process.env.PATH}`,
+    },
+  });
+
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.ok(result.stdout.includes(app), result.stdout);
+  assert.match(result.stdout, /QianNing-Agent-0\.15\.13-arm64\.dmg/);
 });

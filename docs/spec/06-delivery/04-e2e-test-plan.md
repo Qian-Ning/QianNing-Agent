@@ -449,23 +449,31 @@ identify the platform validation still needed.
   `development-branding.test.mjs`, `ci-workflow.test.mjs`); Fedora KDE/Wayland
   installation remains runner validation
 
-#### E2E-196a: Unsigned macOS debug lane
+#### E2E-196a: Ad-hoc macOS tag lane (no Apple Developer account)
 
-- **Preconditions**: The Release workflow is manually dispatched with
-  `sign_macos: false`; Windows and Linux release credentials are not affected.
-  This path must not be used to publish a GitHub Release tag.
-- **Steps**: 1) Dispatch the Release workflow with `sign_macos: false`. 2)
-  Confirm both macOS architectures complete ordinary DMG/ZIP packaging without
-  certificate secrets. 3) Inspect the artifacts and workflow steps.
-- **Expected**: macOS DMG/ZIP artifacts are produced and uploaded without
-  Developer ID signatures or notarization, using explicit `-arm64` and `-x64`
-  filename markers for their native architecture; macOS staple and Gatekeeper
-  checks are explicitly skipped. Windows/Linux artifacts and the merged updater
-  feed still publish normally. This exception does not satisfy E2E-196c.
+- **Preconditions**: None of `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`,
+  `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` is configured, and
+  `MAC_SIGNING_IDENTITY` is unset. A `vX.Y.Z` tag is pushed. This is the
+  standing state of the repository: it has no paid Apple Developer Program
+  membership.
+- **Steps**: 1) Push the tag. 2) Confirm the `macos-signing` job classifies the
+  configuration as `signed=false` and the macOS matrix rows therefore receive
+  no signing environment. 3) Confirm both macOS architectures complete DMG/ZIP
+  packaging with `-c.mac.identity=-`. 4) Inspect the artifacts and workflow
+  steps.
+- **Expected**: macOS DMG/ZIP artifacts are produced and uploaded, ad-hoc signed
+  by electron-builder (`codesign -s -`, no Developer ID authority, no
+  notarization), using explicit `-arm64` and `-x64` filename markers for their
+  native architecture; the staple and Gatekeeper checks are skipped because
+  there is no ticket. Windows/Linux artifacts and the merged updater feed
+  publish normally, and the GitHub Release is created. First launch on a clean
+  machine is refused by Gatekeeper until the user right-clicks → Open or clears
+  `com.apple.quarantine`; this lane does not satisfy E2E-196c.
 - **Specs linked**: `06-delivery/06-release-runbook.md`
-- **Acceptance**: Quality (debug packaging)
+- **Acceptance**: Quality (unsigned packaging)
 - **Milestone**: M6+
-- **Status**: Opt-in debug lane; tag releases must satisfy E2E-196c.
+- **Status**: Automated by `ci-workflow.test.mjs`; tag releases without a
+  Developer ID configuration take this path.
 
 #### E2E-196b: macOS packages omit first-launch helper assets
 
@@ -490,16 +498,18 @@ identify the platform validation still needed.
 #### E2E-196c: macOS tag artifacts pass Gatekeeper without a quarantine bypass
 
 - **Preconditions**: A `vX.Y.Z` tag matching `apps/desktop/package.json` is
-  pushed, or the Release workflow is dispatched with `sign_macos: true`
-  (default); GitHub Actions has `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`,
-  `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID` secrets; both native macOS
-  runners are available.
-- **Steps**: 1) Run the tag workflow. 2) For each macOS architecture, inspect
-  the unpacked app with `codesign -dv --verbose=4` and confirm authority
-  `Developer ID Application: XingYu Liu (DUV63RKYTW)`. 3) Run
+  pushed, or the Release workflow is dispatched manually; GitHub Actions has
+  `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`,
+  and `APPLE_TEAM_ID` secrets plus a `MAC_SIGNING_IDENTITY` variable; both
+  native macOS runners are available.
+- **Steps**: 1) Run the tag workflow. 2) Confirm the `macos-signing` job
+  classified the configuration as `signed=true`, then for each macOS
+  architecture inspect the unpacked app with `codesign -dv --verbose=4` and
+  confirm authority `Developer ID Application: <MAC_SIGNING_IDENTITY value>`.
+  3) Run
   `codesign --verify --deep --strict --verbose=2`,
   `spctl --assess --type execute --verbose=4`, and `xcrun stapler validate`
-  against the app, including `Contents/Resources/bin/pi-desktop-host-core`.
+  against the app, including `Contents/Resources/bin/QianNing-Agent-Host-Core`.
   4) Confirm the workflow's DMG step reported an Apple notary status of
   `Accepted` and then run `xcrun stapler validate` against the matching DMG.
   5) Download the DMG on a clean macOS profile, move the app to
@@ -509,8 +519,9 @@ identify the platform validation still needed.
   tickets. The DMG has its own submission: a DMG that was never submitted has
   no ticket and fails `stapler staple` with error 65, so a tag build must never
   reach that state. The app opens normally; no `xattr` quarantine-removal
-  command or Security & Privacy override is required. Missing secrets, a
-  rejected submission, or an exhausted staple retry fail the job.
+  command or Security & Privacy override is required. A *partial* signing
+  configuration, a rejected submission, or an exhausted staple retry fail the
+  job; a fully absent configuration is not a failure and selects E2E-196a.
 - **Specs linked**: `06-delivery/06-release-runbook.md`,
   `05-security/01-security.md`, ADR 0289
 - **Acceptance**: Quality, Security

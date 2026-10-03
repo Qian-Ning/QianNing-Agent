@@ -22,7 +22,7 @@ disagrees, so a green `check:release-docs` is a precondition, not a substitute.
 
 | Script | Alias | Purpose |
 |---|---|---|
-| `notarize-and-staple-macos-release-dmg.sh` | `scripts/notarize-and-staple-macos-release-dmg.sh [release-dir]` | Submit the single DMG a native macOS job produced to Apple's notary service (`xcrun notarytool submit --wait`), require `status: Accepted`, then attach and validate the ticket (`xcrun stapler staple` / `validate`); run by the Release workflow when `sign_macos` is set. electron-builder only notarizes the `.app`, so the DMG needs this separate submission |
+| `notarize-and-staple-macos-release-dmg.sh` | `scripts/notarize-and-staple-macos-release-dmg.sh [release-dir]` | Submit the single DMG a native macOS job produced to Apple's notary service (`xcrun notarytool submit --wait`), require `status: Accepted`, then attach and validate the ticket (`xcrun stapler staple` / `validate`); run by the Release workflow's macOS matrix when signing is configured. electron-builder only notarizes the `.app`, so the DMG needs this separate submission |
 | `verify-macos-release.sh` | `scripts/verify-macos-release.sh [release-dir]` | Fail unless the one `PI-Desktop.app` and DMG under the release directory are Developer ID-signed, notarized, and stapled; run by the Release workflow after stapling |
 | `macos-signing-diagnostics.sh` | `scripts/macos-signing-diagnostics.sh [--require-identity]` | Print the non-secret signing baseline before packaging (system, `codesign`, keychain identities/list/default, Xcode notary tools, Apple timestamp reachability). Informational by default, because the Developer ID identity is imported from `CSC_LINK` during packaging; `--require-identity` makes a missing Developer ID fatal |
 | `macos-bundle-inventory.mjs` | `node scripts/macos-bundle-inventory.mjs <app-or-release-dir>` | Count what the signing phase has to touch: entries, Mach-O binaries, `.dylib`/`.node`/frameworks/nested bundles, per-directory cost, and the largest binaries (`signing-candidates`). Informational; run after every macOS package build |
@@ -87,9 +87,11 @@ job uses Ubuntu 22.04 so host-core stays on glibc 2.35, then
 `scripts/check-linux-host-glibc.mjs` refuses a binary that needs a newer
 glibc. The Linux runner also exports the exact app.asar from `linux-unpacked`
 as a versioned release asset; the macOS matrix covers arm64 and Intel x64 and
-the publish job assembles the GitHub Release. Tag builds Developer ID-sign,
-notarize, and staple macOS artifacts; `workflow_dispatch` may set
-`sign_macos: false` only for unsigned debug artifacts. See the [release
+the publish job assembles the GitHub Release. A `macos-signing` preflight job
+decides the macOS lanes' identity: with the full signing configuration the tag
+build Developer ID-signs, notarizes, and staples macOS artifacts; with none of
+it the lanes ad-hoc sign and warn; with only part of it the run fails before
+any build. See the [release
 runbook](../docs/spec/06-delivery/06-release-runbook.md).
 
 ### Provider certificate regression

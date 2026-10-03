@@ -5,12 +5,20 @@
 set -euo pipefail
 
 RELEASE_DIR="${1:-apps/desktop/release}"
-PRODUCT_NAME="PI-Desktop"
-# Accepts either the bare common name ("XingYu Liu (DUV63RKYTW)") or the full
-# certificate label ("Developer ID Application: XingYu Liu (DUV63RKYTW)").
-IDENTITY_NAME="${MAC_SIGNING_IDENTITY:-XingYu Liu (DUV63RKYTW)}"
+# The identity comes from the environment, because the lane that produced the
+# release already knows it: `scripts/release-macos.sh` and the release workflow
+# both export MAC_SIGNING_IDENTITY. Accepts either the bare common name
+# ("Example Signer (ABCDE12345)") or the full certificate label
+# ("Developer ID Application: Example Signer (ABCDE12345)").
+IDENTITY_NAME="${MAC_SIGNING_IDENTITY:-}"
 IDENTITY_NAME="${IDENTITY_NAME#Developer ID Application: }"
 EXPECTED_IDENTITY="Developer ID Application: ${IDENTITY_NAME}"
+
+if [[ -z "$IDENTITY_NAME" ]]; then
+  echo "error: MAC_SIGNING_IDENTITY is required to verify a signed macOS release." >&2
+  echo "Set it to the common name of the Developer ID Application certificate the release was signed with." >&2
+  exit 1
+fi
 
 if [[ ! -d "$RELEASE_DIR" ]]; then
   echo "error: release directory does not exist: $RELEASE_DIR" >&2
@@ -18,11 +26,13 @@ if [[ ! -d "$RELEASE_DIR" ]]; then
 fi
 
 shopt -s nullglob
-APPS=("$RELEASE_DIR"/mac*/"$PRODUCT_NAME".app)
+# Discover the bundle instead of naming it: the app directory is the
+# electron-builder `productName`, which tracks the product and not this script.
+APPS=("$RELEASE_DIR"/mac*/*.app)
 DMGS=("$RELEASE_DIR"/*.dmg)
 
 if [[ "${#APPS[@]}" -ne 1 ]]; then
-  echo "error: expected exactly one $PRODUCT_NAME.app under $RELEASE_DIR/mac*/." >&2
+  echo "error: expected exactly one .app bundle under $RELEASE_DIR/mac*/." >&2
   exit 1
 fi
 
@@ -33,7 +43,16 @@ fi
 
 APP="${APPS[0]}"
 DMG="${DMGS[0]}"
-HOST_CORE="$APP/Contents/Resources/bin/pi-desktop-host-core"
+
+# Discover the sidecar instead of naming it: electron-builder copies the crate
+# output to the product name (`bin/QianNing-Agent-Host-Core`), which tracks the
+# product and not this script.
+HOST_CORES=("$APP/Contents/Resources/bin/"*-Host-Core)
+if [[ "${#HOST_CORES[@]}" -ne 1 ]]; then
+  echo "error: expected exactly one host-core sidecar under $APP/Contents/Resources/bin/." >&2
+  exit 1
+fi
+HOST_CORE="${HOST_CORES[0]}"
 
 echo "==> Inspecting Developer ID signature: $APP"
 SIGNATURE_INFO="$(codesign -dv --verbose=4 "$APP" 2>&1)"

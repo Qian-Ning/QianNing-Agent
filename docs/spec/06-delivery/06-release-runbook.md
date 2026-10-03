@@ -45,15 +45,21 @@ when macOS `iconutil` is available, without overwriting the canonical source.
 
 ## 2. Prerequisites (release lane)
 
-1. Apple Developer account with a **Developer ID Application** certificate in
-   the login keychain. Official certificate:
-   `Developer ID Application: XingYu Liu (DUV63RKYTW)` (Team ID `DUV63RKYTW`).
+The GitHub tag lane builds Windows, Linux, and both macOS architectures with no
+local prerequisites. The signed macOS lane needs the following; without it the
+tag lane still publishes, with ad-hoc macOS artifacts (§4.3, §4.6).
+
+1. A paid Apple Developer Program membership with a **Developer ID Application**
+   certificate in the login keychain. The certificate's common name has the form
+   `Developer ID Application: <name> (<TEAMID>)`; its team ID is the
+   `APPLE_TEAM_ID` value below.
 2. Environment variables for the local signed lane:
-   - `MAC_SIGNING_IDENTITY` — bare common name `XingYu Liu (DUV63RKYTW)`;
-     electron-builder rejects a name that keeps the
-     `Developer ID Application:` prefix, so the script strips it
+   - `MAC_SIGNING_IDENTITY` — the bare common name, e.g.
+     `Example Signer (ABCDE12345)`; electron-builder rejects a name that keeps
+     the `Developer ID Application:` prefix, so the script strips it
    - `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` — required for
-     notarization (`APPLE_TEAM_ID` must be `DUV63RKYTW`)
+     notarization; `APPLE_TEAM_ID` must be that certificate's ten-character
+     team ID
 3. Rust toolchain and pnpm workspace installed. The Rust toolchain must run on
    the native macOS runner: arm64 for Apple Silicon or x86_64 for Intel.
 
@@ -70,8 +76,9 @@ when macOS `iconutil` is available, without overwriting the canonical source.
   agent sidecar — without it, LAN provider requests from the sidecar fail with
   `EHOSTUNREACH` even though the main process's Test Provider fetch succeeds
   (issue #573).
-- `Resources/bin/pi-desktop-host-core` — Rust host binary (release build).
-- Windows NSIS builds include an x64 `pi-desktop-host-core.exe` statically
+- `Resources/bin/QianNing-Agent-Host-Core` — Rust host binary (release build),
+  electron-builder's `extraResources` copy of the crate output.
+- Windows NSIS builds include an x64 `QianNing-Agent-Host-Core.exe` statically
   linked to the MSVC CRT, so a clean Windows x64 or Windows 11 ARM64
   (x64-emulated) installation does not need a separate Visual C++
   Redistributable before the local service can start.
@@ -189,13 +196,20 @@ Pre-tag checklist:
 
 ### 4.2 Build / package
 
+The signed local lane. Every value is required: the script has no defaults, so
+it can never sign with whatever certificate the machine happens to carry.
+
 ```bash
-export MAC_SIGNING_IDENTITY="XingYu Liu (DUV63RKYTW)"
+export MAC_SIGNING_IDENTITY="Example Signer (ABCDE12345)"
 export APPLE_ID=...
 export APPLE_APP_SPECIFIC_PASSWORD=...
-export APPLE_TEAM_ID=...
+export APPLE_TEAM_ID=ABCDE12345
 scripts/release-macos.sh
 ```
+
+`APPLE_TEAM_ID` is validated by shape — ten uppercase alphanumeric characters —
+rather than against a fixed value, so the lane is not tied to one Apple
+Developer account.
 
 Artifacts land in `apps/desktop/release/` (DMG + ZIP + blockmaps).
 
@@ -206,18 +220,24 @@ host. This keeps the native Rust host sidecar and Electron package aligned.
 ### 4.3 GitHub tag and manual workflow
 
 **QianNing fork release lanes.** This fork's `release.yml` builds the Windows
-x64 installers (`dist:win`: NSIS setup, portable export, and the win zip) and
-the Linux `pi-host` remote-host bundle, then creates the GitHub Release itself.
-Upstream's macOS lanes are not part of this fork's pipeline: they require Apple
-Developer ID signing and notarization secrets and pin the upstream maintainer's
-Apple team id, so on this repository they could only fail — and because the
-publish job needs every build lane, one failing lane would suppress the Release
-entirely. The macOS material below documents the upstream pipeline this fork
-inherited; re-enabling it means restoring those jobs together with a real Apple
-Developer account. Cutting a release is therefore two commands: run
-`node scripts/release.mjs <version> --tag` on `main`, then
+x64 installers (`dist:win`: NSIS setup, portable export, and the win zip), the
+Linux x64 desktop packages (AppImage/deb/rpm plus the system-Electron ASAR
+export), both macOS architectures (DMG + ZIP), and the Linux `pi-host`
+remote-host bundle, then creates the GitHub Release itself. Cutting a release is
+two commands: run `node scripts/release.mjs <version> --tag` on `main`, then
 `git push origin main v<version>`. The tag push is the whole trigger — no
 manual asset upload.
+
+**macOS signing is detected, not assumed.** A `macos-signing` job runs before
+the build matrix and reads the runner's signing configuration. When every
+value is present the matrix carries them into the packaging step exactly as an
+upstream release does — Developer ID signature, `notarytool` notarization,
+staple, and Gatekeeper verification. When none are present the macOS lane
+instead produces ad-hoc-signed artifacts and emits a warning, so a repository
+without an Apple Developer account still publishes. A *partial* configuration
+fails the run: publishing artifacts weaker than the repository claims to
+produce is worse than not publishing. The values, and how to obtain each, are
+in § 4.6 below.
 
 Re-publishing the same tag is supported: each publish run first deletes the
 assets already attached to that tag, then uploads the ones it produced, so the
@@ -237,50 +257,62 @@ runtime, verifying the host build, building the Desktop application once, and
 invoking electron-builder. This avoids a redundant Desktop build without
 changing the package scripts or release artifacts.
 
-**Default macOS release policy:** GitHub tag releases Developer ID-sign,
-notarize, staple, and Gatekeeper-verify macOS DMG/ZIP before upload (D450 /
-ADR 0289). Missing signing or notarization secrets fail the job. A
-`workflow_dispatch` run may set `sign_macos: false` only to produce unsigned
-debug artifacts; that path must not be used for a GitHub Release tag. Local
-`scripts/release-macos.sh` remains the explicit signed local lane; `pnpm dist:mac`
-stays unsigned without a configured certificate (D078).
+**macOS release policy:** a tag release Developer ID-signs, notarizes, staples,
+and Gatekeeper-verifies macOS DMG/ZIP before upload when the signing
+configuration is present (D450 / ADR 0289). Without it the lane ad-hoc signs
+instead and warns in the run summary; a partial configuration fails the job.
+Local `scripts/release-macos.sh` remains the explicit signed local lane and
+requires `MAC_SIGNING_IDENTITY` plus the notarization credentials; `pnpm
+dist:mac` on its own stays unsigned (D078).
 
 The macOS matrix uses `macos-15` for arm64 and `macos-15-intel` for Intel x64.
 Each job verifies `uname -m`, passes the matching `--arm64` or `--x64` flag to
 electron-builder, and builds `pi-desktop-host-core` on that same native
-runner. Tag builds and `sign_macos: true` (the dispatch default) receive
-`CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and
-`APPLE_TEAM_ID` only from GitHub Actions secrets, pin the certificate through
-`CSC_NAME=XingYu Liu (DUV63RKYTW)` (bare common name — electron-builder rejects
-the `Developer ID Application:` prefix), force code signing and
-`notarytool` notarization of `PI-Desktop.app`. The DMG is then submitted to the
-same service on its own (`scripts/notarize-and-staple-macos-release-dmg.sh`),
-and only an `Accepted` status allows the ticket to be stapled. Verification
-then checks the identity, code-signing integrity (including
-`pi-desktop-host-core`), Gatekeeper `Notarized Developer ID`, and both stapled
-tickets before any artifact upload. The per-architecture `latest-mac.yml` files
-are renamed before upload; the publish job merges them into one feed after
-downloading both artifacts.
+runner. When signing is configured, the packaging step receives `CSC_LINK`,
+`CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and
+`APPLE_TEAM_ID` from GitHub Actions secrets, plus `MAC_SIGNING_IDENTITY` from a
+repository variable, and pins the certificate through `CSC_NAME` (bare common
+name — electron-builder rejects the `Developer ID Application:` prefix). It
+forces code signing and `notarytool` notarization of the app bundle. The DMG is
+then submitted to the same service on its own
+(`scripts/notarize-and-staple-macos-release-dmg.sh`), and only an `Accepted`
+status allows the ticket to be stapled. Verification then checks the identity,
+code-signing integrity (including `pi-desktop-host-core`), Gatekeeper
+`Notarized Developer ID`, and both stapled tickets before any artifact upload.
+The per-architecture `latest-mac.yml` files are renamed before upload; the
+publish job merges them into one feed after downloading both artifacts.
+
+When signing is *not* configured, the packaging step passes
+`-c.mac.identity=-`: an explicit ad-hoc signature (`codesign -s -`) rather than
+a skipped one, because an arm64 app with no signature at all refuses to launch.
+`mac.hardenedRuntime` stays on from `apps/desktop/package.json`, and the shared
+entitlements already carry
+`com.apple.security.cs.disable-library-validation`, which ad-hoc signing under
+the hardened runtime requires. No notarization is attempted, so the artifacts
+are not Gatekeeper-qualified: the first launch needs a right-click → Open, or
+`xattr -dr com.apple.quarantine '/Applications/QianNing Agent.app'`.
 
 The shared electron-builder configuration applies the architecture-labelled
 pattern at the macOS platform level for ZIPs and overrides it at the DMG target
 level. Both public architectures are therefore explicit: the arm64 lane
-publishes `PI-Desktop-<version>-arm64.dmg` and
-`PI-Desktop-<version>-arm64-mac.zip`, while the Intel x64 lane publishes
-`PI-Desktop-<version>-x64.dmg` and `PI-Desktop-<version>-x64-mac.zip`. This
-applies to both unsigned and signed macOS lanes, including local release builds,
-and ensures each generated updater feed references its architecture-labelled
-asset names and matching checksums. Before upload, each macOS runner requires
-exactly one architecture-labelled DMG and ZIP (including blockmaps) and rejects
-any unlabelled or wrong-architecture macOS artifact.
+publishes `QianNing-Agent-<version>-arm64.dmg` and
+`QianNing-Agent-<version>-arm64-mac.zip`, while the Intel x64 lane publishes
+`QianNing-Agent-<version>-x64.dmg` and
+`QianNing-Agent-<version>-x64-mac.zip`. This applies to both unsigned and
+signed macOS lanes, including local release builds, and ensures each generated
+updater feed references its architecture-labelled asset names and matching
+checksums. Before upload, each macOS runner requires exactly one
+architecture-labelled DMG and ZIP (including blockmaps) and rejects any
+unlabelled or wrong-architecture macOS artifact.
 
 The DMG uses a branded 720×440 background with a two-icon drag-to-Applications
 gesture. The app and Applications link are the only items in the window.
 
-The macOS ZIP contains `PI-Desktop.app` at its root. Neither the DMG nor ZIP
-ships an opening-help note or executable first-launch helper, including local
-and unsigned debug builds. Tagged artifacts remain signed and notarized; the
-unsigned lane is for debugging and does not imply Gatekeeper qualification.
+The macOS ZIP contains the product-named app bundle at its root. Neither the
+DMG nor ZIP ships an opening-help note or executable first-launch helper.
+Tagged artifacts are signed and notarized when the signing configuration is
+present; the ad-hoc lane is Gatekeeper-blocked on first launch, as described
+above.
 
 DMG, ZIP, NSIS, AppImage, deb, rpm, blockmap, and updater feed outputs are already
 compressed or compression-insensitive. The workflow therefore uploads their
@@ -321,19 +353,37 @@ Re-running the workflow for the same tag is safe if the CNB pipeline is
 idempotent. It does not rebuild desktop artifacts and does not change
 electron-updater feeds.
 
-### 4.6 GitHub Actions secrets for macOS signing
+### 4.6 GitHub Actions configuration for macOS signing
 
-Create these under GitHub → repository `vastsa/PI-Desktop` → Settings →
-Secrets and variables → Actions. Never commit the p12, password, Apple ID, or
-app-specific password. Never `echo` these values in CI.
+Optional. The release pipeline detects whether this configuration exists: with
+all of it, the macOS lane signs and notarizes; with none of it, the lane
+ad-hoc signs and warns; with *some* of it, the run fails before any build, so a
+half-configured repository can never publish silently weaker artifacts.
+
+Create the secrets under GitHub → repository → Settings → Secrets and variables
+→ Actions → **Secrets**. Never commit the p12, password, Apple ID, or
+app-specific password, and never `echo` these values in CI.
 
 | Secret | Value |
 |---|---|
 | `CSC_LINK` | Base64 of the exported Developer ID Application `.p12` (Certificate + Private Key). electron-builder also accepts a file path, but CI uses the secret body. |
 | `CSC_KEY_PASSWORD` | Password used when exporting that `.p12` |
-| `APPLE_ID` | Apple ID email that belongs to team `DUV63RKYTW` |
+| `APPLE_ID` | Apple ID email that belongs to the certificate's team |
 | `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password from https://appleid.apple.com → Sign-In and Security → App-Specific Passwords |
-| `APPLE_TEAM_ID` | `DUV63RKYTW` |
+| `APPLE_TEAM_ID` | The ten-character Apple Developer Team ID that owns the certificate |
+
+Create the certificate's common name under the same page's **Variables** tab,
+not as a secret: it is public, and the pipeline hands it to electron-builder as
+`CSC_NAME`.
+
+| Variable | Value |
+|---|---|
+| `MAC_SIGNING_IDENTITY` | Bare certificate common name, e.g. `Example Signer (ABCDE12345)`. The `Developer ID Application:` prefix is accepted and stripped; electron-builder itself rejects the prefixed form. |
+
+A Developer ID Application certificate requires a paid Apple Developer Program
+membership. A free Apple ID cannot sign or notarize a distributable build, so
+leave this configuration unset and the pipeline publishes ad-hoc macOS
+artifacts instead.
 
 Encode the p12 locally (do not paste the output into chat or the repo):
 
@@ -344,16 +394,19 @@ base64 -i developer-id-application.p12 | pbcopy
 On Linux use `base64 -w0 developer-id-application.p12`. Files that must never
 enter git: `*.p12`, `*.cer`, `*.p8`, `*.mobileprovision`.
 
+Delete every one of these at once if signing must be turned off again — a
+partial set is a hard failure rather than a fallback.
+
 ### 4.7 macOS signing observability and timeouts
 
 `electron-builder` prints one line before signing — `signing
-file=release/mac-arm64/PI-Desktop.app platform=darwin type=distribution
+file=release/mac-arm64/QianNing Agent.app platform=darwin type=distribution
 identityName=...` — and then nothing until the phase is over. Three mechanisms
 hide in that gap, and the macOS lanes now expose all three:
 
 | Point in the phase | What happens | How it is visible |
 |---|---|---|
-| Walk | `@electron/osx-sign` walks `PI-Desktop.app/Contents` and collects every Mach-O file plus nested `.app` and `.framework` bundles | `DEBUG=electron-osx-sign*` prints `Walking... <dir>`; `scripts/macos-bundle-inventory.mjs` prints the same bundle's counts right after packaging |
+| Walk | `@electron/osx-sign` walks the `.app` bundle's `Contents` and collects every Mach-O file plus nested `.app` and `.framework` bundles | `DEBUG=electron-osx-sign*` prints `Walking... <dir>`; `scripts/macos-bundle-inventory.mjs` prints the same bundle's counts right after packaging |
 | Per-file signing | `codesign --force --sign <identity> --timestamp --entitlements ... <file>` runs serially, deepest file first, the app bundle last | `DEBUG=electron-osx-sign*` prints `Signing... <file>` and `Executing... <file> codesign ...`; the codesign shim times every invocation. If a keychain ever refuses to hand the key to a wrapped `codesign`, `PI_SIGNING_NO_CODESIGN_SHIM=1` runs the phase without the shim |
 | Silent retry | A failing pass is retried up to three more times with a 5s/10s/15s backoff and no log line | The watchdog's `codesign-calls` and `failures` lines expose repeated passes |
 | App notarization | `@electron/notarize` zips the app, uploads it, and waits for Apple's queue (`mac.notarize=true`) | `DEBUG=electron-notarize*` prints `zipping application to`, `attempting to upload file to Apple`, `notarization success`, then electron-builder prints `notarization successful` |
@@ -404,8 +457,9 @@ certificate is imported: system version, `codesign --version`, keychain
 identities/list/default, `xcrun --find notarytool`, and the reachability and
 latency of `http://timestamp.apple.com/ts01`. The Developer ID identity is
 expected to be absent at that point, because electron-builder imports it from
-`CSC_LINK` while packaging; only `--require-identity` makes a missing identity
-fatal.
+`CSC_LINK` while packaging. The same holds when no signing configuration
+exists at all: the script skips the identity section and warns, and only
+`--require-identity` makes an absent (or unset) identity fatal.
 
 Signer status: `@electron/osx-sign@1.3.3` is pinned exactly by
 `app-builder-lib@26.15.3` and no override applies to it. Its
@@ -417,17 +471,17 @@ above.
 
 ## 5. Verification gates
 
-Unsigned debug artifacts (`workflow_dispatch` with `sign_macos: false`) are
-not Gatekeeper-qualified. Tag releases must pass the signature, notarization,
-and staple checks below or the workflow fails.
+Ad-hoc artifacts from a repository without signing configuration (§ 4.3) are
+not Gatekeeper-qualified. Signed tag releases must pass the signature,
+notarization, and staple checks below or the workflow fails.
 
 Two separate notarization submissions exist, because Apple notarizes one
 artifact per submission and electron-builder only covers the app:
 
 | Artifact | Submitted by | Ticket |
 |---|---|---|
-| `PI-Desktop.app` (inside the ZIP) | electron-builder `-c.mac.notarize=true` | stapled by electron-builder |
-| `PI-Desktop-<version>-<arch>.dmg` | `scripts/notarize-and-staple-macos-release-dmg.sh` (`notarytool submit --wait`) | stapled by the same script after `status: Accepted` |
+| The app bundle (inside the ZIP) | electron-builder `-c.mac.notarize=true` | stapled by electron-builder |
+| `QianNing-Agent-<version>-<arch>.dmg` | `scripts/notarize-and-staple-macos-release-dmg.sh` (`notarytool submit --wait`) | stapled by the same script after `status: Accepted` |
 
 A DMG that was never submitted has no ticket, so stapling it fails with
 `Could not find base64 encoded ticket ... Error 65`. Stapler retries are only
@@ -436,7 +490,7 @@ allowed after Apple returns `Accepted`.
 Run after every signed release build:
 
 ```bash
-for APP in apps/desktop/release/mac-*/PI-Desktop.app; do
+for APP in apps/desktop/release/mac-*/*.app; do
   codesign -dv --verbose=4 "$APP"          # identity + hardened runtime flags
   codesign --verify --deep --strict --verbose=2 "$APP"
   spctl --assess --type execute --verbose=4 "$APP"
@@ -596,20 +650,21 @@ The Windows `dist:win` command runs `scripts/build-desktop-release.mjs`,
 which invokes electron-builder once for NSIS and once for ZIP so each package
 gets the correct updater distribution marker.
 
-The macOS packages include `bin/pi-desktop-host-core` built for their runner
-architecture; Windows includes `bin/pi-desktop-host-core.exe`; Linux includes
-`bin/pi-desktop-host-core`. Signing, rollback, and installer upgrade
+The macOS packages include `bin/QianNing-Agent-Host-Core` built for their runner
+architecture; Windows includes `bin/QianNing-Agent-Host-Core.exe`; Linux includes
+`bin/QianNing-Agent-Host-Core`. Signing, rollback, and installer upgrade
 qualification remain release hardening work; publication is active under
 D126/D285/D603.
 
 Native-runner output matrix:
 
-- macOS arm64: `PI-Desktop-<version>-arm64.dmg` and
-  `PI-Desktop-<version>-arm64-mac.zip`
-- macOS Intel x64: `PI-Desktop-<version>-x64.dmg` and
-  `PI-Desktop-<version>-x64-mac.zip`
-- Windows x64: NSIS installer `PI-Desktop-Setup-<version>.exe` and portable
-  ZIP `PI-Desktop-Portable-<version>.zip`
+- macOS arm64: `QianNing-Agent-<version>-arm64.dmg` and
+  `QianNing-Agent-<version>-arm64-mac.zip`
+- macOS Intel x64: `QianNing-Agent-<version>-x64.dmg` and
+  `QianNing-Agent-<version>-x64-mac.zip`
+- Windows x64: NSIS installer `QianNing-Agent-Setup-<version>.exe`, portable
+  export `QianNing-Agent-Portable-<version>.exe`, and portable ZIP
+  `QianNing-Agent-Portable-<version>.zip`
 - Linux x64: AppImage, deb, and rpm
 - Linux x64 system Electron asset: `QianNing-Agent-<version>-linux-x64.asar`
 

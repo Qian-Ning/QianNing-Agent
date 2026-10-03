@@ -43,10 +43,12 @@ Windows 可执行文件和原生窗口图标中使用 `build/icon.ico`。渲染�
 
 ## 2. 先决条件（发布通道）
 
-1. Apple 开发者帐户，登录钥匙串中具有 **Developer ID Application** 证书。正式证书为 `Developer ID Application: XingYu Liu (DUV63RKYTW)`（Team ID `DUV63RKYTW`）。
+GitHub 标签通道无需任何本地前置条件即可构建 Windows、Linux 和两个 macOS 架构。以下仅签名 macOS 通道需要；缺少时标签通道仍会发版，只是 macOS 产物为 ad-hoc 签名（见 §4.3、§4.5）。
+
+1. 付费 Apple Developer Program 会员资格，登录钥匙串中具有 **Developer ID Application** 证书。证书通用名形如 `Developer ID Application: <名称> (<TEAMID>)`，其中团队 ID 就是下面的 `APPLE_TEAM_ID`。
 2. 本地签名通道的环境变量：
-   - `MAC_SIGNING_IDENTITY` — 裸通用名 `XingYu Liu (DUV63RKYTW)`；electron-builder 拒绝保留 `Developer ID Application:` 前缀的名称，脚本会自动去掉该前缀
-   - `APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID` — 公证所必需（`APPLE_TEAM_ID` 必须为 `DUV63RKYTW`）
+   - `MAC_SIGNING_IDENTITY` — 裸通用名，例如 `Example Signer (ABCDE12345)`；electron-builder 拒绝保留 `Developer ID Application:` 前缀的名称，脚本会自动去掉该前缀
+   - `APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID` — 公证所必需；`APPLE_TEAM_ID` 必须是该证书的十位团队 ID
 3. 安装 Rust 工具链和 pnpm 工作区。Rust 必须在 macOS 本机运行器上运行：
    Apple Silicon 使用 arm64，Intel 使用 x86_64。
 
@@ -60,7 +62,7 @@ Windows 可执行文件和原生窗口图标中使用 `build/icon.ico`。渲染�
   Chromium 主进程与 `ELECTRON_RUN_AS_NODE` 的 agent sidecar；否则主进程的
   Test Provider 能过，但 sidecar 走局域网请求会以 `EHOSTUNREACH` 失败
   （issue #573）。
-- `Resources/bin/pi-desktop-host-core` — Rust 主机二进制文件（发布版本）。
+- `Resources/bin/QianNing-Agent-Host-Core` — Rust 主机二进制文件（发布版本），由 electron-builder 的 `extraResources` 复制而来。
 - Windows NSIS 构建包含静态链接 MSVC CRT 的 x64
   `pi-desktop-host-core.exe`，因此全新的 Windows x64 或 Windows 11 ARM64
   （x64 模拟）安装无需在本地服务启动前单独安装 Visual C++ Redistributable。
@@ -160,8 +162,10 @@ Windows 可执行文件和原生窗口图标中使用 `build/icon.ico`。渲染�
 
 ### 4.2 构建/打包
 
+本地签名通道。每个值都是必需的：脚本不提供默认值，因此不可能用机器上恰好存在的随便一张证书来签名。
+
 ```bash
-export MAC_SIGNING_IDENTITY="XingYu Liu (DUV63RKYTW)"
+export MAC_SIGNING_IDENTITY="Example Signer (ABCDE12345)"
 export APPLE_ID=...
 export APPLE_APP_SPECIFIC_PASSWORD=...
 export APPLE_TEAM_ID=...
@@ -176,7 +180,9 @@ scripts/release-macos.sh
 
 ### 4.3 GitHub 标签和手动工作流程
 
-**千凝分支的发布通道。** 本分支的 `release.yml` 构建 Windows x64 安装包（`dist:win`：NSIS 安装程序、便携版、win zip）与 Linux `pi-host` 远程主机包，然后自行创建 GitHub Release。上游的 macOS 通道不属于本分支流水线：它们需要 Apple Developer ID 签名与公证密钥，并固定上游维护者的 Apple 团队 ID，在本仓库只可能失败；而发布作业依赖全部构建通道，任一通道失败都会让 Release 整个不生成。下文 macOS 部分记录的是本分支继承的上游流水线；重新启用需要恢复这些作业并提供真实的 Apple 开发者账号。因此发版只需两条命令：在 `main` 上运行 `node scripts/release.mjs <version> --tag`，然后 `git push origin main v<version>`。推送标签即是全部触发条件——不需要手动上传产物。
+**千凝分支的发布通道。** 本分支的 `release.yml` 构建 Windows x64 安装包（`dist:win`：NSIS 安装程序、便携版、win zip）、Linux x64 桌面包（AppImage/deb/rpm 以及系统 Electron 的 ASAR 导出）、两个 macOS 架构（DMG + ZIP）与 Linux `pi-host` 远程主机包，然后自行创建 GitHub Release。发版只需两条命令：在 `main` 上运行 `node scripts/release.mjs <version> --tag`，然后 `git push origin main v<version>`。推送标签即是全部触发条件——不需要手动上传产物。
+
+**macOS 签名是探测出来的，不是假定存在的。** 构建矩阵之前有一个 `macos-signing` 作业读取运行器的签名配置。配置齐全时，矩阵会把它们带进打包步骤，流程与上游发布完全一致——Developer ID 签名、`notarytool` 公证、装订、Gatekeeper 校验。一条都没有时，macOS 通道改为产出 ad-hoc 签名的产物并给出警告，因此没有 Apple 开发者账号的仓库依然能发版。**部分**配置会让整个运行失败：发出比仓库声明更弱的产物，比不发更糟。各字段及获取方式见下文「macOS 签名配置」。
 
 同一标签可以重复发布：每次发布运行会先删除该标签下已有的产物，再上传本次生成的产物，因此已发布的产物集合始终等于最后一次成功运行的结果。修复后强推标签不会残留上一次运行的产物。
 
@@ -191,19 +197,20 @@ GitHub Release 工作流程会在每个运行器上、检出后立即验证推�
 调用电子构建器。这避免了多余的桌面构建，而无需
 更改包脚本或发布工件。
 
-**macOS 默认发布策略：** GitHub tag 发布会在上传前对 macOS DMG/ZIP 做 Developer ID 签名、公证、装订和 Gatekeeper 校验（D450 / ADR 0289）。缺少签名或公证密钥则作业失败。`workflow_dispatch` 仅可把 `sign_macos: false` 用于未签名调试产物，不得用于 GitHub Release 标签。本地 `scripts/release-macos.sh` 仍是明确的本地签名通道；未配置证书时 `pnpm dist:mac` 保持未签名（D078）。
+**macOS 发布策略：** 配置存在时，标签发布会在上传前对 macOS DMG/ZIP 做 Developer ID 签名、公证、装订和 Gatekeeper 校验（D450 / ADR 0289）。配置不存在时该通道改为 ad-hoc 签名并在运行摘要里告警；部分配置则直接让作业失败。本地 `scripts/release-macos.sh` 仍是明确的本地签名通道，需要 `MAC_SIGNING_IDENTITY` 与公证凭据；单独运行 `pnpm dist:mac` 保持未签名（D078）。
 
 macOS 矩阵使用 arm64 的 `macos-15` 和 Intel x64 的
 `macos-15-intel`。每个作业验证 `uname -m`，向 electron-builder 传入匹配
 的 `--arm64` 或 `--x64`，并在同一本机运行器上构建
-`pi-desktop-host-core`。每个架构的 `latest-mac.yml` 会在上传前重命名，
-发布作业下载两个工件后再合并为一个更新源。
+`pi-desktop-host-core`。配置签名时，打包步骤从 GitHub Actions secrets 接收 `CSC_LINK`、`CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD` 和 `APPLE_TEAM_ID`，并从仓库变量接收 `MAC_SIGNING_IDENTITY`，再通过 `CSC_NAME` 固定证书（裸通用名——electron-builder 拒绝 `Developer ID Application:` 前缀），强制对应用包做代码签名与 `notarytool` 公证。随后 DMG 由 `scripts/notarize-and-staple-macos-release-dmg.sh` 单独提交到同一个服务，只有返回 `Accepted` 才允许装订票据；之后验证身份、代码签名完整性（含 `pi-desktop-host-core`）、Gatekeeper `Notarized Developer ID` 以及两份已装订票据，再进行任何工件上传。每个架构的 `latest-mac.yml` 会在上传前重命名，发布作业下载两个工件后再合并为一个更新源。
+
+**未配置签名时**，打包步骤传入 `-c.mac.identity=-`：这是明确的 ad-hoc 签名（`codesign -s -`），而不是跳过签名——完全没有签名的 arm64 应用无法启动。`apps/desktop/package.json` 的 `mac.hardenedRuntime` 保持开启，共享 entitlements 已包含 `com.apple.security.cs.disable-library-validation`，这正是 hardened runtime 下 ad-hoc 签名所必需的。此路径不做公证，因此产物不满足 Gatekeeper：首次启动需要右键 → 打开，或执行 `xattr -dr com.apple.quarantine '/Applications/QianNing Agent.app'`。
 
 共享的 electron-builder 配置在 macOS 平台级别为 ZIP 应用带架构后缀的命名模板，
 并在 DMG 目标级别覆盖该模板。两个公开架构都会明确可见：arm64 通道发布
-`PI-Desktop-<version>-arm64.dmg` 和 `PI-Desktop-<version>-arm64-mac.zip`，
-Intel x64 通道发布 `PI-Desktop-<version>-x64.dmg` 和
-`PI-Desktop-<version>-x64-mac.zip`。这同时适用于未签名、已签名和本地 macOS
+`QianNing-Agent-<version>-arm64.dmg` 和 `QianNing-Agent-<version>-arm64-mac.zip`，
+Intel x64 通道发布 `QianNing-Agent-<version>-x64.dmg` 和
+`QianNing-Agent-<version>-x64-mac.zip`。这同时适用于未签名、已签名和本地 macOS
 通道，并确保每个按架构生成的更新源都会引用带架构后缀的工件名及其匹配校验和。
 上传前，每个 macOS 运行器必须恰好生成一个带架构后缀的 DMG 和 ZIP（包括
 blockmap），任何无后缀或架构错误的 macOS 工件都会使发布失败。
@@ -211,11 +218,7 @@ blockmap），任何无后缀或架构错误的 macOS 工件都会使发布失�
 DMG 使用带品牌视觉的 720×440 背景，只展示拖入 Applications 的双图标安装手势。
 窗口里只有应用和 Applications 链接。
 
-macOS ZIP 在安装包根目录包含 `PI-Desktop.app`。DMG 和 ZIP 都不附带打开说明或首次
-启动命令助手，本地与未签名调试构建也一样。标签发布工件仍会签名并公证；未签名通道
-仅用于调试，不代表已通过 Gatekeeper 验证。
-
-标签构建和 `sign_macos: true`（手动运行的默认值）仅从 GitHub Actions 密钥接收 `CSC_LINK`、`CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD` 和 `APPLE_TEAM_ID`，通过 `CSC_NAME=XingYu Liu (DUV63RKYTW)`（裸通用名——electron-builder 拒绝 `Developer ID Application:` 前缀）固定证书，强制代码签名与 `notarytool` 公证 `PI-Desktop.app`。随后 DMG 会由 `scripts/notarize-and-staple-macos-release-dmg.sh` 单独提交到同一个服务，只有返回 `Accepted` 才允许装订票据。之后验证身份、代码签名完整性（含 `pi-desktop-host-core`）、Gatekeeper `Notarized Developer ID` 以及两份已装订票据，再进行任何工件上传。
+macOS ZIP 在安装包根目录包含以产品名命名的应用包。DMG 和 ZIP 都不附带打开说明或首次启动命令助手。配置签名时标签发布工件会签名并公证；ad-hoc 通道首次启动会被 Gatekeeper 拦截，处理方式同上。
 
 DMG、ZIP、NSIS、AppImage、deb、rpm、块图和更新程序提要输出已
 压缩或压缩不敏感。因此，工作流程会上传它们的
@@ -241,19 +244,28 @@ https://cnb.cool/aixk/Pi-Desktop 拉取的用户使用。
 若 CNB 流水线幂等，对同一标签重跑是安全的。它不会重新构建桌面产物，
 也不会改写 electron-updater 更新源。
 
-### 4.5 GitHub Actions 中的 macOS 签名密钥
+### 4.5 macOS 签名配置
 
-在 GitHub → 仓库 `vastsa/PI-Desktop` → Settings → Secrets and variables →
-Actions 中创建下列密钥。不要把 p12、密码、Apple ID 或应用专用密码提交进仓库。
+可选。发布流水线会探测这套配置是否存在：全部存在时 macOS 通道签名并公证；全部不存在时该通道改为 ad-hoc 签名并告警；只存在**一部分**时整个运行在任何构建开始前失败，因此半配置的仓库绝不可能悄悄发出更弱的产物。
+
+在 GitHub → 仓库 → Settings → Secrets and variables → Actions → **Secrets** 中创建下列密钥。不要把 p12、密码、Apple ID 或应用专用密码提交进仓库。
 不要在 CI 中 `echo` 这些值。
 
 | Secret | Value |
 |---|---|
 | `CSC_LINK` | 导出的 Developer ID Application `.p12`（证书+私钥）的 Base64。electron-builder 也接受文件路径，但 CI 使用 Secret 正文。 |
 | `CSC_KEY_PASSWORD` | 导出该 `.p12` 时设置的密码 |
-| `APPLE_ID` | 属于团队 `DUV63RKYTW` 的 Apple ID 邮箱 |
+| `APPLE_ID` | 属于该证书团队的 Apple ID 邮箱 |
 | `APPLE_APP_SPECIFIC_PASSWORD` | 来自 https://appleid.apple.com → Sign-In and Security → App-Specific Passwords 的应用专用密码 |
-| `APPLE_TEAM_ID` | `DUV63RKYTW` |
+| `APPLE_TEAM_ID` | 持有该证书的十位 Apple Developer 团队 ID |
+
+证书的通用名放在同一页面的 **Variables** 标签下，而不是作为 secret：它是公开信息，流水线会把它作为 `CSC_NAME` 交给 electron-builder。
+
+| Variable | Value |
+|---|---|
+| `MAC_SIGNING_IDENTITY` | 裸证书通用名，例如 `Example Signer (ABCDE12345)`。带 `Developer ID Application:` 前缀也会被接受并自动去掉；electron-builder 本身拒绝带前缀的形式。 |
+
+Developer ID Application 证书需要付费 Apple Developer Program 会员资格。免费 Apple ID 无法为可分发构建签名或公证，因此留空即可，流水线会改为发布 ad-hoc 签名的 macOS 产物。
 
 在本地把 p12 编成 base64（不要把输出贴到聊天或仓库）：
 
@@ -264,16 +276,18 @@ base64 -i developer-id-application.p12 | pbcopy
 Linux 使用 `base64 -w0 developer-id-application.p12`。绝不能进入 git 的文件：
 `*.p12`、`*.cer`、`*.p8`、`*.mobileprovision`。
 
+若要重新关闭签名，请一次性删除以上全部条目——部分保留是硬失败而非回退。
+
 ### 4.6 macOS 签名可观测性与超时
 
 `electron-builder` 在开始签名前只打印一行 —— `signing
-file=release/mac-arm64/PI-Desktop.app platform=darwin type=distribution
+file=release/mac-arm64/QianNing Agent.app platform=darwin type=distribution
 identityName=...` —— 之后直到该阶段结束都没有任何输出。这段时间里隐藏了三种机制，
 现在 macOS 通道把它们全部暴露出来：
 
 | 阶段位置 | 发生什么 | 现在如何可见 |
 |---|---|---|
-| 遍历 | `@electron/osx-sign` 遍历 `PI-Desktop.app/Contents`，收集所有 Mach-O 文件以及嵌套的 `.app` 与 `.framework` 包 | `DEBUG=electron-osx-sign*` 打印 `Walking... <dir>`；`scripts/macos-bundle-inventory.mjs` 在打包结束后打印同一个包的数量 |
+| 遍历 | `@electron/osx-sign` 遍历应用包的 `Contents`，收集所有 Mach-O 文件以及嵌套的 `.app` 与 `.framework` 包 | `DEBUG=electron-osx-sign*` 打印 `Walking... <dir>`；`scripts/macos-bundle-inventory.mjs` 在打包结束后打印同一个包的数量 |
 | 逐文件签名 | `codesign --force --sign <identity> --timestamp --entitlements ... <file>` 串行执行，最深的文件优先，应用包最后签 | `DEBUG=electron-osx-sign*` 打印 `Signing... <file>` 与 `Executing... <file> codesign ...`；codesign shim 记录每次调用的耗时。若钥匙串拒绝把私钥交给被包裹的 `codesign`，可设置 `PI_SIGNING_NO_CODESIGN_SHIM=1` 在不使用 shim 的情况下运行该阶段 |
 | 静默重试 | 一轮签名失败后最多再重试三次，退避 5s/10s/15s，且没有任何日志行 | 看门狗汇总中的 `codesign-calls` 与 `failures` 行会暴露重复的整轮签名 |
 | 应用公证 | `@electron/notarize` 打包 zip、上传并等待 Apple 队列（`mac.notarize=true`） | `DEBUG=electron-notarize*` 打印 `zipping application to`、`attempting to upload file to Apple`、`notarization success`，随后 electron-builder 打印 `notarization successful` |
@@ -322,21 +336,21 @@ override 作用于它。它的 `signApplication()` 对每个文件 `await` 一�
 
 ## 5. 验证门
 
-未签名调试产物（`workflow_dispatch` 且 `sign_macos: false`）不视为通过 Gatekeeper。标签发布必须通过以下签名、公证和装订检查，否则工作流失败。
+未配置签名配置的仓库产出的 ad-hoc 产物不视为通过 Gatekeeper（见 §4.5）。签名标签发布必须通过以下签名、公证和装订检查，否则工作流失败。
 
 存在两次独立的公证提交，因为 Apple 每次公证一个工件，而 electron-builder 只覆盖应用：
 
 | 工件 | 提交方 | 票据 |
 |---|---|---|
-| `PI-Desktop.app`（ZIP 内） | electron-builder `-c.mac.notarize=true` | 由 electron-builder 装订 |
-| `PI-Desktop-<version>-<arch>.dmg` | `scripts/notarize-and-staple-macos-release-dmg.sh`（`notarytool submit --wait`） | 同一脚本在 `status: Accepted` 后装订 |
+| 应用包（ZIP 内） | electron-builder `-c.mac.notarize=true` | 由 electron-builder 装订 |
+| `QianNing-Agent-<version>-<arch>.dmg` | `scripts/notarize-and-staple-macos-release-dmg.sh`（`notarytool submit --wait`） | 同一脚本在 `status: Accepted` 后装订 |
 
 从未提交过的 DMG 没有票据，因此装订会失败并报 `Could not find base64 encoded ticket ... Error 65`。只有在 Apple 返回 `Accepted` 之后才允许重试装订。
 
 每次已签名发布后运行：
 
 ```bash
-for APP in apps/desktop/release/mac-*/PI-Desktop.app; do
+for APP in apps/desktop/release/mac-*/*.app; do
   codesign -dv --verbose=4 "$APP"
   codesign --verify --deep --strict --verbose=2 "$APP"
   spctl --assess --type execute --verbose=4 "$APP"
@@ -486,19 +500,20 @@ Linux:   pnpm --filter @pi-desktop/desktop dist:linux
 Windows 的 `dist:win` 命令会运行 `scripts/build-desktop-release.mjs`，分别调用
 一次 electron-builder 构建 NSIS 和 ZIP，确保每个包写入正确的更新器发行类型标记。
 
-macOS 软件包包括按本机架构构建的 `bin/pi-desktop-host-core`；Windows
-软件包包括 `bin/pi-desktop-host-core.exe`；Linux 包括
-`bin/pi-desktop-host-core`。签名、回滚和安装程序升级资质仍保持发布
+macOS 软件包包括按本机架构构建的 `bin/QianNing-Agent-Host-Core`；Windows
+软件包包括 `bin/QianNing-Agent-Host-Core.exe`；Linux 包括
+`bin/QianNing-Agent-Host-Core`。签名、回滚和安装程序升级资质仍保持发布
 硬化工作；发布本身已在 D126/D285/D603 下启用。
 
 Native-runner 输出矩阵：
 
-- macOS arm64：`PI-Desktop-<version>-arm64.dmg` 和
-  `PI-Desktop-<version>-arm64-mac.zip`
-- macOS Intel x64：`PI-Desktop-<version>-x64.dmg` 和
-  `PI-Desktop-<version>-x64-mac.zip`
-- Windows x64：NSIS 安装程序 `PI-Desktop-Setup-<version>.exe` 和便携版
-  ZIP `PI-Desktop-Portable-<version>.zip`
+- macOS arm64：`QianNing-Agent-<version>-arm64.dmg` 和
+  `QianNing-Agent-<version>-arm64-mac.zip`
+- macOS Intel x64：`QianNing-Agent-<version>-x64.dmg` 和
+  `QianNing-Agent-<version>-x64-mac.zip`
+- Windows x64：NSIS 安装程序 `QianNing-Agent-Setup-<version>.exe`、便携版
+  `QianNing-Agent-Portable-<version>.exe` 和便携版 ZIP
+  `QianNing-Agent-Portable-<version>.zip`
 - Linux x64：AppImage、deb 和 rpm
 - Linux x64 系统 Electron 产物：`QianNing-Agent-<version>-linux-x64.asar`
 

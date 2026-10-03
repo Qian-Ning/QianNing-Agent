@@ -3,7 +3,7 @@
 # ticket. Run after electron-builder produced the DMG.
 #
 # Why this exists: electron-builder's `mac.notarize=true` notarizes the built
-# `PI-Desktop.app` (so the app and the ZIP that carries it pass Gatekeeper and
+# app bundle (so the app and the ZIP that carries it pass Gatekeeper and
 # in-app updates work). The DMG is a separate artifact with its own signature,
 # so it needs its own notarytool submission before it can be stapled. Stapling a
 # DMG that was never submitted fails with:
@@ -13,16 +13,16 @@
 #   The staple and validate action failed! Error 65.
 #
 # Required environment (never echoed, never written to the repo):
-#   APPLE_ID                      Apple ID email in team DUV63RKYTW
+#   APPLE_ID                      Apple ID email that owns the certificate
 #   APPLE_APP_SPECIFIC_PASSWORD   app-specific password for that Apple ID
-#   APPLE_TEAM_ID                 must be DUV63RKYTW
+#   APPLE_TEAM_ID                 the ten-character Apple Developer Team ID
+#                                 that owns that certificate
 #
 # Usage: scripts/notarize-and-staple-macos-release-dmg.sh [release-dir]
 
 set -euo pipefail
 
 RELEASE_DIR="${1:-apps/desktop/release}"
-EXPECTED_TEAM_ID="DUV63RKYTW"
 # The ticket can take a moment to reach the stapler after Apple accepts, but a
 # retry is only legal once the submission returned Accepted. Overridable so
 # tests do not sleep for real.
@@ -34,8 +34,8 @@ if [[ -z "${APPLE_ID:-}" || -z "${APPLE_APP_SPECIFIC_PASSWORD:-}" || -z "${APPLE
   exit 1
 fi
 
-if [[ "$APPLE_TEAM_ID" != "$EXPECTED_TEAM_ID" ]]; then
-  echo "error: APPLE_TEAM_ID must be $EXPECTED_TEAM_ID (got: $APPLE_TEAM_ID)." >&2
+if [[ ! "$APPLE_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]]; then
+  echo "error: APPLE_TEAM_ID must be a ten-character Apple Developer Team ID (got: $APPLE_TEAM_ID)." >&2
   exit 1
 fi
 

@@ -17,8 +17,9 @@ const inventoryScript = fileURLToPath(
   new URL("../../../scripts/macos-bundle-inventory.mjs", import.meta.url),
 );
 
-const SIGNING_IDENTITY_NAME = "XingYu Liu (DUV63RKYTW)";
+const SIGNING_IDENTITY_NAME = "Example Signer (ABCDE12345)";
 const SIGNING_IDENTITY = `Developer ID Application: ${SIGNING_IDENTITY_NAME}`;
+const APPLE_TEAM_ID = "ABCDE12345";
 const NO_IDENTITIES = "  0 valid identities found";
 const MATCHING_IDENTITY = `echo '  1) 0123456789ABCDEF "Developer ID Application: ${SIGNING_IDENTITY_NAME}"'
 echo '     1 valid identities found'`;
@@ -133,7 +134,15 @@ exit 0`,
 function runDiagnostics(bin, { args = [], env = {} } = {}) {
   return spawnSync("bash", [diagnosticsScript, ...args], {
     encoding: "utf8",
-    env: { ...BASE_ENV, PATH: `${bin}:${process.env.PATH}`, ...env },
+    // The identity is configuration, not a script default: without it the
+    // diagnostics skip the Developer ID identity check (covered below), so
+    // every test that expects an identity states which one.
+    env: {
+      ...BASE_ENV,
+      PATH: `${bin}:${process.env.PATH}`,
+      MAC_SIGNING_IDENTITY: SIGNING_IDENTITY_NAME,
+      ...env,
+    },
   });
 }
 
@@ -199,7 +208,7 @@ async function tempRoot(t, prefix) {
  *   Contents/Frameworks/Foo.framework/Versions/A/Foo     mach-o in a framework
  *   Contents/Frameworks/Foo.framework/Versions/Current   symlink to A
  *   Contents/Frameworks/Helper.app/Contents/MacOS/Helper text, nested bundle
- *   Contents/Resources/bin/pi-desktop-host-core          mach-o, executable
+ *   Contents/Resources/bin/QianNing-Agent-Host-Core          mach-o, executable
  *   Contents/Resources/bin/run.sh                        script, executable
  *   Contents/Resources/native.dylib                      text
  *   Contents/Resources/native.node                       text
@@ -216,7 +225,7 @@ async function writeBundleFixture(release) {
     516,
   );
   await writeMachO(
-    join(app, "Contents", "Resources", "bin", "pi-desktop-host-core"),
+    join(app, "Contents", "Resources", "bin", "QianNing-Agent-Host-Core"),
     2052,
   );
   await writeFileWithParents(
@@ -296,6 +305,30 @@ test("diagnostics treat a missing identity as a warning by default", async (t) =
   assert.doesNotMatch(result.stdout, /Developer ID identity available/);
 });
 
+test("diagnostics skip the identity check when no identity is configured", async (t) => {
+  // The release lane runs this before electron-builder imports the
+  // certificate, so an unset identity is a normal state rather than a
+  // misconfiguration, and the snapshot must still be produced.
+  const root = await tempRoot(t, "pi-desktop-signing-no-identity-");
+  const bin = join(root, "bin");
+  await writeDiagnosticsShims(bin, { identities: MATCHING_IDENTITY });
+
+  const result = runDiagnostics(bin, { env: { MAC_SIGNING_IDENTITY: "" } });
+
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.ok(result.stdout.includes("warning: MAC_SIGNING_IDENTITY is not set"), result.stdout);
+  assert.doesNotMatch(result.stdout, /Developer ID identity available/);
+
+  // With no identity to check, --require-identity cannot be satisfied, so it
+  // must fail instead of passing vacuously.
+  const required = runDiagnostics(bin, {
+    args: ["--require-identity"],
+    env: { MAC_SIGNING_IDENTITY: "" },
+  });
+  assert.equal(required.status, 1);
+  assert.match(required.stderr, /--require-identity needs MAC_SIGNING_IDENTITY/);
+});
+
 test("diagnostics refuse to run off macOS", async (t) => {
   const root = await tempRoot(t, "pi-desktop-signing-linux-");
   const bin = join(root, "bin");
@@ -318,7 +351,7 @@ test("diagnostics never echo signing secrets", async (t) => {
       CSC_KEY_PASSWORD: CSC_PASSWORD_SENTINEL,
       APPLE_ID: APPLE_ID_SENTINEL,
       APPLE_APP_SPECIFIC_PASSWORD: APPLE_PASSWORD_SENTINEL,
-      APPLE_TEAM_ID: "DUV63RKYTW",
+      APPLE_TEAM_ID,
     },
   });
 
@@ -367,7 +400,7 @@ test("inventory counts the signing payload of a release directory", async (t) =>
   assert.match(result.stdout, /^top-level-cost: Contents\/MacOS=\d+, Contents\/Resources=\d+$/m);
   assert.match(
     result.stdout,
-    /^slowest-likely: Contents\/MacOS\/PI-Desktop \(4100 bytes\), Contents\/Resources\/bin\/pi-desktop-host-core \(2052 bytes\)$/m,
+    /^slowest-likely: Contents\/MacOS\/PI-Desktop \(4100 bytes\), Contents\/Resources\/bin\/QianNing-Agent-Host-Core \(2052 bytes\)$/m,
   );
   assert.match(result.stdout, /^warning: non-Mach-O regular file in Contents\/Resources\/bin: Contents\/Resources\/bin\/run\.sh$/m);
 
@@ -444,7 +477,7 @@ test("inventory does not double count native-extension files as binary resources
   // A `.dylib` and a `.node` that happen to look binary are already reported by
   // their own counters, so only the `.dat` may raise `binary-resources`.
   await writeMachO(
-    join(app, "Contents", "Resources", "bin", "pi-desktop-host-core"),
+    join(app, "Contents", "Resources", "bin", "QianNing-Agent-Host-Core"),
     256,
   );
   await writeBinaryResource(
