@@ -649,14 +649,24 @@ Its exemptions are enumerated with reasons rather than left silent:
   maintainer decision recorded as a known gap: it is checked by the guard *and*
   allowed there, so removing the allowance fails `pnpm lint`.
 
-Two boundaries stay open by design. The family rule is a fixed list, not every
+Two boundaries stay narrow by design. The family rule is a fixed list, not every
 selector in the renderer, so it catches a regression in a migrated surface but
-not a brand-new literal on a selector nobody has reviewed. And the guard is
-static text: it cannot see a cascade conflict between two token-reading rules
-(#339's root cause). Both are why the rendered checks in
-`pnpm test:e2e:theme-surfaces` remain necessary — that probe compares the built
-paint of every migrated surface against values sampled from the pre-change app,
-so a token whose default is not exactly the old literal fails there. Keep the
+not a brand-new literal on a selector nobody has reviewed. And the guard reads
+static text, so it settles the cascade between two token-reading rules instead
+of rendering it: for the affordance-bearing states (`:disabled`, `:checked`,
+`:focus-visible`, `:focus-within`) a theme-qualified rule wins the state's
+element by one attribute of specificity, so `:root[data-theme="light"] .x`
+(0,3,0) outranks `.x:disabled` (0,2,0) and the state stops painting. The theme
+must therefore carry a state-qualified companion or exclude the state
+(`:not(:disabled)`); `pnpm lint` fails on the missing companion, and it compares
+the whole stylesheet set rather than one partial at a time, so a theme rule in
+one partial is judged against state rules in every other. `:hover` and `:active`
+ink drift stays outside the guard: this tree holds deliberate theme-level
+`!important` ink pins on hover, so judging those is a design pass rather than a
+mechanical one. The rendered checks in `pnpm test:e2e:theme-surfaces` remain
+necessary regardless — that probe compares the built paint of every migrated
+surface against values sampled from the pre-change app, so a token whose default
+is not exactly the old literal fails there. Keep the
 light-qualified `.tool-row-content` rule that probe pins: at (0,3,0) it
 out-specifies `.tool-row-content.is-error` and ties with
 `.tool-block.is-plain .tool-row-content`, so dropping it would tint error output
