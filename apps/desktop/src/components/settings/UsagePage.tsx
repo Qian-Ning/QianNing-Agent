@@ -1,7 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { useTranslation } from "react-i18next";
 import type {
   ProviderPublic,
+  TokenUsageBucket,
+  TokenUsageHistoryItem,
   TokenUsageHistoryResult,
   UsageBreakdownResult,
 } from "@pi-desktop/shared";
@@ -69,30 +78,131 @@ function formatPercent(ratio: number): string {
   return `${(ratio * 100).toFixed(1)}%`;
 }
 
+/** Thousands-separated exact count, for the numbers a user reads off a panel. */
+function nf(value: number): string {
+  return value.toLocaleString();
+}
+
 function formatDuration(ms: number): string {
   if (ms <= 0) return "—";
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+/** Axis tick for a bucket key: `14:00` for an hour, `10-03` for a day. */
+function bucketTick(date: string, bucket: TokenUsageBucket): string {
+  if (bucket === "hour") return `${date.slice(11, 13)}:00`;
+  return date.slice(5);
+}
+
 /**
- * Hand-drawn dual-series trend (input / output lines over a cache-read area),
- * grayscale to match the app theme. Drawn as inline SVG so no chart library is
- * pulled in. Renders a baseline when a range has a single bucket (e.g. today).
+ * One bucket's token mix as a single stacked bar.
+ *
+ * A range that resolves to one point has no trend to draw, and a lone dot in an
+ * empty frame reads as a rendering bug rather than as a number. The composition
+ * of that one slice is the honest thing to show.
+ */
+function BucketComposition({
+  item,
+  bucket,
+  labels,
+}: {
+  item: TokenUsageHistoryItem;
+  bucket: TokenUsageBucket;
+  labels: { input: string; output: string; cache: string };
+}) {
+  const { t } = useTranslation();
+  const total = item.totalTokens;
+  const rows = [
+    { key: "in", label: labels.input, value: item.inputTokens, cls: "usage-seg-input" },
+    { key: "out", label: labels.output, value: item.outputTokens, cls: "usage-seg-output" },
+    {
+      key: "cw",
+      label: t("settings.usageStats.miCacheWrite"),
+      value: item.cacheWriteTokens,
+      cls: "usage-seg-cache-write",
+    },
+    {
+      key: "cr",
+      label: labels.cache,
+      value: item.cacheReadTokens,
+      cls: "usage-seg-cache-read",
+    },
+  ];
+  const shown = rows.filter((row) => row.value > 0);
+
+  return (
+    <div className="usage-compose">
+      <div className="usage-compose-h">
+        <span className="usage-compose-bucket">{bucketTick(item.date, bucket)}</span>
+        <span className="usage-compose-total">
+          {nf(total)}
+          <small>≈ {formatCompactTokenCount(total)}</small>
+        </span>
+      </div>
+      <div
+        className="usage-compose-bar"
+        role="img"
+        aria-label={`${labels.input} / ${labels.output} / ${labels.cache}`}
+      >
+        {shown.length ? (
+          shown.map((row) => (
+            <span
+              key={row.key}
+              className={`usage-compose-seg ${row.cls}`}
+              style={{ flexGrow: row.value }}
+              title={`${row.label} ${nf(row.value)}`}
+            />
+          ))
+        ) : (
+          <span className="usage-compose-seg usage-compose-seg-empty" />
+        )}
+      </div>
+      <div className="usage-compose-legend">
+        {rows.map((row) => (
+          <span key={row.key} className="usage-compose-item">
+            <i className={`usage-swatch ${row.cls}`} />
+            <span className="usage-compose-item-k">{row.label}</span>
+            <b className="usage-compose-item-v">{nf(row.value)}</b>
+            <em className="usage-compose-item-p">
+              {total > 0 ? formatPercent(row.value / total) : "—"}
+            </em>
+          </span>
+        ))}
+      </div>
+      <div className="usage-compose-foot">
+        {t("settings.usageStats.singleBucketNote", { count: item.turnCount })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Hand-drawn trend (input / output lines over a cache-read area), grayscale to
+ * match the app theme. Drawn as inline SVG so no chart library is pulled in.
+ *
+ * The readout above the plot follows the pointer and falls back to the peak
+ * bucket, so the panel names real numbers before anyone hovers. A range that
+ * collapses to a single bucket renders as a composition bar instead.
  */
 function TrendChart({
   items,
+  bucket,
   labels,
 }: {
   items: TokenUsageHistoryResult["items"];
+  bucket: TokenUsageBucket;
   labels: { input: string; output: string; cache: string };
 }) {
+  const { t } = useTranslation();
+  const [hover, setHover] = useState<number | null>(null);
+
   const W = 720;
-  const H = 220;
-  const PL = 8;
-  const PR = 8;
-  const PT = 14;
-  const PB = 24;
+  const H = 208;
+  const PL = 46;
+  const PR = 12;
+  const PT = 12;
+  const PB = 26;
 
   const n = items.length;
   const maxV = Math.max(
@@ -100,9 +210,10 @@ function TrendChart({
     ...items.map((it) => Math.max(it.inputTokens, it.outputTokens, it.cacheReadTokens)),
   );
   const ceil = maxV * 1.15;
-  const sx = (i: number) => (n <= 1 ? W / 2 : PL + (W - PL - PR) * (i / (n - 1)));
+  const sx = (i: number) =>
+    n <= 1 ? PL + (W - PL - PR) / 2 : PL + (W - PL - PR) * (i / (n - 1));
   const sy = (v: number) => PT + (H - PT - PB) * (1 - v / ceil);
-  const pts = (pick: (it: TokenUsageHistoryResult["items"][number]) => number) =>
+  const pts = (pick: (it: TokenUsageHistoryItem) => number) =>
     items.map((it, i) => [sx(i), sy(pick(it))] as const);
   const toLine = (p: readonly (readonly [number, number])[]) =>
     p.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
@@ -115,34 +226,95 @@ function TrendChart({
   const outputPts = pts((it) => it.outputTokens);
   const cachePts = pts((it) => it.cacheReadTokens);
 
+  if (n === 0) {
+    return <div className="usage-chart-empty">{t("settings.usageStats.empty")}</div>;
+  }
+  if (n === 1) {
+    return <BucketComposition item={items[0]} bucket={bucket} labels={labels} />;
+  }
+
+  const peakIdx = items.reduce(
+    (best, it, i) => (it.totalTokens > items[best].totalTokens ? i : best),
+    0,
+  );
+  const focusIdx = hover ?? peakIdx;
+  const focus = items[focusIdx];
+  const activeCount = items.filter((it) => it.turnCount > 0).length;
+  const peakTotal = items[peakIdx].totalTokens;
+  const activeAvg =
+    activeCount > 0
+      ? items.reduce((sum, it) => sum + it.totalTokens, 0) / activeCount
+      : 0;
+
+  // Pointing at the plot selects the nearest bucket, so the readout always
+  // describes something the reader is actually looking at.
+  const onMove = (event: ReactMouseEvent<SVGSVGElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (!rect.width) return;
+    const x = ((event.clientX - rect.left) / rect.width) * W;
+    const ratio = (x - PL) / (W - PL - PR);
+    const idx = Math.round(ratio * (n - 1));
+    setHover(Math.min(n - 1, Math.max(0, idx)));
+  };
+
   const grid = [0, 1, 2, 3, 4].map((i) => {
     const y = PT + (H - PT - PB) * (i / 4);
-    return (
-      <line
-        key={i}
-        x1={PL}
-        y1={y}
-        x2={W - PR}
-        y2={y}
-        className="usage-chart-grid"
-        strokeDasharray="3 4"
-      />
-    );
+    return { y, value: ceil * (1 - i / 4) };
   });
 
-  // Show at most ~8 x labels so a 30-day range does not crowd.
+  // Show at most ~8 x labels so a 30-bucket range does not crowd.
   const step = Math.max(1, Math.ceil(n / 8));
+  const peakX = sx(peakIdx);
+  const peakY = sy(items[peakIdx].totalTokens);
+  const peakAnchor = peakX < PL + 48 ? "start" : peakX > W - PR - 48 ? "end" : "middle";
 
   return (
     <div className="usage-chartwrap">
+      <div className="usage-chart-readout">
+        <span className="usage-chart-readout-k">{bucketTick(focus.date, bucket)}</span>
+        <span className="usage-chart-readout-i">
+          <i className="usage-swatch usage-swatch-input" />
+          {nf(focus.inputTokens)}
+        </span>
+        <span className="usage-chart-readout-i">
+          <i className="usage-swatch usage-swatch-output" />
+          {nf(focus.outputTokens)}
+        </span>
+        <span className="usage-chart-readout-i">
+          <i className="usage-swatch usage-swatch-cache" />
+          {nf(focus.cacheReadTokens)}
+        </span>
+        <span className="usage-chart-readout-total">
+          {t("settings.usageStats.readoutTotal")} {nf(focus.totalTokens)}
+        </span>
+        <span className="usage-chart-readout-turns">
+          {t("settings.usageStats.readoutTurns", { count: focus.turnCount })}
+        </span>
+      </div>
       <svg
         className="usage-chart"
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
         role="img"
         aria-label={`${labels.input} / ${labels.output}`}
+        onMouseMove={onMove}
+        onMouseLeave={() => setHover(null)}
       >
-        {grid}
+        {grid.map(({ y, value }, i) => (
+          <g key={i}>
+            <line
+              x1={PL}
+              y1={y}
+              x2={W - PR}
+              y2={y}
+              className="usage-chart-grid"
+              strokeDasharray="3 4"
+            />
+            <text x={PL - 8} y={y + 3} className="usage-chart-ylabel" textAnchor="end">
+              {formatCompactTokenCount(Math.round(value))}
+            </text>
+          </g>
+        ))}
         {cachePts.length > 1 && <path d={toArea(cachePts)} className="usage-series-cache-fill" />}
         {cachePts.length > 1 && (
           <path d={toLine(cachePts)} className="usage-series-cache-line" fill="none" />
@@ -153,13 +325,50 @@ function TrendChart({
         {inputPts.length > 1 && (
           <path d={toLine(inputPts)} className="usage-series-input" fill="none" />
         )}
-        {inputPts.map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r={n <= 1 ? 3.4 : 2.6} className="usage-series-input-dot" />
+        {hover !== null && (
+          <line
+            x1={sx(hover)}
+            y1={PT}
+            x2={sx(hover)}
+            y2={H - PB}
+            className="usage-chart-guide"
+          />
+        )}
+        {cachePts.map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r={2} className="usage-series-cache-dot" />
         ))}
+        {outputPts.map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r={2.2} className="usage-series-output-dot" />
+        ))}
+        {inputPts.map(([x, y], i) => (
+          <circle
+            key={i}
+            cx={x}
+            cy={y}
+            r={i === focusIdx ? 3.6 : 2.6}
+            className="usage-series-input-dot"
+          />
+        ))}
+        <text
+          x={peakX}
+          y={Math.max(PT + 9, peakY - 9)}
+          className="usage-chart-peaklabel"
+          textAnchor={peakAnchor}
+        >
+          {t("settings.usageStats.peakMarker", {
+            value: formatCompactTokenCount(peakTotal),
+          })}
+        </text>
         {items.map((it, i) =>
           i % step === 0 || i === n - 1 ? (
-            <text key={i} x={sx(i)} y={H - 6} className="usage-chart-xlabel" textAnchor="middle">
-              {it.date.slice(5)}
+            <text
+              key={i}
+              x={sx(i)}
+              y={H - 8}
+              className="usage-chart-xlabel"
+              textAnchor="middle"
+            >
+              {bucketTick(it.date, bucket)}
             </text>
           ) : null,
         )}
@@ -178,6 +387,27 @@ function TrendChart({
           {labels.cache}
         </span>
       </div>
+      <div className="usage-chart-stats">
+        <div className="usage-chart-stat">
+          <span className="usage-chart-stat-k">{t("settings.usageStats.statPeak")}</span>
+          <span className="usage-chart-stat-v">{formatCompactTokenCount(peakTotal)}</span>
+          <span className="usage-chart-stat-s">{bucketTick(items[peakIdx].date, bucket)}</span>
+        </div>
+        <div className="usage-chart-stat">
+          <span className="usage-chart-stat-k">{t("settings.usageStats.statAverage")}</span>
+          <span className="usage-chart-stat-v">{formatCompactTokenCount(Math.round(activeAvg))}</span>
+          <span className="usage-chart-stat-s">
+            {t("settings.usageStats.statAverageNote")}
+          </span>
+        </div>
+        <div className="usage-chart-stat">
+          <span className="usage-chart-stat-k">{t("settings.usageStats.statActive")}</span>
+          <span className="usage-chart-stat-v">
+            {activeCount} / {n}
+          </span>
+          <span className="usage-chart-stat-s">{t("settings.usageStats.statActiveNote")}</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -194,6 +424,10 @@ export function UsagePage() {
   const [failed, setFailed] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [showPricing, setShowPricing] = useState(false);
+
+  // "Today" is an intraday question, and one daily bucket cannot show a trend —
+  // it asks the host to bucket by hour instead. Wider windows stay daily.
+  const bucket: TokenUsageBucket = range === "today" ? "hour" : "day";
 
   const providerById = useMemo(() => {
     const map = new Map<string, ProviderPublic>();
@@ -227,7 +461,7 @@ export function UsagePage() {
           modelId: modelFilter || undefined,
         };
         const [hist, brk] = await Promise.all([
-          api.getTokenUsageHistory({ startDate, endDate, bucket: "day" }),
+          api.getTokenUsageHistory({ startDate, endDate, bucket }),
           api.getUsageBreakdown({ ...query, recentLimit: 100 }),
         ]);
         if (cancelled) return;
@@ -242,7 +476,7 @@ export function UsagePage() {
     return () => {
       cancelled = true;
     };
-  }, [range, providerFilter, modelFilter, reloadNonce]);
+  }, [range, bucket, providerFilter, modelFilter, reloadNonce]);
 
   const totals = history?.totals;
   const totalTokens = totals?.totalTokens ?? 0;
@@ -285,14 +519,17 @@ export function UsagePage() {
     return opts;
   }, [breakdown, t]);
 
+  // A host that predates the hourly bucket normalises the request back to
+  // `day`, so label and format the plot from the bucket it reports having
+  // returned rather than from the one we asked for.
+  const shownBucket: TokenUsageBucket = history?.bucket ?? bucket;
+
   const rangeLabel =
     range === "today"
       ? t("settings.usageStats.rangeToday")
       : range === "7d"
         ? t("settings.usageStats.range7d")
         : t("settings.usageStats.range30d");
-
-  const nf = (value: number) => value.toLocaleString();
 
   if (showPricing) {
     return <ModelPricingEditor onBack={() => {
@@ -419,11 +656,15 @@ export function UsagePage() {
             <div className="usage-card-h">
               <div className="usage-card-t">{t("settings.usageStats.trendTitle")}</div>
               <div className="usage-card-r">
-                {rangeLabel} · {t("settings.usageStats.trendDaily")}
+                {rangeLabel} ·{" "}
+                {shownBucket === "hour"
+                  ? t("settings.usageStats.trendHourly")
+                  : t("settings.usageStats.trendDaily")}
               </div>
             </div>
             <TrendChart
               items={history?.items ?? []}
+              bucket={shownBucket}
               labels={{
                 input: t("settings.usageStats.legendInput"),
                 output: t("settings.usageStats.legendOutput"),

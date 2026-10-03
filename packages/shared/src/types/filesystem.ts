@@ -46,7 +46,7 @@ export type FsIndexResult = {
   truncated: boolean;
 };
 
-export type TokenUsageBucket = "day" | "week" | "month";
+export type TokenUsageBucket = "hour" | "day" | "week" | "month";
 
 export type TokenUsageHistoryItem = {
   date: string;

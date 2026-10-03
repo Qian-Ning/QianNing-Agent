@@ -192,6 +192,192 @@
   background: var(--ds-border-strong);
 }
 
+/*
+ * The four token kinds as a tonal ramp. Grayscale keeps the page consistent
+ * with the app accent; the swatch and the composition segment share the rule so
+ * a legend entry and the bar it names cannot drift apart.
+ */
+.usage-seg-input {
+  background: var(--ds-text-primary);
+}
+.usage-seg-output {
+  background: var(--ds-text-muted);
+}
+.usage-seg-cache-read {
+  background: var(--ds-border-strong);
+}
+.usage-seg-cache-write {
+  background: var(--ds-text-faint);
+}
+
+/* Readout strip above the plot: names the focused bucket's exact numbers. */
+.usage-chart-readout {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  min-height: 22px;
+  margin-bottom: 6px;
+  font-size: var(--text-xs-plus);
+  color: var(--ds-text-secondary);
+}
+.usage-chart-readout-k {
+  font-weight: var(--font-weight-semibold);
+  color: var(--ds-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.usage-chart-readout-i {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.usage-chart-readout-total {
+  margin-left: auto;
+  padding: 2px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--ds-bg-tertiary);
+  color: var(--ds-text-primary);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+.usage-chart-readout-turns {
+  color: var(--ds-text-faint);
+}
+
+.usage-chart-ylabel {
+  fill: var(--ds-text-faint);
+  font-size: var(--text-3xs);
+  font-variant-numeric: tabular-nums;
+}
+.usage-chart-guide {
+  stroke: var(--ds-border-strong);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+.usage-chart-peaklabel {
+  fill: var(--ds-text-secondary);
+  font-size: var(--text-3xs);
+  font-weight: var(--font-weight-medium);
+}
+.usage-series-output-dot {
+  fill: var(--ds-text-muted);
+}
+.usage-series-cache-dot {
+  fill: var(--ds-border-strong);
+}
+
+.usage-chart-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ds-border-subtle);
+}
+.usage-chart-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.usage-chart-stat-k {
+  font-size: var(--text-xs);
+  color: var(--ds-text-faint);
+}
+.usage-chart-stat-v {
+  font-size: var(--text-md-plus);
+  font-weight: var(--font-weight-semibold);
+  color: var(--ds-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.usage-chart-stat-s {
+  font-size: var(--text-3xs);
+  color: var(--ds-text-faint);
+}
+.usage-chart-empty {
+  padding: 46px 0;
+  text-align: center;
+  color: var(--ds-text-muted);
+  font-size: var(--text-sm-plus);
+}
+
+/* Single-bucket composition: what a one-point range shows instead of a dot. */
+.usage-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.usage-compose-h {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.usage-compose-bucket {
+  font-size: var(--text-md-plus);
+  font-weight: var(--font-weight-semibold);
+  color: var(--ds-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.usage-compose-total {
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--ds-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.usage-compose-total small {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--ds-text-faint);
+  margin-left: 6px;
+}
+.usage-compose-bar {
+  display: flex;
+  height: 14px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--ds-bg-tertiary);
+}
+.usage-compose-seg {
+  min-width: 2px;
+}
+.usage-compose-seg-empty {
+  flex: 1;
+  background: var(--ds-border-subtle);
+}
+.usage-compose-legend {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 18px;
+}
+.usage-compose-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-xs-plus);
+  color: var(--ds-text-muted);
+}
+.usage-compose-item-k {
+  color: var(--ds-text-secondary);
+}
+.usage-compose-item-v {
+  color: var(--ds-text-primary);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+.usage-compose-item-p {
+  margin-left: auto;
+  font-style: normal;
+  color: var(--ds-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.usage-compose-foot {
+  padding-top: 10px;
+  border-top: 1px solid var(--ds-border-subtle);
+  font-size: var(--text-xs);
+  color: var(--ds-text-faint);
+}
+
 /* Tables */
 .usage-grid {
   display: grid;
@@ -320,5 +506,14 @@
   }
   .usage-mini {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .usage-chart-stats {
+    grid-template-columns: 1fr;
+  }
+  .usage-compose-legend {
+    grid-template-columns: 1fr;
+  }
+  .usage-chart-readout-total {
+    margin-left: 0;
   }
 }

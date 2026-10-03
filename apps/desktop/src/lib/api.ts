@@ -1395,7 +1395,11 @@ export const api = {
     invoke<{ behavior: CloseBehavior }>(IPC.invoke.closeBehaviorSet, {
       behavior,
     }),
-  getTokenUsageHistory: (query?: { startDate?: number; endDate?: number; bucket?: "day" | "week" | "month" }) =>
+  getTokenUsageHistory: (query?: {
+    startDate?: number;
+    endDate?: number;
+    bucket?: import("@pi-desktop/shared").TokenUsageBucket;
+  }) =>
     invoke<import("@pi-desktop/shared").TokenUsageHistoryResult>(
       IPC.invoke.statsGetTokenUsageHistory,
       query,
