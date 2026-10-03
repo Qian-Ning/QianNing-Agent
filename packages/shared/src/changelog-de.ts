@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.12",
+    "date": "2026-10-02",
+    "highlights": [
+      "Ein fehlgeschlagener oder abgebrochener Zug behält den bereits gestreamten Text, die Überlegungen und die Werkzeugschritte, statt leer zusammenzuklappen, und seine Kopfzeile liest sich als unterbrochen.",
+      "Der Wiederholungsstatus zeigt während der Wartezeit die verbleibende Dauer und meldet danach den laufenden Versuch, statt bei \"in 0 s\" stehen zu bleiben.",
+    ],
+  },
+
+  {
     "version": "0.15.11",
     "date": "2026-10-02",
     "highlights": [

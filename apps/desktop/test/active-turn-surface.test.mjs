@@ -33,6 +33,8 @@ test("active turns show immediate and phase-specific feedback without a progress
   assert.match(transcript, /compactingContext/);
   assert.match(transcript, /recoveringTurn/);
   assert.match(transcript, /retryingModel/);
+  assert.match(transcript, /retryingAttempt/);
+  assert.match(transcript, /delaySeconds > 0/);
   assert.match(transcript, /function runActivityLabel\(/);
   assert.match(transcript, /activity\.error/);
   assert.match(transcript, /run-activity-error-popover message-error/);
@@ -155,6 +157,7 @@ test("active turns show immediate and phase-specific feedback without a progress
     assert.match(catalog, /compactingContext:/);
     assert.match(catalog, /recoveringTurn:/);
     assert.match(catalog, /retryingModel:/);
+    assert.match(catalog, /retryingAttempt:/);
     assert.match(catalog, /waitingForSubagentNamed:/);
     assert.match(catalog, /waitingForSubagents_one:/);
     assert.match(catalog, /waitingForSubagents_other:/);

@@ -55,10 +55,30 @@ while the switch is enabled. One-shot completions keep the bounded budget.
    diagnostics remain as defined by ADR 0091 and ADR 0128.
 4. The active-turn retry status uses the current `retryDelayMs` and `since` to
    render a whole-second countdown and shows the shared budget, for example
-   `Retrying in 0s · attempt 9/10`. It remains a compact status row and does
-   not create intermediate transcript errors.
+   `Retrying in 8s · attempt 9/10`. It remains a compact status row and does
+   not create intermediate transcript errors. The countdown describes only the
+   announced backoff: once it reaches zero the row switches to the countdown-
+   free form (`Retrying · attempt 9/10`) while the attempt is in flight, rather
+   than sitting at `Retrying in 0s` for the length of that attempt.
 5. Authentication, model-selection, malformed-request, context, mutation,
    compaction, and other non-provider recovery policies are unchanged.
+
+### Amendment: the countdown ends where the wait ends (2026-10-02)
+
+The runtime announces the retry delay on the `retrying` activity and then
+sleeps for it. Nothing updates that activity again until the next attempt
+either starts streaming or fails, so between those points the row kept
+rendering `retryingModel` with `delaySeconds` floored at `0`. On a throttled
+provider that gap is the bulk of the wait — a single attempt was observed to
+run about fifteen minutes — and a row frozen on `in 0s` for that long reads as
+a hung turn, which is what users reported.
+
+`runActivityLabel` therefore picks between two labels: the existing countdown
+while `retryDelaySeconds(...) > 0`, and a new `chat.retryingAttempt`
+(`Retrying · attempt {{attempt}}/{{maxAttempts}}`) once the backoff has
+elapsed. Backoff schedule, budget, retry classes, activity payload, and
+protocol are unchanged; only the label choice is. This also settles the
+stale-information concern raised against the alternatives below.
 
 ## Consequences
 

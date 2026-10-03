@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
   {
+    version: "0.15.12",
+    date: "2026-10-02",
+    highlights: [
+      "실패하거나 중단된 턴은 이미 스트리밍된 본문, 추론, 도구 단계를 그대로 유지하고 빈 것처럼 접히지 않으며, 머리말이 중단됨으로 표시됩니다.",
+      "재시도 상태는 대기하는 동안 남은 시간을 보여주고, 대기가 끝나면 \"0초 후\"에 멈춰 있지 않고 시도가 진행 중임을 알립니다.",
+    ],
+  },
+
+  {
     "version": "0.15.11",
     "date": "2026-10-02",
     "highlights": [

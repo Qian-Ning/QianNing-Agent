@@ -8,8 +8,9 @@ const read = (path) =>
 const readRoot = (path) =>
   readFile(new URL(`../../../${path}`, import.meta.url), "utf8");
 
-// The message_end projection (including the !event.message.error guard) lives
-// in src/lib/session-transcript.ts since the native side-chat re-keying.
+// The message_end projection (including the failed-turn merge that keeps what a
+// live row already streamed) lives in src/lib/session-transcript.ts since the
+// native side-chat re-keying.
 const readSessionTranscript = () => read("src/lib/session-transcript.ts");
 
 test("provider failures stay in the transcript as structured assistant messages", async () => {
@@ -22,7 +23,12 @@ test("provider failures stay in the transcript as structured assistant messages"
 
   assert.match(runtime, /error:\s*classifiedError,\s*isError:\s*true/);
   assert.match(runtime, /m\.status === "error" \|\| m\.isError \|\| m\.error/);
-  assert.match(sessionTranscript, /!event\.message\.error/);
+  // The renderer keeps the failed row and merges the stream it already showed
+  // into a payload that carries no output of its own.
+  assert.match(sessionTranscript, /function projectMessageEnd/);
+  assert.match(sessionTranscript, /streamedContent/);
+  assert.match(sessionTranscript, /streamedThinking/);
+  assert.match(sessionTranscript, /event\.message\.error/);
   assert.match(store, /assistantErrorMessage\(event\.error\)/);
   assert.match(main, /failed && empty && !event\.message\.error/);
 });

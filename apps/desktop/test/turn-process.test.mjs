@@ -10,6 +10,7 @@ const {
   isLastActivityPart,
   shouldAutoOpenTurnProcess,
   shouldGroupTurnProcess,
+  turnHasError,
   turnProcessTiming,
 } = await import("../src/lib/turn-process.ts");
 
@@ -110,6 +111,30 @@ test("completed turn processes stay closed by default while active failures rema
   assert.equal(shouldAutoOpenTurnProcess("compact", true, false), false);
   assert.equal(shouldAutoOpenTurnProcess("compact", true, true), true);
   assert.equal(shouldAutoOpenTurnProcess("compact", false, true), false);
+});
+
+test("a turn that settled on an error keeps its process open in either mode", () => {
+  assert.equal(shouldAutoOpenTurnProcess("detailed", false, false, true), true);
+  assert.equal(shouldAutoOpenTurnProcess("compact", false, false, true), true);
+  assert.equal(shouldAutoOpenTurnProcess("compact", true, false, true), true);
+  // A successful settle still closes, error or not.
+  assert.equal(shouldAutoOpenTurnProcess("compact", false, false, false), false);
+});
+
+test("turnHasError reads the answer row, not the tool rows", () => {
+  const clean = turn([
+    message("user", "user", "Write chapter 2"),
+    message("intro", "assistant", "planning", { thinking: "Plan" }),
+    message("read", "tool", "failed", { toolName: "Read", toolStatus: "error" }),
+  ]);
+  assert.equal(turnHasError(clean.parts), false);
+
+  const failed = turn([
+    message("user", "user", "Write chapter 2"),
+    message("intro", "assistant", "planning", { thinking: "Plan" }),
+    message("boom", "assistant", "", { status: "error", error: { code: "PROVIDER_RATE_LIMITED" } }),
+  ]);
+  assert.equal(turnHasError(failed.parts), true);
 });
 
 test("the last activity part owns detailed-mode's default-open tool", () => {

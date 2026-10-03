@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "0.15.12",
+    date: "2026-10-02",
+    highlights: [
+      "Başarısız olan veya durdurulan tur, akışa girmiş metni, akıl yürütmeyi ve araç adımlarını artık korur; boş görünmek yerine açık kalır ve başlığı kesildi olarak okunur.",
+      "Yeniden deneme durumu, bekleme sırasında kalan süreyi gösterir; bekleme bitince \"0 sn içinde\" yerine denemenin sürdüğünü bildirir.",
+    ],
+  },
+
+  {
     "version": "0.15.11",
     "date": "2026-10-02",
     "highlights": [

@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "0.15.12",
+    date: "2026-10-02",
+    highlights: [
+      "Um turno que falha ou é interrompido mantém o texto, o raciocínio e os passos de ferramenta já transmitidos em vez de se recolher e parecer vazio, e seu cabeçalho indica interrupção.",
+      "O status de nova tentativa mostra a espera restante durante o recuo e, ao terminar, informa a tentativa em andamento em vez de ficar em \"em 0s\".",
+    ],
+  },
+
+  {
     "version": "0.15.11",
     "date": "2026-10-02",
     "highlights": [

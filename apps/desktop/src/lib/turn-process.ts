@@ -49,6 +49,19 @@ export function hasFailedProcessTool(parts: readonly AssistantTurnPart[]): boole
   );
 }
 
+/**
+ * A turn that settled on a provider/runtime error.
+ *
+ * Distinct from {@link hasFailedProcessTool}: a tool can fail without ending the
+ * turn, and a turn can fail with every tool it ran succeeding (a rate limit or a
+ * silent model ends the run, not a tool result).
+ */
+export function turnHasError(parts: readonly AssistantTurnPart[]): boolean {
+  return parts.some(
+    (part) => part.kind === "message" && Boolean(part.message.error),
+  );
+}
+
 /** Both presentation modes expose the same process hierarchy. */
 export function shouldGroupTurnProcess(mode: ThinkingDisplayMode): boolean {
   return mode === "detailed" || mode === "compact";
@@ -66,13 +79,21 @@ export function isLastActivityPart(
   return false;
 }
 
-/** Active processes open in Detailed; settled processes default closed. */
+/**
+ * Active processes open in Detailed; settled processes default closed.
+ *
+ * A turn that settled on an error is the exception: it keeps its process open,
+ * because the run it shows is the only record of what happened and the answer
+ * row below it is usually empty. The reader can still collapse it — an explicit
+ * choice outranks this default.
+ */
 export function shouldAutoOpenTurnProcess(
   mode: ThinkingDisplayMode,
   isActive: boolean,
   hasToolFailure: boolean,
+  hasTurnError = false,
 ): boolean {
-  return isActive && (mode === "detailed" || hasToolFailure);
+  return hasTurnError || (isActive && (mode === "detailed" || hasToolFailure));
 }
 
 /**

@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-17
-- Amended: 2026-09-27
+- Amended: 2026-10-02
 - Issues: #510, #461
 - Amends: D071, [ADR 0242](0242-delta-only-streaming-updates.md)
 
@@ -40,9 +40,12 @@ segment starts open, then closes on completion only while untouched. Other
 completed ordinary groups start closed. Compact mode starts process and
 ordinary-group disclosures closed, but an untouched active process containing
 any recorded failed or denied tool stays open through later recovery and closes
-on turn completion if still untouched. Compact mode keeps every tool/search
-payload closed and renders no reasoning text or excerpt; it shows only the
-active thinking indicator and omits empty completed thinking-only containers.
+on turn completion if still untouched. A turn that settles on an error is the
+one exception to closing: its untouched process stays open in either mode,
+because the process is then the turn's only record and the answer row below it
+is usually empty. Compact mode keeps every tool/search payload closed and
+renders no reasoning text or excerpt; it shows only the active thinking
+indicator and omits empty completed thinking-only containers.
 
 Detailed mode preserves the leaf default only for the literal final item of the
 last activity group. If that item is an eligible tool-call or hosted-search row,
@@ -87,6 +90,9 @@ delegated child work or treat a failed child as a failed assistant turn.
   literal-final-item leaf default.
 - Compact mode remains the low-detail option: the process is folded, payloads
   stay closed, and reasoning content is suppressed.
+- A turn that ends on an error keeps its process open in either mode and its
+  header reads as interrupted, so the run that just failed stays readable
+  instead of folding away behind a summary line and an empty answer row.
 - Disclosure memory is pane-owned presentation state with stable turn, group,
   and item identities; it is neither a persisted transcript contract nor a
   central workflow-store concern.
@@ -100,6 +106,15 @@ checks and compilation. The linked E2E scenarios describe intended behavior for
 source and design review; no unit, component, integration, browser, Electron, or
 E2E tests are added or run for this amendment. See
 E2E-CHAT-turn-process-and-thinking-display for the synchronized scenario text.
+
 For the 2026-09-27 amendment, `apps/desktop/test/turn-process.test.mjs` covers
 the default selection, and `pnpm test:e2e:transcript-disclosure` exercises
 active-to-completed collapse and user-open retention in real Chromium.
+
+For the 2026-10-02 amendment (a settled error keeps its process open, and a
+failed terminal payload no longer replaces what the stream produced), validation
+is the `apps/desktop` unit tier plus typecheck: `turn-process.test.mjs`,
+`session-transcript.test.mjs` and `native-pi-sessions.test.mjs` cover the new
+defaults and the terminal-projection merge, and the package builds and desktop
+typecheck run clean. No Electron or browser E2E is run for the amendment; the
+synchronized scenario text carries the intended behavior.
