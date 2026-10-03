@@ -271,12 +271,26 @@ test("release matrix packages the fork's Windows, Linux, and macOS lanes", () =>
     "the publish job merges the per-architecture macOS feeds into latest-mac.yml",
   );
   const publishJobForMerge = releaseWorkflowSource.match(/^  publish:\n[\s\S]*$/m)?.[0] ?? "";
+  const checkoutIndex = publishJobForMerge.indexOf("actions/checkout@");
   const mergeIndex = publishJobForMerge.indexOf("Merge the macOS update feed");
   const releaseIndex = publishJobForMerge.indexOf("Create GitHub Release");
   assert.ok(mergeIndex !== -1, "the merge step lives in the publish job");
   assert.ok(
     releaseIndex !== -1 && mergeIndex < releaseIndex,
     "the feed is merged before the release is published",
+  );
+  // The merge runs a repository script, and the publish job's other steps only
+  // need build outputs from download-artifact. Skipping the checkout makes the
+  // merge die on a missing module and publishes a release with no macOS feed —
+  // exactly the failure the merge was added to fix.
+  assert.ok(
+    checkoutIndex !== -1 && checkoutIndex < mergeIndex,
+    "the publish job checks the repository out before running scripts/",
+  );
+  assert.match(
+    releaseWorkflowSource,
+    /^  publish:\n[\s\S]*?actions\/checkout@v7[\s\S]*?actions\/download-artifact@v8/m,
+    "the publish job checks out before downloading artifacts",
   );
 });
 

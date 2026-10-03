@@ -349,7 +349,7 @@ electron-updater 解析 macOS 通道文件名的方式是 `latest` + `-mac`，�
 请求的都是 `latest-mac.yml`；这一点与 Linux（请求 `latest-linux.yml`）和 Windows（请求 `latest.yml`）不同。
 
 由于两个 macOS 通道会下载到同一目录（`merge-multiple: true`），它们不能都写这个名字：每条通道各自发布
-`latest-mac-<arch>.yml`，再由发布作业用 `scripts/merge-mac-update-feed.mjs` 合并成唯一的 `latest-mac.yml`。
+`latest-mac-<arch>.yml`，再由发布作业用 `scripts/merge-mac-update-feed.mjs` 合并成唯一的 `latest-mac.yml`。发布作业会先检出仓库再下载工件：合并步骤执行的是检出里的 `scripts/merge-mac-update-feed.mjs`，而 `actions/download-artifact` 本身只会把构建产物铺到目录里，不检出的话脚本不存在，作业会在模块找不到处直接失败，根本到不了发布步骤。
 合并后的更新源同时列出两个架构，`MacUpdater.filterFilesForArch` 会在 Apple Silicon 上挑选 URL 含 `arm64`
 的那一条。只发布带架构后缀的更新源会让每台 Mac 都拿到 404、检查更新失败，而另外两个平台却正常；合并脚本
 在这种情况会直接让运行失败，而不是发布一份残缺的更新源。

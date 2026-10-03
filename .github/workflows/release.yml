@@ -315,33 +315,36 @@ jobs:
           echo "::warning title=Unsigned macOS artifacts::No Apple Developer signing secrets are configured, so the macOS artifacts are ad-hoc signed and not notarized. Gatekeeper blocks the first launch: users must right-click the app and choose Open, or run: xattr -dr com.apple.quarantine '/Applications/QianNing Agent.app'"
 
       - name: Assert the macOS bundle is ad-hoc signed
-        # The unsigned lane above is the only place `-c.mac.identity=-` is
-        # exercised, and it failed silently once: electron-builder logged
+        # The unsigned lane is the only place `-c.mac.identity=-` is exercised,
+        # and it failed silently once: electron-builder logged
         # `skipped macOS application code signing` while the job still went
-        # green, so a completely unsigned app was published as if it were
-        # ad-hoc signed. Nothing else on the runner checks this, because
+        # green, so a bundle with no signature at all was published as if it
+        # were ad-hoc signed. Nothing else on the runner checks it, because
         # verify-macos-release.sh only runs on the signed lane.
         #
-        # `codesign -dv` prints a `Signature=adhoc` line for an ad-hoc bundle
-        # and NO Signature line at all when nothing was signed, so the
-        # assertion is on that line rather than on the exit status: verifying
-        # an ad-hoc signature succeeds either way.
+        # `codesign -dv` prints `Signature=adhoc` for an ad-hoc bundle and no
+        # `Signature` line at all when nothing was signed, so the assertion is
+        # on that line rather than on the exit status: verifying either one
+        # succeeds. Bundle discovery mirrors verify-macos-release.sh — the app
+        # directory is the electron-builder `productName`, so it is globbed
+        # rather than named.
         if: matrix.platform == 'macos' && needs.macos-signing.outputs.signed != 'true'
         run: |
           set -euo pipefail
-          mapfile -t bundles < <(find apps/desktop/release -maxdepth 2 -name '*.app' -print)
+          shopt -s nullglob
+          bundles=(apps/desktop/release/mac*/*.app)
           if [[ "${#bundles[@]}" -ne 1 ]]; then
-            echo "::error::Expected exactly one .app bundle, found ${#bundles[@]}."
+            echo "::error::Expected exactly one .app bundle under apps/desktop/release/mac*/, found ${#bundles[@]}."
             exit 1
           fi
           bundle="${bundles[0]}"
-          report=$(codesign -dv --verbose=4 "$bundle" 2>&1 || true)
+          report="$(codesign -dv --verbose=4 "$bundle" 2>&1 || true)"
           printf '%s\n' "$report"
-          if grep -q '^Authority=' <<<"$report"; then
-            echo "::error::$bundle carries a Developer ID authority but the signed lane was not selected."
+          if [[ "$report" == *"Authority="* ]]; then
+            echo "::error::$bundle carries a Developer ID authority, but the signed lane was not selected."
             exit 1
           fi
-          if ! grep -q '^Signature=adhoc$' <<<"$report"; then
+          if [[ "$report" != *"Signature=adhoc"* ]]; then
             echo "::error::$bundle is not ad-hoc signed. A missing 'Signature=adhoc' line means the bundle carries no signature at all, which is what a dropped -c.mac.identity=- looks like."
             exit 1
           fi
@@ -616,6 +619,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      # The merge step below runs a repository script, and download-artifact
+      # only materialises build outputs — without a checkout `scripts/` does not
+      # exist and the merge dies on a missing module.
+      - uses: actions/checkout@v7
+
       - uses: actions/download-artifact@v8
         with:
           path: dist

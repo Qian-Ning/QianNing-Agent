@@ -26,20 +26,20 @@
  * uses `files` whenever it is present, so the merged feed sets them from the
  * first entry purely to stay self-consistent.
  *
- * Exits non-zero on: no feed found, a malformed entry, a duplicate file URL, or
- * two feeds whose `version` disagrees — a release that mixes versions is a build
- * error, not something to paper over.
+ * Refuses to publish on: no feed found, a malformed entry, a duplicate file
+ * URL, or two feeds whose `version` disagrees — a release that mixes versions is
+ * a build error, not something to paper over. The checks live in exported
+ * functions so `apps/desktop/test/mac-update-feed.test.mjs` can exercise them
+ * without spawning a process.
  */
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
-const dir = process.argv[2] ?? "dist";
-const archFeedPattern = /^latest-mac-(.+)\.yml$/;
+const ARCH_FEED_PATTERN = /^latest-mac-(.+)\.yml$/;
 
-function fail(message) {
-  console.error(`merge-mac-update-feed: ${message}`);
-  process.exit(1);
-}
+/** A build-state problem worth failing the release for. */
+export class MacFeedError extends Error {}
 
 /** Unwrap the single-quoted scalars electron-builder emits. */
 function scalar(text) {
@@ -53,13 +53,17 @@ function scalar(text) {
  * dependency here would have to be a real one rather than a hoisted transitive
  * package that could vanish on the next install.
  */
-function parseFeed(source, name) {
+export function parseMacFeed(source, name) {
   const files = [];
   let version;
   let feedPath;
   let sha512;
   let releaseDate;
   let current = null;
+
+  const bad = (message) => {
+    throw new MacFeedError(`${name}: ${message}`);
+  };
 
   for (const raw of source.split(/\r?\n/)) {
     if (raw.trim() === "" || raw.trimStart().startsWith("#")) continue;
@@ -69,7 +73,7 @@ function parseFeed(source, name) {
     if (indent === 0) {
       current = null;
       const colon = line.indexOf(":");
-      if (colon === -1) fail(`${name}: unparsable line "${line}"`);
+      if (colon === -1) bad(`unparsable line "${line}"`);
       const key = line.slice(0, colon);
       const value = scalar(line.slice(colon + 1).trim());
       switch (key) {
@@ -86,10 +90,10 @@ function parseFeed(source, name) {
           releaseDate = value;
           break;
         case "files":
-          if (value !== "") fail(`${name}: expected "files:" to start a list`);
+          if (value !== "") bad('expected "files:" to start a list');
           break;
         default:
-          fail(`${name}: unexpected top-level key "${key}"`);
+          bad(`unexpected top-level key "${key}"`);
       }
       continue;
     }
@@ -101,74 +105,127 @@ function parseFeed(source, name) {
       const rest = itemMatch[1].trim();
       if (rest !== "") {
         const colon = rest.indexOf(":");
-        if (colon === -1) fail(`${name}: unparsable list item "${rest}"`);
+        if (colon === -1) bad(`unparsable list item "${rest}"`);
         current[rest.slice(0, colon)] = scalar(rest.slice(colon + 1).trim());
       }
       continue;
     }
 
-    if (current === null) fail(`${name}: item key outside of a list item: "${line}"`);
+    if (current === null) bad(`item key outside of a list item: "${line}"`);
     const colon = line.indexOf(":");
-    if (colon === -1) fail(`${name}: unparsable item line "${line}"`);
+    if (colon === -1) bad(`unparsable item line "${line}"`);
     const key = line.slice(0, colon);
     if (key !== "url" && key !== "sha512" && key !== "size") {
-      fail(`${name}: unexpected file key "${key}"`);
+      bad(`unexpected file key "${key}"`);
     }
     current[key] = scalar(line.slice(colon + 1).trim());
   }
 
-  if (!version) fail(`${name}: no version`);
-  if (files.length === 0) fail(`${name}: no files`);
+  if (!version) bad("no version");
+  if (files.length === 0) bad("no files");
   for (const file of files) {
-    if (!file.url) fail(`${name}: a file entry has no url`);
-    if (!file.sha512) fail(`${name}: ${file.url} has no sha512`);
-    if (!file.size) fail(`${name}: ${file.url} has no size`);
+    if (!file.url) bad("a file entry has no url");
+    if (!file.sha512) bad(`${file.url} has no sha512`);
+    if (!file.size) bad(`${file.url} has no size`);
+    // YAML gives a consumer a number here, so model it the same way; a feed
+    // whose size is not a positive integer is corrupt and must not ship.
+    const size = Number(file.size);
+    if (!Number.isInteger(size) || size <= 0) {
+      bad(`${file.url} has a non-numeric size "${file.size}"`);
+    }
+    file.size = size;
   }
   return { version, path: feedPath, sha512, files, releaseDate };
 }
 
-const names = readdirSync(dir).filter((name) => archFeedPattern.test(name));
-if (names.length === 0) {
-  fail(`no latest-mac-<arch>.yml under ${dir}; refusing to publish without a macOS feed`);
-}
-
-const feeds = names
-  .map((name) => ({ arch: archFeedPattern.exec(name)[1], name }))
-  .sort((a, b) => a.arch.localeCompare(b.arch))
-  .map(({ arch, name }) => ({ arch, name, ...parseFeed(readFileSync(path.join(dir, name), "utf8"), name) }));
-
-const { version } = feeds[0];
-for (const feed of feeds) {
-  if (feed.version !== version) {
-    fail(`${feed.name} declares version ${feed.version}, but ${feeds[0].name} declares ${version}`);
+/**
+ * Read every `latest-mac-<arch>.yml` in `dir` and return the feed
+ * electron-updater expects as `latest-mac.yml`. Throws `MacFeedError` when the
+ * directory cannot produce a trustworthy feed.
+ */
+export function buildMacUpdateFeed(dir) {
+  const names = readdirSync(dir).filter((name) => ARCH_FEED_PATTERN.test(name));
+  if (names.length === 0) {
+    throw new MacFeedError(
+      `no latest-mac-<arch>.yml under ${dir}; refusing to publish without a macOS feed`,
+    );
   }
-}
 
-const mergedFiles = [];
-for (const feed of feeds) {
-  for (const file of feed.files) {
-    if (mergedFiles.some((existing) => existing.url === file.url)) {
-      fail(`${file.url} appears in more than one feed`);
+  const feeds = names
+    .map((name) => ({ arch: ARCH_FEED_PATTERN.exec(name)[1], name }))
+    .sort((a, b) => a.arch.localeCompare(b.arch))
+    .map(({ arch, name }) => ({
+      arch,
+      name,
+      ...parseMacFeed(readFileSync(path.join(dir, name), "utf8"), name),
+    }));
+
+  const version = feeds[0].version;
+  for (const feed of feeds) {
+    if (feed.version !== version) {
+      throw new MacFeedError(
+        `${feed.name} declares version ${feed.version}, but ${feeds[0].name} declares ${version}`,
+      );
     }
-    mergedFiles.push(file);
+  }
+
+  const files = [];
+  for (const feed of feeds) {
+    for (const file of feed.files) {
+      if (files.some((existing) => existing.url === file.url)) {
+        throw new MacFeedError(`${file.url} appears in more than one feed`);
+      }
+      files.push(file);
+    }
+  }
+
+  const releaseDate = feeds
+    .map((feed) => feed.releaseDate)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+
+  return { version, files, releaseDate, arches: feeds.map((feed) => feed.arch) };
+}
+
+/** Render the merged feed as the YAML electron-builder would have written. */
+export function renderMacUpdateFeed(feed) {
+  const lines = [`version: ${feed.version}`, "files:"];
+  for (const file of feed.files) {
+    lines.push(`  - url: ${file.url}`);
+    lines.push(`    sha512: ${file.sha512}`);
+    lines.push(`    size: ${file.size}`);
+  }
+  const primary = feed.files[0];
+  lines.push(`path: ${primary.url}`);
+  lines.push(`sha512: ${primary.sha512}`);
+  if (feed.releaseDate) lines.push(`releaseDate: '${feed.releaseDate}'`);
+  lines.push("");
+  return lines.join("\n");
+}
+
+/** Build and write `latest-mac.yml`; returns the merged feed. */
+export function mergeMacUpdateFeeds(dir) {
+  const feed = buildMacUpdateFeed(dir);
+  writeFileSync(path.join(dir, "latest-mac.yml"), renderMacUpdateFeed(feed));
+  return feed;
+}
+
+function main() {
+  const dir = process.argv[2] ?? "dist";
+  try {
+    const feed = mergeMacUpdateFeeds(dir);
+    console.log(
+      `merge-mac-update-feed: wrote latest-mac.yml from ${feed.arches.join(" + ")} ` +
+        `(version ${feed.version}, ${feed.files.length} files)`,
+    );
+  } catch (error) {
+    if (!(error instanceof MacFeedError)) throw error;
+    console.error(`merge-mac-update-feed: ${error.message}`);
+    process.exit(1);
   }
 }
 
-const lines = [`version: ${version}`, "files:"];
-for (const file of mergedFiles) {
-  lines.push(`  - url: ${file.url}`);
-  lines.push(`    sha512: ${file.sha512}`);
-  lines.push(`    size: ${file.size}`);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
 }
-const primary = mergedFiles[0];
-lines.push(`path: ${primary.url}`);
-lines.push(`sha512: ${primary.sha512}`);
-const releaseDate = feeds.map((feed) => feed.releaseDate).filter(Boolean).sort().at(-1);
-if (releaseDate) lines.push(`releaseDate: '${releaseDate}'`);
-lines.push("");
-
-writeFileSync(path.join(dir, "latest-mac.yml"), lines.join("\n"));
-console.log(
-  `merge-mac-update-feed: wrote latest-mac.yml from ${feeds.map((feed) => feed.arch).join(" + ")} ` +
-    `(version ${version}, ${mergedFiles.length} files)`,
-);

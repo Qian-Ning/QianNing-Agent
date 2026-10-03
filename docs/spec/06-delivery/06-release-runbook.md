@@ -505,6 +505,12 @@ Apple Silicon. Publishing only the arch-suffixed feeds leaves every Mac with a
 404 and a failed update check while the other two platforms work, and the merge
 script fails the run rather than publishing an incomplete feed.
 
+The publish job checks out the repository before it downloads artifacts: the
+merge runs `scripts/merge-mac-update-feed.mjs` from the checkout, and
+`actions/download-artifact` on its own only materialises build outputs, so the
+script would be missing and the job would die on a module-not-found before
+reaching the release step.
+
 ## 5. Verification gates
 
 Ad-hoc artifacts from a repository without signing configuration (§ 4.3) are
