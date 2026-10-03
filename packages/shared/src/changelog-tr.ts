@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "0.15.17",
+    date: "2026-10-04",
+    highlights: [
+      "Açık temada devre dışı gönder düğmesi artık devre dışı olduğu anlaşılıyor — önceden etkin düğmeyle birebir aynı görünüyordu, bu yüzden bir mesajın gönderilip gönderilemeyeceği bilinemiyordu.",
+      "Giriş kutusu, içine yazarken artık yükseliyor ve gölgesini derinleştiriyor; hem açık hem koyu temada geçerli. Bu odak durumu daha önce ekrana hiç yansımıyordu.",
+      "Giriş kutusundaki mod çipi ve araç çubuğu simgeleri üzerine gelindiğinde parlıyor; her iki temada da geçerli ve artık hareketsiz renkte kalmıyor.",
+      "Kullanım grafikleri her seriye kendi rengini, göstergeye de o dönemin toplamını ve payını veriyor; böylece giriş, çıkış ve önbellek çizgi kalınlığıyla değil, renkle bir bakışta ayırt ediliyor.",
+    ],
+  },
+  {
     version: "0.15.16",
     date: "2026-10-03",
     highlights: [

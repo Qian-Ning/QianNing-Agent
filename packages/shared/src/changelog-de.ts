@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "0.15.17",
+    date: "2026-10-04",
+    highlights: [
+      "Im hellen Design ist der deaktivierte Senden-Knopf jetzt als deaktiviert erkennbar — bisher sah er exakt aus wie der aktive, sodass nicht zu erkennen war, ob eine Nachricht gesendet werden kann.",
+      "Das Eingabefeld hebt sich jetzt an und vertieft seinen Schatten, während Sie darin tippen — in hellem wie dunklem Design; dieser fokussierte Zustand hatte nie den Bildschirm erreicht.",
+      "Die Modus-Pille und die Symbolschaltflächen der Eingabeleiste werden beim Überfahren heller, in beiden Designs, statt ihre Ruhefarbe zu behalten.",
+      "Die Nutzungsdiagramme geben jeder Reihe eine eigene Farbe und der Legende die Summe und den Anteil jedes Zeitraums, sodass Eingabe, Ausgabe und Cache auf einen Blick statt nur über die Linienstärke zu unterscheiden sind.",
+    ],
+  },
+  {
     version: "0.15.16",
     date: "2026-10-03",
     highlights: [

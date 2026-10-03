@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "0.15.17",
+    date: "2026-10-04",
+    highlights: [
+      "En el tema claro, el botón de enviar deshabilitado ahora se ve deshabilitado: antes era idéntico al habilitado, así que no había forma de saber si un mensaje podía enviarse.",
+      "El cuadro de entrada ahora se eleva y profundiza su sombra mientras escribes en él, tanto en el tema claro como en el oscuro; ese estado de enfoque nunca llegaba a la pantalla.",
+      "La píldora de modo y los iconos de la barra del cuadro de entrada se aclaran al pasar el cursor, en ambos temas, en lugar de mantener su tinta en reposo.",
+      "Los gráficos de uso dan a cada serie su propio color y a la leyenda el total y la proporción de cada una, así que entrada, salida y caché se distinguen de un vistazo y no por el grosor de la línea.",
+    ],
+  },
+  {
     version: "0.15.16",
     date: "2026-10-03",
     highlights: [

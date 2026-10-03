@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "0.15.17",
+    date: "2026-10-04",
+    highlights: [
+      "No tema claro, o botão de enviar desativado agora aparece como desativado — antes ele era idêntico ao ativo, então não dava para saber se uma mensagem poderia ser enviada.",
+      "A caixa de entrada agora se eleva e aprofunda a sombra enquanto você digita nela, nos temas claro e escuro; esse estado de foco nunca chegava à tela.",
+      "A pílula de modo e os ícones da barra da caixa de entrada clareiam ao passar o mouse, nos dois temas, em vez de manter a tinta em repouso.",
+      "Os gráficos de uso dão a cada série a sua própria cor e à legenda o total e a participação de cada uma, então entrada, saída e cache se distinguem num relance, e não pela espessura da linha.",
+    ],
+  },
+  {
     version: "0.15.16",
     date: "2026-10-03",
     highlights: [
