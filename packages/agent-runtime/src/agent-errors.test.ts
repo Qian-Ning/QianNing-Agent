@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyAgentError,
   describeNetworkFailure,
+  outputBudgetExhausted,
 } from "./agent-errors.js";
 
 describe("classifyAgentError", () => {
@@ -617,5 +618,45 @@ describe("classifyAgentError", () => {
       retriable: true,
       details: { origin: "host" },
     });
+  });
+});
+
+describe("outputBudgetExhausted", () => {
+  it("recognises a turn that spent the whole allowance on reasoning", () => {
+    // The observed shape behind a low max_tokens: output == ceiling and every
+    // one of those tokens was reasoning.
+    expect(
+      outputBudgetExhausted({ outputTokens: 8192, reasoningTokens: 8192 }, 8192),
+    ).toBe(true);
+    // A provider that reports the total slightly above the requested ceiling.
+    expect(
+      outputBudgetExhausted({ outputTokens: 8200, reasoningTokens: 8195 }, 8192),
+    ).toBe(true);
+  });
+
+  it("leaves a genuinely quiet model to the silent-turn path", () => {
+    // Stopped short of the ceiling: the model chose to stop, so re-asking is
+    // still reasonable advice.
+    expect(
+      outputBudgetExhausted({ outputTokens: 12, reasoningTokens: 200 }, 8192),
+    ).toBe(false);
+    // At the ceiling with no reasoning at all: nothing went to thinking, so the
+    // output allowance is not what it ran out of.
+    expect(
+      outputBudgetExhausted({ outputTokens: 8192, reasoningTokens: 0 }, 8192),
+    ).toBe(false);
+    expect(
+      outputBudgetExhausted({ outputTokens: 8192 }, 8192),
+    ).toBe(false);
+  });
+
+  it("stays silent when the ceiling or the usage is unknown", () => {
+    expect(outputBudgetExhausted(undefined, 8192)).toBe(false);
+    expect(outputBudgetExhausted({ outputTokens: 8192, reasoningTokens: 8192 }, undefined)).toBe(false);
+    expect(outputBudgetExhausted({ outputTokens: 8192, reasoningTokens: 8192 }, 0)).toBe(false);
+    expect(outputBudgetExhausted({ outputTokens: 8192, reasoningTokens: 8192 }, Number.NaN)).toBe(false);
+    // A provider that reports reasoning but no output total cannot reach a
+    // ceiling it never stated.
+    expect(outputBudgetExhausted({ reasoningTokens: 8192 }, 8192)).toBe(false);
   });
 });

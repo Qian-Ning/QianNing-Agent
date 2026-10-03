@@ -4631,6 +4631,10 @@ eleven-tool-round desktop paths are verified by
   - 第二次静音发出一个终端可重试 `EMPTY_MODEL_RESPONSE`
     辅助错误和生命周期事件；该消息命名了两次尝试，并且
     重试操作会重新发送最后一个提示。
+  - 当同一次静音同时到达了该请求实际发送的输出上限、且报告的推理 token 非零时，
+    同一位置改为发出可重试 `OUTPUT_BUDGET_EXHAUSTED`，其提示把「调大该模型的
+    输出上限」作为补救办法。停在上限之前的静音，以及没有 usage 的静音，都仍然
+    保持 `EMPTY_MODEL_RESPONSE`。
   - 由于请求工具而文本为空的回合未受影响，因此
     是一个中止或已经失败的回合。
   - 每个提示仅发生一次重新运行，包括在上下文溢出之后

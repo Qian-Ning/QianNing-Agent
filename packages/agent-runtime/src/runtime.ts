@@ -117,7 +117,7 @@ import {
 } from "@pi-desktop/shared";
 import { createStreamCoalescer, type StreamCoalescer } from "./stream-coalescer.js";
 import type { RuntimeHost } from "./host-client.js";
-import { classifyAgentError } from "./agent-errors.js";
+import { classifyAgentError, outputBudgetExhausted } from "./agent-errors.js";
 import {
   assistantContent,
   isRecord,
@@ -1701,6 +1701,13 @@ export class DesktopAgentRuntime {
   private pendingSilentTurnRerun = false;
   private silentTurnRerunAttempted = false;
   /**
+   * The output ceiling (`max_tokens`) the most recent request was sent with.
+   * A silent turn whose usage reaches it spent the allowance on reasoning
+   * instead of writing, so the remedy is the model's output limit rather than
+   * another attempt with the same cap.
+   */
+  private outputCeiling?: number;
+  /**
    * The first settled reply to a current Host-ledger completion notice may
    * need no acknowledgement (D446). Spent by that reply, and revoked as soon
    * as accepted user steering enters the model context.
@@ -1940,6 +1947,13 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         // with pi's own run signal (Stop must keep working): the adapter refuses
         // to start an attempt on an aborted signal, and its backoff sleep rejects.
         const stallAbort = new AbortController();
+        // Kept on the instance because the ceiling a request was sent with is
+        // what tells a silent turn "the model ran out of room" apart from "the
+        // model went quiet" — the usage report alone cannot: a response that
+        // stopped short of the ceiling is a different problem with different
+        // advice.
+        const outputCeiling = clampOutputToContext(m, context, hookedOptions.maxTokens);
+        this.outputCeiling = outputCeiling;
         const attemptOptions: SimpleStreamOptions = {
           ...hookedOptions,
           // Cap the output budget at the pi-desktop layer so the estimate
@@ -1947,7 +1961,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           // max_tokens, but the low-level `stream` path used by
           // `thinkingLevel: "omit"` would otherwise send it untouched, and
           // both consume an estimate that under-counts CJK text (issue B).
-          maxTokens: clampOutputToContext(m, context, hookedOptions.maxTokens),
+          maxTokens: outputCeiling,
           signal: AbortSignal.any([
             ...(hookedOptions.signal ? [hookedOptions.signal] : []),
             stallAbort.signal,
@@ -7371,13 +7385,28 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             // The re-run came back silent too. Stop guessing and say so: an
             // error row with a retriable code gives the UI its "continue"
             // affordance instead of leaving the user to invent one.
+            //
+            // Two ways to be silent, and they need different advice. A model
+            // that genuinely went quiet is worth re-asking; a model whose whole
+            // output allowance went to reasoning stopped at the ceiling, and
+            // the same request would stop there again — the user has to raise
+            // that model's output limit. Reported separately so the message can
+            // say which one happened.
+            const exhausted = outputBudgetExhausted(usage, this.outputCeiling);
             classifiedError = this.providerErrorWithDiagnostics(
-              {
-                code: "EMPTY_MODEL_RESPONSE",
-                message:
-                  "The model ended its turn without producing any output",
-                retriable: true,
-              },
+              exhausted
+                ? {
+                    code: "OUTPUT_BUDGET_EXHAUSTED",
+                    message:
+                      "The model spent its entire output allowance on reasoning and had none left for a reply",
+                    retriable: true,
+                  }
+                : {
+                    code: "EMPTY_MODEL_RESPONSE",
+                    message:
+                      "The model ended its turn without producing any output",
+                    retriable: true,
+                  },
               "stream",
               providerWaitMs,
               streamMs,

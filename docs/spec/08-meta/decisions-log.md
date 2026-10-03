@@ -30,6 +30,7 @@ This log freezes previously open questions into concrete decisions.
 | D457 | Signed macOS DMG is a two-icon install | *(amended by D634)* **Amend D406 / ADR 0232 / ADR 0204: official and local DMGs contain only PI-Desktop.app and the Applications link on a branded 720×440 plate. The ZIP contains PI-Desktop.app only. Neither macOS format includes the opening note or command helper, including unsigned debug artifacts. See ADR 0296 / ADR 0309 and E2E-196b.** | Tagged DMGs are signed and notarized (D450); unsigned first-launch guidance is no longer needed in package artifacts. |
 | D634 | Remove bundled macOS first-launch guidance | **Amend D457 / ADR 0296 and the macOS distribution provisions of ADR 0232 / ADR 0204: neither macOS DMG nor ZIP ships `PI-Desktop-macOS-open.command`, `PI-Desktop-macOS-opening-help.txt`, or another bundled quarantine-clearing helper or opening note. The ZIP contains `PI-Desktop.app` at its root; the DMG remains a two-icon install. This applies to signed releases and local or opt-in unsigned debug builds. See ADR 0309 and E2E-196b.** | The signed release lane has eliminated the user need for an unsigned first-launch workaround; shipping it beside debug builds risks suggesting a Gatekeeper bypass. |
 | D641 | Work-area-capped 800×560 window minimum | **Supersede the 1040×700 window minimum in D156 / D447 (and the matching clauses of ADR 0029 / ADR 0238) and the `1040..10000` `window/setWorkPanelChatWidth` range (ADR 0146): Electron enforces an 800×560 minimum, capped per dimension to the current display work area by `clampMinimumSizeToWorkArea`. The chat-width IPC and renderer accept `800..10000`. On narrow windows the existing `workPanelLayout` budget caps the docked panel so MainChat keeps its 450px floor, collapsing the sidebar first. See US-UI-19 and E2E-167.** | At 150% Windows scaling the work area is about 1280×672 DIP, so a fixed minimum could exceed the screen and leave the window unfittable. |
+| D646 | An exhausted output allowance is named, not retried | **Split the second-silent-turn classification. When the settled response reached the output ceiling that request was sent with and reported reasoning tokens, the turn ends as retriable `OUTPUT_BUDGET_EXHAUSTED` instead of `EMPTY_MODEL_RESPONSE`. `agent-errors.ts` decides it from the ceiling (`clampOutputToContext`, kept on the runtime as `outputCeiling`) plus the response usage; `errors.OUTPUT_BUDGET_EXHAUSTED` ships in all nine shell locales and names the remedy. The automatic re-run, the D446 completion-notice exception, and every other silent-turn outcome are unchanged.** | A reasoning model shares one output allowance between its reasoning and the answer it writes. An id the catalog does not publish — a relay's `-free` variant, for instance — seeds `CATALOG_DEFAULT_MAX_TOKENS` (8192), so a model that wants to think longer streams a full allowance of reasoning and no text at all: observed as 8192 output tokens, every one of them reasoning, over 53 seconds, twice. Both attempts ended in `EMPTY_MODEL_RESPONSE`, whose message advises retrying or rephrasing — the one action that cannot help, because the same request stops at the same ceiling. Borrowing limits across catalog spellings was rejected in D630, and raising the default was not available: that default is what protects an unknown model's context. |
 | D645 | The macOS update feed is merged, not just renamed | **The two macOS lanes keep publishing `latest-mac-<arch>.yml`, and the publish job now merges them into a single `latest-mac.yml` through `scripts/merge-mac-update-feed.mjs` before `action-gh-release` runs. The merged feed lists both architectures' ZIP and DMG entries; `MacUpdater.filterFilesForArch` picks the `arm64` entry on Apple Silicon. Guarded by `ci-workflow.test.mjs`, which asserts both the merge step and its position before the release step, and that the publish job checks out the repository before downloading artifacts — the merge runs a repository script, and `download-artifact` alone does not provide one.** | electron-updater resolves the macOS channel name as `latest` + `-mac` (`Provider.getChannelFilePrefix`), so every Mac requests `latest-mac.yml` regardless of architecture. Renaming alone left that file absent: a Mac got 404 and reported a failed update while Windows (`latest.yml`) and Linux (`latest-linux.yml`) kept working. Inherited from upstream `ca480a13d`; observed on `v0.15.14`, where `latest-mac.yml` answered 404 while both arch feeds published. |
 | D644 | The unsigned macOS lane asserts its own signature | **Add a runner step to the unsigned macOS lane that runs `codesign -dv --verbose=4` on the packaged `.app`, requires a `Signature=adhoc` line, and rejects any `Authority=` line, failing the job otherwise. This is the only lane where `-c.mac.identity=-` (D642) executes, and `scripts/verify-macos-release.sh` cannot cover it because that step is gated on `signed == 'true'`. Guarded by `ci-workflow.test.mjs`.** | The override failed silently once: electron-builder logged `skipped macOS application code signing` while the job reported success, publishing a bundle with no signature at all. An exit-status check does not catch it, because verifying a missing signature and an ad-hoc signature both return 0. |
 | D643 | In-app updates follow the standard policy again | **Restore D628 / D603 / D120 / ADR 0022 for this fork. `updater.ts` no longer pins the delivery mode to `disabled`: both the constructor and the preference path resolve it through `resolveUpdateMode`, so an installed build checks this repository's own GitHub Releases, downloads, and installs again, while a portable/ZIP copy, a deb install, and an unpackaged dev run keep their existing notify-and-link / disabled behavior. `RELEASES_URL` and the bug-report URL both point at `Qian-Ning/QianNing-Agent`, and the About page row is live. The feed is this repository's Releases, so the repository must remain publicly readable: electron-updater fetches `latest*.yml` and the installers anonymously and a private repository answers 404, which surfaces as a failed manual check. Relevant specs: `README.md` / `README.en.md` (§ In-app updates), `06-delivery/06-release-runbook.md`.** | A user who installed an installer build must be able to take the next version from inside the app. Shipping a read-only GitHub token inside the client to reach a private feed is explicitly rejected; the repository is public instead. |
@@ -7757,3 +7758,37 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   clauses of ADR 0029 / ADR 0238) and the `1040..10000` chat-width range in
   ADR 0146. `work-panel-window.test.mjs` and `work-panel-resize.test.mjs`
   cover the clamp and chat-width range; see US-UI-19 and E2E-167.
+
+## 2026-10-03 — An exhausted output allowance is named, not retried (D646)
+
+- A turn that ends with no visible text has two causes, and they need different
+  advice. A model that genuinely went quiet is worth re-asking, which is what
+  the one automatic re-run (D193) and the retriable `EMPTY_MODEL_RESPONSE` it
+  falls back to already say. A model whose whole output allowance went to
+  reasoning stopped at the ceiling, and the identical request stops there
+  again — so the message has to name the model's output limit instead.
+- `outputBudgetExhausted` in `agent-errors.ts` decides between them from the
+  ceiling the request was actually sent with (`clampOutputToContext`, kept on
+  the runtime as `outputCeiling`) and the settled response's usage: at or past
+  the ceiling with reasoning tokens reported. A response that stopped short of
+  the ceiling, one whose usage is absent, and one that reports no reasoning all
+  stay `EMPTY_MODEL_RESPONSE`, which is what keeps the new code from claiming
+  silence it cannot explain.
+- Nothing about the recovery path changes. The re-run still happens, its own
+  silence is still what surfaces, and the D446 completion-notice exception and
+  the one-re-run-per-prompt ceiling are untouched. The code is additive: a new
+  `ErrorCodes` member, one `errors.OUTPUT_BUDGET_EXHAUSTED` string in all nine
+  shells, and no change to persisted rows, IPC, or any existing error code.
+- Why this shape rather than the obvious one. An unpublished model id on a
+  custom endpoint seeds `CATALOG_DEFAULT_MAX_TOKENS` (8192), and a relay's
+  `-free` variant of a model the catalog does publish is exactly that case, so
+  borrowing the namesake's limits looked like the fix. It is not available:
+  D630 / PR #1047 superseded the marker-suffix aliases precisely because a
+  deployment marker is not model identity, and the limits a free tier serves
+  are not its namesake's. Raising the default is not available either — it is
+  what protects an unknown model's context window. The remaining honest fix is
+  to stop mislabeling the failure.
+- Covered by `agent-errors.test.ts` (the decision table, including the
+  below-ceiling and no-usage cases) and `runtime.test.ts` (both classifications
+  end-to-end through the silent-turn harness). See spec 02-agent-runtime §5e,
+  spec 08-error-codes §3.2, and E2E-146.
