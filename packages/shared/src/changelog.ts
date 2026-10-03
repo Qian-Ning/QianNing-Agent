@@ -30,6 +30,16 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "0.15.15",
+    date: "2026-10-03",
+    highlights: [
+      "macOS builds can check for updates again: the release now ships the single latest-mac.yml electron-updater asks for on every Mac, which earlier releases left out.",
+      "A Mac still on 0.15.14 has to install this version by hand once; after that, updates arrive in the app the way they already do on Windows and Linux.",
+      "The Settings note about updates now shows only for development builds, and explains that there is nothing to check against instead of suggesting the shipped app turned updates off.",
+    ],
+  },
+
+  {
     "version": "0.15.14",
     "date": "2026-10-03",
     "highlights": [
@@ -899,6 +909,16 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "0.15.15",
+    date: "2026-10-03",
+    highlights: [
+      "macOS 版的「检查更新」恢复可用：发布包现在会附上 electron-updater 在每台 Mac 上都会请求的那一份 `latest-mac.yml`，之前的版本漏掉了它。",
+      "仍停留在 0.15.14 的 Mac 需要手动装一次本版本；之后更新会像 Windows 和 Linux 一样在应用内完成。",
+      "设置里关于更新的那句提示现在只在开发版本显示，并说明是「没有可检查的更新源」，不再让人以为正式版关掉了更新。",
+    ],
+  },
+
+  {
     "version": "0.15.14",
     "date": "2026-10-03",
     "highlights": [
@@ -1767,6 +1787,16 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "0.15.15",
+    date: "2026-10-03",
+    highlights: [
+      "macOS 版的「檢查更新」恢復可用：發佈包現在會附上 electron-updater 在每台 Mac 上都會請求的那一份 `latest-mac.yml`，先前的版本漏掉了它。",
+      "仍停留在 0.15.14 的 Mac 需要手動安裝一次本版本；之後更新會像 Windows 與 Linux 一樣在應用程式內完成。",
+      "設定裡關於更新的那句提示現在只在開發版本顯示，並說明是「沒有可檢查的更新來源」，不再讓人以為正式版關掉了更新。",
+    ],
+  },
+
   {
     "version": "0.15.14",
     "date": "2026-10-03",

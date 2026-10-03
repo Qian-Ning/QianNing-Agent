@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "0.15.15",
+    date: "2026-10-03",
+    highlights: [
+      "macOS derlemeleri yeniden güncelleme denetleyebiliyor: sürüm artık her Mac'te electron-updater'ın istediği tek `latest-mac.yml` dosyasını içeriyor; önceki sürümlerde bu dosya yoktu.",
+      "Hâlâ 0.15.14'te olan bir Mac bu sürümü bir kez elle kurmalı; sonrasında güncellemeler Windows ve Linux'ta olduğu gibi uygulama içinde gelir.",
+      "Ayarlar'daki güncelleme notu artık yalnızca geliştirme derlemelerinde görünüyor ve yayımlanmış uygulamanın güncellemeleri kapattığı izlenimi yerine denetlenecek bir şey olmadığını açıklıyor.",
+    ],
+  },
+
+  {
     "version": "0.15.14",
     "date": "2026-10-03",
     "highlights": [

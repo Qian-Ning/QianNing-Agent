@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
   {
+    version: "0.15.15",
+    date: "2026-10-03",
+    highlights: [
+      "macOS 빌드에서 다시 업데이트를 확인할 수 있습니다. 릴리스가 모든 Mac에서 electron-updater가 요청하는 단일 `latest-mac.yml`을 포함하며, 이전 버전에는 빠져 있었습니다.",
+      "0.15.14에 머물러 있는 Mac은 이 버전을 한 번 직접 설치해야 합니다. 이후에는 Windows와 Linux처럼 앱 안에서 업데이트가 이루어집니다.",
+      "설정의 업데이트 안내는 이제 개발 빌드에서만 표시되며, 정식 앱이 업데이트를 껐다는 인상을 주는 대신 확인할 대상이 없다고 설명합니다.",
+    ],
+  },
+
+  {
     "version": "0.15.14",
     "date": "2026-10-03",
     "highlights": [

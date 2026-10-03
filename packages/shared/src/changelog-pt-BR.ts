@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "0.15.15",
+    date: "2026-10-03",
+    highlights: [
+      "Compilações de macOS voltam a poder verificar atualizações: a publicação agora inclui o único `latest-mac.yml` que o electron-updater pede em cada Mac e que as versões anteriores omitiam.",
+      "Um Mac ainda no 0.15.14 precisa instalar esta versão manualmente uma vez; depois disso as atualizações chegam no app, como já acontece no Windows e no Linux.",
+      "O aviso sobre atualizações nas Configurações agora só aparece em compilações de desenvolvimento e explica que não há nada a verificar, em vez de sugerir que o app publicado as desativou.",
+    ],
+  },
+
+  {
     "version": "0.15.14",
     "date": "2026-10-03",
     "highlights": [

@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "0.15.15",
+    date: "2026-10-03",
+    highlights: [
+      "Les builds macOS peuvent à nouveau rechercher des mises à jour : la publication inclut désormais l'unique `latest-mac.yml` que electron-updater demande sur chaque Mac et que les versions précédentes omettaient.",
+      "Un Mac resté en 0.15.14 doit installer cette version à la main une fois ; ensuite les mises à jour arrivent dans l'application, comme c'est déjà le cas sous Windows et Linux.",
+      "La mention des mises à jour dans les Réglages n'apparaît plus que dans les versions de développement et précise qu'il n'y a rien à vérifier, au lieu de laisser croire que l'application publiée les a désactivées.",
+    ],
+  },
+
+  {
     "version": "0.15.14",
     "date": "2026-10-03",
     "highlights": [
