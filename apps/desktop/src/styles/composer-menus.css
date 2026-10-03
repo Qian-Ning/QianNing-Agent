@@ -39,8 +39,12 @@
  * (0,4,0). `!important` is deliberate rather than required — the light
  * counterpart needs it, so keeping both sides identical means the pair cannot
  * drift into a silent half-fix if the resting rules gain importance later. */
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 :root[data-theme="dark"] .composer-toolbar .icon-btn:hover {
   color: var(--ds-text-primary) !important;
+}
 }
 
 :root[data-theme="dark"] .empty-hero-icon {

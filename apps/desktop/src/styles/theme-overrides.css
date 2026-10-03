@@ -76,9 +76,13 @@
  * through `--ds-text-primary`. The mechanical guard skips `:hover` on purpose
  * (see `style-surface-tokens.mjs`), so `pnpm test:e2e:theme-surfaces` samples
  * this state for real. */
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 :root[data-theme="light"] .composer-toolbar .icon-btn:hover,
 :root[data-theme="light"] .mode-chip:hover {
   color: var(--ds-text-primary) !important;
+}
 }
 
 :root[data-theme="light"] .composer-input::placeholder,

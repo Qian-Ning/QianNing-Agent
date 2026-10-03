@@ -76,6 +76,13 @@ app.whenReady().then(async () => {
     };
     const hoverChecks = [];
     const checks = [];
+    // The hover ink lives behind a (hover: hover) and (pointer: fine) media
+    // query (design-system section 8.7), so on a device without a real pointer
+    // the rule is gated off and "resting ink stays put" is the correct outcome,
+    // not a failure. Record which world we are in instead of asserting one.
+    const hoverCapable = await window.webContents.executeJavaScript(
+      "matchMedia('(hover: hover) and (pointer: fine)').matches"
+    );
     for (const theme of ["light", "dark"]) {
       for (const custom of [false, true, false]) {
         const result = await window.webContents.executeJavaScript("globalThis.${probeName}(" + JSON.stringify(theme) + "," + custom + ")");
@@ -87,10 +94,15 @@ app.whenReady().then(async () => {
           for (const id of Object.keys(hoverNodes)) await forceHover(id, false);
           const failures = [];
           for (const id of ["chip", "icon"]) {
-            if (String(hovered[id].rgba) === String(resting[id].rgba)) failures.push(id + " keeps its resting ink on hover");
+            const moved = String(hovered[id].rgba) !== String(resting[id].rgba);
+            if (!hoverCapable) {
+              if (moved) failures.push(id + " moved its ink on a pointer-less display");
+              continue;
+            }
+            if (!moved) failures.push(id + " keeps its resting ink on hover");
             else if (String(hovered[id].rgba) !== String(resting.primary.rgba)) failures.push(id + " hover ink is not --ds-text-primary");
           }
-          hoverChecks.push({ theme, custom, resting, hovered, failures });
+          hoverChecks.push({ theme, custom, hoverCapable, resting, hovered, failures });
         }
         if (process.env.PI_E2E_ARTIFACT_DIR) {
           const fs = require("node:fs");
