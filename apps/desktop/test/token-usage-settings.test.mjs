@@ -93,6 +93,54 @@ test("the host buckets usage by local hour", async () => {
   assert.match(shared, /TokenUsageBucket = "hour" \| "day" \| "week" \| "month"/);
 });
 
+// D648: the trend was grayscale, so the three series were told apart by stroke
+// weight alone. Each series now reads its own hue, and every hue is defined on
+// all three theme surfaces — a token defined only on the dark base would leave
+// the light and QianNing appearances painting a fallback. The chart also must
+// consume the tokens rather than re-inlining literals.
+test("every theme surface defines the chart series palette", async () => {
+  const tokens = await readRoot("apps/desktop/src/styles/tokens.css");
+  const surfaces = [
+    /:root,\s*\n:root\[data-theme="dark"\]\s*\{([\s\S]*?)\n\}/,
+    /:root\[data-theme="light"\]\s*\{([\s\S]*?)\n\}/,
+    /:root\[data-appearance="fox"\]\s*\{([\s\S]*?)\n\}/,
+  ];
+  const names = [
+    "--ds-chart-input",
+    "--ds-chart-output",
+    "--ds-chart-cache",
+    "--ds-chart-cache-write",
+    "--ds-chart-grid",
+  ];
+  for (const surface of surfaces) {
+    const block = tokens.match(surface);
+    assert.ok(block, `theme surface not found: ${surface}`);
+    for (const name of names) {
+      assert.match(
+        block[1],
+        new RegExp(`${name}\\s*:`),
+        `${name} is missing from a theme surface`,
+      );
+    }
+  }
+});
+
+test("the usage charts paint from the series tokens, not literals", async () => {
+  const css = await readRoot("apps/desktop/src/styles/usage.css");
+  for (const name of [
+    "--ds-chart-input",
+    "--ds-chart-output",
+    "--ds-chart-cache",
+    "--ds-chart-cache-write",
+  ]) {
+    assert.match(css, new RegExp(`var\\(${name}\\)`), `usage.css never reads ${name}`);
+  }
+  // The swatch and the composition segment must share a rule, or the legend and
+  // the bar it names can drift to different colours.
+  assert.match(css, /\.usage-swatch-input\s*\{\s*background: var\(--ds-chart-input\)/);
+  assert.match(css, /\.usage-seg-input\s*\{\s*background: var\(--ds-chart-input\)/);
+});
+
 // Every new label the trend panel reads, in every shipped locale. A missing key
 // renders as the raw dotted path, which is worse than the bug this fixes.
 test("every locale ships the intraday trend labels", async () => {
