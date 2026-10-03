@@ -280,11 +280,15 @@ and for bindings that are already stored, but nothing here picks a
 transcription or speech provider, protocol, model, or voice, and search indexes
 no speech keys.
 
-Token usage is **not a Settings destination** (D335 / ADR 0173). Completed-turn
-history stays host-owned (`session.endTurn.usage`, `stats.getTokenUsageHistory`).
-The user-facing dashboard is marketplace plugin `pi.token-insights`, opened from
-the command palette (`usage`, `tokens`, `用量`). Settings search does not index
-a usage tab.
+Token usage is **not a Settings destination** upstream (D335 / ADR 0173).
+Completed-turn history stays host-owned (`session.endTurn.usage`,
+`stats.getTokenUsageHistory`), and the upstream user-facing dashboard is
+marketplace plugin `pi.token-insights`, opened from the command palette
+(`usage`, `tokens`, `用量`). This fork reverses the destination half of that
+decision: D631 / D632 / D647 / D648 add a Settings ▸ Usage statistics tab with
+an hour-bucketed trend, an editable model-pricing cost estimate, and a
+per-series colour palette, and Settings search indexes it under `usage`. The
+plugin remains the upstream surface; the fork does not depend on it.
 
 ### Shortcuts (`shortcuts` tab)
 - **Keyboard shortcuts** card:

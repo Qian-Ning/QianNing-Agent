@@ -1,7 +1,10 @@
 /*
- * Usage statistics page. Grayscale by design: the app's accent stays neutral
- * (see tokens.css), so the trend/series read as tonal weights, not color. Only
- * the "local · free" success marker borrows the semantic success token.
+ * Usage statistics page. The surrounding chrome stays neutral (the app accent is
+ * a gray scale, see tokens.css); only the plotted marks carry hue, because a
+ * chart encodes series identity by colour and a tonal ramp cannot (D648). The
+ * four series hues live in the `--ds-chart-*` tokens so each theme re-derives
+ * them for its own surface, and every swatch, segment, and line reads the same
+ * token — a legend entry and the mark it names cannot drift apart.
  */
 .usage-page {
   display: flex;
@@ -65,15 +68,26 @@
   gap: 14px;
   align-items: center;
 }
+/*
+ * Hero icon reads as "the totals panel" rather than a fifth series, so it gets a
+ * soft wash of the three series hues over the neutral tile instead of one flat
+ * accent.
+ */
 .usage-hero-bolt {
   width: 44px;
   height: 44px;
   border-radius: var(--radius-md);
-  background: var(--ds-bg-tertiary);
   display: grid;
   place-items: center;
-  color: var(--ds-text-secondary);
+  color: var(--ds-text-primary);
   flex-shrink: 0;
+  background-color: var(--ds-bg-tertiary);
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--ds-chart-input) 22%, transparent),
+    color-mix(in oklab, var(--ds-chart-output) 18%, transparent) 55%,
+    color-mix(in oklab, var(--ds-chart-cache) 20%, transparent)
+  );
 }
 .usage-hero-k {
   font-size: var(--text-xs-plus);
@@ -117,6 +131,28 @@
   border: 1px solid var(--ds-border-subtle);
   border-radius: var(--radius-sm);
   padding: 11px 12px;
+  /*
+   * The five metrics repeat the chart's series colours as a 2px cap, so the
+   * number a reader is looking at and the line they were just reading are the
+   * same colour. Colour is never the only cue: the label above each tile names
+   * the series in words.
+   */
+  border-top-width: 2px;
+}
+.usage-m-input {
+  border-top-color: var(--ds-chart-input);
+}
+.usage-m-output {
+  border-top-color: var(--ds-chart-output);
+}
+.usage-m-cache-write {
+  border-top-color: var(--ds-chart-cache-write);
+}
+.usage-m-cache-read {
+  border-top-color: var(--ds-chart-cache);
+}
+.usage-m-cache-hit {
+  border-top-color: var(--ds-success);
 }
 .usage-m-top {
   font-size: var(--text-xs);
@@ -140,39 +176,96 @@
   width: 100%;
   height: 220px;
   display: block;
+  touch-action: none;
 }
 .usage-chart-grid {
-  stroke: var(--ds-border-subtle);
+  stroke: var(--ds-chart-grid);
 }
 .usage-chart-xlabel {
   fill: var(--ds-text-faint);
   font-size: var(--text-3xs);
 }
+/*
+ * Input and output are drawn as strokes; cache read is a filled area with a line
+ * on top. Strokes are 2px+ with round joins so a spike reads as a peak instead of
+ * as a corner, and the input series — the series a reader looks for first — sits
+ * on top of the stack.
+ */
 .usage-series-input {
-  stroke: var(--ds-text-primary);
-  stroke-width: 2.4;
+  stroke: var(--ds-chart-input);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .usage-series-input-dot {
-  fill: var(--ds-text-primary);
+  fill: var(--ds-chart-input);
 }
 .usage-series-output {
-  stroke: var(--ds-text-muted);
-  stroke-width: 2;
+  stroke: var(--ds-chart-output);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.usage-series-output-dot {
+  fill: var(--ds-chart-output);
 }
 .usage-series-cache-line {
-  stroke: var(--ds-border-strong);
-  stroke-width: 1.6;
+  stroke: var(--ds-chart-cache);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .usage-series-cache-fill {
-  fill: var(--ds-bg-hover);
-  opacity: 0.5;
+  fill: var(--ds-chart-cache);
+  opacity: 0.16;
+}
+.usage-series-cache-dot {
+  fill: var(--ds-chart-cache);
+}
+/* Halo behind every dot so overlapping series stay countable. */
+.usage-series-dot-halo {
+  fill: var(--ds-bg-secondary);
+}
+/* The focused dot gains a ring in the surface tone plus its own colour. */
+.usage-series-focus-ring {
+  fill: none;
+  stroke-width: 2;
+}
+.usage-series-focus-ring-input {
+  stroke: var(--ds-chart-input);
+}
+.usage-series-focus-ring-output {
+  stroke: var(--ds-chart-output);
+}
+.usage-series-focus-ring-cache {
+  stroke: var(--ds-chart-cache);
+}
+/* Column highlight under the pointer. */
+.usage-chart-band {
+  fill: var(--ds-chart-grid);
 }
 .usage-legend {
   display: flex;
   gap: 16px;
+  flex-wrap: wrap;
   font-size: var(--text-xs-plus);
   color: var(--ds-text-muted);
   margin-top: 6px;
+}
+.usage-legend-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.usage-legend-v {
+  color: var(--ds-text-secondary);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+.usage-legend-p {
+  font-style: normal;
+  color: var(--ds-text-faint);
+  font-variant-numeric: tabular-nums;
 }
 .usage-swatch {
   display: inline-block;
@@ -183,31 +276,31 @@
   vertical-align: -1px;
 }
 .usage-swatch-input {
-  background: var(--ds-text-primary);
+  background: var(--ds-chart-input);
 }
 .usage-swatch-output {
-  background: var(--ds-text-muted);
+  background: var(--ds-chart-output);
 }
 .usage-swatch-cache {
-  background: var(--ds-border-strong);
+  background: var(--ds-chart-cache);
 }
 
 /*
- * The four token kinds as a tonal ramp. Grayscale keeps the page consistent
- * with the app accent; the swatch and the composition segment share the rule so
- * a legend entry and the bar it names cannot drift apart.
+ * The four token kinds as a coloured ramp. Each swatch and its composition
+ * segment share the token, so a legend entry and the bar it names cannot drift
+ * apart.
  */
 .usage-seg-input {
-  background: var(--ds-text-primary);
+  background: var(--ds-chart-input);
 }
 .usage-seg-output {
-  background: var(--ds-text-muted);
+  background: var(--ds-chart-output);
 }
 .usage-seg-cache-read {
-  background: var(--ds-border-strong);
+  background: var(--ds-chart-cache);
 }
 .usage-seg-cache-write {
-  background: var(--ds-text-faint);
+  background: var(--ds-chart-cache-write);
 }
 
 /* Readout strip above the plot: names the focused bucket's exact numbers. */
@@ -260,13 +353,12 @@
   font-size: var(--text-3xs);
   font-weight: var(--font-weight-medium);
 }
-.usage-series-output-dot {
-  fill: var(--ds-text-muted);
-}
-.usage-series-cache-dot {
-  fill: var(--ds-border-strong);
-}
 
+/*
+ * Peak / average / active as three tinted tiles. The colour per tile is not
+ * decoration: peak and average are the same quantity at two scales, so they
+ * share a hue, while "active buckets" is a count and reads neutral.
+ */
 .usage-chart-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -279,6 +371,16 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ds-border-subtle);
+  background: var(--ds-bg-tertiary);
+}
+.usage-chart-stat-peak {
+  border-color: var(--ds-chart-input);
+}
+.usage-chart-stat-peak .usage-chart-stat-v {
+  color: var(--ds-chart-input);
 }
 .usage-chart-stat-k {
   font-size: var(--text-xs);
@@ -333,13 +435,15 @@
 }
 .usage-compose-bar {
   display: flex;
-  height: 14px;
+  height: 16px;
   border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--ds-bg-tertiary);
+  gap: 2px;
 }
 .usage-compose-seg {
   min-width: 2px;
+  border-radius: var(--radius-3xs);
 }
 .usage-compose-seg-empty {
   flex: 1;

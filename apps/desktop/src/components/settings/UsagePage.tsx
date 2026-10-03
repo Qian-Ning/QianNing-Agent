@@ -178,12 +178,14 @@ function BucketComposition({
 }
 
 /**
- * Hand-drawn trend (input / output lines over a cache-read area), grayscale to
- * match the app theme. Drawn as inline SVG so no chart library is pulled in.
+ * Hand-drawn trend (input / output lines over a cache-read area), drawn as inline
+ * SVG so no chart library is pulled in.
  *
- * The readout above the plot follows the pointer and falls back to the peak
- * bucket, so the panel names real numbers before anyone hovers. A range that
- * collapses to a single bucket renders as a composition bar instead.
+ * Each series carries its own hue from the `--ds-chart-*` tokens (D648) so the
+ * three lines are told apart by colour and not only by weight. The readout above
+ * the plot follows the pointer and falls back to the peak bucket, so the panel
+ * names real numbers before anyone hovers. A range that collapses to a single
+ * bucket renders as a composition bar instead.
  */
 function TrendChart({
   items,
@@ -246,6 +248,12 @@ function TrendChart({
       ? items.reduce((sum, it) => sum + it.totalTokens, 0) / activeCount
       : 0;
 
+  // Window totals per series, so the legend carries numbers and not just names.
+  const winIn = items.reduce((sum, it) => sum + it.inputTokens, 0);
+  const winOut = items.reduce((sum, it) => sum + it.outputTokens, 0);
+  const winCache = items.reduce((sum, it) => sum + it.cacheReadTokens, 0);
+  const winTotal = winIn + winOut + winCache;
+
   // Pointing at the plot selects the nearest bucket, so the readout always
   // describes something the reader is actually looking at.
   const onMove = (event: ReactMouseEvent<SVGSVGElement>) => {
@@ -267,6 +275,16 @@ function TrendChart({
   const peakX = sx(peakIdx);
   const peakY = sy(items[peakIdx].totalTokens);
   const peakAnchor = peakX < PL + 48 ? "start" : peakX > W - PR - 48 ? "end" : "middle";
+
+  // Half the gap to a neighbour, so the highlight column never overlaps one.
+  const plotW = W - PL - PR;
+  const bandHalf = n > 1 ? plotW / (n - 1) / 2 : 0;
+
+  const legend = [
+    { cls: "usage-swatch-input", label: labels.input, value: winIn },
+    { cls: "usage-swatch-output", label: labels.output, value: winOut },
+    { cls: "usage-swatch-cache", label: labels.cache, value: winCache },
+  ];
 
   return (
     <div className="usage-chartwrap">
@@ -300,6 +318,13 @@ function TrendChart({
         onMouseMove={onMove}
         onMouseLeave={() => setHover(null)}
       >
+        <rect
+          x={Math.max(PL, sx(focusIdx) - bandHalf)}
+          y={PT}
+          width={Math.min(W - PR, sx(focusIdx) + bandHalf) - Math.max(PL, sx(focusIdx) - bandHalf)}
+          height={H - PT - PB}
+          className="usage-chart-band"
+        />
         {grid.map(({ y, value }, i) => (
           <g key={i}>
             <line
@@ -334,21 +359,44 @@ function TrendChart({
             className="usage-chart-guide"
           />
         )}
+        {/* Halo first, then the dot, so overlapping series stay countable. */}
         {cachePts.map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r={2} className="usage-series-cache-dot" />
+          <circle key={`h-c-${i}`} cx={x} cy={y} r={4} className="usage-series-dot-halo" />
         ))}
         {outputPts.map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r={2.2} className="usage-series-output-dot" />
+          <circle key={`h-o-${i}`} cx={x} cy={y} r={4} className="usage-series-dot-halo" />
         ))}
         {inputPts.map(([x, y], i) => (
-          <circle
-            key={i}
-            cx={x}
-            cy={y}
-            r={i === focusIdx ? 3.6 : 2.6}
-            className="usage-series-input-dot"
-          />
+          <circle key={`h-i-${i}`} cx={x} cy={y} r={4.4} className="usage-series-dot-halo" />
         ))}
+        {cachePts.map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r={2.2} className="usage-series-cache-dot" />
+        ))}
+        {outputPts.map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r={2.4} className="usage-series-output-dot" />
+        ))}
+        {inputPts.map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r={2.8} className="usage-series-input-dot" />
+        ))}
+        {/* Ring the focused bucket in each series' own colour. */}
+        <circle
+          cx={sx(focusIdx)}
+          cy={sy(focus.cacheReadTokens)}
+          r={5.2}
+          className="usage-series-focus-ring usage-series-focus-ring-cache"
+        />
+        <circle
+          cx={sx(focusIdx)}
+          cy={sy(focus.outputTokens)}
+          r={5.2}
+          className="usage-series-focus-ring usage-series-focus-ring-output"
+        />
+        <circle
+          cx={sx(focusIdx)}
+          cy={sy(focus.inputTokens)}
+          r={5.6}
+          className="usage-series-focus-ring usage-series-focus-ring-input"
+        />
         <text
           x={peakX}
           y={Math.max(PT + 9, peakY - 9)}
@@ -374,21 +422,19 @@ function TrendChart({
         )}
       </svg>
       <div className="usage-legend">
-        <span>
-          <i className="usage-swatch usage-swatch-input" />
-          {labels.input}
-        </span>
-        <span>
-          <i className="usage-swatch usage-swatch-output" />
-          {labels.output}
-        </span>
-        <span>
-          <i className="usage-swatch usage-swatch-cache" />
-          {labels.cache}
-        </span>
+        {legend.map((entry) => (
+          <span key={entry.cls} className="usage-legend-item">
+            <i className={`usage-swatch ${entry.cls}`} />
+            {entry.label}
+            <b className="usage-legend-v">{formatCompactTokenCount(entry.value)}</b>
+            <em className="usage-legend-p">
+              {winTotal > 0 ? formatPercent(entry.value / winTotal) : "—"}
+            </em>
+          </span>
+        ))}
       </div>
       <div className="usage-chart-stats">
-        <div className="usage-chart-stat">
+        <div className="usage-chart-stat usage-chart-stat-peak">
           <span className="usage-chart-stat-k">{t("settings.usageStats.statPeak")}</span>
           <span className="usage-chart-stat-v">{formatCompactTokenCount(peakTotal)}</span>
           <span className="usage-chart-stat-s">{bucketTick(items[peakIdx].date, bucket)}</span>
@@ -628,23 +674,23 @@ export function UsagePage() {
               </div>
             </div>
             <div className="usage-mini">
-              <div className="usage-m">
+              <div className="usage-m usage-m-input">
                 <div className="usage-m-top">{t("settings.usageStats.miInput")}</div>
                 <div className="usage-m-v">{nf(totals?.inputTokens ?? 0)}</div>
               </div>
-              <div className="usage-m">
+              <div className="usage-m usage-m-output">
                 <div className="usage-m-top">{t("settings.usageStats.miOutput")}</div>
                 <div className="usage-m-v">{nf(totals?.outputTokens ?? 0)}</div>
               </div>
-              <div className="usage-m">
+              <div className="usage-m usage-m-cache-write">
                 <div className="usage-m-top">{t("settings.usageStats.miCacheWrite")}</div>
                 <div className="usage-m-v">{nf(totals?.cacheWriteTokens ?? 0)}</div>
               </div>
-              <div className="usage-m">
+              <div className="usage-m usage-m-cache-read">
                 <div className="usage-m-top">{t("settings.usageStats.miCacheRead")}</div>
                 <div className="usage-m-v">{nf(totals?.cacheReadTokens ?? 0)}</div>
               </div>
-              <div className="usage-m">
+              <div className="usage-m usage-m-cache-hit">
                 <div className="usage-m-top">{t("settings.usageStats.miCacheHitRate")}</div>
                 <div className="usage-m-v usage-m-v-good">{formatPercent(hitRate)}</div>
               </div>

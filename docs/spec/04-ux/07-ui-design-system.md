@@ -274,7 +274,34 @@ animate for two 1.6-second cycles when mounted or entering the running state,
 then remain steady until the status changes. They must not continuously
 submit frames while the rest of the window is idle.
 
-### 4.6 Tailwind CSS variable stub
+### 4.6 Data-series palette (charts)
+
+Plotted marks are the one surface where colour carries information rather than
+decoration: a reader identifies a series by its hue, so a chart drawn as a
+tonal ramp forces a legend lookup on every glance. The usage charts therefore
+have their own token family (D648), defined on every theme surface and read by
+nothing but the chart:
+
+| Token | Dark | Light | QianNing (`fox`) | Series |
+|---|---|---|---|---|
+| `--ds-chart-input` | `#5b9dff` | `#1d66d6` | `#5b8def` | Input tokens — the prompt and context sent |
+| `--ds-chart-output` | `#b98cff` | `#6d28d9` | `#b79cff` | Output tokens — what the model wrote |
+| `--ds-chart-cache` | `#34d399` | `#047857` | `#3cc0ea` | Cache-read tokens — context reused |
+| `--ds-chart-cache-write` | `#fbbf24` | `#b45309` | `#f0a94a` | Cache-write tokens — context being stored |
+| `--ds-chart-grid` | 7% text-primary | 8% text-primary | 10% `#9cc0ff` | Plot grid lines and the focus band |
+
+Rules:
+
+- **Scoped to plotted marks.** Chrome, accent, and semantic tokens are
+  untouched, so adding a chart never turns the app shell chromatic. The light
+  column is darkened so a 2px stroke keeps body-text contrast on the pale
+  surfaces; the `fox` column reuses the mascot palette the appearance was
+  sampled from rather than importing a fourth scheme.
+- **Never the only cue.** Every coloured mark keeps its written label — the
+  legend names the series it colours, and the metric tiles above the chart keep
+  their text headers — the same rule §4.5 applies to sidebar status.
+
+### 4.7 Tailwind CSS variable stub
 
 The following CSS custom properties stub is the canonical bridge between spec tokens and Tailwind classes. It is **not an app source file** — it documents the intended mapping for implementation.
 

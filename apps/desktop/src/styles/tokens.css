@@ -144,6 +144,16 @@
   --ds-error: #ff6764;
   --ds-info: var(--gray-300);
   --ds-purple: #c27aff;
+  /* D648 — data-series palette for the usage charts. Deliberately chromatic:
+     a line chart encodes identity by hue, so a tonal ramp makes two series
+     indistinguishable at a glance. Scoped to plotted marks only (the chrome,
+     accent, and semantic tokens are untouched), and every hue is re-derived per
+     theme so it reads on that theme's surface. */
+  --ds-chart-input: #5b9dff;
+  --ds-chart-output: #b98cff;
+  --ds-chart-cache: #34d399;
+  --ds-chart-cache-write: #fbbf24;
+  --ds-chart-grid: color-mix(in oklab, var(--ds-text-primary) 7%, transparent);
   --ds-shadow-dialog: 0 16px 48px rgba(0, 0, 0, 0.55);
   --ds-shadow-model-menu: var(--ds-shadow-dialog);
   /* Codex --elevation-prominent (same stroke+lift in dark and light) */
@@ -281,6 +291,13 @@
   --ds-error: #e02e2a;
   --ds-info: #5d5d5d;
   --ds-purple: #7c3aed;
+  /* D648 — same series palette, darkened so each hue keeps >=4.5:1 on the pale
+     light surfaces (a chart line is thin ink, so it needs text-level contrast). */
+  --ds-chart-input: #1d66d6;
+  --ds-chart-output: #6d28d9;
+  --ds-chart-cache: #047857;
+  --ds-chart-cache-write: #b45309;
+  --ds-chart-grid: color-mix(in oklab, var(--ds-text-primary) 8%, transparent);
   --ds-shadow-dialog: 0 16px 48px rgba(0, 0, 0, 0.12);
   --ds-shadow-model-menu:
     0 0 0 0.5px color-mix(in oklab, #1a1c1f 10%, transparent),
@@ -341,6 +358,14 @@
   --ds-switch-knob-on: #08112a;
   --ds-info: #9cbcff;
   --ds-purple: #b79cff;
+  /* D648 — series palette on the navy base. Input and cache reuse the suit's
+     royal blue and the tail's cyan so the chart belongs to the mascot palette
+     instead of importing a fourth unrelated scheme. */
+  --ds-chart-input: #5b8def;
+  --ds-chart-output: #b79cff;
+  --ds-chart-cache: #3cc0ea;
+  --ds-chart-cache-write: #f0a94a;
+  --ds-chart-grid: color-mix(in oklab, #9cc0ff 10%, transparent);
   --ds-shadow-dialog: 0 16px 48px rgba(1, 4, 14, 0.6);
 }
 
