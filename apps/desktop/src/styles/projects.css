@@ -156,12 +156,17 @@
   cursor: pointer;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
-    color var(--motion-duration-fast) var(--motion-ease-out);
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .projects-search-clear:hover {
   background: color-mix(in oklab, var(--ds-text-primary) 10%, transparent);
   color: var(--ds-text-primary);
+}
 }
 
 /* Section label above its rows: Pinned, All projects, Archived — and how many.
@@ -299,12 +304,17 @@
   cursor: pointer;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
-    color var(--motion-duration-fast) var(--motion-ease-out);
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .projects-icon-btn:hover {
   background: color-mix(in oklab, var(--ds-text-primary) 8%, transparent);
   color: var(--ds-text-primary);
+}
 }
 
 .projects-glyph {
@@ -562,7 +572,8 @@
   cursor: pointer;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
-    color var(--motion-duration-fast) var(--motion-ease-out);
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
 .projects-detail-task-icon {
@@ -587,13 +598,21 @@
   white-space: nowrap;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .projects-detail-task:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
 }
+}
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .projects-detail-task:hover .projects-detail-task-icon {
   color: var(--ds-text-muted);
+}
 }
 
 .projects-detail-task:focus-visible {
@@ -615,7 +634,8 @@
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
     color var(--motion-duration-fast) var(--motion-ease-out),
-    opacity var(--motion-duration-fast) var(--motion-ease-out);
+    opacity var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
 .projects-detail-task-row:hover .projects-detail-task-rename,
@@ -624,9 +644,13 @@
   opacity: 1;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .projects-detail-task-rename:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 /* ---------- Index menu ---------- */
@@ -689,8 +713,12 @@
   flex: 0 0 auto;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .projects-menu button:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .projects-menu button.danger,
@@ -698,8 +726,12 @@
   color: var(--ds-error);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .projects-menu button.danger:hover {
   background: color-mix(in oklab, var(--ds-error) 12%, transparent);
+}
 }
 
 /* An armed delete item names its second click, so the swap stays obvious. */
@@ -870,6 +902,22 @@
   color: var(--ds-bg-primary);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .project-delete-dialog-confirm:hover:not(:disabled) {
   background: color-mix(in oklab, var(--ds-error) 85%, black);
+}
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.projects-search-clear:active:not(:disabled),
+.projects-icon-btn:active:not(:disabled),
+.projects-detail-task:active:not(:disabled),
+.projects-detail-task-rename:active:not(:disabled) {
+  transform: scale(0.97);
 }

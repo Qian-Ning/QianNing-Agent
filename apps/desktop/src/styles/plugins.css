@@ -97,9 +97,13 @@
   box-shadow: none;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plugins-header-menu:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .plugins-header-menu:focus-visible {
@@ -179,8 +183,12 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plugins-segment-btn:hover {
   color: var(--ds-text-primary);
+}
 }
 
 .plugins-segment-btn.active {
@@ -263,9 +271,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plugins-search-clear:hover {
   background: color-mix(in oklab, var(--ds-text-primary) 10%, transparent);
   color: var(--ds-text-primary);
+}
 }
 
 .plugins-panel {
@@ -464,7 +476,8 @@
   user-select: none;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
-    color var(--motion-duration-fast) var(--motion-ease-out);
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
 .plugins-row-details-toggle::-webkit-details-marker {
@@ -480,9 +493,13 @@
   transform: rotate(180deg);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plugins-row-details-toggle:hover {
   background: color-mix(in oklab, var(--ds-text-primary) 7%, transparent);
   color: var(--ds-text-primary);
+}
 }
 
 .plugins-row-details-toggle:focus-visible {
@@ -672,9 +689,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plugins-icon-btn:hover {
   background: color-mix(in oklab, var(--ds-text-primary) 8%, transparent);
   color: var(--ds-text-primary);
+}
 }
 
 .plugins-icon-btn.is-bordered {
@@ -744,8 +765,12 @@
   flex: 0 0 auto;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plugins-menu button:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .plugins-menu button:disabled {
@@ -753,8 +778,12 @@
   opacity: 0.55;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plugins-menu button:disabled:hover {
   background: transparent;
+}
 }
 
 .plugins-menu button.danger,
@@ -762,8 +791,12 @@
   color: var(--ds-error);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plugins-menu button.danger:hover {
   background: color-mix(in oklab, var(--ds-error) 12%, transparent);
+}
 }
 
 /* Menu groups are separated by a breath of space; the destructive item's
@@ -877,8 +910,12 @@
   white-space: nowrap;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plugins-setting-reset:hover {
   color: var(--ds-text-primary);
+}
 }
 
 .plugins-shortcut-recorder {
@@ -987,9 +1024,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plugins-filter:hover {
   background: var(--plugins-tile-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .plugins-filter.active {
@@ -1016,10 +1057,14 @@
     transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plugins-card:hover {
   transform: translateY(-1px);
   background: var(--plugins-raised);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
 }
 
 .plugins-card.active {
@@ -1450,9 +1495,13 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plugins-sheet-link:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .plugins-sheet-link > svg {
@@ -1587,8 +1636,12 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plugins-version:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .plugins-version.active {
@@ -1718,8 +1771,12 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .plugins-template:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .plugins-template.active {
@@ -2054,6 +2111,7 @@
 }
 
 .plugins-install-mirror-head {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   display: flex;
   align-items: baseline;
   gap: 8px;
@@ -2087,4 +2145,14 @@
     animation: none;
     transition: none;
   }
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.plugins-row-details-toggle:active:not(:disabled),
+.plugins-install-mirror-head:active:not(:disabled) {
+  transform: scale(0.97);
 }

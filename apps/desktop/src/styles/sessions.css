@@ -68,6 +68,7 @@
 }
 
 .import-select-all {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   display: inline-flex;
   min-width: 0;
   align-items: center;
@@ -155,6 +156,7 @@
 }
 
 .import-group-toggle {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   display: flex;
   min-width: 0;
   flex: 1;
@@ -237,8 +239,12 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .import-row:hover {
   background: var(--ds-tile-hover);
+}
 }
 
 /* Selection is tonal, never a color: the checkbox already says which rows. */
@@ -616,9 +622,13 @@
   color: var(--ds-text-secondary);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .session-rename-dialog-close:hover:not(:disabled) {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .session-rename-dialog-label {
@@ -869,6 +879,7 @@
 }
 
 .sidebar-session-hover-card-session-link {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -885,8 +896,12 @@
   text-align: start;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .sidebar-session-hover-card-session-link:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .sidebar-session-hover-card-session-link:focus-visible {
@@ -1108,4 +1123,15 @@
   border-radius: var(--radius-sm);
   outline: 1px dashed var(--ds-border-strong);
   outline-offset: -2px;
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.import-select-all:active:not(:disabled),
+.import-group-toggle:active:not(:disabled),
+.sidebar-session-hover-card-session-link:active:not(:disabled) {
+  transform: scale(0.97);
 }

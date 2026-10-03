@@ -80,8 +80,12 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out), color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .settings-segment-item:hover {
   color: var(--ds-text-primary);
+}
 }
 
 .settings-segment-item.active {
@@ -155,9 +159,13 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out), color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .provider-dialog-close:hover:not(:disabled) {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .provider-dialog-close:disabled {
@@ -257,8 +265,12 @@
     background var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .provider-model-card:hover {
   background: var(--ds-tile-hover);
+}
 }
 
 /* The open card lifts off the tray instead of drawing a frame (D297). */
@@ -279,6 +291,7 @@
 }
 
 .provider-model-card-toggle {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   display: flex;
   min-width: 0;
   flex: 1 1 auto;
@@ -291,8 +304,12 @@
   cursor: pointer;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .provider-model-card-toggle:hover {
   color: var(--ds-text-primary);
+}
 }
 
 .provider-model-card-toggle:focus-visible {
@@ -405,12 +422,17 @@
   border-radius: var(--radius-xs);
   color: var(--ds-text-muted);
   cursor: pointer;
-  transition: background var(--motion-duration-fast) var(--motion-ease-out), color var(--motion-duration-fast) var(--motion-ease-out);
+  transition: background var(--motion-duration-fast) var(--motion-ease-out), color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .provider-model-card-remove:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .provider-model-card-details {
@@ -426,6 +448,7 @@
 }
 
 .provider-model-card-metadata summary {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   padding: 6px 0 2px;
   color: var(--ds-text-secondary);
   font-size: var(--text-xs-plus);
@@ -433,8 +456,12 @@
   user-select: none;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .provider-model-card-metadata summary:hover {
   color: var(--ds-text-primary);
+}
 }
 
 .provider-model-metadata-body {
@@ -562,12 +589,17 @@
   font-size: var(--text-xs-plus);
   line-height: var(--leading-tighter);
   cursor: pointer;
-  transition: background var(--motion-duration-fast) var(--motion-ease-out), color var(--motion-duration-fast) var(--motion-ease-out);
+  transition: background var(--motion-duration-fast) var(--motion-ease-out), color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .provider-thinking-chip:hover {
   background: var(--ds-tile-deep);
   color: var(--ds-text-primary);
+}
 }
 
 .provider-thinking-chip.selected {
@@ -619,7 +651,8 @@
   color: var(--ds-text-primary);
   text-align: left;
   cursor: pointer;
-  transition: background var(--motion-duration-fast) var(--motion-ease-out), box-shadow var(--motion-duration-fast) var(--motion-ease-out);
+  transition: background var(--motion-duration-fast) var(--motion-ease-out), box-shadow var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
 .provider-model-multi-trigger:hover,
@@ -760,8 +793,12 @@
   background: var(--ds-bg-active);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .provider-model-multi-option.selected:hover {
   background: var(--ds-bg-active);
+}
 }
 
 .provider-model-multi-option:focus-visible {
@@ -1015,9 +1052,13 @@
   color: var(--ds-text-muted);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .project-memory-remove:hover:not(:disabled) {
   background: color-mix(in oklab, var(--ds-error) 12%, transparent);
   color: var(--ds-error);
+}
 }
 
 .project-memory-dialog-empty {
@@ -1067,9 +1108,13 @@
   color: var(--ds-text-secondary);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .project-instructions-dialog-close:hover:not(:disabled) {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .project-instructions-dialog-editor {
@@ -1187,6 +1232,7 @@
 }
 
 .provider-model-option {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   display: flex;
   width: 100%;
   min-height: 34px;
@@ -1300,12 +1346,17 @@
   word-break: break-all;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .oauth-link:hover {
   text-decoration: underline;
+}
 }
 
 /* The device code is the whole point of the block — big, monospaced, copyable */
 .oauth-device-code {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -1318,8 +1369,12 @@
   cursor: pointer;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .oauth-device-code:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .oauth-options {
@@ -1341,11 +1396,16 @@
   color: var(--ds-text-primary);
   text-align: left;
   cursor: pointer;
-  transition: background var(--motion-duration-fast) var(--motion-ease-out);
+  transition: background var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .oauth-option:hover {
   background: var(--ds-tile-hover);
+}
 }
 
 .oauth-option-label {
@@ -1382,4 +1442,32 @@
 }
 .provider-endpoint-guidance > span {
   flex: 1 1 260px;
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.provider-model-card-toggle:active:not(:disabled),
+.provider-model-card-remove:active:not(:disabled),
+.provider-model-card-metadata summary:active:not(:disabled),
+.provider-thinking-chip:active:not(:disabled),
+.provider-model-multi-trigger:active:not(:disabled),
+.provider-model-option:active:not(:disabled),
+.oauth-device-code:active:not(:disabled),
+.oauth-option:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/*
+ * A ring that cannot spin still reads as "working" beside the label. This
+ * partial's other reduced-motion block sits above `.provider-model-spinner`, so
+ * the switch-off lives here instead of inside it.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .provider-model-spinner {
+    animation: none;
+    opacity: 0.7;
+  }
 }

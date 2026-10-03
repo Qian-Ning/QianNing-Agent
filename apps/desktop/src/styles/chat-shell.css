@@ -274,9 +274,13 @@
   }
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .jump-latest-btn:hover {
   background: var(--ds-raised);
   color: var(--ds-text-primary);
+}
 }
 
 .thread-content {
@@ -926,6 +930,7 @@
 }
 
 .home-project-switcher-clone-submit {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   margin: 0 6px 4px;
   padding: 7px 8px;
   border: 0;
@@ -962,4 +967,13 @@
     padding-top: 18px;
     padding-bottom: 18px;
   }
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.home-project-switcher-clone-submit:active:not(:disabled) {
+  transform: scale(0.97);
 }

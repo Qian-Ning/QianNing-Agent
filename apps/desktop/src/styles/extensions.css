@@ -377,15 +377,20 @@
   cursor: pointer;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
-    color var(--motion-duration-fast) var(--motion-ease-out);
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
 .ext-tool-opt code {
   font-family: var(--font-mono);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .ext-tool-opt:hover {
   background: var(--ds-tile-deep);
+}
 }
 
 /* On reads through the fill alone (D297); the tint says which kind. */
@@ -422,11 +427,16 @@
   cursor: pointer;
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
-    color var(--motion-duration-fast) var(--motion-ease-out);
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .ext-preset-chip:hover {
   background: var(--ds-tile-deep);
+}
 }
 
 .ext-preset-chip:focus-visible,
@@ -651,8 +661,12 @@
   flex: 0 0 auto;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .scope-seg:hover:not(.is-active) {
   color: var(--ds-text-primary);
+}
 }
 
 .scope-seg.is-active {
@@ -797,9 +811,13 @@
   flex: 0 0 auto;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .scope-popover-close:hover {
   background: color-mix(in oklab, var(--ds-text-primary) 8%, transparent);
   color: var(--ds-text-primary);
+}
 }
 
 .scope-popover-search {
@@ -852,8 +870,12 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .scope-option:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .scope-option-check {
@@ -1020,9 +1042,13 @@
   flex: 0 0 auto;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .ext-sheet-close:hover {
   background: color-mix(in oklab, var(--ds-text-primary) 8%, transparent);
   color: var(--ds-text-primary);
+}
 }
 
 .ext-sheet-body {
@@ -1059,10 +1085,14 @@
   height: 34px;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .ext-sheet .field-input:hover,
 .ext-sheet .field-select:hover,
 .ext-sheet .field-textarea:hover {
   background: var(--ds-tile-hover);
+}
 }
 
 .ext-sheet .field-input:focus,
@@ -1090,6 +1120,7 @@
 }
 
 .ext-sheet-advanced-toggle {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1105,9 +1136,13 @@
   cursor: pointer;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .ext-sheet-advanced-toggle:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .ext-sheet-advanced-toggle svg {
@@ -1230,8 +1265,12 @@
     box-shadow var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .ext-transport-card:hover {
   background: var(--ds-tile-hover);
+}
 }
 
 /* The chosen transport is the raised card (D297), not the outlined one. */
@@ -1403,8 +1442,12 @@
   min-width: 0;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .ext-import-row:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .ext-import-icon {
@@ -1488,9 +1531,13 @@
   flex: 0 0 auto;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .kv-remove:hover {
   background: color-mix(in oklab, var(--ds-error) 12%, transparent);
   color: var(--ds-error);
+}
 }
 
 .kv-add {
@@ -1509,9 +1556,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .kv-add:hover {
   background: var(--ds-tile-deep);
   color: var(--ds-text-primary);
+}
 }
 
 /*
@@ -1559,4 +1610,15 @@
   .kv-add {
     transition: none;
   }
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.ext-tool-opt:active:not(:disabled),
+.ext-preset-chip:active:not(:disabled),
+.ext-sheet-advanced-toggle:active:not(:disabled) {
+  transform: scale(0.97);
 }

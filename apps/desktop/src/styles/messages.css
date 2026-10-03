@@ -107,6 +107,7 @@
 }
 
 .asktool-decline {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   flex: none;
   border: 0;
   background: transparent;
@@ -116,8 +117,12 @@
   font-size: var(--text-xs);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .asktool-decline:hover {
   color: var(--ds-text-primary);
+}
 }
 
 .asktool-indicators {
@@ -190,7 +195,8 @@
   font: inherit;
   font-size: var(--text-md);
   text-align: start;
-  transition: background-color var(--motion-duration-fast) var(--motion-ease-out);
+  transition: background-color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
 .asktool-option-copy {
@@ -701,9 +707,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .review-change-card-header:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .review-change-card-header:focus-visible {
@@ -762,8 +772,12 @@
   text-align: left;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .review-change-card-header:hover .review-change-card-path {
   color: var(--ds-text-primary);
+}
 }
 
 .review-change-card-counts {
@@ -826,9 +840,13 @@
     color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .review-change-rollback:hover:not(:disabled) {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .review-change-rollback:disabled {
@@ -1142,9 +1160,13 @@
     transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .copy-btn:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .copy-btn.copied {
@@ -1156,14 +1178,22 @@
   color: var(--ds-bg-primary);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .copy-btn.primary:hover {
   background: var(--ds-accent-hover);
   color: var(--ds-bg-primary);
 }
+}
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .copy-btn.danger:hover {
   background: color-mix(in oklab, var(--ds-error) 10%, transparent);
   color: var(--ds-error);
+}
 }
 
 /* Message toolbars stay glyphs-only: the label rides in a hover/focus tooltip
@@ -1236,11 +1266,16 @@
   line-height: var(--leading-compact);
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
-    color var(--motion-duration-fast) var(--motion-ease-out);
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .context-inspector-trigger:hover {
   background: color-mix(in oklab, currentColor 8%, transparent);
+}
 }
 
 .context-inspector[data-open="true"] .context-inspector-trigger {
@@ -1483,13 +1518,18 @@
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease,
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .context-inspector-summarize:hover:not(:disabled) {
   background: var(--ds-surface-hover);
   color: var(--ds-text-primary);
   border-color: var(--ds-border);
+}
 }
 
 .context-inspector-summarize:disabled {
@@ -1688,6 +1728,7 @@
 }
 
 .session-message-source {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   padding: 2px 0;
   min-width: 0;
   background: transparent;
@@ -1699,9 +1740,13 @@
   cursor: pointer;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .session-message-source:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
+}
 }
 
 .session-message-source:focus-visible {
@@ -1764,9 +1809,13 @@
   overflow: hidden;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .message-attachment-image:hover {
   background: var(--ds-raised);
   box-shadow: 0 0 0 2px color-mix(in oklab, var(--ds-accent) 18%, transparent);
+}
 }
 
 .message-attachment-image img {
@@ -1858,9 +1907,13 @@
   color: var(--ds-text-muted);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .message-error-dismiss:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .message-error-dismiss:focus-visible {
@@ -1879,9 +1932,13 @@
   font-size: var(--text-xs-plus);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .message-error-toggle:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .message-error-toggle[aria-expanded="true"] svg {
@@ -1994,9 +2051,13 @@
   text-align: left;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .tool-activity-header:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .tool-activity-icon {
@@ -2252,8 +2313,12 @@
   text-align: left;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .subagent-topology-node-header:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .subagent-topology-node-header:disabled {
@@ -2504,17 +2569,29 @@
   padding: 2px 0;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .tool-row-head.is-run .tool-row-header:hover {
   background: transparent;
 }
+}
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .tool-row-head.is-run:has(.tool-row-header:not(:disabled)):hover {
   background: var(--ds-bg-hover);
 }
+}
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .tool-row-head.is-run:has(.tool-row-header:not(:disabled)):hover
   .tool-row-name {
   color: var(--ds-text-primary);
+}
 }
 
 .tool-row-head-copy {
@@ -2558,9 +2635,13 @@
   border-radius: var(--radius-xs);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .tool-row-caret.is-toggle:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 /* A run row states its outcome next to the caret, success included. */
@@ -2621,13 +2702,21 @@
   }
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .tool-row-header:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
 }
+}
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .tool-row-header:disabled:hover {
   background: transparent;
+}
 }
 
 .tool-row-icon {
@@ -2672,8 +2761,12 @@
   color: var(--ds-text-secondary);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .tool-row-header:hover .tool-row-name {
   color: var(--ds-text-primary);
+}
 }
 
 /* Which delegate a `Task` row handed the work to (ADR 0060). */
@@ -3025,11 +3118,15 @@
   white-space: nowrap;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .tool-file-item.is-linked:hover,
 .tool-match-path.is-linked:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
   text-decoration: underline;
+}
 }
 
 .tool-match-group + .tool-match-group {
@@ -3287,8 +3384,12 @@
   text-decoration: none;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .hosted-search-sources a:hover {
   text-decoration: underline;
+}
 }
 
 /* The title ellipsizes inside the row: an inline-flex anchor would otherwise
@@ -3335,4 +3436,17 @@
     animation: none;
     opacity: 0.7;
   }
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.asktool-decline:active:not(:disabled),
+.asktool-option:active:not(:disabled),
+.context-inspector-trigger:active:not(:disabled),
+.context-inspector-summarize:active:not(:disabled),
+.session-message-source:active:not(:disabled) {
+  transform: scale(0.97);
 }

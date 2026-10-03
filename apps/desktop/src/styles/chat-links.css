@@ -28,6 +28,7 @@
 
 /* Sent-message file node: same .composer-chip surface, button reset + hover. */
 .chat-file-chip {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   border: 0;
   padding-right: 6px;
   font: inherit;
@@ -70,10 +71,14 @@
 .tool-row-summary.linked {
   cursor: pointer;
 }
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .tool-row-summary.linked:hover {
   color: var(--ds-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
 }
 
 /* Local image references render inline via a bounded data URL; the chip is
@@ -90,9 +95,13 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .chat-image-chip:hover {
   color: var(--ds-accent);
   background: var(--ds-tile-hover);
+}
 }
 
 .chat-image-local,

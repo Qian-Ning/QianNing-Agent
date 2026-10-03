@@ -618,9 +618,13 @@
   color: var(--ds-text-secondary);
   cursor: pointer;
   transition: background var(--motion-duration-fast) var(--motion-ease-out),
-    color var(--motion-duration-fast) var(--motion-ease-out);
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .conversation-topbar .ct-icon-btn:hover:not(:disabled),
 .app-work-panel-toggle:hover:not(:disabled),
 .main-titlebar .title-nav-btn:hover:not(:disabled),
@@ -629,6 +633,7 @@
 .work-panel-maximize:hover:not(:disabled) {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .conversation-topbar .ct-icon-btn:disabled,
@@ -884,9 +889,13 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out), color var(--motion-duration-fast) var(--motion-ease-out), opacity var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .notification-action:hover:not(:disabled) {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .notification-action:disabled {
@@ -911,9 +920,13 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out), color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .notification-filter:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 .notification-filter.active {
@@ -948,8 +961,12 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .notification-item:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .notification-item:disabled {
@@ -961,8 +978,12 @@
   background: color-mix(in oklab, var(--ds-accent) 5%, transparent);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .notification-item.unread:hover {
   background: color-mix(in oklab, var(--ds-accent) 9%, transparent);
+}
 }
 
 .notification-kind-icon {
@@ -1115,14 +1136,22 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out), color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .window-control-btn:hover {
   color: var(--ds-text-primary);
   background: var(--ds-bg-hover);
 }
+}
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .window-control-btn.window-control-close:hover {
   color: var(--ds-bg-primary);
   background: var(--ds-error);
+}
 }
 
 /* End every native drag rectangle before the window-control hit targets.
@@ -1190,8 +1219,12 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .brand:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .brand-logo {
@@ -1244,4 +1277,16 @@
 .window-chrome-drag {
   flex: 1 1 auto;
   align-self: stretch;
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.conversation-topbar .ct-icon-btn:active:not(:disabled),
+.app-work-panel-toggle:active:not(:disabled),
+.work-panel-new-tab:active:not(:disabled),
+.work-panel-maximize:active:not(:disabled) {
+  transform: scale(0.97);
 }

@@ -1,7 +1,11 @@
 .markdown-table { min-width: 0; margin: 0.9em 0; }
 .markdown-table-actions { display: flex; justify-content: flex-end; gap: 2px; margin-bottom: 4px; }
 .markdown-table-actions .icon-btn { width: 28px; height: 28px; color: var(--ds-text-secondary); }
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .markdown-table-actions .icon-btn:hover { color: var(--ds-text-primary); background: var(--ds-tile-hover); }
+}
 .prose-chat .markdown-table > .table-wrap { margin: 0; }
 
 .overlay.markdown-table-overlay { padding: 16px; }

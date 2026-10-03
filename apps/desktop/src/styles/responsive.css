@@ -172,3 +172,20 @@
     animation: none;
   }
 }
+
+/*
+ * Reduced motion — the global net (design-system §8.5). A component that owns a
+ * particular animation collapses it itself; this rule is the guarantee for
+ * everything else, so motion added later is still disabled for a reader who
+ * asked for less of it. Near-zero rather than `none` because exit unmounts
+ * listen for `animationend`. This partial is the last import in globals.css, so
+ * the net sits at the tail of the cascade on purpose.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

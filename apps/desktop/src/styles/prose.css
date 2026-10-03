@@ -261,9 +261,13 @@
   transition: color var(--motion-duration-fast) var(--motion-ease-out), text-decoration-color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .prose-chat a:hover {
   color: var(--ds-text-primary);
   text-decoration-color: color-mix(in oklab, var(--ds-text-primary) 85%, transparent);
+}
 }
 
 .prose-chat a:focus-visible {
@@ -277,8 +281,12 @@
   text-decoration-color: color-mix(in oklab, var(--ds-text-primary) 30%, transparent);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 :root[data-theme="light"] .prose-chat a:hover {
   text-decoration-color: color-mix(in oklab, var(--ds-text-primary) 80%, transparent);
+}
 }
 
 .prose-chat img,
@@ -393,8 +401,12 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .prose-chat tbody tr:hover td {
   background: var(--ds-tile-hover);
+}
 }
 
 .prose-chat td code {
@@ -457,9 +469,13 @@
   opacity: 0.9;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 /* The hover fill is ours (--ds-code-hover-bg); the ink is the Shiki token. */
 :root[data-theme="light"] .code-block .code-copy-btn:hover {
   color: #383a42;
+}
 }
 
 .code-block-lang {
@@ -491,9 +507,13 @@
   opacity: 1;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .code-block .code-copy-btn:hover {
   color: var(--ds-text-secondary);
   background: var(--ds-code-hover-bg);
+}
 }
 
 .code-block .code-copy-btn.copied {
@@ -743,9 +763,13 @@
   text-decoration-color: color-mix(in oklab, var(--ds-text-secondary) 45%, transparent);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .thinking-prose a:hover {
   color: var(--ds-text-primary);
   text-decoration-color: color-mix(in oklab, var(--ds-text-primary) 70%, transparent);
+}
 }
 
 .thinking-prose code {

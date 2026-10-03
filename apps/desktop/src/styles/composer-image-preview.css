@@ -12,6 +12,7 @@
 
 .composer-image-attachment { position: relative; width: 88px; height: 88px; }
 .composer-image-attachment-open {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   box-sizing: border-box;
   position: relative;
   display: flex;
@@ -35,6 +36,7 @@
   object-fit: cover;
 }
 .composer-image-attachment-remove {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   position: absolute;
   right: -5px;
   top: -5px;
@@ -161,12 +163,26 @@
 }
 
 .composer-image-preview button:disabled { opacity: 0.4; cursor: default; }
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .composer-image-preview button:hover:not(:disabled),
 .composer-image-preview a:hover { background: var(--gray-700); }
+}
 .composer-image-preview button:focus-visible,
 .composer-image-preview a:focus-visible { outline: 2px solid var(--gray-0); outline-offset: 2px; }
 .composer-image-preview output { min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 600px) {
   .composer-image-preview { padding: 16px; gap: 12px; }
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.composer-image-attachment-open:active:not(:disabled),
+.composer-image-attachment-remove:active:not(:disabled) {
+  transform: scale(0.97);
 }

@@ -492,9 +492,13 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out), color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .update-notice-dismiss:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 @keyframes update-notice-in {
@@ -567,9 +571,13 @@
   transition: background var(--motion-duration-fast) var(--motion-ease-out), color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .toast-dismiss:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 @keyframes overlay-in {
@@ -653,6 +661,7 @@
   background: var(--ds-error);
 }
 .backend-banner .backend-action {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   border: none;
   background: none;
   padding: 0;
@@ -663,8 +672,12 @@
   cursor: pointer;
   opacity: 0.85;
 }
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .backend-banner .backend-action:hover {
   opacity: 1;
+}
 }
 
 @keyframes pulse-soft {
@@ -716,6 +729,11 @@
   }
   .update-notice-progress > span {
     transition: none;
+  }
+  /* The dot's colour states the condition; the blink is not the message. */
+  .backend-banner.warn .backend-dot {
+    animation: none;
+    opacity: 0.85;
   }
 }
 
@@ -813,10 +831,14 @@
   color: var(--ds-text-secondary);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .chat-error-action:hover,
 .chat-error-dismiss:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
+}
 }
 
 @keyframes notice-in {
@@ -828,4 +850,13 @@
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.backend-banner .backend-action:active:not(:disabled) {
+  transform: scale(0.97);
 }

@@ -88,7 +88,11 @@
   box-shadow: 0 2px 10px #0003;
   pointer-events: auto;
 }
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .generated-image-actions a:hover { background: var(--ds-bg-primary); }
+}
 .generated-image-actions a:focus-visible,
 .generated-image-preview:focus-visible { outline: 2px solid var(--ds-text-primary); outline-offset: -4px; }
 
@@ -146,8 +150,12 @@
   color: inherit;
   cursor: pointer;
 }
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .generated-image-viewer button:hover:not(:disabled),
 .generated-image-viewer a:hover { background: var(--ds-bg-hover); }
+}
 .generated-image-viewer button:disabled { opacity: 0.38; cursor: default; }
 .generated-image-viewer button:focus-visible,
 .generated-image-viewer a:focus-visible { outline: 2px solid var(--ds-text-primary); outline-offset: 2px; }

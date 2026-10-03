@@ -83,9 +83,13 @@
   transition: border-color 120ms ease, transform 120ms ease;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .skin-card:hover {
   border-color: var(--ds-accent);
   transform: translateY(-1px);
+}
 }
 
 .skin-card.is-active {
@@ -211,6 +215,7 @@
 }
 
 .skin-card-tool {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   display: grid;
   place-items: center;
   width: 26px;
@@ -222,13 +227,21 @@
   cursor: pointer;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .skin-card-tool:hover {
   background: color-mix(in oklab, var(--ds-text-primary) 10%, transparent);
   color: var(--ds-text-primary);
 }
+}
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .skin-card-tool.is-danger:hover {
   color: var(--ds-danger, var(--ds-text-primary));
+}
 }
 
 /* --- editor dialog --- */
@@ -262,6 +275,7 @@
 }
 
 .skin-editor-close {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   border: none;
   background: transparent;
   color: var(--ds-text-secondary);
@@ -270,8 +284,12 @@
   border-radius: var(--radius-2xs);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .skin-editor-close:hover {
   background: color-mix(in oklab, var(--ds-text-primary) 10%, transparent);
+}
 }
 
 .skin-editor-body {
@@ -324,6 +342,7 @@
 }
 
 .skin-editor-color input[type="color"] {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   width: 26px;
   height: 26px;
   border: none;
@@ -375,6 +394,7 @@
 }
 
 .skin-editor-media-remove {
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
   border: none;
   background: transparent;
   color: var(--ds-text-secondary);
@@ -383,8 +403,12 @@
   border-radius: var(--radius-2xs);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .skin-editor-media-remove:hover {
   color: var(--ds-danger, var(--ds-text-primary));
+}
 }
 
 .skin-editor-slider {
@@ -542,4 +566,16 @@
   .skin-editor-body {
     grid-template-columns: 1fr;
   }
+}
+
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.skin-card-tool:active:not(:disabled),
+.skin-editor-close:active:not(:disabled),
+.skin-editor-color input[type="color"]:active:not(:disabled),
+.skin-editor-media-remove:active:not(:disabled) {
+  transform: scale(0.97);
 }

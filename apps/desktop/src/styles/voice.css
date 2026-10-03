@@ -1,6 +1,8 @@
-/* Voice input styles. Every colour rides a --ds-* token: the old --color-*
-   aliases never existed in tokens.css, so each value below used to fall back
-   to a hardcoded literal that no contributed theme could reach. */
+/*
+ * Voice input styles. Every colour rides a --ds-* token: the old --color-*
+ * aliases never existed in tokens.css, so each value below used to fall back
+ * to a hardcoded literal that no contributed theme could reach.
+ */
 
 .voice-active {
   color: var(--ds-error) !important;
@@ -99,11 +101,16 @@
   color: var(--ds-text-secondary);
   border: 1px solid var(--ds-border-strong);
   cursor: pointer;
-  transition: background 150ms;
+  transition: background 150ms,
+    transform var(--motion-duration-fast) var(--motion-ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  /* Pointer-gated hover (design-system §8.7): a touch tap latches
+     `:hover` until the next tap, so an ungated reveal sticks. */
 .voice-cancel-btn:hover {
   background: var(--ds-bg-hover);
+}
 }
 
 .voice-error {
@@ -115,4 +122,24 @@
   max-width: none;
 }
 
+/*
+ * Pressed feedback (design-system §8.7): a compact control dips under the
+ * finger. `transform` is already in each base rule's transition above, so the
+ * release eases back instead of snapping.
+ */
+.voice-cancel-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
 
+/*
+ * Nothing above is a motion token, so nothing above autoplays. Kept at the end
+ * of the partial: the loops it switches off are declared above it, and a guard
+ * that precedes its declaration loses the tie on source order.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .voice-mic-active,
+  .voice-recording-dot,
+  .voice-spinner {
+    animation: none;
+  }
+}
