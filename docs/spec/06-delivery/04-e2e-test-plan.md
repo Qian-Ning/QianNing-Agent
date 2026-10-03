@@ -459,7 +459,10 @@ identify the platform validation still needed.
 - **Steps**: 1) Push the tag. 2) Confirm the `macos-signing` job classifies the
   configuration as `signed=false` and the macOS matrix rows therefore receive
   no signing environment. 3) Confirm both macOS architectures complete DMG/ZIP
-  packaging with `-c.mac.identity=-`. 4) Inspect the artifacts and workflow
+  packaging through `dist:mac:unsigned`. 4) Run `codesign -dv --verbose=4`
+  against each packaged `.app` and confirm it reports `Signature=adhoc`; a
+  completely unsigned bundle prints no `Signature` line at all, which is what a
+  dropped `-c.mac.identity=-` looks like. 5) Inspect the artifacts and workflow
   steps.
 - **Expected**: macOS DMG/ZIP artifacts are produced and uploaded, ad-hoc signed
   by electron-builder (`codesign -s -`, no Developer ID authority, no

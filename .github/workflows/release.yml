@@ -281,24 +281,35 @@ jobs:
       - name: Package installers (${{ matrix.dist }})
         # The dist scripts pass --publish never themselves: electron-builder
         # must not self-publish on tag builds (no token; softprops owns it).
-        # The explicit architecture keeps the package and native Rust sidecar
-        # aligned with the runner selected by this matrix entry.
+        #
+        # No architecture flag is appended on purpose. `pnpm run <script> --
+        # <args>` puts a literal `--` on electron-builder's command line, and
+        # everything after `--` is a positional argument to its CLI parser:
+        # `--x64` and every `-c.<path>=<value>` override placed there are
+        # silently dropped. The architecture comes from the runner instead —
+        # each matrix row's arch is pinned in package.json or asserted by the
+        # `Verify native runner architecture` step above.
         if: matrix.platform != 'macos'
-        run: pnpm --filter @pi-desktop/desktop run ${{ matrix.dist }} -- --${{ matrix.arch }}
+        run: pnpm --filter @pi-desktop/desktop run ${{ matrix.dist }}
 
       - name: Package unsigned macOS installer
-        # No Apple Developer account is configured. `-c.mac.identity=-` asks
-        # @electron/osx-sign for an ad-hoc signature (`codesign -s -`) rather
-        # than skipping signing: an arm64 app with no signature at all refuses
-        # to launch. `mac.hardenedRuntime` stays on from package.json, and the
-        # shared entitlements already carry
+        # No Apple Developer account is configured. `dist:mac:unsigned` carries
+        # `-c.mac.identity=-`, which asks @electron/osx-sign for an ad-hoc
+        # signature (`codesign -s -`) rather than skipping signing: an arm64 app
+        # with no signature at all refuses to launch. `mac.hardenedRuntime`
+        # stays on from package.json, and the shared entitlements already carry
         # com.apple.security.cs.disable-library-validation, which hardened
         # runtime plus ad-hoc signing requires.
+        #
+        # The override lives inside the script on purpose: appending it here
+        # would place it after `pnpm run`'s `--`, where electron-builder's CLI
+        # parser treats it as a positional argument and drops it — the build
+        # then publishes a completely unsigned app while still reporting
+        # success.
         if: matrix.platform == 'macos' && needs.macos-signing.outputs.signed != 'true'
         run: |
           set -euo pipefail
-          pnpm --filter @pi-desktop/desktop run dist:mac -- --${{ matrix.arch }} \
-            -c.mac.identity=-
+          pnpm --filter @pi-desktop/desktop run dist:mac:unsigned
           echo "::warning title=Unsigned macOS artifacts::No Apple Developer signing secrets are configured, so the macOS artifacts are ad-hoc signed and not notarized. Gatekeeper blocks the first launch: users must right-click the app and choose Open, or run: xattr -dr com.apple.quarantine '/Applications/QianNing Agent.app'"
 
       - name: Package signed and notarized macOS installer
@@ -342,9 +353,7 @@ jobs:
           # PI_SIGNING_TIMEOUT_SECONDS instead of waiting for the job timeout.
           node scripts/macos-signing-watchdog.mjs \
             --label "dist:mac-${{ matrix.arch }}" \
-            -- pnpm --filter @pi-desktop/desktop run dist:mac -- --${{ matrix.arch }} \
-              -c.mac.forceCodeSigning=true \
-              -c.mac.notarize=true
+            -- pnpm --filter @pi-desktop/desktop run dist:mac:signed
 
       - name: Analyze the packaged macOS app bundle
         # Reports the file / Mach-O / framework / nested-bundle counts that

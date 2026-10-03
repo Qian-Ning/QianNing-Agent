@@ -3675,7 +3675,7 @@ IPC 请求无法关闭。
 #### E2E-196a：ad-hoc macOS 标签通道（无 Apple 开发者账号）
 
 - **先决条件**：`CSC_LINK`、`CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID` 全部未配置，且 `MAC_SIGNING_IDENTITY` 未设置；推送 `vX.Y.Z` 标签。这是本仓库的常态：它没有付费 Apple Developer Program 会员资格。
-- **步骤**：1) 推送标签。2) 确认 `macos-signing` 作业把配置判定为 `signed=false`，因此 macOS 矩阵行不会收到签名环境变量。3) 确认两个 macOS 架构都以 `-c.mac.identity=-` 完成 DMG/ZIP 打包。4) 检查工件和工作流步骤。
+- **步骤**：1) 推送标签。2) 确认 `macos-signing` 作业把配置判定为 `signed=false`，因此 macOS 矩阵行不会收到签名环境变量。3) 确认两个 macOS 架构都通过 `dist:mac:unsigned` 完成 DMG/ZIP 打包。4) 对每个打包出的 `.app` 运行 `codesign -dv --verbose=4`，确认输出为 `Signature=adhoc`；完全未签名的应用包根本没有 `Signature` 行，这正是 `-c.mac.identity=-` 被丢弃时的表现。5) 检查工件和工作流步骤。
 - **预期**：macOS DMG/ZIP 工件生成并上传，由 electron-builder 做 ad-hoc 签名（`codesign -s -`，没有 Developer ID 权限，也不做公证），文件名分别带有 `-arm64` 和 `-x64` 架构标记；因为没有票据，装订和 Gatekeeper 检查被跳过。Windows/Linux 工件和合并后的更新源正常发布，GitHub Release 正常创建。在干净机器上首次启动会被 Gatekeeper 拒绝，直到用户右键 → 打开或清除 `com.apple.quarantine`；该通道不满足 E2E-196c。
 - **关联规格**：`06-delivery/06-release-runbook.md`
 - **验收**：质量（未签名打包）

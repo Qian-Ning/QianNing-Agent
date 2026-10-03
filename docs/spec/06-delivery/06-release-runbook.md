@@ -282,9 +282,20 @@ code-signing integrity (including `pi-desktop-host-core`), Gatekeeper
 The per-architecture `latest-mac.yml` files are renamed before upload; the
 publish job merges them into one feed after downloading both artifacts.
 
-When signing is *not* configured, the packaging step passes
-`-c.mac.identity=-`: an explicit ad-hoc signature (`codesign -s -`) rather than
-a skipped one, because an arm64 app with no signature at all refuses to launch.
+**Never append electron-builder overrides with `pnpm run <script> -- <args>`.**
+pnpm puts a literal `--` on the child's command line, and electron-builder's CLI
+parser treats everything after `--` as a positional argument: `--x64`,
+`-c.mac.identity=-`, `-c.mac.forceCodeSigning=true`, and `-c.mac.notarize=true`
+are all silently dropped, and the build still reports success. That is how this
+fork once published a completely unsigned macOS app while claiming ad-hoc
+signing. Overrides belong inside the npm script itself
+(`dist:mac:unsigned` / `dist:mac:signed`); architecture comes from the runner,
+which the `Verify native runner architecture` step asserts.
+
+When signing is *not* configured, the step runs `dist:mac:unsigned`, which
+carries `-c.mac.identity=-`: an explicit ad-hoc signature (`codesign -s -`)
+rather than a skipped one, because an arm64 app with no signature at all
+refuses to launch.
 `mac.hardenedRuntime` stays on from `apps/desktop/package.json`, and the shared
 entitlements already carry
 `com.apple.security.cs.disable-library-validation`, which ad-hoc signing under
@@ -640,8 +651,11 @@ runtime and Electron app. D126/D285/D603 tag workflows publish these outputs and
 their electron-updater manifests. Run a target command on that target OS:
 
 ```text
-macOS Apple Silicon: pnpm --filter @pi-desktop/desktop run dist:mac -- --arm64
-macOS Intel:         pnpm --filter @pi-desktop/desktop run dist:mac -- --x64
+macOS Apple Silicon: pnpm --filter @pi-desktop/desktop run dist:mac:unsigned
+macOS Intel (x64):   pnpm --filter @pi-desktop/desktop run dist:mac:unsigned
+
+Each runs on its own native runner, so electron-builder picks up the host
+architecture; the arch is not passed on the command line (see below).
 Windows: pnpm --filter @pi-desktop/desktop dist:win
 Linux:   pnpm --filter @pi-desktop/desktop dist:linux
 ```

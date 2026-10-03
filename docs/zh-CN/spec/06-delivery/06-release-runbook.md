@@ -204,7 +204,9 @@ macOS 矩阵使用 arm64 的 `macos-15` 和 Intel x64 的
 的 `--arm64` 或 `--x64`，并在同一本机运行器上构建
 `pi-desktop-host-core`。配置签名时，打包步骤从 GitHub Actions secrets 接收 `CSC_LINK`、`CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD` 和 `APPLE_TEAM_ID`，并从仓库变量接收 `MAC_SIGNING_IDENTITY`，再通过 `CSC_NAME` 固定证书（裸通用名——electron-builder 拒绝 `Developer ID Application:` 前缀），强制对应用包做代码签名与 `notarytool` 公证。随后 DMG 由 `scripts/notarize-and-staple-macos-release-dmg.sh` 单独提交到同一个服务，只有返回 `Accepted` 才允许装订票据；之后验证身份、代码签名完整性（含 `pi-desktop-host-core`）、Gatekeeper `Notarized Developer ID` 以及两份已装订票据，再进行任何工件上传。每个架构的 `latest-mac.yml` 会在上传前重命名，发布作业下载两个工件后再合并为一个更新源。
 
-**未配置签名时**，打包步骤传入 `-c.mac.identity=-`：这是明确的 ad-hoc 签名（`codesign -s -`），而不是跳过签名——完全没有签名的 arm64 应用无法启动。`apps/desktop/package.json` 的 `mac.hardenedRuntime` 保持开启，共享 entitlements 已包含 `com.apple.security.cs.disable-library-validation`，这正是 hardened runtime 下 ad-hoc 签名所必需的。此路径不做公证，因此产物不满足 Gatekeeper：首次启动需要右键 → 打开，或执行 `xattr -dr com.apple.quarantine '/Applications/QianNing Agent.app'`。
+**绝不能**用 `pnpm run <脚本> -- <参数>` 追加 electron-builder 覆盖项：pnpm 会在子进程命令行上留下一个字面量 `--`，而 electron-builder 的 CLI 解析器把 `--` 之后的一切当作位置参数——`--x64`、`-c.mac.identity=-`、`-c.mac.forceCodeSigning=true`、`-c.mac.notarize=true` 都会被静默丢弃，而构建仍然报告成功。本仓库曾因此在声称 ad-hoc 签名的同时发布了完全未签名的 macOS 应用。覆盖项必须写在 npm 脚本内部（`dist:mac:unsigned` / `dist:mac:signed`）；架构取自运行器，由 `Verify native runner architecture` 步骤断言。
+
+**未配置签名时**，该步骤运行 `dist:mac:unsigned`，其中带有 `-c.mac.identity=-`：这是明确的 ad-hoc 签名（`codesign -s -`），而不是跳过签名——完全没有签名的 arm64 应用无法启动。`apps/desktop/package.json` 的 `mac.hardenedRuntime` 保持开启，共享 entitlements 已包含 `com.apple.security.cs.disable-library-validation`，这正是 hardened runtime 下 ad-hoc 签名所必需的。此路径不做公证，因此产物不满足 Gatekeeper：首次启动需要右键 → 打开，或执行 `xattr -dr com.apple.quarantine '/Applications/QianNing Agent.app'`。
 
 共享的 electron-builder 配置在 macOS 平台级别为 ZIP 应用带架构后缀的命名模板，
 并在 DMG 目标级别覆盖该模板。两个公开架构都会明确可见：arm64 通道发布
@@ -491,8 +493,10 @@ project/Temporary 使用消息加会话图标创建控件。
 电子更新程序清单。在该目标操作系统上运行目标命令：
 
 ```text
-macOS Apple Silicon: pnpm --filter @pi-desktop/desktop run dist:mac -- --arm64
-macOS Intel:         pnpm --filter @pi-desktop/desktop run dist:mac -- --x64
+macOS Apple Silicon: pnpm --filter @pi-desktop/desktop run dist:mac:unsigned
+macOS Intel (x64):   pnpm --filter @pi-desktop/desktop run dist:mac:unsigned
+
+两者各自跑在本机架构的运行器上，electron-builder 自动取宿主架构；架构不在命令行上传入（原因见上）。
 Windows: pnpm --filter @pi-desktop/desktop dist:win
 Linux:   pnpm --filter @pi-desktop/desktop dist:linux
 ```

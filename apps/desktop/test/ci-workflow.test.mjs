@@ -410,7 +410,26 @@ test("the release workflow detects macOS signing instead of assuming it", () => 
     releaseWorkflowSource,
     /needs\.macos-signing\.outputs\.signed == 'true'/,
   );
-  assert.match(releaseWorkflowSource, /-c\.mac\.identity=-/);
+  // The ad-hoc override lives inside the npm script, not on the workflow's
+  // command line: electron-builder treats everything after `pnpm run`'s `--`
+  // as positional arguments, so a `-c.` override appended there is dropped and
+  // the build silently publishes a completely unsigned app.
+  assert.match(desktopPackageSource, /"dist:mac:unsigned":/);
+  assert.match(desktopPackageSource, /dist:mac:unsigned":[^\n]*-c\.mac\.identity=-/);
+  assert.match(desktopPackageSource, /"dist:mac:signed":/);
+  assert.match(desktopPackageSource, /dist:mac:signed":[^\n]*-c\.mac\.forceCodeSigning=true/);
+  assert.match(desktopPackageSource, /dist:mac:signed":[^\n]*-c\.mac\.notarize=true/);
+  assert.match(releaseWorkflowSource, /run dist:mac:unsigned/);
+  assert.match(releaseWorkflowSource, /run dist:mac:signed/);
+
+  // No electron-builder option may be routed through `pnpm run ... -- ...`.
+  for (const line of releaseWorkflowSource.split("\n")) {
+    assert.doesNotMatch(
+      line,
+      /run\s+\S+\s+--\s/,
+      `electron-builder options are dropped after \`--\`: ${line.trim()}`,
+    );
+  }
 
   // A partial configuration is a hard failure rather than a silent downgrade.
   assert.match(releaseWorkflowSource, /missing\+=\(/);
