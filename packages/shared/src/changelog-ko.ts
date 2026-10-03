@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.14",
+    "date": "2026-10-03",
+    "highlights": [
+      "설치형 빌드에서 소프트웨어 업데이트가 다시 동작합니다. 앱이 백그라운드에서 이 저장소의 GitHub Releases를 확인하고 새 버전을 내려받아 다시 시작할 때 설치합니다.",
+      "포터블·ZIP·deb 설치본은 여전히 알림만 보내고 릴리스 페이지를 열며, 설정의 업데이트 방식에서 내려받아 설치와 확인만 중 선택할 수 있습니다.",
+    ],
+  },
+
+  {
     "version": "0.15.13",
     "date": "2026-10-03",
     "highlights": [

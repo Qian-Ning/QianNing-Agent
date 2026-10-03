@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.14",
+    "date": "2026-10-03",
+    "highlights": [
+      "Dans les installations avec installateur, la mise à jour logicielle refonctionne : l'application consulte en arrière-plan les GitHub Releases de ce dépôt, télécharge la version suivante et l'installe au redémarrage.",
+      "Les copies portables, ZIP et deb se contentent toujours de prévenir et d'ouvrir la page de version ; la méthode de mise à jour dans les Réglages choisit entre télécharger-installer et vérifier seulement.",
+    ],
+  },
+
+  {
     "version": "0.15.13",
     "date": "2026-10-03",
     "highlights": [

@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    "version": "0.15.14",
+    "date": "2026-10-03",
+    "highlights": [
+      "Em instalações com instalador, a atualização de software volta a funcionar: o app consulta em segundo plano as GitHub Releases deste repositório, baixa a próxima versão e a instala ao reiniciar.",
+      "Cópias portáteis, ZIP e deb continuam apenas avisando e abrindo a página da versão; o método de atualização nas Configurações escolhe entre baixar e instalar ou apenas verificar.",
+    ],
+  },
+
+  {
     "version": "0.15.13",
     "date": "2026-10-03",
     "highlights": [

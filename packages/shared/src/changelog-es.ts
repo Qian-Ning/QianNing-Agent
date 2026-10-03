@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.14",
+    "date": "2026-10-03",
+    "highlights": [
+      "En las instalaciones con instalador, la actualización de software vuelve a funcionar: la app consulta en segundo plano las GitHub Releases de este repositorio, descarga la siguiente versión y la instala al reiniciar.",
+      "Las copias portátiles, ZIP y deb siguen limitándose a avisar y abrir la página de la versión; el método de actualización en Ajustes elige entre descargar e instalar o solo comprobar.",
+    ],
+  },
+
+  {
     "version": "0.15.13",
     "date": "2026-10-03",
     "highlights": [

@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.14",
+    "date": "2026-10-03",
+    "highlights": [
+      "Kurulumlu sürümlerde yazılım güncellemesi yeniden çalışıyor: uygulama arka planda bu deponun GitHub Releases akışını denetler, yeni sürümü indirir ve yeniden başlatınca kurar.",
+      "Taşınabilir, ZIP ve deb kurulumları yalnızca bildirip sürüm sayfasını açar; Ayarlar'daki güncelleme yöntemi indirip kurma ile yalnızca denetleme arasında seçim yapar.",
+    ],
+  },
+
+  {
     "version": "0.15.13",
     "date": "2026-10-03",
     "highlights": [

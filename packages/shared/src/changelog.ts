@@ -30,6 +30,15 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.14",
+    "date": "2026-10-03",
+    "highlights": [
+      "Software update works again in installed builds: the app checks this repository's GitHub Releases in the background, downloads the next version, and installs it on restart.",
+      "Portable, ZIP, and deb installs still only notify and open the release page, and the update method in Settings chooses between download-and-install and check-only.",
+    ],
+  },
+
+  {
     version: "0.15.13",
     date: "2026-10-03",
     highlights: [
@@ -890,6 +899,15 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.14",
+    "date": "2026-10-03",
+    "highlights": [
+      "安装版的「软件更新」恢复可用：应用会在后台检查本仓库的 GitHub Releases，下载新版本，并在重启后完成安装。",
+      "便携版、ZIP 与 deb 安装仍只提醒并打开发布页；设置里的「更新方式」可在自动下载安装与仅手动检查之间选择。",
+    ],
+  },
+
+  {
     version: "0.15.13",
     date: "2026-10-03",
     highlights: [
@@ -1749,6 +1767,15 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    "version": "0.15.14",
+    "date": "2026-10-03",
+    "highlights": [
+      "安裝版的「軟體更新」恢復可用：應用程式會在背景檢查本倉庫的 GitHub Releases，下載新版本，並在重新啟動後完成安裝。",
+      "免安裝版、ZIP 與 deb 安裝仍只提醒並開啟發佈頁；設定裡的「更新方式」可在自動下載安裝與僅手動檢查之間選擇。",
+    ],
+  },
+
   {
     version: "0.15.13",
     date: "2026-10-03",

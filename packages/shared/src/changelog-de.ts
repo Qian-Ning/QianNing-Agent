@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.14",
+    "date": "2026-10-03",
+    "highlights": [
+      "In installierten Builds funktioniert die Software-Aktualisierung wieder: Die App prüft im Hintergrund die GitHub-Releases dieses Repositories, lädt die nächste Version herunter und installiert sie beim Neustart.",
+      "Portable-, ZIP- und deb-Installationen melden weiterhin nur und öffnen die Release-Seite; die Update-Methode in den Einstellungen wählt zwischen Herunterladen-und-Installieren und nur Prüfen.",
+    ],
+  },
+
+  {
     "version": "0.15.13",
     "date": "2026-10-03",
     "highlights": [
