@@ -26,16 +26,20 @@ Both paths ship the same bytes.
 > such a package as four blockers before it can be submitted — pack from a copy
 > of the tagged tree with `views-src/` removed instead.
 
-The files below are byte-identical to that commit, except for the one manifest
-field listed under local changes. Line endings are LF: the upstream commit
-stores LF, and this repository's `.gitattributes` keeps it that way.
+The files below are byte-identical to that commit, except for the two files and
+the one manifest field listed under local changes. Line endings are LF: the
+upstream commit stores LF, and this repository's `.gitattributes` keeps it that
+way.
 
-## Upstream checksums (sha256)
+## Checksums (sha256)
+
+The digest for every file as this directory stores it, i.e. including the local
+changes below — a silent edit to any of them breaks the record.
 
 | File | Bytes | sha256 |
 | --- | --- | --- |
-| `main.js` | 63234 | `43cface10124728f16e72530e699678177f97353b57190532e89c03186e6960d` |
-| `README.md` | 20039 | `8c524f6d13eac557e286fa0ec9b9cf5138bed0bd66d4a7914f3484443e627a01` |
+| `main.js` | 63238 | `f8f61d6ac27d8452057298633bff8e53235a3266259fa888363037bc1f417046` |
+| `README.md` | 20051 | `446e12acad8fa2534e45d332db62e7b1590d562de43d0d50fb91b359b5ea01d9` |
 | `views/index.html` | 345 | `771fd3d8afdea7fca75ed1f1918c1ce93ad1c87babdb321cfb85e910465cd2c1` |
 | `views/assets/index.js` | 1345417 | `d0a1dc369764bed2ab12ce0e65fe983fe0b4f9919f2f8ff4546b736208d66dac` |
 | `manifest.json` | 14171 | `751a5c86d6e4901cf7fc7f5d9e1de99c90c6dc0798b316500d20781d779e4188` |
@@ -45,8 +49,12 @@ directory carries the built view the plugin publishes, not its React source.
 
 ## Local changes
 
-Two, so a re-sync stays a copy:
+Three, so a re-sync stays a copy:
 
+- `main.js` and `README.md` rename the product in a comment and in the view's
+  Chinese description ("PI-Desktop" → "QianNing Agent"). This build ships under
+  its own name, and the vendored plugin is the copy users see; nothing
+  executable changes, and a re-sync re-applies the same substitution.
 - `manifest.json` gains `"license": "MIT"` (after `author`), making the vendored
   copy 14191 bytes
   (`ba8d60726a0227d7f5530addf885a9849949b86ca75d12786f23ecb82d10fe3e`). Every

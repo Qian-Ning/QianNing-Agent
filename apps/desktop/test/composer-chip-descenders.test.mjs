@@ -31,13 +31,11 @@ test("model chip label avoids leading-none under truncation", () => {
 });
 
 test("model menu options show the complete wire id without truncation", () => {
-  assert.match(
-    composerSource,
-    /const optionTitle = model\.modelId;/,
-  );
-  assert.match(composerSource, /title=\{optionTitle\}/);
+  // The row's `title` is the wire id verbatim, so even a shortened label
+  // reveals the full id on hover; nothing in the row caps or demotes it.
+  assert.match(composerSource, /title=\{model\.modelId\}/);
   const optionBlock =
-    composerSource.match(/const optionTitle[\s\S]*?<\/button>/)?.[0] ?? "";
+    composerSource.match(/title=\{model\.modelId\}[\s\S]*?<\/button>/)?.[0] ?? "";
   assert.doesNotMatch(optionBlock, /max-w-\[170px\]|font-mono text-text-secondary/);
 });
 

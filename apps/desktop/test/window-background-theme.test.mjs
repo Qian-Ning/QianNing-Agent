@@ -51,11 +51,12 @@ test("theme changes synchronize the native non-macOS window background", () => {
     appSource,
     /document\.documentElement\.dataset\.theme = resolvedTheme;/,
   );
-  assert.ok(
-    appSource.includes(
-      "setWindowBackgroundColor(resolvedTheme, pluginTheme?.windowBackground?.[resolvedTheme])",
-    ),
-  );
+  // The plate is derived on every apply, never remembered: a shipped
+  // appearance names its own, a plugin theme may override the palette, and an
+  // omitted value restores the host default.
+  assert.match(appSource, /builtinAppearanceWindowBackground\(appearance\)/);
+  assert.match(appSource, /pluginTheme\?\.windowBackground\?\.\[resolvedTheme\]/);
+  assert.match(appSource, /setWindowBackgroundColor\(resolvedTheme, windowBackground\)/);
 });
 
 test("the built-in window palette is declared once", async () => {

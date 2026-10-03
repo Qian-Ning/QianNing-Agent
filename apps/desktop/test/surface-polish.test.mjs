@@ -129,7 +129,9 @@ test("switch on-track outranks the per-theme off-track", () => {
     styles,
     /\.settings-toggle:focus-visible,\n\.settings-toggle\.on:focus-visible\s*\{[^}]*box-shadow:\s*0 0 0 2px/,
   );
-  // Both themes must define the switch tokens, or one falls back to nothing.
+  // Every base theme must define the switch tokens, or one falls back to
+  // nothing. The 千凝 ("fox") appearance adds a knob-on override on top, so the
+  // guard is a floor rather than an exact count.
   for (const token of [
     "--ds-switch-track-off",
     "--ds-switch-track-off-hover",
@@ -137,6 +139,6 @@ test("switch on-track outranks the per-theme off-track", () => {
     "--ds-switch-knob-on",
   ]) {
     const defs = styles.match(new RegExp(`^\\s*${token}:`, "gm")) ?? [];
-    assert.equal(defs.length, 2, `${token} should be defined in both themes`);
+    assert.ok(defs.length >= 2, `${token} should be defined in both base themes`);
   }
 });

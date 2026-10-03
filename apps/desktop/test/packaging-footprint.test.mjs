@@ -62,13 +62,13 @@ test("renderer output keeps its size controls", async () => {
   assert.match(viteConfigSource, /plugins:\s*\[[^\]]*dropLegacyFontFallbacks\(\)/);
 
   // build/*.png are electron-builder installer icons (1024px+). The renderer
-  // must import the downscaled marks instead.
+  // must import the downscaled mark instead — one alpha-cutout PNG that reads
+  // on every theme, rather than per-theme plates.
   const brandLogoSource = await readFile(
     new URL("../src/components/BrandLogo.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(brandLogoSource, /"\.\.\/assets\/brand\/logo-light\.png"/);
-  assert.match(brandLogoSource, /"\.\.\/assets\/brand\/logo-dark\.png"/);
+  assert.match(brandLogoSource, /"\.\.\/assets\/brand\/logo\.png"/);
   assert.doesNotMatch(brandLogoSource, /\.\.\/\.\.\/build\//);
 });
 
