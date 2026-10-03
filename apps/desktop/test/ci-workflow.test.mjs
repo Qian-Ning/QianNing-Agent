@@ -233,11 +233,50 @@ test("release matrix packages the fork's Windows, Linux, and macOS lanes", () =>
     /name: Verify macOS artifact names[\s\S]*?QianNing-Agent-\*-\$\{\{ matrix\.arch \}\}\.dmg[\s\S]*?Expected exactly one/,
     "the macOS lane rejects ambiguous or missing artifact names",
   );
+  // The unsigned lane is the only place `-c.mac.identity=-` runs, and it once
+  // failed silently: electron-builder logged `skipped macOS application code
+  // signing` while the job still reported success, publishing a bundle with no
+  // signature at all. Asserting on `Signature=adhoc` is the mechanical guard;
+  // the signed lane's verify script cannot cover it because it is gated on
+  // `signed == 'true'`.
+  assert.match(
+    releaseWorkflowSource,
+    /name: Assert the macOS bundle is ad-hoc signed[\s\S]*?codesign -dv --verbose=4[\s\S]*?Signature=adhoc/,
+    "the unsigned macOS lane proves the bundle is ad-hoc signed",
+  );
+  assert.match(
+    releaseWorkflowSource,
+    /Assert the macOS bundle is ad-hoc signed[\s\S]*?is not ad-hoc signed/,
+    "the ad-hoc assertion fails the build when the signature is missing",
+  );
+  assert.match(
+    releaseWorkflowSource,
+    /Assert the macOS bundle is ad-hoc signed[\s\S]*?if: matrix\.platform == 'macos' && needs\.macos-signing\.outputs\.signed != 'true'/,
+    "the ad-hoc assertion belongs to the unsigned lane only",
+  );
   // Each lane renames its updater feed, so the publish job's merge cannot let
   // one architecture's latest-mac.yml overwrite the other's.
   assert.match(
     releaseWorkflowSource,
     /if: matrix\.platform == 'macos'\s*\n\s*run: mv apps\/desktop\/release\/latest-mac\.yml apps\/desktop\/release\/latest-mac-\$\{\{ matrix\.arch \}\}\.yml/,
+  );
+  // The rename above is only half the story. electron-updater requests
+  // `latest-mac.yml` on every Mac (`Provider.getChannelFilePrefix` returns
+  // "-mac" for darwin), so publishing only the arch-suffixed feeds leaves a Mac
+  // with a 404 while Windows and Linux update normally. The publish job has to
+  // merge them back before the release is created.
+  assert.match(
+    releaseWorkflowSource,
+    /name: Merge the macOS update feed\n\s*#[\s\S]*?run: node scripts\/merge-mac-update-feed\.mjs dist/,
+    "the publish job merges the per-architecture macOS feeds into latest-mac.yml",
+  );
+  const publishJobForMerge = releaseWorkflowSource.match(/^  publish:\n[\s\S]*$/m)?.[0] ?? "";
+  const mergeIndex = publishJobForMerge.indexOf("Merge the macOS update feed");
+  const releaseIndex = publishJobForMerge.indexOf("Create GitHub Release");
+  assert.ok(mergeIndex !== -1, "the merge step lives in the publish job");
+  assert.ok(
+    releaseIndex !== -1 && mergeIndex < releaseIndex,
+    "the feed is merged before the release is published",
   );
 });
 

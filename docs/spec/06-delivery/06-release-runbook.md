@@ -490,6 +490,21 @@ GitHub asset URLs answer 404 and a manual check surfaces a failure; the client
 deliberately ships no token to work around it. Making the repository private
 again silently breaks the update path for every existing install.
 
+### 4.9 macOS update feed
+
+electron-updater resolves the macOS channel file as `latest` + `-mac`, so every
+Mac — arm64 or Intel — requests `latest-mac.yml`, unlike Linux which requests
+`latest-linux.yml` and Windows which requests `latest.yml`.
+
+Because the two macOS lanes download into one directory (`merge-multiple: true`),
+they cannot both write that name: each lane publishes `latest-mac-<arch>.yml`
+and the publish job merges them into a single `latest-mac.yml` with
+`scripts/merge-mac-update-feed.mjs`. The merged feed lists both architectures and
+`MacUpdater.filterFilesForArch` selects the entry whose URL contains `arm64` on
+Apple Silicon. Publishing only the arch-suffixed feeds leaves every Mac with a
+404 and a failed update check while the other two platforms work, and the merge
+script fails the run rather than publishing an incomplete feed.
+
 ## 5. Verification gates
 
 Ad-hoc artifacts from a repository without signing configuration (§ 4.3) are

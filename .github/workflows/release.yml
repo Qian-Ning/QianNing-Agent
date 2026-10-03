@@ -314,6 +314,39 @@ jobs:
           pnpm --filter @pi-desktop/desktop run dist:mac:unsigned
           echo "::warning title=Unsigned macOS artifacts::No Apple Developer signing secrets are configured, so the macOS artifacts are ad-hoc signed and not notarized. Gatekeeper blocks the first launch: users must right-click the app and choose Open, or run: xattr -dr com.apple.quarantine '/Applications/QianNing Agent.app'"
 
+      - name: Assert the macOS bundle is ad-hoc signed
+        # The unsigned lane above is the only place `-c.mac.identity=-` is
+        # exercised, and it failed silently once: electron-builder logged
+        # `skipped macOS application code signing` while the job still went
+        # green, so a completely unsigned app was published as if it were
+        # ad-hoc signed. Nothing else on the runner checks this, because
+        # verify-macos-release.sh only runs on the signed lane.
+        #
+        # `codesign -dv` prints a `Signature=adhoc` line for an ad-hoc bundle
+        # and NO Signature line at all when nothing was signed, so the
+        # assertion is on that line rather than on the exit status: verifying
+        # an ad-hoc signature succeeds either way.
+        if: matrix.platform == 'macos' && needs.macos-signing.outputs.signed != 'true'
+        run: |
+          set -euo pipefail
+          mapfile -t bundles < <(find apps/desktop/release -maxdepth 2 -name '*.app' -print)
+          if [[ "${#bundles[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one .app bundle, found ${#bundles[@]}."
+            exit 1
+          fi
+          bundle="${bundles[0]}"
+          report=$(codesign -dv --verbose=4 "$bundle" 2>&1 || true)
+          printf '%s\n' "$report"
+          if grep -q '^Authority=' <<<"$report"; then
+            echo "::error::$bundle carries a Developer ID authority but the signed lane was not selected."
+            exit 1
+          fi
+          if ! grep -q '^Signature=adhoc$' <<<"$report"; then
+            echo "::error::$bundle is not ad-hoc signed. A missing 'Signature=adhoc' line means the bundle carries no signature at all, which is what a dropped -c.mac.identity=- looks like."
+            exit 1
+          fi
+          echo "$bundle is ad-hoc signed and carries no Developer ID authority."
+
       - name: Package signed and notarized macOS installer
         if: matrix.platform == 'macos' && needs.macos-signing.outputs.signed == 'true'
         env:
@@ -456,9 +489,11 @@ jobs:
           done
 
       - name: Disambiguate macOS update metadata
-        # electron-updater reads `latest-mac.yml` on both macOS architectures,
-        # so each lane renames its feed instead of letting the publish job
-        # merge one lane's file over the other's.
+        # electron-updater requests one `latest-mac.yml` on every Mac, so two
+        # lanes writing that name into the shared artifact directory would leave
+        # whichever uploaded last and strand the other architecture. Each lane
+        # publishes its own feed instead, and the publish job merges them back
+        # into `latest-mac.yml` with scripts/merge-mac-update-feed.mjs.
         if: matrix.platform == 'macos'
         run: mv apps/desktop/release/latest-mac.yml apps/desktop/release/latest-mac-${{ matrix.arch }}.yml
 
@@ -588,6 +623,17 @@ jobs:
 
       - name: List artifacts
         run: ls -la dist/
+
+      - name: Merge the macOS update feed
+        # electron-updater builds the macOS channel name as `latest` + `-mac`
+        # and requests `latest-mac.yml` on every Mac, whatever the architecture.
+        # The two macOS lanes each renamed their feed to `latest-mac-<arch>.yml`
+        # so this merge could combine them instead of one overwriting the other;
+        # without the merge a Mac checks, gets 404, and reports a failed update
+        # while Windows and Linux keep working. The merged feed lists both
+        # architectures, and `MacUpdater.filterFilesForArch` picks the one that
+        # matches the machine.
+        run: node scripts/merge-mac-update-feed.mjs dist
 
       # Re-publishing a tag — after a repaired commit, or after a build failed
       # halfway — lands on the release that is already there, and

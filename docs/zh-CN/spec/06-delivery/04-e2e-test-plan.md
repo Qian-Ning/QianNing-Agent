@@ -3675,12 +3675,12 @@ IPC 请求无法关闭。
 #### E2E-196a：ad-hoc macOS 标签通道（无 Apple 开发者账号）
 
 - **先决条件**：`CSC_LINK`、`CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID` 全部未配置，且 `MAC_SIGNING_IDENTITY` 未设置；推送 `vX.Y.Z` 标签。这是本仓库的常态：它没有付费 Apple Developer Program 会员资格。
-- **步骤**：1) 推送标签。2) 确认 `macos-signing` 作业把配置判定为 `signed=false`，因此 macOS 矩阵行不会收到签名环境变量。3) 确认两个 macOS 架构都通过 `dist:mac:unsigned` 完成 DMG/ZIP 打包。4) 对每个打包出的 `.app` 运行 `codesign -dv --verbose=4`，确认输出为 `Signature=adhoc`；完全未签名的应用包根本没有 `Signature` 行，这正是 `-c.mac.identity=-` 被丢弃时的表现。5) 检查工件和工作流步骤。
+- **步骤**：1) 推送标签。2) 确认 `macos-signing` 作业把配置判定为 `signed=false`，因此 macOS 矩阵行不会收到签名环境变量。3) 确认两个 macOS 架构都通过 `dist:mac:unsigned` 完成 DMG/ZIP 打包。4) 确认 `Assert the macOS bundle is ad-hoc signed` 步骤通过，并查看它打印的 `codesign -dv --verbose=4` 报告：必须含 `Signature=adhoc`，且没有任何 `Authority=` 行。完全未签名的应用包根本没有 `Signature` 行，这正是 `-c.mac.identity=-` 被丢弃时的表现；出现该情况时该步骤会让作业失败，因此「未签名通道为绿」本身就是断言。5) 作为人工交叉验证，对每个打包出的 `.app` 再跑一次 `codesign -dv --verbose=4`，确认同样两点。6) 检查工件和工作流步骤。
 - **预期**：macOS DMG/ZIP 工件生成并上传，由 electron-builder 做 ad-hoc 签名（`codesign -s -`，没有 Developer ID 权限，也不做公证），文件名分别带有 `-arm64` 和 `-x64` 架构标记；因为没有票据，装订和 Gatekeeper 检查被跳过。Windows/Linux 工件和合并后的更新源正常发布，GitHub Release 正常创建。在干净机器上首次启动会被 Gatekeeper 拒绝，直到用户右键 → 打开或清除 `com.apple.quarantine`；该通道不满足 E2E-196c。
 - **关联规格**：`06-delivery/06-release-runbook.md`
 - **验收**：质量（未签名打包）
 - **里程碑**：M6+
-- **状态**：由 `ci-workflow.test.mjs` 覆盖；没有 Developer ID 配置的标签发布走这条路径。
+- **状态**：由 `ci-workflow.test.mjs` 与 runner 上的 ad-hoc 断言步骤覆盖；没有 Developer ID 配置的标签发布走这条路径。2026-10-03 在 `v0.15.14` 上验证：两个 macOS 通道均为绿，日志中不再出现 `skipped macOS application code signing`，electron-builder 报告 `identityName=-`。
 
 #### E2E-196b：macOS 软件包不附带首次启动助手
 
@@ -3746,6 +3746,11 @@ IPC 请求无法关闭。
      Intel 工件使用 `PI-Desktop-X.Y.Z-x64.dmg` 和
      `PI-Desktop-X.Y.Z-x64-mac.zip`；确认发布目录包含 DMG、ZIP 和合并后的
      `latest-mac.yml` 更新源，且更新源中的 URL 和校验和与这些打包工件一致。
+     这份唯一更新源是硬性要求，不是便利项：electron-updater 在任何 Mac 上
+     请求的都是 `latest-mac.yml`，与架构无关；因此构建通道产出的
+     `latest-mac-<arch>.yml` 只是 `scripts/merge-mac-update-feed.mjs` 的输入
+     （由发布作业在创建 Release 之前运行），并不是发布出去的通道文件。
+     只带架构后缀更新源的发布会让 macOS 无法更新。
   4. 配置环回装置提供程序，禁用外部出口，然后
      从干净的配置文件启动。英文和简体切换
      中文，要求确定性响应，渲染通用

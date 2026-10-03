@@ -343,6 +343,17 @@ electron-updater 会匿名读取该更新源并下载安装包，因此**仓库�
 资源 URL 会返回 404，手动检查更新会直接报错；客户端刻意不内置 token 来绕过这一点。把仓库改回私有会静默破坏
 所有已安装实例的更新路径。
 
+### 4.8 macOS 更新源
+
+electron-updater 解析 macOS 通道文件名的方式是 `latest` + `-mac`，因此每台 Mac（无论 arm64 还是 Intel）
+请求的都是 `latest-mac.yml`；这一点与 Linux（请求 `latest-linux.yml`）和 Windows（请求 `latest.yml`）不同。
+
+由于两个 macOS 通道会下载到同一目录（`merge-multiple: true`），它们不能都写这个名字：每条通道各自发布
+`latest-mac-<arch>.yml`，再由发布作业用 `scripts/merge-mac-update-feed.mjs` 合并成唯一的 `latest-mac.yml`。
+合并后的更新源同时列出两个架构，`MacUpdater.filterFilesForArch` 会在 Apple Silicon 上挑选 URL 含 `arm64`
+的那一条。只发布带架构后缀的更新源会让每台 Mac 都拿到 404、检查更新失败，而另外两个平台却正常；合并脚本
+在这种情况会直接让运行失败，而不是发布一份残缺的更新源。
+
 ## 5. 验证门
 
 未配置签名配置的仓库产出的 ad-hoc 产物不视为通过 Gatekeeper（见 §4.5）。签名标签发布必须通过以下签名、公证和装订检查，否则工作流失败。

@@ -459,11 +459,14 @@ identify the platform validation still needed.
 - **Steps**: 1) Push the tag. 2) Confirm the `macos-signing` job classifies the
   configuration as `signed=false` and the macOS matrix rows therefore receive
   no signing environment. 3) Confirm both macOS architectures complete DMG/ZIP
-  packaging through `dist:mac:unsigned`. 4) Run `codesign -dv --verbose=4`
-  against each packaged `.app` and confirm it reports `Signature=adhoc`; a
+  packaging through `dist:mac:unsigned`. 4) Confirm the `Assert the macOS bundle
+  is ad-hoc signed` step passes, and read its printed `codesign -dv --verbose=4`
+  report: it must contain `Signature=adhoc` and no `Authority=` line. A
   completely unsigned bundle prints no `Signature` line at all, which is what a
-  dropped `-c.mac.identity=-` looks like. 5) Inspect the artifacts and workflow
-  steps.
+  dropped `-c.mac.identity=-` looks like; the step fails the job in that case,
+  so a green unsigned lane is itself the assertion. 5) As a manual cross-check,
+  run `codesign -dv --verbose=4` against each packaged `.app` and confirm the
+  same two facts. 6) Inspect the artifacts and workflow steps.
 - **Expected**: macOS DMG/ZIP artifacts are produced and uploaded, ad-hoc signed
   by electron-builder (`codesign -s -`, no Developer ID authority, no
   notarization), using explicit `-arm64` and `-x64` filename markers for their
@@ -475,8 +478,11 @@ identify the platform validation still needed.
 - **Specs linked**: `06-delivery/06-release-runbook.md`
 - **Acceptance**: Quality (unsigned packaging)
 - **Milestone**: M6+
-- **Status**: Automated by `ci-workflow.test.mjs`; tag releases without a
-  Developer ID configuration take this path.
+- **Status**: Automated by `ci-workflow.test.mjs` and the runner's ad-hoc
+  assertion step; tag releases without a Developer ID configuration take this
+  path. Verified 2026-10-03 on `v0.15.14`: both macOS lanes green, no
+  `skipped macOS application code signing` line, electron-builder reported
+  `identityName=-`.
 
 #### E2E-196b: macOS packages omit first-launch helper assets
 
@@ -5970,7 +5976,14 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
      the Intel assets use `PI-Desktop-X.Y.Z-x64.dmg` and
      `PI-Desktop-X.Y.Z-x64-mac.zip`; confirm the release directory has both
      DMG and ZIP artifacts and one merged `latest-mac.yml` feed whose URLs and
-     checksums match those generated assets.
+     checksums match those generated assets. That single feed is a hard
+     requirement, not a convenience: electron-updater requests
+     `latest-mac.yml` on every Mac regardless of architecture, so the
+     per-architecture `latest-mac-<arch>.yml` files the build lanes produce
+     are inputs to `scripts/merge-mac-update-feed.mjs` — run by the publish
+     job before the release is created — and not the published channel
+     files. A release carrying only the arch-suffixed feeds leaves macOS
+     unable to update.
   4. Inspect the renderer output for its size controls: emitted JS is minified,
      no `.woff` or `.ttf` files are present, only the KaTeX `woff2` faces remain
      (no application font face is emitted any more), and
