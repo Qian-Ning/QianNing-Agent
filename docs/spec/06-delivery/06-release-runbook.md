@@ -164,6 +164,10 @@ Blocking steps:
    accurate version claims for that version (alone or adjacent to the bump).
 8. GitHub Release bodies may still use `generate_release_notes: true` for the
    web page; they remain web-only and are **not** the in-app notes source.
+9. Push the release commit **and the tag together** —
+   `git push origin main v<version>`. The tag push is what starts
+   `.github/workflows/release.yml`; publishing the version commit without its
+   tag produces **no** GitHub Release and no uploaded assets.
 
 Pre-tag checklist:
 
@@ -201,10 +205,23 @@ host. This keeps the native Rust host sidecar and Electron package aligned.
 
 ### 4.3 GitHub tag and manual workflow
 
-The GitHub Release workflow starts all native platform runners without a
-separate validation-job barrier. Each runner validates that the pushed tag
-matches `apps/desktop/package.json` immediately after checkout, before package
-inputs are prepared.
+**QianNing fork release lanes.** This fork's `release.yml` builds the Windows
+x64 installers (`dist:win`: NSIS setup, portable export, and the win zip) and
+the Linux `pi-host` remote-host bundle, then creates the GitHub Release itself.
+Upstream's macOS lanes are not part of this fork's pipeline: they require Apple
+Developer ID signing and notarization secrets and pin the upstream maintainer's
+Apple team id, so on this repository they could only fail — and because the
+publish job needs every build lane, one failing lane would suppress the Release
+entirely. The macOS material below documents the upstream pipeline this fork
+inherited; re-enabling it means restoring those jobs together with a real Apple
+Developer account. Cutting a release is therefore two commands: run
+`node scripts/release.mjs <version> --tag` on `main`, then
+`git push origin main v<version>`. The tag push is the whole trigger — no
+manual asset upload.
+
+The GitHub Release workflow validates that the pushed tag matches
+`apps/desktop/package.json` on every runner immediately after checkout, before
+package inputs are prepared.
 
 On every platform, the release preparation step starts the locked Rust host
 build in parallel with pnpm installation and native dependency rebuilding. It

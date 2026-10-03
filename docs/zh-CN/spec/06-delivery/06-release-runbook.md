@@ -139,6 +139,9 @@ Windows 可执行文件和原生窗口图标中使用 `build/icon.ico`。渲染�
    （单独提交或与升版本提交相邻）。
 8. GitHub Release 正文仍可对网页使用 `generate_release_notes: true`；它们
    仅限网页，**不是**应用内说明的来源。
+9. **同时推送**发布提交和标签——`git push origin main v<version>`。启动
+   `.github/workflows/release.yml` 的是标签推送；只推送版本提交而不推标签，
+   既**不会**产生 GitHub Release，也不会上传任何产物。
 
 打标签前清单：
 
@@ -173,10 +176,9 @@ scripts/release-macos.sh
 
 ### 4.3 GitHub 标签和手动工作流程
 
-GitHub Release 工作流程启动所有本机平台运行程序，无需
-单独的验证作业障碍。每个运行器都会验证推送的标签
-结账后、打包前立即匹配 `apps/desktop/package.json`
-输入已准备好。
+**千凝分支的发布通道。** 本分支的 `release.yml` 构建 Windows x64 安装包（`dist:win`：NSIS 安装程序、便携版、win zip）与 Linux `pi-host` 远程主机包，然后自行创建 GitHub Release。上游的 macOS 通道不属于本分支流水线：它们需要 Apple Developer ID 签名与公证密钥，并固定上游维护者的 Apple 团队 ID，在本仓库只可能失败；而发布作业依赖全部构建通道，任一通道失败都会让 Release 整个不生成。下文 macOS 部分记录的是本分支继承的上游流水线；重新启用需要恢复这些作业并提供真实的 Apple 开发者账号。因此发版只需两条命令：在 `main` 上运行 `node scripts/release.mjs <version> --tag`，然后 `git push origin main v<version>`。推送标签即是全部触发条件——不需要手动上传产物。
+
+GitHub Release 工作流程会在每个运行器上、检出后立即验证推送的标签与 `apps/desktop/package.json` 匹配，然后才准备打包输入。
 
 在每个平台上，发布准备步骤都会启动锁定的 Rust 主机
 与 pnpm 安装和本机依赖项重建并行构建。它

@@ -163,33 +163,32 @@ test("release workflow publishes the Linux ASAR beside installers", () => {
   );
 });
 
-test("release matrix packages both native macOS architectures", () => {
+test("release matrix packages the fork's Windows and Linux lanes, and no macOS lane", () => {
   assert.match(
     releaseWorkflowSource,
-    /name: macOS arm64[\s\S]*?os: macos-15[\s\S]*?arch: arm64[\s\S]*?runner_arch: arm64/,
+    /name: Windows x64[\s\S]*?os: windows-latest[\s\S]*?arch: x64[\s\S]*?dist: dist:win/,
   );
   assert.match(
     releaseWorkflowSource,
-    /name: macOS Intel x64[\s\S]*?os: macos-15-intel[\s\S]*?arch: x64[\s\S]*?runner_arch: x86_64/,
+    /name: Linux x64[\s\S]*?os: ubuntu-22\.04[\s\S]*?arch: x64[\s\S]*?dist: dist:linux/,
   );
-  assert.match(
-    releaseWorkflowSource,
-    /name: Package installers \(\$\{\{ matrix\.dist \}\}\)[\s\S]*?if: matrix\.platform != 'macos'[\s\S]*?run: pnpm --filter @pi-desktop\/desktop run \$\{\{ matrix\.dist \}\} -- --\$\{\{ matrix\.arch \}\}/,
-  );
+  // Upstream's macOS lanes demand Apple Developer ID signing/notarization
+  // secrets and pin the upstream maintainer's Apple team id, so on this
+  // repository they could only fail — and because publish needs every build
+  // lane, one failing lane would suppress the GitHub Release. The signed macOS
+  // lane stays local, in scripts/release-macos.sh (covered below).
+  assert.doesNotMatch(releaseWorkflowSource, /macos-15|macos-15-intel|macos-latest/);
+  assert.doesNotMatch(releaseWorkflowSource, /name: macOS/);
+  // The macOS artifact naming contract still governs a local `pnpm dist:mac`.
   assert.equal(
     JSON.parse(desktopPackageSource).build.mac.artifactName,
-    "PI-Desktop-${version}-${arch}-mac.${ext}",
+    "QianNing-Agent-${version}-${arch}-mac.${ext}",
     "macOS ZIP names include the target architecture",
   );
   assert.equal(
     JSON.parse(desktopPackageSource).build.dmg.artifactName,
-    "PI-Desktop-${version}-${arch}.${ext}",
+    "QianNing-Agent-${version}-${arch}.${ext}",
     "macOS DMG names include the target architecture",
-  );
-  assert.match(
-    releaseWorkflowSource,
-    /Package unsigned macOS installer[\s\S]*?pnpm --filter @pi-desktop\/desktop run dist:mac -- --\$\{\{ matrix\.arch \}\}/,
-    "unsigned macOS builds use the shared artifact naming config",
   );
   assert.doesNotMatch(
     releaseWorkflowSource,
@@ -198,114 +197,37 @@ test("release matrix packages both native macOS architectures", () => {
   );
   assert.match(
     releaseWorkflowSource,
-    /name: Verify macOS artifact names[\s\S]*?Expected exactly one[\s\S]*?Unexpected unlabelled or wrong-architecture macOS artifact/,
-    "macOS publication rejects ambiguous artifact names",
+    /name: Verify Windows artifact names[\s\S]*?QianNing-Agent-Portable-\*\.zip[\s\S]*?Expected exactly one NSIS setup EXE/,
+    "the Windows lane rejects ambiguous or missing artifact names",
   );
-  assert.match(
-    releaseWorkflowSource,
-    /latest-mac-\$\{\{ matrix\.arch \}\}\.yml/,
-  );
-  assert.match(releaseWorkflowSource, /Merge macOS updater metadata[\s\S]*?ruby/);
 });
 
-test("macOS release signing is required on tag pushes", () => {
-  assert.match(
-    releaseWorkflowSource,
-    /workflow_dispatch:\s+inputs:\s+sign_macos:[\s\S]*?default:\s*true[\s\S]*?type:\s*boolean/,
-  );
-  assert.ok(
-    releaseWorkflowSource.includes(
-      "MACOS_SIGN_RELEASE: ${{ github.event_name != 'workflow_dispatch' || inputs.sign_macos == true }}",
-    ),
-  );
-
-  const unsignedBlock = releaseWorkflowSource.match(
-    /- name: Package unsigned macOS installer[\s\S]*?(?=\n      - name:)/,
-  )?.[0];
-  assert.ok(unsignedBlock, "unsigned macOS debug package step is missing");
-  assert.match(unsignedBlock, /env\.MACOS_SIGN_RELEASE != 'true'/);
-  assert.match(unsignedBlock, /CSC_IDENTITY_AUTO_DISCOVERY:\s*'false'/);
-  assert.doesNotMatch(unsignedBlock, /CSC_LINK:|CSC_KEY_PASSWORD:|APPLE_/);
-  assert.doesNotMatch(unsignedBlock, /forceCodeSigning|notarize/);
-
-  assert.match(
-    releaseWorkflowSource,
-    /Require macOS signing and notarization secrets[\s\S]*?Missing GitHub Actions secrets for macOS signing/,
-  );
-  assert.match(releaseWorkflowSource, /APPLE_TEAM_ID must be DUV63RKYTW/);
-
-  const signedBlock = releaseWorkflowSource.match(
-    /- name: Package signed and notarized macOS installer[\s\S]*?(?=\n      - name:)/,
-  )?.[0];
-  assert.ok(signedBlock, "signed macOS package step is missing");
-  assert.match(signedBlock, /env\.MACOS_SIGN_RELEASE == 'true'/);
-  for (const secret of [
+test("release workflow requires no Apple signing material", () => {
+  // The fork has no Apple Developer account, and upstream's lanes pin the
+  // upstream maintainer's team id. Reintroducing signing material here would
+  // turn every tag build red and suppress the GitHub Release, so absence is
+  // the contract, not an oversight.
+  for (const token of [
     "CSC_LINK",
     "CSC_KEY_PASSWORD",
+    "CSC_NAME",
     "APPLE_ID",
     "APPLE_APP_SPECIFIC_PASSWORD",
     "APPLE_TEAM_ID",
+    "MACOS_SIGN_RELEASE",
+    "sign_macos",
   ]) {
-    assert.match(signedBlock, new RegExp(`${secret}:\\s*\\$\\{\\{\\s*secrets\\.${secret}\\s*\\}\\}`));
-  }
-  // electron-builder throws InvalidConfigurationError when an identity name
-  // keeps the "Developer ID Application:" prefix, so CSC_NAME carries the bare
-  // common name and the CLI must not pass -c.mac.identity.
-  assert.match(signedBlock, /CSC_NAME: "XingYu Liu \(DUV63RKYTW\)"/);
-  assert.doesNotMatch(signedBlock, /-c\.mac\.identity=/);
-  assert.doesNotMatch(signedBlock, /CSC_NAME: "Developer ID Application:/);
-  assert.match(signedBlock, /-c\.mac\.notarize=true/);
-  // The single "signing PI-Desktop.app" line electron-builder prints does not
-  // tell walking, per-file codesign, silent retries, and the Apple
-  // notarization wait apart; the signing trace and the watchdog carry the rest.
-  assert.match(
-    signedBlock,
-    /DEBUG: "electron-osx-sign\*,electron-notarize\*"/,
-  );
-  // builder-util's `executing` debug line prints every spawned command with a
-  // stem list that does not cover `security set-key-partition-list -k <p12
-  // password>`, so electron-builder's namespace is deliberately excluded.
-  assert.doesNotMatch(signedBlock, /DEBUG: ".*electron-builder.*"/);
-  assert.match(signedBlock, /PI_SIGNING_TIMEOUT_SECONDS: "1800"/);
-  assert.match(signedBlock, /PI_SIGNING_STALL_SECONDS: "300"/);
-  assert.match(
-    signedBlock,
-    /node scripts\/macos-signing-watchdog\.mjs \\\n\s+--label "dist:mac-\$\{\{ matrix\.arch \}\}" \\\n\s+-- pnpm --filter @pi-desktop\/desktop run dist:mac/,
-    "the signed macOS packaging phase runs under the signing watchdog",
-  );
-  // electron-builder notarizes only the .app; the DMG needs its own
-  // submission before the ticket can be stapled (error 65 otherwise).
-  const dmgBlock = releaseWorkflowSource.match(
-    /- name: Notarize and staple the macOS DMG[\s\S]*?(?=\n      - name:)/,
-  )?.[0];
-  assert.ok(dmgBlock, "DMG notarization step is missing");
-  assert.match(dmgBlock, /env\.MACOS_SIGN_RELEASE == 'true'/);
-  for (const secret of [
-    "APPLE_ID",
-    "APPLE_APP_SPECIFIC_PASSWORD",
-    "APPLE_TEAM_ID",
-  ]) {
-    assert.match(
-      dmgBlock,
-      new RegExp(`${secret}:\\s*\\$\\{\\{\\s*secrets\\.${secret}\\s*\\}\\}`),
+    assert.ok(
+      !releaseWorkflowSource.includes(token),
+      `release workflow must not reference ${token}`,
     );
   }
-  assert.match(
-    dmgBlock,
-    /node scripts\/macos-signing-watchdog\.mjs[\s\S]*?-- scripts\/notarize-and-staple-macos-release-dmg\.sh apps\/desktop\/release/,
-    "the DMG notarization wait runs under the signing watchdog",
-  );
-  assert.match(dmgBlock, /PI_SIGNING_TIMEOUT_SECONDS: "1200"/);
-  assert.match(
+  assert.doesNotMatch(
     releaseWorkflowSource,
-    /- name: Analyze the packaged macOS app bundle[\s\S]*?if: matrix\.platform == 'macos'[\s\S]*?continue-on-error: true[\s\S]*?run: node scripts\/macos-bundle-inventory\.mjs apps\/desktop\/release/,
-    "the packaged macOS bundle is measured, without failing a release",
+    /macos-signing|notarize|forceCodeSigning|DUV63RKYTW/,
   );
-  assert.match(
-    releaseWorkflowSource,
-    /Notarize and staple the macOS DMG[\s\S]*?if: matrix\.platform == 'macos' && env\.MACOS_SIGN_RELEASE == 'true'[\s\S]*?Verify signed and notarized macOS installer/,
-  );
-  assert.doesNotMatch(releaseWorkflowSource, /scripts\/staple-macos-release-dmg\.sh/);
+  // With no signing lane to switch off, the dispatch trigger carries no inputs.
+  assert.match(releaseWorkflowSource, /^  workflow_dispatch:\s*$/m);
 });
 
 test("the signed local macOS lane selects the native runner architecture", () => {
@@ -361,9 +283,10 @@ test("the signed local macOS lane selects the native runner architecture", () =>
  * The regression that broke the local signed lane: a rewrite replaced the
  * electron-builder flags with two commands but kept the line continuation, so
  * one command became a positional argument while the other still pointed at a
- * deleted script. Every script path either lane references must exist.
+ * deleted script. Every script path the release or the local macOS lane
+ * references must exist.
  */
-test("both macOS lanes only reference scripts that exist", async () => {
+test("every script the release and macOS lanes reference exists", async () => {
   const referenced = new Set();
   for (const source of [releaseMacScriptSource, releaseWorkflowSource]) {
     for (const match of source.matchAll(/(?<![\w./-])scripts\/[A-Za-z0-9._-]+\.(?:sh|mjs)/g)) {
@@ -382,20 +305,25 @@ test("both macOS lanes only reference scripts that exist", async () => {
   assert.deepEqual(missing, []);
 });
 
-test("macOS signing instrumentation stays out of the Windows and Linux lanes", () => {
+test("macOS signing instrumentation stays out of the release workflow", () => {
+  // The signed macOS lane is local (scripts/release-macos.sh, covered above).
+  // The release workflow has no macOS job, so it must not carry the signing
+  // watchdog, the signing diagnostics, or the bundle inventory either.
   const instrumentation =
-    /macos-signing-watchdog|macos-signing-diagnostics|macos-bundle-inventory/;
+    /macos-signing-watchdog|macos-signing-diagnostics|macos-bundle-inventory|notarize-and-staple-macos-release-dmg|verify-macos-release/;
+  assert.doesNotMatch(releaseWorkflowSource, instrumentation);
   const stepBlock = (name) =>
-    releaseWorkflowSource.match(new RegExp(`- name: ${name}[^]*?(?=\\n      - name:)`))?.[0] ??
-    "";
-  assert.doesNotMatch(stepBlock("Package installers"), instrumentation);
-  assert.doesNotMatch(stepBlock("Verify Linux host-core glibc floor"), instrumentation);
-  assert.doesNotMatch(stepBlock("Export Linux ASAR release asset"), instrumentation);
-  // The unsigned macOS debug lane reports its bundle size but must not gain a
-  // signing identity, notarization, or publishing behaviour.
-  const unsignedBlock = stepBlock("Package unsigned macOS installer");
-  assert.ok(unsignedBlock, "unsigned macOS debug package step is missing");
-  assert.doesNotMatch(unsignedBlock, instrumentation);
+    releaseWorkflowSource.match(new RegExp(`- name: ${name}[^]*?(?=\\n      - name:)`))?.[0] ?? "";
+  for (const name of [
+    "Package installers",
+    "Verify Windows artifact names",
+    "Verify Linux host-core glibc floor",
+    "Export Linux ASAR release asset",
+  ]) {
+    const block = stepBlock(name);
+    assert.ok(block, `${name} step is missing`);
+    assert.doesNotMatch(block, instrumentation);
+  }
 });
 
 test("GitHub releases trigger the CNB mirror pipeline with a JSON payload", () => {

@@ -1,26 +1,31 @@
-# Release pipeline
+# Release pipeline (QianNing Agent).
 #
 # Trigger: push a tag `vX.Y.Z` (must match apps/desktop/package.json version).
 # The easiest way to cut a release:
 #
-#   node scripts/release.mjs 0.2.0 --tag   # bump versions + commit + create tag v0.2.0
-#   git push origin <branch> v0.2.0        # push → this workflow builds & publishes
+#   node scripts/release.mjs <version> --tag   # bump versions + commit + create tag v<version>
+#   git push origin main v<version>            # push → this workflow builds & publishes
 #
-# Builds installers for every platform defined in the electron-builder config
-# (macOS dmg/zip arm64 and x64, Windows NSIS and portable ZIP x64, Linux
-# AppImage/deb/rpm x64), each
-# with its native pi-desktop-host-core Rust sidecar. The Linux app.asar is also
-# exported as a system-Electron repackaging asset, and all outputs — with their
-# electron-updater latest*.yml feeds — are published to the GitHub Release
-# (D126/D285/D364/D603). macOS tag artifacts are Developer ID-signed, notarized, and
-# stapled before upload (D450 / ADR 0289).
+# Lane scope for this fork: the Windows x64 installers (NSIS setup, portable
+# export, and the win zip), the Linux x64 desktop packages (AppImage/deb/rpm
+# plus the system-Electron ASAR export), and the Linux `pi-host` remote-host
+# bundle — then the publish job creates the GitHub Release itself, so pushing
+# the tag is the whole trigger and no artifact is uploaded by hand.
 #
-# It also builds the headless `pi-host` bundle for every Linux platform the
-# desktop publishes (currently x64) and publishes it as
-# pi-host-<version>-linux-<arch>.tar.gz plus a .sha256 sidecar. The desktop's
-# SSH bootstrap downloads that asset at the desktop's version and verifies the
-# published checksum before installing on the remote machine (rollout
-# 06-delivery/07-remote-control-rollout.md §6 acceptance 4; D375 / ADR 0284).
+# Upstream's macOS lanes are deliberately absent here. They require Apple
+# Developer ID signing and notarization secrets and pin the upstream
+# maintainer's Apple team id, so on this repository they could only fail — and
+# because publish needs every build lane, one failing lane would suppress the
+# GitHub Release entirely. `scripts/release-macos.sh` remains the local signed
+# macOS lane. See docs/spec/06-delivery/06-release-runbook.md § 4.3.
+#
+# The release carries each platform's `latest*.yml` electron-updater feed, which
+# is inert here because this fork ships with in-app auto-update hard-disabled.
+#
+# The Linux `pi-host` bundle is what the desktop's SSH bootstrap downloads at
+# the desktop's own version and checksum-verifies before installing on a remote
+# machine (06-delivery/07-remote-control-rollout.md §6 acceptance 4; D375 /
+# ADR 0284).
 
 name: Release
 
@@ -28,12 +33,6 @@ on:
   push:
     tags: ['v*.*.*']
   workflow_dispatch:
-    inputs:
-      sign_macos:
-        description: 'Sign and notarize macOS artifacts (default true; set false only for unsigned debug artifacts)'
-        required: false
-        default: true
-        type: boolean
 
 # Least privilege by default; only the publish job needs to write the release.
 permissions:
@@ -85,27 +84,10 @@ jobs:
   build:
     name: Build ${{ matrix.name }}
     needs: verify
-    env:
-      # Tag pushes always sign. workflow_dispatch signs unless explicitly disabled.
-      MACOS_SIGN_RELEASE: ${{ github.event_name != 'workflow_dispatch' || inputs.sign_macos == true }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: macOS arm64
-            os: macos-15
-            arch: arm64
-            runner_arch: arm64
-            artifact: mac-arm64
-            platform: macos
-            dist: dist:mac
-          - name: macOS Intel x64
-            os: macos-15-intel
-            arch: x64
-            runner_arch: x86_64
-            artifact: mac-x64
-            platform: macos
-            dist: dist:mac
           - name: Windows x64
             os: windows-latest
             arch: x64
@@ -129,20 +111,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Verify native macOS runner architecture
-        if: matrix.platform == 'macos'
-        run: |
-          set -euo pipefail
-          actual_arch="$(uname -m)"
-          expected_arch="${{ matrix.runner_arch }}"
-          if [ "$actual_arch" != "$expected_arch" ]; then
-            echo "::error::Expected $expected_arch runner, got $actual_arch."
-            exit 1
-          fi
-
       - name: Compare tag with apps/desktop/package.json
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
+          set -euo pipefail
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           APP_VERSION="$(node -p "require('./apps/desktop/package.json').version")"
           if [ "$TAG_VERSION" != "$APP_VERSION" ]; then
@@ -190,132 +162,36 @@ jobs:
           trap - EXIT
 
       - name: Package installers (${{ matrix.dist }})
-        if: matrix.platform != 'macos'
         # The dist scripts pass --publish never themselves: electron-builder
         # must not self-publish on tag builds (no token; softprops owns it).
         # The explicit architecture keeps the package and native Rust sidecar
         # aligned with the runner selected by this matrix entry.
         run: pnpm --filter @pi-desktop/desktop run ${{ matrix.dist }} -- --${{ matrix.arch }}
 
-      - name: Package unsigned macOS installer
-        if: matrix.platform == 'macos' && env.MACOS_SIGN_RELEASE != 'true'
-        env:
-          # Debug-only lane: workflow_dispatch with sign_macos=false.
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify Windows artifact names
+        # Guards the release against silent packaging drift: the three win
+        # targets and their artifact names come from apps/desktop/package.json
+        # (the nsis override plus the win/portable artifactName pattern), and
+        # each must land exactly once.
+        if: matrix.platform == 'windows'
         run: |
           set -euo pipefail
-          # Artifact names are defined in apps/desktop/package.json: the mac
-          # pattern labels ZIPs, and the dmg target pattern labels DMGs.
-          pnpm --filter @pi-desktop/desktop run dist:mac -- --${{ matrix.arch }}
-
-      - name: Diagnose macOS signing environment
-        # Records the runner baseline (system, codesign, identities, keychain,
-        # Xcode tools, Apple timestamp reachability) before electron-builder
-        # imports the certificate. Informational: the Developer ID identity is
-        # absent here by design and is imported from CSC_LINK during packaging.
-        if: matrix.platform == 'macos'
-        run: scripts/macos-signing-diagnostics.sh
-
-      - name: Require macOS signing and notarization secrets
-        if: matrix.platform == 'macos' && env.MACOS_SIGN_RELEASE == 'true'
-        env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          set -euo pipefail
-          missing=()
-          [[ -n "${CSC_LINK}" ]] || missing+=(CSC_LINK)
-          [[ -n "${CSC_KEY_PASSWORD}" ]] || missing+=(CSC_KEY_PASSWORD)
-          [[ -n "${APPLE_ID}" ]] || missing+=(APPLE_ID)
-          [[ -n "${APPLE_APP_SPECIFIC_PASSWORD}" ]] || missing+=(APPLE_APP_SPECIFIC_PASSWORD)
-          [[ -n "${APPLE_TEAM_ID}" ]] || missing+=(APPLE_TEAM_ID)
-          if ((${#missing[@]} > 0)); then
-            echo "::error::Missing GitHub Actions secrets for macOS signing/notarization: ${missing[*]}"
-            echo "::error::Add them under Settings → Secrets and variables → Actions. See docs/spec/06-delivery/06-release-runbook.md."
+          shopt -s nullglob
+          expected_setup=(apps/desktop/release/QianNing-Agent-Setup-*.exe)
+          expected_portable=(apps/desktop/release/QianNing-Agent-Portable-*.exe)
+          expected_zip=(apps/desktop/release/QianNing-Agent-Portable-*.zip)
+          expected_feed=(apps/desktop/release/latest.yml)
+          if [[ "${#expected_setup[@]}" -ne 1 ||
+                "${#expected_portable[@]}" -ne 1 ||
+                "${#expected_zip[@]}" -ne 1 ||
+                "${#expected_feed[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one NSIS setup EXE, one portable EXE, one portable ZIP, and latest.yml."
+            printf '%s\n' apps/desktop/release/* || true
             exit 1
           fi
-          if [[ "${APPLE_TEAM_ID}" != "DUV63RKYTW" ]]; then
-            echo "::error::APPLE_TEAM_ID must be DUV63RKYTW (XingYu Liu Developer ID team)."
-            exit 1
-          fi
-
-      - name: Package signed and notarized macOS installer
-        if: matrix.platform == 'macos' && env.MACOS_SIGN_RELEASE == 'true'
-        env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          # electron-builder rejects the "Developer ID Application:" prefix on
-          # identity names and resolves the certificate itself, so CSC_NAME
-          # carries the bare common name only.
-          CSC_NAME: "XingYu Liu (DUV63RKYTW)"
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # electron-builder prints one "signing PI-Desktop.app" line and then
-          # goes quiet: @electron/osx-sign walks Contents and codesigns every
-          # Mach-O serially, builder-util silently retries a failing pass up to
-          # three times, and @electron/notarize zips, uploads, and waits for
-          # Apple's queue. These two namespaces expose all three phases without
-          # leaking credentials, because both render their own command lines
-          # through a password filter. `electron-builder` itself is deliberately
-          # absent: builder-util's `executing` debug line prints every spawned
-          # command with only its own stem list redacted, and that list does not
-          # cover `security set-key-partition-list -k <p12 password>`. The
-          # watchdog redacts the secret values and any --password/-k argument on
-          # top of that.
-          DEBUG: "electron-osx-sign*,electron-notarize*"
-          # 30 minutes keeps a stuck signing/notarization phase reported by the
-          # watchdog (diagnostics + summary) inside the 60-minute job budget.
-          PI_SIGNING_TIMEOUT_SECONDS: "1800"
-          PI_SIGNING_STALL_SECONDS: "300"
-        run: |
-          set -euo pipefail
-          # Artifact names are defined in apps/desktop/package.json: the mac
-          # pattern labels ZIPs, and the dmg target pattern labels DMGs.
-          # The watchdog forwards every line unchanged and keeps the child's
-          # exit code; it adds a heartbeat while the phase is silent, dumps the
-          # active codesign target and process state when it stalls, reports
-          # per-file codesign timings, and fails the step after
-          # PI_SIGNING_TIMEOUT_SECONDS instead of waiting for the job timeout.
-          node scripts/macos-signing-watchdog.mjs \
-            --label "dist:mac-${{ matrix.arch }}" \
-            -- pnpm --filter @pi-desktop/desktop run dist:mac -- --${{ matrix.arch }} \
-              -c.mac.forceCodeSigning=true \
-              -c.mac.notarize=true
-
-      - name: Analyze the packaged macOS app bundle
-        # Reports the file / Mach-O / framework / nested-bundle counts that
-        # determine how much work the signing phase had, on the exact bundle the
-        # release just produced. Diagnosis only: continue-on-error keeps a
-        # surprising bundle layout from failing a release.
-        if: matrix.platform == 'macos'
-        continue-on-error: true
-        run: node scripts/macos-bundle-inventory.mjs apps/desktop/release
-
-      - name: Notarize and staple the macOS DMG
-        if: matrix.platform == 'macos' && env.MACOS_SIGN_RELEASE == 'true'
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # 20 minutes bounds the second Apple wait; the packaging phase owns
-          # the first one.
-          PI_SIGNING_TIMEOUT_SECONDS: "1200"
-          PI_SIGNING_STALL_SECONDS: "300"
-        run: |
-          set -euo pipefail
-          # notarytool submit --wait blocks until Apple answers; the watchdog
-          # keeps that wait observable and bounded.
-          node scripts/macos-signing-watchdog.mjs \
-            --label "notarize-dmg-${{ matrix.arch }}" \
-            -- scripts/notarize-and-staple-macos-release-dmg.sh apps/desktop/release
-
-      - name: Verify signed and notarized macOS installer
-        if: matrix.platform == 'macos' && env.MACOS_SIGN_RELEASE == 'true'
-        run: scripts/verify-macos-release.sh apps/desktop/release
+          printf 'setup:    %s\n' "${expected_setup[@]}"
+          printf 'portable: %s\n' "${expected_portable[@]}"
+          printf 'zip:      %s\n' "${expected_zip[@]}"
 
       - name: Verify Linux host-core glibc floor
         if: matrix.platform == 'linux'
@@ -325,34 +201,6 @@ jobs:
         if: matrix.platform == 'linux'
         run: node scripts/export-linux-asar.mjs
 
-      - name: Verify macOS artifact names
-        if: matrix.platform == 'macos'
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          expected_dmg=(apps/desktop/release/PI-Desktop-*-${{ matrix.arch }}.dmg)
-          expected_dmg_blockmap=(apps/desktop/release/PI-Desktop-*-${{ matrix.arch }}.dmg.blockmap)
-          expected_zip=(apps/desktop/release/PI-Desktop-*-${{ matrix.arch }}-mac.zip)
-          expected_zip_blockmap=(apps/desktop/release/PI-Desktop-*-${{ matrix.arch }}-mac.zip.blockmap)
-          if [[ "${#expected_dmg[@]}" -ne 1 || "${#expected_dmg_blockmap[@]}" -ne 1 || "${#expected_zip[@]}" -ne 1 || "${#expected_zip_blockmap[@]}" -ne 1 ]]; then
-            echo "::error::Expected exactly one ${{ matrix.arch }} DMG, DMG blockmap, ZIP, and ZIP blockmap."
-            printf '%s\n' apps/desktop/release/* || true
-            exit 1
-          fi
-          for artifact in apps/desktop/release/PI-Desktop-*; do
-            case "$artifact" in
-              *-${{ matrix.arch }}.dmg|*-${{ matrix.arch }}.dmg.blockmap|*-${{ matrix.arch }}-mac.zip|*-${{ matrix.arch }}-mac.zip.blockmap) ;;
-              *)
-                echo "::error::Unexpected unlabelled or wrong-architecture macOS artifact: $artifact"
-                exit 1
-                ;;
-            esac
-          done
-
-      - name: Disambiguate macOS update metadata
-        if: matrix.platform == 'macos'
-        run: mv apps/desktop/release/latest-mac.yml apps/desktop/release/latest-mac-${{ matrix.arch }}.yml
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -360,7 +208,6 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           path: |
-            apps/desktop/release/*.dmg
             apps/desktop/release/*.zip
             apps/desktop/release/*.exe
             apps/desktop/release/*.AppImage
@@ -372,14 +219,17 @@ jobs:
 
   pi-host-bundle:
     name: Bundle pi-host (Linux ${{ matrix.arch }})
+    # The desktop's SSH bootstrap downloads this asset at the desktop's own
+    # version and verifies the published checksum before installing it on a
+    # remote machine. It needs no signing secrets, so it stays in the release
+    # lane alongside the desktop builds.
     needs: verify
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Every Linux platform the desktop release publishes. The desktop
-          # matrix ships Linux x64 only today; add arm64 here in lockstep if
-          # the desktop starts publishing it.
+          # Every Linux platform the desktop release publishes. Add arm64 here
+          # in lockstep if the desktop starts publishing it.
           - arch: x64
             os: ubuntu-22.04
     runs-on: ${{ matrix.os }}
@@ -393,6 +243,7 @@ jobs:
       - name: Compare tag with apps/desktop/package.json
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
+          set -euo pipefail
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           APP_VERSION="$(node -p "require('./apps/desktop/package.json').version")"
           if [ "$TAG_VERSION" != "$APP_VERSION" ]; then
@@ -476,47 +327,13 @@ jobs:
       - name: List artifacts
         run: ls -la dist/
 
-      - name: Merge macOS updater metadata
-        working-directory: dist
-        run: |
-          set -euo pipefail
-          ruby <<'RUBY'
-          require "yaml"
-
-          paths = Dir["latest-mac-*.yml"].sort
-          expected_paths = ["latest-mac-arm64.yml", "latest-mac-x64.yml"]
-          abort "Expected both macOS updater feeds" unless paths == expected_paths
-
-          feeds = paths.map do |path|
-            YAML.safe_load(File.read(path), permitted_classes: [], aliases: false)
-          end
-          versions = feeds.map { |feed| feed.fetch("version") }.uniq
-          abort "macOS updater feeds disagree on version" unless versions.length == 1
-
-          files = feeds.flat_map { |feed| feed.fetch("files") }
-            .uniq { |file| file.fetch("url") }
-          zip = files.find { |file| file.fetch("url").end_with?(".zip") }
-          abort "macOS updater feeds contain no ZIP" if zip.nil?
-
-          merged = feeds.first.merge(
-            "version" => versions.first,
-            "files" => files,
-            "path" => zip.fetch("url"),
-            "sha512" => zip.fetch("sha512"),
-          )
-          File.write("latest-mac.yml", merged.to_yaml)
-          RUBY
-          rm latest-mac-arm64.yml latest-mac-x64.yml
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          # D126/D285/D364/D603: all desktop platforms and both native macOS
-          # architectures ship from tag builds — installers, the Windows
-          # portable ZIP, the Linux ASAR, blockmaps, and the latest*.yml
-          # feeds that drive electron-updater on each platform (in-app for
-          # Windows NSIS and Linux AppImage; macOS and Windows ZIP remain
-          # manual-delivery by product policy).
+          # The Windows installers, the Linux packages and ASAR, each platform's
+          # electron-updater feed, and the Linux pi-host bundle with its
+          # checksum. `generate_release_notes` supplies the web-page body; the
+          # in-app changelog stays packages/shared/src/changelog.ts.
           files: dist/*
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-') }}
