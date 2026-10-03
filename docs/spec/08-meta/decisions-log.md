@@ -7793,6 +7793,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   below-ceiling and no-usage cases) and `runtime.test.ts` (both classifications
   end-to-end through the silent-turn harness). See spec 02-agent-runtime §5e,
   spec 08-error-codes §3.2, and E2E-146.
+
 ## 2026-10-03 — Usage trend buckets "today" by hour (D647)
 
 - The usage page's "today" range asked the host for daily buckets, which is one
