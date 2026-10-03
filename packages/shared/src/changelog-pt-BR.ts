@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    "version": "0.15.13",
+    "date": "2026-10-03",
+    "highlights": [
+      "«Testar conexão» agora verifica a mesma rota que um turno real usa, então um provedor cuja lista de modelos carrega mas cujas requisições de chat são recusadas não passa mais como aprovado.",
+      "Quando um CDN ou WAF na frente do provedor responde com sua própria página de bloqueio, agora é reportado um bloqueio de borda em vez de culpar sua chave de API.",
+    ],
+  },
+
+  {
     version: "0.15.12",
     date: "2026-10-02",
     highlights: [

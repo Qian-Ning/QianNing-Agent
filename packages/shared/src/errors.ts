@@ -72,6 +72,18 @@ export const ErrorCodes = {
   MODEL_NOT_CONFIGURED: "MODEL_NOT_CONFIGURED",
   PROVIDER_ERROR: "PROVIDER_ERROR",
   PROVIDER_UNAUTHORIZED: "PROVIDER_UNAUTHORIZED",
+  /**
+   * An edge intermediary in front of the provider — a CDN/WAF, typically
+   * Cloudflare — answered the request with its own HTML interstitial instead of
+   * letting it reach the API. Distinct from `PROVIDER_UNAUTHORIZED` because the
+   * credential was never evaluated: HTTP 403 from a WAF is a path/method
+   * verdict, so sending the user to re-enter a working key is a wild goose
+   * chase, and re-sending the same request reproduces the identical failure.
+   *
+   * Not retriable here: only the provider's edge configuration (or the route
+   * the request uses) can change the outcome, never this client.
+   */
+  PROVIDER_EDGE_BLOCKED: "PROVIDER_EDGE_BLOCKED",
   PROVIDER_RATE_LIMITED: "PROVIDER_RATE_LIMITED",
   PROVIDER_SECRET_MISSING: "PROVIDER_SECRET_MISSING",
   MODEL_ALIAS_TOO_LONG: "MODEL_ALIAS_TOO_LONG",

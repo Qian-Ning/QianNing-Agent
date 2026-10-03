@@ -2584,6 +2584,7 @@ sklm: {
     "PROVIDER_SECRET_MISSING": "Ajoutez une clé API pour ce fournisseur d'IA avant de l'utiliser.",
     "PROTOCOL_MISMATCH": "Les composants de l'application ne sont pas synchronisés. Réinstallez ou reconstruisez l'application.",
     "PROVIDER_UNAUTHORIZED": "La clé API a été rejetée. Vérifiez-le dans Paramètres.",
+    "PROVIDER_EDGE_BLOCKED": "L'edge du fournisseur a bloqué cette requête avant qu'elle n'atteigne l'API (le plus souvent un CDN/WAF). La clé n'a pas été vérifiée.",
     "PROVIDER_RATE_LIMITED": "Le fournisseur d'IA limite le débit des requêtes. Attendez un moment et réessayez.",
     "PROVIDER_ERROR": "Le fournisseur d'IA a renvoyé une erreur.",
     "NETWORK_ERROR": "Impossible de joindre le fournisseur d'IA. Vérifiez votre réseau ou votre URL de base.",

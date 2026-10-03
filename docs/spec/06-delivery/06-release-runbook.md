@@ -115,7 +115,7 @@ Surfaces in scope:
 | `package.json`, `apps/*/package.json`, `packages/*/package.json`, `docs/package.json` | Same version (`docs` is a third workspace root, not under `apps`/`packages`) |
 | `Cargo.toml` `[workspace.package]`, `Cargo.lock` `host-core` | Same version |
 | `packages/shared/src/protocol.ts` `APP_VERSION` | Same version |
-| `README.md`, `README.zh-CN.md` | Status section states the current `<major>.<minor>.x` release line; toolchain, command, and roadmap claims still true |
+| `README.md`, `README.en.md`, `README.zh-CN.md` | Status section states the current `<major>.<minor>.x` release line; toolchain, command, and roadmap claims still true |
 
 Blocking steps:
 
@@ -144,7 +144,8 @@ Blocking steps:
    `packages/shared/src/changelog.test.ts` (add the new stable version at the
    top), then run `pnpm --filter @pi-desktop/shared test` and confirm catalog
    alignment (version sets + highlight counts) still passes.
-5. Update `README.md` and `README.zh-CN.md` when the release line changes
+5. Update `README.md`, `README.en.md` and `README.zh-CN.md` when the release
+   line changes
    (`0.10.x` → `0.11.x`) and whenever the release ships user-visible behavior
    the Highlights, Download, Getting started, Status, or Development sections
    now describe incorrectly. Both locales stay structurally in sync; English is
@@ -174,7 +175,8 @@ Pre-tag checklist:
       match the English version set and highlight counts
 - [ ] Highlight counts match across locales
 - [ ] Shared changelog tests pass
-- [ ] `README.md` and `README.zh-CN.md` state the current release line and
+- [ ] `README.md`, `README.en.md` and `README.zh-CN.md` state the current
+      release line and
       contain no claims the release invalidates
 - [ ] `node scripts/check-release-docs.mjs` passes on the release commit
       (use the stable version when tagging a prerelease preview)

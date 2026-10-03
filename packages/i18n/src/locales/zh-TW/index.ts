@@ -2573,6 +2573,7 @@ sklm: {
     PROVIDER_SECRET_MISSING: "請先為此 AI 服務新增 API 金鑰。",
     PROTOCOL_MISMATCH: "應用元件版本不一致，請重新安裝或重新構建。",
     PROVIDER_UNAUTHORIZED: "API 金鑰被拒絕，請在設定中檢查。",
+    PROVIDER_EDGE_BLOCKED: "AI 服務的邊緣節點攔截了此請求，未能到達介面（通常是 CDN/WAF）。金鑰未被驗證。",
     PROVIDER_RATE_LIMITED: "AI 服務觸發了限流，請稍後再試。",
     PROVIDER_ERROR: "AI 服務返回了錯誤。",
     NETWORK_ERROR: "無法連線 AI 服務，請檢查網路或介面地址。",

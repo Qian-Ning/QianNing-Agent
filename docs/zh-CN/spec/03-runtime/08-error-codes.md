@@ -102,6 +102,7 @@ stdio 与 Tokio 的动态阻塞池隔离，因此后一种情况
 | `MODEL_NOT_CONFIGURED` | 不 | 未选择可用模型，或提供商因未知而拒绝所选模型 |
 | `PROVIDER_ERROR` | 是的 | 上游提供商故障；可重试的故障（5xx 网关）最多获得四次同回合重试，而格式错误的 400/422 请求，以及适配器自身拒绝的请求选项（Google 适配器遇到自定义 `fetch`，issue #1072）都是终止的 |
 | `PROVIDER_UNAUTHORIZED` | 不 | bad/missing 提供商凭证 |
+| `PROVIDER_EDGE_BLOCKED` | 不 | 提供商前面的 CDN/WAF 用自己的 HTML 拦截页回答了请求，凭据根本没被校验；判定依据是「403/503 且响应体是文档」，而不只是状态码——这正是让提供商自己的 JSON 403 仍按鉴权失败处理的原因 |
 | `PROVIDER_RATE_LIMITED` | 是的 | 供应商费率有限 |
 | `CONTEXT_TOO_LARGE` | 不 | 恢复后 prompt/context 仍超出安全模型预算、发生第二个提供程序溢出或禁用自动恢复 |
 | `CONTEXT_COMPACTION_FAILED` | 不 | 自动保留尾部恢复无法准备、持久或适合检查点，或手动检查点摘要生成/持久追加失败；受保护的下一个提供程序请求不会启动 |
@@ -316,6 +317,7 @@ ADR 0285）。渲染进程除了一个标识徽章外看不到本地/远程之�
 Node sidecar 将提供商 SDK 错误映射到：
 
 - `PROVIDER_UNAUTHORIZED`
+- `PROVIDER_EDGE_BLOCKED`
 - `PROVIDER_RATE_LIMITED`
 - `MODEL_NOT_CONFIGURED`（提供商拒绝选择的模型并返回 404）
 - `PROVIDER_ERROR`

@@ -586,10 +586,25 @@ The canonical DDL lives in [04-data-storage](04-data-storage.md) (D086). Summary
 
 ### `providers.testConnection`
 - in: `{ id, modelId?: string }`
-- out: `{ ok: boolean, latencyMs?: number, error?: AppError, sampleModelId?: string }`
+- out: `{ ok: boolean, network: "ok"|"failed"|"skipped", status?: number,
+  errorCode?: string, message?: string, edge?: string }`
 - an `authKind: "oauth"` row proves itself by resolving vendor auth (refreshing
   the token if it expired) instead of probing the network with a key it does
   not have
+- an API-key row is proved by two same-origin probes under one shared time
+  budget (12s), because answering one does not imply answering the other:
+  1. the model list, through the same request builder discovery uses, so "the
+     list loaded" and "the test passed" cannot describe two different
+     endpoints; and
+  2. the generation route the transport adapter posts to
+     (`generationProbeUrl`), as a credential-free `OPTIONS`, so a green test
+     cannot describe a route no turn uses.
+- A generation-route `OPTIONS` that the service does not implement is not a
+  failure: a JSON `404` is the API answering, and the model-list result stands.
+  Only an intermediary's own document counts as a verdict, and it is reported
+  as `errorCode: "PROVIDER_EDGE_BLOCKED"` with `edge` naming the intermediary
+  when it signs itself. A style whose generation path carries the model id
+  (`google_generative_ai`) has no URL to probe and skips step 2.
 
 ### `providers.listModels`
 - renderer IPC in: `{ providerId, source?: "cache"|"refresh" }`; `cache`

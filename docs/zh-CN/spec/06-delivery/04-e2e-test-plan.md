@@ -8627,6 +8627,35 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **限制：** OS 根证书的纳入在不安装根证书的条件下检查。TLS 成功夹具只使用
   子进程额外 CA，不复现某个具体杀毒软件安装，也不宣称已完成 macOS/Linux 实机验证。
 
+### E2E-PROVIDER-edge-block-is-not-an-auth-failure
+
+- **前提：** 一个回环夹具对 `GET /v1/models` 返回 JSON 模型列表、对生成路由返回
+  带 `Server: cloudflare` 的 `403` HTML 拦截页；第二个夹具两条路由都返回 JSON；
+  隔离的测试进程／配置。不使用真实提供商或凭据。
+- **步骤：** 针对第一个夹具建立 API 密钥提供商并点「测试连接」。再向该提供商提交
+  一次聊天提示。把提供商指向第二个夹具（其生成路由以带 JSON 正文的 `403` 拒绝）并
+  测试。最后测试一个生成路由对探测返回 JSON `404` 的提供商。
+- **预期：** 第一次失败被判定为 `PROVIDER_EDGE_BLOCKED` 而非
+  `PROVIDER_UNAUTHORIZED`，其指引指出边缘拦截，而不是把用户推回去重输一个本来
+  就能用的密钥。失败的那次回合得到同一判定，所以转录与测试不可能对同一响应各说各话。
+  JSON `403` 的提供商仍为 `PROVIDER_UNAUTHORIZED`，JSON `404` 的提供商测出通过
+  ——API 自己应答探测不算拦截。生成路由探测不携带凭据，日志、事件与 details 中
+  不出现任何 API 密钥或 Authorization 值。
+- **UI：** 模型配置页与提供商对话框都通过同一套文案规则渲染带码失败，所以边缘拦截
+  不会在一个界面上读成密钥被拒、在另一个界面上读成拦截。
+- **低层覆盖：** `provider-edge-response.test.ts` 覆盖分类器的正反用例，包括 `200`
+  挑战页，以及必须不被吞掉的真实 JSON `401`/`403`；`provider-endpoint.test.ts`
+  覆盖各 API 样式的探测 URL；`agent-errors.test.ts` 覆盖运行时映射；
+  `provider-endpoint-probe.test.mjs` 覆盖设置路径。
+- **限制：** 夹具代替真实边缘，因此不接触线上 WAF。`google_generative_ai` 样式
+  没有可探测的生成 URL，仅覆盖跳过分支。
+- **链接规格：** `03-runtime/11-provider-model-system.md` §15、
+  `03-runtime/12-provider-config-schema.md` §3、
+  `04-ux/08-component-spec.md`
+- **验收：** B（模型配置）、品质
+- **里程碑：** M2
+- **状态：** 单元与组件覆盖；没有套件驱动真实边缘中间层。
+
 ### E2E-CHAT-turn-process-and-thinking-display
 
 - **先决条件：** 一个回合包含进度段落 A、多次搜索及思考、进度段落 B、多条命令及

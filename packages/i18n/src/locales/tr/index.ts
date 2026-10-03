@@ -2611,6 +2611,7 @@ importConfirm: "İçe aktarılan uzantılar ajan sürecinde, ajanın kendi araç
     PROVIDER_SECRET_MISSING: "Kullanmadan önce bu AI servisi için bir API anahtarı ekleyin.",
     PROTOCOL_MISMATCH: "Uygulama bileşenleri senkron değil. Uygulamayı yeniden kurun veya derleyin.",
     PROVIDER_UNAUTHORIZED: "API anahtarı reddedildi. Ayarlar’dan kontrol edin.",
+    PROVIDER_EDGE_BLOCKED: "Sağlayıcının uç katmanı bu isteği API'ye ulaşmadan engelledi (genellikle bir CDN/WAF). Anahtar denetlenmedi.",
     PROVIDER_RATE_LIMITED: "AI servisi istekleri hız sınırlıyor. Biraz bekleyip yeniden deneyin.",
     PROVIDER_ERROR: "AI servisi bir hata döndürdü.",
     NETWORK_ERROR: "AI servisine ulaşılamıyor. Ağınızı veya temel URL’yi kontrol edin.",

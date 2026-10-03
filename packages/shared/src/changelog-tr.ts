@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.13",
+    "date": "2026-10-03",
+    "highlights": [
+      "«Bağlantıyı test et» artık gerçek bir turun kullandığı rotayı yoklar; model listesi yüklenen ama sohbet istekleri reddedilen bir sağlayıcı artık yeşil görünmez.",
+      "Sağlayıcının önündeki bir CDN veya WAF kendi engelleme sayfasıyla yanıt verdiğinde, API anahtarını suçlamak yerine bir kenar engellemesi bildirilir.",
+    ],
+  },
+
+  {
     version: "0.15.12",
     date: "2026-10-02",
     highlights: [

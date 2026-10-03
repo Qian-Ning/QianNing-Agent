@@ -97,7 +97,7 @@ Windows 可执行文件和原生窗口图标中使用 `build/icon.ico`。渲染�
 | `package.json`、`apps/*/package.json`、`packages/*/package.json`、`docs/package.json` | 版本号一致（`docs` 是第三个工作区根，不在 `apps`/`packages` 之下） |
 | `Cargo.toml` 的 `[workspace.package]`、`Cargo.lock` 的 `host-core` | 版本号一致 |
 | `packages/shared/src/protocol.ts` 的 `APP_VERSION` | 版本号一致 |
-| `README.md`、`README.zh-CN.md` | 状态章节声明当前 `<major>.<minor>.x` 版本线；工具链、命令与路线图描述仍然成立 |
+| `README.md`、`README.en.md`、`README.zh-CN.md` | 状态章节声明当前 `<major>.<minor>.x` 版本线；工具链、命令与路线图描述仍然成立 |
 
 阻塞步骤：
 
@@ -123,7 +123,7 @@ Windows 可执行文件和原生窗口图标中使用 `build/icon.ico`。渲染�
    （把新的稳定版本加到首位），然后运行
    `pnpm --filter @pi-desktop/shared test`，确认目录对齐（版本集合与亮点
    条数）仍然通过。
-5. 版本线发生变化（`0.10.x` → `0.11.x`）时更新 `README.md` 与
+5. 版本线发生变化（`0.10.x` → `0.11.x`）时更新 `README.md`、`README.en.md` 与
    `README.zh-CN.md`；当本次发布交付了用户可见行为，使亮点、下载、快速上手、
    状态或参与开发章节的描述不再准确时同样要更新。两个语言版本保持结构一致，
    英文是事实来源，中文版链接 `docs/zh-CN/` 镜像。
@@ -149,7 +149,7 @@ Windows 可执行文件和原生窗口图标中使用 `build/icon.ico`。渲染�
       亮点条数一致
 - [ ] 各语言的亮点条数一致
 - [ ] 共享更新日志测试通过
-- [ ] `README.md` 与 `README.zh-CN.md` 声明当前版本线，且没有被本次发布
+- [ ] `README.md`、`README.en.md` 与 `README.zh-CN.md` 声明当前版本线，且没有被本次发布
       推翻的描述
 - [ ] `node scripts/check-release-docs.mjs` 在发布提交上通过
       （预览预发布时传入稳定版本）

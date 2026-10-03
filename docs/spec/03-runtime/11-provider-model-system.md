@@ -492,7 +492,10 @@ turns instead of rebuilding it. The sidecar therefore never holds the refresh
 token, and holds an access token only for the provider its session is bound to.
 
 Model discovery for such a row reads the signed-in account's own model list,
-and the connection test still proves the account by resolving auth. pi-ai
+and the connection test still proves the account by resolving auth — an
+`authKind: "oauth"` row never runs the API-key probe that
+[12-provider-config-schema](12-provider-config-schema.md) §3 defines, because
+it holds no key to probe with. pi-ai
 (`models.getAvailable`, including that vendor's `filterModels`) is the fallback
 when the account request fails or the payload is not a model list. The probe
 is the endpoint that vendor actually publishes:
@@ -714,6 +717,7 @@ codes map to a canonical parent until emitted (§3.7 there).
 | code | status | meaning | user-facing guidance |
 |---|---|---|---|
 | `PROVIDER_UNAUTHORIZED` | live | invalid/expired key or denied auth | re-enter secret / check account |
+| `PROVIDER_EDGE_BLOCKED` | live | a CDN/WAF in front of the provider answered with its own block page, so the request never reached the API and the credential was never evaluated | not fixable by re-entering the key — switch provider or endpoint |
 | `PROVIDER_RATE_LIMITED` | live | 429 / quota | retry later / switch model |
 | `PROVIDER_SECRET_MISSING` | live | enabled provider without secret | complete setup |
 | `MODEL_NOT_CONFIGURED` | live | no selected model or provider rejects selected model with 404 | select or configure an available model |
@@ -726,6 +730,13 @@ codes map to a canonical parent until emitted (§3.7 there).
 | `PROVIDER_TIMEOUT` | reserved → `TIMEOUT` | network or server timeout | retry / check network |
 | `PROVIDER_UNSUPPORTED_CAPABILITY` | reserved → `PROVIDER_ERROR` | tools/vision/reasoning unsupported | switch model or disable feature |
 | `PROVIDER_DISABLED` | reserved → `MODEL_NOT_CONFIGURED` | provider exists but disabled | enable provider |
+
+`PROVIDER_EDGE_BLOCKED` is told apart from `PROVIDER_UNAUTHORIZED` by the
+response body, not the status: a `403`/`503` whose payload is a document, or
+whose body carries a challenge marker, is an edge verdict, while a `401` — and
+a provider's own JSON `403` — stays an authorization verdict. Only the
+provider's edge configuration can change an edge block, so the guidance must
+never send the user back to re-enter a key that was working.
 
 ## 16. OpenAI-compatible first-class path
 

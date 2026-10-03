@@ -21,7 +21,7 @@ Windows 优先 · 本地数据 · 多模型 · 插件扩展 · 语音输入
 
 </div>
 
-> 当前版本线：`0.15.x`（最新 `0.15.12`）。这是 QianNing Agent 的定制发行版，主要面向 Windows 桌面使用。
+> 当前版本线：`0.15.x`（最新 `0.15.13`）。这是 QianNing Agent 的定制发行版，主要面向 Windows 桌面使用。
 
 ## 关于千凝
 
@@ -59,8 +59,8 @@ QianNing Agent 是一个独立运行的 AI Agent 桌面应用。它不依附某�
 Windows x64 构建会生成：
 
 ```text
-QianNing-Agent-Setup-0.15.10.exe
-QianNing-Agent-Portable-0.15.10.exe
+QianNing-Agent-Setup-0.15.13.exe
+QianNing-Agent-Portable-0.15.13.exe
 ```
 
 发布后的安装包位于本仓库的 [Releases](https://github.com/Qian-Ning/QianNing-Agent/releases)。如果 Releases 尚无附件，可按下方步骤从源码构建。

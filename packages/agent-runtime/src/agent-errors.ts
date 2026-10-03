@@ -8,7 +8,8 @@
  * "error") and the rejected-promise paths.
  */
 
-import { ErrorCodes, isCertificateVerificationError } from "@pi-desktop/shared";
+import { ErrorCodes, detectEdgeBlockInMessage, isCertificateVerificationError } from "@pi-desktop/shared";
+import type { EdgeBlock } from "@pi-desktop/shared";
 import { readLocalRequestErrorDetails } from "./local-request-errors.js";
 
 export type ClassifiedAgentError = {
@@ -253,6 +254,19 @@ function networkDetailFields(network: NetworkFailure): Record<string, unknown> {
 }
 
 /**
+ * Diagnostics for an edge block. The intermediary's name comes from a fixed
+ * list of signatures, never from provider text, and the status is a number, so
+ * nothing untrusted reaches the details panel.
+ */
+function edgeBlockFields(edge: EdgeBlock): Record<string, unknown> {
+  return {
+    edgeBlocked: true,
+    ...(edge.edge ? { edge: edge.edge } : {}),
+    ...(edge.status !== undefined ? { providerStatus: edge.status } : {}),
+  };
+}
+
+/**
  * Summarize the transport failure behind a network error for the log record and
  * the error details. The cause chain is where node/undici keep the real errno
  * (`fetch failed` alone names nothing), including undici's happy-eyeballs
@@ -436,6 +450,22 @@ export function classifyAgentError(err: unknown): ClassifiedAgentError {
   }
   if (/CONTEXT_COMPACTION_FAILED/i.test(rawMessage)) {
     return result("CONTEXT_COMPACTION_FAILED", false);
+  }
+  /*
+    An intermediary in front of the provider can answer with its own HTML page —
+    a Cloudflare "Attention Required!" challenge, a country block, a bot rule —
+    and HTTP 403 is what that arrives as. Reading the status alone reports a
+    credential problem for a request the API never saw, which sends the user to
+    re-enter a key that was never evaluated.
+
+    Probed before the network and status logic so a markup refusal is classified
+    as what it is, never as an authorization verdict. Only a 403/503 whose body
+    is a document, or a page that names its intermediary, matches: a provider's
+    own JSON 403 stays an authorization failure.
+  */
+  const edgeBlock = detectEdgeBlockInMessage(status, rawMessage);
+  if (edgeBlock) {
+    return result(ErrorCodes.PROVIDER_EDGE_BLOCKED, false, edgeBlockFields(edgeBlock));
   }
   // Network failures never carry an HTTP status; probe before status logic so
   // "fetch failed" causes don't fall through to the generic bucket. The cause

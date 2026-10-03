@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    "version": "0.15.13",
+    "date": "2026-10-03",
+    "highlights": [
+      "« Tester la connexion » sonde désormais la même route qu'un tour réel : un fournisseur dont la liste de modèles se charge mais dont les requêtes de chat sont refusées ne passe plus au vert.",
+      "Quand un CDN ou un WAF devant le fournisseur répond avec sa propre page de blocage, un blocage de périphérie est signalé au lieu d'accuser votre clé d'API.",
+    ],
+  },
+
+  {
     "version": "0.15.12",
     "date": "2026-10-02",
     "highlights": [

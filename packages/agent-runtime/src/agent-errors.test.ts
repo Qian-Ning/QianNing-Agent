@@ -244,6 +244,38 @@ describe("classifyAgentError", () => {
     });
   });
 
+  it("reports an edge block page as an edge block, not a rejected key", () => {
+    /*
+      A provider behind Cloudflare answers a blocked route with its own HTML page
+      and HTTP 403. Reading only the status told the user the key was rejected —
+      for a request the API never saw — which sent them to re-enter a working key
+      while the real cause was a path rule on someone else's edge.
+    */
+    const page = [
+      "403: <!DOCTYPE html>",
+      '<html class="no-js" lang="en-US">',
+      "<head><title>Attention Required! | Cloudflare</title></head>",
+      "</html>",
+    ].join("\n");
+    expect(classifyAgentError(page)).toMatchObject({
+      code: "PROVIDER_EDGE_BLOCKED",
+      retriable: false,
+      details: { edgeBlocked: true, edge: "cloudflare", providerStatus: 403 },
+    });
+  });
+
+  it("keeps a provider's own JSON 403 an authorization verdict", () => {
+    // Some gateways answer 403 for a key that lacks a particular model. That is
+    // a permission verdict on the credential, so it must stay an auth failure —
+    // the difference decides whether "check your key in Settings" is the right
+    // advice.
+    expect(
+      classifyAgentError(
+        '403: {"error":{"message":"no access to this model","type":"permission_error"}}',
+      ),
+    ).toMatchObject({ code: "PROVIDER_UNAUTHORIZED", retriable: false });
+  });
+
   it("treats malformed requests as non-retriable provider errors", () => {
     expect(classifyAgentError('400: {"error":"unknown parameter"}'))
       .toMatchObject({ code: "PROVIDER_ERROR", retriable: false });

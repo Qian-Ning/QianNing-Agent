@@ -2621,6 +2621,7 @@ importConfirm: "가져온 확장은 에이전트 프로세스 안에서 에이�
     PROVIDER_SECRET_MISSING: "사용하기 전에 이 AI 프로바이더의 API 키를 추가하세요.",
     PROTOCOL_MISMATCH: "앱 구성 요소가 일치하지 않습니다. 앱을 다시 설치하거나 다시 빌드하세요.",
     PROVIDER_UNAUTHORIZED: "API 키가 거부되었습니다. 설정에서 확인하세요.",
+    PROVIDER_EDGE_BLOCKED: "제공자의 엣지가 이 요청을 API에 도달하기 전에 차단했습니다(보통 CDN/WAF). 키는 검사되지 않았습니다.",
     PROVIDER_RATE_LIMITED: "AI 프로바이더가 요청을 제한하고 있습니다. 잠시 후 다시 시도하세요.",
     PROVIDER_ERROR: "AI 프로바이더에서 오류를 반환했습니다.",
     NETWORK_ERROR: "AI 프로바이더에 연결할 수 없습니다. 네트워크 또는 기본 URL을 확인하세요.",
