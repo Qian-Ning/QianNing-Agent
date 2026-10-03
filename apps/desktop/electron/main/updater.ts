@@ -27,7 +27,6 @@ import {
   formatChangelogNotes,
   IPC,
   type UpdatePreference,
-  type UpdateMode,
   type UpdateState,
 } from "@pi-desktop/shared";
 import type { Logger } from "./logger";
@@ -199,19 +198,19 @@ export class AppUpdaterController {
     );
     this.readUpdateSettings = options.readUpdateSettings;
     this.persistLastNotifiedVersion = options.persistLastNotifiedVersion;
-    // QianNing Agent is a personal build with no release feed of its own.
-    // Auto-update is force-disabled here: the upstream cache-relocation and
-    // security machinery below still runs, but the app never checks the
-    // upstream project's releases, downloads, or prompts to install. The policy
-    // is still evaluated for parity and then intentionally discarded.
-    void resolveUpdateModePolicy(
+    // The delivery mode follows the same policy as every other install: an
+    // unpackaged dev run is disabled (there is no app-update.yml to read), a
+    // portable/ZIP copy or a deb install is notify-and-link, and a real
+    // installer gets the full in-app flow. The feed this reads is this
+    // repository's own GitHub Releases (see RELEASES_URL and the `publish`
+    // block in apps/desktop/package.json).
+    const mode = resolveUpdateModePolicy(
       platform,
       isPackaged,
       this.env,
       distribution,
       this.preference,
     );
-    const mode = "disabled" as UpdateMode;
     const defaultCacheBasePath = defaultUpdateCacheBasePath({
       platform,
       env: process.env,
@@ -322,16 +321,13 @@ export class AppUpdaterController {
       preference,
       this.automaticSupported,
     );
-    // Force-disabled for QianNing Agent: evaluate the policy for parity, then
-    // pin the mode off so a preference change can never turn on auto-update.
-    void resolveUpdateModePolicy(
+    const mode = resolveUpdateModePolicy(
       this.platform,
       this.isPackaged,
       this.env,
       this.distribution,
       effectivePreference,
     );
-    const mode = "disabled" as UpdateMode;
     const preferenceChanged =
       effectivePreference !== this.preference || mode !== previousMode;
     this.preference = effectivePreference;

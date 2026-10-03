@@ -480,6 +480,16 @@ therefore needs the `mac.sign` replacement hook, which is a rewrite rather than
 a configuration switch, so the lane keeps the pinned signer and the diagnostics
 above.
 
+### 4.8 Update feed availability
+
+The release attaches each platform's `latest*.yml` so packaged installs can take
+the next version from Settings → About → Software update (D628 / D643).
+electron-updater reads that feed and downloads the installers anonymously, so
+**the repository must stay publicly readable**. Against a private repository the
+GitHub asset URLs answer 404 and a manual check surfaces a failure; the client
+deliberately ships no token to work around it. Making the repository private
+again silently breaks the update path for every existing install.
+
 ## 5. Verification gates
 
 Ad-hoc artifacts from a repository without signing configuration (§ 4.3) are

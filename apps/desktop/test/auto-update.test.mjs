@@ -167,6 +167,33 @@ test("updater gates delivery mode by platform and delivery policy", () => {
   );
 });
 
+test("the updater takes its delivery mode from the policy instead of pinning it off", () => {
+  // The installed app must check this repository's own release feed. A pinned
+  // `const mode = "disabled"` made every packaged build skip updates entirely
+  // while the Settings toggle still rendered, so guard both call sites: the
+  // constructor and the preference path.
+  assert.doesNotMatch(
+    updaterSource,
+    /const mode = "disabled" as UpdateMode/,
+    "the delivery mode must not be hard-coded to disabled",
+  );
+  assert.doesNotMatch(
+    updaterSource,
+    /void resolveUpdateModePolicy/,
+    "the policy result must be used, not discarded for parity",
+  );
+  for (const call of updaterSource.match(/const mode = resolveUpdateModePolicy\(/g) ?? []) {
+    assert.ok(call);
+  }
+  assert.equal(
+    (updaterSource.match(/const mode = resolveUpdateModePolicy\(/g) ?? []).length,
+    2,
+    "both the constructor and applyPreference resolve the mode from policy",
+  );
+  assert.match(updaterSource, /Qian-Ning\/QianNing-Agent\/releases\/latest/);
+  assert.doesNotMatch(updaterSource, /vastsa|PI-Desktop\/releases/);
+});
+
 test("renderer exposes the updates API, banner and settings row", () => {
   assert.match(apiSource, /updatesGetState:/);
   assert.match(apiSource, /updatesCheck:/);

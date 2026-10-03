@@ -23,7 +23,9 @@
 # docs/spec/06-delivery/06-release-runbook.md § 4.3 for the secret list.
 #
 # The release carries each platform's `latest*.yml` electron-updater feed, which
-# is inert here because this fork ships with in-app auto-update hard-disabled.
+# packaged installs read through Settings → About → Software update (D628). The
+# feed lives in this repository's Releases, so the repository must stay publicly
+# readable for anonymous installs to fetch it.
 #
 # The Linux `pi-host` bundle is what the desktop's SSH bootstrap downloads at
 # the desktop's own version and checksum-verifies before installing on a remote

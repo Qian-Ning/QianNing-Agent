@@ -50,7 +50,7 @@ The Chinese name is **千凝**. The English product name is **QianNing Agent**.
 | API credentials | Encrypted local storage |
 | Model requests | Sent directly to the configured provider or local service |
 | Application telemetry | No remote telemetry pipeline |
-| Automatic updates | Disabled for this customized distribution |
+| Automatic updates | Your choice of automatic or manual, fed by this repository's GitHub Releases |
 
 Remote model providers, plugins, and MCP servers may receive data required for the operation you authorize. See the [privacy policy](docs/privacy-policy.md).
 
@@ -64,6 +64,24 @@ QianNing-Agent-Portable-0.15.13.exe
 ```
 
 Published installers belong in this repository's [Releases](https://github.com/Qian-Ning/QianNing-Agent/releases). If no release asset is available, build from source.
+
+## In-app updates
+
+Settings → About → Software update checks for new versions directly, fed by
+this repository's GitHub Releases.
+
+| Install | Update behavior |
+| --- | --- |
+| Windows NSIS installer | Silent background download, "restart to update" prompt, install-on-quit fallback |
+| macOS DMG / ZIP | Same; a macOS package must be signed and notarized before it can be installed automatically |
+| Linux AppImage | Same |
+| Windows portable / ZIP, Linux deb | Notify and open the release page; an installer must not replace a no-install copy |
+| Unpackaged development run | No update check |
+
+"Update method" chooses **automatic** (download and install) or **manual**
+(check only, with one reminder per new version). The feed is this repository's
+Releases, so the repository must be publicly readable — an anonymous client
+cannot fetch assets from a private one.
 
 ## Build from source
 
