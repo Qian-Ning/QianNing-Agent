@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-29
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends: ADR 0027, ADR 0133, D136, D266
 
 ## Context
@@ -10,7 +10,7 @@
 The first models.dev integration still retained a second model metadata path in
 pi-ai. That made it possible for a package upgrade or a provider-specific pi
 record to change the model name, capabilities, limits, thinking levels, input
-modes, or prices that PI-Desktop presented and sent to the sidecar. It also did
+modes, or prices that QianNing Agent presented and sent to the sidecar. It also did
 not persist the complete public models.dev document, so model updates depended
 on the process staying online.
 

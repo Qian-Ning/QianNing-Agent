@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-27
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D261, D269, E2E-159, ADR 0120, ADR 0127, D247, D258, D108,
   `04-ux/08-component-spec.md`
 - Amended by: D269 (history continuation and boundary-driven escalation)

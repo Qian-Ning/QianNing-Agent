@@ -16,11 +16,11 @@ A long pi agent run can contain many model/tool turns before `agent_end`.
 Compacting only between user prompts or after the run is already terminal does
 not protect the next provider request inside that loop. The observed Bedrock
 failure reached 1,077,172 tokens against a 1,000,000-token provider maximum,
-so the provider rejected the request before PI-Desktop had a recovery point.
+so the provider rejected the request before QianNing Agent had a recovery point.
 
 pi-agent-core already supplies session-context reconstruction, token
 estimation, cut-point selection, summary generation, retained-tail handling,
-and compaction records. It does not define PI-Desktop's renderer lifecycle,
+and compaction records. It does not define QianNing Agent's renderer lifecycle,
 Rust-owned persistence, provider-headroom policy, or long-loop guard.
 
 OpenCode Dynamic Context Pruning (DCP), inspected at commit
@@ -28,11 +28,11 @@ OpenCode Dynamic Context Pruning (DCP), inspected at commit
 patterns: evaluate context each turn, inject deduplicated guidance before the
 emergency boundary, and let the model request context management. It is an
 OpenCode plugin under AGPL-3.0, so directly linking or copying it would add an
-incompatible runtime and licensing boundary to PI-Desktop.
+incompatible runtime and licensing boundary to QianNing Agent.
 
 ## Decision
 
-PI-Desktop uses pi-agent-core's public compaction primitives and independently
+QianNing Agent uses pi-agent-core's public compaction primitives and independently
 implements the desktop-specific controller.
 
 - The controller runs after every `turn_end` and before pi starts another
@@ -70,7 +70,7 @@ implements the desktop-specific controller.
 - A final tool-result batch is kept with its assistant tool-call carrier. If
   that atomic batch exceeds the normal retained-tail target, the runtime lets
   pi move the cut point to the carrier. If the batch itself reaches half the
-  hard budget, PI-Desktop creates a checkpoint-only bounded copy: each result
+  hard budget, QianNing Agent creates a checkpoint-only bounded copy: each result
   keeps its tool identity/error envelope and a fair share of head/tail text
   with an explicit checkpoint-truncation marker, while duplicate diagnostic
   details are omitted. The original durable messages and visible transcript
@@ -110,7 +110,7 @@ implements the desktop-specific controller.
 - Provider token accounting on retained assistant messages is cleared while
   reconstructing a checkpoint, because that usage described the pre-compacted
   request and would otherwise overcount the restored context.
-- OpenCode DCP updates do not flow into PI-Desktop automatically. Any future
+- OpenCode DCP updates do not flow into QianNing Agent automatically. Any future
   behavioral adoption requires a fresh independent implementation review.
 
 ## Alternatives
@@ -118,7 +118,7 @@ implements the desktop-specific controller.
 ### Integrate OpenCode DCP directly
 
 Rejected because it targets OpenCode's plugin hooks and persistence model and
-is AGPL-3.0. PI-Desktop needs a Rust-host durability contract and pi-specific
+is AGPL-3.0. QianNing Agent needs a Rust-host durability contract and pi-specific
 turn lifecycle, so an adapter would retain most of the implementation cost
 while adding license and upgrade coupling.
 

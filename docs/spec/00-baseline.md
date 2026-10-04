@@ -1,4 +1,4 @@
-# PI-Desktop Baseline Freeze
+# QianNing Agent Baseline Freeze
 
 - Baseline Version: `0.4.18`
 - Date: `2026-09-14`

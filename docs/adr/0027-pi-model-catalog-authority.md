@@ -5,7 +5,7 @@
 
 ## Context
 
-PI-Desktop previously read reasoning hints from pi-ai but rebuilt a smaller
+QianNing Agent previously read reasoning hints from pi-ai but rebuilt a smaller
 runtime model with desktop-owned defaults and provider-level overrides. Known
 models therefore lost pi's context window, output limit, input modes, pricing,
 headers, and parts of their compatibility record. Settings also allowed users
@@ -13,7 +13,7 @@ to replace reasoning support, thinking levels, context size, output size, and
 temperature independently from the selected model.
 
 That split ownership made model behavior depend on two configurations. It also
-required PI-Desktop to patch individual model semantics such as MiMo thinking
+required QianNing Agent to patch individual model semantics such as MiMo thinking
 dialects and adaptive Claude off behavior.
 
 ## Decision
@@ -27,7 +27,7 @@ authority for model metadata and compatibility behavior.
 - The sidecar uses that snapshot verbatim and replaces only the runtime
   connection identity: selected model id, configured provider id, selected API
   adapter, and an explicitly configured endpoint URL.
-- PI-Desktop does not rewrite known-model reasoning support, thinking levels,
+- QianNing Agent does not rewrite known-model reasoning support, thinking levels,
   context limits, output limits, temperature, or compatibility flags.
 - Provider Settings no longer expose model-parameter overrides, and the model
   menu no longer enables reasoning for an unknown model.
@@ -38,7 +38,7 @@ authority for model metadata and compatibility behavior.
 - Cached/discovered model lists remain selection and offline-discovery data;
   they do not override runtime model semantics.
 - Corrections to a known model belong upstream in pi-ai or in a pi-ai upgrade,
-  not in a PI-Desktop model-specific patch.
+  not in a QianNing Agent model-specific patch.
 
 This supersedes D102 and the provider-override clauses of D096/D107. It does
 not change the durable session thinking-level enum or transcript handling from
@@ -48,7 +48,7 @@ ADR 0018.
 
 - Known models retain the complete metadata shipped by the pinned pi-ai
   version across native and compatible endpoints.
-- PI-Desktop has one less model matrix to maintain and cannot drift silently
+- QianNing Agent has one less model matrix to maintain and cannot drift silently
   from pi's adapters.
 - Updating pi-ai may intentionally change available thinking levels or model
   limits and must be covered by catalog-resolution tests.

@@ -5,7 +5,7 @@
 
 ## Context
 
-PI-Desktop needs desktop distribution, local permission control, session UI, and system integration capabilities. The main candidate options are Electron and Tauri.
+QianNing Agent needs desktop distribution, local permission control, session UI, and system integration capabilities. The main candidate options are Electron and Tauri.
 
 ## Decision
 

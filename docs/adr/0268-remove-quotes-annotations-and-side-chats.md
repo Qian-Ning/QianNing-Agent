@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-16
-- Deciders: PI-Desktop runtime and desktop UI maintainers
+- Deciders: QianNing Agent runtime and desktop UI maintainers
 - Supersedes: ADR message-quotes-and-side-chats, ADR response-annotations, ADR floating-annotation-index
 - Amends: ADR 0254 (its "Amendment: native side-chat forks", 2026-09-14)
 - Preserves: D097, D128, D134, D209, D254, D261, D301

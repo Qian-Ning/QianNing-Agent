@@ -39,7 +39,7 @@ fresh snapshot of the target file.
 
 ## Decision
 
-PI-Desktop applies the following bounded recovery strategy:
+QianNing Agent applies the following bounded recovery strategy:
 
 1. Classify `terminated`, premature stream closure, and equivalent incomplete
    stream messages as retryable `STREAM_FAILED` errors. Preserve only safe,

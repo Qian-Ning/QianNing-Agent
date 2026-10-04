@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-13
-- Deciders: PI-Desktop maintainers
+- Deciders: QianNing Agent maintainers
 - Amends: ADR 0233, ADR 0234, ADR 0016
 
 ## Context
@@ -12,7 +12,7 @@ every directory after the first as an independent sidebar project. That does
 not match the user-facing meaning of a ChatGPT Project: one named container
 should own its chats, instructions, memory, and attached sources.
 
-PI-Desktop still has a frozen security boundary in which host-core exposes one
+QianNing Agent still has a frozen security boundary in which host-core exposes one
 visible workspace to the agent at a time. A logical project group must therefore
 not be implemented by making the renderer or sidecar own a multi-root security
 policy.

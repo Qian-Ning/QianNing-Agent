@@ -2,7 +2,7 @@
 
 - Status: Superseded by ADR 0147
 - Date: 2026-08-31
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D201, D277, ADR 0062, ADR 0089, ADR 0100, ADR 0140, ADR 0147,
   `03-runtime/02-agent-runtime.md` §5f / §5f.2, E2E-165
 - Amends: nothing. ADR 0062's parent-only integration point and ADR 0089's

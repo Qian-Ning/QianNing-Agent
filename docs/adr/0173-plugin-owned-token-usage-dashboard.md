@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-07
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D103, D331, D335, ADR 0171, `04-ux/06-settings-ia.md`,
   E2E-186, marketplace plugin `pi.token-insights`
 
@@ -11,8 +11,8 @@
 ADR 0171 added host-owned completed-turn token history and a Settings → Usage
 destination. The marketplace plugin `pi.token-insights` already ships a private
 local dashboard (heatmap, KPIs, filters, streaks, agent tool) across
-PI-Desktop, Claude Code, Codex, and OpenCode. Keeping both surfaces duplicated
-a weaker PI-Desktop-only matrix inside Preferences.
+QianNing Agent, Claude Code, Codex, and OpenCode. Keeping both surfaces duplicated
+a weaker QianNing Agent-only matrix inside Preferences.
 
 Plugins cannot write `pi.sqlite` (D002). They already read appearance and
 provider labels read-only. The host still needs `session.endTurn.usage` so
@@ -28,7 +28,7 @@ subagent spend is durable without rewriting parent `message.usage`.
    plus `turn_end.subagentUsage` into `session.endTurn.usage`.
    `stats.getTokenUsageHistory` remains an additive host RPC / IPC for local
    completed-turn rollups. It is not a Settings page.
-4. **The plugin may fold host completed-turn remainders** into its PI-Desktop
+4. **The plugin may fold host completed-turn remainders** into its QianNing Agent
    fact cube when those totals exceed transcript assistant `meta.usage`, so
    subagent spend is visible without double-counting JSONL messages. It still
    never rewrites `message.usage`.

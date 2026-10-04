@@ -8,14 +8,14 @@ Accepted
 
 Plugin panels are hosted in their own Electron windows. Their titlebar was
 given a single string from the manifest and the preload chrome defaulted to a
-dark surface. That split the panel from the active PI-Desktop language and
+dark surface. That split the panel from the active QianNing Agent language and
 made light plugin pages look like they had an unrelated black header.
 
 ## Decision
 
 1. `ui.title` accepts either the existing string form or a localized object
    containing both `en` and `zh-CN` strings. The host resolves the value using
-   the active PI-Desktop UI locale and falls back to the other supplied label,
+   the active QianNing Agent UI locale and falls back to the other supplied label,
    then the manifest name.
 2. The host passes the active light/dark theme to the panel window. The
    preload samples the loaded document's computed body/document background and

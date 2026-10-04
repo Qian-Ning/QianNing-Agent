@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-27
-- Deciders: PI-Desktop release maintainers
+- Deciders: QianNing Agent release maintainers
 - Amends: D457 / [ADR 0296](0296-macos-signed-dmg-two-icon-install.md), the macOS distribution provisions of [ADR 0232](0232-macos-dmg-text-only-opening-guidance.md) and [ADR 0204](0204-unsigned-macos-first-launch-helper.md)
 - Related: D634, E2E-196b
 
@@ -17,7 +17,7 @@ builds, including local debug artifacts.
 
 Neither macOS DMG nor ZIP includes `PI-Desktop-macOS-open.command`,
 `PI-Desktop-macOS-opening-help.txt`, or another bundled quarantine-clearing
-helper or opening note. The ZIP contains `PI-Desktop.app` at its root. This
+helper or opening note. The ZIP contains `QianNing Agent.app` at its root. This
 applies to signed releases and local or opt-in unsigned debug builds; signing,
 notarization, stapling, and updater behavior are unchanged.
 

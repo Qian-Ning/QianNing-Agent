@@ -21,7 +21,7 @@ nothing in the repository could write the store-only zip it accepts. There were
 no templates, no manifest validation ahead of install, and every source edit to
 a development plugin required re-picking its folder through the native dialog.
 
-The two gaps are the same gap: PI-Desktop asked users to write plugins without
+The two gaps are the same gap: QianNing Agent asked users to write plugins without
 giving them the loop — scaffold, run, inspect, package.
 
 ## Decision

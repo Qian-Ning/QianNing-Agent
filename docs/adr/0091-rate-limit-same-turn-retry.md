@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-14 (amended 2026-08-19)
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D233, D245, E2E-149, ADR 0050, D186
 
 ## Context
@@ -16,7 +16,7 @@ the user too early, and made the effective budget depend on which phase failed.
 OpenCode's session retry policy provides the behavioral reference: rate limits
 are retried silently with a finite maximum, provider retry headers take
 precedence over client backoff, the wait is abortable, and only the exhausted
-failure is rendered. PI-Desktop must keep that behavior without importing
+failure is rendered. QianNing Agent must keep that behavior without importing
 OpenCode or multiplying retries through pi-ai's own wrapper.
 
 ## Decision

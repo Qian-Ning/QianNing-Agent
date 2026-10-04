@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-20
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Supersedes the capability-storage and capability-IA portions of ADR 0056,
   ADR 0058, and ADR 0063; updates D193, D194, and D202
 

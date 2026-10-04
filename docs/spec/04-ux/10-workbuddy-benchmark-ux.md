@@ -2,7 +2,7 @@
 
 > Source: hands-on walkthrough of WorkBuddy v5.3.5 (macOS, Electron) on
 > 2026-07-25, captured via CDP screenshots. This doc records what WorkBuddy
-> does UX-wise, and specs which patterns PI-Desktop should adopt, adapt, or
+> does UX-wise, and specs which patterns QianNing Agent should adopt, adapt, or
 > reject. Baseline shell IA: [01-ui-ia](01-ui-ia.md).
 
 ## 1. What WorkBuddy is (observed)
@@ -11,7 +11,7 @@ A consumer/prosumer "AI work companion": chat-first desktop app whose unit of
 work is a **Task** (a conversation with a goal), organized under **Spaces /
 Projects**, extended by a marketplace of **Experts (personas) · Skills ·
 Connectors**, plus **Automations** (scheduled tasks). It is persona- and
-template-heavy; PI-Desktop is developer- and workspace-heavy. The value here
+template-heavy; QianNing Agent is developer- and workspace-heavy. The value here
 is interaction patterns, not product scope.
 
 ## 2. Observed IA
@@ -79,12 +79,12 @@ Notable per-screen details:
   (name/style for the agent; how to address you, city, current focus) —
   personalization by conversation instead of a form wizard.
 
-## 3. Adopt (spec changes for PI-Desktop)
+## 3. Adopt (spec changes for QianNing Agent)
 
 Each item below is a concrete proposal; decisions go to the decisions log.
 
 ### 3.1 Permission mode in the composer
-WorkBuddy puts the permission posture next to the send button. PI-Desktop
+WorkBuddy puts the permission posture next to the send button. QianNing Agent
 exposes the same control as a composer chip (current effective mode:
 `Ask every time / Accept edits / Auto`) opening a small menu. The menu shows
 only those three modes and marks the effective selection directly; it does not
@@ -164,7 +164,7 @@ cloud-drive tab (no cloud storage in scope).
 ### 3.8 Workspace-scoped session tree (from 空间)
 WorkBuddy nests tasks under the folder-bound Space they ran in, with `+`
 (new task here) on hover and status badges (running dot / failure mark) per
-task. **Adopted and extended in D093**: PI-Desktop renders every retained,
+task. **Adopted and extended in D093**: QianNing Agent renders every retained,
 path-keyed project as a compact, independently collapsible group, followed by
 a Temporary sessions group for path-less sessions. Each directory title is
 the single disclosure target (chevron, folder, label, and remaining row hit
@@ -181,7 +181,7 @@ motion keeps the in-progress dot static.
 ## 3.9 Transcript density and user-plate alignment
 WorkBuddy's task transcript keeps user turns as compact right-side plates and
 assistant turns as full-width transparent prose, with quiet hover actions under
-each turn. **Adopted in D101**: PI-Desktop keeps the developer-tool restraint
+each turn. **Adopted in D101**: QianNing Agent keeps the developer-tool restraint
 (no mascot, no like/dislike) but densifies row spacing, right-aligns the user
 plate at `min(78%, 560px)`, softens the plate border/shadow, and shows copy
 chips only on hover/focus-within. Streaming assistant answers use a thin

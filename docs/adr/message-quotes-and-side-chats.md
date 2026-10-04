@@ -3,7 +3,7 @@
 
 - Status: Superseded by ADR 0268
 - Date: 2026-09-11
-- Deciders: PI-Desktop runtime and desktop UI maintainers
+- Deciders: QianNing Agent runtime and desktop UI maintainers
 - Amends: D209, D301
 - Preserves: D097, D128, D134, D154
 - Related: [04-ux/08-component-spec.md](../spec/04-ux/08-component-spec.md) ·
@@ -155,7 +155,7 @@ main transcript leaves the screen, and coming back costs a session switch.
 ## Amendment (D-LOCAL-selection-overlay, 2026-09-11) — the quote affordance follows the selection
 
 Geometry and behavior follow the ChatGPT desktop app's selected-text overlay; the
-excerpt and the side-chat target stay PI-Desktop's own contracts (D-LOCAL-message-quotes).
+excerpt and the side-chat target stay QianNing Agent's own contracts (D-LOCAL-message-quotes).
 
 - Decision 1 stands: every user message and every assistant turn keeps its Quote
   action for the whole message. A non-empty text selection inside a transcript
@@ -199,7 +199,7 @@ excerpt and the side-chat target stay PI-Desktop's own contracts (D-LOCAL-messag
   while a file-reference chip keeps its code text. The row action and the overlay
   call that one recovery path, so they cannot drift.
 - Two deliberate deviations from the reference implementation, both because the
-  quote lands in a **Markdown draft** PI-Desktop renders back: formulas use
+  quote lands in a **Markdown draft** QianNing Agent renders back: formulas use
   `$…$` / `$$…$$` (this renderer parses remark-math, not `\(…\)`), and table
   rows use `a | b` (Markdown) rather than tab-separated text. The reference's
   numbered `annotation` model is not adopted: D-LOCAL-message-quotes decision 3 keeps the excerpt

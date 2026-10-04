@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-20
-- Deciders: PI-Desktop runtime and UX maintainers
+- Deciders: QianNing Agent runtime and UX maintainers
 - Amends: ADR 0194, ADR 0144, ADR 0221
 - Related: D456, E2E-203a
 

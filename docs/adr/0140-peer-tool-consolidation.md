@@ -2,7 +2,7 @@
 
 - Status: Superseded by ADR 0147
 - Date: 2026-08-31
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D277, ADR 0138, ADR 0062, ADR 0089, ADR 0147,
   `03-runtime/02-agent-runtime.md` §5f, E2E-165, E2E-165b
 - Amends: ADR 0138 clauses 2 and 3. The mailbox semantics, the caps, and every

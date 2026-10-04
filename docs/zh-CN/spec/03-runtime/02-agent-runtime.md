@@ -287,7 +287,7 @@ E2E-SESSION-completion-notice-allows-silence。
 同一个会话。持久检查点总结了旧模型上下文，同时
 渲染器继续显示每个原始用户、助手和工具行。
 
-PI-Desktop 复用 pi-agent-core 的 `buildSessionContext`、`convertToLlm`、
+QianNing Agent 复用 pi-agent-core 的 `buildSessionContext`、`convertToLlm`、
 `estimateContextTokens`、`prepareCompaction` 和 `compact` 原语。桌面运行时拥有
 这些原语的运行时机，以及结果如何穿过 Rust 存储
 边界； OpenCode DCP 仅是 AGPL-3.0 行为参考，不是链接或
@@ -307,7 +307,7 @@ pi 0.84.4+ 只在循环将要在同一次运行中开启另一个助手回合时
 
 1. pi 在助手消息和所有工具之后发出并等待 `turn_end`
    该回合的结果已完成
-2. PI-Desktop 根据完整转录本和最新转录本重建上下文
+2. QianNing Agent 根据完整转录本和最新转录本重建上下文
    有效的检查点并估计下一个请求预算
 3.低于硬边界，并且没有待处理的模型请求，下一回合
    收益不变
@@ -448,7 +448,7 @@ Headroom 是 16,384 个代币储备底线的最大值，模型最大输出
 计为运行状态，直到持久持久性完成。
 
 检查点携带的文件清单由 pi 自己的收集器从被摘要的区间里读出，它只认小写拼写
-`read` / `write` / `edit`——也就是 pi 自己工具的名字。PI-Desktop 注册的是
+`read` / `write` / `edit`——也就是 pi 自己工具的名字。QianNing Agent 注册的是
 `Read` / `Write` / `Edit`，因此运行时**只在交给 pi 的准备阶段**转换这三个名字
 （`withPiFileOpToolNames`）：存储内容不变，其它工具名一律保持我们注册的拼写。
 缺少这一步时，检查点的 `readFiles` / `modifiedFiles` 与摘要里的 `<read-files>` 段

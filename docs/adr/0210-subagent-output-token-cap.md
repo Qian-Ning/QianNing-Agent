@@ -2,7 +2,7 @@
 
 - Status: Accepted (issue #171, merged in #193)
 - Date: 2026-09-10
-- Deciders: PI-Desktop runtime and UX maintainers
+- Deciders: QianNing Agent runtime and UX maintainers
 - Related: D383, E2E-155, E2E-119, ADR 0062, ADR 0063, ADR 0194
 
 ## Context

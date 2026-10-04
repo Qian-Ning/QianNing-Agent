@@ -2,7 +2,7 @@
 
 ## 1. Positioning
 
-PI-Desktop is for developers and power users who want a local agent that can read/modify projects with visible control.
+QianNing Agent is for developers and power users who want a local agent that can read/modify projects with visible control.
 
 It combines:
 
@@ -130,10 +130,10 @@ the internal `page = "chat"` route value; that value is not an operating mode.
 
 ## 8. Naming
 
-- Product: `PI-Desktop`
+- Product: `QianNing Agent`
 - Package: `pi-desktop`
 - Application ID: `net.aiuo.pi-desktop`
-- Window title: `PI-Desktop`
+- Window title: `QianNing Agent`
 
 ## 9. Platform strategy
 

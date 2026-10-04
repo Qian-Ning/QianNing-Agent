@@ -1,7 +1,7 @@
-# PI-Desktop Plugin Development: Zero to One
+# QianNing Agent Plugin Development: Zero to One
 
 This guide is the shortest complete path from an empty folder to a tested
-`.piplug` package. It describes the plugin runtime that PI-Desktop ships today.
+`.piplug` package. It describes the plugin runtime that QianNing Agent ships today.
 The files under [`docs/spec/07-plugins`](spec/07-plugins/README.md) remain the
 normative contract when this guide and a specification differ.
 
@@ -37,10 +37,10 @@ surface cross a host-owned permission gateway.
 
 For the recommended app-first path, you need:
 
-- a running PI-Desktop build;
+- a running QianNing Agent build;
 - an empty folder for the plugin; and
 - a text editor.
-- To import a pi extension directory with npm dependencies, a system `npm` executable must be on `PATH`. Release builds ship no standalone Node/npm; without it, PI-Desktop reports a warning and the imported dependency cannot load.
+- To import a pi extension directory with npm dependencies, a system `npm` executable must be on `PATH`. Release builds ship no standalone Node/npm; without it, QianNing Agent reports a warning and the imported dependency cannot load.
 
 For the repository CLI path, you also need Node.js 22.19 or newer, pnpm 10 or
 newer, and a checkout of this repository. The devkit and SDK are currently
@@ -49,14 +49,14 @@ private workspace packages, so do not assume that `npm install
 
 ## 3. Create the first plugin
 
-### Option A: create it in PI-Desktop
+### Option A: create it in QianNing Agent
 
 1. Open **Plugins** (the Extensions page).
 2. Open the header overflow menu and choose **New plugin from template**.
 3. Choose `panel-basic`.
 4. Select an empty folder.
 
-PI-Desktop writes the starter files, loads the folder as a development plugin,
+QianNing Agent writes the starter files, loads the folder as a development plugin,
 and opens the folder as the active project. The plugin is live immediately.
 
 The four built-in templates are:
@@ -73,7 +73,7 @@ existing project.
 
 ### Option B: create it with the repository CLI
 
-From the PI-Desktop repository root:
+From the QianNing Agent repository root:
 
 ```bash
 pnpm install
@@ -83,7 +83,7 @@ pnpm pi-plugin init panel-basic ../my-first-plugin \
   --name "My First Plugin"
 ```
 
-Then open PI-Desktop, go to **Plugins**, choose **Load development plugin**, and
+Then open QianNing Agent, go to **Plugins**, choose **Load development plugin**, and
 select `../my-first-plugin`.
 
 Use a reverse-domain id for a published plugin, for example
@@ -111,7 +111,7 @@ my-first-plugin/
 - `README.md` explains how to develop and package this particular plugin.
 
 Distribution packages must contain directly executable JavaScript, HTML, CSS,
-and assets. PI-Desktop does not install dependencies or compile TypeScript when
+and assets. QianNing Agent does not install dependencies or compile TypeScript when
 it loads a plugin. If you use TypeScript or third-party packages, bundle or
 compile them into the plugin directory before checking and packing it.
 
@@ -192,7 +192,7 @@ manifest are reserved for the planned full lifecycle.
 
 ### `renderer/index.html`
 
-PI-Desktop hosts the panel in a frameless window on every platform. The host
+QianNing Agent hosts the panel in a frameless window on every platform. The host
 reserves exactly a transparent 46 CSS px drag band and renders a minimal fixed
 capsule in the top-right corner with minimize, maximize/restore, and close
 buttons. The panel title, toolbar, and all other visible UI belong to the
@@ -392,7 +392,7 @@ page generates controls for `string`, `number`, `boolean`, `select`, `json`, and
 }
 ```
 
-Plugin shortcuts run only in the focused PI-Desktop window and are checked
+Plugin shortcuts run only in the focused QianNing Agent window and are checked
 against the app shortcut map. Global registration is not supported yet. The
 plugin receives `plugin:settingsChanged` after a user edit. Do not put
 credentials in `manifest.json` or source control.
@@ -430,7 +430,7 @@ the root itself. `net.fetch` accepts HTTP(S) and only reaches hosts listed in
 because Electron does not expose a cross-platform read-only OS permission API;
 `unknown` means the platform has not reported a result yet, and
 `unsupported` means desktop notifications are unavailable. Native plugin
-notifications are not added to PI-Desktop's durable task notification inbox.
+notifications are not added to QianNing Agent's durable task notification inbox.
 Clicking a delivered notification restores and focuses the main window, but
 does not activate a session.
 
@@ -461,12 +461,12 @@ talk to its own plugin over channels you define; a plugin that exports no
 - **Reading** may declare the whole tree. **Writing and deleting may not** — a
   whole-tree pattern fails validation, because the egress allowlist is what makes
   a broad read safe and nothing makes a broad write safe.
-- An access outside the declared scope is not an error: PI-Desktop asks the user
+- An access outside the declared scope is not an error: QianNing Agent asks the user
   (Deny / Allow once / Allow this session). Declare the scope you need so your
   plugin does not interrupt them on every call, and expect a refusal to arrive as
   `PERMISSION_DENIED`.
 - Some paths are refused whatever you declare: `.env*`, SSH and cloud
-  credentials, `*.pem`, `.git/**`, and PI-Desktop's own data directory. They do
+  credentials, `*.pem`, `.git/**`, and QianNing Agent's own data directory. They do
   not appear in `fs.glob` results either.
 
 **Deleting.** `own: true` lets you remove files your plugin wrote itself, with no
@@ -537,7 +537,7 @@ Declare a CSS file and `ui.theme`:
 }
 ```
 
-Override PI-Desktop design tokens in that CSS. The host sanitizes contributed
+Override QianNing Agent design tokens in that CSS. The host sanitizes contributed
 CSS, refuses imports and non-data URLs, caps each file at 256 KiB, and allows up
 to eight themes per plugin. The user selects the theme in Settings.
 
@@ -596,7 +596,7 @@ plugin's own persisted session partition, and network limited to
 plugin restricted to certain projects does not offer its views in others.
 
 `examples/plugins/hello` ships a working view at `views/greetings.html`, and
-PI-Desktop's own file view is a bundled plugin built the same way —
+QianNing Agent's own file view is a bundled plugin built the same way —
 `apps/desktop/resources/plugins/pi.file-manager` is a complete, non-toy example
 of a view that reaches the workspace over the public bridge: `fs.openDefault`
 and `fs.reveal` for the two actions only the host can perform, and the plugin's
@@ -754,7 +754,7 @@ What to know before you use it:
   details, never thrown.
 - **Existing pi extensions** need no changes: Plugins → overflow menu →
   "Import pi extension" wraps a file or directory in a generated plugin. If
-  the directory declares production or optional dependencies, PI-Desktop first
+  the directory declares production or optional dependencies, QianNing Agent first
   runs `npm install --package-lock-only --omit=dev --legacy-peer-deps --no-audit
   --no-fund --ignore-scripts`, validates the generated registry-only lockfile,
   then runs `npm ci` with the same safety flags. Direct dependency specs are
@@ -790,7 +790,7 @@ egress (§6.6). Both fail closed — an absent or empty declaration grants nothi
 so a plugin that says nothing about them reaches nothing.
 
 Ask for the smallest set possible. Adding a permission to a loaded development
-plugin does not take effect through hot reload: PI-Desktop stops the reload and
+plugin does not take effect through hot reload: QianNing Agent stops the reload and
 asks the user to load the folder again so the new grant can be reviewed. Widening
 `manifest.fs` counts as adding a permission for this purpose. Removing
 permissions takes effect on reload.
@@ -940,7 +940,7 @@ for roadmap details.
 | Panel does not open | Missing file, `ui.panel`, or permission | Declare the panel path and `ui.panel`; reload for a new grant |
 | View is missing from the work panel menu | Missing `ui.view`, missing entry file, or the plugin's activation scope excludes the open project | Declare `ui.view`, check `views[].entry` exists, and set the scope to Global or to this project |
 | View shows a letter tile instead of an icon | Unknown `views[].icon` token | Use a token from the supported list; `pi-plugin check` warns about unknown ones |
-| `pluginBridge` is unavailable | HTML opened in a normal browser | Test bridge calls inside the PI-Desktop panel |
+| `pluginBridge` is unavailable | HTML opened in a normal browser | Test bridge calls inside the QianNing Agent panel |
 | Tool never appears | Missing contribution, registration, or grant | Align `agentTools`, `registerTool`, and `agent.tool.register`; use Agent mode |
 | Skill never applies | Missing permission or weak metadata | Add `agent.prompt.inject` and specific `name`/`description` front matter |
 | Save reports `PERMISSION_DENIED` | Manifest widened permissions | Load the development folder again and review the new grant |

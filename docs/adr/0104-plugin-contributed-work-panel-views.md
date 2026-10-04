@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-19
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: [ADR 0019](0019-work-panel-subsystems.md) ·
   [ADR 0033](0033-internal-dock-work-panel.md) ·
   [ADR 0122](0122-reserve-native-width-while-work-panel-visible.md) ·

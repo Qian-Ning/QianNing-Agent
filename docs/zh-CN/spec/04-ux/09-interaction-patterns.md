@@ -358,7 +358,7 @@
    仍会创建持久行，但不会出现本机横幅。asktool、工具权限和 Plan 审批询问
    使用带有 `kind: "interactive"` 的同一个 Electron 表面：确切的聚焦当前
    会话保持静默，而聚焦于其他会话时可以收到横幅。在 Windows 上，每个横幅
-   都归因于与 NSIS 包和任务栏标识共享的规范 PI-Desktop AppUserModelID。
+   都归因于与 NSIS 包和任务栏标识共享的规范 QianNing Agent AppUserModelID。
    Electron 每个持久 id 最多保留一个任务本机对象；成功的已读、全部已读和
    清除操作会关闭匹配对象，并保留 tombstone 以抵御迟到/重放投递。
 5. 单击本机通知 shows/restores 并聚焦于主通知

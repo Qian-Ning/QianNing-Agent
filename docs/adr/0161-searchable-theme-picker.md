@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-05
-- Decision owners: PI-Desktop desktop/settings maintainers
+- Decision owners: QianNing Agent desktop/settings maintainers
 - Related: D316, D314, ADR 0160, D175
 
 ## Context

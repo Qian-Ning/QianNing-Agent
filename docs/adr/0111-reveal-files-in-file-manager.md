@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-22
-- Deciders: PI-Desktop maintainers
+- Deciders: QianNing Agent maintainers
 - Related: [ADR 0105](0105-files-as-a-bundled-plugin.md) ·
   [ADR 0109](0109-open-files-with-the-os-associated-application.md) ·
   [07-plugins/03-plugin-api](../spec/07-plugins/03-plugin-api.md) · E2E-153

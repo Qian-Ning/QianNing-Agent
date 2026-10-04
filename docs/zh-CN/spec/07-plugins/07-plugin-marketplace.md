@@ -541,7 +541,7 @@ scripts/rebuild_catalog.py
 2.`python3 scripts/pack_plugin.py plugins/<id>`
 3.`python3 scripts/rebuild_catalog.py`
 4. 提交 + 推送至 `main`
-5. PI-Desktop 通过 `market.refresh`/市场 UI 刷新
+5. QianNing Agent 通过 `market.refresh`/市场 UI 刷新
 
 目前由维护者就地编辑源码、打包、手工重建目录。下面要变的正是这一点，而地址不变。
 

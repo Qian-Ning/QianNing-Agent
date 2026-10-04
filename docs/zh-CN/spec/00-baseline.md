@@ -1,4 +1,4 @@
-# PI-Desktop 基线冻结
+# QianNing Agent 基线冻结
 
 > **翻译说明：** 本页是与 [英文源规格](/spec/00-baseline) 一一对应的机器辅助翻译。代码、协议字段和标识符保持原文；如翻译与英文源事实有歧义，以英文版本为准。
 
@@ -93,7 +93,7 @@
 
 ## 冻结的决定
 
-1.产品名称：**PI-Desktop**
+1.产品名称：**QianNing Agent**
 2. 桌面外壳：**Electron**
 3. 用户界面：**React + TypeScript + Vite + Tailwind**
 4. UI语言默认：**英语**

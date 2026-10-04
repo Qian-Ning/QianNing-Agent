@@ -2,7 +2,7 @@
 
 - Status: Accepted (automatic trigger amended by D623 / issue #970)
 - Date: 2026-08-06
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends: ADR 0061 / ADR 0030 / D158 / D200; amended by ADR 0136
 
 ## Context

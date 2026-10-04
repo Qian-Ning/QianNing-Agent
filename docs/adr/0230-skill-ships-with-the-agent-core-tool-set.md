@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-11
-- Deciders: PI-Desktop runtime maintainers
+- Deciders: QianNing Agent runtime maintainers
 - Amends: D174, ADR 0048, ADR 0219
 
 ## Context

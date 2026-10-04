@@ -8,7 +8,7 @@
 
 ## Context
 
-Long Agent turns streamed at 200+ tokens/s from the provider, but PI-Desktop
+Long Agent turns streamed at 200+ tokens/s from the provider, but QianNing Agent
 displayed them at a much lower rate that got worse the longer the turn ran.
 Stop plus a new prompt restored speed; the same turn's later short thinking
 blocks stayed slow. Subagents showed the same lag. TTFT was fine.

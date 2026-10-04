@@ -2,7 +2,7 @@
 
 - Status: Accepted for implementation
 - Date: 2026-08-12
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: E2E-123
 
 ## Context

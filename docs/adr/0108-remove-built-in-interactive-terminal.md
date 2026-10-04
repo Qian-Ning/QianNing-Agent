@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-19
-- Deciders: PI-Desktop maintainers
+- Deciders: QianNing Agent maintainers
 - Related: [ADR 0019](0019-work-panel-subsystems.md) ·
   [ADR 0105](0105-files-as-a-bundled-plugin.md) ·
   [01-ui-ia](../spec/04-ux/01-ui-ia.md) ·

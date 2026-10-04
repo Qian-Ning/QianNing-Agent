@@ -2,14 +2,14 @@
 
 - Status: Accepted
 - Date: 2026-08-13
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D118, D129, D218, ADR 0021, ADR 0025
 
 ## Context
 
 Plugin panels run in separate sandboxed `BrowserWindow` instances and load
 plugin-owned HTML. Those windows previously used Electron's default frame, so
-their titlebar did not match the main PI-Desktop window and differed materially
+their titlebar did not match the main QianNing Agent window and differed materially
 between macOS, Windows, and Linux.
 
 The panel page cannot be trusted with the main renderer preload or an arbitrary

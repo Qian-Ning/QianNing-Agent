@@ -2,11 +2,11 @@
 
 - Status: Accepted
 - Date: 2026-09-27
-- Decision owners: PI-Desktop core
+- Decision owners: QianNing Agent core
 
 ## Context
 
-PI-Desktop had a Pull requests destination that ran `gh pr list` in the active
+QianNing Agent had a Pull requests destination that ran `gh pr list` in the active
 workspace and exposed the same listing through the optional local MCP control
 catalog as `pulls/list`. The UI depended on the GitHub CLI and authentication
 available to the Electron process; listing failures could leave the page with
@@ -28,7 +28,7 @@ view icons unchanged.
 ## Consequences
 
 - Users can no longer open a PR destination or call `pulls/list` through
-  PI-Desktop's MCP control catalog. Existing local clients must stop relying on
+  QianNing Agent's MCP control catalog. Existing local clients must stop relying on
   that operation.
 - The change requires no data migration: PR summaries were fetched on demand
   and were not persisted.

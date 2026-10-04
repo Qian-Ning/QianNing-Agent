@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-09
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends: ADR 0068, ADR 0085, D128, D207, D221
 - Related: [01-ui-ia](../spec/04-ux/01-ui-ia.md) ·
   [08-component-spec](../spec/04-ux/08-component-spec.md) ·

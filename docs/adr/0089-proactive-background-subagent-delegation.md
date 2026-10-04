@@ -3,7 +3,7 @@
 - Status: Accepted for implementation (resumable delegations amended by
   ADR 0279)
 - Date: 2026-08-16
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D201, D202, ADR 0062, ADR 0063, ADR 0048, ADR 0100, ADR 0279, E2E-142
 
 ## Context

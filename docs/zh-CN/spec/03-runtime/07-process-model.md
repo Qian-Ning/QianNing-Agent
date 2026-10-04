@@ -8,7 +8,7 @@
 MVP 目标拓扑：
 
 ```text
-PI-Desktop.app
+QianNing Agent.app
 ├── Electron Main
 │   ├── Renderer (React UI)
 │   ├── Rust host-core sidecar
@@ -37,7 +37,7 @@ PI-Desktop.app
 仍可启动（D236、ADR 0094）。
 
 开发构建本身就是独立安装，而不是同一安装的第二个进程：它运行在操作系统应用
-数据根目录下的 `PI-Desktop Dev`，数据目录为 `~/.pi-desktop-dev`。因此正式打包版
+数据根目录下的 `QianNing Agent Dev`，数据目录为 `~/.qianning-agent-dev`。因此正式打包版
 持有锁时 `pnpm dev` 仍可启动，两者不会共享数据库、outbox 或日志树（D599、
 ADR 0094）。显式 `--user-data-dir` 仍然优先，E2E 装置正是用它把构建指向临时
 profile。
@@ -105,7 +105,7 @@ Linux 打包的 host-core 在 Ubuntu 22.04 上构建，需要 glibc 2.35 或更�
   会拒绝打开（stderr 输出 `database schema version N is newer than supported
   M`）。Electron 从退出前的最后一段 stderr 解析该行，首次失败即停止重启循环，
   并推送 `message: "DB_SCHEMA_TOO_NEW"` 且带有两个版本号的 `hostStatus`。横幅
-  提示用户安装上次打开这些数据的更新版 PI-Desktop。不会向下迁移数据。
+  提示用户安装上次打开这些数据的更新版 QianNing Agent。不会向下迁移数据。
 - **非原生构建。** 启动时 Electron 比较 `process.arch` 与实际 CPU（macOS 通过
   `sysctl.proc_translated` 判断，仅在 Rosetta 2 下为 `1`；其他平台用
   `os.machine()`）。不匹配时即使启动成功，也会随启动 `hostStatus` 附带

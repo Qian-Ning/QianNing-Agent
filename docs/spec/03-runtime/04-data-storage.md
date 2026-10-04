@@ -50,14 +50,14 @@ finds it.
 
 ## 2. File layout
 
-A packaged installation keeps this tree in `~/.pi-desktop`. A development build
-keeps the same tree in `~/.pi-desktop-dev`, because a shipped app and a
+A packaged installation keeps this tree in `~/.qianning-agent`. A development build
+keeps the same tree in `~/.qianning-agent-dev`, because a shipped app and a
 `pnpm dev` host are two installations that have to run at the same time (D599,
 ADR 0094). `PI_DESKTOP_DATA_DIR` replaces either root outright and is resolved
 to an absolute path before it reaches host-core as a child-process variable.
 
 ```text
-~/.pi-desktop/
+~/.qianning-agent/
  ├── pi.sqlite            # index database (WAL: + -wal/-shm) — host-core only
  ├── pi.sqlite.v6.bak     # archived pre-v7 database (D119 breaking reset)
  ├── pi.sqlite.v8.bak     # exact readable backup before v8→v15 destructive work

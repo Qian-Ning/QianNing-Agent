@@ -2,14 +2,14 @@
 
 - Status: Accepted (amended by D450 / ADR 0289)
 - Date: 2026-09-09
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D126, D285, D353, D354, D450, ADR 0145, ADR 0289, E2E-092
 
 ## Context
 
 D353 added an explicit `Intel` marker to the native macOS x64 artifacts but left
 Apple Silicon artifacts with electron-builder's generic version-only name. A
-file such as `PI-Desktop-0.14.4.dmg` therefore still does not reveal whether it
+file such as `QianNing-Agent-0.14.4.dmg` therefore still does not reveal whether it
 contains arm64 or x64 code, which is ambiguous when both downloads are listed in
 the same GitHub Release.
 
@@ -17,10 +17,10 @@ the same GitHub Release.
 
 1. Both native macOS release lanes pass target-specific artifact patterns to
 electron-builder.
-2. The arm64 lane publishes `PI-Desktop-<version>-arm64.dmg` and
-   `PI-Desktop-<version>-arm64-mac.zip`.
-3. The Intel x64 lane publishes `PI-Desktop-<version>-x64.dmg` and
-   `PI-Desktop-<version>-x64-mac.zip`.
+2. The arm64 lane publishes `QianNing-Agent-<version>-arm64.dmg` and
+   `QianNing-Agent-<version>-arm64-mac.zip`.
+3. The Intel x64 lane publishes `QianNing-Agent-<version>-x64.dmg` and
+   `QianNing-Agent-<version>-x64-mac.zip`.
 4. The convention applies to unsigned and signed macOS workflow paths. The
    generated per-architecture updater feeds retain these final asset URLs and
    checksums before the publish job merges them.

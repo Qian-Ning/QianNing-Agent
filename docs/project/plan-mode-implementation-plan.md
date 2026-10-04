@@ -11,7 +11,7 @@
 
 ## 1. Executive decision
 
-PI-Desktop continues to run one pi Agent. The selector is `Agent | Plan`, with
+QianNing Agent continues to run one pi Agent. The selector is `Agent | Plan`, with
 Agent as the default. Plan is the same Agent in planning state, not a second
 planner, model, service, permission mode, or security sandbox.
 

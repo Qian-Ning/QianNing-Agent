@@ -10,7 +10,7 @@
 
 ## Context
 
-PI-Desktop currently embeds `pi-agent-core` in a Node sidecar. Electron Main
+QianNing Agent currently embeds `pi-agent-core` in a Node sidecar. Electron Main
 owns the sidecar and Rust host-core bridges, while the renderer communicates
 through typed Electron IPC. The local sidecar and host-core boundaries use
 stdio NDJSON JSON-RPC. ADR 0203 adds an opt-in, loopback-only MCP control plane

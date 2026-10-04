@@ -2,7 +2,7 @@
 
 - Status: Accepted (amended 2026-09-06 by D327)
 - Date: 2026-09-05
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D119, D287, D288, D299, D327, E2E-010, E2E-171, E2E-184, ADR 0030, ADR 0041
 
 ## Context

@@ -7,7 +7,7 @@ Two workspaces share one repository: pnpm owns every JavaScript package
 `package.json` scripts fan out to both.
 
 ```text
-PI-Desktop/
+QianNing-Agent/
 ├── apps/
 │ └── desktop/                # Electron product shell
 │   ├── electron/
@@ -128,12 +128,12 @@ Cross-boundary contracts:
 
 ## 3. Runtime data (not in git)
 
-`PI_DESKTOP_DATA_DIR` overrides the default location: `~/.pi-desktop` for a
-packaged installation, `~/.pi-desktop-dev` for a development build, which is
+`PI_DESKTOP_DATA_DIR` overrides the default location: `~/.qianning-agent` for a
+packaged installation, `~/.qianning-agent-dev` for a development build, which is
 how `pnpm dev` runs beside the packaged app (D599).
 
 ```text
-~/.pi-desktop/
+~/.qianning-agent/
  ├── pi.sqlite               # single DB, host-core owned (03-runtime/04, D086)
  ├── sessions/               # per-session transcript files (D119)
  ├── artifacts/              # plan and goal checkpoint artifacts

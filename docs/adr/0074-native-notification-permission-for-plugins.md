@@ -5,7 +5,7 @@
 
 ## Context
 
-The plugin `notify` capability currently exposes only an in-app Toast. PI-Desktop
+The plugin `notify` capability currently exposes only an in-app Toast. QianNing Agent
 already uses Electron's native notification API for terminal task outcomes, but
 that surface is intentionally owned by the application and backed by the
 durable task notification inbox. Plugins need a way to ask the operating system

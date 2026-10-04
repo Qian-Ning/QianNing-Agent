@@ -6,12 +6,12 @@
 ## 1. Purpose and terminology
 
 Plugins ([01-plugin-system.md](01-plugin-system.md)) are the one extension
-surface of PI-Desktop. This document specifies one plugin contribution,
+surface of QianNing Agent. This document specifies one plugin contribution,
 `contributes.agentExtensions`: TypeScript or JavaScript modules that run
 inside the Agent sidecar, receive an `ExtensionAPI` object, and register
 tools, commands, and event handlers directly on the agent loop. The
 `ExtensionAPI` contract is the one defined by `@earendil-works/pi-coding-agent`,
-which PI-Desktop adopts alongside the `pi-ai` and `pi-agent-core` kernel
+which QianNing Agent adopts alongside the `pi-ai` and `pi-agent-core` kernel
 (ADR 0002), so an extension written for the pi CLI is the module a plugin
 contributes. D388 folded the earlier standalone "trusted extensions"
 registry into this contribution; the engine below is unchanged.
@@ -32,7 +32,7 @@ so it is neither an `ExtensionAPI` member nor a row in the §5 support matrix.
 | Term | Meaning |
 |---|---|
 | Agent extension | One module a plugin lists in `contributes.agentExtensions`, written against `ExtensionAPI`, running with the trust level of the Agent sidecar |
-| Plugin | A PI-Desktop plugin with a manifest, running in its own process under the permission gateway (ADR 0008); the owner, installer, and enablement record of its agent extensions |
+| Plugin | A QianNing Agent plugin with a manifest, running in its own process under the permission gateway (ADR 0008); the owner, installer, and enablement record of its agent extensions |
 | Adapter | The layer in `packages/agent-runtime` that implements `ExtensionAPI` on top of the desktop runtime |
 | Runner | One desktop-owned `TrustedExtensionRunner` instance bound to one desktop session (v1 note: the pi-coding-agent `ExtensionRunner` is not reused because it binds the terminal theme; its `ExtensionAPI` types are a types-only dependency) |
 
@@ -50,7 +50,7 @@ so it is neither an `ExtensionAPI` member nor a row in the §5 support matrix.
    `contributes.agentExtensions` without `agent.extension` fails manifest
    validation; a plugin whose recorded grants omit the permission loads with
    its modules skipped and audited (`plugin.agentExtensions.skipped`). D007
-   stays in force: PI-Desktop never auto-imports `~/.pi`.
+   stays in force: QianNing Agent never auto-imports `~/.pi`.
 4. Project scope is the plugin's activation scope. A plugin limited to some
    projects contributes its modules only to sessions in those projects. v1
    note: there is no separate project trust state, so the plugin scope is the

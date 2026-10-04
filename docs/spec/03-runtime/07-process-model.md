@@ -5,7 +5,7 @@
 MVP target topology:
 
 ```text
-PI-Desktop.app
+QianNing Agent.app
 ├── Electron Main
 │   ├── Renderer (React UI)
 │   ├── Rust host-core sidecar
@@ -38,8 +38,8 @@ side-by-side profile) shares no database, outbox, or logs with the default
 installation and stays launchable while one is running (D236, ADR 0094).
 
 A development build is its own installation rather than a second process of
-the same one: it runs under `PI-Desktop Dev` in the OS application-data root
-and reads `~/.pi-desktop-dev`. `pnpm dev` therefore starts while a packaged app
+the same one: it runs under `QianNing Agent Dev` in the OS application-data root
+and reads `~/.qianning-agent-dev`. `pnpm dev` therefore starts while a packaged app
 holds its lock, and the two never share a database, an outbox, or a log tree
 (D599, ADR 0094). An explicit `--user-data-dir` is honored instead, because the
 E2E harnesses point a build at a throwaway profile with it.
@@ -139,7 +139,7 @@ Two more boot outcomes are named rather than left as a generic outage (D380):
   supported M` on stderr). Electron parses that line from the last stderr
   before exit, stops the restart loop on the first failure, and pushes
   `hostStatus` with `message: "DB_SCHEMA_TOO_NEW"` and both numbers. The banner
-  tells the user to install the newer PI-Desktop that last opened this data.
+  tells the user to install the newer QianNing Agent that last opened this data.
   No data is migrated down.
 - **Non-native build.** At boot Electron compares `process.arch` with the CPU
   (on macOS via `sysctl.proc_translated`, which is `1` only under Rosetta 2;

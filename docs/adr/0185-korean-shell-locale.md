@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-09
-- Decision owners: PI-Desktop desktop/i18n maintainers
+- Decision owners: QianNing Agent desktop/i18n maintainers
 - Related: ADR 0160, ADR 0182, ADR 0183, D349, E2E-091
 
 ## Context

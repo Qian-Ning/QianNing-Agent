@@ -2,7 +2,7 @@
 
 - Status: Accepted for implementation
 - Date: 2026-09-06
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D328, ADR 0089, ADR 0119, ADR 0129, issue discussion on
   GitHub #44 follow-on (parent closing kills unfinished delegates)
 

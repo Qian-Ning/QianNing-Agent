@@ -2,7 +2,7 @@
 
 - Status: Superseded by ADR 0165
 - Date: 2026-09-05
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D318, D277, ADR 0147, ADR 0062, ADR 0089,
   `03-runtime/02-agent-runtime.md` §5f.2,
   `03-runtime/06-host-rpc-protocol.md` §4, E2E-165, E2E-165b, E2E-165c

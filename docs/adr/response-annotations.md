@@ -3,7 +3,7 @@
 
 - Status: Superseded by ADR 0268
 - Date: 2026-09-11
-- Deciders: PI-Desktop runtime and desktop UI maintainers
+- Deciders: QianNing Agent runtime and desktop UI maintainers
 - Amends: D-LOCAL-message-quotes decision 3 (for assistant turns)
 - Preserves: D209, D301, D097, D128
 - Related: [04-ux/08-component-spec.md](../spec/04-ux/08-component-spec.md) ·

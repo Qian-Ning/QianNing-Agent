@@ -4,7 +4,7 @@
 
 ## 一行定义
 
-**PI-Desktop** 是本地优先的 AI 编码代理桌面客户端，构建于：
+**QianNing Agent** 是本地优先的 AI 编码代理桌面客户端，构建于：
 
 - Electron 桌面外壳
 - Rust主机后端核心
@@ -15,7 +15,7 @@
 ## 产品配方
 
 ```text
-PI-Desktop =
+QianNing Agent =
  Electron Shell
  + React UI (English-first)
  + Rust Host Core
@@ -63,7 +63,7 @@ PI-Desktop =
 
 ## 最小用户循环
 
-1. 启动PI-Desktop
+1. 启动QianNing Agent
 2.配置provider/API密钥
 3. 打开项目工作区
 4. 创建会话并发送任务

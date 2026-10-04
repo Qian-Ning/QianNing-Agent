@@ -2,7 +2,7 @@
 
 - Status: Accepted for implementation
 - Date: 2026-08-14
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends: ADR 0068, D207
 - Amended by: [ADR 0195](0195-viewport-fixed-work-panel-toggle.md) (the
   viewport-fixed toggle is the pointer equivalent; the header chevron is no

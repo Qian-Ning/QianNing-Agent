@@ -5,7 +5,7 @@
 
 ## 1. 目标
 
-1. 为 PI-Desktop 中的视觉标记、组件基础和布局指标提供**单一事实来源**
+1. 为 QianNing Agent 中的视觉标记、组件基础和布局指标提供**单一事实来源**
 2. 确保浅色和深色主题的**高可读性和对比度** - 这是开发人员工作站，而不是营销界面
 3. 将所有设计决策映射到 **Tailwind CSS 标记**，以便规范 → 实现明确
 4.启用**未来类似shadcn的原始提取**，无需重新指定基础
@@ -36,7 +36,7 @@
 
 ### 3. 1 文本选择
 
-PI-Desktop 的行为类似于桌面应用程序 shell，因此意外拖动
+QianNing Agent 的行为类似于桌面应用程序 shell，因此意外拖动
 默认情况下，chrome 会禁止选择。选择合同为：
 
 - 导航、标题栏镶边、按钮、标签、徽章、菜单等
@@ -84,25 +84,25 @@ PI-Desktop 的行为类似于桌面应用程序 shell，因此意外拖动
 
 ### 3. 3 产品标识和标志
 
-可见的产品标识是 **PI-Desktop**，即使外壳借用了
+可见的产品标识是 **QianNing Agent**，即使外壳借用了
 法典作为视觉参考。身份契约故意很小：
 
 - 侧边栏外壳名称、设置副本和输入框占位符使用
-  `PI-Desktop`； `Codex` 保留用于外部会话导入源或
+  `QianNing Agent`； `Codex` 保留用于外部会话导入源或
 历史设计参考文本。
 - `build/icon_1024.png` 是规范的 shell 徽标母版；渲染器导入由其派生的
   192x192 标记，位于 `src/assets/brand/`（ADR 0125）。 `BrandLogo` 导入它们
   通过Vite所以渲染器捆绑，开发Dock，并打包
   应用程序都使用相同的视觉资产。
-- 在 macOS 上，开发和打包发布均将 `PI-Desktop` 公开为
-  本机应用程序菜单名称。本机“关于”面板使用 PI-Desktop
+- 在 macOS 上，开发和打包发布均将 `QianNing Agent` 公开为
+  本机应用程序菜单名称。本机“关于”面板使用 QianNing Agent
   名称、版本和规范图标；没有可见库存 Electron 名称或图标。
   开发启动使用生成的品牌主机包，因为 AppKit
   从主机包而不是 Electron 运行时 API 中读取此标识。
 - 在 Windows、Electron 主寄存器上，规范的 `net.aiuo.pi-desktop`
   准备就绪之前的 AppUserModelID。运行时 ID、打包的可执行文件名称、
   和 NSIS 快捷方式标识保持一致，以便本机通知，
-  通知设置和任务栏组将应用程序标识为 `PI-Desktop`
+  通知设置和任务栏组将应用程序标识为 `QianNing Agent`
   而不是 Electron。
 - 空首页英雄使用 100px 的 `HomeMascotLogo` GIF：由浅色和深色八帧挥手
   动作合成，首帧短暂停留后循环播放。CSS 根据

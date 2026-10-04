@@ -14,12 +14,12 @@ services such as Command Code with its own endpoint and authentication flow.
 
 The pinned pi-coding-agent API has `registerProvider`, but no `registerAgent`, and
 its provider registry assumes coding-agent-owned credentials and model persistence.
-Passing that registry through would bypass PI-Desktop's session binding and secret
+Passing that registry through would bypass QianNing Agent's session binding and secret
 ownership boundaries.
 
 ## Decision
 
-1. Add a PI-Desktop `registerAgent` ExtensionAPI member. A trusted extension
+1. Add a QianNing Agent `registerAgent` ExtensionAPI member. A trusted extension
    registers an id, bounded model metadata, and either a `stream` or `complete`
    implementation. The plugin owns endpoint, authentication, request serialization,
    and response conversion.
@@ -49,7 +49,7 @@ ownership boundaries.
   a plugin may expose its own command or UI to select them.
 - Trusted extension code has sidecar-level authority by design. Marketplace
   distribution remains subject to the existing signing/trust policy.
-- The public ExtensionAPI contract is PI-Desktop-specific for `registerAgent`;
+- The public ExtensionAPI contract is QianNing Agent-specific for `registerAgent`;
   upstream pi API upgrades must preserve the adapter contract or add a compatibility
   translation.
 

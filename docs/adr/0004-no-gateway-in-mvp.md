@@ -5,7 +5,7 @@
 
 ## Context
 
-Products such as LiveAgent provide a remote WebUI/Gateway. Whether PI-Desktop should add remote control capability in the first phase is a trade-off that needs to be made.
+Products such as LiveAgent provide a remote WebUI/Gateway. Whether QianNing Agent should add remote control capability in the first phase is a trade-off that needs to be made.
 
 ## Decision
 

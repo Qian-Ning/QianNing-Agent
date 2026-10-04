@@ -1,4 +1,4 @@
-# PI-Desktop Spec
+# QianNing Agent Spec
 
 > Frozen baseline: `0.4.16` · current app line: `0.14.x`
 > Updated: `2026-09-10`

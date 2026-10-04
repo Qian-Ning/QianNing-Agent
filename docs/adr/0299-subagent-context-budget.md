@@ -2,7 +2,7 @@
 
 - Status: Accepted for implementation
 - Date: 2026-09-20
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends: ADR 0064 (extends its compaction contract to delegates); extends
   ADR 0062 / ADR 0279
 - Related: ADR 0030 (hard boundary), ADR 0049 (retained-tail recovery),

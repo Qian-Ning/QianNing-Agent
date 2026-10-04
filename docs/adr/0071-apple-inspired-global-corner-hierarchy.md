@@ -2,12 +2,12 @@
 
 - Status: Accepted for implementation
 - Date: 2026-08-11
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D072, D210
 
 ## Context
 
-PI-Desktop enforced a shared radius-token scale, but that scale preserved a
+QianNing Agent enforced a shared radius-token scale, but that scale preserved a
 collection of historical 5/6/7/8/10/12/14/16/18/22px values. The one-pixel
 steps at the compact end were difficult to distinguish, and the shared button
 primitive used a capsule even though most of its 28–32px actions belong to a

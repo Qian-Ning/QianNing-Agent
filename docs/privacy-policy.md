@@ -2,7 +2,7 @@
 
 **Effective date: 2026-09-29**
 
-This policy describes how the QianNing Agent desktop application handles information. QianNing Agent is a local-first open-source distribution maintained at [Qian-Ning/QianNing-Agent](https://github.com/Qian-Ning/QianNing-Agent) and derived from PI-Desktop.
+This policy describes how the QianNing Agent desktop application handles information. QianNing Agent is a local-first open-source distribution maintained at [Qian-Ning/QianNing-Agent](https://github.com/Qian-Ning/QianNing-Agent) and derived from QianNing Agent.
 
 ## Privacy at a glance
 
@@ -92,4 +92,4 @@ For privacy questions, use the [QianNing Agent repository](https://github.com/Qi
 
 ## Upstream notice
 
-QianNing Agent is derived from [PI-Desktop](https://github.com/vastsa/PI-Desktop). Upstream documentation can describe services or release behavior that differ from this customized distribution. This policy describes the QianNing Agent configuration maintained in this repository.
+QianNing Agent is derived from [QianNing Agent](https://github.com/vastsa/PI-Desktop). Upstream documentation can describe services or release behavior that differ from this customized distribution. This policy describes the QianNing Agent configuration maintained in this repository.

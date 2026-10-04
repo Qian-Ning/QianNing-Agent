@@ -2,7 +2,7 @@
 
 - Status: Accepted for implementation
 - Date: 2026-08-10
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends: D185, D192
 - Amended by: [ADR 0087](0087-line-anchored-edit-contract.md) (§2's byte-faithful
   `Read` content is replaced by line-numbered, tagged output)

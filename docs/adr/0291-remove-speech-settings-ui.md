@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-19
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends: [ADR 0281](0281-host-speech-capability.md) (its v1 product entry)
 - Related: [04-ux/06-settings-ia.md](../spec/04-ux/06-settings-ia.md) ·
   [04-ux/08-component-spec.md](../spec/04-ux/08-component-spec.md) ·

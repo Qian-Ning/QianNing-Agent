@@ -1,10 +1,10 @@
-# PI-Desktop 插件开发：从零到一
+# QianNing Agent 插件开发：从零到一
 
 > **翻译说明：** 本页是与 [英文源页面](/plugin-development) 一一对应的机器辅助翻译。代码、协议字段和标识符保持原文；如翻译与英文源事实有歧义，以英文版本为准。
 
 
 本指南是从空文件夹到经过测试的最短完整路径
-`.piplug` 包。它描述了 PI-Desktop 今天发布的插件运行时。
+`.piplug` 包。它描述了 QianNing Agent 今天发布的插件运行时。
 [`docs/spec/07-plugins`](/zh-CN/spec/07-plugins/README) 下的文件仍然是
 当本指南与规范不同时，规范性合同。
 
@@ -38,10 +38,10 @@
 
 对于推荐的应用优先路径，您需要：
 
-- 正在运行的 PI-Desktop 版本；
+- 正在运行的 QianNing Agent 版本；
 - 插件的空文件夹；和
 - 文本编辑器。
-- 若要导入带 npm 依赖的 pi 扩展目录，`PATH` 中必须有系统 `npm` 可执行文件。发布版不附带独立 Node/npm；缺少 npm 时，PI-Desktop 会报告警告，导入扩展的依赖无法加载。
+- 若要导入带 npm 依赖的 pi 扩展目录，`PATH` 中必须有系统 `npm` 可执行文件。发布版不附带独立 Node/npm；缺少 npm 时，QianNing Agent 会报告警告，导入扩展的依赖无法加载。
 
 对于存储库 CLI 路径，您还需要 Node.js 22.19 或更高版本、pnpm 10 或
 较新，并签出此存储库。 devkit 和 SDK 目前已
@@ -50,14 +50,14 @@
 
 ## 3. 创建第一个插件
 
-### 选项 A：在 PI-Desktop 中创建它
+### 选项 A：在 QianNing Agent 中创建它
 
 1. 打开 **插件**（扩展页面）。
 2. 打开标题溢出菜单并选择 **从模板新建插件**。
 3. 选择 `panel-basic`。
 4. 选择一个空文件夹。
 
-PI-Desktop 编写起始文件，加载文件夹作为开发插件，
+QianNing Agent 编写起始文件，加载文件夹作为开发插件，
 并将该文件夹作为活动项目打开。该插件立即生效。
 
 四个内置模板是：
@@ -74,7 +74,7 @@ PI-Desktop 编写起始文件，加载文件夹作为开发插件，
 
 ### 选项 B：使用存储库 CLI 创建它
 
-从 PI-Desktop 存储库根目录：
+从 QianNing Agent 存储库根目录：
 
 ```bash
 pnpm install
@@ -84,7 +84,7 @@ pnpm pi-plugin init panel-basic ../my-first-plugin \
   --name "My First Plugin"
 ```
 
-然后打开PI-Desktop，进入**插件**，选择**加载开发插件**，然后
+然后打开QianNing Agent，进入**插件**，选择**加载开发插件**，然后
 选择 `../my-first-plugin`。
 
 例如，对已发布的插件使用反向域 ID
@@ -112,7 +112,7 @@ my-first-plugin/
 - `README.md` 解释了如何开发和打包这个特定的插件。
 
 分发包必须包含直接可执行的 JavaScript、HTML、CSS、
-和资产。 PI-Desktop 不会安装依赖项或编译 TypeScript
+和资产。 QianNing Agent 不会安装依赖项或编译 TypeScript
 它加载一个插件。如果您使用 TypeScript 或第三方软件包、捆绑包或
 在检查和打包之前将它们编译到插件目录中。
 
@@ -193,7 +193,7 @@ ES 模块。模块评估加上 `onLoad` 有 15 秒预算。 `onUnload`
 
 ### `renderer/index.html`
 
-PI-Desktop 在 macOS、Windows 和 Linux 上都使用无边框窗口承载面板。
+QianNing Agent 在 macOS、Windows 和 Linux 上都使用无边框窗口承载面板。
 主机精确保留透明的 46 CSS 像素拖拽带，并只在右上角渲染最简胶囊，
 其中包含最小化、最大化/还原和关闭三个按钮。面板标题、工具栏、背景
 以及其他所有可见界面都由插件实现。普通流内容会由主机自动偏移到拖拽带
@@ -386,7 +386,7 @@ const dataPath = await pi.plugin.getDataPath();
 }
 ```
 
-插件快捷键只在聚焦的 PI-Desktop 窗口中生效，并会避让应用快捷键；暂不支持全局注册。
+插件快捷键只在聚焦的 QianNing Agent 窗口中生效，并会避让应用快捷键；暂不支持全局注册。
 用户编辑后插件会收到 `plugin:settingsChanged`。请勿将凭据放入 `manifest.json` 或源代码管理。
 
 ### 6.4 工作区文件、剪贴板、网络和通知
@@ -416,7 +416,7 @@ root 本身。`net.fetch` 接受 HTTP(S)，并且只能到达 `manifest.net.doma
 因为 Electron 没有公开跨平台只读操作系统权限 API；
 `unknown` 表示平台尚未上报结果，且
 `unsupported` 表示桌面通知不可用。原生插件
-通知不会添加到 PI-Desktop 的持久任务通知收件箱中。点击已交付的通知会恢复并聚焦主窗口，
+通知不会添加到 QianNing Agent 的持久任务通知收件箱中。点击已交付的通知会恢复并聚焦主窗口，
 但不会激活会话。
 
 面板桥还暴露 `ui.showToast`、`ui.closePanel`、
@@ -443,11 +443,11 @@ root 本身。`net.fetch` 接受 HTTP(S)，并且只能到达 `manifest.net.doma
 - `scope` 里的 glob 相对 root。`*` 匹配一个路径段，`**` 跨分隔符匹配。
 - **读取**可以声明整棵树，**写入和删除不行** —— 整棵树的模式无法通过校验：
   让宽松读取变得安全的是出网白名单，而没有任何东西能让宽松写入变得安全。
-- 声明范围之外的访问不是错误：PI-Desktop 会问用户（拒绝 / 允许一次 /
+- 声明范围之外的访问不是错误：QianNing Agent 会问用户（拒绝 / 允许一次 /
   本会话允许）。请把需要的范围声明出来，别让插件每次调用都打断用户；
   同时要预期拒绝会以 `PERMISSION_DENIED` 的形式返回。
 - 有些路径无论你声明什么都会被拒绝：`.env*`、SSH 与云凭证、`*.pem`、
-  `.git/**`，以及 PI-Desktop 自己的数据目录。它们也不会出现在 `fs.glob`
+  `.git/**`，以及 QianNing Agent 自己的数据目录。它们也不会出现在 `fs.glob`
   的结果里。
 
 **删除。** `own: true` 允许你删除插件自己写过的文件，不需要 scope、不需要
@@ -513,7 +513,7 @@ root 本身。`net.fetch` 接受 HTTP(S)，并且只能到达 `manifest.net.doma
 }
 ```
 
-覆盖该 CSS 中的 PI-Desktop 设计标记。楼主对贡献的内容进行了清理
+覆盖该 CSS 中的 QianNing Agent 设计标记。楼主对贡献的内容进行了清理
 CSS，拒绝导入和非数据 URL，每个文件的上限为 256 KiB，并允许
 每个插件有八个主题。用户在“设置”中选择主题。
 
@@ -658,7 +658,7 @@ export default function (pi) {
 - **受支持的成员**见规格 07-plugins/16 §5。不支持的成员（`setWidget`、
   `registerMessageRenderer`、`navigateTree` 及其他仅终端可用的界面）是空操作，在插件行
 - **已有的 pi 扩展**无需修改：插件页 → 溢出菜单 →“导入 pi 扩展”会把文件或目录包成
-  生成的插件。若目录声明了生产或可选依赖，PI-Desktop 会先运行
+  生成的插件。若目录声明了生产或可选依赖，QianNing Agent 会先运行
   `npm install --package-lock-only --omit=dev --legacy-peer-deps --no-audit --no-fund
   --ignore-scripts`，校验生成的 registry-only lockfile，再以相同安全参数运行 `npm ci`。
   生产、可选、开发和 peer 字段中的直接依赖 spec 都会校验，git 解析会被禁用，绝不运行
@@ -688,7 +688,7 @@ export default function (pi) {
 插件什么都到不了。
 
 要求尽可能最小的一组。向已加载的开发插件添加权限
-无法通过热重载生效：PI-Desktop 停止重载并
+无法通过热重载生效：QianNing Agent 停止重载并
 要求用户再次加载该文件夹，以便可以查看新的授权。
 放宽 `manifest.fs` 在这件事上等同于添加权限。
 删除权限在重新加载时生效。
@@ -831,7 +831,7 @@ commit 并给出警告。插件相对仓库根目录的路径也会被记录，�
 | `manifest.json is missing` | 选择了错误的目录 | 选择根目录包含 `manifest.json` 的目录 |
 | `main entry missing` | `main` 指向未构建的源 | 首先Compile/bundle或者更正相对路径 |
 | 面板打不开 | 缺少文件、`ui.panel` 或权限 | 声明面板路径和`ui.panel`；重新加载以获得新的补助金 |
-| `pluginBridge` 不可用 | 在普通浏览器中打开的 HTML | 在 PI-Desktop 面板内测试桥接调用 |
+| `pluginBridge` 不可用 | 在普通浏览器中打开的 HTML | 在 QianNing Agent 面板内测试桥接调用 |
 | 工具从未出现 | 缺少贡献、注册或资助 | 对齐 `agentTools`、`registerTool` 和 `agent.tool.register`；使用 Agent 模式 |
 | 技能永远不适用 | 缺少权限或元数据薄弱 | 添加 `agent.prompt.inject` 和特定 `name`/`description` 前面的内容 |
 | 保存报告 `PERMISSION_DENIED` | 清单扩大了权限 | 再次加载开发文件夹并查看新的授权 |

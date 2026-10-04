@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-08
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends ADR 0176 / ADR 0095 / ADR 0156
 - Supersedes the User-Agent-only surface of ADR 0176
 

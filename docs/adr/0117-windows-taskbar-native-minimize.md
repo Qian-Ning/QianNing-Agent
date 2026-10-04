@@ -2,7 +2,7 @@
 
 - Status: Accepted (amended by ADR 0123)
 - Date: 2026-08-24
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D216, D252, D256, E2E-124, ADR 0078, ADR 0123
 
 ## Context

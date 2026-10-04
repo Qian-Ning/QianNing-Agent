@@ -2,7 +2,7 @@
 
 - Status: Superseded by ADR 0165
 - Date: 2026-09-02
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D277, D318, D321, ADR 0062, ADR 0089, ADR 0100, ADR 0162, ADR 0164,
   `03-runtime/02-agent-runtime.md` §5f.2,
   `03-runtime/06-host-rpc-protocol.md` §4, E2E-165, E2E-165b, E2E-165c, E2E-165d
@@ -27,7 +27,7 @@ protocol that could not grow. It had no task state machine (a message was
 fire-and-forget), no durable history a delegate could re-read after a restart,
 no typed payloads beyond text, no discovery surface a delegate could query, and
 no capability model — only the fact that the sidecar injected `from`. It also
-diverged from the industry Agent2Agent (A2A) protocol, so nothing PI-Desktop
+diverged from the industry Agent2Agent (A2A) protocol, so nothing QianNing Agent
 built could interoperate with, or be reasoned about against, that contract.
 
 ## Decision

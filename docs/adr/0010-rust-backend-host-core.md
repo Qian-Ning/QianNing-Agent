@@ -5,7 +5,7 @@
 
 ## Context
 
-PI-Desktop needs a robust local backend for:
+QianNing Agent needs a robust local backend for:
 
 - filesystem tools
 - process/command execution

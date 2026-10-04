@@ -340,7 +340,7 @@ hashes of canonical path plus verified header id. Every discovery/open resolves
 the real path below the configured Pi session root and revalidates header id and
 cwd; path traversal and symlink escape are rejected.
 
-Writable continuation requires a mode-0600 cooperative PI-Desktop lease beside
+Writable continuation requires a mode-0600 cooperative QianNing Agent lease beside
 the session and full-byte identity checks before each SDK append. After an
 append, the adapter accepts only the unchanged prior prefix plus exactly one
 entry whose id and parent match the SDK operation. Any foreign/interleaved

@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-24
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Updates ADR 0012 and ADR 0020
 
 ## Context
@@ -36,7 +36,7 @@ is introduced.
 OpenCode Go requires a stable `x-opencode-session` header on LLM requests so
 the gateway can pin a conversation to one backend. pi-ai does not emit that
 header. Agent-runtime injects it (plus `x-opencode-client: pi-desktop` and a
-PI-Desktop `User-Agent`) on session, subagent, prompt-enhancement, and plugin
+QianNing Agent `User-Agent`) on session, subagent, prompt-enhancement, and plugin
 one-shot streams, using the durable conversation id. Detection matches
 `apiStyle: opencode_go`, vendor/provider ids `opencode` / `opencode-go`, or
 an `opencode.ai` base URL so a UUID provider row and a custom Completions

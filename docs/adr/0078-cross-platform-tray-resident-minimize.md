@@ -2,12 +2,12 @@
 
 - Status: Accepted for implementation (amended by ADR 0117, ADR 0123, and ADR tray-session-shortcuts)
 - Date: 2026-08-12
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D216, D252, D256, E2E-124, ADR 0117, ADR 0123
 
 ## Context
 
-PI-Desktop already has custom window controls on Windows/Linux and native
+QianNing Agent already has custom window controls on Windows/Linux and native
 traffic-light controls on macOS. Their minimize actions currently use native
 window minimization, which makes the app disappear into different OS window
 surfaces and does not provide a consistent way to keep background work
@@ -29,7 +29,7 @@ so a tray integration belongs there rather than in the renderer bridge.
 3. Tray click and double-click, the Show menu item, and macOS app activation
    restore and focus the existing window. If the window was closed, they create
    a new one through the existing window factory.
-4. The tray menu contains localized Show PI-Desktop and Quit PI-Desktop items.
+4. The tray menu contains localized Show QianNing Agent and Quit QianNing Agent items.
    Quit calls `app.quit()` and therefore follows the existing `before-quit`
    shutdown sequence. Closing the main window remains an explicit quit action.
 

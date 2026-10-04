@@ -6,7 +6,7 @@
 
 ## Context
 
-PI-Desktop initially loaded only `<project root>/AGENTS.md` at runtime
+QianNing Agent initially loaded only `<project root>/AGENTS.md` at runtime
 creation. That omits directory-specific rules in monorepos and provides no
 compatibility path for projects that use `CLAUDE.md`. Letting the model-driven
 agent sidecar scan the workspace would weaken the existing boundary that keeps

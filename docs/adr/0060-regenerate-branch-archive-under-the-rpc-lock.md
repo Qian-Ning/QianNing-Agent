@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-06
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D119 (transcript file store), D109 (regenerate history pager),
   ADR 0041 (decoupled message persistence)
 

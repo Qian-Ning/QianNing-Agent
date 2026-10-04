@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-10
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D378, E2E-096, E2E-149, ADR 0091, ADR 0128, ADR 0196
 
 ## Context
@@ -20,7 +20,7 @@ replay remain unchanged. Exhaustion diagnostics read the appropriate counter,
 not temporary activity state. This narrows the budget scope in decision 1
 below without introducing a new setting or changing persisted contracts.
 
-PI-Desktop already owns provider retries so request setup and mid-stream
+QianNing Agent already owns provider retries so request setup and mid-stream
 failures share one counter and pi-ai does not multiply attempts through a
 nested retry loop. The current budgets of five rate-limit retries and four
 other transient retries still surface short provider outages earlier than the

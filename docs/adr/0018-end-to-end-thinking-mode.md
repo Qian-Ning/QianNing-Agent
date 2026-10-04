@@ -13,7 +13,7 @@ UI but also left reasoning-capable models without an operational selector.
 
 Pi already provides model reasoning metadata, supported thinking levels,
 provider-specific request serialization, and separate thinking stream blocks.
-PI-Desktop needs one authoritative session value and a lossless path through
+QianNing Agent needs one authoritative session value and a lossless path through
 every process boundary rather than another renderer-only preference.
 
 ## Decision

@@ -2,7 +2,7 @@
 
 - Status: Accepted for implementation
 - Date: 2026-09-09
-- Deciders: PI-Desktop runtime and UX maintainers
+- Deciders: QianNing Agent runtime and UX maintainers
 - Related: D356, E2E-203, ADR 0062, ADR 0063, ADR 0144
 
 ## Context

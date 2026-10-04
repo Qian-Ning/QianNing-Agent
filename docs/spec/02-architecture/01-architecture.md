@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-PI-Desktop uses a layered desktop architecture:
+QianNing Agent uses a layered desktop architecture:
 
 ```text
 ┌──────────────────────────────────────────────────────────┐

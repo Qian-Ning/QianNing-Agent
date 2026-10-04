@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-24
-- Decision owners: PI-Desktop core
+- Decision owners: QianNing Agent core
 - Related: ADR 0012, ADR 0020, ADR 0116, ADR 0155, D620
 
 ## Context

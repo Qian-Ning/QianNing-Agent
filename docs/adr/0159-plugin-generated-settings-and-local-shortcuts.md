@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-13
-- Decision owners: PI-Desktop desktop/plugin maintainers
+- Decision owners: QianNing Agent desktop/plugin maintainers
 
 ## Context
 
@@ -18,7 +18,7 @@ and lifecycle surface before the plugin settings contract is stable.
    `shortcut`.
 2. A shortcut setting declares a plugin command through `command` and has the
    fixed `scope: "plugin"`. The user may edit it in the installed plugin page.
-3. Plugin shortcuts are handled by the renderer only while the PI-Desktop
+3. Plugin shortcuts are handled by the renderer only while the QianNing Agent
    window is focused. The host re-checks the plugin activation scope before
    executing the command. They are not Electron/global shortcuts.
 4. The host validates values, persists them in the plugin-private settings

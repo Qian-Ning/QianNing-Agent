@@ -23,15 +23,15 @@ Default runtime level:
 
 | channel | content | location |
 |---|---|---|
-| app | boot, IPC, window, process supervision | `~/.pi-desktop/logs/app/<category>.log` |
-| host | Rust host-core events (stderr capture) | `~/.pi-desktop/logs/host/<category>.log` |
-| agent | pi sidecar events (stderr capture) | `~/.pi-desktop/logs/agent/<category>.log` |
+| app | boot, IPC, window, process supervision | `~/.qianning-agent/logs/app/<category>.log` |
+| host | Rust host-core events (stderr capture) | `~/.qianning-agent/logs/host/<category>.log` |
+| agent | pi sidecar events (stderr capture) | `~/.qianning-agent/logs/agent/<category>.log` |
 | audit | sensitive permission, tool, and plugin actions | host-core SQLite `audit_log` table |
-| plugin | per-plugin logs | `~/.pi-desktop/plugins/logs/<id>.log` |
+| plugin | per-plugin logs | `~/.qianning-agent/plugins/logs/<id>.log` |
 
 
-The `~/.pi-desktop` paths above are the packaged installation's. A development
-build writes the same tree under `~/.pi-desktop-dev`, and `PI_DESKTOP_DATA_DIR`
+The `~/.qianning-agent` paths above are the packaged installation's. A development
+build writes the same tree under `~/.qianning-agent-dev`, and `PI_DESKTOP_DATA_DIR`
 replaces either root (D599).
 `app`, `host`, and `agent` are NDJSON files written by the Electron main
 `Logger` (`apps/desktop/electron/main/logger.ts`). Host and agent stderr lines

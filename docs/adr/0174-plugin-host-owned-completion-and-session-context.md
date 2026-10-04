@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-07
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D019, D015, D018, D336, ADR 0005, ADR 0008, ADR 0121, ADR 0170,
   `07-plugins/03-plugin-api.md`, `07-plugins/13-plugin-permissions-matrix.md`
 
@@ -12,7 +12,7 @@ Pi CLI extensions can let an executor model call a zero-parameter reviewer
 tool. The host serializes the resolved LLM context and runs a one-shot
 completion against a stronger reviewer using the user's existing credentials.
 
-PI-Desktop plugins can already register tools, commands, settings, and skills,
+QianNing Agent plugins can already register tools, commands, settings, and skills,
 but they cannot:
 
 - list the models the user has authenticated
@@ -63,7 +63,7 @@ hands a secret to the renderer.
    session configuration, not transcript.
 
 7. **Bundled Advisor is temporarily not shipped.** The public APIs remain
-   available to explicitly installed plugins, but PI-Desktop does not bundle a
+   available to explicitly installed plugins, but QianNing Agent does not bundle a
    first-party reviewer command, panel, skill, or agent tool for now.
 
 No host-protocol or storage schema bump. Completions are Electron-local, like

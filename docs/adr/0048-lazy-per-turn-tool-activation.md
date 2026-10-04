@@ -5,7 +5,7 @@
 
 ## Context
 
-PI-Desktop currently registers the product tools, plugin tools, skills, and
+QianNing Agent currently registers the product tools, plugin tools, skills, and
 plugin-development helpers before the first provider request. The complete
 JSON schemas are then serialized into that request even when the prompt is a
 greeting or a read-only task. This makes the first input disproportionately
@@ -19,7 +19,7 @@ for native deferred-tool search when the provider supports it.
 
 ## Decision
 
-PI-Desktop keeps a complete sidecar-local tool registry but sends an active
+QianNing Agent keeps a complete sidecar-local tool registry but sends an active
 subset to the provider:
 
 - Agent starts with `Read`, `Bash`, `Edit`, and `Write`, matching pi's

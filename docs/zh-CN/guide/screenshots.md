@@ -1,6 +1,6 @@
 ---
 title: 界面截图
-description: PI-Desktop 的每个界面，全部取自运行中的应用。
+description: QianNing Agent 的每个界面，全部取自运行中的应用。
 ---
 
 # 界面截图
@@ -17,9 +17,9 @@ description: PI-Desktop 的每个界面，全部取自运行中的应用。
 
 主页是全新安装打开后的第一个界面：标题区、输入框，以及按项目分组会话的侧边栏。
 
-![浅色主题下的 PI-Desktop 主页](../../public/screenshots/app/zh/home-light.webp)
+![浅色主题下的 QianNing Agent 主页](../../public/screenshots/app/zh/home-light.webp)
 
-![深色主题下的 PI-Desktop 主页](../../public/screenshots/app/zh/home-dark.webp)
+![深色主题下的 QianNing Agent 主页](../../public/screenshots/app/zh/home-dark.webp)
 
 ![深色主题下的对话页](../../public/screenshots/app/zh/dark-home.webp)
 

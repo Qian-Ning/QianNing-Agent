@@ -1,6 +1,6 @@
 ---
 title: Screens
-description: Every PI-Desktop surface, captured from the running app.
+description: Every QianNing Agent surface, captured from the running app.
 ---
 
 # Screens
@@ -21,9 +21,9 @@ English while the sample conversation is Chinese. The
 The home screen is the first surface a new install shows: a hero, the composer,
 and the sidebar with sessions grouped by project.
 
-![PI-Desktop home in the light theme](../public/screenshots/app/en/home-light.webp)
+![QianNing Agent home in the light theme](../public/screenshots/app/en/home-light.webp)
 
-![PI-Desktop home in the dark theme](../public/screenshots/app/en/home-dark.webp)
+![QianNing Agent home in the dark theme](../public/screenshots/app/en/home-dark.webp)
 
 ![The chat destination in the dark theme](../public/screenshots/app/en/dark-home.webp)
 

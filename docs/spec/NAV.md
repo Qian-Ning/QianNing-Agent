@@ -1,4 +1,4 @@
-# PI-Desktop Spec Navigation
+# QianNing Agent Spec Navigation
 
 ## Overview
 - [README.md](README.md)

@@ -401,7 +401,7 @@ The complete visible transcript and the model context are separate views of
 the same session. A durable checkpoint summarizes older model context while
 the renderer continues to show every original user, assistant, and tool row.
 
-PI-Desktop reuses pi-agent-core's `convertToLlm`, `estimateContextTokens`,
+QianNing Agent reuses pi-agent-core's `convertToLlm`, `estimateContextTokens`,
 `prepareCompaction`, and `compact` primitives, and applies the same session
 context projection pi used to export as `buildSessionContext` (slice from the
 newest compaction, then `compactionSummary` before the retained tail). pi 0.85
@@ -427,7 +427,7 @@ For every pi loop turn:
 
 1. pi emits and awaits `turn_end` after the assistant message and all tool
    results for that turn are complete
-2. PI-Desktop rebuilds the context from the full transcript plus the newest
+2. QianNing Agent rebuilds the context from the full transcript plus the newest
    valid checkpoint and estimates the next request budget
 3. below 90% of `hardLimit`, and with no pending model request, the next turn
    proceeds unchanged (a budget reminder may be added to that request)
@@ -615,7 +615,7 @@ counts as running state until durable persistence completes.
 
 The file list a checkpoint carries is read out of the summarized range by pi's
 own collector, which recognizes the lowercase spellings `read` / `write` /
-`edit` — the names pi's tools carry. PI-Desktop registers `Read` / `Write` /
+`edit` — the names pi's tools carry. QianNing Agent registers `Read` / `Write` /
 `Edit`, so the runtime converts exactly those three on the way into pi's
 preparation (`withPiFileOpToolNames`): nothing stored changes, and every other
 tool name is left spelled the way we register it. Without that conversion a

@@ -2,7 +2,7 @@
 
 - Status: Accepted; behavior superseded in part by ADR 0249
 - Date: 2026-09-12
-- Deciders: PI-Desktop desktop UI maintainers
+- Deciders: QianNing Agent desktop UI maintainers
 - Amends: ADR 0011, ADR 0016
 
 ## Context

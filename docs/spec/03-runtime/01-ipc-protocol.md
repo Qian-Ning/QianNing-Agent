@@ -2155,7 +2155,7 @@ protocol version.
 
 ## 13d. Local MCP control API (D370)
 
-PI-Desktop can expose a local automation surface for an external Agent without
+QianNing Agent can expose a local automation surface for an external Agent without
 changing the renderer preload contract or host RPC protocol. The server is
 disabled by default and starts only when the Electron process receives:
 

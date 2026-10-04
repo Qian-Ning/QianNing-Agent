@@ -9,7 +9,7 @@
 ## Context
 
 D054 introduced a visible cue beside an empty draft, and D094 standardized that
-cue as the canonical PI-Desktop logo in the thread-docked composer. The home
+cue as the canonical QianNing Agent logo in the thread-docked composer. The home
 composer later removed the cue, leaving the two prompt rows visually
 inconsistent. In a dense transcript, the remaining decorative logo also
 consumes horizontal input space without adding navigation, status, or runtime

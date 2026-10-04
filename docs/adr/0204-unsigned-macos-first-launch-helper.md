@@ -2,7 +2,7 @@
 
 - Status: Superseded for macOS distribution by D634 / [ADR 0309](0309-remove-macos-first-launch-artifacts.md)
 - Date: 2026-09-09
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D078, D371, D406, D450, D457, D634, E2E-196b, ADR 0289, ADR 0296, ADR 0309
 
 ## Context
@@ -10,7 +10,7 @@
 Local and debug macOS packaging remain unsigned so contributors and
 release operators can build without Developer ID credentials. A trusted
 download of that artifact can still carry Apple's quarantine attribute, which
-may make Gatekeeper report that PI-Desktop is damaged. The existing guidance
+may make Gatekeeper report that QianNing Agent is damaged. The existing guidance
 required users to open Terminal and run `xattr -cr`, which is broader than the
 single attribute that causes this launch failure.
 
@@ -19,12 +19,12 @@ single attribute that causes this launch failure.
 1. Every macOS distribution includes an executable
    `PI-Desktop-macOS-open.command` alongside the opening-help note. The DMG
    places the helper in a visible first-launch row below the install gesture.
-2. The helper searches only `/Applications/PI-Desktop.app` and
-   `~/Applications/PI-Desktop.app`. It verifies the bundle identifier is
+2. The helper searches only `/Applications/QianNing Agent.app` and
+   `~/Applications/QianNing Agent.app`. It verifies the bundle identifier is
    `net.aiuo.pi-desktop`, and the user must move the app into one of those
    directories before running it.
 3. When the verified app carries `com.apple.quarantine`, the helper recursively
-   removes only that attribute and then opens PI-Desktop. It never uses `sudo`,
+   removes only that attribute and then opens QianNing Agent. It never uses `sudo`,
    accepts no arbitrary path argument, removes no other extended attribute, and
    does not claim that an unsigned app passed Gatekeeper qualification.
 4. The DMG labels the package as unsigned and the note continues to state that

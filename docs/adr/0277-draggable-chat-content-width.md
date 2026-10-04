@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-16
-- Deciders: PI-Desktop desktop UI maintainers
+- Deciders: QianNing Agent desktop UI maintainers
 - Amends: D058, D101, the collapsed-sidebar 640px band
 - Related: [04-ux/01-ui-ia](../spec/04-ux/01-ui-ia.md) ·
   [04-ux/07-ui-design-system](../spec/04-ux/07-ui-design-system.md) ·

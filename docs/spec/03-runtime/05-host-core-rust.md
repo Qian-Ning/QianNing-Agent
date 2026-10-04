@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-`host-core` is the privileged local backend of PI-Desktop.
+`host-core` is the privileged local backend of QianNing Agent.
 
 It does **not** replace pi. It provides safe host capabilities to:
 

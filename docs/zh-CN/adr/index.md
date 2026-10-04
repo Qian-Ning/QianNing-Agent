@@ -1,6 +1,6 @@
 ---
 title: 架构决策记录
-description: 与英文 ADR 一一对应的 PI-Desktop 架构决策阅读入口。
+description: 与英文 ADR 一一对应的 QianNing Agent 架构决策阅读入口。
 ---
 
 # 架构决策记录

@@ -22,15 +22,15 @@
 
 在 macOS 上，`pnpm dev` 创建并重用带有指纹的品牌 Electron 主机
 捆绑在 `.cache/electron-dev/` 下。它的包名称、可执行文件、标识符、
-和 ICNS 资源是仅用于开发的 PI-Desktop 值，因此 AppKit 显示
-应用程序菜单中的 PI-Desktop 并使用本机中的规范图标
+和 ICNS 资源是仅用于开发的 QianNing Agent 值，因此 AppKit 显示
+应用程序菜单中的 QianNing Agent 并使用本机中的规范图标
 关于面板。运行时还将 `build/icon_1024.png` 应用于 Dock。库存
 `node_modules` 下的文件永远不会被修改。 Windows/Linux 不断发展
 正常的 electro-vite 可执行文件。尽管如此，Windows Main 还是注册了
 之前 NSIS 包使用的相同 `net.aiuo.pi-desktop` AppUserModelID
 Electron 准备就绪，防止库存主机身份拥有本机
 通知或任务栏组。 Windows 封装另外引脚
-`PI-Desktop` 可执行文件和“开始”菜单快捷方式名称。启动器设置
+`QianNing Agent` 可执行文件和“开始”菜单快捷方式名称。启动器设置
 `PI_DESKTOP_DEV=1` 因此运行时打包检查会禁用更新传送
 并保留开发人员工作区默认值，尽管有品牌可执行文件名称。
 Electron 43+ 上的首次 `pnpm dev` 会按需下载 Electron 二进制文件
@@ -486,18 +486,18 @@ Inter、Noto Sans SC、LXGW WenKai），因此 `out/renderer` 中只剩 KaTeX �
 
 在干净的轮廓上手动烟雾 (`PI_DESKTOP_DATA_DIR=$(mktemp -d)`)：
 
-1. `pnpm dev` 与 `PI-Desktop` 一起在 macOS 应用程序菜单中启动，
+1. `pnpm dev` 与 `QianNing Agent` 一起在 macOS 应用程序菜单中启动，
    Dock 和本机“关于”面板中的规范图标；没有 Electron 品牌
    可见。
 2. 应用程序从 DMG 安装启动，出现窗口，然后出现应用程序菜单，
    关于面板和 Dock 品牌与开发路线相匹配。
-3. 空首页和 expanded/collapsed 侧边栏显示规范的 PI-Desktop
+3. 空首页和 expanded/collapsed 侧边栏显示规范的 QianNing Agent
    标志；输入框提示行没有领先的品牌图标；新任务和
 project/Temporary 使用消息加会话图标创建控件。
 4. 出现新手引导清单；配置提供商；一轮流式聊天。
 5. 一种授权工具调用（写入）允许 + 拒绝路径。
 6. Quit/relaunch → 恢复会话历史记录，恢复窗口边界。
-7. `~/.pi-desktop/logs/` 包含 `app/`、`host/` 和 `agent/` 下分类的 NDJSON；
+7. `~/.qianning-agent/logs/` 包含 `app/`、`host/` 和 `agent/` 下分类的 NDJSON；
    关键的生命周期、工具、provider、plugin 和错误记录可用，不再创建独立的计时文件。
 8. 禁用网络访问后，shell 仍然启动； English/Chinese
    切换、语法高亮、shell 高亮、KaTeX、Mermaid fallback/rendering、
@@ -543,10 +543,10 @@ Native-runner 输出矩阵：
 和 ZIP，并给 ZIP 的应用元数据写入 `piDistribution = "zip"`；已打包的 ZIP 运行使用
 通知加链接交付。旧便携版 exe 仍在存在 `PORTABLE_EXECUTABLE_FILE` 时保持手动更新。
 NSIS 仍走应用内下载并在退出时安装。数据仍在现有应用数据目录。用户解压 ZIP 后
-直接运行 `PI-Desktop.exe`，不会启动自解压包装器，也不会请求管理员权限。
+直接运行 `QianNing Agent.exe`，不会启动自解压包装器，也不会请求管理员权限。
 
 RPM 目标会向 FPM 传入 `_build_id_links none`。捆绑的 Electron 二进制文件位于
-`/opt/PI-Desktop` 下；省略全局 `/usr/lib/.build-id` 链接，可以避免与其他捆绑相同
+`/opt/QianNing Agent` 下；省略全局 `/usr/lib/.build-id` 链接，可以避免与其他捆绑相同
 Electron 二进制文件的应用发生冲突。
 
 该 ASAR 产物包含的是 Electron 应用归档，而不是完整的 Linux 发行包。

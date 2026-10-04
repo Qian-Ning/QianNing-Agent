@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-20
-- Deciders: PI-Desktop UX and desktop maintainers
+- Deciders: QianNing Agent UX and desktop maintainers
 - Baseline: `0.15.1-beta.7` (frozen baseline `0.4.18`)
 - Protocol: v11 (unchanged; the `pi-desktop/app/systemFonts` channel is untouched)
 - Storage schema: v19 (unchanged; `AppSettings.fontFamily` keeps its shape and semantics)

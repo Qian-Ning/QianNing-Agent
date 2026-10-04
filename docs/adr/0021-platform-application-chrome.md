@@ -6,7 +6,7 @@
 ## Context
 
 Electron's default chrome does not satisfy all three desktop conventions used
-by PI-Desktop. macOS needs a conventional native application menu and inset
+by QianNing Agent. macOS needs a conventional native application menu and inset
 traffic lights. Frameless Windows and Linux windows need visible application
 menus plus minimize, maximize/restore, and close controls.
 

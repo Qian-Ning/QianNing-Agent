@@ -23,7 +23,7 @@ Plan 策略：插件代理工具、注册工具的插件技能以及任何
 
 ## 1. 目标
 
-为 PI-Desktop 提供类似于已建立的桌面插件生态系统的可扩展性（例如 VS Code 扩展）：
+为 QianNing Agent 提供类似于已建立的桌面插件生态系统的可扩展性（例如 VS Code 扩展）：
 
 - 用户可以安装/启用/禁用/卸载插件
 - 开发人员可以构建自定义插件
@@ -32,7 +32,7 @@ Plan 策略：插件代理工具、注册工具的插件技能以及任何
 
 用一句话来说：
 
-> **PI-Desktop 是主持人；插件是功能包。**
+> **QianNing Agent 是主持人；插件是功能包。**
 
 ## 2. 设计目标
 
@@ -102,7 +102,7 @@ my-plugin/
 ### 安装位置
 
 ```text
-~/.pi-desktop/plugins/
+~/.qianning-agent/plugins/
  ├── installed/
  │ └── <plugin-id>/
  ├── disabled/
@@ -195,7 +195,7 @@ my-plugin/
 使用**三层隔离**：
 
 ```text
-Host Main (PI-Desktop)
+Host Main (QianNing Agent)
  ├─ PluginManager
  ├─ PluginPermissionGateway
  ├─ Plugin Sandbox / Worker
@@ -231,7 +231,7 @@ Host Main (PI-Desktop)
   "zh-CN": string }` 对象，用于原生窗口身份和启动器元数据，但主机不会
   在面板内部渲染该标题。
 - 胶囊跟随插件页面计算得到的背景色和文字色。页面透明时，以当前
-  PI-Desktop 主题（`light` / `dark`，包括插件主题的基础色板）作为回退。
+  QianNing Agent 主题（`light` / `dark`，包括插件主题的基础色板）作为回退。
 - 通过 `--pi-plugin-titlebar-height: 46px` 暴露拖拽带高度；普通流内容会
   自动偏移，固定或粘性插件界面必须使用
   `top: var(--pi-plugin-titlebar-height, 46px)`，而不是 `top: 0`。
@@ -536,7 +536,7 @@ MCP、技能和子代理由设置 > 智能体下的三个独立页面管理，�
 cd plugins/hello
 pnpm dev
 
-# in PI-Desktop
+# in QianNing Agent
 Plugins → Load Development Plugin → choose directory
 ```
 

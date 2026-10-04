@@ -736,7 +736,7 @@ Electron 拥有本机表面，而渲染器则派生本地化表面
 Electron 主将 `net.aiuo.pi-desktop` 注册为进程 AppUserModelID
 在准备就绪之前和创建任何窗口之前。 ID 与 NSIS 匹配
 包标识所以通知属性、通知设置、任务栏
-分组，安装的快捷方式解析为 `PI-Desktop`，而不是库存
+分组，安装的快捷方式解析为 `QianNing Agent`，而不是库存
 Electron 主机。
 
 任务本机对象按持久 notification id 保留，每个 id 最多一个活动对象。
@@ -1722,7 +1722,7 @@ Electron Main 构造固定的 GitHub bug 表单 URL
 
 ## 13d. 本地 MCP 控制 API（D370）
 
-PI-Desktop 可以为外部 Agent 暴露本地自动化接口，而不改变渲染器 preload
+QianNing Agent 可以为外部 Agent 暴露本地自动化接口，而不改变渲染器 preload
 契约或 host RPC 协议。服务默认关闭，只有 Electron 进程收到以下配置时才启动：
 
 ```text
