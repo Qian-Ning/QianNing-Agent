@@ -17,6 +17,10 @@ export const tr = {
     copyDiagnostics: "Tanılamaları kopyala",
     diagnosticsCopied: "Tanılamalar kopyalandı",
     diagnosticsFailed: "Tanılamalar kopyalanamadı",
+    alreadyRunningTitle: "QianNing Agent zaten çalışıyor",
+    alreadyRunningVersioned: "{version} sürümü bu profili kullanıyor. Bu başlatma, çalışan pencereye yönlendirildi — {ownVersion} sürümünü başlatmak için önce onu kapatın.",
+    alreadyRunningUnversioned: "Başka bir örnek bu profili kullanıyor. Bu başlatma, çalışan pencereye yönlendirildi.",
+    alreadyRunningDismiss: "Anladım",
   },
   /** Verbs and states that mean the same thing wherever they appear. */
   common: {

@@ -9877,18 +9877,24 @@ This test plan spec is accepted when:
   `PI_DESKTOP_DATA_DIR` set to an empty directory. 5) Still while the packaged
   app is running, start a development build (the `dev` script, with no
   `PI_DESKTOP_DATA_DIR`). 6) Quit the app, confirm no process remains, and
-  launch once more.
+  launch once more. 7) With the app running again, launch a *different* package
+  over the same profile — a newly installed release, or an older release build
+  from the previous version — and observe both the dialog and the process list.
 - **Expected**: Steps 1–3 never create a second window, tray icon, host-core,
   agent sidecar, or log file: the existing window is restored and focused, the
   duplicate process exits, and the running instance's session list, in-flight
-  turn, and `pi.sqlite` are untouched. Step 4 starts normally as an independent
+  turn, and `pi.sqlite` are untouched. Steps 1–3 also show no dialog, because the
+  running build is the version being launched. Step 4 starts normally as an independent
   instance against its own data directory. Step 5 also starts normally: the
   development build takes its own `userData` and `~/.qianning-agent-dev`, so it
   neither waits for nor disturbs the running packaged app. Step 6 starts a clean
   single instance, proving the lock is released on exit and never leaves a stale
-  block.
+  block. Step 7 shows exactly one dialog naming the version that holds the
+  profile and then exits; the running instance is untouched, no second window,
+  tray icon, host-core, or log file appears, and `<userData>/installation-owner.json`
+  in the launching build's application-data root names the running version.
 - **Specs linked**: `03-runtime/07-process-model.md`,
-  `08-meta/decisions-log.md` (D236, D599, D002), ADR 0094
+  `08-meta/decisions-log.md` (D236, D599, D655, D002), ADR 0094
 - **Acceptance**: A (app lifecycle), Quality
 - **Milestone**: M6+
 - **Status**: Unit/source-contract covered; native cross-platform relaunch

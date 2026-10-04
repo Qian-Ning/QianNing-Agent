@@ -15,6 +15,10 @@ export const en = {
     copyDiagnostics: "Copy diagnostics",
     diagnosticsCopied: "Diagnostics copied",
     diagnosticsFailed: "Couldn't copy diagnostics",
+    alreadyRunningTitle: "QianNing Agent is already running",
+    alreadyRunningVersioned: "Version {version} is using this profile. This launch has switched to the running window — quit it first to start {ownVersion}.",
+    alreadyRunningUnversioned: "Another instance is using this profile. This launch has switched to the running window.",
+    alreadyRunningDismiss: "Got it",
   },
   /** Verbs and states that mean the same thing wherever they appear. */
   common: {

@@ -50,6 +50,8 @@ import { createPlanUiProbe } from "./plan-ui-probe";
 import { registerIpcHandlers } from "./ipc/register";
 import { createVoiceService } from "./voice-service";
 import { MainProcessState } from "./bootstrap/main-state";
+import { claimInstallation } from "./bootstrap/installation-owner";
+import { registerRefusedLaunchExit } from "./bootstrap/installation-refusal";
 import { registerApplicationActivation } from "./bootstrap/app-activation";
 import { createHostRuntime } from "./runtime/host";
 import { createSidecarRuntime } from "./runtime/sidecar";
@@ -104,16 +106,33 @@ app.commandLine.appendSwitch("disable-renderer-accessibility");
 // One installation, one process. The lock lives in `userData` (set just
 // above), so it is taken after `setName` and before anything else here
 // touches the data directory. A development build is its own installation;
-// `PI_DESKTOP_DATA_DIR` still opts a run out of the lock (E2E, capture rig).
-const singleInstanceRequired = !process.env.PI_DESKTOP_DATA_DIR;
-const hasSingleInstanceLock = singleInstanceRequired
-  ? app.requestSingleInstanceLock()
-  : true;
-if (!hasSingleInstanceLock) {
+// `PI_DESKTOP_DATA_DIR` still opts a run out of the lock (E2E, capture rig),
+// and such a run records nothing: it is not the installation that owns this
+// `userData`, so its version must never be read back as the lock holder's.
+const installationClaim = claimInstallation({
+  userDataDir: app.getPath("userData"),
+  version: APP_VERSION,
+  lockRequired: !process.env.PI_DESKTOP_DATA_DIR,
+  requestLock: () => app.requestSingleInstanceLock(),
+});
+const hasSingleInstanceLock = installationClaim.held;
+if (!installationClaim.held) {
   // Nothing has booted yet: no window, no tray, no child process, no log line.
-  // Quit here and let the instance that holds the lock surface itself from
-  // `second-instance`.
-  app.quit();
+  // The instance that holds the lock surfaces itself from `second-instance`.
+  //
+  // When the holder is a *different* build, surfacing it is misleading: the
+  // window that appears is not the build the user just launched, and nothing
+  // on screen says so. That case gets one dialog on the way out; the ready
+  // handler owns the exit because a dialog is not legal before then.
+  if (installationClaim.noticeDue) {
+    registerRefusedLaunchExit({
+      owner: installationClaim.owner,
+      ownVersion: APP_VERSION,
+      getLocale: () => app.getLocale(),
+    });
+  } else {
+    app.quit();
+  }
 }
 
 // Native resize streams can pause briefly while the pointer crosses a display

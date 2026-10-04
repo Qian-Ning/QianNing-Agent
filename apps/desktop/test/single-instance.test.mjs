@@ -23,8 +23,10 @@ test("the single-instance lock is taken before anything touches the data directo
 });
 
 test("a launch that loses the lock quits and boots nothing", () => {
+  // The claim decides the refusal; `hasSingleInstanceLock` is now read off it,
+  // so the guard that ends this launch anchors on the claim's verdict.
   const guard = mainSource.slice(
-    mainSource.indexOf("if (!hasSingleInstanceLock) {"),
+    mainSource.indexOf("if (!installationClaim.held) {"),
   );
   assert.match(guard.slice(0, guard.indexOf("\n}\n") + 2), /app\.quit\(\)/);
 
@@ -61,12 +63,21 @@ test("a run with its own data directory keeps the current start behavior", () =>
   // harnesses, the capture rig, and side-by-side profiles point at their own
   // data directory, share no database, outbox, or logs with the default
   // installation, and have to stay launchable while one is running.
+  assert.match(mainSource, /lockRequired: !process\.env\.PI_DESKTOP_DATA_DIR,/);
   assert.match(
     mainSource,
-    /const singleInstanceRequired = !process\.env\.PI_DESKTOP_DATA_DIR;/,
+    /requestLock: \(\) => app\.requestSingleInstanceLock\(\),/,
   );
-  assert.match(
-    mainSource,
-    /const hasSingleInstanceLock = singleInstanceRequired\s*\n?\s*\? app\.requestSingleInstanceLock\(\)\s*\n?\s*: true;/,
-  );
+});
+
+test("a refused launch explains a different build and says nothing about its own", () => {
+  // The instance that holds the lock surfaces itself from `second-instance`, so
+  // a duplicate of the same build needs no dialog. A duplicate of a *different*
+  // build gets one, because the window that appears is not the one the user
+  // launched. The exit belongs to the ready handler, where a dialog is legal.
+  const guard = mainSource.slice(mainSource.indexOf("if (!installationClaim.held) {"));
+  const body = guard.slice(0, guard.indexOf("\n}\n") + 2);
+  assert.match(body, /if \(installationClaim\.noticeDue\) \{/);
+  assert.match(body, /registerRefusedLaunchExit\(\{[\s\S]*?owner: installationClaim\.owner,/);
+  assert.match(body, /app\.quit\(\)/);
 });
