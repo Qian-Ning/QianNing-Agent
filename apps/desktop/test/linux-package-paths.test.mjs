@@ -11,6 +11,7 @@ import {
   desktopFileBasename,
   loadLinuxPackagePaths,
   readPngSize,
+  resolveIconPath,
   sanitizeFileName,
 } from "../../../scripts/linux-package-paths.mjs";
 
@@ -24,6 +25,9 @@ const workspaceFileName = require("builder-util/out/filename");
 const { LinuxTargetHelper, installPrefix } = require(
   join(appBuilderLibOut, "targets/LinuxTargetHelper.js"),
 );
+// getPngSize reads a PNG's IHDR at the same fixed offset this module does, so
+// it is the reference for "the size electron-builder will see".
+const { getPngSize } = require(join(appBuilderLibOut, "util/iconConverter.js"));
 
 const packageJson = JSON.parse(readFileSync(DESKTOP_PACKAGE_JSON, "utf8"));
 const { paths } = loadLinuxPackagePaths();
@@ -159,13 +163,44 @@ test("every packaged path is derived from the product configuration", () => {
   assert.equal(paths.sidecar, `${appDir}/resources/${sidecar.to}`);
 });
 
-test("the icon assertion tracks the icon the build actually uses", () => {
+/**
+ * `FpmTarget.js` names the hicolor directory from the size it reads out of the
+ * source PNG (`${icon.size}x${icon.size}`), because a `.png` source is handed to
+ * the `set` format unchanged. The two readers therefore have to agree, and the
+ * assertion has to follow the file rather than a number someone typed.
+ */
+test("the icon assertion tracks the size electron-builder reads", async () => {
   const iconPath = join(REPOSITORY_ROOT, "apps/desktop", packageJson.build.linux.icon);
-  const { width, height } = readPngSize(readFileSync(iconPath));
-  assert.equal(width, height, "the canonical icon is square");
+  const theirs = await getPngSize(iconPath);
+  const ours = readPngSize(readFileSync(iconPath));
+  assert.equal(ours.width, theirs.width);
+  assert.equal(ours.height, theirs.height);
+  assert.equal(ours.width, ours.height, "the canonical icon is square");
   assert.equal(
     paths.iconEntry,
-    `/usr/share/icons/hicolor/${width}x${width}/apps/${paths.iconName}.png`,
+    `/usr/share/icons/hicolor/${theirs.width}x${theirs.width}/apps/${paths.iconName}.png`,
+  );
+});
+
+test("the icon resolves the way electron-builder resolves it", () => {
+  const projectDir = join(REPOSITORY_ROOT, "apps/desktop");
+  assert.equal(
+    resolveIconPath(packageJson),
+    join(projectDir, packageJson.build.linux.icon),
+  );
+
+  // electron-builder also accepts a build-resources-relative name; this
+  // repository spells the prefix out, so cover the other form too.
+  const buildResourcesRelative = {
+    ...packageJson,
+    build: {
+      ...packageJson.build,
+      linux: { ...packageJson.build.linux, icon: "icon.png" },
+    },
+  };
+  assert.equal(
+    resolveIconPath(buildResourcesRelative),
+    join(projectDir, "build", "icon.png"),
   );
 });
 

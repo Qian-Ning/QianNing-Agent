@@ -31,7 +31,7 @@
  *   node scripts/linux-package-paths.mjs --json   # machine-readable
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -165,9 +165,16 @@ function resolveExtraResources(entries, appDir, platform) {
 /**
  * The packaged Linux layout implied by an electron-builder configuration.
  *
- * `iconSize` is the pixel size of `linux.icon` (or `icon`); electron-builder
- * installs the set it generates from that source, and the source size is the
- * one this asserts on.
+ * `iconSize` is the pixel size of the icon electron-builder installs as the
+ * freedesktop application icon, which is what names the hicolor directory.
+ * It is the source PNG's own size rather than a size the converter picks:
+ * `app-builder-lib/out/util/iconConverter.js` returns a `.png` source for the
+ * `set` format unchanged (`return [{ file: resolved, size: Math.max(width,
+ * height) }]`), and `FpmTarget.js` then writes it to
+ * `/usr/share/icons/hicolor/<size>x<size>/apps/<executableName><ext>`. This
+ * module reads that size from the file, so replacing the icon keeps the
+ * assertion true instead of silently pointing at a directory that no longer
+ * exists.
  */
 export function linuxPackagePaths({ packageJson, iconSize }) {
   const build = packageJson?.build;
@@ -271,7 +278,14 @@ export function linuxPackagePaths({ packageJson, iconSize }) {
   };
 }
 
-/** Resolve the icon referenced by `linux.icon`, defaulting to build/icon.png. */
+/**
+ * Resolve the icon referenced by `linux.icon`, defaulting to build/icon.png.
+ *
+ * electron-builder resolves a relative icon against the build-resources
+ * directory (`build` unless `directories.buildResources` says otherwise), while
+ * this repository's configuration spells the prefix out (`build/icon.png`).
+ * Accept either: try the project directory first, then build resources.
+ */
 export function resolveIconPath(packageJson) {
   const build = packageJson.build ?? {};
   const linux = build.linux ?? {};
@@ -279,7 +293,18 @@ export function resolveIconPath(packageJson) {
   if (typeof configured !== "string") {
     throw new Error(`unsupported icon configuration: ${JSON.stringify(configured)}`);
   }
-  return join(REPOSITORY_ROOT, "apps/desktop", configured);
+  const projectDir = join(REPOSITORY_ROOT, "apps/desktop");
+  const buildResourcesDir = join(
+    projectDir,
+    build.directories?.buildResources ?? "build",
+  );
+  for (const candidate of [
+    join(projectDir, configured),
+    join(buildResourcesDir, configured),
+  ]) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return join(projectDir, configured);
 }
 
 /** Load the desktop package and derive its Linux layout from the real icon. */
