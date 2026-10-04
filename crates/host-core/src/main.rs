@@ -4,6 +4,7 @@ mod artifacts;
 mod audit;
 mod computer;
 mod config_sync;
+mod connection;
 mod db;
 mod keyboard;
 mod mcp_servers;
@@ -54,6 +55,24 @@ async fn main() -> anyhow::Result<()> {
             }
         };
         std::process::exit(exit_code);
+    }
+
+    // The SSH askpass helper. `ssh` re-invokes this binary with this flag and
+    // reads one answer from its stdout, so it is handled before logging is
+    // configured: anything else on stdout would be read as the credential. The
+    // value arrives in this process's environment only, and it is written to a
+    // pipe the parent already owns — never to a file, a log, or the store.
+    if std::env::args().any(|arg| arg == connection::ssh::ASKPASS_ARG) {
+        match std::env::var(connection::ssh::ASKPASS_SECRET_ENV) {
+            Ok(secret) => {
+                println!("{secret}");
+                std::process::exit(0);
+            }
+            Err(_) => {
+                eprintln!("connection askpass: no credential in the environment");
+                std::process::exit(1);
+            }
+        }
     }
 
     tracing_subscriber::fmt()

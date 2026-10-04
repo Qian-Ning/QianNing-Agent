@@ -1,6 +1,8 @@
 mod computer_rpc;
 mod computer_tool;
 mod config_sync_rpc;
+mod connection_rpc;
+mod connection_tool;
 mod scheduled_rpc;
 mod scheduled_tools;
 
@@ -3455,6 +3457,10 @@ async fn handle_request(
             computer_rpc::handle(&state, method, params).await
         }
 
+        method if method.starts_with("connection.") => {
+            connection_rpc::handle(&state, method, params).await
+        }
+
         "tools.list" => {
             let mut definitions = tools::builtin_tool_defs();
             if let Some(items) = definitions.as_array_mut() {
@@ -3463,6 +3469,12 @@ async fn handle_request(
                 // the same gate refuses the call at execute time.
                 if computer_rpc::control_enabled(&state).await {
                     items.extend(computer_tool::definitions());
+                }
+                // Connection is offered only while the user has outbound
+                // connections switched on. The listing door and the execution
+                // door read the same predicate (D659).
+                if connection_rpc::switch_enabled(&state).await {
+                    items.extend(connection_tool::definitions());
                 }
             }
             Ok(json!({ "tools": definitions }))
@@ -3965,6 +3977,10 @@ async fn handle_request(
                         &durable_mode,
                     )
                     .await
+                } else if connection_tool::recognizes(&p.tool_name) {
+                    // The connection tool awaits inside, so it takes the state
+                    // lock itself rather than being handed a held guard.
+                    connection_tool::execute(&state, &p).await
                 } else if computer_tool::recognizes(&p.tool_name) {
                     let st = state.lock().await;
                     computer_tool::execute(&st, &p)

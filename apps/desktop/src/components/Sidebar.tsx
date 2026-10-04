@@ -70,6 +70,7 @@ import {
   IconArchiveRestore,
   IconArrowUpDown,
   IconPlug,
+  IconServer,
   IconPalette,
   IconBranch,
   IconChartColumn,
@@ -2507,6 +2508,19 @@ export function Sidebar({
               aria-pressed={page === "skins"}
             >
               <IconPalette size={14} aria-hidden />
+            </TooltipButton>
+            <TooltipButton
+              type="button"
+              className={`footer-action ${page === "connections" ? "active" : ""}`}
+              data-nav="connections"
+              tooltip={t("connections.title")}
+              ariaLabel={t("connections.title")}
+              onClick={() => page === "connections"
+                ? (canNavBack() ? navBack() : setPage("chat"))
+                : setPage("connections")}
+              aria-pressed={page === "connections"}
+            >
+              <IconServer size={14} aria-hidden />
             </TooltipButton>
             <TooltipButton
               type="button"

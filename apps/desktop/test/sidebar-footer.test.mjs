@@ -31,11 +31,19 @@ test("the sidebar footer is an action bar, not a fabricated identity", () => {
   }
 });
 
-test("footer exposes settings, plugins, scheduled tasks, usage stats and notifications in one row", () => {
+test("footer exposes settings, plugins, scheduled tasks, connections, usage stats and notifications in one row", () => {
   assert.match(sidebarSource, /className="footer-actions"/);
   assert.match(sidebarSource, /data-nav="settings"/);
   assert.match(sidebarSource, /data-nav="plugins"/);
   assert.match(sidebarSource, /data-nav="usage"/);
+  // The Connections destination (D661) gets its own footer action so a target
+  // profile is not only reachable from Settings and global search.
+  assert.match(sidebarSource, /data-nav="connections"/);
+  const connectionsAction = sidebarSource.match(
+    /<TooltipButton[\s\S]*?data-nav="connections"[\s\S]*?<\/TooltipButton>/,
+  )?.[0] ?? "";
+  assert.match(connectionsAction, /<IconServer size=\{14\} aria-hidden \/>/);
+  assert.match(connectionsAction, /setPage\("connections"\)/);
   const pluginsAction = sidebarSource.match(
     /<TooltipButton[\s\S]*?data-nav="plugins"[\s\S]*?<\/TooltipButton>/,
   )?.[0] ?? "";
@@ -63,7 +71,7 @@ test("footer exposes settings, plugins, scheduled tasks, usage stats and notific
   const actions = sidebarSource
     .split("<TooltipButton")
     .filter((chunk) => /className=(?:"footer-action"|\{`footer-action )/.test(chunk));
-  assert.equal(actions.length, 5);
+  assert.equal(actions.length, 6);
   for (const action of actions) {
     const attrs = action.slice(0, action.indexOf(">"));
     assert.match(attrs, /tooltip=/);
@@ -88,6 +96,10 @@ test("footer exposes settings, plugins, scheduled tasks, usage stats and notific
     /aria-pressed=\{page === "plugins"\}/,
   );
   assert.match(footerAttributes('data-nav="scheduled"'), /aria-pressed=\{page === "scheduled"\}/);
+  assert.match(
+    footerAttributes('data-nav="connections"'),
+    /aria-pressed=\{page === "connections"\}/,
+  );
 });
 
 test("footer sits on the sidebar content grid without a hairline", () => {

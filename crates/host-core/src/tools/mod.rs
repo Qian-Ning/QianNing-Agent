@@ -61,17 +61,17 @@ use windows_sys::Win32::System::JobObjects::{
 
 #[cfg(windows)]
 #[derive(Debug, Default)]
-struct ProcessOwnership {
+pub(crate) struct ProcessOwnership {
     job: Option<HANDLE>,
 }
 
 #[cfg(not(windows))]
 #[derive(Debug, Default)]
-struct ProcessOwnership;
+pub(crate) struct ProcessOwnership;
 
 impl ProcessOwnership {
     #[cfg(windows)]
-    fn assign(child: &tokio::process::Child) -> Result<Self, String> {
+    pub(crate) fn assign(child: &tokio::process::Child) -> Result<Self, String> {
         let job = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
         if job.is_null() {
             return Err("CreateJobObjectW failed for the shell runner".into());
@@ -109,7 +109,7 @@ impl ProcessOwnership {
     }
 
     #[cfg(unix)]
-    fn assign(child: &tokio::process::Child) -> Result<Self, String> {
+    pub(crate) fn assign(child: &tokio::process::Child) -> Result<Self, String> {
         let Some(pid) = child.id() else {
             return Err("shell runner has no process ID".into());
         };
@@ -127,7 +127,7 @@ impl ProcessOwnership {
     }
 
     #[cfg(all(not(windows), not(unix)))]
-    fn assign(_child: &tokio::process::Child) -> Result<Self, String> {
+    pub(crate) fn assign(_child: &tokio::process::Child) -> Result<Self, String> {
         Err("shell runner process-group ownership is unsupported on this platform".into())
     }
 
@@ -177,7 +177,7 @@ impl ProcessOwnership {
     #[cfg(not(windows))]
     fn close_now(&mut self) {}
 
-    fn terminate_fail_closed(&mut self, pid: u32) -> Result<(), String> {
+    pub(crate) fn terminate_fail_closed(&mut self, pid: u32) -> Result<(), String> {
         match self.terminate(pid) {
             Ok(()) => Ok(()),
             Err(error) => {
@@ -604,7 +604,7 @@ fn fits(text: &str, budget: OutputBudget) -> bool {
 /// Truncate to `budget`, first spilling the fuller copy under `scratch` so the
 /// marker can point the model at something it can Grep instead of re-running
 /// the command. Best-effort: a failed spill costs the hint, never the result.
-fn truncate_with_spill(
+pub(crate) fn truncate_with_spill(
     text: &str,
     budget: OutputBudget,
     scratch: Option<&Path>,

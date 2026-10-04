@@ -177,6 +177,26 @@ export type AppSettings = {
    * layer reports `COMPUTER_UNSUPPORTED` and this setting changes nothing.
    */
   computerControlEnabled?: boolean;
+  /**
+   * Outbound connections (ADR 0320). When true, the agent's `Connection` tool
+   * and the `connection.*` host methods may reach a target the user registered
+   * in the Connections destination. Off by default, and defaulting off is the
+   * point: this is the capability that makes this machine initiate a network
+   * connection to somewhere else.
+   *
+   * Every Agent-facing method is behind this switch, with no read exemption —
+   * `connection.list` is how a caller learns the inventory and
+   * `connection.probe` opens a connection and authenticates, so an "off" that
+   * still allowed either would let a caller enumerate the user's targets and
+   * make this machine dial them. Both tools are withheld from `tools.list` and
+   * refused at `tools.execute` while it is off, and the per-target `enabled`
+   * switch is checked with it.
+   *
+   * The user-facing methods — creating, editing, enabling, deleting a profile,
+   * and reading the target list — are never gated, because seeing a target is
+   * how a person decides to switch it on.
+   */
+  remoteControlEnabled?: boolean;
   onboardingDismissed: boolean;
 };
 

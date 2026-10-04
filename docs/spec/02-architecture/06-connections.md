@@ -58,8 +58,12 @@ requirements rather than preferences.
 7. **A secret never crosses a model boundary.** Passwords and key paths live in
    the host's secret store. No Agent-facing method returns one, and no audit
    record stores one.
-8. **Reads are never gated; writes are.** A caller that can list targets and
-   probe one before it runs anything is a caller that does not run blind.
+8. **The switch closes every Agent-facing door; the user door stays open.**
+   With the switch off the Agent can neither enumerate targets nor make the
+   host dial one — `probe` is not a read, it opens a connection and
+   authenticates, so gating it on the same predicate as `exec` is what keeps
+   "off" meaning off. The user-facing methods are never gated, because seeing
+   a target is how a person decides to switch it on.
 9. **The Host stays the source of truth.** Activity, status, and the audit
    trail are Host state. The renderer displays them.
 

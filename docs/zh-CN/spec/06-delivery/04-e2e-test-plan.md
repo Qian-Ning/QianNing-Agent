@@ -9118,7 +9118,12 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **规格：** `03-runtime/06-host-rpc-protocol.md`、`03-runtime/08-error-codes.md`、`03-runtime/23-connections-protocol.md`、`04-ux/01-ui-ia.md`、`04-ux/06-settings-ia.md`、`05-security/03-connections-security.md`。
 - **验收：** 宿主单测断言列表判定与执行判定在两种开关状态下是同一个函数；`mcp-control` 套件通过；任务候选运行覆盖两扇门。
 - **里程碑：** M6+
-- **状态：** 已定规格，尚未实现。
+- **状态：** 宿主层已实现并有单元覆盖：列出判定与执行判定是同一个函数
+  （`rpc::connection_tool::recognizes` 加 `rpc::connection_rpc::switch_enabled` 的
+  全局开关读取），拒绝码由契约表测试钉住。设置里的开关与连接目的地已实现，界面侧
+  由 `apps/desktop/test/connections-destination.test.mjs` 钉住（探测门控、秘密不回流、
+  九语言键集合）。任务候选运行仍待完成：它需要一台真实 SSH 主机和一个串口设备，
+  不属于静态门禁。
 
 #### E2E-263：远端命令的行为与本地命令一致
 
@@ -9128,7 +9133,9 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **规格：** `03-runtime/06-host-rpc-protocol.md`、`03-runtime/16-tool-result-limits.md`、`03-runtime/23-connections-protocol.md`。
 - **验收：** 宿主测试断言截断标记与溢出路径与本地工具一致；任务候选运行确认两侧都完成回收。
 - **里程碑：** M6+
-- **状态：** 已定规格，尚未实现。
+- **状态：** 宿主层已实现并有单元覆盖：截断标记与溢出路径由本地工具所用的同一个
+  `truncate_with_spill` 产出，输出上限取自本地工具的预算，进程回收复用
+  `ProcessOwnership`。真实主机验证与任务候选验证仍待完成。
 
 #### E2E-264：服务不了某个动作的目标按名字被拒绝
 
@@ -9138,4 +9145,5 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **规格：** `03-runtime/08-error-codes.md`、`03-runtime/23-connections-protocol.md`、`05-security/03-connections-security.md`。
 - **验收：** 宿主测试覆盖「连接之前先拒绝」规则与「负载与 slug 并列」规则；任务候选运行确认审计行。
 - **里程碑：** M6+
-- **状态：** 已定规格，尚未实现。
+- **状态：** 部分实现。先拒绝后连接规则、附加字段与 slug 并列规则、审计行形状
+  均有单元覆盖。字节流传输与 `Console` 工具属于 R4；任务候选验证仍待完成。

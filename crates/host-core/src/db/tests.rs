@@ -183,6 +183,81 @@ fn v20_database_migrates_and_seeds_model_pricing() {
 }
 
 #[test]
+fn v21_database_migrates_and_adds_the_connection_profiles_table() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    {
+        let db = Database::open(&path).unwrap();
+        // Force the pre-v22 shape: drop the table so the migration has real
+        // work, then rewind the version marker.
+        db.conn()
+            .execute_batch("DROP TABLE IF EXISTS connection_profiles;")
+            .unwrap();
+        db.conn().pragma_update(None, "user_version", 21).unwrap();
+    }
+    let db = Database::open(&path).unwrap();
+    assert_eq!(schema_version(db.conn()), SCHEMA_VERSION);
+    assert!(migration_backup_path(&path, 21).exists());
+
+    // The table exists, is empty, and refuses a kind or a policy the enum does
+    // not know — the CHECK constraints are the second line of defence behind
+    // the pure validation, and this is what proves they were applied.
+    let rows: i64 = db
+        .conn()
+        .query_row("SELECT COUNT(*) FROM connection_profiles", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(rows, 0, "a migration adds the table, never a row");
+
+    let insert = |kind: &str, policy: &str, enabled: i64| {
+        db.conn().execute(
+            "INSERT INTO connection_profiles \
+             (id, label, kind, enabled, target_json, host_key_policy, multiplex, limits_json, \
+              created_at, updated_at) \
+             VALUES (?1, ?2, ?3, ?4, '{}', ?5, 'per-call', '{}', 0, 0)",
+            rusqlite::params![
+                format!("id-{kind}-{policy}-{enabled}"),
+                format!("label-{kind}-{policy}-{enabled}"),
+                kind,
+                enabled,
+                policy,
+            ],
+        )
+    };
+    assert!(insert("ssh", "strict", 0).is_ok());
+    assert!(
+        insert("carrier-pigeon", "strict", 0).is_err(),
+        "the kind column carries the enum"
+    );
+    assert!(
+        insert("ssh", "trust-everything", 0).is_err(),
+        "the policy column carries the enum"
+    );
+    assert!(
+        insert("ssh", "strict", 2).is_err(),
+        "enabled is a switch, not a counter"
+    );
+
+    // A label is what the user reads, so two that differ only in case are two
+    // targets they cannot tell apart.
+    let labelled = |id: &str, label: &str| {
+        db.conn().execute(
+            "INSERT INTO connection_profiles \
+             (id, label, kind, enabled, target_json, host_key_policy, multiplex, limits_json, \
+              created_at, updated_at) \
+             VALUES (?1, ?2, 'ssh', 0, '{}', 'strict', 'per-call', '{}', 0, 0)",
+            rusqlite::params![id, label],
+        )
+    };
+    assert!(labelled("case-1", "Build-Box").is_ok());
+    assert!(
+        labelled("case-2", "build-box").is_err(),
+        "a label is unique case-insensitively"
+    );
+}
+
+#[test]
 fn model_pricing_user_edits_survive_reopen() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("pi.sqlite");

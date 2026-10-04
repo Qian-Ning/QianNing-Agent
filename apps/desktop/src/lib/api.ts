@@ -122,6 +122,10 @@ import type {
   TrustedExtensionStatusEvent,
   TrustedExtensionUiPrompt,
   TrustedExtensionUiPromptResponse,
+  ConnectionActivityEntry,
+  ConnectionProfileDraft,
+  ConnectionProfileView,
+  ConnectionProbeResult,
 } from "@pi-desktop/shared";
 import {
   defaultCommandShellForPlatform,
@@ -679,6 +683,50 @@ export const api = {
   exportSkin: (skin: Skin) =>
     invoke<{ ok: boolean; path?: string }>(IPC.invoke.skinExport, { skin }),
   importSkin: () => invoke<{ skin: Skin } | null>(IPC.invoke.skinImport),
+  /**
+   * Connections (ADR 0320). The destination's own calls: every one of these is
+   * a person acting, which is why they are reachable here and why the agent has
+   * no counterpart that creates, edits, enables, or deletes a profile.
+   *
+   * `setConnectionCredential` sends a secret the user typed; nothing here reads
+   * it back — `credentialConfigured` is the only thing a profile ever reports
+   * about it.
+   */
+  probeConnectionProfile: (profileId: string) =>
+    invoke<ConnectionProbeResult>(IPC.invoke.connectionProbe, profileId),
+  listConnectionProfiles: () =>
+    invoke<{ profiles: ConnectionProfileView[] }>(IPC.invoke.connectionProfiles),
+  createConnectionProfile: (draft: ConnectionProfileDraft) =>
+    invoke<ConnectionProfileView>(IPC.invoke.connectionCreate, draft),
+  updateConnectionProfile: (draft: ConnectionProfileDraft) =>
+    invoke<ConnectionProfileView>(IPC.invoke.connectionUpdate, draft),
+  deleteConnectionProfile: (profileId: string) =>
+    invoke<{ deleted: boolean }>(IPC.invoke.connectionDelete, profileId),
+  setConnectionEnabled: (profileId: string, enabled: boolean) =>
+    invoke<{ enabled: boolean }>(IPC.invoke.connectionSetEnabled, {
+      profileId,
+      enabled,
+    }),
+  setConnectionCredential: (profileId: string, secret: string) =>
+    invoke<{ credentialConfigured: boolean }>(IPC.invoke.connectionSetCredential, {
+      profileId,
+      secret,
+    }),
+  clearConnectionCredential: (profileId: string) =>
+    invoke<{ credentialConfigured: boolean }>(
+      IPC.invoke.connectionClearCredential,
+      profileId,
+    ),
+  acceptConnectionHostKey: (profileId: string, fingerprint: string) =>
+    invoke<{ hostKeyPolicy: string; hostKeyFingerprint: string }>(
+      IPC.invoke.connectionAcceptHostKey,
+      { profileId, fingerprint },
+    ),
+  getConnectionActivity: (profileId: string, limit = 50) =>
+    invoke<{ activity: ConnectionActivityEntry[] }>(IPC.invoke.connectionActivity, {
+      profileId,
+      limit,
+    }),
   configSyncGetState: () => invoke<ConfigSyncState>(IPC.invoke.configSyncGetState),
   configSyncConfigure: (input: ConfigSyncConfigureInput) =>
     invoke<ConfigSyncState>(IPC.invoke.configSyncConfigure, input),

@@ -286,3 +286,34 @@ CREATE INDEX IF NOT EXISTS idx_plan_approvals_execution_queue
 CREATE INDEX IF NOT EXISTS idx_plan_approvals_execution_id
   ON plan_approvals(execution_id) WHERE execution_id IS NOT NULL;
 "#;
+
+/// Connection profiles (ADR 0320). Kept in one batch so a fresh database and
+/// the v21→v22 migration cannot drift in table names, checks, or indexes.
+///
+/// `enabled` is a plain integer rather than a boolean because SQLite has no
+/// boolean type; the `CHECK` is what keeps a stray `2` out. The unique index on
+/// `label` is case-insensitive because a label is what the user reads, and two
+/// targets that differ only in case are two targets the user cannot tell apart.
+pub(crate) const CONNECTIONS_SCHEMA: &str = r#"
+CREATE TABLE IF NOT EXISTS connection_profiles (
+  id                   TEXT PRIMARY KEY,
+  label                TEXT NOT NULL,
+  kind                 TEXT NOT NULL CHECK (kind IN ('ssh', 'serial', 'telnet', 'raw-tcp')),
+  enabled              INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
+  target_json          TEXT NOT NULL,
+  credential_ref       TEXT,
+  host_key_policy      TEXT NOT NULL DEFAULT 'strict'
+                         CHECK (host_key_policy IN ('strict', 'accept-new', 'pinned')),
+  host_key_fingerprint TEXT,
+  multiplex            TEXT NOT NULL DEFAULT 'per-call'
+                         CHECK (multiplex IN ('per-call', 'multiplex')),
+  limits_json          TEXT NOT NULL DEFAULT '{}',
+  last_probe_json      TEXT,
+  created_at           INTEGER NOT NULL,
+  updated_at           INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_connection_profiles_label
+  ON connection_profiles(label COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS idx_connection_profiles_enabled
+  ON connection_profiles(enabled, label COLLATE NOCASE);
+"#;

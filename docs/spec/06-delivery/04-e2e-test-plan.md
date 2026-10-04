@@ -15727,7 +15727,15 @@ renderer's durable transcript reads. No real model or provider is contacted.
 - **Specs:** `03-runtime/06-host-rpc-protocol.md`, `03-runtime/08-error-codes.md`, `03-runtime/23-connections-protocol.md`, `04-ux/01-ui-ia.md`, `04-ux/06-settings-ia.md`, `05-security/03-connections-security.md`.
 - **Acceptance:** Host unit tests assert the listing predicate and the execution predicate are the same function in both switch states; the `mcp-control` suite passes; a task-candidate run exercises both doors.
 - **Milestone:** M6+
-- **Status:** Specified, not implemented.
+- **Status:** Host layer implemented and unit-covered: the listing predicate and the
+  execution predicate are one function (`rpc::connection_tool::recognizes` plus the
+  global-switch read in `rpc::connection_rpc::switch_enabled`), and the refusal codes
+  are pinned by the contract-table test. The Settings switch and the Connections
+  destination are implemented, and the interface side is pinned by
+  `apps/desktop/test/connections-destination.test.mjs` (the probe gate, the
+  secret-never-returns rule, and the nine-catalog key set). The task-candidate run
+  remains: it needs a real SSH host and a serial device, so it is not part of the
+  static gate.
 
 #### E2E-263: A remote command behaves like a local one
 
@@ -15737,7 +15745,10 @@ renderer's durable transcript reads. No real model or provider is contacted.
 - **Specs:** `03-runtime/06-host-rpc-protocol.md`, `03-runtime/16-tool-result-limits.md`, `03-runtime/23-connections-protocol.md`.
 - **Acceptance:** A host test asserts the truncation marker and the spill path match the local tool's; a task-candidate run confirms teardown on both sides.
 - **Milestone:** M6+
-- **Status:** Specified, not implemented.
+- **Status:** Host layer implemented and unit-covered: the truncation marker and the
+  spill path are produced by the same `truncate_with_spill` the local tool uses, the
+  output ceiling is read from the local tool's budget, and teardown reuses
+  `ProcessOwnership`. The real-host run and the task-candidate run remain.
 
 #### E2E-264: A target that cannot serve an action is refused by name
 
@@ -15747,4 +15758,6 @@ renderer's durable transcript reads. No real model or provider is contacted.
 - **Specs:** `03-runtime/08-error-codes.md`, `03-runtime/23-connections-protocol.md`, `05-security/03-connections-security.md`.
 - **Acceptance:** Host tests cover the refusal-before-connect rule and the payload-beside-slug rule; a task-candidate run confirms the audit rows.
 - **Milestone:** M6+
-- **Status:** Specified, not implemented.
+- **Status:** Partially implemented. The refusal-before-connect rule, the
+  payload-beside-slug rule, and the audit-row shape are unit-covered. The byte-stream
+  transports and the `Console` tool are R4; the task-candidate run remains.

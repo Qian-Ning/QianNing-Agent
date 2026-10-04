@@ -44,6 +44,11 @@ const SkinCenterPage = lazy(() =>
     default: module.SkinCenterPage,
   })),
 );
+const ConnectionsPage = lazy(() =>
+  import("../../pages/ConnectionsPage").then((module) => ({
+    default: module.ConnectionsPage,
+  })),
+);
 
 export function AppShell() {
   const {
@@ -258,6 +263,10 @@ export function AppShell() {
                   ) : page === "skins" ? (
                     <div className="route-surface route-page">
                       <SkinCenterPage />
+                    </div>
+                  ) : page === "connections" ? (
+                    <div className="route-surface route-page">
+                      <ConnectionsPage />
                     </div>
                   ) : (
                     <ChatSurface visible={page === "chat"} />
