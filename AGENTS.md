@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Policy-Sync: 2026-09-26.1
+Policy-Sync: 2026-10-04.1
 
 Mandatory rules for AI coding agents working in PI-Desktop.
 
@@ -190,6 +190,37 @@ or security boundary requires an ADR.
 - To change frozen architecture, propose alternatives and migration
   impact to the user first, then implement, then record a new ADR.
   Do not change only the ADR to claim behavior has changed.
+
+### Exception channels
+
+A frozen boundary may carry a deliberate exception. An exception is a
+documented deviation, never an undocumented one, and it is only valid
+when the code implementing it states all five parts, in place:
+
+1. **Boundary and prohibition** — what this channel is allowed to do, and
+   what it must never grow into.
+2. **Single source of the wire format** — which side owns the contract
+   type, how the other side stays aligned, and which test enforces the
+   alignment.
+3. **The coupling** — when the exception cannot avoid depending on a
+   dependency's internals, name the file and the exact symbol it reaches
+   into, and what the system does when that symbol moves.
+4. **fail-safe behavior** — what degrades when the channel is unavailable
+   or throws, and which guarantee the degradation must never break.
+5. **Lifecycle pairing** — where setup pairs with teardown, and which of
+   stop / restart / delete / disable / reload / shutdown it covers.
+
+A channel missing any of the five is not an exception; it is drift.
+
+Exceptions do not compound: a new one does not extend an existing one,
+and it must not become a second general-purpose channel between layers
+the frozen model keeps apart. When an exception is no longer needed,
+delete it and the code that depends on it in the same change.
+
+Adding or changing an exception is a frozen-boundary change and requires
+an ADR, per *ADR discipline* above. An exception that already exists
+without its five parts is documented when the surrounding code is next
+touched — not retrofitted in a sweep.
 
 ---
 
@@ -964,8 +995,16 @@ not actually executed.
 * Verify referenced paths, scripts, and commands actually exist. When
   architecture, scripts, or directories move, update this file in the
   same change.
-* Periodically remove rules that the model already infers from code,
-  that have never influenced a decision, or that are obsolete —
+* Write each rule as trigger + action + check, and keep the reason it
+  exists — the failure it prevented, dated when known. A rule whose
+  reason is gone cannot be safely revised.
+* Keep this file from growing without bound. It is injected in full into
+  every agent session, so every added line is a recurring cost. Adding a
+  rule is an invitation to remove one that the model already infers from
+  code, that has never influenced a decision, or that is obsolete —
   otherwise the critical constraints get diluted.
+* When a rule is superseded or disproven, delete it in the same change.
+  Do not leave "deprecated" markers or tombstone entries; a tombstone
+  keeps the dead rule in context forever.
 * Every change here bumps `Policy-Sync` in both this file and
   `CLAUDE.md`, and passes `pnpm check:agent-policy`.
