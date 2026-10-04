@@ -704,6 +704,8 @@ export const en = {
     keepAwakeWhileRunningDesc: "Prevent idle system sleep while QianNing Agent is running. The display may turn off; manual sleep and closing the lid still work.",
     companion: "Companion",
     petEnabled: "Desktop pet",
+    computerControl: "Computer control",
+    computerControlDesc: "Let the agent move the mouse and type on this machine. Off by default. Only the reads (screen, windows, pointer) work while this is off, and Windows is the only supported platform.",
     petEnabledDesc: "Show a floating fox in the corner that reacts to what the agent is doing. Off by default.",
     imageModel: "Image generation model",
     imageModelUnset: "Not configured",

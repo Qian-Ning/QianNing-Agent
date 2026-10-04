@@ -1,15 +1,26 @@
 //! Host RPC methods for computer control.
 //!
 //! Each method is a thin translation: parse the parameters, hand the work to
-//! [`crate::computer`], and turn a [`ComputerError`] into the code a caller can branch
-//! on. The layer is stateless, so it takes no `AppState`.
+//! [`crate::computer`], and turn a [`ComputerError`] into the code a caller can
+//! branch on.
 //!
-//! The write methods here inject real input. Nothing in this file gates them:
-//! who may call them, and when, is a decision for the surfaces above — the
-//! agent tool set and the desktop settings that feed it.
+//! The reads are ungated: learning where the pointer is, how big the desktop
+//! is, or which windows are open changes nothing, and a caller that cannot see
+//! the screen cannot decide where to click.
+//!
+//! The writes are gated by one setting, `computerControlEnabled`, which is off
+//! until the user turns it on. The gate lives here rather than in each surface
+//! above so that every caller — the agent tool set, a plugin, an external MCP
+//! client, the renderer — meets the same answer, and a profile that never
+//! opted in injects no input no matter who asks.
+
+use std::sync::Arc;
+
+use tokio::sync::Mutex;
 
 use super::{json, rpc_err, JsonRpcError, Value};
 use crate::computer::{self, ComputerError, MouseButton, Point};
+use crate::state::AppState;
 
 /// The host has no computer-control layer on this platform.
 const COMPUTER_UNSUPPORTED: i64 = 1025;
@@ -17,23 +28,22 @@ const COMPUTER_UNSUPPORTED: i64 = 1025;
 /// it reported one.
 const COMPUTER_FAILED: i64 = 1026;
 /// The named window no longer exists, so nothing was sent. A caller can
-/// re-list the windows and try again; the other two codes are terminal.
+/// re-list the windows and try again; a disabled host cannot be retried into
+/// working, so the two are different codes.
 const COMPUTER_WINDOW_GONE: i64 = 1027;
+/// The user has not switched computer control on, so no input was injected.
+/// Nothing about the request was wrong — the surface above has to ask the
+/// user first.
+const COMPUTER_DISABLED: i64 = 1028;
 
-/// The largest text a single `computer.typeText` may type, in characters.
-///
-/// A round of automation types a field, not a document, and a bound keeps one
-/// call from building a keystroke array of unbounded size.
-const MAX_TEXT_CHARS: usize = 4096;
+#[cfg(test)]
+use crate::computer::params::MAX_TEXT_CHARS;
 
-/// The most clicks one `computer.click` may send. Three covers a double-click and
-/// the triple-click that selects a line.
-const MAX_CLICK_COUNT: i64 = 3;
-
-/// The most wheel notches one `computer.scroll` may send per axis.
-const MAX_SCROLL_NOTCHES: i64 = 20;
-
-pub(super) fn handle(method: &str, params: Value) -> Result<Value, JsonRpcError> {
+pub(super) async fn handle(
+    state: &Arc<Mutex<AppState>>,
+    method: &str,
+    params: Value,
+) -> Result<Value, JsonRpcError> {
     match method {
         "computer.getScreen" => Ok(
             serde_json::to_value(computer::screen().map_err(computer_err)?)
@@ -53,6 +63,7 @@ pub(super) fn handle(method: &str, params: Value) -> Result<Value, JsonRpcError>
         }
         "computer.moveMouse" => {
             let point = require_point(&params)?;
+            require_enabled(state).await?;
             computer::move_mouse(point).map_err(computer_err)?;
             Ok(json!({ "ok": true }))
         }
@@ -60,6 +71,7 @@ pub(super) fn handle(method: &str, params: Value) -> Result<Value, JsonRpcError>
             let point = require_point(&params)?;
             let button = require_button(&params)?;
             let count = require_click_count(&params)?;
+            require_enabled(state).await?;
             computer::click(point, button, count).map_err(computer_err)?;
             Ok(json!({ "ok": true }))
         }
@@ -67,16 +79,19 @@ pub(super) fn handle(method: &str, params: Value) -> Result<Value, JsonRpcError>
             let point = require_point(&params)?;
             let horizontal = require_notches(&params, "horizontal")?;
             let vertical = require_notches(&params, "vertical")?;
+            require_enabled(state).await?;
             computer::scroll(point, horizontal, vertical).map_err(computer_err)?;
             Ok(json!({ "ok": true }))
         }
         "computer.typeText" => {
             let text = require_text(&params)?;
+            require_enabled(state).await?;
             computer::type_text(&text).map_err(computer_err)?;
             Ok(json!({ "ok": true }))
         }
         "computer.activateWindow" => {
             let handle = require_handle(&params)?;
+            require_enabled(state).await?;
             computer::activate_window(&handle).map_err(computer_err)?;
             Ok(json!({ "ok": true }))
         }
@@ -88,11 +103,52 @@ pub(super) fn handle(method: &str, params: Value) -> Result<Value, JsonRpcError>
     }
 }
 
+/// Whether the user has switched computer control on.
+///
+/// Default-off, so a profile that never touched the setting injects no input.
+/// A store that cannot be read also reads as off: the failure mode of an
+/// unavailable gate must be closed, never open.
+pub(crate) async fn control_enabled(state: &Arc<Mutex<AppState>>) -> bool {
+    let st = state.lock().await;
+    control_enabled_in(&st)
+}
+
+/// The same answer, for a caller that already holds the state lock.
+pub(crate) fn control_enabled_in(st: &AppState) -> bool {
+    st.db
+        .get_setting("app")
+        .ok()
+        .flatten()
+        .and_then(|settings| {
+            settings
+                .get("computerControlEnabled")
+                .and_then(Value::as_bool)
+        })
+        .unwrap_or(false)
+}
+
+/// Refuse a write while the setting is off, before any platform call.
+async fn require_enabled(state: &Arc<Mutex<AppState>>) -> Result<(), JsonRpcError> {
+    if control_enabled(state).await {
+        return Ok(());
+    }
+    Err(disabled_err())
+}
+
+/// The refusal a write gets while the setting is off.
+pub(super) fn disabled_err() -> JsonRpcError {
+    rpc_err(
+        COMPUTER_DISABLED,
+        "computer control is switched off; turn it on in Settings before sending input",
+        "COMPUTER_DISABLED",
+    )
+}
+
 fn invalid(message: &str) -> JsonRpcError {
     rpc_err(-32602, message.to_string(), "INVALID_PARAMS")
 }
 
-fn computer_err(error: ComputerError) -> JsonRpcError {
+pub(super) fn computer_err(error: ComputerError) -> JsonRpcError {
     let message = error.to_string();
     match error {
         ComputerError::Unsupported => {
@@ -115,107 +171,37 @@ fn computer_err(error: ComputerError) -> JsonRpcError {
     }
 }
 
-/// Every coordinate is a whole number of pixels. A float is rejected rather
-/// than truncated: a caller that computed `1920.5` has a bug, and silently
-/// dropping the fraction would hide it behind a click that nearly landed.
-fn require_coordinate(params: &Value, key: &str) -> Result<i32, JsonRpcError> {
-    let raw = params
-        .get(key)
-        .ok_or_else(|| invalid(&format!("{key} is required")))?;
-    let value = raw
-        .as_i64()
-        .ok_or_else(|| invalid(&format!("{key} must be an integer")))?;
-    i32::try_from(value).map_err(|_| invalid(&format!("{key} is out of range")))
-}
-
+// The rules themselves live in [`computer::params`], shared with the agent
+// tool so both doors reject the same shapes. These wrappers only restate the
+// message as the JSON-RPC error object this layer answers with.
 fn require_point(params: &Value) -> Result<Point, JsonRpcError> {
-    Ok(Point::new(
-        require_coordinate(params, "x")?,
-        require_coordinate(params, "y")?,
-    ))
+    computer::params::point(params).map_err(|message| invalid(&message))
 }
 
 fn require_button(params: &Value) -> Result<MouseButton, JsonRpcError> {
-    match params.get("button") {
-        None | Some(Value::Null) => Ok(MouseButton::Left),
-        Some(Value::String(name)) => match name.as_str() {
-            "left" => Ok(MouseButton::Left),
-            "right" => Ok(MouseButton::Right),
-            "middle" => Ok(MouseButton::Middle),
-            other => Err(invalid(&format!(
-                "button must be left, right or middle, not {other}"
-            ))),
-        },
-        Some(_) => Err(invalid("button must be a string")),
-    }
+    computer::params::button(params).map_err(|message| invalid(&message))
 }
 
 fn require_click_count(params: &Value) -> Result<u8, JsonRpcError> {
-    match params.get("count") {
-        None | Some(Value::Null) => Ok(1),
-        Some(raw) => {
-            let count = raw
-                .as_i64()
-                .ok_or_else(|| invalid("count must be an integer"))?;
-            if !(1..=MAX_CLICK_COUNT).contains(&count) {
-                return Err(invalid(&format!(
-                    "count must be between 1 and {MAX_CLICK_COUNT}"
-                )));
-            }
-            Ok(count as u8)
-        }
-    }
+    computer::params::click_count(params).map_err(|message| invalid(&message))
 }
 
-/// Wheel notches on one axis; positive is right or up, as the caller sees it.
-///
-/// Out of range is an error rather than a clamp: a scroll of a thousand
-/// notches is a caller that lost track of its own state, and clamping would
-/// look like it worked.
 fn require_notches(params: &Value, key: &str) -> Result<i32, JsonRpcError> {
-    match params.get(key) {
-        None | Some(Value::Null) => Ok(0),
-        Some(raw) => {
-            let notches = raw
-                .as_i64()
-                .ok_or_else(|| invalid(&format!("{key} must be an integer")))?;
-            if notches.abs() > MAX_SCROLL_NOTCHES {
-                return Err(invalid(&format!(
-                    "{key} must be between -{MAX_SCROLL_NOTCHES} and {MAX_SCROLL_NOTCHES}"
-                )));
-            }
-            Ok(notches as i32)
-        }
-    }
+    computer::params::notches(params, key).map_err(|message| invalid(&message))
 }
 
 fn require_text(params: &Value) -> Result<String, JsonRpcError> {
-    let text = params
-        .get("text")
-        .and_then(Value::as_str)
-        .ok_or_else(|| invalid("text must be a string"))?;
-    if text.chars().count() > MAX_TEXT_CHARS {
-        return Err(invalid(&format!(
-            "text must be at most {MAX_TEXT_CHARS} characters"
-        )));
-    }
-    Ok(text.to_string())
+    computer::params::text(params).map_err(|message| invalid(&message))
 }
 
 fn require_handle(params: &Value) -> Result<String, JsonRpcError> {
-    let handle = params
-        .get("handle")
-        .and_then(Value::as_str)
-        .ok_or_else(|| invalid("handle must be a string"))?;
-    // Parse before touching the platform so a malformed handle is reported the
-    // same way on every host, rather than only where the platform layer runs.
-    computer::parse_handle(handle).map_err(|_| invalid("handle must be a decimal number"))?;
-    Ok(handle.to_string())
+    computer::params::handle(params).map_err(|message| invalid(&message))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     /// The numeric code of an error reply, which is what a caller branches on.
     fn code_of(result: Result<Value, JsonRpcError>) -> i64 {
@@ -223,124 +209,203 @@ mod tests {
         error.code
     }
 
-    #[test]
-    fn a_point_needs_both_coordinates() {
-        assert_eq!(
-            code_of(handle("computer.moveMouse", json!({ "x": 10 }))),
-            -32602
-        );
-        assert_eq!(
-            code_of(handle("computer.moveMouse", json!({ "y": 10 }))),
-            -32602
-        );
-        assert_eq!(code_of(handle("computer.moveMouse", json!({}))), -32602);
+    /// A host whose store has no settings document yet — the state of a
+    /// profile that has never opened Settings.
+    fn fresh_state() -> (tempfile::TempDir, Arc<Mutex<AppState>>) {
+        let data_dir = tempfile::tempdir().expect("a data dir");
+        let app_state = AppState::open(data_dir.path()).expect("opens");
+        (data_dir, Arc::new(Mutex::new(app_state)))
     }
 
-    #[test]
-    fn a_fractional_coordinate_is_rejected_rather_than_truncated() {
+    fn write_setting(state: &Arc<Mutex<AppState>>, value: Value) {
+        let st = state.try_lock().expect("uncontended");
+        st.db
+            .set_setting("app", &value)
+            .expect("writes the setting");
+    }
+
+    /// A host with computer control switched on.
+    fn enabled_state() -> (tempfile::TempDir, Arc<Mutex<AppState>>) {
+        let (dir, state) = fresh_state();
+        write_setting(&state, json!({ "computerControlEnabled": true }));
+        (dir, state)
+    }
+
+    async fn call(
+        state: &Arc<Mutex<AppState>>,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, JsonRpcError> {
+        handle(state, method, params).await
+    }
+
+    #[tokio::test]
+    async fn a_point_needs_both_coordinates() {
+        let (_dir, state) = enabled_state();
         assert_eq!(
-            code_of(handle("computer.click", json!({ "x": 1.5, "y": 10 }))),
+            code_of(call(&state, "computer.moveMouse", json!({ "x": 10 })).await),
             -32602
         );
         assert_eq!(
-            code_of(handle("computer.click", json!({ "x": "10", "y": 10 }))),
+            code_of(call(&state, "computer.moveMouse", json!({ "y": 10 })).await),
+            -32602
+        );
+        assert_eq!(
+            code_of(call(&state, "computer.moveMouse", json!({})).await),
             -32602
         );
     }
 
-    #[test]
-    fn a_coordinate_outside_the_integer_range_is_rejected() {
+    #[tokio::test]
+    async fn a_fractional_coordinate_is_rejected_rather_than_truncated() {
+        let (_dir, state) = enabled_state();
+        assert_eq!(
+            code_of(call(&state, "computer.click", json!({ "x": 1.5, "y": 10 })).await),
+            -32602
+        );
+        assert_eq!(
+            code_of(call(&state, "computer.click", json!({ "x": "10", "y": 10 })).await),
+            -32602
+        );
+    }
+
+    #[tokio::test]
+    async fn a_coordinate_outside_the_integer_range_is_rejected() {
+        let (_dir, state) = enabled_state();
         // JavaScript can express this; the pixel grid cannot.
         assert_eq!(
-            code_of(handle(
-                "computer.click",
-                json!({ "x": 3_000_000_000i64, "y": 0 })
-            )),
+            code_of(
+                call(
+                    &state,
+                    "computer.click",
+                    json!({ "x": 3_000_000_000i64, "y": 0 })
+                )
+                .await
+            ),
             -32602
         );
         assert_eq!(
-            code_of(handle(
-                "computer.click",
-                json!({ "x": -3_000_000_000i64, "y": 0 })
-            )),
+            code_of(
+                call(
+                    &state,
+                    "computer.click",
+                    json!({ "x": -3_000_000_000i64, "y": 0 })
+                )
+                .await
+            ),
             -32602
         );
     }
 
-    #[test]
-    fn a_button_must_be_one_of_the_three() {
+    #[tokio::test]
+    async fn a_button_must_be_one_of_the_three() {
+        let (_dir, state) = enabled_state();
         assert_eq!(
-            code_of(handle(
-                "computer.click",
-                json!({ "x": 0, "y": 0, "button": "back" })
-            )),
+            code_of(
+                call(
+                    &state,
+                    "computer.click",
+                    json!({ "x": 0, "y": 0, "button": "back" })
+                )
+                .await
+            ),
             -32602
         );
         assert_eq!(
-            code_of(handle(
-                "computer.click",
-                json!({ "x": 0, "y": 0, "button": 1 })
-            )),
+            code_of(
+                call(
+                    &state,
+                    "computer.click",
+                    json!({ "x": 0, "y": 0, "button": 1 })
+                )
+                .await
+            ),
             -32602
         );
     }
 
-    #[test]
-    fn a_click_count_is_bounded() {
+    #[tokio::test]
+    async fn a_click_count_is_bounded() {
+        let (_dir, state) = enabled_state();
         for bad in [0, -1, 4, 1000] {
             assert_eq!(
-                code_of(handle(
-                    "computer.click",
-                    json!({ "x": 0, "y": 0, "count": bad })
-                )),
+                code_of(
+                    call(
+                        &state,
+                        "computer.click",
+                        json!({ "x": 0, "y": 0, "count": bad })
+                    )
+                    .await
+                ),
                 -32602,
                 "count {bad} was accepted"
             );
         }
         assert_eq!(
-            code_of(handle(
-                "computer.click",
-                json!({ "x": 0, "y": 0, "count": 1.5 })
-            )),
+            code_of(
+                call(
+                    &state,
+                    "computer.click",
+                    json!({ "x": 0, "y": 0, "count": 1.5 })
+                )
+                .await
+            ),
             -32602
         );
     }
 
-    #[test]
-    fn a_scroll_beyond_the_notch_bound_is_rejected_not_clamped() {
+    #[tokio::test]
+    async fn a_scroll_beyond_the_notch_bound_is_rejected_not_clamped() {
+        let (_dir, state) = enabled_state();
         assert_eq!(
-            code_of(handle(
-                "computer.scroll",
-                json!({ "x": 0, "y": 0, "vertical": 10_000 })
-            )),
+            code_of(
+                call(
+                    &state,
+                    "computer.scroll",
+                    json!({ "x": 0, "y": 0, "vertical": 10_000 })
+                )
+                .await
+            ),
             -32602
         );
         assert_eq!(
-            code_of(handle(
-                "computer.scroll",
-                json!({ "x": 0, "y": 0, "horizontal": -21 })
-            )),
+            code_of(
+                call(
+                    &state,
+                    "computer.scroll",
+                    json!({ "x": 0, "y": 0, "horizontal": -21 })
+                )
+                .await
+            ),
             -32602
         );
         assert_eq!(
-            code_of(handle(
-                "computer.scroll",
-                json!({ "x": 0, "y": 0, "vertical": "up" })
-            )),
+            code_of(
+                call(
+                    &state,
+                    "computer.scroll",
+                    json!({ "x": 0, "y": 0, "vertical": "up" })
+                )
+                .await
+            ),
             -32602
         );
     }
 
-    #[test]
-    fn text_must_be_a_string_and_bounded() {
-        assert_eq!(code_of(handle("computer.typeText", json!({}))), -32602);
+    #[tokio::test]
+    async fn text_must_be_a_string_and_bounded() {
+        let (_dir, state) = enabled_state();
         assert_eq!(
-            code_of(handle("computer.typeText", json!({ "text": 5 }))),
+            code_of(call(&state, "computer.typeText", json!({})).await),
+            -32602
+        );
+        assert_eq!(
+            code_of(call(&state, "computer.typeText", json!({ "text": 5 })).await),
             -32602
         );
         let too_long = "a".repeat(MAX_TEXT_CHARS + 1);
         assert_eq!(
-            code_of(handle("computer.typeText", json!({ "text": too_long }))),
+            code_of(call(&state, "computer.typeText", json!({ "text": too_long })).await),
             -32602
         );
     }
@@ -361,64 +426,41 @@ mod tests {
         assert!(require_text(&json!({ "text": over })).is_err());
     }
 
-    #[test]
-    fn a_window_handle_must_be_a_decimal_number() {
+    #[tokio::test]
+    async fn a_window_handle_must_be_a_decimal_number() {
+        let (_dir, state) = enabled_state();
         for bad in ["", "0x1f", "-1", "twelve", "1.5"] {
             assert_eq!(
-                code_of(handle("computer.activateWindow", json!({ "handle": bad }))),
+                code_of(call(&state, "computer.activateWindow", json!({ "handle": bad })).await),
                 -32602,
                 "handle {bad} was accepted"
             );
         }
         assert_eq!(
-            code_of(handle("computer.activateWindow", json!({ "handle": 42 }))),
+            code_of(call(&state, "computer.activateWindow", json!({ "handle": 42 })).await),
             -32602
         );
         assert_eq!(
-            code_of(handle("computer.activateWindow", json!({}))),
+            code_of(call(&state, "computer.activateWindow", json!({})).await),
             -32602
         );
     }
 
-    #[test]
-    fn an_unknown_computer_method_is_not_found() {
-        assert_eq!(code_of(handle("computer.teleport", json!({}))), -32601);
+    #[tokio::test]
+    async fn an_unknown_computer_method_is_not_found() {
+        let (_dir, state) = enabled_state();
+        assert_eq!(
+            code_of(call(&state, "computer.teleport", json!({})).await),
+            -32601
+        );
     }
 
-    #[test]
-    fn reading_the_computer_reports_what_the_host_can_do() {
-        // Both reads are harmless wherever they run, so this asserts on the
-        // real answer rather than on a mock: on Windows the desktop has a
-        // measurable size, and anywhere else the caller is told plainly that
-        // this host cannot drive a pointer.
-        if cfg!(windows) {
-            let screen = handle("computer.getScreen", json!({})).expect("a screen");
-            assert!(
-                screen["bounds"]["right"].as_i64().unwrap_or(0)
-                    > screen["bounds"]["left"].as_i64().unwrap_or(0)
-            );
-            let cursor = handle("computer.getCursor", json!({})).expect("a cursor");
-            assert!(cursor["x"].is_i64());
-            let windows = handle("computer.listWindows", json!({})).expect("windows");
-            assert!(windows["windows"].is_array());
-        } else {
-            for method in [
-                "computer.getScreen",
-                "computer.getCursor",
-                "computer.listWindows",
-            ] {
-                assert_eq!(code_of(handle(method, json!({}))), COMPUTER_UNSUPPORTED);
-            }
-        }
-    }
-
-    #[test]
-    fn a_write_on_a_host_without_computer_control_is_refused_not_ignored() {
-        if cfg!(windows) {
-            // Sending real input from a test would move the pointer of whoever
-            // is at the machine, so on Windows this case is not exercised here.
-            return;
-        }
+    #[tokio::test]
+    async fn every_write_is_refused_until_the_user_switches_control_on() {
+        // Nothing here reaches the platform: the gate answers first, which is
+        // the one thing that must hold on a host that really does inject
+        // input. A default profile has no settings document at all.
+        let (_dir, state) = fresh_state();
         for (method, params) in [
             ("computer.moveMouse", json!({ "x": 1, "y": 1 })),
             ("computer.click", json!({ "x": 1, "y": 1 })),
@@ -427,9 +469,92 @@ mod tests {
             ("computer.activateWindow", json!({ "handle": "42" })),
         ] {
             assert_eq!(
-                code_of(handle(method, params)),
+                code_of(call(&state, method, params).await),
+                COMPUTER_DISABLED,
+                "{method} was not refused by the gate"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn switching_control_off_refuses_the_writes_again() {
+        let (_dir, state) = fresh_state();
+        write_setting(&state, json!({ "computerControlEnabled": true }));
+        assert!(control_enabled(&state).await);
+
+        write_setting(&state, json!({ "computerControlEnabled": false }));
+        assert!(!control_enabled(&state).await);
+        assert_eq!(
+            code_of(call(&state, "computer.typeText", json!({ "text": "x" })).await),
+            COMPUTER_DISABLED
+        );
+    }
+
+    #[tokio::test]
+    async fn an_unreadable_setting_reads_as_off() {
+        // Closed-by-default is the whole point of the gate; a store that
+        // cannot answer must not open it.
+        let (_dir, state) = fresh_state();
+        assert!(!control_enabled(&state).await);
+    }
+
+    #[tokio::test]
+    async fn the_reads_are_ungated_and_report_what_the_host_can_do() {
+        // Reads change nothing, so they must answer even before the user has
+        // switched anything on: a caller has to see the screen before it can
+        // ask to click it. On Windows the desktop has a measurable size; on
+        // any other host the caller is told plainly that this host cannot
+        // drive a pointer.
+        let (_dir, state) = fresh_state();
+        if cfg!(windows) {
+            let screen = call(&state, "computer.getScreen", json!({}))
+                .await
+                .expect("a screen");
+            assert!(
+                screen["bounds"]["right"].as_i64().unwrap_or(0)
+                    > screen["bounds"]["left"].as_i64().unwrap_or(0)
+            );
+            let cursor = call(&state, "computer.getCursor", json!({}))
+                .await
+                .expect("a cursor");
+            assert!(cursor["x"].is_i64());
+            let windows = call(&state, "computer.listWindows", json!({}))
+                .await
+                .expect("windows");
+            assert!(windows["windows"].is_array());
+        } else {
+            for method in [
+                "computer.getScreen",
+                "computer.getCursor",
+                "computer.listWindows",
+            ] {
+                assert_eq!(
+                    code_of(call(&state, method, json!({})).await),
+                    COMPUTER_UNSUPPORTED
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn an_enabled_write_reaches_the_platform_layer() {
+        if cfg!(windows) {
+            // This would move the pointer of whoever is at the machine, so on
+            // Windows the case stops before the platform call.
+            return;
+        }
+        let (_dir, state) = enabled_state();
+        for (method, params) in [
+            ("computer.moveMouse", json!({ "x": 1, "y": 1 })),
+            ("computer.click", json!({ "x": 1, "y": 1 })),
+            ("computer.scroll", json!({ "x": 1, "y": 1, "vertical": 1 })),
+            ("computer.typeText", json!({ "text": "x" })),
+            ("computer.activateWindow", json!({ "handle": "42" })),
+        ] {
+            assert_eq!(
+                code_of(call(&state, method, params).await),
                 COMPUTER_UNSUPPORTED,
-                "{method} did not report the platform"
+                "{method} did not reach the platform layer"
             );
         }
     }

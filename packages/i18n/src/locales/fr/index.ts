@@ -697,6 +697,8 @@ export const fr = {
     "keepAwakeWhileRunningDesc": "Empêche la veille due à l'inactivité pendant l'exécution de QianNing Agent. L'écran peut s'éteindre ; la veille manuelle et la fermeture du capot restent possibles.",
     "companion": "Compagnon",
     "petEnabled": "Mascotte de bureau",
+    "computerControl": "Contrôle de l'ordinateur",
+    "computerControlDesc": "Permet à l'agent de déplacer la souris et de saisir du texte sur cette machine. Désactivé par défaut. Tant que l'option est désactivée, seules les lectures (écran, fenêtres, pointeur) fonctionnent ; la plateforme prise en charge est Windows uniquement.",
     "petEnabledDesc": "Affiche dans le coin un renard flottant qui réagit à l'activité de l'agent. Désactivé par défaut.",
     "imageModel": "Modèle de génération d’images",
     "imageModelUnset": "Non configuré",

@@ -1,4 +1,5 @@
 mod computer_rpc;
+mod computer_tool;
 mod config_sync_rpc;
 mod scheduled_rpc;
 mod scheduled_tools;
@@ -3450,12 +3451,19 @@ async fn handle_request(
             scheduled_rpc::handle(&st, method, params)
         }
 
-        method if method.starts_with("computer.") => computer_rpc::handle(method, params),
+        method if method.starts_with("computer.") => {
+            computer_rpc::handle(&state, method, params).await
+        }
 
         "tools.list" => {
             let mut definitions = tools::builtin_tool_defs();
             if let Some(items) = definitions.as_array_mut() {
                 items.extend(scheduled_tools::definitions());
+                // Computer is offered only while the user has it switched on;
+                // the same gate refuses the call at execute time.
+                if computer_rpc::control_enabled(&state).await {
+                    items.extend(computer_tool::definitions());
+                }
             }
             Ok(json!({ "tools": definitions }))
         }
@@ -3957,6 +3965,9 @@ async fn handle_request(
                         &durable_mode,
                     )
                     .await
+                } else if computer_tool::recognizes(&p.tool_name) {
+                    let st = state.lock().await;
+                    computer_tool::execute(&st, &p)
                 } else if scheduled_tools::recognizes(&p.tool_name) {
                     let st = state.lock().await;
                     scheduled_tools::execute(&st, &p)
@@ -5027,6 +5038,48 @@ mod tests {
         .await
         .expect_err("an unknown button is rejected");
         assert_eq!(error.code, -32602);
+    }
+
+    /// The listing and the execute gate have to agree. A model that was handed
+    /// the definition can still call the tool from context after the setting
+    /// flips mid-session, so the listing is convenience and the execute-time
+    /// check is the boundary — this pins the listing half.
+    #[tokio::test]
+    async fn computer_is_listed_only_while_control_is_switched_on() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let mut app_state = AppState::open(data_dir.path()).unwrap();
+        app_state.handshook = true;
+        let state = Arc::new(Mutex::new(app_state));
+        let (tx, _rx) = mpsc::unbounded_channel();
+
+        fn listed(value: &Value) -> bool {
+            value["tools"]
+                .as_array()
+                .expect("a tool array")
+                .iter()
+                .any(|tool| tool["name"] == json!(crate::rpc::computer_tool::TOOL_NAME))
+        }
+
+        let off = handle_request(state.clone(), "tools.list", json!({}), tx.clone())
+            .await
+            .expect("the tool list answers");
+        assert!(!listed(&off), "Computer is offered while control is off");
+
+        {
+            let st = state.lock().await;
+            let mut settings = st
+                .db
+                .get_setting("app")
+                .expect("read settings")
+                .unwrap_or_else(|| json!({}));
+            settings["computerControlEnabled"] = json!(true);
+            st.db.set_setting("app", &settings).expect("write settings");
+        }
+
+        let on = handle_request(state, "tools.list", json!({}), tx)
+            .await
+            .expect("the tool list answers");
+        assert!(listed(&on), "Computer is not offered while control is on");
     }
 
     #[tokio::test]

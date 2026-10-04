@@ -162,6 +162,21 @@ export type AppSettings = {
    * reaching the ceiling blocks no turn.
    */
   usageBudget?: UsageBudgetSettings;
+  /**
+   * Desktop control (D659). When true, the agent's `Computer` tool and the
+   * `computer.*` host methods may inject real mouse and keyboard input, so
+   * the assistant can drive this machine's desktop. Off by default, and
+   * defaulting off is the point: writing to the desktop is the one agent
+   * capability that reaches outside the window.
+   *
+   * The reads — `screen`, `cursor`, `windows`, `windowAt` — answer whether or
+   * not this is set, because looking at the screen is not the part that needs
+   * consent. Every write — `moveMouse`, `click`, `scroll`, `typeText`,
+   * `activateWindow` — is refused with `COMPUTER_DISABLED` while the switch is
+   * off, on every door into the host. Windows only: elsewhere the control
+   * layer reports `COMPUTER_UNSUPPORTED` and this setting changes nothing.
+   */
+  computerControlEnabled?: boolean;
   onboardingDismissed: boolean;
 };
 

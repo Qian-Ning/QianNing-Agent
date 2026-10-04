@@ -23,6 +23,8 @@ mod geometry;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod input;
 
+pub mod params;
+
 pub use geometry::{occluded_fraction, parse_handle, window_at, Point, Rect};
 
 use serde::{Deserialize, Serialize};
@@ -152,6 +154,86 @@ pub fn report_windows() -> Result<Vec<WindowReport>, ComputerError> {
             occluded: occluded_fraction(&windows, index),
         })
         .collect())
+}
+
+/// The `Computer` tool, as the model sees it.
+///
+/// One tool with an `action` vocabulary rather than nine tools: every action
+/// shares one coordinate space and one window-handle namespace, and a model
+/// that has just listed the windows should not have to learn five more schemas
+/// to click one of them.
+///
+/// The description carries the real limits, because a model that does not know
+/// the pointer is absolute, or that typing goes to the focused window, writes
+/// the naive thing and then wonders why nothing landed.
+pub fn tool_definition() -> serde_json::Value {
+    serde_json::json!({
+        "name": "Computer",
+        "description": "Drive this machine's desktop: read the screen and the pointer, list the open windows, and send mouse and keyboard input. \
+             Windows only — on any other host every action answers COMPUTER_UNSUPPORTED. \
+             Coordinates are virtual-desktop pixels, with the origin at the top-left of the box that spans every monitor, so a point read from `windows` can be used as a click target unchanged. \
+             Only available while computer control is switched on in Settings. \
+             The write actions inject real input into whatever is in front, so use `windows` or `windowAt` first when the target is not certain; a click sends no confirmation and cannot be undone. \
+             `typeText` goes to whichever window holds keyboard focus — call `activateWindow` first when the target is not already in front. \
+             Each action answers with its own shape: `screen` a bounds and primary size, `cursor` an x and y, `windows` a front-to-back list each with an occlusion share, `windowAt` the window at a point or null, and every write `{ \"ok\": true }`.",
+        "risk": "high",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "screen", "cursor", "windows", "windowAt",
+                        "moveMouse", "click", "scroll", "typeText", "activateWindow"
+                    ],
+                    "description": "What to do. The read actions change nothing; the rest send input."
+                },
+                "x": {
+                    "type": "integer",
+                    "description": "Virtual-desktop x. Required by windowAt, moveMouse, click and scroll."
+                },
+                "y": {
+                    "type": "integer",
+                    "description": "Virtual-desktop y. Required by windowAt, moveMouse, click and scroll."
+                },
+                "button": {
+                    "type": "string",
+                    "enum": ["left", "right", "middle"],
+                    "description": "click only; default left."
+                },
+                "count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": params::MAX_CLICK_COUNT,
+                    "description": "click only; 1 to 3, default 1. Three selects a line."
+                },
+                "horizontal": {
+                    "type": "integer",
+                    "minimum": -params::MAX_SCROLL_NOTCHES,
+                    "maximum": params::MAX_SCROLL_NOTCHES,
+                    "description": "scroll only; wheel notches right (positive) or left."
+                },
+                "vertical": {
+                    "type": "integer",
+                    "minimum": -params::MAX_SCROLL_NOTCHES,
+                    "maximum": params::MAX_SCROLL_NOTCHES,
+                    "description": "scroll only; wheel notches up (positive) or down."
+                },
+                "text": {
+                    "type": "string",
+                    "description": format!(
+                        "typeText only; at most {} characters, typed as keystrokes.",
+                        params::MAX_TEXT_CHARS
+                    )
+                },
+                "handle": {
+                    "type": "string",
+                    "description": "activateWindow only; a handle from `windows`."
+                }
+            },
+            "required": ["action"]
+        }
+    })
 }
 
 #[cfg(test)]

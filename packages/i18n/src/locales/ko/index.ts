@@ -706,6 +706,8 @@ export const ko = {
     keepAwakeWhileRunningDesc: "QianNing Agent 실행 중 유휴 상태로 인한 시스템 절전을 방지합니다. 화면은 꺼질 수 있으며 수동 절전과 덮개 닫기는 그대로 작동합니다.",
     companion: "동반자",
     petEnabled: "데스크톱 펫",
+    computerControl: "컴퓨터 제어",
+    computerControlDesc: "에이전트가 이 컴퓨터에서 마우스를 움직이고 키보드로 입력하도록 허용합니다. 기본값은 꺼짐입니다. 꺼져 있으면 읽기 동작(화면, 창, 포인터)만 동작하며, 지원 플랫폼은 Windows뿐입니다.",
     petEnabledDesc: "에이전트 상태에 반응하는 여우를 화면 모서리에 표시합니다. 기본값은 꺼짐입니다.",
     "imageModel": "이미지 생성 모델",
     "imageModelUnset": "설정되지 않음",

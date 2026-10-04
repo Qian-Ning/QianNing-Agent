@@ -736,6 +736,13 @@ Read methods:
 
 Write methods:
 
+Every one of them is refused with `1028 COMPUTER_DISABLED` while computer control
+is switched off (see [06-settings-ia](../04-ux/06-settings-ia.md)). The switch is
+the only thing between a caller and this machine's input stream, and it gates the
+agent's `Computer` tool and the reviewed plugin/MCP catalog exactly as it gates
+these methods — there is one gate, not one per door. The read methods above are
+never gated, because looking is not the part that needs consent.
+
 - `computer.moveMouse({ x, y }) -> { ok: true }` — motion is sent as an absolute
   virtual-desktop coordinate, never a relative delta: relative motion is
   scaled by the user's pointer acceleration, so a relative move of N pixels
@@ -1210,6 +1217,7 @@ numeric slot; the string is the contract, the number is transport detail.
 | 1025 | COMPUTER_UNSUPPORTED | the host has no computer-control layer on this platform |
 | 1026 | COMPUTER_FAILED | a platform call failed; `data.code` carries the platform's own error value when it reported one |
 | 1027 | COMPUTER_WINDOW_GONE | the named window no longer exists, so nothing was sent; `data.handle` names it |
+| 1028 | COMPUTER_DISABLED | computer control is switched off, so no input was injected; the read methods are never refused this way |
 | -32029 | HOST_OVERLOADED | RPC dispatcher capacity exhausted |
 | -32601 | — | unknown method |
 | -32700 | — | unparseable request line |
@@ -1305,6 +1313,24 @@ Create requires title, prompt and cadence; automatic daily/weekly tasks require
 a schedule. Update takes an existing ID and partial fields, preserving all
 unspecified configuration. Exact local times remain supported despite the
 UI's four period presets. No new DB schema or transport is introduced.
+
+## Computer control tool
+
+Agent mode advertises the `Computer` tool only while computer control is switched
+on in Settings, so a session that was never granted desktop access is not even
+told the capability exists. `tools.list` and `tools.execute` read the same
+switch: turning it off withdraws the tool from the next listing and refuses the
+next call with `COMPUTER_DISABLED`, so a model still holding an earlier turn's
+definition cannot slip past by calling it. The tool is high risk, so Ask and
+Accept Edits require normal approval; Plan and Goal deny it outright.
+
+One tool carries every action rather than one tool per action, because the
+actions share a single coordinate space and a single window handle — splitting
+them would only copy that context into every definition. `action` selects the
+behaviour and `args` carry the same fields as the matching `computer.*` method,
+validated by one shared parser, so the tool and the RPC method refuse identical
+input. The write actions inject real input and sit behind the same switch as the
+RPC methods they mirror.
 
 ### Scheduled tasks: task-owned execution settings
 
