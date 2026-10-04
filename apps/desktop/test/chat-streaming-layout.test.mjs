@@ -31,15 +31,16 @@ test("streaming prose chat stabilizes line wrapping against orphan-rebalancing r
 });
 
 test("streaming cursor attaches to inline leaf blocks and list items instead of container lists", () => {
-  // List cursor must be placed on the last li / last li's child to prevent orphan line boxes under ul/ol
+  // List cursor must be placed on inline content, never on nested ul/ol containers.
   assert.match(
     messagesCss,
     /\.assistant-turn-fragment\.smooth-cursor \.prose-chat > :is\(ul, ol\):last-child li:last-child:not\(:has\(ul, ol\)\):not\(:has\(p\)\)::after/,
   );
   assert.match(
     messagesCss,
-    /\.assistant-turn-fragment\.smooth-cursor \.prose-chat > :is\(ul, ol\):last-child li:last-child > :last-child::after/,
+    /\.assistant-turn-fragment\.smooth-cursor \.prose-chat > :is\(ul, ol\):last-child li:last-child > p:last-child::after/,
   );
+  assert.doesNotMatch(messagesCss, /li:last-child > :last-child::after/);
   assert.match(
     messagesCss,
     /\.assistant-turn-fragment\.smooth-cursor \.prose-chat > :last-child:not\(ul\):not\(ol\)/,

@@ -3426,8 +3426,8 @@
 
 .assistant-turn-fragment.smooth-cursor .prose-chat > :last-child:not(ul):not(ol):not(blockquote):not(pre):not(table):not(.table-wrap)::after,
 .assistant-turn-fragment.smooth-cursor .prose-chat > :is(ul, ol):last-child li:last-child:not(:has(ul, ol)):not(:has(p))::after,
-.assistant-turn-fragment.smooth-cursor .prose-chat > :is(ul, ol):last-child li:last-child > :last-child::after,
-.assistant-turn-fragment.smooth-cursor .prose-chat > blockquote:last-child > :last-child::after,
+.assistant-turn-fragment.smooth-cursor .prose-chat > :is(ul, ol):last-child li:last-child > p:last-child::after,
+.assistant-turn-fragment.smooth-cursor .prose-chat > blockquote:last-child > p:last-child::after,
 .assistant-turn-fragment.smooth-cursor .prose-chat > pre:last-child > code::after {
   content: "";
   display: inline-block;
@@ -3442,8 +3442,8 @@
 @media (prefers-reduced-motion: reduce) {
   .assistant-turn-fragment.smooth-cursor .prose-chat > :last-child:not(ul):not(ol):not(blockquote):not(pre):not(table):not(.table-wrap)::after,
   .assistant-turn-fragment.smooth-cursor .prose-chat > :is(ul, ol):last-child li:last-child:not(:has(ul, ol)):not(:has(p))::after,
-  .assistant-turn-fragment.smooth-cursor .prose-chat > :is(ul, ol):last-child li:last-child > :last-child::after,
-  .assistant-turn-fragment.smooth-cursor .prose-chat > blockquote:last-child > :last-child::after,
+  .assistant-turn-fragment.smooth-cursor .prose-chat > :is(ul, ol):last-child li:last-child > p:last-child::after,
+  .assistant-turn-fragment.smooth-cursor .prose-chat > blockquote:last-child > p:last-child::after,
   .assistant-turn-fragment.smooth-cursor .prose-chat > pre:last-child > code::after {
     animation: none;
     opacity: 0.7;

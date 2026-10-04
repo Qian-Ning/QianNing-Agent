@@ -5597,6 +5597,9 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
     jump-to-latest appears as soon as follow mode is released.
   - On send, the transcript re-pins, hides jump-to-latest, and jumps to the bottom so the new user message (and following stream) is visible.
   - Streaming continues to follow while pinned.
+  - Long Markdown responses with nested lists keep their list container line
+    boxes stable during streaming; the cursor follows the terminal inline text
+    without adding a blank line below a nested list.
   - Manual scroll mid-stream pauses follow and shows jump-to-latest again; clicking it resumes follow.
 - **Specs linked**: `04-ux/08-component-spec.md`, `04-ux/09-interaction-patterns.md`
 - **Acceptance**: C (chat stream), Quality / D151
