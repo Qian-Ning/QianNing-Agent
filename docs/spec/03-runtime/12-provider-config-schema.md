@@ -448,11 +448,18 @@ metadata; an account model absent from the snapshot remains generic.
 |---|---|---|---|
 | anthropic | Claude Pro/Max | anthropic_messages | PKCE + local callback |
 | openai-codex | ChatGPT Plus/Pro | openai_codex_responses | PKCE + local callback, or pasted code |
+| openai | ChatGPT subscription | openai_responses | PKCE + local callback, or pasted callback URL |
 | github-copilot | Copilot | varies by model | device code |
 | openrouter | account credit | chat_completions | PKCE + local callback |
 | kimi-coding | Kimi | chat_completions (headers-only auth) | device code |
 | xai | xAI | chat_completions | device code |
 | radius | Radius | pi_messages | PKCE + local callback |
+| meta | Meta Muse subscription | openai_responses | device code |
+
+`openai` and `openai-codex` are two wires onto the same ChatGPT
+subscription: `openai` speaks the Responses API at `https://api.openai.com/v1`,
+`openai-codex` keeps the Codex backend at `https://chatgpt.com/backend-api`.
+Both appear as separate rows, so a user can sign in to each independently.
 
 ## 4. Model catalog cache record
 

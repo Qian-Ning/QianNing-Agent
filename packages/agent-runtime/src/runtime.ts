@@ -9,32 +9,12 @@ import {
   settledDelegationMessage,
   taskMessageSnapshot,
 } from "./delegation-message.js";
-import {
-  Agent,
-  BACKGROUND_CONTEXT,
-  compact,
-  convertToLlm,
-  estimateContextTokens,
-  estimateTokens,
-  prepareCompaction,
-  withAbortSignal,
-  type AgentContext,
-  type AgentEvent,
-  type AgentLoopTurnUpdate,
-  type AgentMessage,
-  type AgentTool,
-  type AgentToolResult,
-  type AfterToolCallContext,
-  type AfterToolCallResult,
-  type CompactionPreparation,
-  type CompactionEntry,
-  type CompactionSettings,
-  type BeforeToolCallContext,
-  type BeforeToolCallResult,
-  type Entry,
-  type MessageEntry,
-  type PrepareNextTurnContext,
-} from "@earendil-works/pi-agent-core";
+import { Agent, type AgentContext, type AgentEvent, type AgentLoopTurnUpdate, type AgentMessage, type AgentTool, type AgentToolResult, type AfterToolCallContext, type AfterToolCallResult, type BeforeToolCallContext, type BeforeToolCallResult, type PrepareNextTurnContext } from "@earendil-works/pi-agent-core";
+import { prepareCompaction } from "./pi-runtime-compaction-plan.js";
+import { compact } from "./pi-runtime-compaction-summary.js";
+import { estimateContextTokens, estimateTokens } from "./pi-runtime-estimates.js";
+import { convertToLlm } from "./pi-runtime-messages.js";
+import type { CompactionPreparation, CompactionEntry, CompactionSettings, Entry, MessageEntry } from "./pi-runtime-types.js";
 import {
   isContextOverflow,
   Type,
@@ -6768,9 +6748,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
   ): Promise<Awaited<ReturnType<typeof compact>>> {
     return compact(
       preparation,
-      // The summary is a provider request like any other turn, but
-      // pi-agent-core builds its options itself and never reaches `streamFn`,
-      // so the headers have to ride on the collection.
+      // The summary is a provider request like any other turn. The desktop
+      // compaction adapter calls `completeSimple` directly instead of
+      // `streamFn`, so headers have to ride on the collection.
       withCompactionRequestHeaders(this.models, this.provider, this.sessionId),
       this.model,
       undefined,
@@ -6780,7 +6760,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       // pi's classifier decides what is transient; the waits honour `signal`.
       COMPACTION_SUMMARY_RETRY_POLICY,
       undefined,
-      withAbortSignal(signal, BACKGROUND_CONTEXT),
+      signal,
     );
   }
 

@@ -23,10 +23,8 @@
  * a cycle with it.
  */
 
-import {
-  estimateTokens,
-  type AgentMessage,
-} from "@earendil-works/pi-agent-core";
+import { type AgentMessage } from "@earendil-works/pi-agent-core";
+import { estimateTokens } from "./pi-runtime-estimates.js";
 import { isRecord, truncateMessageText } from "./agent-messages.js";
 
 /**

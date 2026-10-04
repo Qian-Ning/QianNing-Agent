@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { estimateContextTokens as estimateAgentContextTokens, estimateTokens, type Agent, type AgentMessage } from "@earendil-works/pi-agent-core";
+import { type Agent, type AgentMessage } from "@earendil-works/pi-agent-core";
+import {
+  estimateContextTokens as estimateAgentContextTokens,
+  estimateTokens,
+} from "./pi-runtime-estimates.js";
 import {
   createAssistantMessageEventStream,
   getCurrentTools,

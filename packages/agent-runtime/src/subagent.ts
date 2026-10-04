@@ -20,17 +20,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import {
-  Agent,
-  convertToLlm,
-  type AfterToolCallContext,
-  type AfterToolCallResult,
-  type AgentEvent,
-  type AgentLoopTurnUpdate,
-  type AgentMessage,
-  type AgentTool,
-  type PrepareNextTurnContext,
-} from "@earendil-works/pi-agent-core";
+import { Agent, type AfterToolCallContext, type AfterToolCallResult, type AgentEvent, type AgentLoopTurnUpdate, type AgentMessage, type AgentTool, type PrepareNextTurnContext } from "@earendil-works/pi-agent-core";
+import { convertToLlm } from "./pi-runtime-messages.js";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import {
   addUsage,

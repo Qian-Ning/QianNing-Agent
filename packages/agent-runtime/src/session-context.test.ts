@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type {
-  AgentMessage,
-  CompactionEntry,
-  MessageEntry,
-} from "@earendil-works/pi-agent-core";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import type { CompactionEntry, MessageEntry } from "./pi-runtime-types.js";
 import { buildSessionContext } from "./session-context.js";
 
 function user(id: string, text: string, seq: number): MessageEntry {
