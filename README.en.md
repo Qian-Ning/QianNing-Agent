@@ -60,6 +60,16 @@ It is built for **long-running work**, not one-shot questions:
 
 The Chinese name is **千凝** (*níng* — to gather, to focus). The English product name is fixed as **QianNing Agent**, the application id is `com.qianning.agent`, and the data directory is `~/.qianning-agent`. The full contract for where the brand applies is in the [brand contract](docs/spec/01-qianning-brand.md).
 
+### The interface
+
+Every frame below comes out of the repository's own capture rig: the app runs with `PI_DESKTOP_CAPTURE=1` against a throwaway data directory, drives itself through each surface, and emits one set per locale. They show the shipped shell rather than a mockup, including the empty states a fresh install starts from. The Chinese interface is in [README.md](README.md), and the full gallery is in [Screens](docs/guide/screenshots.md).
+
+|  |  |
+| --- | --- |
+| ![Home and Composer](docs/image/readme/home.en.webp) | ![A conversation with the minimap rail](docs/image/readme/conversation.en.webp) |
+| ![Model and reasoning switching](docs/image/readme/models.en.webp) | ![The plugin marketplace](docs/image/readme/marketplace.en.webp) |
+| ![The review panel](docs/image/readme/review.en.webp) | ![Scheduled tasks](docs/image/readme/scheduled.en.webp) |
+
 ---
 
 ## 2. Relationship to upstream

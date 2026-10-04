@@ -1,5 +1,8 @@
 <script setup lang="ts">
-const shotSrc = '/readme/home.webp'
+import { computed } from 'vue'
+
+const props = defineProps<{ locale: string }>()
+const shotSrc = computed(() => `/readme/hero.${props.locale === 'zh-CN' ? 'zh' : 'en'}.webp`)
 </script>
 
 <template>
@@ -9,8 +12,8 @@ const shotSrc = '/readme/home.webp'
       class="hero-visual__shot"
       :src="shotSrc"
       alt="QianNing Agent workspace"
-      width="2560"
-      height="1440"
+      width="1600"
+      height="1067"
       decoding="async"
       fetchpriority="high"
     />

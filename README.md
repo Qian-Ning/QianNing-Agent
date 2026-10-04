@@ -60,6 +60,16 @@ QianNing Agent 是一个独立运行的 AI Agent 桌面应用。它不是某个�
 
 中文名 **千凝**，「凝」取凝聚与专注之意。英文产品名固定为 **QianNing Agent**，应用 ID 为 `com.qianning.agent`，数据目录为 `~/.qianning-agent`。品牌使用范围的完整约定见[品牌契约](docs/spec/01-qianning-brand.md)。
 
+### 界面
+
+下面每一张都由仓库自带的截图装置生成：应用以 `PI_DESKTOP_CAPTURE=1` 跑在一个临时数据目录上，自己走过每个界面并按语言各出一套。所以它们展示的是发布版本的真实界面，包括全新安装时的空态。英文界面见 [README.en.md](README.en.md)，完整画廊见[界面截图](docs/zh-CN/guide/screenshots.md)。
+
+|  |  |
+| --- | --- |
+| ![首页与 Composer](docs/image/readme/home.zh.webp) | ![会话与缩略导航条](docs/image/readme/conversation.zh.webp) |
+| ![模型与推理切换](docs/image/readme/models.zh.webp) | ![插件市场](docs/image/readme/marketplace.zh.webp) |
+| ![审阅面板](docs/image/readme/review.zh.webp) | ![定时任务](docs/image/readme/scheduled.zh.webp) |
+
 ---
 
 ## 2. 与上游的关系

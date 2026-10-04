@@ -1505,23 +1505,30 @@ export async function createWindow({
               document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
             `);
             // Composer autocomplete scenes (D123–D125): "/" command menu and
-            // "@" file menu. React's controlled textarea needs the native
-            // value setter + input event to register the draft.
-            const setComposerDraft = (draft: string) =>
-              windowState.mainWindow!.webContents.executeJavaScript(`
+            // "@" file menu. `.composer-input` is a contenteditable editor, not
+            // a textarea, and painting `textContent` is not enough either — the
+            // editor module reads real input events. Type the trigger through
+            // the input pipeline and move the caret to the end: detectTrigger
+            // reads the caret, and detectTrigger("/", 0) is not a trigger.
+            const setComposerDraft = async (draft: string) => {
+              await windowState.mainWindow!.webContents.executeJavaScript(`
                 (() => {
-                  const ta = document.querySelector("textarea.composer-input");
-                  if (!ta) return false;
-                  ta.focus();
-                  const set = Object.getOwnPropertyDescriptor(
-                    HTMLTextAreaElement.prototype,
-                    "value",
-                  ).set;
-                  set.call(ta, ${JSON.stringify(draft)});
-                  ta.dispatchEvent(new Event("input", { bubbles: true }));
+                  const el = document.querySelector(".composer-input");
+                  if (!el) return false;
+                  el.focus();
+                  el.textContent = "";
+                  el.dispatchEvent(new InputEvent("input", { bubbles: true }));
                   return true;
                 })()
               `);
+              for (const character of draft) {
+                windowState.mainWindow!.webContents.sendInputEvent({
+                  type: "char",
+                  keyCode: character,
+                });
+              }
+              await new Promise((r) => setTimeout(r, 120));
+            };
             await setComposerDraft("/");
             await new Promise((r) => setTimeout(r, 450));
             const slashProbe = await windowState.mainWindow!.webContents.executeJavaScript(
@@ -1736,9 +1743,16 @@ export async function createWindow({
               `);
               await new Promise((r) => setTimeout(r, settle));
             };
-            // MCP tab: one row per connection state and per activation state, so
+            // MCP, Skills and Subagents used to be segments of the plugins page
+            // and are now their own Settings destinations. `extTab` still only
+            // knows the plugins page's two segments, so the scenes below drive
+            // the settings rail by tab id instead — the row, scope and editor
+            // interactions are unchanged because the panels are the same ones.
+            await setPage("settings");
+            await setSettingsTab("mcp");
+            await new Promise((r) => setTimeout(r, 450));
+            // MCP: one row per connection state and per activation state, so
             // the glyph colours and the scope chip are all on screen at once.
-            await extTab(1);
             await shot("pi-extensions-mcp");
             // The scope popover has to escape the panel's rounded-corner clip,
             // so it is opened on the last row where a clip would show.
@@ -1772,14 +1786,16 @@ export async function createWindow({
               `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
             );
             await new Promise((r) => setTimeout(r, 200));
-            // Skills tab: the byte counter and the disabled row read differently
+            // Skills: the byte counter and the disabled row read differently
             // from the MCP rows, so it gets its own scene.
-            await extTab(2);
+            await setSettingsTab("skills");
+            await new Promise((r) => setTimeout(r, 450));
             await shot("pi-extensions-skills");
-            // Subagents tab: the writable registry list, whose rows carry the
+            // Subagents: the writable registry list, whose rows carry the
             // Task handle, the tinted mutating grants and the shadow/inactive
             // tags, above the read-only effective catalog.
-            await extTab(3);
+            await setSettingsTab("subagents");
+            await new Promise((r) => setTimeout(r, 450));
             await shot("pi-extensions-subagents");
             // The read-only half sits below the fold: builtin and project rows,
             // which carry a source tag and a copy action instead of a scope.
@@ -1792,7 +1808,7 @@ export async function createWindow({
             await new Promise((r) => setTimeout(r, 300));
             await shot("pi-extensions-subagents-provided");
             await windowState.mainWindow!.webContents.executeJavaScript(
-              `document.querySelector('.plugins-page')?.scrollTo(0, 0)`,
+              `document.querySelector('.settings-page-scroll, .settings-content, .app-scroll')?.scrollTo(0, 0)`,
             );
             await new Promise((r) => setTimeout(r, 200));
             // Editor sheet: the tool grant sits above the prompt, which is the
@@ -1814,14 +1830,16 @@ export async function createWindow({
             await shot("pi-extensions-subagents-dark");
             await setTheme("light");
             await new Promise((r) => setTimeout(r, 250));
-            await extTab(1, 250);
+            await setSettingsTab("mcp");
+            await new Promise((r) => setTimeout(r, 450));
             await setTheme("dark");
             await new Promise((r) => setTimeout(r, 300));
             await shot("pi-extensions-mcp-dark");
             await setTheme("light");
             await new Promise((r) => setTimeout(r, 250));
-            // Marketplace tab of the same page (D169 segmented control, fifth
-            // since D202).
+            // Back to the plugins page for its own scenes: the segments are
+            // installed, marketplace (D169 segmented control, fifth since D202).
+            await setPage("plugins");
             await extTab(1, 900);
             await shot("pi-plugins-market");
             // Detail sheet opened from the first card: head, install CTA and
@@ -1910,15 +1928,18 @@ export async function createWindow({
             );
             await new Promise((r) => setTimeout(r, 350));
             await shot("pi-settings-extensions");
+            // SettingsMenuSelect is a listbox, not a native <select>, so the
+            // value setter no-ops on it and both scenes came out identical.
+            // Open the trigger and take the last option, which is `custom`.
+            await windowState.mainWindow!.webContents.executeJavaScript(`
+              document.querySelector('.plugins-market-settings .settings-menu-select-trigger')
+                ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+            `);
+            await new Promise((r) => setTimeout(r, 250));
             await windowState.mainWindow!.webContents.executeJavaScript(`
               (() => {
-                const select = document.querySelector('.plugins-market-settings select');
-                if (!select) return;
-                const setter = Object.getOwnPropertyDescriptor(
-                  window.HTMLSelectElement.prototype, 'value',
-                )?.set;
-                setter?.call(select, 'custom');
-                select.dispatchEvent(new Event('change', { bubbles: true }));
+                const options = [...document.querySelectorAll('.settings-menu-select-list [role="option"]')];
+                options[options.length - 1]?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
               })()
             `);
             await new Promise((r) => setTimeout(r, 350));
@@ -1926,9 +1947,14 @@ export async function createWindow({
             await setPage("chat");
             await setTheme("light");
             await new Promise((r) => setTimeout(r, 250));
+            // `keybindingFromEvent` maps Mod to Command on macOS and Control
+            // everywhere else, so a Windows capture has to send ctrlKey. Sending
+            // only metaKey made every search scene below a duplicate of the home
+            // screen, silently — the shot still fired, just of an unopened dialog.
+            const MOD = process.platform === "darwin" ? "metaKey" : "ctrlKey";
             const openSearch = () =>
               windowState.mainWindow!.webContents.executeJavaScript(`
-                document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }));
+                document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ${MOD}: true, bubbles: true }));
               `);
             const typeSearch = (value: string) =>
               windowState.mainWindow!.webContents.executeJavaScript(`
