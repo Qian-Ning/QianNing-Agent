@@ -57,11 +57,18 @@
  * frozen at 78%. This re-states the hover ink one attribute up. `!important` is
  * deliberate rather than required — the light counterpart needs it, so keeping
  * both sides identical means the pair cannot drift into a silent half-fix if
- * the resting rules gain importance later. */
+ * the resting rules gain importance later.
+ *
+ * `:not(:disabled)` on the icon half too: the permission chip carries
+ * `icon-btn`, so `(.composer-toolbar .icon-btn:hover)` at (0,5,0) matched the
+ * one non-editable chip and outranked its own
+ * `.composer-permission .mode-chip:disabled:hover` at (0,4,0) — the blocked
+ * Auto chip brightened on hover in both palettes. Excluding `:disabled` lets
+ * that rule keep it on its resting ink. See D653. */
 @media (hover: hover) and (pointer: fine) {
   /* Pointer-gated hover (design-system §8.7): a touch tap latches
      `:hover` until the next tap, so an ungated reveal sticks. */
-:root[data-theme="dark"] .composer-toolbar .icon-btn:hover,
+:root[data-theme="dark"] .composer-toolbar .icon-btn:hover:not(:disabled),
 :root[data-theme="dark"] .mode-chip:hover:not(:disabled) {
   color: var(--ds-text-primary) !important;
 }
