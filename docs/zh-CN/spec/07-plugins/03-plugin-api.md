@@ -658,6 +658,13 @@ pi.desktop.invoke(input: {
 Electron 通道名，插件也永远拿不到 MCP bearer token。调用复用控制器、IPC 处理器、
 生命周期检查、完成事件和审计边界；插件无法触达任意 Electron IPC。
 
+目录同时收录桌面控制操作：`computer/getScreen`、`computer/getCursor`、
+`computer/listWindows`、`computer/windowAt`，以及五个写操作（`computer/moveMouse`、
+`computer/click`、`computer/scroll`、`computer/typeText`、`computer/activateWindow`）。
+它们抵达的是智能体 `Computer` 工具所用的同一批宿主方法，因此共用同一道开关：设置里的
+电脑操作关闭时，五个写操作以 `COMPUTER_DISABLED` 失败，四个读操作照常作答。插件
+既不需要、也拿不到绕开该设置的路径 —— 开关是在宿主方法处读的，不在调用方。
+
 `dangerous` 操作（删除会话、更改权限模式、批准工具）需要两次答复。
 `confirm: true` 是插件的知会，必须先给出（否则返回
 `CONFIRMATION_REQUIRED`）。随后宿主在原生对话框中询问用户，对话框点名目录中

@@ -5425,6 +5425,8 @@ eleven-tool-round desktop paths are verified by
 | C — 对话与流式（会话列表响应性） | E2E-SESSION-list-refresh-keeps-desktop-responsive |
 | 品质（会话列表响应性） | E2E-SESSION-list-refresh-keeps-desktop-responsive |
 | 品质（Windows 更新缓存） | E2E-260 |
+| 安全（桌面控制） | E2E-261 |
+| 品质（桌面控制） | E2E-261 |
 | 安全性（导入扩展依赖） | E2E-PLUGIN-import-extension-installs-dependencies、E2E-PLUGIN-import-extension-reports-missing-dependency |
 | 品质（导入扩展依赖） | E2E-PLUGIN-import-extension-installs-dependencies、E2E-PLUGIN-import-extension-reports-missing-dependency |
 | F / G / 安全性 / 品质 — 导入扩展的 npm 恢复 | E2E-PLUGIN-import-extension-recovers-missing-npm |
@@ -9085,3 +9087,13 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **验收：** 缓存路径、迁移和清理单测通过；Windows task-candidate 验证应覆盖更新源传输、安装器交接和文件系统行为，且不连接真实发布源。
 - **里程碑：** M6+
 - **状态：** 单测和源码契约覆盖（`update-cache.test.mjs`、`auto-update.test.mjs`）；仍需 Windows 安装器/E2E 验证。
+
+#### E2E-261：桌面控制在用户打开之前一直是关的
+
+- **前提：** Windows x64 构建。全新配置，因此 `computerControlEnabled` 从未被写入。屏幕上有一个智能体看得见的窗口。
+- **步骤：** 1）打开「设置 ▸ AI」，确认「电脑操作」开关为关闭。2）要求智能体点击屏幕上某个可见控件。3）确认被拒绝。4）读取宿主为该会话提供的工具列表。5）打开开关后再次要求，确认点击真的落下。6）在会话仍然打开时把开关关回去，再要求一次。
+- **预期：** 开关关闭时，宿主提供的列表里没有 `Computer` 工具，而仍持有上一回合定义的调用会以 `COMPUTER_DISABLED` 被拒绝而不是执行；关闭期间不会注入任何输入 —— 指针不动、也不送出按键。读动作（`screen`、`cursor`、`windows`、`windowAt`）全程照常作答，因为「看」不在闸门之内。开关打开后，同一次点击落在被指定的控件上。再次关闭后，下一次列举不再出现该工具、下一次调用被拒绝，因此会话无法沿用先前拿到的定义。
+- **规格：** `03-runtime/06-host-rpc-protocol.md`、`03-runtime/08-error-codes.md`、`04-ux/06-settings-ia.md`、`07-plugins/03-plugin-api.md`。
+- **验收：** `cargo test -p host-core computer` 在从不编译 Win32 那半边的 Linux runner 上通过；`mcp-control` 与 `plugin-desktop-control` 套件通过；Windows task-candidate 验证确认开关真的管住了指针。
+- **里程碑：** M6+
+- **状态：** 闸门与工具列举由宿主单测和源码契约覆盖；仍需 Windows 端到端指针验证。

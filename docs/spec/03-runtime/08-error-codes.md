@@ -312,6 +312,21 @@ codes surface through the same error object as any other call.
 | `PAIRING_TOKEN_EXPIRED` | no | the single-use pairing token expired before pairing completed |
 | `CAPABILITY_UNAVAILABLE` | no | an operation was requested for a capability the host advertised as unavailable (e.g. attachments, tool relay) |
 
+### 3.9 Computer control
+
+Emitted by the host's computer-control layer
+(see [06-host-rpc-protocol](06-host-rpc-protocol.md) § 4, `computer.*`). The read
+methods answer on every platform; the write methods inject input, exist only on
+Windows, and are refused with `COMPUTER_DISABLED` unless the user has switched
+computer control on.
+
+| code | retriable | meaning |
+|---|---|---|
+| `COMPUTER_UNSUPPORTED` | no | the host has no computer-control layer on this platform; reported rather than returning an empty result, so a caller never mistakes "cannot" for "nothing there" |
+| `COMPUTER_FAILED` | yes | a platform call failed; `details.code` carries the platform's own error value when it reported one, which is how a refused input stream (e.g. a locked session or a higher-integrity window) is told apart from a window that vanished |
+| `COMPUTER_WINDOW_GONE` | yes | the named window no longer exists, so nothing was sent; `details.handle` names it. Re-list the windows and retry — `COMPUTER_UNSUPPORTED` and `COMPUTER_FAILED` are the terminal pair |
+| `COMPUTER_DISABLED` | no | computer control is switched off in Settings, so no input was injected. Unlike the three above this is a user decision rather than a host or platform limit: the same call succeeds once the switch is on. The read methods are never refused this way |
+
 ## 4. Mapping rules
 
 ### Host RPC numeric → AppError.code

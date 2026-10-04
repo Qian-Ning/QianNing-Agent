@@ -223,6 +223,17 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   a platform-drawn `<select>` popup, so every Settings picker opens the same
   way. The closed trigger sizes to the current label, capped by the settings
   control column.
+- **Computer control** card: the switch that lets the agent drive this
+  machine's desktop (D659). Off by default, and that default is the design:
+  writing to the desktop is the one agent capability that reaches outside the
+  window. While it is off the `Computer` tool is not advertised and every
+  `computer.*` write method is refused with `COMPUTER_DISABLED`; the read
+  methods (screen, cursor, window list, window at point) answer either way,
+  because looking is not the part that needs consent. One switch gates the
+  agent tool, the host methods, and the reviewed plugin/MCP catalog together
+  rather than one control per door. Windows only — on any other host the
+  control layer reports `COMPUTER_UNSUPPORTED` and this switch changes nothing.
+  Settings search indexes the row.
 - **Defaults** card: the host-backed default operating mode (Agent / Plan / Goal),
   command shell selection, Link open destination, context usage display
   (remaining or used), thinking display mode, Enter-to-send control, the

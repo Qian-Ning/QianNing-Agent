@@ -8739,6 +8739,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | G — Plugins (import visibility) | E2E-257 |
 | Quality (import visibility) | E2E-257 |
 | Quality (Windows updater cache) | E2E-260 |
+| Security (desktop control) | E2E-261 |
+| Quality (desktop control) | E2E-261 |
 | G — Plugins (Session Orchestrator) | E2E-PLUGIN-session-orchestrator-real-workers |
 | Security (Session Orchestrator) | E2E-PLUGIN-session-orchestrator-real-workers |
 | Quality (Session Orchestrator) | E2E-PLUGIN-session-orchestrator-real-workers |
@@ -15672,3 +15674,13 @@ renderer's durable transcript reads. No real model or provider is contacted.
 - **Acceptance:** Cache-path, migration, and cleanup unit tests pass; Windows task-candidate validation confirms the updater feed transport, installer handoff, and filesystem behavior without a live release feed.
 - **Milestone:** M6+
 - **Status:** Unit and source-contract covered (`update-cache.test.mjs`, `auto-update.test.mjs`); Windows installer/E2E validation remains required.
+
+#### E2E-261: Desktop control is off until the user turns it on
+
+- **Preconditions:** Windows x64 build. A fresh profile, so `computerControlEnabled` has never been written. A window the agent can see is open.
+- **Steps:** 1) Open Settings ▸ AI and confirm the Computer control switch is off. 2) Ask the agent to click a visible control on screen. 3) Confirm the refusal. 4) Read the tool list the host advertises for the session. 5) Turn the switch on, ask again, and confirm the click lands. 6) Turn the switch off while the session is still open and ask a third time.
+- **Expected:** While the switch is off the `Computer` tool is absent from the list the host advertises, and a call that still holds the definition from an earlier turn is refused with `COMPUTER_DISABLED` rather than executed. Nothing is injected while the switch is off — the pointer does not move and no keystroke is delivered. The read actions (`screen`, `cursor`, `windows`, `windowAt`) answer throughout, because looking is not gated. After the switch is turned on the same click lands on the control that was named. Turning the switch off again withdraws the tool from the next listing and refuses the next call, so a session cannot ride a definition it was granted earlier.
+- **Specs:** `03-runtime/06-host-rpc-protocol.md`, `03-runtime/08-error-codes.md`, `04-ux/06-settings-ia.md`, `07-plugins/03-plugin-api.md`.
+- **Acceptance:** `cargo test -p host-core computer` passes on the Linux runner, which never compiles the Win32 half; the `mcp-control` and `plugin-desktop-control` suites pass; a Windows task-candidate run confirms the switch actually gates the pointer.
+- **Milestone:** M6+
+- **Status:** Gate and tool listing covered by host unit tests and source contracts; the Windows end-to-end pointer check remains required.

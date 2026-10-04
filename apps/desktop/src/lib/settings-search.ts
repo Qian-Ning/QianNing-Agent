@@ -101,6 +101,8 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
       "settings.permissionModeAsk",
       "settings.permissionModeAcceptEdits",
       "settings.permissionModeAuto",
+      "settings.computerControl",
+      "settings.computerControlDesc",
       "settings.defaultsTitle",
       "settings.imageModel",
       "settings.mode",

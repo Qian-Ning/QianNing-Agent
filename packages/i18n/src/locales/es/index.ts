@@ -697,6 +697,8 @@ export const es = {
     "keepAwakeWhileRunningDesc": "Evita la suspensión por inactividad mientras QianNing Agent esté abierto. La pantalla puede apagarse; la suspensión manual y al cerrar la tapa siguen funcionando.",
     "companion": "Compañero",
     "petEnabled": "Mascota de escritorio",
+    "computerControl": "Control del equipo",
+    "computerControlDesc": "Permite que el agente mueva el ratón y escriba en este equipo. Desactivado por defecto. Con esto desactivado solo funcionan las lecturas (pantalla, ventanas, puntero), y la única plataforma compatible es Windows.",
     "petEnabledDesc": "Muestra en la esquina un zorro flotante que reacciona a lo que hace el agente. Desactivado por defecto.",
     "imageModel": "Modelo de imágenes",
     "imageModelUnset": "Sin configurar",

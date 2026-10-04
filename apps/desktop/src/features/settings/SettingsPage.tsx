@@ -491,6 +491,23 @@ export function SettingsPage() {
                 </SettingsRow>
               </SettingsCard>
 
+              <SettingsCard title={t("settings.computerControl")}>
+                <SettingsRow
+                  title={t("settings.computerControl")}
+                  description={t("settings.computerControlDesc")}
+                >
+                  <SettingsToggle
+                    checked={settings.computerControlEnabled === true}
+                    label={t("settings.computerControl")}
+                    onChange={() =>
+                      void saveSettings({
+                        computerControlEnabled: settings.computerControlEnabled !== true,
+                      })
+                    }
+                  />
+                </SettingsRow>
+              </SettingsCard>
+
               <SettingsCard title={t("settings.defaultsTitle")}>
                 <SettingsRow title={t("settings.mode")} description={t("settings.modeDesc")}>
                   <SegmentedControl

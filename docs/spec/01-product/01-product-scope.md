@@ -91,7 +91,12 @@ across devices without synchronizing conversation history or source files.
   Node APIs
 - Mobile clients
 - Billing systems
-- Computer Use browser takeover
+- Computer Use browser takeover — driving a page from inside the browser.
+  Local desktop control is *in* scope and is a different capability: the
+  `computer.*` host methods and the `Computer` tool read this machine's screen
+  and windows and send mouse and keyboard input to whatever is in front, without
+  reaching into any page's DOM. See `03-runtime/06-host-rpc-protocol.md` § 4 and
+  D658 / D659.
 
 ## 6. Operating modes
 

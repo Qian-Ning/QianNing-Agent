@@ -702,6 +702,8 @@ export const zhCN = {
     keepAwakeWhileRunningDesc: "QianNing Agent 运行期间阻止电脑因空闲自动休眠。屏幕仍可能关闭；手动睡眠和合盖休眠不受影响。",
     companion: "桌面伙伴",
     petEnabled: "桌面宠物",
+    computerControl: "电脑操作",
+    computerControlDesc: "允许智能体在这台电脑上移动鼠标、输入文字。默认关闭。关闭时只有读取操作（屏幕、窗口、指针）可用，且目前仅支持 Windows。",
     petEnabledDesc: "在角落显示一只会跟着 AI 状态变表情的小狐狸。默认关闭。",
     imageModel: "生图模型",
     imageModelUnset: "未配置",

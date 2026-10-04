@@ -795,6 +795,16 @@ open an existing durable session. Plugin-originated `session/create` and
 `agent/prompt` calls refresh session state without changing the active
 renderer session; `session/open` is explicit navigation.
 
+It also carries the desktop-control operations: `computer/getScreen`,
+`computer/getCursor`, `computer/listWindows`, `computer/windowAt`, and the five
+writes (`computer/moveMouse`, `computer/click`, `computer/scroll`,
+`computer/typeText`, `computer/activateWindow`). They reach the same host
+methods the agent's `Computer` tool uses, so they sit behind the same switch:
+while computer control is off in Settings the five writes fail with
+`COMPUTER_DISABLED` and the four reads keep answering. A plugin therefore needs
+no route around that setting and has none — the switch is read at the host
+method, not at the caller.
+
 This is the first-party plugin gateway to the reviewed operation catalog shared
 with the opt-in local MCP control plane (ADR 0203 / D370). The two catalogs
 differ only for operations marked plugin-only: the six

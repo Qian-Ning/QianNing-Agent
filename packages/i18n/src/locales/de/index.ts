@@ -697,6 +697,8 @@ export const de = {
     "keepAwakeWhileRunningDesc": "Verhindert den Ruhezustand bei Inaktivität, solange QianNing Agent läuft. Der Bildschirm kann sich ausschalten; manuelles Schlafen und Zuklappen bleiben möglich.",
     "companion": "Begleiter",
     "petEnabled": "Desktop-Maskottchen",
+    "computerControl": "Computer-Steuerung",
+    "computerControlDesc": "Erlaubt dem Agenten, auf diesem Rechner die Maus zu bewegen und zu tippen. Standardmäßig aus. Solange es aus ist, funktionieren nur die Lesezugriffe (Bildschirm, Fenster, Zeiger); unterstützt wird nur Windows.",
     "petEnabledDesc": "Zeigt in der Ecke einen schwebenden Fuchs, der auf die Aktivität des Agenten reagiert. Standardmäßig aus.",
     "imageModel": "Bildgenerierungsmodell",
     "imageModelUnset": "Nicht konfiguriert",

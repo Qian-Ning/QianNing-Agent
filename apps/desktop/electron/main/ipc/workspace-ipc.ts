@@ -617,6 +617,60 @@ export function registerWorkspaceIpc({
     },
   );
 
+  // Computer control. Every method is Windows-only; off Windows the host
+  // answers COMPUTER_UNSUPPORTED (1025) rather than succeeding quietly, so a
+  // caller never mistakes "this host cannot" for "there is nothing there".
+  handle(IPC.invoke.computerGetScreen, async () => {
+    if (!host) throw new Error("host unavailable");
+    return host.call("computer.getScreen", {});
+  });
+
+  handle(IPC.invoke.computerGetCursor, async () => {
+    if (!host) throw new Error("host unavailable");
+    return host.call("computer.getCursor", {});
+  });
+
+  handle(IPC.invoke.computerListWindows, async () => {
+    if (!host) throw new Error("host unavailable");
+    return host.call("computer.listWindows", {});
+  });
+
+  handle(IPC.invoke.computerWindowAt, async (input?: { x?: number; y?: number }) => {
+    if (!host) throw new Error("host unavailable");
+    return host.call("computer.windowAt", input ?? {});
+  });
+
+  handle(IPC.invoke.computerMoveMouse, async (input?: { x?: number; y?: number }) => {
+    if (!host) throw new Error("host unavailable");
+    return host.call("computer.moveMouse", input ?? {});
+  });
+
+  handle(
+    IPC.invoke.computerClick,
+    async (input?: { x?: number; y?: number; button?: string; count?: number }) => {
+      if (!host) throw new Error("host unavailable");
+      return host.call("computer.click", input ?? {});
+    },
+  );
+
+  handle(
+    IPC.invoke.computerScroll,
+    async (input?: { x?: number; y?: number; horizontal?: number; vertical?: number }) => {
+      if (!host) throw new Error("host unavailable");
+      return host.call("computer.scroll", input ?? {});
+    },
+  );
+
+  handle(IPC.invoke.computerTypeText, async (input?: { text?: string }) => {
+    if (!host) throw new Error("host unavailable");
+    return host.call("computer.typeText", input ?? {});
+  });
+
+  handle(IPC.invoke.computerActivateWindow, async (input?: { handle?: string }) => {
+    if (!host) throw new Error("host unavailable");
+    return host.call("computer.activateWindow", input ?? {});
+  });
+
   handle(
     IPC.invoke.statsGetTokenUsageHistory,
     async (input?: { startDate?: number; endDate?: number; bucket?: string }) => {

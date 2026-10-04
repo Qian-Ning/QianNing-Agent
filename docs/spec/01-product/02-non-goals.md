@@ -11,7 +11,10 @@
 6. Mobile clients
 7. Multi-user auth systems
 8. Billing/subscription modules
-9. Computer Use browser takeover
+9. Computer Use browser takeover — driving a page from inside the browser. Local
+   desktop control is not this: the `computer.*` host methods and the `Computer`
+   tool read this machine's screen and windows and send mouse and keyboard input
+   to whatever is in front, without reaching into any page's DOM (D658 / D659)
 10. Unconfirmed full-disk high privilege mode
 11. Non-English as the primary source language
 12. A second planner Agent, planner service, planner model, or separate

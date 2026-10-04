@@ -706,6 +706,8 @@ export const tr = {
     keepAwakeWhileRunningDesc: "QianNing Agent çalışırken boşta kalma nedeniyle uykuya geçmeyi önler. Ekran kapanabilir; elle uyutma ve kapağı kapatma etkilenmez.",
     companion: "Yardımcı",
     petEnabled: "Masaüstü dostu",
+    computerControl: "Bilgisayar denetimi",
+    computerControlDesc: "Ajanın bu bilgisayarda fareyi hareket ettirip yazı yazmasına izin verir. Varsayılan olarak kapalıdır. Kapalıyken yalnızca okuma işlemleri (ekran, pencereler, imleç) çalışır ve desteklenen tek platform Windows'tur.",
     petEnabledDesc: "Köşede, ajanın ne yaptığına tepki veren uçuşan bir tilki gösterir. Varsayılan olarak kapalı.",
     "imageModel": "Görsel oluşturma modeli",
     "imageModelUnset": "Yapılandırılmadı",

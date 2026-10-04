@@ -469,6 +469,55 @@ off | minimal | low | medium | high | xhigh | max
 - `keyboard.setGlobalShortcut` — 在 Electron 无法注册插件启动器快捷键时，
   由宿主持有的原生回退
 
+### 计算机控制
+
+宿主可以驱动本地桌面：读取指针、枚举窗口、注入输入。所有方法均为 Windows 专有；
+在其他平台上它们会回答 `1025 COMPUTER_UNSUPPORTED`，而不是静默成功。坐标为虚拟桌面像素 ——
+原点是跨越所有显示器的包围盒左上角，因此当主显示器不在 `(0, 0)` 时，一个点依然无歧义。
+
+读方法：
+
+- `computer.getScreen() -> { bounds, primaryWidth, primaryHeight }` —— `bounds` 是整个虚拟桌面的
+  `{ left, top, right, bottom }`；`primaryWidth`/`primaryHeight` 是主显示器的尺寸，整桌面截图
+  正是这个空间的缩放结果。没有连接显示器的会话会失败，而不会返回一个退化的矩形。
+- `computer.getCursor() -> { x, y }`
+- `computer.listWindows() -> { windows }` —— 可见顶层窗口，按 Z-order 从最前到最后。每项为
+  `{ handle, title, processId, bounds, minimized, occluded }`：`handle` 是窗口的不透明身份，
+  `occluded` 是被其前方窗口遮挡的比例（`0.0`–`1.0`）。`handle` 用十进制字符串表示，
+  因为 Windows 句柄是指针宽度，作为 JavaScript 数字会丢精度。隐藏窗口不会列出，因为它们无法被点击；
+  枚举过程中被销毁的窗口会被跳过，而不会带着过期矩形上报。
+- `computer.windowAt({ x, y }) -> { window }` —— 包含该点的最前可点击窗口，桌面本身则为 `null`。
+  最小化的窗口永远不会作答，因此照此结果点击会落在用户真正看到的东西上。`window` 存在时携带与
+  `listWindows` 项相同的字段（`occluded` 除外）。
+
+写方法：
+
+在设置中打开「电脑操作」之前，所有写方法一律以 `1028 COMPUTER_DISABLED` 拒绝（见
+[06-settings-ia](../04-ux/06-settings-ia.md)）。这道开关是调用方与这台机器的输入流之间唯一的一道门：
+它同时管住智能体的 `Computer` 工具和插件／MCP 目录，而不是每扇门各有一道。上面的读方法
+不受此限制 —— 看屏幕并不是需要同意的那部分。
+
+- `computer.moveMouse({ x, y }) -> { ok: true }` —— 位移以虚拟桌面绝对坐标发出，绝不用相对增量：
+  相对位移会被用户的指针加速度缩放，因此相对移动 N 像素落点并不是 N 像素，误差还会在一次点击前累积。
+- `computer.click({ x, y, button?, count? }) -> { ok: true }` —— `button` 为 `"left"`（默认）、
+  `"right"` 或 `"middle"`；`count` 为 1–3。按下动作同批发出，因此双击的第二下仍落在双击间隔内。
+- `computer.scroll({ x, y, horizontal?, vertical? }) -> { ok: true }` —— 各轴的滚轮格数，
+  向右、向上为正，各自不超过 ±20。超出即 `INVALID_PARAMS` 而不是截断：要滚一千格，说明调用方
+  已经跟丢了自己的状态，而截断会让它看起来成功了。
+- `computer.typeText({ text }) -> { ok: true }` —— 最多输入 4096 个字符。文本以 Unicode 码元发出，
+  因此无论当前是什么键盘布局，输入的都是该字符本身；BMP 之外的字符会以其代理对发出，而不会被丢掉。
+  `\r\n` 合并为一次回车，单独的 `\r` 同样按回车处理。
+- `computer.activateWindow({ handle }) -> { ok: true }` —— 把窗口带到前台。`SetForegroundWindow`
+  做不到这件事：只要调用方不已经持有前台，Windows 就拒绝。宿主改为脱队抬升该窗口、点击其标题栏
+  —— 一个真实输入事件，这正是 Windows 认可为「允许切换前台窗口」的凭据 —— 然后把它退出置顶带。
+  没有可点击内部的窗口会被拒绝，而不会被留在桌面上方钉住。
+
+坐标、计数与句柄都在任何平台调用之前完成校验，因此小数坐标、超出 32 位像素范围的值、未知按键、
+超出格数上限的滚动或非十进制句柄，在任何平台上都是 `INVALID_PARAMS`。
+
+写方法会向用户的桌面会话注入真实输入。宿主不为它们设闸门；谁可以调用由上层界面 ——
+代理工具集与喂给它的桌面设置 —— 决定。
+
 ### 审计
 - `audit.append`
 
@@ -902,6 +951,10 @@ JSON-RPC 错误携带一个数字 `code` 以及 `data.errorCode`，后者是来�
 | 1022 | PLUGIN_MARKET_NOT_FOUND | 平台没有该插件或该版本 |
 | 1023 | PLUGIN_MARKET_RATE_LIMITED | 下载接口要求客户端等待后重试 |
 | 1024 | PLUGIN_MARKET_NO_SOURCE | 没有任何分发目标能提供该包 |
+| 1025 | COMPUTER_UNSUPPORTED | 该平台上的宿主没有计算机控制层 |
+| 1026 | COMPUTER_FAILED | 平台调用失败；有报告时 `data.code` 携带平台自身的错误值 |
+| 1027 | COMPUTER_WINDOW_GONE | 指定窗口已不存在，因此什么都没发出；`data.handle` 指出是哪个 |
+| 1028 | COMPUTER_DISABLED | 电脑操作开关处于关闭状态，因此没有注入任何输入；读方法不会被这样拒绝 |
 | -32029 | HOST_OVERLOADED | RPC 调度程序容量已耗尽 |
 | -32601 | — | 未知方法 |
 | -32700 | — | 无法解析的请求行 |
@@ -991,6 +1044,19 @@ Host 重新检查会话的持久化模式，按调用会话的项目限制访问
 提示词、非法时间和星期在写入前拒绝；不能删除运行中的任务。创建需 title、prompt、cadence；
 每天／每周自动任务需 schedule。修改使用已存在的 ID 并保留未指定字段。界面虽只提供四个
 时段，工具仍支持具体本地时间。不新增数据库 schema 或传输协议。
+
+## 计算机控制工具
+
+只有在设置中打开「电脑操作」之后，Agent 模式才会提供 `Computer` 工具；从未获得桌面授权的
+会话根本不会被告知这项能力存在。`tools.list` 与 `tools.execute` 读的是同一道开关：关掉它，
+下一次列举就不再出现该工具，下一次调用以 `COMPUTER_DISABLED` 拒绝 —— 因此即使模型还留着
+上一回合拿到的定义，也无法靠直接调用绕过。该工具为高风险，Ask／Accept Edits 下需正常授权，
+Plan／Goal 直接拒绝。
+
+用一个工具承载全部动作，而不是一个动作一个工具：这些动作共享同一个坐标空间和同一个窗口句柄，
+拆开只会把同一份上下文复制进每个定义。`action` 选择行为，`args` 携带与对应 `computer.*` 方法
+相同的字段，并由同一套解析器校验，因此工具与方法拒绝完全相同的输入。写动作会注入真实输入，
+和它们镜像的 RPC 方法共用同一道开关。
 
 ### 定时任务：任务级执行设置
 
