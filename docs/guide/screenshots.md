@@ -25,8 +25,6 @@ and the sidebar with sessions grouped by project.
 
 ![QianNing Agent home in the dark theme](../public/screenshots/app/en/home-dark.webp)
 
-![The chat destination in the dark theme](../public/screenshots/app/en/dark-home.webp)
-
 A conversation streams into the transcript with a minimap rail on the right;
 hovering the rail magnifies the markers and previews the message under the
 cursor.
@@ -56,8 +54,6 @@ state a conversation starts in.
 ![The browser preview panel](../public/screenshots/app/en/panel-browser.webp)
 
 ![The file browser panel](../public/screenshots/app/en/panel-files.webp)
-
-![The work panel switcher menu](../public/screenshots/app/en/panel-menu.webp)
 
 ## Destinations
 
@@ -97,8 +93,6 @@ Choosing a settings hit navigates to the tab and flashes the row.
 
 ![Global search matching destination pages](../public/screenshots/app/en/search-pages.webp)
 
-![A settings hit opened from search](../public/screenshots/app/en/search-anchor.webp)
-
 ![Global search in the dark theme](../public/screenshots/app/en/search-dark.webp)
 
 ## Plugins
@@ -131,10 +125,6 @@ with global or project-scoped activation.
 
 ![Subagents](../public/screenshots/app/en/extensions-subagents.webp)
 
-![Plugin-provided subagents](../public/screenshots/app/en/extensions-subagents-provided.webp)
-
-![The subagent editor](../public/screenshots/app/en/extensions-subagent-editor.webp)
-
 ![Subagents in the dark theme](../public/screenshots/app/en/extensions-subagents-dark.webp)
 
 ![MCP servers in the dark theme](../public/screenshots/app/en/extensions-mcp-dark.webp)
@@ -151,22 +141,35 @@ Settings is a full-page destination with a searchable tab rail.
 
 ![Extensions marketplace with the catalog source picker](../public/screenshots/app/en/settings-extensions.webp)
 
-![Extensions marketplace with a custom catalog URL](../public/screenshots/app/en/settings-extensions-custom.webp)
-
 ## Regenerating these frames
 
-Build the renderer, make sure `target/debug/pi-desktop-host-core` exists, create
-`/tmp/codex-screens`, then run the app once per locale and publish each pass:
+Build the renderer, make sure `target/debug/pi-desktop-host-core` exists, then run
+the app once per locale against a throwaway data directory. The rig paints the
+sidebar from whatever profile it is handed, so running it against your own
+profile publishes your own project and session titles.
 
 ```bash
 pnpm --filter @pi-desktop/desktop build
-mkdir -p /tmp/codex-screens
+mkdir -p /tmp/shots-en /tmp/shots-zh
 
-# English pass; append --lang=zh-CN for the Chinese pass.
-cd apps/desktop && PI_DESKTOP_CAPTURE=1 PI_DESKTOP_DATA_DIR=$(mktemp -d) \
-  ELECTRON_RENDERER_URL= ./node_modules/.bin/electron .
+# English pass, then the Chinese pass; each gets its own source directory so the
+# second run does not overwrite the first.
+cd apps/desktop
+PI_DESKTOP_CAPTURE=1 PI_DESKTOP_DATA_DIR=$(mktemp -d) \
+  ELECTRON_RENDERER_URL= ./node_modules/.bin/electron . --lang=en-US
+mv /tmp/codex-screens/*.png /tmp/shots-en/
 
-python3 scripts/publish-screenshots.py --source /tmp/codex-screens --locale en
+PI_DESKTOP_CAPTURE=1 PI_DESKTOP_DATA_DIR=$(mktemp -d) \
+  ELECTRON_RENDERER_URL= ./node_modules/.bin/electron . --lang=zh-CN
+mv /tmp/codex-screens/*.png /tmp/shots-zh/
+
+python3 scripts/publish-screenshots.py --source /tmp/shots-en --locale en
+python3 scripts/publish-screenshots.py --source /tmp/shots-zh --locale zh
 ```
 
-The rig prints `CAPTURE_DONE` when the last scene is written.
+The rig prints `CAPTURE_DONE` when the last scene is written and then leaves the
+window open, so quit the app before the next pass. One pass feeds three stores:
+this page's gallery, the README frames in `docs/image/readme/`, and the
+docs-site landing frames in `docs/public/readme/`. Only the publisher writes
+them — no screenshot in any of the three is hand-made, and `screenshot-catalog`
+holds the three sets to the two scene lists in the script.

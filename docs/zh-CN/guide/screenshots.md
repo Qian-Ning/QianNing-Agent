@@ -21,8 +21,6 @@ description: QianNing Agent 的每个界面，全部取自运行中的应用。
 
 ![深色主题下的 QianNing Agent 主页](../../public/screenshots/app/zh/home-dark.webp)
 
-![深色主题下的对话页](../../public/screenshots/app/zh/dark-home.webp)
-
 对话流式写入正文，右侧是缩略导航条；鼠标划过导航条时标记会放大，并预览光标下的
 那条消息。
 
@@ -49,8 +47,6 @@ URL、浏览器预览或计划审批工件打开自己的选项卡时出现。�
 ![浏览器预览面板](../../public/screenshots/app/zh/panel-browser.webp)
 
 ![文件浏览面板](../../public/screenshots/app/zh/panel-files.webp)
-
-![工作面板切换菜单](../../public/screenshots/app/zh/panel-menu.webp)
 
 ## 目的地页
 
@@ -89,8 +85,6 @@ URL、浏览器预览或计划审批工件打开自己的选项卡时出现。�
 
 ![匹配目的地页的全局搜索](../../public/screenshots/app/zh/search-pages.webp)
 
-![从搜索跳转到的设置项](../../public/screenshots/app/zh/search-anchor.webp)
-
 ![深色主题下的全局搜索](../../public/screenshots/app/zh/search-dark.webp)
 
 ## 插件
@@ -121,10 +115,6 @@ MCP 服务、技能和子智能体独立于插件管理，各自可以全局启�
 
 ![子智能体](../../public/screenshots/app/zh/extensions-subagents.webp)
 
-![插件提供的子智能体](../../public/screenshots/app/zh/extensions-subagents-provided.webp)
-
-![子智能体编辑器](../../public/screenshots/app/zh/extensions-subagent-editor.webp)
-
 ![深色主题下的子智能体](../../public/screenshots/app/zh/extensions-subagents-dark.webp)
 
 ![深色主题下的 MCP 服务](../../public/screenshots/app/zh/extensions-mcp-dark.webp)
@@ -141,22 +131,32 @@ MCP 服务、技能和子智能体独立于插件管理，各自可以全局启�
 
 ![扩展市场中的插件目录源选择](../../public/screenshots/app/zh/settings-extensions.webp)
 
-![扩展市场中的自定义插件目录地址](../../public/screenshots/app/zh/settings-extensions-custom.webp)
-
 ## 如何重新生成
 
-先构建渲染层，确认 `target/debug/pi-desktop-host-core` 存在，创建
-`/tmp/codex-screens`，然后按语言各跑一遍并发布：
+先构建渲染层，确认 `target/debug/pi-desktop-host-core` 存在，然后按语言各跑一遍，
+每一遍都指向一个临时数据目录。装置会照它拿到的那个配置画侧边栏——用你自己的配置
+跑，发布出去的就是你自己的项目和会话标题。
 
 ```bash
 pnpm --filter @pi-desktop/desktop build
-mkdir -p /tmp/codex-screens
+mkdir -p /tmp/shots-en /tmp/shots-zh
 
-# 英文一遍；中文一遍在命令末尾加 --lang=zh-CN。
-cd apps/desktop && PI_DESKTOP_CAPTURE=1 PI_DESKTOP_DATA_DIR=$(mktemp -d) \
-  ELECTRON_RENDERER_URL= ./node_modules/.bin/electron .
+# 先英文一遍，再中文一遍；两遍各写自己的源目录，后一遍不会覆盖前一遍。
+cd apps/desktop
+PI_DESKTOP_CAPTURE=1 PI_DESKTOP_DATA_DIR=$(mktemp -d) \
+  ELECTRON_RENDERER_URL= ./node_modules/.bin/electron . --lang=en-US
+mv /tmp/codex-screens/*.png /tmp/shots-en/
 
-python3 scripts/publish-screenshots.py --source /tmp/codex-screens --locale zh
+PI_DESKTOP_CAPTURE=1 PI_DESKTOP_DATA_DIR=$(mktemp -d) \
+  ELECTRON_RENDERER_URL= ./node_modules/.bin/electron . --lang=zh-CN
+mv /tmp/codex-screens/*.png /tmp/shots-zh/
+
+python3 scripts/publish-screenshots.py --source /tmp/shots-en --locale en
+python3 scripts/publish-screenshots.py --source /tmp/shots-zh --locale zh
 ```
 
-最后一张写完后，装置会在标准输出打印 `CAPTURE_DONE`。
+最后一张写完后，装置会在标准输出打印 `CAPTURE_DONE`，然后窗口留在那里不退出，所以
+下一遍之前要先退出应用。一遍产出三个位置：本页的画廊、`docs/image/readme/` 下的
+README 配图、以及 `docs/public/readme/` 下的文档站首页配图。这三个位置里的每一张都由
+发布脚本生成，没有一张是手工放的；`screenshot-catalog` 会把这三组文件钉在脚本里的
+两份场景清单上。

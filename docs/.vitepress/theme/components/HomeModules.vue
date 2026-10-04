@@ -3,7 +3,9 @@ import { computed } from 'vue'
 
 const props = defineProps<{ locale: string }>()
 const isZh = computed(() => props.locale === 'zh-CN')
-const shot = (name: string) => `/readme/${name}`
+// Landing frames are generated per locale by scripts/publish-screenshots.py;
+// a slot name never carries the language, the suffix does.
+const shot = (stem: string) => `/readme/${stem}.${isZh.value ? 'zh' : 'en'}.webp`
 
 const copy = computed(() =>
   isZh.value
@@ -13,28 +15,28 @@ const copy = computed(() =>
             eyebrow: '独立工作台',
             title: '不依附 IDE，\n也不挤在终端里。',
             body: '项目、会话、评审、预览和 Agent 都在同一个桌面空间里长期存在。',
-            image: shot('chat_zh.webp'),
+            image: shot('sessions'),
             alt: '持久会话',
           },
           {
             eyebrow: '插件驱动',
             title: 'Core 只是底座。\n工作台由你组装。',
             body: '面板、视图、Widget、Tool、MCP、主题与后台服务，都可以插件化。',
-            image: shot('plugins_zh.webp'),
+            image: shot('plugins'),
             alt: '插件市场',
           },
           {
             eyebrow: 'Agent 编排',
             title: '一个 Agent 不够，\n就拆开做。',
             body: 'Subagent 处理独立任务，Worker Session 承接更长的工作流，并行推进。',
-            image: shot('session-orchestrator-overview.webp'),
+            image: shot('orchestration'),
             alt: '多智能体编排',
           },
           {
             eyebrow: '模型自由',
             title: '模型是零件。\n工作流是你的。',
             body: '云端、本地、自建网关、兼容 API。随时切换，不必重搭流程。',
-            image: shot('model_zh.webp'),
+            image: shot('models'),
             alt: '模型切换',
           },
         ],
@@ -46,10 +48,10 @@ const copy = computed(() =>
         modesTitle: '三种节奏，\n同一种工作台。',
         galleryTitle: '看见它如何工作。',
         gallery: [
-          { src: shot('session-orchestrator-overview.webp'), alt: 'Session Orchestrator' },
-          { src: shot('session-orchestrator-worker.webp'), alt: 'Worker Session' },
-          { src: shot('addmodel_zh.webp'), alt: '自定义供应商' },
-          { src: shot('chat_zh.webp'), alt: '持久会话' },
+          { src: shot('orchestration'), alt: 'Session Orchestrator' },
+          { src: shot('workers'), alt: 'Worker Session' },
+          { src: shot('providers'), alt: '自定义供应商' },
+          { src: shot('sessions'), alt: '持久会话' },
         ],
         localTitle: '本地优先。',
         localBody: '项目、会话、设置默认留在本地。无强制账号，无强制中转。凭据进系统钥匙串，模型请求直达你的供应商。',
@@ -68,28 +70,28 @@ const copy = computed(() =>
             eyebrow: 'Independent workspace',
             title: 'Not another tab.\nNot another IDE plugin.',
             body: 'Projects, sessions, reviews, previews, and agents live in one persistent desktop space.',
-            image: shot('chat_en.webp'),
+            image: shot('sessions'),
             alt: 'Persistent sessions',
           },
           {
             eyebrow: 'Plugin-powered',
             title: 'The Core is the base.\nYou assemble the rest.',
             body: 'Panels, views, widgets, tools, MCP servers, themes, and services — all pluggable.',
-            image: shot('plugins_en.webp'),
+            image: shot('plugins'),
             alt: 'Plugin market',
           },
           {
             eyebrow: 'Agent orchestration',
             title: 'One agent\nis not enough.',
             body: 'Subagents take independent work. Worker Sessions carry longer flows in parallel.',
-            image: shot('session-orchestrator-overview.webp'),
+            image: shot('orchestration'),
             alt: 'Multi-agent orchestration',
           },
           {
             eyebrow: 'Model freedom',
             title: 'Models are parts.\nThe workflow is yours.',
             body: 'Cloud, local, custom gateways, compatible APIs. Swap models without rebuilding.',
-            image: shot('model_en.webp'),
+            image: shot('models'),
             alt: 'Model switching',
           },
         ],
@@ -101,10 +103,10 @@ const copy = computed(() =>
         modesTitle: 'Three rhythms.\nOne workspace.',
         galleryTitle: 'See it work.',
         gallery: [
-          { src: shot('session-orchestrator-overview.webp'), alt: 'Session Orchestrator' },
-          { src: shot('session-orchestrator-worker.webp'), alt: 'Worker Session' },
-          { src: shot('addmodel_en.webp'), alt: 'Custom providers' },
-          { src: shot('chat_en.webp'), alt: 'Persistent sessions' },
+          { src: shot('orchestration'), alt: 'Session Orchestrator' },
+          { src: shot('workers'), alt: 'Worker Session' },
+          { src: shot('providers'), alt: 'Custom providers' },
+          { src: shot('sessions'), alt: 'Persistent sessions' },
         ],
         localTitle: 'Local-first.',
         localBody:

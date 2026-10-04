@@ -53,7 +53,7 @@ model or silently inherits the parent as recovery.
 The Advanced section keeps one primary model and lists fallback models in
 priority order. Each fallback can be moved up/down or removed.
 
-![Subagent editor showing the primary model and two ordered fallback models](../public/screenshots/app/zh/subagent-model-fallback.png)
+![Subagent editor showing the primary model and two ordered fallback models](../public/adr/subagent-model-fallback.png)
 
 ## Validation
 

@@ -35,7 +35,7 @@ disagrees, so a green `check:release-docs` is a precondition, not a substitute.
 | `linux-package-paths.mjs` | `node scripts/linux-package-paths.mjs` | Derive the Linux package layout electron-builder produces — the install directory, `resources/app.asar`, the host-core sidecar, the `.desktop` file, and the hicolor icon — from `apps/desktop/package.json`. The RPM validation workflow asserts against this output instead of literals, which is how its assertions drifted away from the build after the rename |
 | `make-icon.py` | `python3 scripts/make-icon.py` | Derive the package PNG, the macOS tray template, and the iconset/ICNS from the canonical PNG |
 | `make-dmg-background.py` | `python3 scripts/make-dmg-background.py` | Regenerate the committed macOS DMG plate (`apps/desktop/build/dmg-background{,@2x}.png`) from the canonical icon; ADR 0296 §3 makes this the only permitted producer of that pair. The wordmark comes from `build.productName`, and the font chains lead with the macOS brand faces and fall back to the closest substitute elsewhere |
-| `publish-screenshots.py` | `python3 scripts/publish-screenshots.py` | Publish documentation screenshots |
+| `publish-screenshots.py` | `python3 scripts/publish-screenshots.py --source <png-dir> --locale en\|zh` | Convert one capture-rig pass into three committed stores: the docs gallery under `docs/public/screenshots/app/<locale>/`, the README frames under `docs/image/readme/`, and the docs-site landing frames under `docs/public/readme/`. Nothing in those three trees is hand-made, and the two scene lists at the top of the script are the only thing deciding what exists |
 
 ## Development
 
