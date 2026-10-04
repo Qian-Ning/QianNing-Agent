@@ -8075,7 +8075,8 @@ mod tests {
             false,
         )
         .unwrap();
-        let previous = begin_turn(&db, &session.id, Some("deepseek"), Some("deepseek-chat")).unwrap();
+        let previous =
+            begin_turn(&db, &session.id, Some("deepseek"), Some("deepseek-chat")).unwrap();
         end_turn_settling(
             &db,
             &previous,
@@ -8145,8 +8146,14 @@ mod tests {
         );
         // The contrast is the point: the requested window and its provider
         // filter hold nothing, while month-to-date still reports the month.
-        assert_eq!(breakdown.get("pricedTurns").and_then(|v| v.as_i64()), Some(0));
-        assert_eq!(breakdown.get("totalCostUsd").and_then(|v| v.as_f64()), Some(0.0));
+        assert_eq!(
+            breakdown.get("pricedTurns").and_then(|v| v.as_i64()),
+            Some(0)
+        );
+        assert_eq!(
+            breakdown.get("totalCostUsd").and_then(|v| v.as_f64()),
+            Some(0.0)
+        );
         assert_eq!(
             breakdown
                 .get("byProvider")
