@@ -913,6 +913,34 @@ The derivation is `apps/desktop/src/components/settings/anchored-origin.ts`,
 unit-tested in `apps/desktop/test/anchored-origin.test.mjs`; the stylesheet half
 is pinned by `apps/desktop/test/fixed-dropdown-surfaces.test.mjs`.
 
+### 8.10 Rare moments (first-run checklist)
+
+Celebration is admitted only where it is rare by construction. The first-run
+checklist (`OnboardingChecklist`) is the one surface that qualifies: each step
+completes at most once per machine, and the checklist never comes back. Two
+moments there carry motion, both driven by a state change rather than a mount.
+
+- A step that has just completed settles its tick. The ring scales from 0.62 to
+  1 while the check itself arrives from 0.4 and fades in, both over
+  `--motion-duration-normal` `--motion-ease-out`, and a halo drawn by the ring's
+  own `::after` expands once to 2.15 and fades out. The halo needs no new
+  element, so the markup is unchanged. §8.6 holds: ease-out to 1 and never past
+  it — the tick settles, it does not bounce.
+- The finished card leaves instead of vanishing: `--motion-duration-normal`
+  `--motion-ease-in` fades it out over a 5px rise, and it unmounts on
+  `animationend` of that animation. §8.5's global net collapses the exit to
+  0.01ms for a reader who asked for less motion, so the event still arrives and
+  the card still unmounts.
+
+Rare only holds if the animation follows the change. The tick plays for the step
+that just completed and never for steps that were already done when the
+checklist mounted, so walking back to the empty home replays nothing; a
+checklist that mounts already complete renders nothing rather than animating
+back out. That decision lives in
+`apps/desktop/src/components/onboarding-motion.ts`, unit-tested in
+`apps/desktop/test/onboarding-motion.test.mjs`; the shapes above are pinned by
+`apps/desktop/test/motion-contract.test.mjs`.
+
 ## 8.0 Home empty stack and bottom composer (D111/D204/D206)
 
 Empty composer placeholder guidance is scoped to the current page and session:
