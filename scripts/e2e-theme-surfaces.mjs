@@ -93,6 +93,12 @@ app.whenReady().then(async () => {
           const hovered = await window.webContents.executeJavaScript("globalThis.modeChipInk()");
           for (const id of Object.keys(hoverNodes)) await forceHover(id, false);
           const failures = [];
+          // One ink value at rest for the composer toolbar's controls. The
+          // chip's own base rule states its colour with !important, so a
+          // theme-scoped restatement without one loses silently and the chip
+          // renders a step darker than the icon button beside it.
+          if (String(resting.chip.rgba) !== String(resting.icon.rgba))
+            failures.push("chip resting ink does not match the icon button beside it");
           for (const id of ["chip", "icon"]) {
             const moved = String(hovered[id].rgba) !== String(resting[id].rgba);
             if (!hoverCapable) {

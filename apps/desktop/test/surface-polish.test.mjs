@@ -157,6 +157,19 @@ test("composer toolbar chips brighten on hover in both palettes", () => {
   );
   assert.match(
     styles,
-    /:root\[data-theme="dark"\] \.composer-toolbar \.icon-btn:hover\s*\{[^}]*color:\s*var\(--ds-text-primary\) !important/,
+    /:root\[data-theme="dark"\] \.composer-toolbar \.icon-btn:hover,\s*\n:root\[data-theme="dark"\] \.mode-chip:hover:not\(:disabled\)\s*\{[^}]*color:\s*var\(--ds-text-primary\) !important/,
   );
+  // D651: the chip's resting ink needs its own rule, because its base rule —
+  // `.mode-chip { color: var(--ds-text-secondary) !important }` — wins against
+  // any specificity, so the dark 78% it shared with the icon button never
+  // reached it and the chip rendered at 70% beside an icon at 78%.
+  assert.match(
+    styles,
+    /:root\[data-theme="dark"\] \.mode-chip:not\(:disabled\)\s*\{[^}]*color:\s*color-mix\(in oklab, var\(--ds-text-primary\) 78%, transparent\) !important/,
+  );
+  // The chip's non-editable state also carries `icon-btn` and is held at
+  // secondary by `.composer-permission .mode-chip:disabled:hover`, so a bare
+  // `.mode-chip` restatement would brighten a control that is explicitly not
+  // interactive. `:not(:disabled)` is what keeps both dark rules off it.
+  assert.doesNotMatch(styles, /:root\[data-theme="dark"\] \.mode-chip\s*\{/);
 });

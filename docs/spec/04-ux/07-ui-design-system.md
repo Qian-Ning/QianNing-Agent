@@ -1491,6 +1491,7 @@ is reserved for non-Settings contexts where OS-level rendering is acceptable.
 - Main surface: `#181818` (`gray-900`)
 - Sidebar / surface-under: `#000000`
 - Floating composer plate: Codex elevated-primary (`#212121f5` / `color-mix(gray-800 96%, transparent)`) with standard elevation-prominent (`0 0 0 .5px` stroke + `0 3px 7.5px #0000000a` + `0 0 20px #0000000d`); no heavier night-only lift
+- Composer toolbar controls share one resting ink: 78% of `--ds-text-primary` in dark (icon buttons and the mode / permission chip alike), 84% in light. The chip's base rule states its colour with `!important`, so its dark value has to be important too, and the chip's hover is restated one attribute up so the resting rule cannot freeze it; the chip's non-editable Auto state keeps its own value (D651)
 - Light workspace chips capsule: elevated gray `#f4f4f4` (not pure white-on-white)
 - Combined workspace chips: elevated translucent plate over main, not flat main gray
 - Stage Manager (macOS only): host re-asserts min bounds while collapsed (permanent watchdog). The watchdog does not run on Windows/Linux, so no platform re-layers its own window unprompted (D447)
