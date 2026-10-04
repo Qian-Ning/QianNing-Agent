@@ -16,7 +16,11 @@ export const es = {
     "retrying": "Reintentando…",
     "copyDiagnostics": "Copiar diagnósticos",
     "diagnosticsCopied": "Diagnósticos copiados",
-    "diagnosticsFailed": "No se pudieron copiar los diagnósticos"
+    "diagnosticsFailed": "No se pudieron copiar los diagnósticos",
+    "alreadyRunningTitle": "QianNing Agent ya se está ejecutando",
+    "alreadyRunningVersioned": "La versión {version} está usando este perfil. Este inicio se ha redirigido a la ventana en ejecución — ciérrala primero para iniciar {ownVersion}.",
+    "alreadyRunningUnversioned": "Otra instancia está usando este perfil. Este inicio se ha redirigido a la ventana en ejecución.",
+    "alreadyRunningDismiss": "Entendido",
   },
   "common": {
     "close": "Cerrar",

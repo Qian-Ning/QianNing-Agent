@@ -16,7 +16,11 @@ export const ptBR = {
     retrying: "Tentando novamente…",
     copyDiagnostics: "Copiar diagnósticos",
     diagnosticsCopied: "Diagnósticos copiados",
-    diagnosticsFailed: "Não foi possível copiar os diagnósticos"
+    diagnosticsFailed: "Não foi possível copiar os diagnósticos",
+    alreadyRunningTitle: "O QianNing Agent já está em execução",
+    alreadyRunningVersioned: "A versão {version} está usando este perfil. Esta inicialização foi alternada para a janela em execução — feche-a primeiro para iniciar a {ownVersion}.",
+    alreadyRunningUnversioned: "Outra instância está usando este perfil. Esta inicialização foi alternada para a janela em execução.",
+    alreadyRunningDismiss: "Entendi",
   },
   common: {
     close: "Fechar",

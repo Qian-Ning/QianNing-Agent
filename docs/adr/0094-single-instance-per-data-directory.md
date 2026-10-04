@@ -96,3 +96,27 @@ and the two never share `pi.sqlite`, the outbox, or the log tree. An explicit
 throwaway profile with it. Only the development side moved: a shipped
 installation keeps `QianNing Agent` and `~/.qianning-agent`, so no existing profile is
 relocated. See D599.
+
+## Amendment (D655)
+
+Point 2 still holds for the common case: a duplicate of the running build calls
+`app.quit()` and boots nothing. A duplicate of a *different* build now explains
+itself first, because the window it raises belongs to another version and the
+user has no other way to see that.
+
+The lock holder writes `<userData>/installation-owner.json` (pid, version,
+start time) at the moment it takes the lock. A launch that loses the lock reads
+that record and, from its ready handler, shows one native dialog naming the
+version that holds the profile before calling `app.exit(0)`. The dialog appears
+only when the recorded version differs from this launch's own — a refusal by the
+same version raises exactly the window the user asked for — and a record whose
+pid is no longer running is treated as no record at all, so the notice never
+names a process that has exited. A record that is missing, unreadable, or
+malformed degrades to an anonymous holder instead of inventing a version.
+
+"Boots nothing" is unchanged where it matters: a refused launch still creates no
+window, no tray, no child process, and no log line in the running instance's
+data directory. It also writes no record, since it never holds the lock. The
+record itself is advisory — a launch that holds the lock boots whether or not
+the write succeeded — and a run given `PI_DESKTOP_DATA_DIR` neither takes the
+lock nor writes a record, being an installation of its own. See D655.

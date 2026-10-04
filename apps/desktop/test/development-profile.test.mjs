@@ -135,12 +135,14 @@ test("main resolves one data directory and publishes it to everything below", ()
   assert.doesNotMatch(indexSource, /join\(homedir\(\), "\.pi-desktop"\)/);
 
   // Publishing happens after the lock verdict, which reads the same variable:
-  // moving the write above `singleInstanceRequired` would make every launch
-  // look like it had been given an explicit data directory and skip the lock.
-  const lockVerdict = indexSource.indexOf(
-    "const singleInstanceRequired = !process.env.PI_DESKTOP_DATA_DIR;",
-  );
+  // moving the write above the claim would make every launch look like it had
+  // been given an explicit data directory and skip the lock.
+  const lockVerdict = indexSource.indexOf("const installationClaim = claimInstallation({");
   assert.ok(lockVerdict > 0);
+  assert.match(
+    indexSource.slice(lockVerdict, lockVerdict + 400),
+    /lockRequired: !process\.env\.PI_DESKTOP_DATA_DIR,/,
+  );
   assert.ok(
     indexSource.indexOf("process.env.PI_DESKTOP_DATA_DIR = dataDir;") > lockVerdict,
   );

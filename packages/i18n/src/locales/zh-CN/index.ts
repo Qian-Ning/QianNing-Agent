@@ -17,6 +17,10 @@ export const zhCN = {
     copyDiagnostics: "复制诊断信息",
     diagnosticsCopied: "诊断信息已复制",
     diagnosticsFailed: "无法复制诊断信息",
+    alreadyRunningTitle: "QianNing Agent 已在运行",
+    alreadyRunningVersioned: "版本 {version} 正在使用这个配置。本次启动已切换到正在运行的窗口 —— 要先退出它才能启动 {ownVersion}。",
+    alreadyRunningUnversioned: "已有另一个实例在使用这个配置。本次启动已切换到正在运行的窗口。",
+    alreadyRunningDismiss: "知道了",
   },
   common: {
     close: "关闭",
