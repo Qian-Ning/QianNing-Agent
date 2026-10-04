@@ -168,7 +168,15 @@ globalThis.modeChipInk = async () => {
     const value = getComputedStyle(document.querySelector(selector)).color;
     return { color: value, rgba: rgba(value) };
   };
-  return { chip: read(".mode-chip"), icon: read(".composer-toolbar .icon-btn"), primary: read(".fixture-primary-ink") };
+  return {
+    chip: read(".composer-toolbar .mode-chip:not(:disabled)"),
+    icon: read(".composer-toolbar .icon-btn:not(:disabled)"),
+    // The one non-editable chip: the permission chip's blocked / goal state.
+    // It carries `icon-btn` too, so it is sampled separately — a control that
+    // is explicitly not interactive must not answer a hover.
+    disabled: read(".composer-permission .mode-chip:disabled"),
+    primary: read(".fixture-primary-ink"),
+  };
 };
 
 // D624 replaced the opaque dock band with a mask on the transcript scrollport,
