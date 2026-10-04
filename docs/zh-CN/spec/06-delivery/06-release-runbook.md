@@ -64,7 +64,7 @@ GitHub 标签通道无需任何本地前置条件即可构建 Windows、Linux �
   （issue #573）。
 - `Resources/bin/QianNing-Agent-Host-Core` — Rust 主机二进制文件（发布版本），由 electron-builder 的 `extraResources` 复制而来。
 - Windows NSIS 构建包含静态链接 MSVC CRT 的 x64
-  `pi-desktop-host-core.exe`，因此全新的 Windows x64 或 Windows 11 ARM64
+  `QianNing-Agent-Host-Core.exe`，因此全新的 Windows x64 或 Windows 11 ARM64
   （x64 模拟）安装无需在本地服务启动前单独安装 Visual C++ Redistributable。
 - `Resources/agent-runtime/` — 捆绑的 sidecar，执行
   `ELECTRON_RUN_AS_NODE=1`（未发货单独的 Node）。
@@ -202,7 +202,7 @@ GitHub Release 工作流程会在每个运行器上、检出后立即验证推�
 macOS 矩阵使用 arm64 的 `macos-15` 和 Intel x64 的
 `macos-15-intel`。每个作业验证 `uname -m`，向 electron-builder 传入匹配
 的 `--arm64` 或 `--x64`，并在同一本机运行器上构建
-`pi-desktop-host-core`。配置签名时，打包步骤从 GitHub Actions secrets 接收 `CSC_LINK`、`CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD` 和 `APPLE_TEAM_ID`，并从仓库变量接收 `MAC_SIGNING_IDENTITY`，再通过 `CSC_NAME` 固定证书（裸通用名——electron-builder 拒绝 `Developer ID Application:` 前缀），强制对应用包做代码签名与 `notarytool` 公证。随后 DMG 由 `scripts/notarize-and-staple-macos-release-dmg.sh` 单独提交到同一个服务，只有返回 `Accepted` 才允许装订票据；之后验证身份、代码签名完整性（含 `pi-desktop-host-core`）、Gatekeeper `Notarized Developer ID` 以及两份已装订票据，再进行任何工件上传。每个架构的 `latest-mac.yml` 会在上传前重命名，发布作业下载两个工件后再合并为一个更新源。
+`pi-desktop-host-core`。配置签名时，打包步骤从 GitHub Actions secrets 接收 `CSC_LINK`、`CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD` 和 `APPLE_TEAM_ID`，并从仓库变量接收 `MAC_SIGNING_IDENTITY`，再通过 `CSC_NAME` 固定证书（裸通用名——electron-builder 拒绝 `Developer ID Application:` 前缀），强制对应用包做代码签名与 `notarytool` 公证。随后 DMG 由 `scripts/notarize-and-staple-macos-release-dmg.sh` 单独提交到同一个服务，只有返回 `Accepted` 才允许装订票据；之后验证身份、代码签名完整性（含 `QianNing-Agent-Host-Core`）、Gatekeeper `Notarized Developer ID` 以及两份已装订票据，再进行任何工件上传。每个架构的 `latest-mac.yml` 会在上传前重命名，发布作业下载两个工件后再合并为一个更新源。
 
 **绝不能**用 `pnpm run <脚本> -- <参数>` 追加 electron-builder 覆盖项：pnpm 会在子进程命令行上留下一个字面量 `--`，而 electron-builder 的 CLI 解析器把 `--` 之后的一切当作位置参数——`--x64`、`-c.mac.identity=-`、`-c.mac.forceCodeSigning=true`、`-c.mac.notarize=true` 都会被静默丢弃，而构建仍然报告成功。本仓库曾因此在声称 ad-hoc 签名的同时发布了完全未签名的 macOS 应用。覆盖项必须写在 npm 脚本内部（`dist:mac:unsigned` / `dist:mac:signed`）；架构取自运行器，由 `Verify native runner architecture` 步骤断言。
 

@@ -52,7 +52,7 @@ for the official `vastsa/PI-Desktop` release lane.
    timing are unchanged.
 6. Do not reintroduce `afterPack` / `afterSign` adhoc codesign (ADR 0278).
    electron-builder's Developer ID pass signs the app, helpers, and the
-   `pi-desktop-host-core` sidecar.
+   `QianNing-Agent-Host-Core` sidecar.
 7. The unsigned first-launch note and ZIP helper remain for trusted local or
    debug unsigned builds. Official GitHub Release DMGs are signed and
    notarized and must not claim otherwise.
