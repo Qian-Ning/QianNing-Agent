@@ -17,6 +17,10 @@ export const ko = {
     copyDiagnostics: "진단 정보 복사",
     diagnosticsCopied: "진단 정보 복사됨",
     diagnosticsFailed: "진단 정보를 복사하지 못했습니다",
+    alreadyRunningTitle: "QianNing Agent이 이미 실행 중입니다",
+    alreadyRunningVersioned: "버전 {version}이 이 프로필을 사용 중입니다. 이번 실행은 실행 중인 창으로 전환되었습니다. {ownVersion}을 시작하려면 먼저 그 창을 종료하세요.",
+    alreadyRunningUnversioned: "다른 인스턴스가 이 프로필을 사용 중입니다. 이번 실행은 실행 중인 창으로 전환되었습니다.",
+    alreadyRunningDismiss: "확인",
   },
   /** Verbs and states that mean the same thing wherever they appear. */
   common: {
