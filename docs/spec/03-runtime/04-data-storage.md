@@ -1166,6 +1166,71 @@ CREATE INDEX idx_notifications_unread
   read is one indexed update, and clear deletes notification rows only. None of
   these operations changes sessions, turns, or transcripts.
 
+### 4.15 connection_profiles — user-owned outbound targets (schema v22, ADR 0320)
+
+One row records one target the user registered in the Connections destination.
+The table is the only storage this capability adds; the credential is not here,
+because a row holds a *reference* into the existing secret store and never a
+value.
+
+```sql
+CREATE TABLE connection_profiles (
+  id                   TEXT PRIMARY KEY,
+  label                TEXT NOT NULL,
+  kind                 TEXT NOT NULL CHECK (kind IN ('ssh', 'serial', 'telnet', 'raw-tcp')),
+  enabled              INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
+  target_json          TEXT NOT NULL,
+  credential_ref       TEXT,
+  host_key_policy      TEXT NOT NULL DEFAULT 'strict'
+                         CHECK (host_key_policy IN ('strict', 'accept-new', 'pinned')),
+  host_key_fingerprint TEXT,
+  multiplex            TEXT NOT NULL DEFAULT 'per-call'
+                         CHECK (multiplex IN ('per-call', 'multiplex')),
+  limits_json          TEXT NOT NULL DEFAULT '{}',
+  last_probe_json      TEXT,
+  created_at           INTEGER NOT NULL,
+  updated_at           INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX idx_connection_profiles_label
+  ON connection_profiles(label COLLATE NOCASE);
+CREATE INDEX idx_connection_profiles_enabled
+  ON connection_profiles(enabled, label COLLATE NOCASE);
+```
+
+- `target_json` holds the typed `target` object from
+  `03-runtime/23-connections-protocol.md` §2.1, tagged by `kind` so a stored row
+  is self-describing; the `kind` column and the tag must agree, and the write
+  path refuses a pair that does not.
+- `enabled` is a switch, not a counter, and it defaults to `0`: creating a
+  target does not make it reachable. `connection.list` reports only enabled
+  rows, and a call naming a disabled one is refused by name rather than
+  reported as absent.
+- `label` is what the user reads, so the unique index is case-insensitive: two
+  targets differing only in case are two targets the user cannot tell apart.
+  The store's write path checks the same rule and returns a parameter error
+  rather than surfacing a constraint violation.
+- `credential_ref` is a handle — `conn:<profile id>` — resolved through
+  `SecretStore` at spawn time and returned by no method, on either surface.
+  Deleting a profile deletes the secret it names, in the same call.
+- `host_key_fingerprint` is required when the policy is `pinned` and is cleared
+  when the policy moves to a looser one, so a row cannot suggest it still
+  enforces a key it does not.
+- `limits_json` holds `timeoutMs`, `outputBytes`, and `streamBytes`. Each may
+  lower the host maximum and never raise it; the effective values are computed
+  at call time, so a stale stored ceiling cannot widen a budget that has
+  changed.
+- `last_probe_json` is the most recent probe's outcome — success or failure —
+  so the destination can show a target's state without connecting to it. It is
+  display state: nothing gates on it.
+- Every Agent-facing call and every profile mutation writes one `audit_log` row
+  of kind `connection`; `connection.activity` reads those rows back for one
+  profile, newest first and bounded.
+
+**Migration.** v21 → v22 is purely additive: one `CREATE TABLE` batch plus three
+indexes, no existing table, column, or row is touched, and the migration is
+`CREATE ... IF NOT EXISTS` so a repeated attempt is harmless. A
+`pi.sqlite.v21.bak` copy precedes it, like every other in-place migration.
+
 ### Dropped from v1
 
 | v1 table | v2 home |

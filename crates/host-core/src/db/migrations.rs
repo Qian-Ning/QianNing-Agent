@@ -1002,3 +1002,25 @@ pub(crate) fn migrate_v20_to_v21(conn: &Connection, path: &Path) -> Result<()> {
     })?;
     Ok(())
 }
+
+/// v22 adds the `connection_profiles` table for the outbound connection layer
+/// (ADR 0320). Purely additive: no existing table, column, or row is touched,
+/// and `CREATE TABLE IF NOT EXISTS` makes a repeated attempt harmless.
+pub(crate) fn migrate_v21_to_v22_tx(tx: &rusqlite::Transaction<'_>) -> Result<()> {
+    tx.execute_batch(crate::db::schema::CONNECTIONS_SCHEMA)?;
+    tx.pragma_update(None, "user_version", 22i64)?;
+    Ok(())
+}
+
+pub(crate) fn migrate_v21_to_v22(conn: &Connection, path: &Path) -> Result<()> {
+    let backup = create_migration_backup(conn, path, 21)?;
+    let tx = conn.unchecked_transaction()?;
+    migrate_v21_to_v22_tx(&tx)?;
+    tx.commit().with_context(|| {
+        format!(
+            "commit schema v21 to v22 migration; backup {} remains",
+            backup.display()
+        )
+    })?;
+    Ok(())
+}

@@ -33,7 +33,8 @@ destination, chat as the home surface, tools and permissions inline.
   **Sessions** section with new-session and sort actions, retained open-project
   groups under a following **Projects** section with a persistent new-project
   action, and the WorkBuddy-inspired footer. The footer keeps compact Settings,
-  Extensions, Skins (palette), Scheduled (clock), and notification icon actions;
+    Extensions, Skins (palette), Scheduled (clock), Connections (server), and
+    notification icon actions;
   Pull requests remains omitted from the home sidebar. The Skins entry opens the
   skin center as a full page (a whole-look swap — colours plus an optional
   image/video wallpaper — layered on top of the light/dark/QianNing theme, and

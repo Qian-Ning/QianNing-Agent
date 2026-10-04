@@ -369,6 +369,30 @@ export const IPC = {
     menuRendererReady: "pi-desktop/menu/rendererReady",
     traySetSessionPreferences: "pi-desktop/tray/setSessionPreferences",
     nativeMenuAction: "pi-desktop/menu/nativeAction",
+    /**
+     * Connections (ADR 0320). These are the profile methods a person drives
+     * from the Connections destination, plus the audit read the detail view
+     * shows. They are deliberately not the agent-facing `connection.list`,
+     * `connection.probe`, and `connection.exec`, which sit behind the global
+     * switch and reach the host as Agent tool calls rather than as channels.
+     */
+    connectionProfiles: "pi-desktop/connection/profiles",
+    /**
+     * The destination's Probe button calls the *agent-facing* `connection.probe`
+     * on purpose: probing dials a target, so it belongs behind the same global
+     * switch. The gate lives in the host, so a renderer cannot bypass it — while
+     * the switch is off this channel answers `CONNECTION_DISABLED`, which is why
+     * the button is disabled there too.
+     */
+    connectionProbe: "pi-desktop/connection/probe",
+    connectionCreate: "pi-desktop/connection/create",
+    connectionUpdate: "pi-desktop/connection/update",
+    connectionDelete: "pi-desktop/connection/delete",
+    connectionSetEnabled: "pi-desktop/connection/setEnabled",
+    connectionSetCredential: "pi-desktop/connection/setCredential",
+    connectionClearCredential: "pi-desktop/connection/clearCredential",
+    connectionAcceptHostKey: "pi-desktop/connection/acceptHostKey",
+    connectionActivity: "pi-desktop/connection/activity",
   },
   event: {
     pluginChanged: "pi-desktop/event/pluginChanged",

@@ -15,6 +15,7 @@ import {
   IconClock,
   IconNewSession,
   IconSearch,
+  IconServer,
   IconSettings,
   IconSliders,
 } from "./icons";
@@ -23,6 +24,7 @@ import {
 const PAGE_ENTRIES = [
   { page: "scheduled", labelKey: "scheduled.title", icon: IconClock },
   { page: "plugins", labelKey: "nav.plugins", icon: IconAt },
+  { page: "connections", labelKey: "connections.title", icon: IconServer },
 ] as const;
 
 type PageEntry = (typeof PAGE_ENTRIES)[number];

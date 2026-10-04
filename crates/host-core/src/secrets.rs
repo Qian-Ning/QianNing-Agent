@@ -7,6 +7,10 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Cheap to clone: a directory path and the machine key. The connection layer
+/// clones it so a network call can resolve a credential without holding the
+/// host state lock across the wait.
+#[derive(Clone)]
 pub struct SecretStore {
     dir: PathBuf,
     key: [u8; 32],

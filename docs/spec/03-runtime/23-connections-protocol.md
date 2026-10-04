@@ -166,11 +166,12 @@ close them, because they are how a person opens the switch in the first place.
 |---|---|
 | `connection.profiles` | every profile, including disabled ones, with the credential reference as a boolean "configured" |
 | `connection.create` | create a profile; validates per kind and refuses a duplicate label |
-| `connection.update` | edit a profile; a changed credential is written to the secret store and the old value removed |
+| `connection.update` | edit a profile; the secret is not part of it, because `connection.setCredential` is the one path that writes one |
 | `connection.delete` | delete a profile and its secret; idempotent |
 | `connection.setEnabled` | flip one profile's switch |
 | `connection.setCredential` | write a secret into the store under the profile's reference |
 | `connection.clearCredential` | remove the stored secret |
+| `connection.acceptHostKey` | record the fingerprint a person accepted for an unknown or changed host key, and set the policy to `pinned` |
 | `connection.activity` | recent audit rows for one profile, newest first, bounded |
 
 Every one of these is recorded by the audit trail (§10) with the acting
@@ -295,8 +296,16 @@ the rule is that the listing predicate and the execution predicate are the same
 function. D659's defect class — a model that saw a tool on an earlier turn still
 holds its definition — applies here identically.
 
-Reads (`connection.list`, `connection.probe`, the user-facing methods) are not
-behind the switch, because they are what let a caller see before it acts.
+Every Agent-facing method is behind the switch, with no read exemption:
+`connection.list` is how a caller learns the inventory, and `connection.probe`
+opens a connection and authenticates. An "off" that still allowed either would
+let a caller enumerate the user's hosts and make this machine dial them. The
+user-facing methods are not gated, because seeing a target is how a person
+decides to switch it on — with one deliberate exception: the destination's
+Probe button calls `connection.probe` itself, because probing dials the target
+and dialling is what the global switch governs. The gate is read in the host,
+so the interface cannot route around it; while the switch is off the button is
+disabled and a call that went out anyway would be refused with `1029`.
 
 ## 9. Error codes
 

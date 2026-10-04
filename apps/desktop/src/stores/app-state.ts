@@ -178,7 +178,7 @@ export type AppState = {
   toasts: ToastItem[];
   notifications: AppNotification[];
   unreadNotificationCount: number;
-  page: "chat" | "scheduled" | "plugins" | "skins" | "settings";
+  page: "chat" | "scheduled" | "plugins" | "skins" | "connections" | "settings";
   /** Tab ids come from the shared settings index. */
   settingsTab: SettingsTabId;
   /** Pending row anchor (i18n key) to flash after landing on a settings tab. */

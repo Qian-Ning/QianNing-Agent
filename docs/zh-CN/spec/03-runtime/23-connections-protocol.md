@@ -151,11 +151,12 @@
 |---|---|
 | `connection.profiles` | 全部配置，含已禁用的，凭据引用以「是否已配置」的布尔值给出 |
 | `connection.create` | 创建配置；按 kind 校验，标签重复即拒绝 |
-| `connection.update` | 编辑配置；凭据变更时写入秘密库并删除旧值 |
+| `connection.update` | 编辑配置；秘密不属于它，因为 `connection.setCredential` 是唯一写入秘密的通路 |
 | `connection.delete` | 删除配置及其秘密；幂等 |
 | `connection.setEnabled` | 翻转某条配置的开关 |
 | `connection.setCredential` | 把秘密写入该配置引用下的秘密库 |
 | `connection.clearCredential` | 删除已存的秘密 |
+| `connection.acceptHostKey` | 记录一个人在主机密钥未知或变更时接受的指纹，并把策略置为 `pinned` |
 | `connection.activity` | 某条配置最近的审计行，倒序，有界 |
 
 以上每一个都由审计轨迹（§10）记录，并带上行为主体。它们照旧受 host-core 的普通
@@ -269,8 +270,13 @@ allowed(profileId) =
 函数**。D659 记录的那类缺陷 —— 模型在前一轮见过某工具，于是仍然握着它的定义 ——
 在这里一模一样地成立。
 
-读方法（`connection.list`、`connection.probe`、面向用户的方法）不在开关之后，
-因为正是它们让调用者能在动手之前先看。
+面向智能体的每个方法都在开关之后，没有只读豁免：`connection.list` 是调用方获知
+清单的途径，`connection.probe` 会建立连接并认证。任何仍然放行这两者的「关闭」，
+都等于允许调用方枚举用户的主机、并让本机拨出去。面向用户的方法不受门控，因为
+看到目标正是用户决定开启它的依据 —— 有一个刻意的例外：目的地里的「探测」按钮
+调用的就是 `connection.probe` 本身，因为探测要拨号，而拨号正是全局开关管的事。
+门在宿主里读，界面绕不过去；开关关着时按钮是禁用的，即便真的发出请求也会以
+`1029` 被拒绝。
 
 ## 9. 错误码
 

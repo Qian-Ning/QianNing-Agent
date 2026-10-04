@@ -1001,6 +1001,61 @@ CREATE INDEX idx_notifications_unread
   read 是一项索引更新，而clear 仅删除通知行。没有一个
   这些操作会更改会话、回合或记录。
 
+### 4.15 connection_profiles — 用户自有的出向目标（schema v22，ADR 0320）
+
+一行记录一个用户在「连接」目的地里登记的目标。这张表是本能力唯一的存储新增；
+凭据不在这里 —— 一行只持有指向既有秘密库的**引用**，从不持有值。
+
+```sql
+CREATE TABLE connection_profiles (
+  id                   TEXT PRIMARY KEY,
+  label                TEXT NOT NULL,
+  kind                 TEXT NOT NULL CHECK (kind IN ('ssh', 'serial', 'telnet', 'raw-tcp')),
+  enabled              INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
+  target_json          TEXT NOT NULL,
+  credential_ref       TEXT,
+  host_key_policy      TEXT NOT NULL DEFAULT 'strict'
+                         CHECK (host_key_policy IN ('strict', 'accept-new', 'pinned')),
+  host_key_fingerprint TEXT,
+  multiplex            TEXT NOT NULL DEFAULT 'per-call'
+                         CHECK (multiplex IN ('per-call', 'multiplex')),
+  limits_json          TEXT NOT NULL DEFAULT '{}',
+  last_probe_json      TEXT,
+  created_at           INTEGER NOT NULL,
+  updated_at           INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX idx_connection_profiles_label
+  ON connection_profiles(label COLLATE NOCASE);
+CREATE INDEX idx_connection_profiles_enabled
+  ON connection_profiles(enabled, label COLLATE NOCASE);
+```
+
+- `target_json` 存放 `03-runtime/23-connections-protocol.md` §2.1 里带类型的
+  `target` 对象，以 `kind` 打标签，因此一行自己就能说明形状；`kind` 列与标签
+  必须一致，写入路径会拒绝不一致的一对。
+- `enabled` 是开关，不是计数器，默认 `0`：创建目标不会让它可达。
+  `connection.list` 只报已启用的行；指名一个未启用的目标按名字拒绝，而不是
+  当作不存在。
+- `label` 是用户读到的东西，所以唯一索引不区分大小写：只差大小写的两个目标，
+  就是用户分不清的两个目标。存储写入路径检查同一条规则，返回参数错误而不是
+  把约束冲突抛到面上。
+- `credential_ref` 是句柄 —— `conn:<profile id>` —— 只在生成进程时经
+  `SecretStore` 解析，任何面上都没有方法会返回它。删除配置会在同一次调用里
+  删掉它指名的秘密。
+- `host_key_policy` 为 `pinned` 时 `host_key_fingerprint` 为必填；策略改回更
+  宽松的取值时它会被清空，避免一行暗示自己仍在强制一个它已不再强制的密钥。
+- `limits_json` 存放 `timeoutMs`、`outputBytes`、`streamBytes`。每一项都只能
+  下调宿主上限、绝不能上调；有效值在调用时计算，因此一个陈旧的存储上限无法
+  放宽一个已经变化了的预算。
+- `last_probe_json` 是最近一次探测的结果（成功或失败），让目的地不必连接就能
+  显示目标状态。它是展示状态：没有任何门控依赖它。
+- 每一次面向智能体的调用、每一次配置变更，都会写一行 `audit_log`，kind 为
+  `connection`；`connection.activity` 按配置读回这些行，最新在前、有上限。
+
+**迁移。** v21 → v22 纯属新增：一个 `CREATE TABLE` 批次加三个索引，不触碰任何
+既有表、列或行，且使用 `CREATE ... IF NOT EXISTS`，重复尝试无害。迁移前会留下
+`pi.sqlite.v21.bak` 副本，与其余就地迁移一致。
+
 ### 从 v1 中删除
 
 | v1表 | v2首页 |

@@ -508,6 +508,36 @@ export function SettingsPage() {
                 </SettingsRow>
               </SettingsCard>
 
+              <SettingsCard title={t("settings.connectionControl")}>
+                <SettingsRow
+                  title={t("settings.connectionControl")}
+                  description={t("settings.connectionControlDesc")}
+                >
+                  <SettingsToggle
+                    checked={settings.remoteControlEnabled === true}
+                    label={t("settings.connectionControl")}
+                    onChange={() =>
+                      void saveSettings({
+                        remoteControlEnabled: settings.remoteControlEnabled !== true,
+                      })
+                    }
+                  />
+                </SettingsRow>
+                <SettingsRow
+                  title={t("connections.title")}
+                  description={t("connections.subtitle")}
+                >
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setPage("connections");
+                    }}
+                  >
+                    {t("connections.title")}
+                  </Button>
+                </SettingsRow>
+              </SettingsCard>
+
               <SettingsCard title={t("settings.defaultsTitle")}>
                 <SettingsRow title={t("settings.mode")} description={t("settings.modeDesc")}>
                   <SegmentedControl
