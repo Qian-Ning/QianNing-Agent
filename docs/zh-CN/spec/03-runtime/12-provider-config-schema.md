@@ -272,11 +272,17 @@ MiniMax (OpenAI)（`chat_completions`，`https://api.minimaxi.com/v1`，别名
 |---|---|---|---|
 | anthropic | Claude Pro/Max | anthropic_messages | PKCE + 本地回调 |
 | openai-codex | ChatGPT Plus/Pro | openai_codex_responses | PKCE + 本地回调，或手动贴码 |
+| openai | ChatGPT 订阅 | openai_responses | PKCE + 本地回调，或贴回调 URL |
 | github-copilot | Copilot | 随模型而变 | 设备码 |
 | openrouter | 账户余额 | chat_completions | PKCE + 本地回调 |
 | kimi-coding | Kimi | chat_completions（仅 headers 认证） | 设备码 |
 | xai | xAI | chat_completions | 设备码 |
 | radius | Radius | pi_messages | PKCE + 本地回调 |
+| meta | Meta Muse 订阅 | openai_responses | 设备码 |
+
+`openai` 与 `openai-codex` 同属一份 ChatGPT 订阅的两条线路：`openai` 走
+`https://api.openai.com/v1` 的 Responses API，`openai-codex` 保留
+`https://chatgpt.com/backend-api` 的 Codex 后端。两者各占一行，用户可分别登录。
 
 ## 4. 模型目录缓存记录
 

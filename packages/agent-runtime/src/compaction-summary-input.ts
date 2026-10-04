@@ -1,10 +1,7 @@
-import {
-  convertToLlm,
-  estimateTokens,
-  serializeConversation,
-  type AgentMessage,
-  type CompactionPreparation,
-} from "@earendil-works/pi-agent-core";
+import { type AgentMessage } from "@earendil-works/pi-agent-core";
+import { estimateTokens } from "./pi-runtime-estimates.js";
+import { convertToLlm, serializeConversation } from "./pi-runtime-messages.js";
+import type { CompactionPreparation } from "./pi-runtime-types.js";
 import type { RetryPolicy, Usage } from "@earendil-works/pi-ai";
 import { truncateMessageText } from "./agent-messages.js";
 import { DEFAULT_MAX_TOKENS } from "./provider-binding.js";

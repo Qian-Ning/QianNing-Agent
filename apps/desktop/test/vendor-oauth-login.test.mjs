@@ -537,6 +537,7 @@ test("the real pi-ai catalog offers every vendor account we ship", async () => {
       "github-copilot",
       "kimi-coding",
       "meta",
+      "openai",
       "openai-codex",
       "openrouter",
       "radius",
@@ -565,7 +566,7 @@ test("the ChatGPT OAuth catalog includes GPT-6 Astra", async () => {
   assert.equal(model.api, "openai-codex-responses");
 });
 
-test("the pi-ai 0.87.1 OAuth catalogs include the stable model wires", async () => {
+test("the pi-ai OAuth catalogs include the stable model wires", async () => {
   const { OPENAI_CODEX_MODELS } = await import(
     "@earendil-works/pi-ai/providers/openai-codex.models"
   );

@@ -1,4 +1,4 @@
-import type { Entry } from "@earendil-works/pi-agent-core";
+import type { Entry } from "./pi-runtime-types.js";
 
 import { isRecord } from "./agent-messages.js";
 

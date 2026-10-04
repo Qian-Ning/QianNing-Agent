@@ -13,10 +13,8 @@
  */
 
 import type { Api, Model } from "@earendil-works/pi-ai";
-import {
-  estimateContextTokens,
-  type AgentMessage,
-} from "@earendil-works/pi-agent-core";
+import { type AgentMessage } from "@earendil-works/pi-agent-core";
+import { estimateContextTokens } from "./pi-runtime-estimates.js";
 import {
   DEFAULT_CONTEXT_WINDOW,
   DEFAULT_MAX_TOKENS,
