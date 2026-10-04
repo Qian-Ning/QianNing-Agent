@@ -621,6 +621,25 @@ const DEFAULT_LARGE_PASTE_THRESHOLD: i64 = 600;
 const MIN_LARGE_PASTE_THRESHOLD: i64 = 1;
 const MAX_LARGE_PASTE_THRESHOLD: i64 = 1_000_000;
 
+/// Monthly spend ceiling for the usage dashboard (D657). A ceiling below one
+/// cent cannot be spent against, and one above a hundred million dollars is a
+/// typo rather than a budget, so both ends are refused.
+const MIN_USAGE_BUDGET_USD: f64 = 0.01;
+const MAX_USAGE_BUDGET_USD: f64 = 100_000_000.0;
+
+/// A ceiling is valid when it is absent, null (no ceiling), or a finite
+/// number inside the accepted range. Rejects NaN and the infinities, which
+/// `serde_json` will parse from `1e999` and which would poison every
+/// comparison the dashboard makes.
+fn valid_usage_budget_usd(value: &Value) -> bool {
+    match value {
+        Value::Null => true,
+        other => other.as_f64().is_some_and(|usd| {
+            usd.is_finite() && (MIN_USAGE_BUDGET_USD..=MAX_USAGE_BUDGET_USD).contains(&usd)
+        }),
+    }
+}
+
 fn normalize_settings_value(mut value: Value) -> Value {
     if let Some(object) = value.as_object_mut() {
         object.remove("planApprovalPermissionMode");
@@ -648,6 +667,20 @@ fn normalize_settings_value(mut value: Value) -> Value {
                 "largePasteThreshold".into(),
                 Value::Number(DEFAULT_LARGE_PASTE_THRESHOLD.into()),
             );
+        }
+        // The spend ceiling is presentational, so an unusable value is repaired
+        // to the canonical shape `{ "monthlyUsd": null }` rather than failing a
+        // settings load. `settings.set` rejects the same shapes outright, so a
+        // repaired value only ever comes from a store written by another build.
+        if let Some(budget) = object.get("usageBudget") {
+            let monthly = budget
+                .get("monthlyUsd")
+                .filter(|usd| valid_usage_budget_usd(usd))
+                .cloned()
+                .unwrap_or(Value::Null);
+            let mut next = serde_json::Map::new();
+            next.insert("monthlyUsd".into(), monthly);
+            object.insert("usageBudget".into(), Value::Object(next));
         }
         // The network policy replaced three per-feature switches. A section that
         // is present is written back in the shape
@@ -904,6 +937,24 @@ fn validate_settings_value(value: &Value) -> Result<(), JsonRpcError> {
     }
     if let Err(message) = crate::network_proxy::validate_network_proxy(value) {
         return Err(rpc_err(1002, message, "INVALID_PARAMS"));
+    }
+    if let Some(budget) = object.get("usageBudget").filter(|v| !v.is_null()) {
+        let Some(budget) = budget.as_object() else {
+            return Err(rpc_err(
+                1002,
+                "usageBudget must be an object",
+                "INVALID_PARAMS",
+            ));
+        };
+        if let Some(monthly) = budget.get("monthlyUsd") {
+            if !valid_usage_budget_usd(monthly) {
+                return Err(rpc_err(
+                    1002,
+                    "usageBudget.monthlyUsd must be null or a positive amount",
+                    "INVALID_PARAMS",
+                ));
+            }
+        }
     }
     let Some(shell_value) = object.get("defaultCommandShell") else {
         return Ok(());

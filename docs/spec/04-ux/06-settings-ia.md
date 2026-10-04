@@ -290,7 +290,12 @@ an hour-bucketed trend, an editable model-pricing cost estimate, and a
 per-series colour palette, and Settings search indexes it under `usage`. D656
 extends the tab with a 26-week calendar heatmap, a per-project breakdown, a
 least-squares projection of the next buckets with a robust outlier list, and
-CSV/JSON export of the window. The plugin remains the upstream surface; the
+CSV/JSON export of the window. D657 adds a monthly spend ceiling above the
+trend: one `AppSettings.usageBudget.monthlyUsd` preference, a month-to-date
+figure measured against the same priced-turn ledger, and a progress bar that
+moves to `approaching` from 80% and states the overrun past the ceiling. The
+ceiling reports only — no turn is blocked — and clearing the field removes it.
+The plugin remains the upstream surface; the
 fork does not depend on it.
 
 ### Shortcuts (`shortcuts` tab)

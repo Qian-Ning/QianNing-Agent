@@ -131,6 +131,7 @@ import {
   normalizeMode,
   normalizeNetworkProxy,
   normalizeNetworkPolicy,
+  normalizeUsageBudget,
   resolveFontScale,
   normalizeChatContentMaxWidth,
   validateNetworkPolicy,
@@ -371,6 +372,9 @@ export function normalizeSettings(settings: AppSettings): AppSettings {
     networkPolicy: normalizeNetworkPolicy(
       (settings as { networkPolicy?: unknown }).networkPolicy,
     ),
+    usageBudget: normalizeUsageBudget(
+      (settings as { usageBudget?: unknown }).usageBudget,
+    ),
   };
 }
 
@@ -395,6 +399,7 @@ export function validateSettingsWrite(settings: AppSettings): AppSettings {
     lastNotifiedUpdateVersion?: unknown;
     networkProxy?: unknown;
     networkPolicy?: unknown;
+    usageBudget?: unknown;
   };
   if (
     Object.prototype.hasOwnProperty.call(value, "defaultCommandShell") &&
@@ -481,6 +486,26 @@ export function validateSettingsWrite(settings: AppSettings): AppSettings {
       });
     }
     value.networkPolicy = policy.value;
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "usageBudget")) {
+    const budget = value.usageBudget;
+    if (budget !== null && budget !== undefined) {
+      if (typeof budget !== "object" || Array.isArray(budget)) {
+        throw Object.assign(new Error("usageBudget is invalid"), {
+          errorCode: "INVALID_PARAMS",
+        });
+      }
+      const normalized = normalizeUsageBudget(budget);
+      if (
+        !normalized ||
+        normalized.monthlyUsd !== (budget as { monthlyUsd?: unknown }).monthlyUsd
+      ) {
+        throw Object.assign(new Error("usageBudget.monthlyUsd is invalid"), {
+          errorCode: "INVALID_PARAMS",
+        });
+      }
+    }
+    value.usageBudget = normalizeUsageBudget(budget);
   }
   if (Object.prototype.hasOwnProperty.call(value, "speech")) {
     (value as AppSettings).speech = validateSpeechSettings(
