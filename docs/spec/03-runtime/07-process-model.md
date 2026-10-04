@@ -37,6 +37,17 @@ run pointed at its own `PI_DESKTOP_DATA_DIR` (E2E harnesses, the capture rig, a
 side-by-side profile) shares no database, outbox, or logs with the default
 installation and stays launchable while one is running (D236, ADR 0094).
 
+A launch that does not take the lock reads the winner's record —
+`<userData>/installation-owner.json`, written by whichever process took the
+lock, at the moment it took it — and explains the refusal in a native dialog
+before it exits. The window that appears is not necessarily the one the user
+launched: after an update, the build already running can be an older release.
+The record names the winning version and its pid; a pid that is no longer
+running is read as no record at all, so the notice never names a process that
+has exited. A refusal by the same version stays silent, because the window it
+raised *is* that version. The notice is the only thing a refused launch
+creates: still no window, no tray, no child process, and no log line (D655).
+
 A development build is its own installation rather than a second process of
 the same one: it runs under `QianNing Agent Dev` in the OS application-data root
 and reads `~/.qianning-agent-dev`. `pnpm dev` therefore starts while a packaged app

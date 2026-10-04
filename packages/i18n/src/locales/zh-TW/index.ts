@@ -17,6 +17,10 @@ export const zhTW = {
     copyDiagnostics: "複製診斷資訊",
     diagnosticsCopied: "診斷資訊已複製",
     diagnosticsFailed: "無法複製診斷資訊",
+    alreadyRunningTitle: "QianNing Agent 已在執行",
+    alreadyRunningVersioned: "版本 {version} 正在使用這個設定。本次啟動已切換到正在執行的視窗 —— 必須先結束它才能啟動 {ownVersion}。",
+    alreadyRunningUnversioned: "已有另一個實例正在使用這個設定。本次啟動已切換到正在執行的視窗。",
+    alreadyRunningDismiss: "知道了",
   },
   common: {
     close: "關閉",
