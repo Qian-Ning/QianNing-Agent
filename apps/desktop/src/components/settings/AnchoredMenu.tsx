@@ -10,6 +10,12 @@
  * The menu is measured before it is revealed, so `is-open` gates visibility:
  * a `visibility: hidden` surface cannot take focus, and an unmeasured one
  * would flash at the viewport origin.
+ *
+ * The entrance scale grows out of the anchor (design-system §8.9): the same
+ * measurement that places the surface yields the anchor's near corner in the
+ * surface's own pixels, and that becomes `transform-origin`. Every anchored
+ * surface therefore unfolds from its trigger instead of from its centre,
+ * whichever way the viewport pushed it.
  */
 import {
   useCallback,
@@ -21,6 +27,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { deriveEntranceOrigin } from "./anchored-origin";
 
 const MARGIN = 8;
 const GAP = 6;
@@ -83,6 +90,8 @@ export function AnchoredMenu({
     top: number;
     left: number;
     width?: number;
+    originX: number;
+    originY: number;
   } | null>(null);
 
   useEffect(() => {
@@ -160,13 +169,26 @@ export function AnchoredMenu({
       : fallbackFits
         ? fallbackTop
         : Math.min(Math.max(MARGIN, preferredTop), maxTop);
+    /*
+      §8.9 — the entrance scale grows out of the anchor, not out of the
+      surface's centre. The placement above already measured both boxes, so the
+      origin is a subtraction, not a second layout read.
+    */
+    const origin = deriveEntranceOrigin(anchorRect, {
+      left,
+      top,
+      width: surfaceWidth,
+      height: menuHeight,
+    });
     setPosition((previous) =>
       previous &&
       previous.top === top &&
       previous.left === left &&
-      previous.width === width
+      previous.width === width &&
+      previous.originX === origin.x &&
+      previous.originY === origin.y
         ? previous
-        : { top, left, width },
+        : { top, left, width, originX: origin.x, originY: origin.y },
     );
   }, [align, anchorRef, matchAnchorWidth, onClose, side]);
 
@@ -244,6 +266,7 @@ export function AnchoredMenu({
                   ? {
                       top: `${position.top}px`,
                       left: `${position.left}px`,
+                      transformOrigin: `${position.originX}px ${position.originY}px`,
                       ...(position.width === undefined
                         ? {}
                         : { width: `${position.width}px` }),

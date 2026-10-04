@@ -26,6 +26,13 @@
  *  - a raw 150 / 200 / 300ms duration where §8.1 defines a token: those three
  *    values are `--motion-duration-fast` / `-normal` / `-slow`. Delays and
  *    bespoke one-off durations are left alone.
+ *  - a corner-keyword `transform-origin` on a rule that runs an entrance
+ *    animation — §8.9: an anchored surface derives its origin from the
+ *    trigger's rect, so `bottom right` is a guess that can only hold for the
+ *    one trigger position it was written against. Percentages stay allowed:
+ *    they name the same point without claiming which side the anchor is on.
+ *    The rule is same-rule, so an origin split into its own selector block is
+ *    not caught here — the anchored-surface contract test pins that case.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -48,6 +55,13 @@ const PAIRED_STATE = [
   ":focus", ":active", ":checked", ":target", "::-webkit-scrollbar",
   "[aria-expanded", "[data-scrolling", "[data-window-blur", "[aria-pressed]",
 ];
+
+/**
+ * `top` / `right` / `bottom` / `left` — but never `center`, and only as a whole
+ * word, so `2lh` or a class name cannot trip it. Percentages are the escape
+ * hatch: they name the same corner without asserting which side it faces.
+ */
+const ORIGIN_KEYWORD = /(?:^|[\s,])(?:top|right|bottom|left)(?=$|[\s,;!])/;
 
 const collapse = (value) => value.replace(/\s+/g, " ").trim();
 const bare = (value) => value.replace(COMMENT, "").trim();
@@ -156,6 +170,18 @@ export function checkSource(source, file, context) {
     }
     for (const hit of rule.body.matchAll(/\bscale[XY]?\(\s*0\s*\)/g)) {
       push(offsetLine(rule, rule.body, hit.index), "`scale(0)` enter state — start from a near-one scale (§8.6)");
+    }
+    // §8.9: an anchored surface grows out of its trigger. A corner keyword in
+    // the same rule as the entrance animation is a hard-coded guess at which
+    // side the trigger sits on, so it is only ever right for one placement.
+    const origin = rule.body.match(/(?:^|;|\n)\s*transform-origin\s*:\s*([^;]+)/);
+    // Read the value rather than assert on it: `\s*` before a lookahead
+    // backtracks to zero width and lands on the space instead of `none`.
+    const animation = rule.body.match(/(?:^|;|\n)\s*animation\s*:\s*([^;]+)/)?.[1];
+    if (origin && animation !== undefined && !/^\s*none\b/.test(animation) &&
+        ORIGIN_KEYWORD.test(bare(origin[1]))) {
+      push(offsetLine(rule, rule.body, origin.index),
+        "corner-keyword `transform-origin` on an animated surface — derive it from the anchor (§8.9)");
     }
     // A hover-only rule must be gated. A rule that pairs `:hover` with a
     // keyboard state in one selector list stays whole on purpose: gating it
