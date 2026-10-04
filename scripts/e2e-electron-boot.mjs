@@ -5,8 +5,13 @@
  * E2E-SESSION-list-refresh-keeps-desktop-responsive against 800 synthetic
  * sessions (BOOT_PROBE emitted by electron/main/bootstrap/startup.ts).
  *
- * Prereqs: `pnpm --filter @pi-desktop/desktop build` and a host-core binary
+ * Prereqs: `pnpm build:js` (the workspace packages this imports), then
+ * `pnpm --filter @pi-desktop/desktop build`, and a host-core binary
  * (target/debug or target/release, or PI_DESKTOP_HOST_BIN).
+ *
+ * The app name this asserts on is `APP_NAME` from packages/shared, the same
+ * constant electron/main sets with `app.setName` — a literal here would be a
+ * second source of truth that silently stops matching after a rename.
  */
 import { spawn } from "node:child_process";
 import { rmSync, existsSync, readFileSync } from "node:fs";
@@ -16,6 +21,7 @@ import {
   repositoryRoot,
   resolveElectronBinary,
 } from "./e2e/boot.mjs";
+import { APP_NAME } from "../packages/shared/dist/protocol.js";
 
 const root = repositoryRoot();
 const { appDir, electronBinary: electronBin } = resolveElectronBinary(root);
@@ -125,7 +131,7 @@ child.on("close", (code) => {
   if (
     code === 0 &&
     probe?.ok &&
-    probe.appName === "PI-Desktop" &&
+    probe.appName === APP_NAME &&
     probe.platform === process.platform &&
     (process.platform === "darwin" || probe.maximized === true) &&
     menuContractOk &&

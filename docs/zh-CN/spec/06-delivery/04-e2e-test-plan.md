@@ -1754,22 +1754,25 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
 - **先决条件**：Linux x64 软件包验证运行或标签发布可以在 Ubuntu 22.04
   上完成；有一台干净的 Fedora 44 KDE/Wayland 机器用于安装和启动。
 - **步骤**：1) 构建 Linux 目标，并使用 `rpm -qip` 和 `rpm -qpl` 检查 RPM。
-  2) 确认软件包包含应用归档、host-core、`pi-desktop.desktop` 和 512px
-  的 `pi-desktop` 图标。3) 确认 RPM 没有全局 `/usr/lib/.build-id` 链接。
+  2) 确认软件包包含应用归档、host-core、`.desktop` 桌面项和 hicolor 应用
+  图标；这些名称来自 `apps/desktop/package.json` 的 `linux.executableName`
+  与 `desktopName`——当前为 `qianning-agent.desktop` 与 512px 的
+  `qianning-agent` 图标。3) 确认 RPM 没有全局 `/usr/lib/.build-id` 链接。
   4) 在 Fedora KDE/Wayland 机器上安装 RPM，并从桌面项启动 QianNing Agent。
   5) 检查任务栏分组和已安装的桌面项。
 - **预期**：生成具有文档所述名称的 x64 RPM，并与发布工件一起上传。桌面项
-  包含 `Icon=pi-desktop` 和 `StartupWMClass=pi-desktop`；运行中的 Wayland
-  窗口与 QianNing Agent 启动器正确分组并显示其图标，而不是通用 Electron 图标。
-  软件包更新仍采用通知并打开链接的模式，捆绑的 Electron 二进制文件不会生成
-  全局 build-id 链接。
+  包含 `Icon=qianning-agent` 和 `StartupWMClass=qianning-agent`：这两个值由
+  `scripts/linux-package-paths.mjs` 从该配置推导，也正是软件包验证工作流断言
+  的值，因此检查不会再漂移回旧产品名。运行中的 Wayland 窗口与 QianNing Agent
+  启动器正确分组并显示其图标，而不是通用 Electron 图标。软件包更新仍采用
+  通知并打开链接的模式，捆绑的 Electron 二进制文件不会生成全局 build-id 链接。
 - **链接规格**：`01-product/01-product-scope.md`、
   `04-ux/09-interaction-patterns.md`、`06-delivery/06-release-runbook.md`
 - **验收**：质量（发布打包和桌面集成）
 - **里程碑**：M6+
 - **状态**：单元/源代码契约已覆盖（`auto-update.test.mjs`、
-  `development-branding.test.mjs`、`ci-workflow.test.mjs`）；Fedora
-  KDE/Wayland 安装仍需运行器验证
+  `development-branding.test.mjs`、`ci-workflow.test.mjs`、
+  `linux-package-paths.test.mjs`）；Fedora KDE/Wayland 安装仍需运行器验证
 
 #### E2E-035：Bash 工具使用有效的目录 shell
 
