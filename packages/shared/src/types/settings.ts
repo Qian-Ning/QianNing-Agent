@@ -3,6 +3,7 @@ import type { CommandShellId } from "../command-shells.js";
 import type { KeybindingOverrides } from "../keyboard-shortcuts.js";
 import type { NetworkProxySettings } from "../network-proxy.js";
 import type { NetworkPolicySettings } from "../network-policy.js";
+import type { UsageBudgetSettings } from "../usage-budget.js";
 import type { ContextCompactionSettings } from "./sessions.js";
 import type { Mode } from "./common.js";
 import type { GlobalPermissionMode } from "./permissions.js";
@@ -154,6 +155,13 @@ export type AppSettings = {
    */
   activeSkinId?: string;
   customSkins?: Skin[];
+  /**
+   * Monthly spend ceiling for the usage dashboard (D657). Absent, or a null
+   * `monthlyUsd`, means no ceiling is set and the dashboard shows no alert.
+   * This is a display preference only — nothing in the runtime reads it, and
+   * reaching the ceiling blocks no turn.
+   */
+  usageBudget?: UsageBudgetSettings;
   onboardingDismissed: boolean;
 };
 

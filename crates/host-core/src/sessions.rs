@@ -3964,6 +3964,8 @@ pub fn get_usage_breakdown(
 ) -> Result<Value> {
     use std::collections::BTreeMap;
 
+    use chrono::Datelike;
+
     let (range_start, range_end) = resolve_history_range(start_date, end_date, "day");
     let provider_filter = provider_filter.filter(|s| !s.is_empty());
     let model_filter = model_filter.filter(|s| !s.is_empty());
@@ -4200,6 +4202,20 @@ pub fn get_usage_breakdown(
         .sum::<i64>()
         - unpriced_turns;
 
+    // The spend ceiling is one figure for the whole account, so month-to-date
+    // deliberately ignores the provider and model filters above: narrowing the
+    // view must not make the reader look under budget. It is also a different
+    // window from `rangeStart..rangeEnd`, which follows whatever range the page
+    // shows, hence a second pass over the same indexed column.
+    let now = chrono::Local::now();
+    let month_start = now
+        .date_naive()
+        .with_day(1)
+        .and_then(naive_local_midnight)
+        .map(|dt| dt.timestamp_millis())
+        .unwrap_or_else(|| now.timestamp_millis());
+    let (month_cost, month_unpriced) = month_to_date_cost(conn, &pricing_map, month_start)?;
+
     Ok(json!({
         "rangeStart": range_start,
         "rangeEnd": range_end,
@@ -4210,7 +4226,74 @@ pub fn get_usage_breakdown(
         "totalCostUsd": total_cost,
         "pricedTurns": priced_turns,
         "unpricedTurns": unpriced_turns,
+        "monthToDateCostUsd": month_cost,
+        "monthToDateUnpricedTurns": month_unpriced,
+        "monthStart": month_start,
     }))
+}
+
+/// Estimated USD and unpriced-turn count for turns that ended at or after
+/// `month_start`, across every provider and model.
+///
+/// Covers the same turn set as [`get_usage_breakdown`] — ended, completed or
+/// errored — so the ceiling is measured against the same ledger the dashboard
+/// reports. A model with no price row contributes nothing to the sum and is
+/// counted separately, so the caller can present the total as a floor rather
+/// than as the whole truth.
+fn month_to_date_cost(
+    conn: &rusqlite::Connection,
+    pricing_map: &std::collections::HashMap<String, crate::pricing::PricingRow>,
+    month_start: i64,
+) -> Result<(f64, i64)> {
+    let mut stmt = conn.prepare_cached(
+        "SELECT model_id, input_tokens, output_tokens, usage_json
+         FROM turns
+         WHERE ended_at IS NOT NULL
+           AND ended_at >= ?1
+           AND status IN ('completed', 'error')",
+    )?;
+    let rows = stmt.query_map(params![month_start], |row| {
+        Ok((
+            row.get::<_, Option<String>>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, i64>(2)?,
+            row.get::<_, Option<String>>(3)?,
+        ))
+    })?;
+
+    let mut cost = 0.0_f64;
+    let mut unpriced = 0_i64;
+    for row in rows {
+        let (model_id, input_tokens, output_tokens, usage_json) = row?;
+        let parsed_usage = usage_json
+            .as_deref()
+            .and_then(|s| serde_json::from_str::<Value>(s).ok());
+        let usage_i64 = |key: &str| -> i64 {
+            parsed_usage
+                .as_ref()
+                .and_then(|u| u.get(key))
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0)
+        };
+        let cache_read = usage_i64("cacheReadTokens");
+        let cache_write = usage_i64("cacheWriteTokens");
+        match model_id
+            .as_deref()
+            .and_then(|m| crate::pricing::resolve(pricing_map, m))
+        {
+            Some(pricing) => {
+                cost += crate::pricing::cost_usd(
+                    pricing,
+                    input_tokens,
+                    output_tokens,
+                    cache_read,
+                    cache_write,
+                );
+            }
+            None => unpriced += 1,
+        }
+    }
+    Ok((cost, unpriced))
 }
 
 #[cfg(test)]
@@ -7958,6 +8041,125 @@ mod tests {
         assert_eq!(
             only_ollama.get("recent").unwrap().as_array().unwrap().len(),
             1
+        );
+    }
+
+    #[test]
+    fn usage_breakdown_reports_month_to_date_across_every_filter() {
+        use chrono::Datelike;
+
+        let db = test_db();
+        let session = create_session(&db, None, None, None, None, None).unwrap();
+
+        // A priced turn inside the current month, an unpriced one beside it, and
+        // a priced turn dated before the month began.
+        let priced = begin_turn(&db, &session.id, Some("deepseek"), Some("deepseek-chat")).unwrap();
+        end_turn_settling(
+            &db,
+            &priced,
+            "completed",
+            None,
+            Some(&json!({ "inputTokens": 100, "outputTokens": 50 })),
+            false,
+            false,
+        )
+        .unwrap();
+        let unpriced = begin_turn(&db, &session.id, Some("ollama"), Some("llama3.1:8b")).unwrap();
+        end_turn_settling(
+            &db,
+            &unpriced,
+            "completed",
+            None,
+            Some(&json!({ "inputTokens": 7, "outputTokens": 3 })),
+            false,
+            false,
+        )
+        .unwrap();
+        let previous =
+            begin_turn(&db, &session.id, Some("deepseek"), Some("deepseek-chat")).unwrap();
+        end_turn_settling(
+            &db,
+            &previous,
+            "completed",
+            None,
+            Some(&json!({ "inputTokens": 900, "outputTokens": 900 })),
+            false,
+            false,
+        )
+        .unwrap();
+
+        // The month boundary is the local first-of-month, computed the same way
+        // the query does, so the assertions hold in any timezone the suite runs.
+        let now = chrono::Local::now();
+        let month_start = naive_local_midnight(now.date_naive().with_day(1).unwrap())
+            .unwrap()
+            .timestamp_millis();
+        let in_month = month_start + 3_600_000;
+        let before_month = month_start - 86_400_000;
+        for (turn, ended_at) in [
+            (&priced, in_month),
+            (&unpriced, in_month + 1_000),
+            (&previous, before_month),
+        ] {
+            db.conn()
+                .execute(
+                    "UPDATE turns SET ended_at = ?1 WHERE id = ?2",
+                    params![ended_at, turn],
+                )
+                .unwrap();
+        }
+
+        // The window is deliberately the previous month, and the filter names a
+        // provider that did none of this month's spending — neither may narrow
+        // month-to-date, or a filtered view would read as under budget.
+        let breakdown = get_usage_breakdown(
+            &db,
+            Some(before_month),
+            Some(month_start - 1),
+            Some("ollama"),
+            None,
+            100,
+        )
+        .unwrap();
+
+        assert_eq!(
+            breakdown.get("monthStart").and_then(|v| v.as_i64()),
+            Some(month_start)
+        );
+        assert_eq!(
+            breakdown
+                .get("monthToDateUnpricedTurns")
+                .and_then(|v| v.as_i64()),
+            Some(1),
+            "the unpriced turn beside the priced one still counts"
+        );
+        // deepseek-chat is seeded at $0.28/M input and $1.11/M output; the
+        // previous month's 900/900 turn must not be in this sum.
+        let expected = 100.0 * 0.28 / 1_000_000.0 + 50.0 * 1.11 / 1_000_000.0;
+        let month_cost = breakdown
+            .get("monthToDateCostUsd")
+            .and_then(|v| v.as_f64())
+            .unwrap();
+        assert!(
+            (month_cost - expected).abs() < 1e-12,
+            "month-to-date {month_cost} != {expected}"
+        );
+        // The contrast is the point: the requested window and its provider
+        // filter hold nothing, while month-to-date still reports the month.
+        assert_eq!(
+            breakdown.get("pricedTurns").and_then(|v| v.as_i64()),
+            Some(0)
+        );
+        assert_eq!(
+            breakdown.get("totalCostUsd").and_then(|v| v.as_f64()),
+            Some(0.0)
+        );
+        assert_eq!(
+            breakdown
+                .get("byProvider")
+                .and_then(|v| v.as_array())
+                .map(Vec::len),
+            Some(0)
         );
     }
 }

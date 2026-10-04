@@ -3,6 +3,7 @@ import {
   SESSION_THINKING_LEVELS,
   defaultCommandShellForPlatform,
   isCommandShellId,
+  normalizeUsageBudget,
   resolveBindingLimits,
   validateNetworkProxy,
   validateSpeechSettings,
@@ -197,6 +198,9 @@ export function createProviderCatalogRuntime({
       defaultCommandShell: isCommandShellId(value.defaultCommandShell)
         ? value.defaultCommandShell
         : defaultCommandShellForPlatform(process.platform),
+      usageBudget: normalizeUsageBudget(
+        (value as T & { usageBudget?: unknown }).usageBudget,
+      ),
     } as T & { defaultCommandShell: CommandShellId };
   };
 
@@ -211,6 +215,7 @@ export function createProviderCatalogRuntime({
       updatePreference?: unknown;
       lastNotifiedUpdateVersion?: unknown;
       networkProxy?: unknown;
+      usageBudget?: unknown;
     };
     if (
       Object.prototype.hasOwnProperty.call(value, "defaultCommandShell") &&
@@ -263,6 +268,26 @@ export function createProviderCatalogRuntime({
         });
       }
       value.networkProxy = proxy.value;
+    }
+    if (Object.prototype.hasOwnProperty.call(value, "usageBudget")) {
+      const budget = value.usageBudget;
+      if (budget !== null && budget !== undefined) {
+        if (typeof budget !== "object" || Array.isArray(budget)) {
+          throw Object.assign(new Error("usageBudget is invalid"), {
+            errorCode: ErrorCodes.INVALID_PARAMS,
+          });
+        }
+        const normalized = normalizeUsageBudget(budget);
+        if (
+          !normalized ||
+          normalized.monthlyUsd !== (budget as { monthlyUsd?: unknown }).monthlyUsd
+        ) {
+          throw Object.assign(new Error("usageBudget.monthlyUsd is invalid"), {
+            errorCode: ErrorCodes.INVALID_PARAMS,
+          });
+        }
+      }
+      value.usageBudget = normalizeUsageBudget(budget);
     }
     if (Object.prototype.hasOwnProperty.call(value, "speech")) {
       (value as T & { speech?: unknown }).speech = validateSpeechSettings(

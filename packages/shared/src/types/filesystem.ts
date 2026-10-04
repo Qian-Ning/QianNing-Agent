@@ -142,6 +142,16 @@ export type UsageBreakdownResult = {
   pricedTurns: number;
   /** How many turns were skipped from cost because their model is unpriced. */
   unpricedTurns: number;
+  /**
+   * Estimated USD spent since the start of the current local calendar month,
+   * across every provider and model. The budget check reads this rather than
+   * `totalCostUsd`, whose window is whatever range the page is showing.
+   */
+  monthToDateCostUsd: number;
+  /** Unpriced turns inside the month-to-date window, so the figure is a floor. */
+  monthToDateUnpricedTurns: number;
+  /** Local start of the current calendar month, in epoch milliseconds. */
+  monthStart: number;
 };
 
 /** One editable per-model price row (per-million USD, stored as strings). */

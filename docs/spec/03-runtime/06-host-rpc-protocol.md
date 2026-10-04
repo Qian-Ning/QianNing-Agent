@@ -498,8 +498,25 @@ deletes per 60 seconds. P2/P3 methods are not present in protocol v11.
   Empty buckets in range are returned as zero rows so a calendar consumer sees a
   complete window. `session.endTurn.usage` is the durable turn total: parent
   assistant messages plus settled subagent usage, not a rewrite of
-  `message.usage`. The user-facing dashboard is plugin `pi.token-insights`
-  (D335 / ADR 0173), not a Settings destination.
+  `message.usage`. Upstream routed the user-facing dashboard to plugin
+  `pi.token-insights` (D335 / ADR 0173); this fork reverses that half of the
+  decision and ships the dashboard as a Settings ▸ Usage statistics tab
+  (D631 / D647 / D656 / D657). The plugin remains the upstream surface and is
+  not a dependency.
+
+- `stats.getUsageBreakdown` — roll the same `turns` ledger up by provider,
+  model, and session project for an explicit `rangeStart` / `rangeEnd` window,
+  and estimate USD from the editable model-pricing table. Returns `byProvider`,
+  `byModel`, `byProject` (`projectId` / `projectName`, both null for a session
+  with no project), `recent`, `totalCostUsd`, `pricedTurns`, and
+  `unpricedTurns`. Additive RPC; no protocol version bump. `unpricedTurns`
+  counts turns whose model has no pricing row and are therefore excluded from
+  `totalCostUsd`, so the estimate is a floor. D657 adds three more fields
+  measured over the local calendar month rather than the requested window —
+  `monthToDateCostUsd`, `monthToDateUnpricedTurns`, and `monthStart` — because
+  the spend ceiling they feed is an account-level figure: it deliberately
+  ignores the provider and model filters, so narrowing the view cannot make the
+  reader look under budget.
 
 ### Plan and Goal state and approvals
 

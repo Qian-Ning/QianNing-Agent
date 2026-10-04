@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import type {
+  AppSettings,
   ProviderPublic,
   TokenUsageBucket,
   TokenUsageHistoryItem,
@@ -30,6 +31,7 @@ import { providerDisplayName } from "../../lib/provider-display";
 import { Badge, Button, SegmentedControl } from "../ui";
 import { SettingsMenuSelect } from "./SettingsMenuSelect";
 import { ModelPricingEditor } from "./ModelPricingEditor";
+import { UsageBudgetCard } from "./usage/UsageBudgetCard";
 import { UsageForecastPanel } from "./usage/UsageForecastPanel";
 import { UsageHeatmap } from "./usage/UsageHeatmap";
 import { UsageProjectTable } from "./usage/UsageProjectTable";
@@ -467,7 +469,7 @@ function TrendChart({
 }
 
 export function UsagePage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const providers = useAppStore((s) => s.providers);
   const [range, setRange] = useState<RangeId>("today");
   const [providerFilter, setProviderFilter] = useState("");
@@ -479,6 +481,19 @@ export function UsagePage() {
   const [reloadNonce, setReloadNonce] = useState(0);
   const [showPricing, setShowPricing] = useState(false);
   const [heatmapSeries, setHeatmapSeries] = useState<TokenUsageHistoryItem[]>([]);
+  const settings = useAppStore((s) => s.settings);
+
+  // The ceiling lives in the settings blob, so the write goes through the same
+  // channel every other preference uses — no new IPC surface for one number.
+  const saveBudget = useCallback(
+    async (budget: AppSettings["usageBudget"]) => {
+      if (!settings) return;
+      const next = { ...settings, usageBudget: budget };
+      await api.setSettings(next);
+      useAppStore.setState({ settings: next });
+    },
+    [settings],
+  );
 
   // "Today" is an intraday question, and one daily bucket cannot show a trend —
   // it asks the host to bucket by hour instead. Wider windows stay daily.
@@ -575,6 +590,15 @@ export function UsagePage() {
 
   const totalCost = breakdown?.totalCostUsd ?? 0;
   const unpricedTurns = breakdown?.unpricedTurns ?? 0;
+
+  // The ceiling is measured over the calendar month, not over the range the
+  // page happens to show, so it reads its own fields. `allLocal` folds to zero
+  // for the same reason the hero does: local models cost nothing, and a budget
+  // that alarmed about a free month would be lying.
+  const monthSpent = allLocal ? 0 : (breakdown?.monthToDateCostUsd ?? 0);
+  const monthUnpriced = allLocal ? 0 : (breakdown?.monthToDateUnpricedTurns ?? 0);
+  const monthStart = breakdown?.monthStart ?? Date.now();
+  const uiLocale = i18n.resolvedLanguage ?? i18n.language ?? "en";
 
   const sourceOptions = useMemo(
     () => [
@@ -778,6 +802,16 @@ export function UsagePage() {
               </div>
             </div>
           </div>
+
+          {/* Monthly spend ceiling */}
+          <UsageBudgetCard
+            spentUsd={monthSpent}
+            unpricedTurns={monthUnpriced}
+            monthStart={monthStart}
+            budget={settings?.usageBudget}
+            locale={uiLocale}
+            onSave={saveBudget}
+          />
 
           {/* Trend */}
           <div className="usage-card">

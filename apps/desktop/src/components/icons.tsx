@@ -94,6 +94,7 @@ import {
   UserRound,
   Undo2,
   Video,
+  Wallet,
   Webhook,
   Workflow,
   Wrench,
@@ -249,6 +250,8 @@ export const IconStar = icon(Star);
 export const IconCircleCheck = icon(CircleCheck);
 export const IconCircleAlert = icon(CircleAlert);
 export const IconTriangleAlert = icon(TriangleAlert);
+/* Monthly spend ceiling (see UsageBudgetCard). */
+export const IconWallet = icon(Wallet);
 /* Password field reveal toggle (see PasswordInput). */
 export const IconEye = icon(Eye);
 export const IconEyeOff = icon(EyeOff);

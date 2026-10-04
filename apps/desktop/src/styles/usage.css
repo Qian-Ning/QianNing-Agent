@@ -777,3 +777,120 @@
   color: var(--ds-text-primary);
   font-weight: var(--font-weight-semibold);
 }
+
+/*
+ * Monthly spend ceiling (D657).
+ *
+ * The progress bar is the only hue on the card and it comes from the semantic
+ * tokens — success under the ceiling, warning as it approaches, error past it —
+ * so the bar's colour and the sentence beside it can never disagree about which
+ * state the month is in. The container stays neutral in every state; a tinted
+ * card behind a tinted bar would read as two signals saying the same thing.
+ */
+.usage-budget {
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--ds-bg-secondary);
+  overflow: hidden;
+}
+.usage-budget-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--ds-border-subtle);
+}
+.usage-budget-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--ds-text-primary);
+}
+.usage-budget-month {
+  font-size: var(--text-xs);
+  color: var(--ds-text-muted);
+}
+.usage-budget-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+}
+.usage-budget-figures {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.usage-budget-k {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--ds-text-muted);
+}
+.usage-budget-v {
+  font-size: var(--text-xl);
+  font-variant-numeric: tabular-nums;
+  color: var(--ds-text-primary);
+}
+.usage-budget-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.usage-budget-field .field-input {
+  width: 120px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.usage-budget-bar {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--ds-bg-inset);
+  overflow: hidden;
+}
+.usage-budget-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--ds-success);
+  transition: width 180ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .usage-budget-fill {
+    transition: none;
+  }
+}
+.is-approaching .usage-budget-fill {
+  background: var(--ds-warning);
+}
+.is-over .usage-budget-fill {
+  background: var(--ds-error);
+}
+.usage-budget-note {
+  font-size: var(--text-sm);
+  color: var(--ds-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.usage-budget-alert {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ds-error);
+}
+.usage-budget-hint,
+.usage-budget-caveat {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--ds-text-muted);
+}
+.usage-budget-error {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--ds-error);
+}
