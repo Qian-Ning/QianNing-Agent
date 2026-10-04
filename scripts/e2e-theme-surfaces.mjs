@@ -24,7 +24,7 @@ try {
   await cp(join(renderer, "assets"), join(temp, "assets"), { recursive: true });
   await writeFile(join(temp, "index.html"), `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:"><title>Theme surface regression</title>${css.map((path) => `<link rel="stylesheet" href="${path}">`).join("")}<style>body { padding: 32px; display: flex; gap: 32px; align-items: flex-start; } .fixture-controls { width: 420px; display: grid; gap: 24px; } .fixture-prose { width: 420px; display: grid; gap: 12px; } .settings-shell-full { width: 275px; height: 340px; } .settings-toggle { margin: 20px; } /* Fixed/absolute app layers stay in flow here so they do not cover other fixtures. Only position changes, never paint. */ .fixture-controls .overlay, .fixture-controls .plugins-modal-backdrop, .fixture-controls .composer-dock-docked { position: static; inset: auto; padding: 12px; animation: none; } .fixture-primary-ink { color: var(--ds-text-primary); }</style><body>
     <section class="settings-shell-full"><nav class="settings-nav sidebar-surface"><div class="settings-nav-top"><input class="settings-search" placeholder="Search settings"></div><div class="settings-nav-scroll"><button class="settings-nav-item active">General</button><button class="settings-nav-item">Appearance</button><button class="settings-toggle on" aria-label="Enabled"><span class="settings-toggle-thumb"></span></button></div></nav></section>
-    <section class="fixture-controls"><div class="composer-shell">Composer surface</div><div class="composer-dock composer-dock-docked">Transparent composer dock</div><div class="thread-scroll">Transcript scroller</div><div class="composer-toolbar"><button class="icon-btn" aria-label="Attach"></button><button class="mode-chip">Agent</button></div><input class="plugins-search" placeholder="Search plugins"><div class="agent-capability-search-wrap"><input class="agent-capability-search" placeholder="Search capabilities"></div><div class="overlay">Dialog scrim</div><div class="plugins-modal-backdrop">Permission veil</div></section>
+    <section class="fixture-controls"><div class="composer-shell">Composer surface</div><div class="composer-dock composer-dock-docked">Transparent composer dock</div><div class="thread-scroll">Transcript scroller</div><div class="composer-toolbar"><button class="icon-btn" aria-label="Attach"></button><button class="mode-chip">Agent</button><div class="composer-permission"><button class="icon-btn mode-chip" disabled>Auto</button></div></div><input class="plugins-search" placeholder="Search plugins"><div class="agent-capability-search-wrap"><input class="agent-capability-search" placeholder="Search capabilities"></div><div class="overlay">Dialog scrim</div><div class="plugins-modal-backdrop">Permission veil</div></section>
     <section class="fixture-controls"><div class="composer-stack"><section class="asktool-card"><div class="asktool-card-header"><span class="asktool-card-title">Question</span></div><button class="asktool-option">Blue</button><button class="asktool-option selected">Green</button><input class="asktool-custom-input" placeholder="Other" aria-label="Other"></section></div></section>
     <section class="fixture-prose"><div class="prose-chat"><p>Answer prose with a <kbd>K</kbd> keycap and an <code>inline chip</code>.</p></div><div class="thinking-prose"><code>thinking code</code></div><div class="code-block-head">Code card head band</div><div class="mermaid-block-body">Mermaid canvas</div><button class="send-btn" disabled>Send</button><span class="fixture-primary-ink">Primary ink</span></section>
     <section class="fixture-tools"><div class="tool-row-content">Tool output</div><div class="tool-block is-plain"><div class="tool-row-content">Plain tool output</div></div><div class="tool-row-content is-error">Error tool output</div></section>
@@ -66,7 +66,11 @@ app.whenReady().then(async () => {
     await window.webContents.debugger.sendCommand("CSS.enable");
     const { root: documentRoot } = await window.webContents.debugger.sendCommand("DOM.getDocument");
     const hoverNodes = {};
-    for (const [id, selector] of [["chip", ".mode-chip"], ["icon", ".composer-toolbar .icon-btn"]]) {
+    for (const [id, selector] of [
+      ["chip", ".composer-toolbar .mode-chip:not(:disabled)"],
+      ["icon", ".composer-toolbar .icon-btn:not(:disabled)"],
+      ["disabled", ".composer-permission .mode-chip:disabled"],
+    ]) {
       const { nodeId } = await window.webContents.debugger.sendCommand("DOM.querySelector", { nodeId: documentRoot.nodeId, selector });
       if (!nodeId) throw new Error("fixture node missing: " + selector);
       hoverNodes[id] = nodeId;
@@ -108,6 +112,13 @@ app.whenReady().then(async () => {
             if (!moved) failures.push(id + " keeps its resting ink on hover");
             else if (String(hovered[id].rgba) !== String(resting.primary.rgba)) failures.push(id + " hover ink is not --ds-text-primary");
           }
+          // The non-editable chip answers no hover: its ink under a forced
+          // hover must equal its ink at rest, in both palettes. D653 regression
+          // guard — the toolbar-icon hover selector matches this chip too (it
+          // carries the icon-btn class), so without :not(:disabled) the blocked
+          // Auto chip brightened on hover while its resting ink stayed put.
+          if (String(hovered.disabled.rgba) !== String(resting.disabled.rgba))
+            failures.push("disabled chip changed its ink on hover");
           hoverChecks.push({ theme, custom, hoverCapable, resting, hovered, failures });
         }
         if (process.env.PI_E2E_ARTIFACT_DIR) {

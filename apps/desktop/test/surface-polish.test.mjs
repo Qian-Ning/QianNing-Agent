@@ -153,12 +153,23 @@ test("composer toolbar chips brighten on hover in both palettes", () => {
   // source shape the two have to agree on.
   assert.match(
     styles,
-    /:root\[data-theme="light"\] \.composer-toolbar \.icon-btn:hover,\s*\n:root\[data-theme="light"\] \.mode-chip:hover\s*\{[^}]*color:\s*var\(--ds-text-primary\) !important/,
+    /:root\[data-theme="light"\] \.composer-toolbar \.icon-btn:hover:not\(:disabled\),\s*\n:root\[data-theme="light"\] \.mode-chip:hover:not\(:disabled\)\s*\{[^}]*color:\s*var\(--ds-text-primary\) !important/,
   );
   assert.match(
     styles,
-    /:root\[data-theme="dark"\] \.composer-toolbar \.icon-btn:hover,\s*\n:root\[data-theme="dark"\] \.mode-chip:hover:not\(:disabled\)\s*\{[^}]*color:\s*var\(--ds-text-primary\) !important/,
+    /:root\[data-theme="dark"\] \.composer-toolbar \.icon-btn:hover:not\(:disabled\),\s*\n:root\[data-theme="dark"\] \.mode-chip:hover:not\(:disabled\)\s*\{[^}]*color:\s*var\(--ds-text-primary\) !important/,
   );
+  // D653: the non-editable chip carries `icon-btn` too, so the toolbar-icon
+  // selectors above matched it in both palettes and brightened a control that
+  // is explicitly not interactive. `:not(:disabled)` on every half — resting
+  // and hover, light and dark — is what hands it back to
+  // `.composer-permission .mode-chip:disabled`, which holds it on secondary at
+  // rest and under a hover.
+  assert.match(
+    styles,
+    /:root\[data-theme="light"\] \.composer-toolbar \.icon-btn:not\(:disabled\),\s*\n:root\[data-theme="light"\] \.mode-chip:not\(:disabled\)\s*\{[^}]*color:\s*color-mix\(in oklab, var\(--ds-text-primary\) 84%, transparent\) !important/,
+  );
+  assert.match(styles, /\.composer-permission \.mode-chip:disabled:hover\s*\{/);
   // D651: the chip's resting ink needs its own rule, because its base rule —
   // `.mode-chip { color: var(--ds-text-secondary) !important }` — wins against
   // any specificity, so the dark 78% it shared with the icon button never
@@ -167,9 +178,9 @@ test("composer toolbar chips brighten on hover in both palettes", () => {
     styles,
     /:root\[data-theme="dark"\] \.mode-chip:not\(:disabled\)\s*\{[^}]*color:\s*color-mix\(in oklab, var\(--ds-text-primary\) 78%, transparent\) !important/,
   );
-  // The chip's non-editable state also carries `icon-btn` and is held at
-  // secondary by `.composer-permission .mode-chip:disabled:hover`, so a bare
-  // `.mode-chip` restatement would brighten a control that is explicitly not
-  // interactive. `:not(:disabled)` is what keeps both dark rules off it.
+  // A bare theme-qualified `.mode-chip` restatement would win the resting ink
+  // for the non-editable chip back off `.composer-permission .mode-chip:disabled`
+  // in both palettes.
   assert.doesNotMatch(styles, /:root\[data-theme="dark"\] \.mode-chip\s*\{/);
+  assert.doesNotMatch(styles, /:root\[data-theme="light"\] \.mode-chip\s*\{/);
 });
