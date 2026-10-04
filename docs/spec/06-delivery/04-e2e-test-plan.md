@@ -431,23 +431,30 @@ identify the platform validation still needed.
   for installation and launch.
 - **Steps**: 1) Build the Linux targets and inspect the RPM with `rpm -qip` and
   `rpm -qpl`. 2) Confirm the package contains the application archive,
-  host-core, `pi-desktop.desktop`, and the 512px `pi-desktop` icon. 3) Confirm
-  the RPM has no global `/usr/lib/.build-id` links. 4) Install the RPM on the
-  Fedora KDE/Wayland machine and launch QianNing Agent from its desktop entry.
-  5) Inspect the taskbar grouping and the installed desktop entry.
+  host-core, the `.desktop` entry, and the hicolor application icon. Those names
+  come from `linux.executableName` and `desktopName` in
+  `apps/desktop/package.json` — currently `qianning-agent.desktop` and a 512px
+  `qianning-agent` icon. 3) Confirm the RPM has no global `/usr/lib/.build-id`
+  links. 4) Install the RPM on the Fedora KDE/Wayland machine and launch
+  QianNing Agent from its desktop entry. 5) Inspect the taskbar grouping and the
+  installed desktop entry.
 - **Expected**: The x64 RPM is produced with the documented name and uploads
-  with the release artifacts. Its desktop entry contains `Icon=pi-desktop` and
-  `StartupWMClass=pi-desktop`; the running Wayland window groups with the
-  QianNing Agent launcher and shows its icon instead of a generic Electron icon.
-  The package remains notify-and-link for updates, and the bundled Electron
-  binaries do not create global build-id links.
+  with the release artifacts. Its desktop entry contains `Icon=qianning-agent`
+  and `StartupWMClass=qianning-agent`: the values
+  `scripts/linux-package-paths.mjs` derives from that configuration, and the
+  values the package validation workflow asserts against, so the check cannot
+  drift back to a previous product name. The running Wayland window groups with
+  the QianNing Agent launcher and shows its icon instead of a generic Electron
+  icon. The package remains notify-and-link for updates, and the bundled
+  Electron binaries do not create global build-id links.
 - **Specs linked**: `01-product/01-product-scope.md`,
   `04-ux/09-interaction-patterns.md`, `06-delivery/06-release-runbook.md`
 - **Acceptance**: Quality (release packaging and desktop integration)
 - **Milestone**: M6+
 - **Status**: Unit/source-contract covered (`auto-update.test.mjs`,
-  `development-branding.test.mjs`, `ci-workflow.test.mjs`); Fedora KDE/Wayland
-  installation remains runner validation
+  `development-branding.test.mjs`, `ci-workflow.test.mjs`,
+  `linux-package-paths.test.mjs`); Fedora KDE/Wayland installation remains
+  runner validation
 
 #### E2E-196a: Ad-hoc macOS tag lane (no Apple Developer account)
 

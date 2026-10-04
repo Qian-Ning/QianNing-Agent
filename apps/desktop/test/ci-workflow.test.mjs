@@ -157,12 +157,25 @@ test("manual Linux package validation covers the RPM desktop identity", () => {
   );
   assert.match(linuxPackageWorkflowSource, /rpm -qpl "\$rpm_package"/);
   assert.match(linuxPackageWorkflowSource, /build-id/);
+  // The packaged paths and the desktop-entry keys are derived from
+  // apps/desktop/package.json by scripts/linux-package-paths.mjs, because
+  // writing them here as literals is exactly how they drifted away from the
+  // build after the rename — and this workflow is `workflow_dispatch`-only, so
+  // nothing failed. The derivation and its cross-check against electron-builder
+  // live in linux-package-paths.test.mjs.
   assert.match(
     linuxPackageWorkflowSource,
-    /usr\/share\/applications\/pi-desktop\.desktop/,
+    /node scripts\/linux-package-paths\.mjs/,
+    "the workflow derives the layout instead of hardcoding it",
   );
-  assert.match(linuxPackageWorkflowSource, /Icon=pi-desktop/);
-  assert.match(linuxPackageWorkflowSource, /StartupWMClass=pi-desktop/);
+  assert.match(
+    linuxPackageWorkflowSource,
+    /grep -Fx "Icon=\$LINUX_ICON_KEY" "\$desktop_entry"/,
+  );
+  assert.match(
+    linuxPackageWorkflowSource,
+    /grep -Fx "StartupWMClass=\$LINUX_WM_CLASS" "\$desktop_entry"/,
+  );
   assert.match(
     linuxPackageWorkflowSource,
     /uses: actions\/upload-artifact@v7[\s\S]*path: apps\/desktop\/release\/\*\.rpm/,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Derive PI-Desktop platform icon resources from the canonical logo.
+"""Derive the QianNing Agent platform icon resources from the canonical logo.
 
 The tracked ``apps/desktop/build/icon_1024.png`` file is the brand source of
 truth. This script preserves that file and emits:

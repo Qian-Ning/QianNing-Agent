@@ -10,6 +10,7 @@ import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { desktopPaths, repositoryRoot, resolveElectronBinary } from "./e2e/boot.mjs";
 import { resolveHostBinary } from "./e2e/host.mjs";
+import { APP_NAME } from "../packages/shared/dist/protocol.js";
 
 const root = repositoryRoot();
 const { appDir } = desktopPaths(root);
@@ -460,7 +461,7 @@ async function connectRenderer(state) {
           (target) =>
             target.type === "page" &&
             target.webSocketDebuggerUrl &&
-            (target.url.startsWith("file:") || target.title === "PI-Desktop"),
+            (target.url.startsWith("file:") || target.title === APP_NAME),
         );
       } catch {
         return null;

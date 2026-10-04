@@ -55,6 +55,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y cpio rpm
 
+      - name: Derive the packaged Linux layout
+        # The assertions below compare the RPM against what this repository is
+        # configured to emit, so a rename in apps/desktop/package.json cannot
+        # leave a stale literal behind. scripts/linux-package-paths.mjs mirrors
+        # electron-builder's own derivation, and
+        # apps/desktop/test/linux-package-paths.test.mjs cross-checks it against
+        # electron-builder on every JS test run — which this workflow, being
+        # workflow_dispatch-only, never was.
+        run: |
+          set -euo pipefail
+          node scripts/linux-package-paths.mjs >> "$GITHUB_ENV"
+
       - name: Verify RPM package
         run: |
           set -euo pipefail
@@ -68,24 +80,24 @@ jobs:
             echo 'RPM must not ship global build-id links for bundled Electron binaries'
             exit 1
           fi
-          grep -Fx '/opt/PI-Desktop/resources/app.asar' "$rpm_file_list" >/dev/null
-          grep -Fx '/opt/PI-Desktop/resources/bin/pi-desktop-host-core' "$rpm_file_list" >/dev/null
-          grep -Fx '/usr/share/applications/pi-desktop.desktop' "$rpm_file_list" >/dev/null
-          grep -Fx '/usr/share/icons/hicolor/512x512/apps/pi-desktop.png' "$rpm_file_list" >/dev/null
+          grep -Fx "$LINUX_APP_ASAR" "$rpm_file_list" >/dev/null
+          grep -Fx "$LINUX_SIDECAR" "$rpm_file_list" >/dev/null
+          grep -Fx "$LINUX_DESKTOP_FILE" "$rpm_file_list" >/dev/null
+          grep -Fx "$LINUX_ICON_FILE" "$rpm_file_list" >/dev/null
 
           desktop_root=$(mktemp -d)
           (
             cd "$desktop_root"
-            rpm2cpio "$rpm_package" | cpio --quiet -id './usr/share/applications/pi-desktop.desktop'
+            rpm2cpio "$rpm_package" | cpio --quiet -id "$LINUX_DESKTOP_ENTRY_PATH"
           )
-          desktop_entry="$desktop_root/usr/share/applications/pi-desktop.desktop"
-          grep -Fx 'Icon=pi-desktop' "$desktop_entry" >/dev/null
-          grep -Fx 'StartupWMClass=pi-desktop' "$desktop_entry" >/dev/null
+          desktop_entry="$desktop_root$LINUX_DESKTOP_FILE"
+          grep -Fx "Icon=$LINUX_ICON_KEY" "$desktop_entry" >/dev/null
+          grep -Fx "StartupWMClass=$LINUX_WM_CLASS" "$desktop_entry" >/dev/null
 
       - name: Upload RPM package
         uses: actions/upload-artifact@v7
         with:
-          name: pi-desktop-linux-x64-rpm
+          name: qianning-agent-linux-x64-rpm
           if-no-files-found: error
           retention-days: 7
           path: apps/desktop/release/*.rpm
