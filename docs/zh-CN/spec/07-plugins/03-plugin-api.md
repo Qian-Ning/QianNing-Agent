@@ -513,11 +513,19 @@ pi.browser.getState(): Promise<BrowserState | null>
 pi.browser.openExternal(): Promise<void>
 pi.browser.snapshot(): Promise<{ tree: string; url: string; title: string }>
 pi.browser.screenshot(input?: { fullPage?: boolean }): Promise<{ mimeType: string; data: string; path?: string }>
-pi.browser.click(input: { uid: string }): Promise<void>
-pi.browser.fill(input: { uid: string; text: string }): Promise<void>
+pi.browser.click(input: { uid: string }): Promise<BrowserActionResult>
+pi.browser.fill(input: { uid: string; text: string }): Promise<BrowserActionResult>
 pi.browser.evaluate(input: { expression: string }): Promise<unknown>
 pi.browser.console(input?: { limit?: number }): Promise<{ messages: unknown[] }>
 pi.browser.cdp(input: { method: string; params?: unknown }): Promise<unknown>
+
+type BrowserActionResult = {
+  effect: "confirmed" | "unverifiable" | "suspected_noop" | "refused"
+  verified: boolean
+  code?: string
+  escalation?: { recommended: "snapshot" | "evaluate"; reason: string }
+  observed?: string
+}
 ```
 
 当前访客页是宿主拥有的 `WebContentsView`（`persist:work-browser`），各资源标签保留自己的页面。
@@ -525,6 +533,14 @@ pi.browser.cdp(input: { method: string; params?: unknown }): Promise<unknown>
 `setBounds` 相对调用插件视图的内容区，并被夹紧，因此访客页不能盖住聊天/输入框。
 `cdp` 默认拒绝；cookie、storage、target 和网络拦截方法以 `PERMISSION_DENIED` 失败。
 代理调用的会话身份来自进行中的 `plugins.execute` `sessionId`，而不是插件参数（D333 / ADR 0170）。
+
+click 与 fill 报告的是页面本身，而不是调用是否返回。只有从页面读回的值与请求一致时
+`effect` 才是 `confirmed`，且 `verified` 只在读回时为真；`suspected_noop` 表示页面什么
+都没留下，`unverifiable` 表示调用落地但页面的响应没有被读回。`refused` 表示根本没有
+发出输入，并带有稳定的 `code`——禁用控件为 `ELEMENT_DISABLED`，它在第一个输入事件之前
+就被拒绝。除 `confirmed` 外的每种 effect 都带 `escalation`，指明下一条路线
+（`snapshot` 或 `evaluate`）；fill 在 `observed` 里报告页面随后持有的值。只读调用
+（`snapshot`、`screenshot`、`console`）不改变页面，因此不报告 `effect`（D654）。
 
 `getHistory` 返回由主机明确记录的条目，按最新优先排列，文本和图片按捕获时间混排。
 通过 `writeText` 写入的内容，以及 Composer 用户主动粘贴事件提供的内容会被记录；主机

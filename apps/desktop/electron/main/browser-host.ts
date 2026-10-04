@@ -1,6 +1,7 @@
 import type { BrowserWindow } from "electron";
 import type { BrowserState } from "@pi-desktop/shared";
 import type { BrowserPane } from "./browser-view";
+import type { BrowserActionResult } from "./browser-cdp";
 import { BrowserCdp } from "./browser-cdp";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -313,8 +314,8 @@ export class BrowserHost {
     } catch { return shot; }
   }
 
-  async click(uid: string): Promise<void> { await this.currentPage().cdp.click(this.requireWebContents(), uid); }
-  async fill(uid: string, text: string): Promise<void> { await this.currentPage().cdp.fill(this.requireWebContents(), uid, text); }
+  async click(uid: string): Promise<BrowserActionResult> { return this.currentPage().cdp.click(this.requireWebContents(), uid); }
+  async fill(uid: string, text: string): Promise<BrowserActionResult> { return this.currentPage().cdp.fill(this.requireWebContents(), uid, text); }
   async evaluate(expression: string): Promise<unknown> { return this.currentPage().cdp.evaluate(this.requireWebContents(), expression); }
   console(limit?: number): { messages: ReturnType<BrowserCdp["console"]> } {
     if (!this.active?.started) return { messages: [] };

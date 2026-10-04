@@ -426,8 +426,8 @@ export type PluginHostServices = {
       input?: { fullPage?: boolean },
       sessionId?: string,
     ) => Promise<unknown>;
-    click: (uid: string) => Promise<void>;
-    fill: (uid: string, text: string) => Promise<void>;
+    click: (uid: string) => Promise<unknown>;
+    fill: (uid: string, text: string) => Promise<unknown>;
     evaluate: (expression: string) => Promise<unknown>;
     console: (limit?: number) => unknown;
     cdp: (method: string, params?: unknown) => Promise<unknown>;
@@ -5660,7 +5660,7 @@ export class PluginRuntime {
             throw apiError("UNAVAILABLE", "browser host missing");
           }
           const uid = typeof input === "string" ? input : String(input?.uid ?? "");
-          await this.services.browser.click(uid);
+          return this.services.browser.click(uid);
         },
         fill: async (
           input: string | { uid?: string; text?: string },
@@ -5672,7 +5672,7 @@ export class PluginRuntime {
           }
           const uid = typeof input === "string" ? input : String(input?.uid ?? "");
           const text = typeof input === "string" ? String(textArg ?? "") : String(input?.text ?? "");
-          await this.services.browser.fill(uid, text);
+          return this.services.browser.fill(uid, text);
         },
         evaluate: async (input: string | { expression?: string }) => {
           this.assertPermission(loaded, "browser.cdp");

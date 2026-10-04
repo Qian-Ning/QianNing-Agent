@@ -61,8 +61,103 @@ export type SnapshotResult = {
   title: string;
 };
 
+/**
+ * What happened to the page, as opposed to whether the call returned.
+ *
+ * A delivered input is not an applied change. A page can echo a write it did
+ * not keep, and a disabled control swallows a click whole, so a mutating action
+ * reports the page rather than letting a caller read success into the call
+ * having returned.
+ */
+export type BrowserEffect = "confirmed" | "unverifiable" | "suspected_noop" | "refused";
+
+/** The next route to try when an action did not land. */
+export type BrowserEscalation = {
+  recommended: "snapshot" | "evaluate";
+  reason: string;
+};
+
+export type BrowserActionResult = {
+  effect: BrowserEffect;
+  /** True only for a value read back from the page, never for a dispatch. */
+  verified: boolean;
+  /** Stable machine code, present on a refusal. */
+  code?: string;
+  escalation?: BrowserEscalation;
+  /** What the page held after the call, when a read-back ran. */
+  observed?: string;
+};
+
 export function isAllowedCdpMethod(method: string): boolean {
   return BROWSER_CDP_ALLOWLIST.has(method.trim());
+}
+
+/**
+ * Decide a click's effect before anything is dispatched.
+ *
+ * A disabled control is the one click outcome this layer can prove by itself:
+ * the event would be swallowed, so nothing is sent and the caller gets a
+ * refusal instead of a silent success. Everything else stays `unverifiable` —
+ * the dispatch worked, the page's response was never read back.
+ */
+export function classifyClickEffect(disabled: boolean): BrowserActionResult {
+  if (disabled) {
+    return {
+      effect: "refused",
+      verified: false,
+      code: "ELEMENT_DISABLED",
+      escalation: {
+        recommended: "snapshot",
+        reason: "the control is disabled, so no input was sent; snapshot for an enabled target",
+      },
+    };
+  }
+  return {
+    effect: "unverifiable",
+    verified: false,
+    escalation: {
+      recommended: "snapshot",
+      reason: "the click was dispatched but not confirmed; snapshot to check the effect",
+    },
+  };
+}
+
+/**
+ * Decide a fill's effect from the value the page actually holds.
+ *
+ * The read-back is the page's own value, so an exact match is `confirmed`
+ * rather than an inference. A field still empty is a no-op; one holding
+ * something else kept a different value, which is unverifiable rather than a
+ * success.
+ */
+export function classifyFillEffect(
+  requested: string,
+  observed: string | null,
+): BrowserActionResult {
+  const seen = observed ?? "";
+  if (seen === requested) {
+    return { effect: "confirmed", verified: true, observed: seen };
+  }
+  if (seen === "") {
+    return {
+      effect: "suspected_noop",
+      verified: false,
+      observed: seen,
+      escalation: {
+        recommended: "evaluate",
+        reason: "the field is still empty after the write; set it with evaluate",
+      },
+    };
+  }
+  return {
+    effect: "unverifiable",
+    verified: false,
+    observed: seen,
+    escalation: {
+      recommended: "evaluate",
+      reason: "the field holds a different value than requested; check it with evaluate",
+    },
+  };
 }
 
 /**
@@ -250,10 +345,12 @@ export class BrowserCdp {
     return { mimeType: "image/jpeg", data: result.data };
   }
 
-  async click(wc: WebContents, uid: string): Promise<void> {
+  async click(wc: WebContents, uid: string): Promise<BrowserActionResult> {
     const backendNodeId = this.requireUid(uid);
     await this.attach(wc);
     await wc.debugger.sendCommand("DOM.scrollIntoViewIfNeeded", { backendNodeId });
+    const verdict = classifyClickEffect(await this.isDisabled(wc, backendNodeId));
+    if (verdict.effect === "refused") return verdict;
     const model = (await wc.debugger.sendCommand("DOM.getBoxModel", { backendNodeId })) as {
       model?: { content?: number[] };
     };
@@ -277,9 +374,10 @@ export class BrowserCdp {
       button: "left",
       clickCount: 1,
     });
+    return verdict;
   }
 
-  async fill(wc: WebContents, uid: string, text: string): Promise<void> {
+  async fill(wc: WebContents, uid: string, text: string): Promise<BrowserActionResult> {
     const backendNodeId = this.requireUid(uid);
     await this.attach(wc);
     const resolved = (await wc.debugger.sendCommand("DOM.resolveNode", { backendNodeId })) as {
@@ -289,21 +387,57 @@ export class BrowserCdp {
     if (!objectId) {
       throw Object.assign(new Error(`could not resolve ${uid}`), { code: "NOT_FOUND" });
     }
-    await wc.debugger.sendCommand("Runtime.callFunctionOn", {
+    const applied = (await wc.debugger.sendCommand("Runtime.callFunctionOn", {
       objectId,
+      returnByValue: true,
       functionDeclaration: `function (value) {
         this.focus();
         if ("value" in this) {
           this.value = value;
           this.dispatchEvent(new Event("input", { bubbles: true }));
           this.dispatchEvent(new Event("change", { bubbles: true }));
-          return;
+          return typeof this.value === "string" ? this.value : null;
         }
         this.textContent = value;
         this.dispatchEvent(new Event("input", { bubbles: true }));
+        return typeof this.textContent === "string" ? this.textContent : null;
       }`,
       arguments: [{ value: text }],
-    });
+    })) as { result?: { value?: unknown } };
+    return classifyFillEffect(
+      text,
+      typeof applied.result?.value === "string" ? applied.result.value : null,
+    );
+  }
+
+  /**
+   * Best-effort read of one node's disabled state.
+   *
+   * An unreadable node is not a refusal. The caller already holds a uid from a
+   * snapshot, and a node this layer cannot read leaves the verdict at
+   * `unverifiable` rather than inventing a reason the click would fail.
+   */
+  private async isDisabled(wc: WebContents, backendNodeId: number): Promise<boolean> {
+    try {
+      const resolved = (await wc.debugger.sendCommand("DOM.resolveNode", {
+        backendNodeId,
+      })) as { object?: { objectId?: string } };
+      const objectId = resolved.object?.objectId;
+      if (!objectId) return false;
+      const result = (await wc.debugger.sendCommand("Runtime.callFunctionOn", {
+        objectId,
+        returnByValue: true,
+        functionDeclaration: `function () {
+          const attr = typeof this.getAttribute === "function"
+            ? this.getAttribute("aria-disabled")
+            : null;
+          return this.disabled === true || attr === "true";
+        }`,
+      })) as { result?: { value?: unknown } };
+      return result.result?.value === true;
+    } catch {
+      return false;
+    }
   }
 
   async evaluate(wc: WebContents, expression: string): Promise<unknown> {
