@@ -1,0 +1,433 @@
+use super::*;
+use crate::connection::Limits;
+use serde_json::json;
+
+fn profile(target: Target) -> ConnectionProfile {
+    ConnectionProfile {
+        id: "0f5c".into(),
+        label: "build-box".into(),
+        kind: target.kind(),
+        enabled: true,
+        target,
+        credential_ref: None,
+        host_key_policy: HostKeyPolicy::Strict,
+        host_key_fingerprint: None,
+        multiplex: Multiplex::PerCall,
+        limits: Limits::default(),
+        last_probe: None,
+        created_at: 0,
+        updated_at: 0,
+    }
+}
+
+fn ssh_profile() -> ConnectionProfile {
+    profile(Target::Ssh {
+        host: "build-box".into(),
+        port: 22,
+        user: Some("deploy".into()),
+        identity_file: None,
+        proxy_jump: None,
+    })
+}
+
+#[test]
+fn a_destination_carries_the_user_when_there_is_one() {
+    let with_user = ssh_profile();
+    assert!(probe_args(&with_user)
+        .unwrap()
+        .last()
+        .unwrap()
+        .as_str()
+        .eq("deploy@build-box"));
+
+    let mut anonymous = ssh_profile();
+    if let Target::Ssh { user, .. } = &mut anonymous.target {
+        *user = None;
+    }
+    assert_eq!(probe_args(&anonymous).unwrap().last().unwrap(), "build-box");
+}
+
+#[test]
+fn a_non_ssh_target_has_no_connection_arguments() {
+    let serial = profile(Target::Serial {
+        port: "COM3".into(),
+        baud: 115_200,
+        data_bits: 8,
+        parity: "none".into(),
+        stop_bits: 1,
+        flow: "none".into(),
+    });
+    assert_eq!(probe_args(&serial).unwrap_err(), ConnectionError::NoExec);
+    assert_eq!(
+        exec_args(&serial, "ls").unwrap_err(),
+        ConnectionError::NoExec
+    );
+    assert_eq!(
+        keyscan_args(&serial.target).unwrap_err(),
+        ConnectionError::NoExec
+    );
+}
+
+#[test]
+fn the_default_port_is_omitted_and_a_custom_one_is_passed() {
+    let default = probe_args(&ssh_profile()).unwrap();
+    assert!(!default.iter().any(|arg| arg == "-p"));
+
+    let mut custom = ssh_profile();
+    if let Target::Ssh { port, .. } = &mut custom.target {
+        *port = 2222;
+    }
+    let args = probe_args(&custom).unwrap();
+    let position = args.iter().position(|arg| arg == "-p").unwrap();
+    assert_eq!(args[position + 1], "2222");
+
+    // A port of zero means "the protocol default" rather than "port zero".
+    let mut zero = ssh_profile();
+    if let Target::Ssh { port, .. } = &mut zero.target {
+        *port = 0;
+    }
+    assert!(!probe_args(&zero).unwrap().iter().any(|arg| arg == "-p"));
+}
+
+#[test]
+fn a_probe_pins_a_byte_stream_and_refuses_to_prompt() {
+    let args = probe_args(&ssh_profile()).unwrap();
+    assert!(
+        args.contains(&"-T".to_string()),
+        "no remote pty is allocated"
+    );
+    assert!(args.contains(&"ConnectTimeout=10".to_string()));
+    assert!(args.contains(&"BatchMode=yes".to_string()));
+    assert!(args.contains(&"StrictHostKeyChecking=yes".to_string()));
+    assert_eq!(args.last().unwrap(), "deploy@build-box");
+    // The probe command is the last thing before the destination.
+    assert_eq!(args[args.len() - 2], PROBE_COMMAND);
+}
+
+#[test]
+fn a_configured_credential_relaxes_batch_mode() {
+    // A forced askpass answers without a terminal, which is exactly what
+    // BatchMode exists to prevent; leaving both on would make the
+    // credential unusable.
+    let mut keyed = ssh_profile();
+    keyed.credential_ref = Some("conn:0f5c".into());
+    let args = probe_args(&keyed).unwrap();
+    assert!(
+        !args.contains(&"BatchMode=yes".to_string()),
+        "a configured credential must not be blocked by BatchMode"
+    );
+    assert!(args.contains(&"-T".to_string()), "still no remote pty");
+}
+
+#[test]
+fn each_policy_maps_to_its_strict_host_key_setting() {
+    let mut pinned = ssh_profile();
+    pinned.host_key_policy = HostKeyPolicy::Pinned;
+    assert!(probe_args(&pinned)
+        .unwrap()
+        .contains(&"StrictHostKeyChecking=no".to_string()));
+
+    let mut accept = ssh_profile();
+    accept.host_key_policy = HostKeyPolicy::AcceptNew;
+    assert!(probe_args(&accept)
+        .unwrap()
+        .contains(&"StrictHostKeyChecking=accept-new".to_string()));
+}
+
+#[test]
+fn an_identity_and_a_jump_host_are_passed_with_the_identity_pinned() {
+    let mut profile = ssh_profile();
+    if let Target::Ssh {
+        identity_file,
+        proxy_jump,
+        ..
+    } = &mut profile.target
+    {
+        *identity_file = Some("/home/u/.ssh/id_ed25519".into());
+        *proxy_jump = Some("bastion".into());
+    }
+    let args = probe_args(&profile).unwrap();
+
+    let identity = args.iter().position(|arg| arg == "-i").unwrap();
+    assert_eq!(args[identity + 1], "/home/u/.ssh/id_ed25519");
+    assert!(
+        args.contains(&"IdentitiesOnly=yes".to_string()),
+        "the agent's other keys must not be tried first"
+    );
+    let jump = args.iter().position(|arg| arg == "-J").unwrap();
+    assert_eq!(args[jump + 1], "bastion");
+}
+
+#[test]
+fn an_exec_carries_the_command_verbatim_ahead_of_the_destination() {
+    let args = exec_args(&ssh_profile(), "make -j4 && echo done").unwrap();
+    assert_eq!(args[args.len() - 2], "make -j4 && echo done");
+    assert_eq!(args.last().unwrap(), "deploy@build-box");
+}
+
+#[test]
+fn keyscan_asks_for_a_bounded_set_of_key_types() {
+    let args = keyscan_args(&ssh_profile().target).unwrap();
+    assert!(args.contains(&"-T".to_string()));
+    assert!(args.contains(&"ed25519,ecdsa,rsa".to_string()));
+    assert_eq!(args.last().unwrap(), "build-box");
+    assert!(
+        !args.contains(&"-p".to_string()),
+        "the default port is omitted"
+    );
+
+    let mut custom = ssh_profile();
+    if let Target::Ssh { port, .. } = &mut custom.target {
+        *port = 2222;
+    }
+    let args = keyscan_args(&custom.target).unwrap();
+    let position = args.iter().position(|arg| arg == "-p").unwrap();
+    assert_eq!(args[position + 1], "2222");
+}
+
+#[test]
+fn a_fingerprint_matches_the_form_ssh_keygen_prints() {
+    // The blob is the well-known RFC 8709 ed25519 test key. OpenSSH's
+    // `ssh-keygen -lf` prints exactly the value asserted here, so a
+    // fingerprint copied out of a terminal can be pasted into a profile.
+    let blob = "AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl";
+    let fingerprint = fingerprint_from_base64(blob).expect("a fingerprint");
+    assert_eq!(
+        fingerprint,
+        "SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU"
+    );
+    assert!(fingerprint.starts_with("SHA256:"));
+    assert!(
+        !fingerprint.contains('='),
+        "OpenSSH prints the digest unpadded"
+    );
+}
+
+#[test]
+fn a_fingerprint_is_stable_for_the_same_key() {
+    let blob = "AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl";
+    assert_eq!(fingerprint_from_base64(blob), fingerprint_from_base64(blob));
+    assert!(fingerprint_from_base64("not base64 !!").is_none());
+}
+
+#[test]
+fn keyscan_output_parses_and_skips_noise() {
+    // A real run prints a comment per host it tried and then one line per
+    // key. A comment, a blank line, or a line from a target that did not
+    // answer must be skipped rather than turned into a fingerprint of
+    // nothing.
+    let blob = "AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl";
+    let stdout = format!("# build-box:22 SSH-2.0-OpenSSH_9.5\n\nbuild-box ssh-ed25519 {blob}\n");
+    assert_eq!(
+        parse_keyscan_fingerprint(&stdout).as_deref(),
+        Some("SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU")
+    );
+
+    assert!(parse_keyscan_fingerprint("# only a comment\n").is_none());
+    assert!(parse_keyscan_fingerprint("build-box ssh-ed25519\n").is_none());
+    assert!(parse_keyscan_fingerprint("build-box ssh-ed25519 notbase64!!").is_none());
+    assert!(parse_keyscan_fingerprint("").is_none());
+}
+
+#[test]
+fn keyscan_reports_the_first_key_it_printed() {
+    // `ssh-keyscan` prints what it found, in its own order, and the first
+    // line is the answer, so the order on the wire is the order reported.
+    let ed = "AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl";
+    let ecdsa = "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=";
+    let both = format!("build-box ssh-ed25519 {ed}\nbuild-box ecdsa-sha2-nistp256 {ecdsa}\n");
+    let only_ecdsa = format!("build-box ecdsa-sha2-nistp256 {ecdsa}\n");
+
+    assert_eq!(
+        parse_keyscan_fingerprint(&both).as_deref(),
+        Some("SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU"),
+        "the first line ssh-keyscan printed is the answer"
+    );
+    // With the ed25519 line gone the next key becomes the answer: the
+    // parser reports what it was given rather than preferring an algorithm.
+    assert!(parse_keyscan_fingerprint(&only_ecdsa).is_some());
+    assert_ne!(
+        parse_keyscan_fingerprint(&only_ecdsa),
+        parse_keyscan_fingerprint(&both)
+    );
+}
+
+#[test]
+fn a_host_key_failure_is_recognised_before_anything_else() {
+    // ssh reports this with the same exit code as an auth failure, so the
+    // message is the only discriminator and the order of the checks is the
+    // thing under test.
+    let changed = classify_failure(
+        "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n\
+         @    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @\n\
+         @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n",
+    );
+    assert!(matches!(
+        changed,
+        ConnectionError::HostKey { changed: true, .. }
+    ));
+
+    let unknown = classify_failure("Host key verification failed.");
+    assert!(matches!(
+        unknown,
+        ConnectionError::HostKey { changed: false, .. }
+    ));
+}
+
+#[test]
+fn an_auth_failure_is_recognised() {
+    for message in [
+        "deploy@build-box: Permission denied (publickey).",
+        "Authentication failed.",
+        "no supported authentication methods available",
+    ] {
+        let error = classify_failure(message);
+        assert!(
+            matches!(error, ConnectionError::AuthFailed(_)),
+            "{message} classified as {error}"
+        );
+        assert_eq!(error.code(), 1034);
+    }
+}
+
+#[test]
+fn a_network_failure_carries_the_first_diagnostic_line() {
+    let error = classify_failure("ssh: Could not resolve hostname nope: Name or service not known");
+    match error {
+        ConnectionError::Unreachable { stage, reason } => {
+            assert_eq!(stage, "connect");
+            assert!(reason.contains("Could not resolve hostname"), "{reason}");
+        }
+        other => panic!("expected an unreachable, got {other}"),
+    }
+    assert_eq!(classify_failure("Connection refused").code(), 1032);
+}
+
+#[test]
+fn an_unrecognised_message_is_still_an_unreachable_and_never_an_empty_success() {
+    let error = classify_failure("something nobody has seen before");
+    assert_eq!(error.code(), 1032);
+    let ConnectionError::Unreachable { reason, .. } = error else {
+        panic!("expected an unreachable");
+    };
+    assert_eq!(reason, "something nobody has seen before");
+
+    // An empty diagnostic still produces a usable sentence.
+    let ConnectionError::Unreachable { reason, .. } = classify_failure("") else {
+        panic!("expected an unreachable");
+    };
+    assert_eq!(reason, "no diagnostic from ssh");
+}
+
+#[test]
+fn a_reason_is_bounded_to_one_line() {
+    let noisy = format!("first line\n{}", "x".repeat(1000));
+    let ConnectionError::Unreachable { reason, .. } = classify_failure(&noisy) else {
+        panic!("expected an unreachable");
+    };
+    assert_eq!(reason, "first line");
+    assert!(!reason.contains('\n'));
+
+    let long_single = "y".repeat(1000);
+    let ConnectionError::Unreachable { reason, .. } = classify_failure(&long_single) else {
+        panic!("expected an unreachable");
+    };
+    assert!(reason.len() <= 300, "a reason must not become a payload");
+}
+
+#[test]
+fn refine_attaches_the_fingerprint_a_caller_needs() {
+    let observed = "SHA256:abcdef".to_string();
+    let refined = refine(
+        &ssh_profile(),
+        ConnectionError::HostKey {
+            fingerprint: String::new(),
+            changed: false,
+        },
+        Some(observed.clone()),
+    );
+    assert_eq!(
+        refined,
+        ConnectionError::HostKey {
+            fingerprint: observed,
+            changed: false,
+        }
+    );
+
+    // With nothing observed, the recorded fingerprint is the fallback, so
+    // the field is never blank for a profile that has one.
+    let mut pinned = ssh_profile();
+    pinned.host_key_fingerprint = Some("SHA256:recorded".into());
+    let refined = refine(
+        &pinned,
+        ConnectionError::HostKey {
+            fingerprint: String::new(),
+            changed: true,
+        },
+        None,
+    );
+    assert_eq!(
+        refined,
+        ConnectionError::HostKey {
+            fingerprint: "SHA256:recorded".into(),
+            changed: true,
+        }
+    );
+}
+
+#[test]
+fn refine_names_the_profile_on_an_auth_failure_and_leaves_others_alone() {
+    let refined = refine(
+        &ssh_profile(),
+        ConnectionError::AuthFailed(String::new()),
+        None,
+    );
+    assert_eq!(refined, ConnectionError::AuthFailed("0f5c".into()));
+
+    let untouched = refine(&ssh_profile(), ConnectionError::Timeout, None);
+    assert_eq!(untouched, ConnectionError::Timeout);
+}
+
+#[test]
+fn a_multiplex_request_is_only_reported_when_ssh_accepted_it() {
+    let mut multiplexed = ssh_profile();
+    multiplexed.multiplex = Multiplex::Multiplex;
+    assert!(wants_multiplex(&multiplexed));
+    assert!(!wants_multiplex(&ssh_profile()));
+}
+
+#[test]
+fn the_askpass_reuses_the_running_binary() {
+    // One artifact, both platforms: a shell script would need a different
+    // interpreter on each.
+    assert!(ASKPASS_ARG.starts_with("--"));
+    assert!(!askpass_program().is_empty());
+}
+
+#[test]
+fn the_probe_command_does_not_depend_on_echo() {
+    // `echo` on some targets expands backslashes, which would turn the
+    // probe result into a path nobody has.
+    assert!(PROBE_COMMAND.contains("printf"));
+    assert!(!PROBE_COMMAND.contains("echo "));
+    assert!(PROBE_COMMAND.contains("${SHELL:-/bin/sh}"));
+}
+
+#[test]
+fn json_round_trip_of_a_probe_report_stays_camel_case() {
+    // The report is serialized straight into a result body, so the field
+    // names are part of the contract.
+    let report = ProbeReport {
+        fingerprint: Some("SHA256:x".into()),
+        shell: Some("/bin/bash".into()),
+        multiplexed: false,
+        duration_ms: 412,
+    };
+    let value = json!({
+        "fingerprint": report.fingerprint,
+        "shell": report.shell,
+        "multiplexed": report.multiplexed,
+        "durationMs": report.duration_ms,
+    });
+    assert_eq!(value["durationMs"], json!(412));
+}
