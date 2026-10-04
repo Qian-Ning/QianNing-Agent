@@ -2918,9 +2918,10 @@ model picker and a reasoning-level picker (D629).
   their source paths until the echo brings the session-scoped refs; a slash
   prompt shows its typed form until the echo brings the expanded body and
   command chip. A send that never reaches the host withdraws the row again.
-  Revalidation and older-page prepends are idempotent by message id, so leaving
-  and re-entering a session cannot display a second copy of an existing user
-  row.
+  Revalidation and older-page prepends are idempotent by message id. If the
+  renderer missed the persistence acknowledgement, re-entry may collapse only
+  an exact, attachment-free optimistic prompt with a nearby durable echo; an
+  older identical prompt cannot hide a newly sent row.
 - Shift+Enter: newline in textarea. Cmd/Ctrl+Enter sends when Enter-to-send is off. IME composition and an open autocomplete menu still take precedence over send.
 - Placeholder guidance: the initially rendered context starts on its welcome copy and remains
   unchanged while the page/session context, draft, focus, and IME state change.

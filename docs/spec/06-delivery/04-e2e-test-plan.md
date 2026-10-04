@@ -2971,6 +2971,28 @@ identify the platform validation still needed.
   `07-plugins/04-plugin-security.md` §8.1
 - **Status**: Client and session-isolation unit-covered; full desktop journey Draft
 
+#### E2E-MCP-tool-requires-approval: User MCP tools prompt under ask and accept-edits
+
+- **Preconditions**: A project-bound Agent session; one user-configured stdio
+  MCP server whose tool list annotates a tool as read-only/low risk.
+- **Steps**: 1) With the session in `ask`, ask the agent to call the MCP tool.
+  2) Answer the card with allow-once, call it again, then answer with
+  allow-session and call it a third time. 3) Switch to `accept-edits` in a new
+  session and repeat the call. 4) Switch to `auto` and call it. 5) Switch to
+  Plan, then Goal, and call it.
+- **Expected**: Under `ask` and `accept-edits` every call shows an approval card
+  with reason "MCP server tool requires approval" at `medium` risk, regardless of
+  the server's self-declared annotation. Allow-once covers only that call;
+  allow-session suppresses further cards for the same `mcp_<serverId>_<tool>`
+  name in that session only, and does not cover other tools of the server.
+  `auto` runs the tool without a card. Plan and Goal deny it even with a
+  session grant.
+- **Specs linked**: `03-runtime/03-tools-and-permissions.md`,
+  `05-security/01-security.md`, D640, ADR `mcp-tool-approval-risk`
+- **Acceptance**: E (tools & permissions) + Security
+- **Status**: Unit-covered (host-core `permissions.rs` MCP risk and mode tests);
+  desktop journey Draft
+
 #### E2E-024L: Resident plugin service is supervised and visible
 
 - **Preconditions**: `examples/plugins/hello` enabled with `background.service` granted.
@@ -5575,6 +5597,9 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
     jump-to-latest appears as soon as follow mode is released.
   - On send, the transcript re-pins, hides jump-to-latest, and jumps to the bottom so the new user message (and following stream) is visible.
   - Streaming continues to follow while pinned.
+  - Long Markdown responses with nested lists keep their list container line
+    boxes stable during streaming; the cursor follows the terminal inline text
+    without adding a blank line below a nested list.
   - Manual scroll mid-stream pauses follow and shows jump-to-latest again; clicking it resumes follow.
 - **Specs linked**: `04-ux/08-component-spec.md`, `04-ux/09-interaction-patterns.md`
 - **Acceptance**: C (chat stream), Quality / D151
@@ -11618,17 +11643,22 @@ are withdrawn with ADR 0165.
   back. 3) Confirm the newest user row (and any streaming tail) is at the
   bottom of the transcript and the session still shows as running. 4) Optional:
   Stop, switch away and back; the same newest rows remain in chronological
-  order.
+  order. 5) With an older identical prompt already durable, send that same
+  text again and immediately switch away and back before its persistence
+  acknowledgement is applied.
 - **Expected**: Revalidation does not append older live history after the
   bounded durable page. The mounted trailing window still shows the just-sent
   prompt and the live tail. The turn continues in the background across the
-  switch. Stop is not required to make the prompt visible again.
+  switch. The older same-text row remains distinct and cannot suppress the new
+  optimistic prompt; the durable echo replaces that prompt in place. Stop is
+  not required to make the prompt visible again.
 - **Specs linked**: `04-ux/08-component-spec.md` §1.6 / §3.5,
   `04-ux/09-interaction-patterns.md` (session isolation), ADR 0120, ADR 0137,
   `08-meta/decisions-log.md` (D261, D317)
 - **Acceptance**: C (conversation & stream), F (persistence), Quality
 - **Milestone**: M5
-- **Status**: Unit-covered (`session-transcript.test.mjs` D317 cases); full
+- **Status**: Unit-covered (`session-transcript.test.mjs` D317 and missed-ack
+  same-text cases); full
   desktop journey Draft (run only in a capable environment when this surface changes)
 
 #### E2E-183: Switching an idle session keeps a completed reply that is not on disk yet

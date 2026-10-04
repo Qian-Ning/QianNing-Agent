@@ -242,7 +242,7 @@ const SmoothMessageBubble = memo(function SmoothMessageBubble({
     streaming,
     enabled,
   );
-  const showCursor = streaming && enabled && (displayContent.length < (message.content || "").length);
+  const showCursor = streaming && enabled && Boolean(displayContent);
 
   return (
     <div
