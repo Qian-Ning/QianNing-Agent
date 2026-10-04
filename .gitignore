@@ -24,6 +24,13 @@ docs/image/pi_logo.png
 docs/image/pi_logo.webp
 *.tgz
 
+# Local design prototypes and animation source (not shipped).
+# Root-anchored so only the repo-root scratch artefacts match: the motion
+# source clips under zt/ are ~69 MB of mp4, and the qn-*.html files are
+# throwaway previews. Without this a `git add .` would commit all of it.
+/zt/
+/qn-*.html
+
 # Env / secrets
 .env
 .env.*
