@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-06
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D330, ADR 0109, GitHub pull request #45
 
 ## Context

@@ -2,12 +2,12 @@
 
 - Status: Accepted (amended by D364 / D603 / D628 / ADR 0197, D450 / ADR 0289; issue #1098)
 - Date: 2026-07-26
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D120, D126, D364, D603, D628, D010, D450, ADR 0021, ADR 0197, ADR 0289
 
 ## Context
 
-PI-Desktop needs a release-update path that preserves the renderer sandbox,
+QianNing Agent needs a release-update path that preserves the renderer sandbox,
 does not expose feed configuration to untrusted UI code, and reflects each
 platform's actual installer capabilities. A single automatic-install policy is
 not appropriate: unsigned macOS packages cannot provide a qualified in-app
@@ -87,7 +87,7 @@ electron-builder's self-extracting `portable` executable. The release helper
 builds NSIS and ZIP separately and stamps the ZIP app metadata with
 `piDistribution = "zip"`; the updater uses that marker to keep the ZIP manual
 even though ordinary ZIP launches do not set `PORTABLE_EXECUTABLE_FILE`. Users
-extract the archive and run `PI-Desktop.exe`; the NSIS lane and existing data
+extract the archive and run `QianNing Agent.exe`; the NSIS lane and existing data
 directory remain unchanged.
 
 ## Amendment (issue #1098)

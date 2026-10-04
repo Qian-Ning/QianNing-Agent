@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-07-27
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D123, D124, D125, D197, D209, D250, ADR 0019 (work panel subsystems), ADR 0059 (clipboard file paste), ADR 0070 (compact reference display), ADR 0106 (core five builtin commands), D114 (scratch dir), D119 (transcript file store)
 
 ## Context
@@ -23,7 +23,7 @@ scope-cut both. The embedded pi runtime (`@earendil-works/pi-agent-core`
 - pi's built-in slash commands (`/new`, `/model`, …) are client-side
   behaviors of its TUI, not runtime features.
 
-PI-Desktop uses the low-level `Agent` class (not `AgentHarness`), so none of
+QianNing Agent uses the low-level `Agent` class (not `AgentHarness`), so none of
 this is active in the desktop today, but the loader/expansion helpers are
 exported by the installed package and directly reusable.
 
@@ -83,7 +83,7 @@ exported by the installed package and directly reusable.
 - The composer gains a keyboard-first autocomplete surface (D125 defines the
   interaction/IME contract — the first explicit IME spec in the project).
 - `.pi/prompts` templates become shared assets between pi CLI and
-  PI-Desktop.
+  QianNing Agent.
 - The transcript user-message schema gains an optional `command` field;
   renderers that ignore it keep working.
 - Inline binary attachments and preview tiles remain deferred. Compact textual

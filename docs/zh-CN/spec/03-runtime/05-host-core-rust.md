@@ -5,7 +5,7 @@
 
 ## 1. 目的
 
-`host-core` 是 PI-Desktop 的特权本地后端。
+`host-core` 是 QianNing Agent 的特权本地后端。
 
 它**不会**取代 pi。它提供安全主机功能：
 

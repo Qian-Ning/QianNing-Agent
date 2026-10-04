@@ -2,7 +2,7 @@
 
 - Status: Implemented (phases 1–2; block ops, drift recovery, and boundary repair remain phased)
 - Date: 2026-08-15
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends: D186, ADR 0069 §2 (`Read` output shape), ADR 0043 §1 (review keying)
 - Supersedes: the `old_string` / `new_string` `Edit` contract in
   [03-tools-and-permissions §4d](../spec/03-runtime/03-tools-and-permissions.md)
@@ -108,7 +108,7 @@ it anchored the wrong opener.
 
 Cross-file moves use named registers (`CUT 1* @fn` in one call, `PUT <1 @fn` in
 the next), which is `hashline`'s own sanctioned cross-call mechanism. `Edit`
-stays single-path: PI-Desktop's permission gate, review snapshot, artifacts row,
+stays single-path: QianNing Agent's permission gate, review snapshot, artifacts row,
 and mutation permit are all keyed on one `args.path`, and multi-section patches
 would fork all four. The anonymous register lives only within one `Edit` call.
 
@@ -141,7 +141,7 @@ instead of failing. A no-op apply is an error.
   tree-sitter and its grammars in the binary. Grammar footprint is the price of
   block ops and is bounded by an explicit language list, not by "add grammars
   until every file works".
-- Every model targeting PI-Desktop must learn one new syntax. There is no
+- Every model targeting QianNing Agent must learn one new syntax. There is no
   fallback contract, so a model that cannot produce it cannot edit; this is
   accepted deliberately over maintaining two prompts, two validators, two
   renderers, and two audit shapes indefinitely.

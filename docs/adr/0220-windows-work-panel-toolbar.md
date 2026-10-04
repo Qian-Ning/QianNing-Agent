@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-11
-- Deciders: PI-Desktop desktop UI maintainers
+- Deciders: QianNing Agent desktop UI maintainers
 - Amends: D154, D357, ADR 0195
 - Related: [01-ui-ia](../spec/04-ux/01-ui-ia.md) ·
   [07-ui-design-system](../spec/04-ux/07-ui-design-system.md) ·

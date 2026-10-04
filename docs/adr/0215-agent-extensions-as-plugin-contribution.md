@@ -13,7 +13,7 @@ plugins: its own discovery over `~/.pi/agent/extensions`, its own enablement
 store, its own Settings destination. That gave users two lists that mean
 "extend the agent" and left pi CLI extensions outside the plugin lifecycle
 (install, scope, update, remove, marketplace). The maintainer's requirement
-is one surface: a pi CLI extension is converted into a PI-Desktop plugin and
+is one surface: a pi CLI extension is converted into a QianNing Agent plugin and
 used as one.
 
 ## Decision

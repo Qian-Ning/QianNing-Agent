@@ -6,7 +6,7 @@
 
 ## Context
 
-PI-Desktop already has typed Electron-main IPC for projects, sessions, the pi
+QianNing Agent already has typed Electron-main IPC for projects, sessions, the pi
 Agent, workspace views, plugins, settings, and other desktop operations. That
 surface is available to the renderer only, so an external Agent cannot drive a
 running desktop without a second application-specific integration. The remote

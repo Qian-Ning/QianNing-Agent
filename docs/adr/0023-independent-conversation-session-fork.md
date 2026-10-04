@@ -6,7 +6,7 @@ Accepted.
 
 ## Context
 
-PI-Desktop already preserves linear regenerate variants within one
+QianNing Agent already preserves linear regenerate variants within one
 conversation. Users also need a Codex-style command that copies the current
 conversation so later prompts and configuration changes can diverge without
 rewriting the source.

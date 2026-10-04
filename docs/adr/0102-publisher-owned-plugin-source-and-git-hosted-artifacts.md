@@ -6,7 +6,7 @@
 
 - Status: Accepted for implementation
 - Date: 2026-08-18
-- Deciders: PI-Desktop plugin and distribution maintainers
+- Deciders: QianNing Agent plugin and distribution maintainers
 - Supersedes: ADR 0006 (marketplace postponed)
 - Amends: ADR 0007 (plugin package format), ADR 0005 (user-installable plugins)
 
@@ -44,7 +44,7 @@ We want the ownership model without operating object storage.
 ### 1. The publisher's repository is the source of truth
 
 A publisher submits a repository coordinate — canonical HTTPS repository URL,
-path, and a ref that resolves to a 40-hex commit. PI-Desktop never copies plugin
+path, and a ref that resolves to a 40-hex commit. QianNing Agent never copies plugin
 source into a project-owned repository. `pluginId`, `publisherId`, the linked
 repository, and the packaged `manifest.json` identity must agree, and a published
 version is pinned to exactly one `(repository, commit, path)` tuple.
@@ -113,7 +113,7 @@ attention.
 ## Consequences
 
 - Third-party publishers can ship plugins without write access to any
-  PI-Desktop-owned repository, and can version on their own schedule.
+  QianNing Agent-owned repository, and can version on their own schedule.
 - The default catalog URL is unchanged, so no client release and no user action
   is needed to reach plugins published through the center.
 - The client needs no code change for this decision: relative package URLs

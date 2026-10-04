@@ -1,4 +1,4 @@
-# PI-Desktop Project Board
+# QianNing Agent Project Board
 
 > Historical record. The status tables below were last refreshed on
 > 2026-08-11 for the 0.5.x line and are kept for milestone traceability.
@@ -53,7 +53,7 @@ Open issue:
 - M2 Pi Chat Runtime (provider/secrets, streaming chat, session persistence)
 - M3 Workspace Tools (Read/Glob/Grep/Write/Edit/Bash, permissions, path sandbox)
 - M4 Plugin Foundation (dev load, command palette, plugin tool registration)
-- M5 packaging: unsigned DMG builds locally (`PI-Desktop-0.1.0-arm64.dmg`)
+- M5 packaging: unsigned DMG builds locally (`QianNing-Agent-0.1.0-arm64.dmg`)
   with custom icon, host binary + sidecar resources; signed/notarized lane
   scripted (`scripts/release-macos.sh`, D078)
 - M5 hardening: renderer sandbox + prod CSP (D081), NDJSON log channels
@@ -139,5 +139,5 @@ The M6 checkpoint is complete. The current application also includes:
 
 ```bash
 gh auth refresh -s read:project,project
-gh project create --owner vastsa --title "PI-Desktop Roadmap"
+gh project create --owner vastsa --title "QianNing Agent Roadmap"
 ```

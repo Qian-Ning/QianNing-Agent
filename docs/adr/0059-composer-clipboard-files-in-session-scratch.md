@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-05
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D197, D209, ADR 0024 (composer commands and @ file references), ADR 0070 (compact reference display), D114 (session scratch directory), D119 (transcript file store)
 
 ## Context

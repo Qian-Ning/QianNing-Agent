@@ -14,7 +14,7 @@ historical context for the superseded design.
 
 ## Context
 
-PI-Desktop's former product selector treated Chat and Agent as two tool
+QianNing Agent's former product selector treated Chat and Agent as two tool
 profiles. That vocabulary made a planning workflow ambiguous: a plan could be
 described as another agent, a planner model, or a read-only permission mode.
 Those interpretations would duplicate the pi runtime or put authorization in

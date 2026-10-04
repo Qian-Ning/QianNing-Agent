@@ -2,7 +2,7 @@
 
 - Status: Accepted for implementation
 - Date: 2026-09-17
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: [ADR 0005](0005-user-installable-plugin-system.md) ·
   [ADR 0110](0110-plugin-panel-chrome-spacing-contract.md) ·
   [07-plugins/12](../spec/07-plugins/12-plugin-ipc-and-host-services.md) ·

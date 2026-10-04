@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-20
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D117, D135, E2E-064, E2E-065, `03-runtime/01-ipc-protocol.md`
 
 ## Context

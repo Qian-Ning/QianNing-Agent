@@ -2,7 +2,7 @@
 
 - Status: Accepted (amended by D347 / ADR 0184 and D355 / ADR 0193)
 - Date: 2026-08-18
-- Deciders: PI-Desktop renderer and UX maintainers
+- Deciders: QianNing Agent renderer and UX maintainers
 - Amends: D103, D184, ADR 0047
 
 ## Context

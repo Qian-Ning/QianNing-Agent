@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-20
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: [ADR 0092](0092-plugin-owned-panel-surface.md) ·
   [ADR 0093](0093-plugin-panel-strict-drag-band.md) ·
   [ADR 0104](0104-plugin-contributed-work-panel-views.md) ·
@@ -30,7 +30,7 @@ docked placements.
    the top-right of the 46px band; plugin pages own their title, toolbar, and
    surfaces. The host re-samples page colors after appearance changes.
 5. First-party examples, bundled plugins, and generated panel templates use
-   the neutral PI-Desktop token ramp and the v2 marker.
+   the neutral QianNing Agent token ramp and the v2 marker.
 
 ## Consequences
 

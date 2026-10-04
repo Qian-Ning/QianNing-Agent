@@ -45,7 +45,7 @@ README, and only the permissions the template actually uses. Scaffolding refuses
 to write into a non-empty directory.
 
 Panel templates include the current `pi-plugin-chrome` v2 marker and the
-neutral PI-Desktop surface tokens. Their body uses
+neutral QianNing Agent surface tokens. Their body uses
 `var(--pi-plugin-titlebar-height, 0px)` so the same entry works in a detached
 window and a docked work-panel view without adding a second top spacer.
 

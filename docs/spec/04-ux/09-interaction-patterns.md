@@ -171,7 +171,7 @@ recency only breaks ties between equally relevant matches.
   window from the taskbar/dock window list while the Electron process and
   background work remain alive. It does not persist a minimized geometry or
   dispose the host/sidecar.
-- Double-clicking the PI-Desktop tray icon (or single-clicking on Windows/Linux),
+- Double-clicking the QianNing Agent tray icon (or single-clicking on Windows/Linux),
   choosing Open, or activating the app from the macOS dock restores and focuses the
   existing window. If the window was closed, the same action creates a fresh
   window.
@@ -470,7 +470,7 @@ may be retained while exactly one workspace supplies the visible shell context.
    platform notification derived from the event kind and session title. The
    separate interactive ask/permission/plan path may alert for a focused
    background session while suppressing the exact visible session. On
-   Windows, the banner is attributed to the canonical PI-Desktop
+   Windows, the banner is attributed to the canonical QianNing Agent
    AppUserModelID shared with the NSIS package and taskbar identity. Electron
    retains at most one task-native object per durable id; successful read,
    mark-all-read, and clear actions close the matching objects and retain a

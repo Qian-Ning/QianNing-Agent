@@ -2,7 +2,7 @@
 
 - Status: Accepted for implementation
 - Date: 2026-09-17
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: [ADR 0081](0081-host-owned-plugin-panel-chrome.md) ·
   [ADR 0092](0092-plugin-owned-panel-surface.md) ·
   [ADR 0093](0093-plugin-panel-strict-drag-band.md) ·

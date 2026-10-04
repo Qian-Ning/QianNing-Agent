@@ -2,7 +2,7 @@
 
 - Status: Accepted (amended by ADR 0112)
 - Date: 2026-08-06
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D202, ADR 0062 (bounded subagents), ADR 0112
 
 ## Context

@@ -10,7 +10,7 @@
 ## 2. 目录布局
 
 ```text
-~/.pi-desktop/
+~/.qianning-agent/
  ├── pi.sqlite # host DB (03-runtime/04); plugins never open it
  ├── plugins/
  │ ├── installed/<plugin-id>/
@@ -56,7 +56,7 @@ type PluginRegistry = {
 `pi.plugin.getDataPath()` 指向：
 
 ```text
-~/.pi-desktop/plugins/data/<plugin-id>/
+~/.qianning-agent/plugins/data/<plugin-id>/
 ```
 
 用途：

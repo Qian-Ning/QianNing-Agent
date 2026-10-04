@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-06
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: [ADR 0104](0104-plugin-contributed-work-panel-views.md) ·
   [ADR 0105](0105-files-as-a-bundled-plugin.md) ·
   [ADR 0109](0109-open-files-with-the-os-associated-application.md) ·

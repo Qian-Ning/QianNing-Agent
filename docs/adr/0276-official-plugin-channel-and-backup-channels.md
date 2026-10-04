@@ -2,7 +2,7 @@
 
 - Status: Accepted for implementation
 - Date: 2026-09-17
-- Deciders: PI-Desktop plugin and distribution maintainers
+- Deciders: QianNing Agent plugin and distribution maintainers
 - Related: ADR 0102, D238, E2E-024P, E2E-PLUGIN-official-channel-resolves-through-the-platform
 
 ## Context

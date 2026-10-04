@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-05
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D326, D277, D318, D321, D325, ADR 0062, ADR 0089,
   `03-runtime/02-agent-runtime.md` §5f.2,
   `03-runtime/03-tools-and-permissions.md` §10.2,

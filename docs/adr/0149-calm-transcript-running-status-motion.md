@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-04
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D071, D290, E2E-053, E2E-083
 
 ## Context

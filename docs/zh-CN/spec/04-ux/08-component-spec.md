@@ -139,7 +139,7 @@
 
 | 平台 | 顶级镀铬 | 应用菜单 |
 |---|---|---|
-| macOS | `{x:16,y:16}` 处原生嵌入式交通灯；展开的侧边栏折叠控件位于右侧，没有 logo/title；打开工作面板折叠位于会话窗格的右上角 | 系统菜单：PI-Desktop、文件、编辑、视图、窗口、帮助 |
+| macOS | `{x:16,y:16}` 处原生嵌入式交通灯；展开的侧边栏折叠控件位于右侧，没有 logo/title；打开工作面板折叠位于会话窗格的右上角 | 系统菜单：QianNing Agent、文件、编辑、视图、窗口、帮助 |
 | Windows | 无框 46px 标题栏；左侧边栏操作，在 minimize/maximize/close 之前的会话窗格右上角打开工作面板折叠 | 窗户里面没有 |
 | Linux | 无框 46px 标题栏；左侧边栏操作，在 minimize/maximize/close 之前的会话窗格右上角打开工作面板折叠 | 窗户里面没有 |
 
@@ -167,7 +167,7 @@
   周围的标题栏拖动区域不能消耗最小化、最大化、
   恢复或关闭点击。
 - 最小化是每个平台上的常驻 shell 操作：渲染器按钮
-  将主窗口隐藏到 PI-Desktop 托盘中，而 macOS 本机流量
+  将主窗口隐藏到 QianNing Agent 托盘中，而 macOS 本机流量
   灯光和窗口菜单角色转换为相同的隐藏到托盘状态。
   托盘激活可恢复并聚焦窗口；退出仍然是明确的。
 - Windows/Linux 不会在标题栏中呈现 File/Edit/View/Window/Help，并且
@@ -299,7 +299,7 @@ Composer 拥有 Agent/Plan/Goal 控件以及组合的模型 × 推理选择（§
 Expanded (~275px, D034/D070):
 +---------------------------+
 | [lights]             [◧] |  macOS
-| [π] PI-Desktop       [◧] |  Windows/Linux
+| [π] QianNing Agent       [◧] |  Windows/Linux
 | PINNED                   |
 |   • Pinned task  project-A|
 | 会话 [消息+][↕] |
@@ -391,7 +391,7 @@ Collapsed (48px):
   转录预取。选择重用正在进行的或最近缓存的结果，
   在后台重新验证它，并且从不等待旧的被取代
   会话在开始最新读取之前读取。
-- 在 Windows/Linux 上，单击 PI-Desktop 品牌以返回主窗格
+- 在 Windows/Linux 上，单击 QianNing Agent 品牌以返回主窗格
   在家聊天，同时保留活跃的对话和工作空间； macOS
   故意从侧边栏标题中省略此品牌控制
 - 点击设置右侧的页脚插件图标打开插件页；插件页激活时再次点击，按现有
@@ -483,7 +483,7 @@ Collapsed (48px):
 
 ### 3.7 品牌和图标合同
 
-- 可见shell名称为`PI-Desktop`； Codex 不用作渲染器
+- 可见shell名称为`QianNing Agent`； Codex 不用作渲染器
   身份。
 - 没有文字标签的控件声明 `.icon-btn-square`，它把两个轴都固定到
   `--ds-control-size`（28px）。单独的 `.icon-btn` 宽度来自图形加左右各 8px 内边距 ——

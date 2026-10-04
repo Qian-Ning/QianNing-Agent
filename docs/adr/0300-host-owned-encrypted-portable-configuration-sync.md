@@ -5,7 +5,7 @@
 
 ## Context
 
-PI-Desktop has portable preferences and user-owned capabilities spread across
+QianNing Agent has portable preferences and user-owned capabilities spread across
 Rust-owned SQLite, capability files, the host secret store, project groups,
 and plugin metadata. Copying the database or the local secrets directory would
 export device state, break ownership boundaries, and could activate executable

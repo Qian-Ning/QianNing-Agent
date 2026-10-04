@@ -2,14 +2,14 @@
 
 - Status: Accepted
 - Date: 2026-08-12
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D211 · ADR 0072 · E2E-120
 
 ## Context
 
 Windows reserves `Alt+Space` for the active window system menu. Electron's
 `globalShortcut` may therefore reject the plugin launcher's default binding,
-and a renderer `before-input-event` fallback only works while PI-Desktop is
+and a renderer `before-input-event` fallback only works while QianNing Agent is
 focused.
 
 ## Decision

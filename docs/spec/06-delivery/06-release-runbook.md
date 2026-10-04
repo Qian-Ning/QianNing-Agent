@@ -22,15 +22,15 @@ not pass.
 
 On macOS, `pnpm dev` creates and reuses a fingerprinted branded Electron host
 bundle under `.cache/electron-dev/`. Its bundle name, executable, identifier,
-and ICNS resource are development-only PI-Desktop values, so AppKit shows
-PI-Desktop in the application menu and uses the canonical icon in the native
+and ICNS resource are development-only QianNing Agent values, so AppKit shows
+QianNing Agent in the application menu and uses the canonical icon in the native
 About panel. The runtime also applies `build/icon_1024.png` to the Dock. Stock
 files under `node_modules` are never modified. Windows/Linux development keeps
 the normal electron-vite executable. Windows Main nevertheless registers the
 same `net.aiuo.pi-desktop` AppUserModelID used by the NSIS package before
 Electron readiness, preventing the stock host identity from owning native
 notifications or taskbar groups. The Windows package additionally pins the
-`PI-Desktop` executable and Start menu shortcut names. The launcher sets
+`QianNing Agent` executable and Start menu shortcut names. The launcher sets
 `PI_DESKTOP_DEV=1` so runtime packaging checks keep update delivery disabled
 and preserve developer workspace defaults despite the branded executable name.
 The first `pnpm dev` on Electron 43+ downloads the Electron binary on demand
@@ -655,18 +655,18 @@ so its `woff2` row is no longer current.
 
 Manual smoke on a clean profile (`PI_DESKTOP_DATA_DIR=$(mktemp -d)`):
 
-1. `pnpm dev` launches with `PI-Desktop` in the macOS application menu and the
+1. `pnpm dev` launches with `QianNing Agent` in the macOS application menu and the
    canonical icon in both the Dock and native About panel; no Electron brand is
    visible.
 2. App launches from DMG install, window appears, and the application-menu,
    About-panel, and Dock branding match the development lane.
-3. Empty home and expanded/collapsed sidebar show the canonical PI-Desktop
+3. Empty home and expanded/collapsed sidebar show the canonical QianNing Agent
    logo; composer prompt rows have no leading brand icon; New task and
    project/Temporary create controls use the message-plus session icon.
 4. Onboarding checklist appears; configure provider; one streamed chat turn.
 5. One permissioned tool call (Write) allow + deny paths.
 6. Quit/relaunch → session history restored, window bounds restored.
-7. `~/.pi-desktop/logs/` contains categorized NDJSON under `app/`, `host/`,
+7. `~/.qianning-agent/logs/` contains categorized NDJSON under `app/`, `host/`,
    and `agent/`; key lifecycle, tool, provider, plugin, and error records are
    available without dedicated timing files.
 8. With network access disabled, the shell still starts; English/Chinese
@@ -719,11 +719,11 @@ with `piDistribution = "zip"`; packaged ZIP runs use notify-and-link delivery.
 Legacy portable executables remain manual when `PORTABLE_EXECUTABLE_FILE` is
 present. NSIS keeps the in-app download and quit-and-install lane. Data stays
 in the existing application data directory. Users extract the ZIP and launch
-`PI-Desktop.exe` directly, so the package does not run a self-extracting
+`QianNing Agent.exe` directly, so the package does not run a self-extracting
 wrapper or request administrator execution.
 
 RPM targets pass `_build_id_links none` to FPM. Bundled Electron binaries live
-under `/opt/PI-Desktop`; omitting global `/usr/lib/.build-id` links prevents
+under `/opt/QianNing Agent`; omitting global `/usr/lib/.build-id` links prevents
 collisions with other applications that bundle the same Electron binaries.
 
 The ASAR asset contains the Electron application archive, not a complete Linux

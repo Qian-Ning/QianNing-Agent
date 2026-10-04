@@ -3,7 +3,7 @@
 > **翻译说明：** 本页是与 [英文源规格](/spec/06-delivery/03-ai-development-workflow) 一一对应的机器辅助翻译。代码、协议字段和标识符保持原文；如翻译与英文源事实有歧义，以英文版本为准。
 
 
-> 范围：致力于 PI-Desktop 的人工智能代理和人类合作者
+> 范围：致力于 QianNing Agent 的人工智能代理和人类合作者
 > 状态：已接受
 > 交叉引用：[00 基线](/zh-CN/spec/00-baseline) · [决策日志](/zh-CN/spec/08-meta/decisions-log) · [接受标准](/zh-CN/spec/06-delivery/02-acceptance-criteria) · [e2e-测试计划](/zh-CN/spec/06-delivery/04-e2e-test-plan) · [更改检查表](/zh-CN/spec/06-delivery/05-change-checklist) · [ADR索引](/adr/README)
 
@@ -11,7 +11,7 @@
 
 ## 1. 核心不可变规则
 
-下列规则管理着 PI-Desktop 代码库和文档的每次更改。R1–R4 复述 `AGENTS.md` 中五条编号的不可变规则（R4 同时涵盖合并回 main 与清理工作树两条）；R5 与 R6 复述其 GitHub issue 与 pull request 处理章节。如果没有明确的人工干预，代理就无法放松它们。
+下列规则管理着 QianNing Agent 代码库和文档的每次更改。R1–R4 复述 `AGENTS.md` 中五条编号的不可变规则（R4 同时涵盖合并回 main 与清理工作树两条）；R5 与 R6 复述其 GitHub issue 与 pull request 处理章节。如果没有明确的人工干预，代理就无法放松它们。
 
 ### R1 — 规格优先/规格同步
 

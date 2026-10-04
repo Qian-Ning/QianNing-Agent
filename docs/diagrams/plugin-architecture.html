@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>PI-Desktop 插件模块架构图</title>
+<title>QianNing Agent 插件模块架构图</title>
 <style>
   :root {
     --bg: #0e1116;
@@ -213,7 +213,7 @@
 
 <header class="page">
   <div>
-    <h1>PI-Desktop 插件模块架构</h1>
+    <h1>QianNing Agent 插件模块架构</h1>
     <p class="sub">
       宿主提供能力、插件声明能力：清单校验在 Rust 侧，权限闸门与 API 白名单在 Electron 主进程，
       插件代码在每插件一个 <code>utilityProcess</code> 里跑，只能通过 JSON RPC 回喊宿主。
@@ -343,7 +343,7 @@
         <button class="node" style="--tint: var(--rust)" data-node="dirs">
           <span class="node-name">数据目录</span>
           <span class="node-desc">installed / disabled / data / logs / cache{download,backup} / market</span>
-          <span class="node-meta">~/.pi-desktop/plugins/</span>
+          <span class="node-meta">~/.qianning-agent/plugins/</span>
         </button>
       </div>
     </section>
@@ -729,7 +729,7 @@ const DETAILS = {
     "catalog 落 plugins/market/catalog.json，下载与备份分别在 cache/download、cache/backup",
     "PluginUpdateInfo 带 shasum / url / changelog / permission_diff",
     "自动更新逐插件 opt-in，且遇到权限扩张不静默应用"]],
-  "dirs": ["数据目录", "~/.pi-desktop/plugins/", [
+  "dirs": ["数据目录", "~/.qianning-agent/plugins/", [
     "installed/<id>、disabled/、data/<id>（含 settings.json）、logs/",
     "cache/download、cache/backup、market/",
     "PI_DESKTOP_DATA_DIR 可整体重定向（截图与测试即靠它）",

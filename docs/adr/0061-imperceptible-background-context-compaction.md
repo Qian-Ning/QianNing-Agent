@@ -2,7 +2,7 @@
 
 - Status: Accepted (clauses 2, 4, 6, 7, 8 amended by ADR 0064)
 - Date: 2026-08-06
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends: ADR 0030 / ADR 0049 / D158
 
 ## Context

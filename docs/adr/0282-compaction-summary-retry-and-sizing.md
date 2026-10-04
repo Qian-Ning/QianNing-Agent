@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-18
-- Deciders: PI-Desktop runtime maintainers
+- Deciders: QianNing Agent runtime maintainers
 - Amends: ADR 0049 (decision 1, the preflight guard; the "retry indefinitely"
   rejection stands), D203 / ADR 0064 (the summary family only)
 - Amended by: ADR 0302 (a prompt that still does not fit after the reduced pass

@@ -528,11 +528,11 @@ host-core 中的 `builtin_tool_defs()` 与 `packages/agent-runtime/src/runtime.t
 
 | 偏离 | 原因 |
 |---|---|
-| 每次 `Edit` 调用一个 section，而不是多 section 补丁 | PI-Desktop 有四个子系统以单个 `args.path` 为键（§13.2）；命名寄存器已经覆盖跨文件搬移 |
+| 每次 `Edit` 调用一个 section，而不是多 section 补丁 | QianNing Agent 有四个子系统以单个 `args.path` 为键（§13.2）；命名寄存器已经覆盖跨文件搬移 |
 | 使用 SHA-256 低 16 位而不是 `xxHash32` | 复用 host-core 已有原语；不新增依赖 |
 | 快照存储仅在内存中，从不持久化 | 跨重启存活的 tag 会比证明它的那些读取活得更久 |
 | 没有 `apply_patch` / `replace` 回退模式，也没有按模型的排除名单 | ADR 0087 §1：只有一套写入契约 |
-| 内部 URL 方案（`artifact://`、`xd://`……）不作为 `Edit` 目标 | 超出范围；PI-Desktop 的路径规则仍按 03-tools-and-permissions §4 的规定 |
+| 内部 URL 方案（`artifact://`、`xd://`……）不作为 `Edit` 目标 | 超出范围；QianNing Agent 的路径规则仍按 03-tools-and-permissions §4 的规定 |
 | 存储界限为 64 路径 / 8 MiB，而不是 30 / 64 MiB | host-core 是持有许多会话的长生命周期桌面进程，而不是每次调用一个的 CLI |
 
 ## 15. 分期

@@ -2,7 +2,7 @@
 
 - Status: Accepted for implementation
 - Date: 2026-08-07
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends: D111
 - Amended by: ADR 0067 (starter-grid presentation only; superseded by D206)
 

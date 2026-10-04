@@ -2,7 +2,7 @@
 
 - Status: Accepted; ZIP guidance superseded by D634 / [ADR 0309](0309-remove-macos-first-launch-artifacts.md)
 - Date: 2026-09-19
-- Deciders: PI-Desktop release maintainers
+- Deciders: QianNing Agent release maintainers
 - Amends: [ADR 0232](0232-macos-dmg-text-only-opening-guidance.md), [ADR 0204](0204-unsigned-macos-first-launch-helper.md)
 - Related: D457, D450, D634 / [ADR 0289](0289-signed-macos-github-releases.md), [ADR 0309](0309-remove-macos-first-launch-artifacts.md), E2E-196b, E2E-196c
 
@@ -15,7 +15,7 @@ path for tagged builds and made the installer look like an error dialog.
 
 ## Decision
 
-1. The macOS DMG contains only `PI-Desktop.app` and the Applications link, on
+1. The macOS DMG contains only `QianNing Agent.app` and the Applications link, on
    a branded 720×440 dark plate with 128px icons. It does not include the
    opening-help note or `PI-Desktop-macOS-open.command`.
 2. The macOS ZIP package still ships both `PI-Desktop-macOS-opening-help.txt`

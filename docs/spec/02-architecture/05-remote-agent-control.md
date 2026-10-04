@@ -2,12 +2,12 @@
 
 - Status: Target specification; post-MVP
 - Decision: D373 / ADR 0205, amended by D374 and D375
-- Scope: Remote observation and control of a PI-Desktop Agent Host
+- Scope: Remote observation and control of a QianNing Agent Agent Host
 - Source of truth: `03-runtime/19-remote-agent-control-protocol.md`
 
 ## 1. Scope and status
 
-This document specifies the target architecture for controlling a PI-Desktop
+This document specifies the target architecture for controlling a QianNing Agent
 Agent from another client. It does not enable a network listener in the
 current desktop release and does not change the frozen MVP boundary in
 `00-baseline.md` or ADR 0004.
@@ -97,7 +97,7 @@ The SSH-tunnel topology follows the VS Code Remote-SSH and JetBrains Gateway
 model: the server side is bootstrapped over the user's own SSH session and
 the client reaches it through a forwarded loopback port.
 
-PI-Desktop does not revive the withdrawn subagent A2A/Peer channel. ADR 0165
+QianNing Agent does not revive the withdrawn subagent A2A/Peer channel. ADR 0165
 continues to govern `Task` subagent coordination. The separate official
 Session Orchestrator plugin may use the host-owned, local-only collaboration
 ledger defined by ADR 0239; that reviewed path is not a remote Gateway or A2A
@@ -129,7 +129,7 @@ same in both deployments.
 This topology is unchanged:
 
 ```text
-PI-Desktop
+QianNing Agent
 ├── Electron Main
 │   ├── Renderer
 │   ├── Node pi sidecar
@@ -143,7 +143,7 @@ Gateway and cannot be configured to bind a LAN or public interface.
 ### 5.2 Remote Host over an SSH tunnel (first remote topology)
 
 ```text
-PI-Desktop (Remote Client)                    Remote machine
+QianNing Agent (Remote Client)                    Remote machine
 ├── Renderer ── lib/api.ts ─┐                 ┌── pi-host (headless Agent Host)
 ├── Electron Main           │ RACP-WS over    │   ├── packages/agent-host
 │   ├── RACP client adapter ┼─ SSH port ──────┼──▶│   ├── Node pi sidecar

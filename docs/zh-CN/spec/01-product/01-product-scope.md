@@ -5,7 +5,7 @@
 
 ## 1. 定位
 
-PI-Desktop 适合需要本地代理来对 read/modify 项目进行可见控制的开发人员和高级用户。
+QianNing Agent 适合需要本地代理来对 read/modify 项目进行可见控制的开发人员和高级用户。
 
 它结合了：
 
@@ -124,10 +124,10 @@ Plan 和 Goal 是合约模式，而不是严格的只读安全配置文件：Bas
 
 ## 8. 命名
 
-- 产品：`PI-Desktop`
+- 产品：`QianNing Agent`
 - 包装：`pi-desktop`
 - 应用程序 ID：`net.aiuo.pi-desktop`
-- 窗口标题：`PI-Desktop`
+- 窗口标题：`QianNing Agent`
 
 ## 9. 平台策略
 

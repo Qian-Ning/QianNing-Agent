@@ -2,7 +2,7 @@
 
 - Status: Accepted for implementation; amended by ADR 0129
 - Date: 2026-08-24
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D254, ADR 0062 (bounded subagents), ADR 0089 (background delegation),
   ADR 0129 (idle bounds silence, not slowness)
 

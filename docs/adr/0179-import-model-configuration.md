@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-08
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D007, D342, ADR 0012,
   ADR 0188,
   `04-ux/06-settings-ia.md`, `04-ux/08-component-spec.md` §18.5,
@@ -12,10 +12,10 @@
 
 Settings → Import already scans Claude Code, Codex, OpenCode, and Pi session
 stores. The same tools keep provider URLs, model ids, and often API keys in
-well-known files. Users who switch to PI-Desktop otherwise retype those
+well-known files. Users who switch to QianNing Agent otherwise retype those
 endpoints on Settings → Models.
 
-D007 forbids auto-import of `~/.pi` so PI-Desktop owns `~/.pi-desktop`. That
+D007 forbids auto-import of `~/.pi` so QianNing Agent owns `~/.qianning-agent`. That
 must stay true for model configuration: a scan is an explicit action, and
 nothing is written until Import selected.
 
@@ -23,7 +23,7 @@ Secrets cannot cross the renderer. Session import already keeps `filePath`
 in the main-process scan cache; model import must keep keys the same way.
 
 OAuth/subscription grants from those tools (Codex ChatGPT login, Claude
-subscription, OpenCode `type: oauth`) are not PI-Desktop vendor-account
+subscription, OpenCode `type: oauth`) are not QianNing Agent vendor-account
 credentials. Copying refresh tokens would be the wrong security boundary.
 
 ## Decision
@@ -70,7 +70,7 @@ credentials. Copying refresh tokens would be the wrong security boundary.
 
 - Switching from another local agent can bring both transcripts and the
   models those transcripts used, without pasting keys into Settings.
-- PI-Desktop still does not silently ingest `~/.pi`.
+- QianNing Agent still does not silently ingest `~/.pi`.
 - Users with only a ChatGPT/Claude subscription still sign in through
   Vendor accounts; import cannot impersonate that grant.
 

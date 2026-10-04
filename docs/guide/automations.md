@@ -24,7 +24,7 @@ permission mode and model in the task form. These choices are saved only for tha
 task, so changing another task or the app default does not retarget it. Auto can
 run restricted actions without asking; use it only for tasks you trust.
 
-Keep PI-Desktop running. Quitting the app stops scheduling. Missed occurrences
+Keep QianNing Agent running. Quitting the app stops scheduling. Missed occurrences
 are skipped; startup never launches a backlog. A task does not overlap its own
 unfinished run. Pause stops future occurrences without cancelling a running
 conversation. Open that conversation to respond to permission requests or stop

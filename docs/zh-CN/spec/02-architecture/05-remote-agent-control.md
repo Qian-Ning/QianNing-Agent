@@ -56,7 +56,7 @@ Gateway 的模式，服务端经用户自己的 SSH 会话引导，客户端通�
 ### 4.1 当前本地桌面
 
 ```text
-PI-Desktop
+QianNing Agent
 ├── Electron Main
 │   ├── Renderer
 │   ├── Node pi sidecar
@@ -67,7 +67,7 @@ PI-Desktop
 ### 4.2 SSH 隧道上的远端 Host（首个远程拓扑）
 
 ```text
-PI-Desktop (Remote Client)              Remote machine
+QianNing Agent (Remote Client)              Remote machine
 ├── Renderer ── lib/api.ts ─┐           ┌── pi-host (headless Agent Host)
 ├── Electron Main           │ RACP-WS   │   ├── packages/agent-host
 │   └── RACP client adapter ┼─ over SSH ┼──▶│   ├── Node pi sidecar

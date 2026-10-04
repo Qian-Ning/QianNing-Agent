@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-09-09
-- **Deciders:** PI-Desktop maintainers
+- **Deciders:** QianNing Agent maintainers
 
 ## Context
 

@@ -2,7 +2,7 @@
 
 - Status: Accepted for implementation
 - Date: 2026-08-11
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D211 · [Settings IA](../spec/04-ux/06-settings-ia.md) ·
   [Interaction patterns](../spec/04-ux/09-interaction-patterns.md) · E2E-120
 
@@ -11,7 +11,7 @@
 Installed plugin panels are reachable from the Plugins destination, but opening
 one interrupts the user's current work and requires pointer navigation. A
 system-wide shortcut needs a dedicated native window: the normal renderer
-cannot receive keys while PI-Desktop is unfocused, and the existing plugin panel
+cannot receive keys while QianNing Agent is unfocused, and the existing plugin panel
 host should remain the only authority that opens plugin UI.
 
 Chinese plugin names also need useful keyboard search without requiring an

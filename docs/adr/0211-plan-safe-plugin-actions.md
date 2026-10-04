@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-10
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
  - Amended by: D438 (the window-summon shortcut in §7 becomes one
   window-visibility toggle) and D439 (that toggle ships on `Alt+Shift+W`
   because macOS owns `Cmd+W`; the plan-safe plugin-action opt-in is unchanged)
@@ -10,7 +10,7 @@
 
 ## Context
 
-PI-Desktop splits sessions into Agent and Plan (and Goal) operating states.
+QianNing Agent splits sessions into Agent and Plan (and Goal) operating states.
 ADR 0052 and ADR 0053 lock the contract: Plan exposes `Read`, `Glob`,
 `Grep`, `BrowserPreview` (workspace HTML preview), `Bash`, `EnterPlanMode`,
 and `SubmitPlan`, and denies every plugin tool, `Write`, `Edit`, and unknown

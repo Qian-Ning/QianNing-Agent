@@ -648,7 +648,7 @@ Maintenance flow:
 2. `python3 scripts/pack_plugin.py plugins/<id>`
 3. `python3 scripts/rebuild_catalog.py`
 4. Commit + push to `main`
-5. PI-Desktop refreshes via `market.refresh` / marketplace UI
+5. QianNing Agent refreshes via `market.refresh` / marketplace UI
 
 Today a maintainer edits the source in place, packs it, and regenerates the
 catalog by hand. That is what changes below; the addresses do not.

@@ -2,13 +2,13 @@
 
 - Status: Accepted (amended by D603)
 - Date: 2026-09-22
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D120, D126, D364, D603, ADR 0022, E2E-211
 
 ## Context
 
 Windows tag releases publish an NSIS installer
-(`PI-Desktop-Setup-<version>.exe`). Company environments that whitelist a
+(`QianNing-Agent-Setup-<version>.exe`). Company environments that whitelist a
 single executable, or that block installers, also need a no-install package.
 The previous electron-builder `portable` target produced a self-extracting
 executable. In some Windows environments that wrapper could trigger an
@@ -17,13 +17,13 @@ for the taskbar.
 
 The no-install lane must not change data ownership or the NSIS in-app update
 lane. A normal ZIP lets the user choose the extraction directory and launches
-the packaged `PI-Desktop.exe` directly.
+the packaged `QianNing Agent.exe` directly.
 
 ## Decision
 
 1. The Windows x64 release lane publishes both NSIS and ZIP targets.
 2. The no-install artifact name is space-free:
-   `PI-Desktop-Portable-${version}.zip`.
+   `QianNing-Agent-Portable-${version}.zip`.
 3. The Windows release helper builds NSIS and ZIP in separate
    electron-builder invocations. The ZIP app metadata contains
    `piDistribution = "zip"`; installed builds contain `piDistribution =
@@ -40,8 +40,8 @@ the packaged `PI-Desktop.exe` directly.
 ## Consequences
 
 - Windows users who cannot run an installer can download, extract, and launch
-  `PI-Desktop.exe` from the ZIP without a self-extracting wrapper.
-- The extracted executable keeps the normal PI-Desktop Windows identity for
+  `QianNing Agent.exe` from the ZIP without a self-extracting wrapper.
+- The extracted executable keeps the normal QianNing Agent Windows identity for
   taskbar grouping and icon display.
 - ZIP users discover updates in-app and open the releases page; they replace
   the extracted application themselves.

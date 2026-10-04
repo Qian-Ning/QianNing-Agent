@@ -8,7 +8,7 @@
 一个仓库里有两个工作区：pnpm 管理全部 JavaScript 包（`apps/*`、`packages/*`、`docs`），Cargo 管理 Rust crate。根目录 `package.json` 的脚本同时驱动两者。
 
 ```text
-PI-Desktop/
+QianNing-Agent/
 ├── apps/
 │ └── desktop/                # Electron 产品外壳
 │   ├── electron/
@@ -113,11 +113,11 @@ Node 对 pi 的包装：
 
 ## 3. 运行时数据（不在 git 中）
 
-`PI_DESKTOP_DATA_DIR` 可覆盖默认位置：正式打包版为 `~/.pi-desktop`，开发构建为
-`~/.pi-desktop-dev`，`pnpm dev` 借此与正式版并行运行（D599）。
+`PI_DESKTOP_DATA_DIR` 可覆盖默认位置：正式打包版为 `~/.qianning-agent`，开发构建为
+`~/.qianning-agent-dev`，`pnpm dev` 借此与正式版并行运行（D599）。
 
 ```text
-~/.pi-desktop/
+~/.qianning-agent/
  ├── pi.sqlite               # single DB, host-core owned (03-runtime/04, D086)
  ├── sessions/               # per-session transcript files (D119)
  ├── artifacts/              # plan and goal checkpoint artifacts

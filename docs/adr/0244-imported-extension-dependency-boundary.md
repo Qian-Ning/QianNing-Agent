@@ -11,7 +11,7 @@ The explicit `Plugins → Import pi extension` flow copies a local pi package an
 may install its declared dependencies before the first sidecar load. A normal
 `npm install` inherits user configuration and can resolve local paths, git
 repositories, private registries, proxies, or HTTP tarballs. `--ignore-scripts`
-alone does not provide a sufficient boundary, and a packaged PI-Desktop build
+alone does not provide a sufficient boundary, and a packaged QianNing Agent build
 does not ship a standalone Node/npm executable.
 
 ## Decision

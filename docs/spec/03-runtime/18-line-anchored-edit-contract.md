@@ -616,11 +616,11 @@ under a register paste).
 
 | Deviation | Reason |
 |---|---|
-| Single section per `Edit` call, not a multi-section patch | four PI-Desktop subsystems key on one `args.path` (§13.2); named registers already cover cross-file moves |
+| Single section per `Edit` call, not a multi-section patch | four QianNing Agent subsystems key on one `args.path` (§13.2); named registers already cover cross-file moves |
 | SHA-256 low 16 bits instead of `xxHash32` | reuses the primitive already in host-core; no new dependency |
 | Snapshot store in-memory only, never persisted | a tag surviving a restart would outlive the reads that justified it |
 | No `apply_patch` / `replace` fallback mode and no per-model exclusion list | ADR 0087 §1: one write contract |
-| No internal URL schemes (`artifact://`, `xd://`, …) as `Edit` targets | out of scope; PI-Desktop's path rules stay as specified in §4 of 03-tools-and-permissions |
+| No internal URL schemes (`artifact://`, `xd://`, …) as `Edit` targets | out of scope; QianNing Agent's path rules stay as specified in §4 of 03-tools-and-permissions |
 | 64 paths / 8 MiB store bounds instead of 30 / 64 MiB | host-core is a long-lived desktop process holding many sessions, not a per-invocation CLI |
 
 ## 15. Phasing

@@ -2,7 +2,7 @@
 
 - Status: Accepted for implementation
 - Date: 2026-08-11
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends: D189
 - Related: D212 · [Agent runtime](../spec/03-runtime/02-agent-runtime.md) ·
   [Component spec](../spec/04-ux/08-component-spec.md) · E2E-120

@@ -2,7 +2,7 @@
 
 - Status: Accepted (amended by ADR 0173)
 - Date: 2026-09-07
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D103, D157, D331, D335, ADR 0014, ADR 0173,
   `03-runtime/04-data-storage.md` §4.6,
   `03-runtime/06-host-rpc-protocol.md`,

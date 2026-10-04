@@ -18,6 +18,6 @@ QianNing Agent 是正式发布使用的产品标识，中文名为“千凝”�
 - `pi-desktop/` 下的 IPC channel；
 - `PI_DESKTOP_*` 环境变量；
 - 插件 ID、协议 Header、Cargo crate 名、远端 host 产物名；
-- 明确用于标识 PI-Desktop 上游来源的链接。
+- 明确用于标识 QianNing Agent 上游来源的链接。
 
 Cargo 仍生成内部文件 `pi-desktop-host-core[.exe]`，打包阶段将其复制为 `QianNing-Agent-Host-Core[.exe]`。开发环境继续接受 Cargo 输出名，正式发布包只向操作系统暴露 QianNing 名称。

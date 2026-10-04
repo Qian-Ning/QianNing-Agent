@@ -12,7 +12,7 @@
 
 Remote HTTP MCP servers (such as Notion, Linear, or custom enterprise servers) often protect endpoints with OAuth 2.1 authorization rather than static tokens. Model Context Protocol specifies authorization discovery via RFC 9728 (OAuth Protected Resource Metadata) and RFC 8414 (Authorization Server Metadata), dynamic registration via RFC 7591, and resource indicators via RFC 8707.
 
-Previous MCP implementations in PI-Desktop supported only static HTTP headers. Users had to manually obtain Bearer tokens or were unable to connect to OAuth-protected servers.
+Previous MCP implementations in QianNing Agent supported only static HTTP headers. Users had to manually obtain Bearer tokens or were unable to connect to OAuth-protected servers.
 
 ## Decision
 

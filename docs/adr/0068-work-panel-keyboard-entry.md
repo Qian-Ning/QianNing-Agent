@@ -2,7 +2,7 @@
 
 - Status: Accepted for implementation
 - Date: 2026-08-07
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends: D128, D142
 - Amended by: [ADR 0085](0085-work-panel-shortcut-toggle.md) (the shortcut is a
   toggle; the rejected toggle alternative below no longer holds);

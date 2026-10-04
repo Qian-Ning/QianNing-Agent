@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-11
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends: ADR 0101 (drag/drop scope)
 - Related: D397, ADR 0059, ADR 0070
 

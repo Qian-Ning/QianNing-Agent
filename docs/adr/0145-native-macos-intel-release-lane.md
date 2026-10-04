@@ -2,7 +2,7 @@
 
 - Status: Accepted (amended by D353, ADR 0191, D450 / ADR 0289)
 - Date: 2026-09-01
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D126, D285, D353, D354, D450, ADR 0022, ADR 0191, ADR 0289, E2E-092
 
 ## Context
@@ -29,8 +29,8 @@ unless the sidecar architecture is independently managed and verified.
    publish job validates both feeds, merges their files, and publishes one
    combined `latest-mac.yml` alongside both architectures' installers.
 5. D353 originally gave the Intel x64 job target-specific artifact patterns,
-   publishing `PI-Desktop-<version>-Intel.dmg` and
-   `PI-Desktop-<version>-Intel-mac.zip`, while arm64 kept generic names. ADR 0191
+   publishing `QianNing-Agent-<version>-Intel.dmg` and
+   `QianNing-Agent-<version>-Intel-mac.zip`, while arm64 kept generic names. ADR 0191
    supersedes that suffix convention: both lanes now use their standard
    architecture labels, `-arm64` and `-x64`, with updater URLs and checksums
    generated from those final names.

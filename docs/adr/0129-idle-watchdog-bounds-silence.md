@@ -3,7 +3,7 @@
 - Status: Accepted for implementation (amended by ADR 0166: watchdogs no longer
   kill; the parent judges subagent lifetime)
 - Date: 2026-08-27
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D260 (amends D254), ADR 0119 (event-driven subagent timeouts),
   ADR 0089 (background delegation)
 

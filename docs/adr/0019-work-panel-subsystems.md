@@ -2,7 +2,7 @@
 
 - Status: Superseded in part by ADR 0108 and ADR 0170
 - Date: 2026-07-26
-- Deciders: PI-Desktop maintainers
+- Deciders: QianNing Agent maintainers
 - Related: [01-ui-ia](../spec/04-ux/01-ui-ia.md) ·
   [08-component-spec §5](../spec/04-ux/08-component-spec.md) ·
   [01-ipc-protocol §13a](../spec/03-runtime/01-ipc-protocol.md) ·
@@ -44,7 +44,7 @@ work-panel subsystem.
 - Review and file artifacts retain conversation ownership, while project
   browsing uses the bundled Files plugin.
 - Interactive shell access is provided by an external terminal rather than by a
-  PI-Desktop work-panel tab.
+  QianNing Agent work-panel tab.
 
 ## Alternatives considered
 

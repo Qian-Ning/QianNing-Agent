@@ -2,12 +2,12 @@
 
 - Status: Superseded by ADR 0134
 - Date: 2026-08-29
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends: ADR 0027, D136, D243
 
 ## Context
 
-PI-Desktop's pinned `@earendil-works/pi-ai` package provides high-quality
+QianNing Agent's pinned `@earendil-works/pi-ai` package provides high-quality
 runtime adapters and a useful built-in model catalog, but its model coverage
 and release cadence do not represent the full current market. Provider settings
 therefore cannot reliably offer current model names, limits, modalities, or
@@ -23,7 +23,7 @@ providers must remain usable when no public catalog knows them.
 Use `https://models.dev/api.json` as the primary remote model catalog.
 
 1. Electron main fetches the fixed URL with a bounded timeout and parses only
-   the provider/model fields needed by PI-Desktop. The renderer never fetches
+   the provider/model fields needed by QianNing Agent. The renderer never fetches
    this URL and no API key, OAuth token, or other provider credential is sent
    with the request.
 2. A models.dev provider is matched by configured `vendorKey` first and by a
@@ -50,7 +50,7 @@ Use `https://models.dev/api.json` as the primary remote model catalog.
    `models.dev` or `pi-ai` without changing the host RPC/storage schema or
    persisting the raw remote document.
 
-Models.dev reasoning options map to the canonical PI-Desktop levels: effort
+Models.dev reasoning options map to the canonical QianNing Agent levels: effort
 values are retained when recognized (`none` becomes `off`); toggle and token
 budget options use `off` plus `medium` as the enabled representative; a
 reasoning record without a level list uses the conservative

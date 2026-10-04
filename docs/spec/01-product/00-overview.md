@@ -2,7 +2,7 @@
 
 ## One-line definition
 
-**PI-Desktop** is a local-first AI coding agent desktop client built on:
+**QianNing Agent** is a local-first AI coding agent desktop client built on:
 
 - Electron desktop shell
 - Rust host backend core
@@ -13,7 +13,7 @@
 ## Product formula
 
 ```text
-PI-Desktop =
+QianNing Agent =
  Electron Shell
  + React UI (English-first)
  + Rust Host Core
@@ -63,7 +63,7 @@ PI-Desktop =
 
 ## Minimal user loop
 
-1. Launch PI-Desktop
+1. Launch QianNing Agent
 2. Configure provider/API key
 3. Open a project workspace
 4. Create a session and send a task

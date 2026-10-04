@@ -2,7 +2,7 @@
 
 ## 1. Goal
 
-PI-Desktop must support **all major market model vendors and models** that users commonly need, without hardcoding a tiny allowlist as product ceiling.
+QianNing Agent must support **all major market model vendors and models** that users commonly need, without hardcoding a tiny allowlist as product ceiling.
 
 Strategy:
 
@@ -111,7 +111,7 @@ Completions requests use `thinkingFormat: "zai"` and `zaiToolStream: true`.
 DeepSeek-family Completions requests set
 `requiresReasoningContentOnAssistantMessages: true` when the row's `vendorKey`,
 base URL, model id, or catalog `family` identifies DeepSeek. pi-ai only
-auto-detects `provider === "deepseek"` or a `deepseek.com` URL, and PI-Desktop
+auto-detects `provider === "deepseek"` or a `deepseek.com` URL, and QianNing Agent
 stores a UUID as `model.provider`, so aggregators and custom gateways would
 otherwise omit `reasoning_content` on assistant turns that produced no thinking.
 Non-official DeepSeek endpoints also set `requiresNonEmptyReasoningReplay` so
@@ -187,7 +187,7 @@ Any vendor not listed but reachable by:
 ## 6. Model support policy
 
 ### 6.1 No hard model allowlist ceiling
-PI-Desktop must not permanently restrict users to a short fixed model list.
+QianNing Agent must not permanently restrict users to a short fixed model list.
 
 ### 6.2 Catalog responsibilities
 1. **models.dev** (`https://models.dev/api.json`) is the sole model metadata
@@ -414,7 +414,7 @@ type ThinkingLevel =
 ```
 
 The compatibility fields above are retained as a persisted-schema compatibility
-surface for older clients. PI-Desktop no longer reads them as runtime model
+surface for older clients. QianNing Agent no longer reads them as runtime model
 overrides. `ModelInfo` reasoning support and supported thinking levels describe
 the resolved models.dev record; effective provider/session capability comes from
 the exact `ModelBinding`. Unknown free-form ids start with the generic shape and

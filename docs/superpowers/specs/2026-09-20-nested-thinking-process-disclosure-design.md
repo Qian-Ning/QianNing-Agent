@@ -8,11 +8,11 @@
 - Inspected baseline: `aad46adb` (local `main` and cached `origin/main` at intake). Fetching remote `main` failed with SSH `Permission denied (publickey)`; this proposal does not claim verification against the latest remote revision.
 - Deliverable: interaction design, implementation boundaries, and acceptance criteria only. No runtime, UI, settings, or accepted specification changes are included.
 - Validation scope, per the user's explicit instruction: static checks and compilation only. Runtime tests are not required for this proposal or its implementation; section 8 defines the scoped validation commands.
-- Reference: the three screenshots supplied with the request. They demonstrate whole-process and command-group disclosure; they do not establish Codex's live defaults, persistence rules, or internal implementation. Those details below are PI-Desktop design decisions.
+- Reference: the three screenshots supplied with the request. They demonstrate whole-process and command-group disclosure; they do not establish Codex's live defaults, persistence rules, or internal implementation. Those details below are QianNing Agent design decisions.
 
 ## 1. Problem and verified current behavior
 
-In the supplied PI-Desktop screenshot, consecutive search/tool and thinking rows remain visible between assistant progress paragraphs. Users can inspect individual details, but cannot collapse the entire block of rows as one unit in detailed mode. A long operation therefore makes progress narration and the final answer harder to scan.
+In the supplied QianNing Agent screenshot, consecutive search/tool and thinking rows remain visible between assistant progress paragraphs. Users can inspect individual details, but cannot collapse the entire block of rows as one unit in detailed mode. A long operation therefore makes progress narration and the final answer harder to scan.
 
 The gap is at the container levels, not an absence of all disclosure controls:
 

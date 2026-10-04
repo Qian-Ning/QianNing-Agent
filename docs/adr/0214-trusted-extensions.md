@@ -8,7 +8,7 @@
 
 ## Context
 
-PI-Desktop's plugin system (ADR 0008) runs plugins in their own process behind
+QianNing Agent's plugin system (ADR 0008) runs plugins in their own process behind
 a permission gateway. That is the right shape for distributed, untrusted code,
 but it leaves no surface for code that must sit on the agent loop itself:
 tools that execute in-process with the session's working directory, hooks on
@@ -19,7 +19,7 @@ internally; nothing lets a user attach code to them.
 
 The kernel packages `pi-ai` and `pi-agent-core` (ADR 0002) have a sibling,
 `pi-coding-agent`, that defines an `ExtensionAPI` contract and a loader for
-TypeScript extension modules. Adopting that contract gives PI-Desktop a
+TypeScript extension modules. Adopting that contract gives QianNing Agent a
 second extension surface with an existing, documented API and an existing
 body of extensions written against it.
 

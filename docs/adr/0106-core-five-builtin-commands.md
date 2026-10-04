@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-19
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D250, ADR 0024, ADR 0034, `04-ux/04-builtin-commands.md`
 
 ## Context

@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-17
-- Deciders: PI-Desktop packaging maintainers
+- Deciders: QianNing Agent packaging maintainers
 - Amends: D141, D371, ADR 0204
 - Related: issue #524 · E2E-196b ·
   [01-product/01-product-scope](../spec/01-product/01-product-scope.md) ·
@@ -12,7 +12,7 @@
 
 The product advertised `com.pi-desktop.app` as the application ID, but the
 owner domain is `net.aiuo.pi-desktop`. Default unsigned macOS packs also left
-Electron's adhoc signature on `PI-Desktop.app` (`Identifier=Electron`,
+Electron's adhoc signature on `QianNing Agent.app` (`Identifier=Electron`,
 `Info.plist=not bound`). `usernotificationsd` then required the private
 `com.apple.private.usernotifications.bundle-identifiers` entitlement and
 refused every request for the product bundle ID (issue #524). Adhoc signing

@@ -155,7 +155,7 @@ MVP passes when:
 
 ## 5. Acceptance demo script
 
-1. Launch PI-Desktop
+1. Launch QianNing Agent
 2. Configure a working model
 3. Open a local sample project
 4. Ask: explain the project structure

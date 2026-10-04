@@ -5,7 +5,7 @@
 
 ## Context
 
-Until now the only way to add an MCP server or a skill to PI-Desktop was to
+Until now the only way to add an MCP server or a skill to QianNing Agent was to
 write a plugin. ADR 0038 gave plugins an `mcp` contribution point that Electron
 main bridges over stdio or HTTP; ADR 0039 (as revised by D174) gave them a
 `skills` contribution point that publishes model-invoked catalog entries behind

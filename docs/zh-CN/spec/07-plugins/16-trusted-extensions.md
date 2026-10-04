@@ -7,18 +7,18 @@
 
 ## 1. 目的与术语
 
-插件（[01-plugin-system.md](/zh-CN/spec/07-plugins/01-plugin-system)）是 PI-Desktop
+插件（[01-plugin-system.md](/zh-CN/spec/07-plugins/01-plugin-system)）是 QianNing Agent
 唯一的扩展面。本文规定其中一种插件贡献点 `contributes.agentExtensions`：在 Agent
 sidecar 内运行的 TypeScript 或 JavaScript 模块，接收一个 `ExtensionAPI` 对象，直接在
 agent 循环上注册工具、命令和事件处理器。`ExtensionAPI` 契约即
-`@earendil-works/pi-coding-agent` 定义的契约，PI-Desktop 与 `pi-ai`、`pi-agent-core`
+`@earendil-works/pi-coding-agent` 定义的契约，QianNing Agent 与 `pi-ai`、`pi-agent-core`
 内核（ADR 0002）一起采纳，因此为 pi CLI 写的扩展就是插件贡献的模块。D388 把此前
 独立的“受信任扩展”注册表并入了这个贡献点；下文的引擎部分不变。
 
 | 术语 | 含义 |
 |---|---|
 | Agent 扩展 | 插件在 `contributes.agentExtensions` 中列出的一个模块，面向 `ExtensionAPI` 编写，以 Agent sidecar 的信任级别运行 |
-| 插件 | 带 manifest 的 PI-Desktop 插件，在独立进程中、权限网关之下运行（ADR 0008）；是其 agent 扩展的拥有者、安装者和启用记录 |
+| 插件 | 带 manifest 的 QianNing Agent 插件，在独立进程中、权限网关之下运行（ADR 0008）；是其 agent 扩展的拥有者、安装者和启用记录 |
 | 适配层 | `packages/agent-runtime` 中在桌面运行时之上实现 `ExtensionAPI` 的层 |
 | Runner | 绑定到一个桌面会话的一个桌面自有 `TrustedExtensionRunner` 实例（v1 说明：不复用 pi-coding-agent 的 `ExtensionRunner`，因为它绑定终端主题；其 `ExtensionAPI` 类型仅作类型依赖） |
 
@@ -33,7 +33,7 @@ agent 循环上注册工具、命令和事件处理器。`ExtensionAPI` 契约�
    部分的原因。
 3. 没有授权就不运行。声明了 `contributes.agentExtensions` 却没有 `agent.extension` 的
    manifest 校验不通过；记录的授权中缺少该权限的插件照常加载但跳过其模块并记审计
-   （`plugin.agentExtensions.skipped`）。D007 继续有效：PI-Desktop 永不自动导入 `~/.pi`。
+   （`plugin.agentExtensions.skipped`）。D007 继续有效：QianNing Agent 永不自动导入 `~/.pi`。
 4. 项目范围就是插件的激活范围。限定到某些项目的插件只向这些项目的会话贡献模块。v1
    说明：没有独立的项目信任状态，插件范围即信任决定，`project_trust` 不触发。
 5. v1.1 不开放持有 `agent.extension` 的插件在市场分发：该权限只接受本地导入和开发

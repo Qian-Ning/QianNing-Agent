@@ -6,7 +6,7 @@
   opt-in parent-tool inherit amended by ADR 0246; resumable delegations amended
   by ADR 0279)
 - Date: 2026-08-06
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D201, ADR 0041 (persistence outbox), ADR 0048 (lazy per-turn tool
   activation), ADR 0053 (plan checkpoint and execution epoch), D123 (prompt
   template documents), D138 (session-scoped inline permission requests),
@@ -23,7 +23,7 @@ context window and stays there for the rest of the task. Automatic compaction
 (ADR 0049) recovers space after the fact; it cannot avoid spending it.
 
 Delegation is the standard answer: run the separable piece in its own context
-and return only a report. Adding it to PI-Desktop touches every layer, and the
+and return only a report. Adding it to QianNing Agent touches every layer, and the
 open questions are not about the loop itself but about the boundaries — where
 definitions come from, what a delegate may do to the workspace, how a delegate's
 rows relate to the parent's model context and to the transcript, and what
@@ -40,7 +40,7 @@ delegate's system prompt, mirroring prompt templates (D123):
 ~/.agents/subagents/<name>.md
 ```
 
-PI-Desktop ships three builtins inline in `agent-runtime` (`explorer`,
+QianNing Agent ships three builtins inline in `agent-runtime` (`explorer`,
 `code-reviewer`, `test-runner`). User documents under `~/.agents/subagents`
 are combined with the builtins by name. There is no project-level subagent
 capability source; the global user catalog is the only user-managed layer.

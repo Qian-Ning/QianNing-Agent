@@ -34,7 +34,7 @@ machine that the client would not otherwise accept.
 | Distribution mirror | Center | CNB Git mirror of the distribution repository |
 | Install decision | User | Desktop permission review |
 
-Plugin source is never copied into a PI-Desktop-owned Git repository. The center
+Plugin source is never copied into a QianNing Agent-owned Git repository. The center
 retains an immutable snapshot of the pinned commit for build and review evidence;
 that snapshot is storage, not a Git mirror, and is not published.
 
@@ -440,7 +440,7 @@ rollback, rate limits, alerting.
 
 ## 14. Explicitly not doing
 
-- Copying publisher source into a PI-Desktop repository.
+- Copying publisher source into a QianNing Agent repository.
 - Personal access tokens as a publishing credential.
 - Executing plugin code, installing dependencies, or running tests inside the API process.
 - Letting the frontend, an ordinary admin route, or a model output set `published`.

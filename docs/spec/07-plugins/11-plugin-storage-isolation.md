@@ -7,7 +7,7 @@ Isolate plugin data from the host's core data to avoid cross-contamination and u
 ## 2. Directory layout
 
 ```text
-~/.pi-desktop/
+~/.qianning-agent/
  ├── pi.sqlite # host DB (03-runtime/04); plugins never open it
  ├── plugins/
  │ ├── installed/<plugin-id>/
@@ -53,7 +53,7 @@ type PluginRegistry = {
 `pi.plugin.getDataPath()` points to:
 
 ```text
-~/.pi-desktop/plugins/data/<plugin-id>/
+~/.qianning-agent/plugins/data/<plugin-id>/
 ```
 
 Uses:

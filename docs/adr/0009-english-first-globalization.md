@@ -5,11 +5,11 @@
 
 ## Context
 
-PI-Desktop targets global users and open contribution. Chinese-only product surfaces would block international adoption and plugin ecosystem growth.
+QianNing Agent targets global users and open contribution. Chinese-only product surfaces would block international adoption and plugin ecosystem growth.
 
 ## Decision
 
-PI-Desktop is **English-first**:
+QianNing Agent is **English-first**:
 
 1. Product UI default language: **English**
 2. Specs, ADRs, code comments, commits, issues, plugin docs: **English primary**

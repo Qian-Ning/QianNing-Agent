@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-05
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Updates ADR 0012, ADR 0020, and ADR 0116
 
 ## Context
@@ -14,7 +14,7 @@ Zhipu AI (智谱) exposes two product modes and two regions:
 
 pi-ai already ships Completions transports for the two Coding Plan URLs
 (`zai`, `zai-coding-cn`) and detects `thinkingFormat: "zai"` from those hosts.
-models.dev already publishes all four endpoints. PI-Desktop's add-provider
+models.dev already publishes all four endpoints. QianNing Agent's add-provider
 dialog was a generic OpenAI-compatible form, so users had to know which URL to
 paste, and a saved row used `vendorKey: "custom"`.
 
@@ -40,7 +40,7 @@ stays editable. Coding Plan shows a one-line API-key hint. This is a compact
 select, not a restored vendor-card grid.
 
 pi-ai's `zai` transport is the international Coding Plan, while models.dev
-`zai` is the standard API. PI-Desktop stores the models.dev key plus the exact
+`zai` is the standard API. QianNing Agent stores the models.dev key plus the exact
 URL so catalog matching cannot confuse them. `zai-coding-cn` remains an alias
 of `zhipuai-coding-plan`.
 

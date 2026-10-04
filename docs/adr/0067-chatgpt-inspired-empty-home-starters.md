@@ -2,7 +2,7 @@
 
 - Status: Superseded by D206
 - Date: 2026-08-07
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Amends: D204 and the card-specific clause of ADR 0066
 
 > This historical decision is retained for traceability. The starter grid was
@@ -13,7 +13,7 @@
 
 The direct bottom composer introduced by D204 fixed the empty-home layout, but
 left the center of the conversation surface visually sparse. A first-time
-developer still had to invent a prompt before seeing what PI-Desktop could do.
+developer still had to invent a prompt before seeing what QianNing Agent could do.
 The requested direction is the approachable hierarchy of ChatGPT's empty
 conversation surface, adapted for local coding work rather than consumer
 content or promotional templates.

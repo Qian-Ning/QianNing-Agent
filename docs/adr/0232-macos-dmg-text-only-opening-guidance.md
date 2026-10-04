@@ -2,7 +2,7 @@
 
 - Status: Superseded for macOS distribution by D634 / [ADR 0309](0309-remove-macos-first-launch-artifacts.md)
 - Date: 2026-09-12
-- Deciders: PI-Desktop release maintainers
+- Deciders: QianNing Agent release maintainers
 - Amends: D371 / [ADR 0204](0204-unsigned-macos-first-launch-helper.md)
 - Related: [E2E-196b](../spec/06-delivery/04-e2e-test-plan.md)
 
@@ -24,7 +24,7 @@ command item beside the normal installation action.
    the executable `PI-Desktop-macOS-open.command` at its root. The helper keeps
    D371's fixed-path, bundle-id, quarantine-only, and no-`sudo` boundaries.
 3. The shared opening note leads with the narrow Terminal fallback
-   `xattr -r -d com.apple.quarantine /Applications/PI-Desktop.app`, limits it
+   `xattr -r -d com.apple.quarantine /Applications/QianNing Agent.app`, limits it
    to trusted unsigned builds, and states that signed and notarized builds do
    not need the fallback.
 

@@ -49,4 +49,4 @@ v11.
   app is marked booted but lengthens the primary window's critical startup
   path.
 - Reuse the main renderer: avoids a second renderer but cannot provide the
-  independent system-wide utility window while PI-Desktop is unfocused.
+  independent system-wide utility window while QianNing Agent is unfocused.

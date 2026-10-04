@@ -2,12 +2,12 @@
 
 - Status: Accepted
 - Date: 2026-08-18
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D236, D002, D216, ADR 0078, ADR 0090
 
 ## Context
 
-Nothing stopped a second PI-Desktop process from starting. Launching the app
+Nothing stopped a second QianNing Agent process from starting. Launching the app
 again while it was already running — a double click on Windows or Linux, a
 `open -n` or a packaged app started next to a development host on macOS, or a
 tray-resident session the user assumed had exited — booted a complete second
@@ -89,10 +89,10 @@ The alternatives below still stand: the lock is not scoped to
 `PI_DESKTOP_DATA_DIR`, and `userData` is not relocated under it.
 
 What changed is that a development build is no longer the same installation as
-the packaged app. It takes `PI-Desktop Dev` in the OS application-data root and
-`~/.pi-desktop-dev`, so `pnpm dev` starts while the packaged app holds its lock
+the packaged app. It takes `QianNing Agent Dev` in the OS application-data root and
+`~/.qianning-agent-dev`, so `pnpm dev` starts while the packaged app holds its lock
 and the two never share `pi.sqlite`, the outbox, or the log tree. An explicit
 `--user-data-dir` still wins, because the E2E harnesses point a build at a
 throwaway profile with it. Only the development side moved: a shipped
-installation keeps `PI-Desktop` and `~/.pi-desktop`, so no existing profile is
+installation keeps `QianNing Agent` and `~/.qianning-agent`, so no existing profile is
 relocated. See D599.

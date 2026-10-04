@@ -2,7 +2,7 @@
 
 - Status: Accepted for implementation (amended by [ADR 0291](0291-remove-speech-settings-ui.md))
 - Date: 2026-09-17
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: [ADR 0257](0257-plugin-real-time-capabilities.md) ·
   [03-runtime/20-speech](../spec/03-runtime/20-speech.md)
 

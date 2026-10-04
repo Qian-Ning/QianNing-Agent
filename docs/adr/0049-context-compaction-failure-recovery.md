@@ -35,7 +35,7 @@ forward.
 
 ## Decision
 
-For automatic `threshold` and `overflow` compaction only, PI-Desktop uses a
+For automatic `threshold` and `overflow` compaction only, QianNing Agent uses a
 three-outcome controller:
 
 1. Preflight the summary input against the provider model window. If the

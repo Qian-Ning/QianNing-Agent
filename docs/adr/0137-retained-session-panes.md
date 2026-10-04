@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-30
-- Deciders: PI-Desktop core
+- Deciders: QianNing Agent core
 - Related: D162, D261, D317, D324, ADR 0120, ADR 0127, ADR 0130, D142,
   `04-ux/08-component-spec.md` §3.5 / §7, `04-ux/09-interaction-patterns.md` §5,
   E2E-011, E2E-071d, E2E-071g, E2E-177, E2E-183

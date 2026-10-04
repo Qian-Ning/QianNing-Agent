@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-11
-- Deciders: PI-Desktop desktop UI maintainers
+- Deciders: QianNing Agent desktop UI maintainers
 - Amends: D369, ADR 0202
 - Related: [02-i18n-english-first](../spec/04-ux/02-i18n-english-first.md) ·
   [08-component-spec](../spec/04-ux/08-component-spec.md) · E2E-219
