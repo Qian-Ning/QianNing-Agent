@@ -55,6 +55,13 @@ coverage/
 .cache/
 .turbo/
 
+# Python bytecode. The repository ships three Python generators under scripts/
+# (make-icon.py, make-dmg-background.py, publish-screenshots.py); importing or
+# byte-compiling them leaves __pycache__ beside the source, which then shows up
+# as untracked noise in every worktree's `git status`.
+__pycache__/
+*.pyc
+
 # Local runtime data
 .pi-desktop/
 .pi-desktop-test/
