@@ -492,13 +492,19 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
   文件（`BrowserPreview`），再通过 ToolSearch `cdp` / `Browser` 做 snapshot。
   4) 切到 Plan 并调用插件 Browser 工具。5) 禁用 `pi.browser`。
   6) 调用 `BrowserPreview` 并点击 http(s) 对话链接。7) 从第三方或测试调用方
-  通过 `pi.browser.cdp` 发送 `Network.getAllCookies`。
+  通过 `pi.browser.cdp` 发送 `Network.getAllCookies`。8) 准备一个含 `disabled`
+  按钮与只读字段的页面，snapshot 后对禁用 uid 调 `Browser` 的 `click`、
+  对只读 uid 调 `fill`。
 - **预期**：启动项没有宿主 Browser 行。预览打开插件视图并实时重载文件。
   插件工具 `plugin_pi_browser_Browser` 在 ToolSearch 后可以 snapshot。Plan 拒绝
   插件工具（`PLUGIN_DISABLED_IN_PLAN`），而 `BrowserPreview` 仍可调用。禁用后
   隐藏视图和工具；`BrowserPreview` 报错；http(s) 芯片走 `openExternal`。Cookie
-  CDP 被拒绝。访客页边界留在插件视图内。
-- **链接规格**：ADR 0170、D333、`07-plugins/03-plugin-api.md`、
+  CDP 被拒绝。访客页边界留在插件视图内。会改动页面的动作返回从页面读出的
+  `effect`：对禁用控件的点击是 `refused` 且带 `code: "ELEMENT_DISABLED"`，
+  页面保持不变；fill 只有在读回值与请求一致时才是 `confirmed`，否则为
+  `suspected_noop` 或 `unverifiable`，并各自带指明下一条路线的 `escalation`。
+  `snapshot`、`screenshot`、`console` 不报告 `effect`。
+- **链接规格**：ADR 0170、D333、D654、`07-plugins/03-plugin-api.md`、
   `03-runtime/03-tools-and-permissions.md`
 - **验收**：E（插件视图 + 工具）+ 安全白名单
 - **里程碑**：M5

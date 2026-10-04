@@ -636,11 +636,19 @@ pi.browser.getState(): Promise<BrowserState | null>
 pi.browser.openExternal(): Promise<void>
 pi.browser.snapshot(): Promise<{ tree: string; url: string; title: string }>
 pi.browser.screenshot(input?: { fullPage?: boolean }): Promise<{ mimeType: string; data: string; path?: string }>
-pi.browser.click(input: { uid: string }): Promise<void>
-pi.browser.fill(input: { uid: string; text: string }): Promise<void>
+pi.browser.click(input: { uid: string }): Promise<BrowserActionResult>
+pi.browser.fill(input: { uid: string; text: string }): Promise<BrowserActionResult>
 pi.browser.evaluate(input: { expression: string }): Promise<unknown>
 pi.browser.console(input?: { limit?: number }): Promise<{ messages: unknown[] }>
 pi.browser.cdp(input: { method: string; params?: unknown }): Promise<unknown>
+
+type BrowserActionResult = {
+  effect: "confirmed" | "unverifiable" | "suspected_noop" | "refused"
+  verified: boolean
+  code?: string
+  escalation?: { recommended: "snapshot" | "evaluate"; reason: string }
+  observed?: string
+}
 ```
 
 `navigate` returns when the current main-frame navigation commits, including
@@ -658,6 +666,17 @@ the guest cannot cover chat/composer. `cdp` is deny-by-default; cookie,
 storage, target, and network-interception methods fail with
 `PERMISSION_DENIED`. Session identity for agent calls comes from the in-flight
 `plugins.execute` `sessionId`, not from plugin arguments (D333 / ADR 0170).
+
+A click or fill reports the page rather than the call. `effect` is `confirmed`
+only when a value was read back from the page and matched, and `verified` is
+true only for that read-back; `suspected_noop` means the page kept nothing and
+`unverifiable` means the call landed without the page's response being read.
+`refused` means no input was sent at all, and it carries a stable `code` —
+`ELEMENT_DISABLED` for a disabled control, which is refused before the first
+input event. Every effect other than `confirmed` carries an `escalation` naming
+the next route (`snapshot` or `evaluate`), and a fill reports the value the page
+held afterwards in `observed`. Read-only calls (`snapshot`, `screenshot`,
+`console`) change nothing and report no `effect` (D654).
 
 `getHistory` returns newest-first entries explicitly recorded by the host, with
 text and images interleaved in capture order. Content written through

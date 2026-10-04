@@ -1187,15 +1187,22 @@ identify the platform validation still needed.
   ToolSearch `cdp` / `Browser`. 4) Switch to Plan and call the plugin Browser
   tool. 5) Disable `pi.browser`. 6) Call `BrowserPreview` and click an http(s)
   transcript link. 7) From a third-party or test caller, send
-  `Network.getAllCookies` through `pi.browser.cdp`.
+  `Network.getAllCookies` through `pi.browser.cdp`. 8) With a page containing a
+  `disabled` button and a read-only field, snapshot, then call `Browser` with
+  `click` on the disabled uid and `fill` on the read-only uid.
 - **Expected**: The launcher has no host Browser row. Preview opens the plugin
   view and live-reloads the file. Plugin tool `plugin_pi_browser_Browser` can
   snapshot after ToolSearch. Plan denies the plugin tool
   (`PLUGIN_DISABLED_IN_PLAN`) while `BrowserPreview` remains callable. Disable
   hides the view and tools; `BrowserPreview` errors; http(s) chips use
   `openExternal`. Cookie CDP is denied. Guest bounds stay inside the plugin
-  view.
-- **Specs linked**: ADR 0170, D333, `07-plugins/03-plugin-api.md`,
+  view. The mutating actions answer with an `effect` read from the page: the
+  disabled click is `refused` with `code: "ELEMENT_DISABLED"` and the page is
+  unchanged, while the fill reports `confirmed` only if the value read back
+  matched — otherwise `suspected_noop` or `unverifiable`, each with an
+  `escalation` naming the next route. `snapshot`, `screenshot`, and `console`
+  report no `effect`.
+- **Specs linked**: ADR 0170, D333, D654, `07-plugins/03-plugin-api.md`,
   `03-runtime/03-tools-and-permissions.md`
 - **Acceptance**: E (plugin view + tool) + security allowlist
 - **Milestone**: M5
