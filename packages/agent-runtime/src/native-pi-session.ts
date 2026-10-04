@@ -557,6 +557,11 @@ export class NativePiSessionService {
     // path order, which every platform computes the same way.
     const seenNativeIds = new Set<string>();
     const deduped: Array<SessionSummary | undefined> = [];
+    // Tie-break inside a recency group: the file an open runtime is already
+    // writing wins, then the smallest record path. Both keys are total orders
+    // over the group, so the winner cannot follow enumeration order. The id
+    // fallback only keeps the comparator total for a summary without a record
+    // (every summary above writes one, so it is not reachable in practice).
     const rankTie = (a: SessionSummary, b: SessionSummary): number => {
       const aLive = this.runtimes.has(a.id) ? 1 : 0;
       const bLive = this.runtimes.has(b.id) ? 1 : 0;
