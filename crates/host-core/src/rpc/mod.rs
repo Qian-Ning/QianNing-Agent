@@ -1,3 +1,4 @@
+mod computer_rpc;
 mod config_sync_rpc;
 mod scheduled_rpc;
 mod scheduled_tools;
@@ -3449,6 +3450,8 @@ async fn handle_request(
             scheduled_rpc::handle(&st, method, params)
         }
 
+        method if method.starts_with("computer.") => computer_rpc::handle(method, params),
+
         "tools.list" => {
             let mut definitions = tools::builtin_tool_defs();
             if let Some(items) = definitions.as_array_mut() {
@@ -5000,6 +5003,30 @@ mod tests {
             error.data.as_ref().and_then(|data| data.get("errorCode")),
             Some(&json!("MODEL_ALIAS_TOO_LONG"))
         );
+    }
+
+    #[tokio::test]
+    async fn a_computer_method_reaches_the_computer_layer() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let mut app_state = AppState::open(data_dir.path()).unwrap();
+        app_state.handshook = true;
+        let state = Arc::new(Mutex::new(app_state));
+        let (tx, _rx) = mpsc::unbounded_channel();
+
+        // Parameters are validated before any platform call runs, so an
+        // unknown button is rejected the same way on every host. That makes
+        // the code itself the assertion: the layer's own rejection is
+        // `INVALID_PARAMS`, while a `computer.*` method the dispatcher does
+        // not route falls through to the method-not-found arm instead.
+        let error = handle_request(
+            state,
+            "computer.click",
+            json!({ "x": 0, "y": 0, "button": "sausage" }),
+            tx,
+        )
+        .await
+        .expect_err("an unknown button is rejected");
+        assert_eq!(error.code, -32602);
     }
 
     #[tokio::test]

@@ -2,6 +2,7 @@ mod activation;
 mod agent_capabilities;
 mod artifacts;
 mod audit;
+mod computer;
 mod config_sync;
 mod db;
 mod keyboard;

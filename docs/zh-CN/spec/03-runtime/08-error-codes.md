@@ -308,6 +308,17 @@ ADR 0285）。渲染进程除了一个标识徽章外看不到本地/远程之�
 | `PAIRING_TOKEN_EXPIRED` | 否 | 一次性配对令牌在配对完成前已过期 |
 | `CAPABILITY_UNAVAILABLE` | 否 | 请求的操作对应主机声明为不可用的能力（如附件、工具中继） |
 
+### 3.9 计算机控制
+
+由宿主的计算机控制层发出（见 [06-host-rpc-protocol](06-host-rpc-protocol.md) § 4，`computer.*`）。
+读方法在所有平台都作答；写方法注入输入，仅存在于 Windows。
+
+| code | retriable | meaning |
+|---|---|---|
+| `COMPUTER_UNSUPPORTED` | 否 | 该平台上的宿主没有计算机控制层；如实报告而不是返回空结果，这样调用方就不会把「做不到」误读成「那里没有东西」 |
+| `COMPUTER_FAILED` | 是 | 平台调用失败；`details.code` 在其报告时携带平台自身的错误值，据此可以把被拒绝的输入流（例如会话已锁定、或前台是更高完整性的窗口）与「窗口消失了」区分开 |
+| `COMPUTER_WINDOW_GONE` | 是 | 指定窗口已不存在，因此什么都没发出；`details.handle` 指出是哪个。重新列出窗口再试 —— `COMPUTER_UNSUPPORTED` 与 `COMPUTER_FAILED` 才是终结性的两个 |
+
 ## 4. 映射规则
 
 ### 主机 RPC 数字 → AppError.code

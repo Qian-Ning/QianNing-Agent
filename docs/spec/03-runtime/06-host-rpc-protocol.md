@@ -703,6 +703,74 @@ activation-scope filtering (`CAPABILITY_INVALID` for an unknown scope).
 - `keyboard.setGlobalShortcut` — host-owned native fallback for the plugin
   launcher chord where Electron cannot register it
 
+### Computer control
+
+The host can drive the local desktop: read the pointer, enumerate windows, and
+inject input. Every method is Windows-only; on any other host it answers
+`1025 COMPUTER_UNSUPPORTED` rather than succeeding quietly. Coordinates are
+virtual-desktop pixels — the origin is the top-left of the bounding box that
+spans every monitor, so a point stays unambiguous when the primary monitor is
+not at `(0, 0)`.
+
+Read methods:
+
+- `computer.getScreen() -> { bounds, primaryWidth, primaryHeight }` — `bounds` is
+  `{ left, top, right, bottom }` for the whole virtual desktop;
+  `primaryWidth`/`primaryHeight` are the primary monitor's size, which is the
+  space a whole-desktop capture is scaled from. A session with no attached
+  display fails instead of returning a degenerate rectangle.
+- `computer.getCursor() -> { x, y }`
+- `computer.listWindows() -> { windows }` — visible top-level windows, front of the
+  Z-order first. Each entry is `{ handle, title, processId, bounds, minimized,
+  occluded }`: `handle` is the window's opaque identity, and `occluded` is the
+  share of the window covered by the windows in front of it (`0.0`–`1.0`).
+  `handle` is a decimal string, because a Windows handle is pointer-sized and
+  would lose precision as a JavaScript number. Hidden windows are excluded
+  because they cannot be clicked, and a window destroyed mid-enumeration is
+  skipped rather than reported with a stale rectangle.
+- `computer.windowAt({ x, y }) -> { window }` — the frontmost clickable window
+  containing the point, or `null` for bare desktop. Minimized windows never
+  answer, so a click aimed at this result lands on what the user actually
+  sees. `window`, when present, carries the same fields as a `listWindows`
+  entry except `occluded`.
+
+Write methods:
+
+- `computer.moveMouse({ x, y }) -> { ok: true }` — motion is sent as an absolute
+  virtual-desktop coordinate, never a relative delta: relative motion is
+  scaled by the user's pointer acceleration, so a relative move of N pixels
+  does not land N pixels away and the error compounds across a click.
+- `computer.click({ x, y, button?, count? }) -> { ok: true }` — `button` is
+  `"left"` (default), `"right"` or `"middle"`; `count` is 1–3. The presses go
+  into one input batch so the second click of a double-click stays inside the
+  double-click interval.
+- `computer.scroll({ x, y, horizontal?, vertical? }) -> { ok: true }` — wheel
+  notches per axis, positive right and up, each within ±20. Beyond that is
+  `INVALID_PARAMS` rather than a clamp: a scroll of a thousand notches is a
+  caller that lost track of its own state, and clamping would look like it
+  worked.
+- `computer.typeText({ text }) -> { ok: true }` — types up to 4096 characters. Text
+  goes out as Unicode code units, so the character is typed regardless of the
+  active keyboard layout, and a character outside the BMP is sent as its
+  surrogate pair rather than dropped. `\r\n` collapses to one Return and a
+  lone `\r` is honoured as Return.
+- `computer.activateWindow({ handle }) -> { ok: true }` — brings a window to the
+  foreground. `SetForegroundWindow` cannot do this: Windows refuses it unless
+  the caller already owns the foreground. The host instead raises the window
+  out of band, clicks its title bar — a real input event, which is what
+  Windows accepts as permission to change the foreground window — then drops
+  it back out of the always-on-top band. A window with no clickable interior
+  is refused rather than left pinned above the desktop.
+
+Coordinates, counts, and handles are validated before any platform call, so a
+fractional coordinate, a value outside the 32-bit pixel range, an unknown
+button, a scroll past the notch bound, or a non-decimal handle is
+`INVALID_PARAMS` on every host.
+
+The write methods inject real input into the user's desktop session. The host
+does not gate them; the surfaces above — the agent tool set and the desktop
+settings that feed it — decide who may call them.
+
 ### Audit
 - `audit.append`
 
@@ -1139,6 +1207,9 @@ numeric slot; the string is the contract, the number is transport detail.
 | 1022 | PLUGIN_MARKET_NOT_FOUND | the platform does not have that plugin or version |
 | 1023 | PLUGIN_MARKET_RATE_LIMITED | the download endpoint asked the client to wait |
 | 1024 | PLUGIN_MARKET_NO_SOURCE | no distribution target can serve the package |
+| 1025 | COMPUTER_UNSUPPORTED | the host has no computer-control layer on this platform |
+| 1026 | COMPUTER_FAILED | a platform call failed; `data.code` carries the platform's own error value when it reported one |
+| 1027 | COMPUTER_WINDOW_GONE | the named window no longer exists, so nothing was sent; `data.handle` names it |
 | -32029 | HOST_OVERLOADED | RPC dispatcher capacity exhausted |
 | -32601 | — | unknown method |
 | -32700 | — | unparseable request line |
