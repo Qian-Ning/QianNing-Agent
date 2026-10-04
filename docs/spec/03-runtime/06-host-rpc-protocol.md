@@ -778,6 +778,38 @@ The write methods inject real input into the user's desktop session. The host
 does not gate them; the surfaces above — the agent tool set and the desktop
 settings that feed it — decide who may call them.
 
+### Connections
+
+Outbound targets the agent may operate: a remote shell over SSH, a serial
+device, a telnet endpoint, or a raw TCP socket. A profile is a persisted record
+created, edited, enabled, and deleted by a person through user-facing methods;
+the agent-facing surface contains none of those, so a target a person has not
+enabled is not reachable and the agent cannot promote one.
+
+- `connection.list -> { profiles: [{ id, label, kind, lastProbe }] }` — enabled
+  profiles only; ids and labels, never a credential.
+- `connection.probe({ profileId }) -> { ok, durationMs, hostKey, multiplexed }`
+  — connects, authenticates, verifies the host key, disconnects, and records
+  `lastProbe`. The result carries the fingerprint the far side presented and
+  whether a shared connection was actually obtained.
+- `connection.exec({ profileId, command, timeoutMs? }) -> { ok, exitCode,
+  stdout, stderr, truncated, durationMs }` — one command per process, in the
+  target's own login shell, with the same output budgets and spill marker the
+  local `Bash` tool uses. A non-zero `exitCode` is result data, not an error.
+- `connection.read`, `connection.write`, `connection.upload`,
+  `connection.download`, and `connection.stat` are file work over SFTP. They are
+  absent from the catalog until their milestone ships, so a caller receives the
+  dispatcher's unknown-method error rather than learning a method that does not
+  exist.
+
+Every agent-facing call is refused with `1029 CONNECTION_DISABLED` while the
+global switch is off, and with `1031 CONNECTION_PROFILE_DISABLED` when the named
+profile's own switch is off. The listing door and the execution door read the
+same predicate, so a session cannot ride a tool definition it was granted before
+the switch moved. The full catalog, the two tools, the transport option rules,
+and the error table are in
+[23-connections-protocol](23-connections-protocol.md).
+
 ### Audit
 - `audit.append`
 
@@ -1218,6 +1250,15 @@ numeric slot; the string is the contract, the number is transport detail.
 | 1026 | COMPUTER_FAILED | a platform call failed; `data.code` carries the platform's own error value when it reported one |
 | 1027 | COMPUTER_WINDOW_GONE | the named window no longer exists, so nothing was sent; `data.handle` names it |
 | 1028 | COMPUTER_DISABLED | computer control is switched off, so no input was injected; the read methods are never refused this way |
+| 1029 | CONNECTION_DISABLED | outbound connections are switched off, so nothing was sent; the read methods and the user-facing profile methods are never refused this way |
+| 1030 | CONNECTION_NOT_FOUND | no connection profile has that id; distinct from a disabled profile, because the remedies differ |
+| 1031 | CONNECTION_PROFILE_DISABLED | that profile's own switch is off; `data.profile` names it |
+| 1032 | CONNECTION_UNREACHABLE | the target could not be reached; `data.reason` names the stage |
+| 1033 | CONNECTION_HOST_KEY | the host key is unknown or changed; `data.fingerprint` and `data.kind` (`unknown` or `changed`) |
+| 1034 | CONNECTION_AUTH_FAILED | the target rejected the credential; nothing about the credential appears in the error |
+| 1035 | CONNECTION_TIMEOUT | the operation exceeded its timeout; the spawned process tree is terminated before this is returned |
+| 1036 | CONNECTION_UNSUPPORTED | this transport kind has no implementation here, or the required program is absent |
+| 1037 | CONNECTION_NO_EXEC | the transport has no command channel; use the `Console` tool |
 | -32029 | HOST_OVERLOADED | RPC dispatcher capacity exhausted |
 | -32601 | — | unknown method |
 | -32700 | — | unparseable request line |

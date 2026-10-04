@@ -21,6 +21,12 @@
     permission profile for Plan
 13. Treating Plan as a strict read-only security sandbox or auto-approving a
     scheduled Plan run
+14. Terminal emulation — a VT/xterm state machine, escape-sequence
+    interpretation, cursor addressing, an alternate screen, or a tabbed manager
+    of live logins. A byte-stream target carries bytes and nothing else, and the
+    user's terminal is already on their machine. Connections likewise ships no
+    XModem/YModem/ZModem, no X11 or agent forwarding, and no reverse or dynamic
+    port forwarding in its first milestone (D662)
 
 ## 2. Not optimized yet
 

@@ -326,6 +326,29 @@ ADR 0285）。渲染进程除了一个标识徽章外看不到本地/远程之�
 能报告出与其镜像方法相同的错误码的原因；曾经替换掉 slug 的负载会让同一个「窗口已消失」在一扇门
 报 `INTERNAL`、在另一扇门报 `COMPUTER_WINDOW_GONE`。
 
+### 3.10 连接
+
+由宿主的出向连接层发出（见 [06-host-rpc-protocol](06-host-rpc-protocol.md) § 4，
+`connection.*`）。配置由人创建、启用、删除；智能体只有在配置已启用、且全局开关打开时
+才能使用它。
+
+| code | retriable | meaning |
+|---|---|---|
+| `CONNECTION_DISABLED` | 否 | 全局开关关闭，因此什么都没发出去。这是用户的决定而不是宿主或平台的限制：开关打开后同一个调用就会成功，而读方法与配置方法永远不会被这样拒绝 |
+| `CONNECTION_NOT_FOUND` | 否 | 没有这个 id 的配置。与「已禁用的配置」可区分，因为补救办法不同 |
+| `CONNECTION_PROFILE_DISABLED` | 否 | 该配置自己的开关关闭；`details.profile` 指出是哪个。全局开关是打开的，因此其他配置仍然可用 |
+| `CONNECTION_UNREACHABLE` | 是 | 目标不可达；`details.reason` 指出是哪个阶段（解析、连接、握手或传输） |
+| `CONNECTION_HOST_KEY` | 否 | 主机密钥未知或已变更；`details.fingerprint` 携带它，`details.kind` 为 `unknown` 或 `changed`。变更的密钥在任何策略下都被拒绝，且必须由人在连接目的地里处理 —— 方法调用、重试或改策略都不能接受它 |
+| `CONNECTION_AUTH_FAILED` | 否 | 目标拒绝了凭据。错误点名配置，但不携带任何关于凭据的内容，因此无法用它探测已存秘密的形状 |
+| `CONNECTION_TIMEOUT` | 是 | 操作超出超时；返回该错误之前先终止 spawn 出去的进程树 |
+| `CONNECTION_UNSUPPORTED` | 否 | 该传输种类在此平台没有实现，或传输程序本身不存在；如实报告而不是返回空结果，这样调用方就不会把「做不到」误读成「那里没有东西」 |
+| `CONNECTION_NO_EXEC` | 否 | 该传输没有命令通道（串口、telnet、原始 TCP）。在任何连接尝试之前判定 |
+
+本表中任何携带负载字段的码 —— `details.profile`、`details.reason`、
+`details.fingerprint` 或 `details.kind` —— 都在其旁边携带 `details.errorCode` 及其
+自己的 slug。负载与 slug 并列而不是替换它，这正是 §3.9 为计算机控制错误码写下的规则，
+理由也相同：同一次失败必须让方法与其镜像工具给出同一个码。
+
 ## 4. 映射规则
 
 ### 主机 RPC 数字 → AppError.code
