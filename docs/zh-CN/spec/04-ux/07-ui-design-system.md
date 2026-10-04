@@ -783,9 +783,32 @@ Toast enter/exit 保留现有移除合同（`animationend` 于
 `scripts/check-motion.mjs` 挂进 `apps/desktop` 的 `lint` 脚本，负责本节中可机械
 判定的部分：不得出现 `transition: all`，不得用 `scale(0)` 作为入场起点，仅有
 `:hover` 的规则必须位于指针查询之内，每条 `infinite` 动画都必须有减弱运动下的
-伴随规则，时长必须用 `var(--motion-duration-*)` 而不是裸写 150ms / 200ms /
+伴随规则，入场动画同一条规则内不得出现带方位词的 `transform-origin`（§8. 9），
+时长必须用 `var(--motion-duration-*)` 而不是裸写 150ms / 200ms /
 300ms。伴随规则只有真正生效才算数：查找会按 `globals.css` 的导入顺序跑遍每一份样式表，写在它所关闭的那条规则之前的守卫会被报出来，因为同权重下源码顺序会把动画交还给基础规则。要改就改这个脚本，不要再往这里加文字（AGENTS.md §19）。
 `apps/desktop/test/motion-contract.test.mjs` 固定它所保护的可见结果。
+
+### 8. 9 锚定表面的入场原点
+
+会缩放进场的表面，必须从"打开它的那个东西"上长出来。因此锚定浮层不再指名某个
+角，而是从触发元素的矩形推导自己的 `transform-origin`：把触发元素的近侧角换算
+到表面自身的像素坐标，再夹到表面框内。
+
+- 一份推导覆盖所有锚定表面。`AnchoredMenu` 的 18 个调用点全部继承它：设置类菜单
+  （字体、主题、语言、模型、子代理、能力、菜单选择、星期），扩展作用域选择器，
+  插件与项目菜单，首页项目切换器，计划审批菜单，以及 Composer 的自动补全、权限、
+  模型与推理菜单。该组件为了摆放表面本来就已经量过两个矩形，所以原点只是一次相
+  减，不是第二次布局读取。
+- 入场动画所在的规则内禁止使用带方位词的 `transform-origin`。`bottom right` 只
+  对它被写下时的那一个触发位置成立，也无法表达"表面被视口推到了一旁"的情形；
+  夹取可以。用框内相对点（`100% 100%`）可以表达同一个角而不附带这个断言。
+- 夹取正是可见差异所在。位于触发元素下方的菜单落在其上边缘，被翻到上方的落在其
+  下边缘，被挤到一旁的落在朝向触发元素那一侧的内部点上。
+- 居中表面保持居中：§8. 4 的对话框没有可依附的锚点，行为不变。
+
+推导实现在 `apps/desktop/src/components/settings/anchored-origin.ts`，由
+`apps/desktop/test/anchored-origin.test.mjs` 做单元测试；样式表一侧由
+`apps/desktop/test/fixed-dropdown-surfaces.test.mjs` 固定。
 
 ## 8. 0 Home 空栈和底部 Composer (D111/D204/D206)
 

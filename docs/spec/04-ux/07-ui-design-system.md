@@ -875,13 +875,43 @@ High-frequency workstation feedback must remain compositor-friendly and bounded:
 `scripts/check-motion.mjs`, wired into the `apps/desktop` `lint` script, holds
 the mechanical parts of this section: no `transition: all`, no `scale(0)` enter
 state, every hover-only rule inside the pointer query, every `infinite`
-animation with a reduced-motion companion, and `var(--motion-duration-*)` in
-place of a raw 150ms / 200ms / 300ms. A companion only counts when it wins: the
+animation with a reduced-motion companion, no corner-keyword `transform-origin`
+in the same rule as an entrance animation (§8.9), and `var(--motion-duration-*)`
+in place of a raw 150ms / 200ms / 300ms. A companion only counts when it wins: the
 lookup runs across every partial in `globals.css` import order, and a guard that
 sits before the rule it switches off is reported, because source order would
 hand the declaration back. Extend that script rather than adding prose here
 (AGENTS.md §19). `apps/desktop/test/motion-contract.test.mjs` pins the outcomes
 it protects.
+
+### 8.9 Anchored surface origin
+
+A surface that scales in must scale from the thing that opened it. An anchored
+floating surface therefore derives its own `transform-origin` from the trigger
+rect rather than naming a corner: the anchor's near corner, expressed in the
+surface's own pixels and clamped to the surface box.
+
+- One derivation covers every anchored surface. All 18 `AnchoredMenu` call
+  sites inherit it: the settings menus (font, theme, language, model, subagent,
+  capability, menu-select, weekday), the extension scope pickers, the plugins
+  and projects menus, the home project switcher, the plan-approval menu, and the
+  composer's autocomplete, permission, model, and reasoning menus. The component
+  already measures both rects in order to place the surface, so the origin is a
+  subtraction, not a second layout read.
+- A corner keyword is prohibited on an animated surface. `bottom right` is only
+  correct for the one trigger position it was written against, and it cannot
+  express a surface the viewport pushed away from its anchor; the clamp can.
+  A box-relative point (`100% 100%`) states the same corner without the claim
+  and remains available.
+- The clamp is what makes the difference visible. A menu under its anchor
+  resolves to its top edge, one flipped above resolves to its bottom edge, and
+  one pushed aside resolves to an interior point on the edge facing the trigger.
+- Centred surfaces keep their centre: §8.4 dialogs have no anchor to grow from,
+  and their behaviour is unchanged.
+
+The derivation is `apps/desktop/src/components/settings/anchored-origin.ts`,
+unit-tested in `apps/desktop/test/anchored-origin.test.mjs`; the stylesheet half
+is pinned by `apps/desktop/test/fixed-dropdown-surfaces.test.mjs`.
 
 ## 8.0 Home empty stack and bottom composer (D111/D204/D206)
 

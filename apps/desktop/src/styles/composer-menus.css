@@ -127,9 +127,13 @@
   width: min(280px, calc(100vw - 24px));
 }
 
+/*
+  The entrance origin is not set here: the surface is an AnchoredMenu, which
+  derives it from the trigger's rect (design-system §8.9). A corner keyword
+  would only be right for the one trigger position it was written against.
+*/
 .composer-model-thinking-menu.is-open {
   animation: composer-menu-in var(--motion-duration-fast) var(--motion-ease-out);
-  transform-origin: bottom right;
 }
 
 .composer-model-thinking-chip {
