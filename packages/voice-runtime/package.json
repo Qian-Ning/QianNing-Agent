@@ -1,6 +1,6 @@
 {
   "name": "@pi-desktop/voice-runtime",
-  "version": "0.15.17",
+  "version": "0.15.18",
   "private": true,
   "type": "module",
   "exports": {

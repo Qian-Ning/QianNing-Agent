@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "0.15.18",
+    date: "2026-10-04",
+    highlights: [
+      "Menüs und Auswahlfelder, die sich aus einer Schaltfläche öffnen, wachsen jetzt aus dieser Schaltfläche heraus: die Einstellungsmenüs, das Projekt- und das Plugin-Menü sowie die Modell- und Denk-Auswahl des Eingabefelds skalieren aus der Ecke, die der auslösenden Schaltfläche am nächsten liegt — egal, wo sie auf dem Bildschirm steht.",
+      "Ein Fingertipp lässt keinen Hover-Highlight mehr an sich hängen, und kompakte Bedienelemente senken sich beim Drücken leicht ab und federn beim Loslassen zurück.",
+      "Wenn Ihr System reduzierte Bewegung verlangt, befolgt die App das jetzt überall: die letzten Schleifenanimationen — der Glanz des Maskottchens, Aufnahmepunkt und Spinner der Spracherkennung, ein Warnblinken, die Neulade-Ringe und ein Beschäftigt-Schalter — halten an, statt in jedem Frame neu zu zeichnen.",
+      "Ein Schritt der Erststart-Checkliste setzt sein Häkchen jetzt mit einem kleinen Hof an seinen Platz, und eine fertige Checkliste blendet sich aus, statt zu verschwinden.",
+      "Im dunklen Design liest sich die Modus-Pille des Eingabefelds nicht länger eine Stufe dunkler als die Symbolschaltfläche daneben.",
+    ],
+  },
+  {
     version: "0.15.17",
     date: "2026-10-04",
     highlights: [

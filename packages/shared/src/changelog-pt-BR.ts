@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "0.15.18",
+    date: "2026-10-04",
+    highlights: [
+      "Menus e seletores que abrem a partir de um botão agora crescem a partir desse botão: os menus de ajustes, os de projetos e plugins, e os seletores de modelo e raciocínio do campo de texto surgem escalando a partir do canto mais próximo do controle que os abriu, onde quer que ele esteja na tela.",
+      "Um toque não deixa mais um realce de hover grudado nele, e os controles compactos afundam levemente enquanto são pressionados e voltam suavemente ao soltar.",
+      "Se o seu sistema pede movimento reduzido, o aplicativo agora respeita isso em todos os lugares: as últimas animações em laço — o brilho do mascote, o ponto e o indicador de gravação de voz, um piscar de aviso, os anéis de recarregamento e um interruptor ocupado — param em vez de redesenhar a cada quadro.",
+      "Uma etapa da lista de primeiros passos agora assenta a sua marca com um pequeno halo, e uma lista concluída desaparece suavemente em vez de sumir.",
+      "No tema escuro, a pílula de modo do campo de texto não parece mais um tom mais escura que o botão de ícone ao lado dela.",
+    ],
+  },
+  {
     version: "0.15.17",
     date: "2026-10-04",
     highlights: [

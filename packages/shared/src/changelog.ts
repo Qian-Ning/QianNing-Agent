@@ -30,6 +30,17 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "0.15.18",
+    date: "2026-10-04",
+    highlights: [
+      "Menus and pickers that open from a button now grow out of that button: the settings menus, the projects and plugins menus, and the composer's model and reasoning pickers scale in from the corner nearest the control that opened them, wherever on screen it sits.",
+      "A touch tap no longer leaves a hover highlight latched to it, and compact controls now sink slightly while pressed and ease back when released.",
+      "If your system asks for reduced motion, the app now honours it everywhere: the last looping animations — the mascot's glow, the voice recording dot and spinner, a warning blink, the reload rings and a busy switch — stop instead of repainting every frame.",
+      "A step of the first-run checklist now settles its tick into place with a small halo, and a finished checklist fades out instead of vanishing.",
+      "In the dark theme the composer's mode chip no longer reads a shade darker than the icon button beside it.",
+    ],
+  },
+  {
     version: "0.15.17",
     date: "2026-10-04",
     highlights: [
@@ -929,6 +940,17 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "0.15.18",
+    date: "2026-10-04",
+    highlights: [
+      "从按钮上打开的菜单与选择器，现在从那个按钮上长出来——设置类菜单、项目与插件菜单，以及输入框的模型与推理选择器，都会从离打开它们的那个控件最近的角缩放出现，无论它在屏幕的哪个位置。",
+      "触摸轻点不再把悬停高亮留在原地；紧凑控件按下时会微微下沉，松开时再缓回。",
+      "如果你的系统要求减少动效，应用现在会在所有地方遵守它：最后几条循环动画——吉祥物辉光、录音指示点与转圈、警告闪烁、重载转圈、以及忙碌开关——都会停住，而不是每一帧都在重绘。",
+      "首次运行清单的每一步完成时，勾会带着一小圈光晕落定；清单全部完成后是淡出离开，而不是凭空消失。",
+      "深色主题下，输入框的模式标签片不再比旁边的图标按钮暗一档。",
+    ],
+  },
+  {
     version: "0.15.17",
     date: "2026-10-04",
     highlights: [
@@ -1827,6 +1849,17 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "0.15.18",
+    date: "2026-10-04",
+    highlights: [
+      "從按鈕開啟的選單與選擇器，現在會從那個按鈕長出來——設定類選單、專案與外掛選單，以及輸入框的模型與推理選擇器，都會從最靠近開啟它們的那個控制項的角落縮放出現，無論它在螢幕的哪個位置。",
+      "觸控輕點不再把懸停高亮留在原地；緊湊控制項按下時會微微下沉，放開時再緩回。",
+      "如果你的系統要求減少動效，應用程式現在會在所有地方遵守它：最後幾條循環動畫——吉祥物光暈、錄音指示點與轉圈、警告閃爍、重載轉圈、以及忙碌開關——都會停住，而不是每一畫格都在重繪。",
+      "首次執行清單的每一步完成時，勾會帶著一小圈光暈落定；清單全部完成後是淡出離開，而不是憑空消失。",
+      "深色主題下，輸入框的模式標籤片不再比旁邊的圖示按鈕暗一階。",
+    ],
+  },
   {
     version: "0.15.17",
     date: "2026-10-04",

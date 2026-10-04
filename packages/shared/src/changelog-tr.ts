@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "0.15.18",
+    date: "2026-10-04",
+    highlights: [
+      "Bir düğmeden açılan menüler ve seçiciler artık o düğmeden büyüyor: ayar menüleri, projeler ve eklentiler menüleri ile yazım alanının model ve akıl yürütme seçicileri, ekranın neresinde olursa olsun onları açan denetimin en yakın köşesinden ölçeklenerek beliriyor.",
+      "Bir dokunma artık üzerinde asılı kalan bir vurgu bırakmıyor; kompakt denetimler basılıyken hafifçe çöküyor ve bırakıldığında yumuşakça geri dönüyor.",
+      "Sisteminiz azaltılmış hareket istiyorsa uygulama buna artık her yerde uyuyor: kalan döngü animasyonları — maskotun parıltısı, ses kaydı noktası ve çemberi, bir uyarı yanıp sönmesi, yeniden yükleme çemberleri ve meşgul anahtarı — her karede yeniden çizmek yerine duruyor.",
+      "İlk kurulum listesinin bir adımı artık tikini küçük bir hale ile yerine oturtuyor ve tamamlanan liste yok olmak yerine solarak çekiliyor.",
+      "Koyu temada, yazım alanının mod etiketi artık yanındaki simge düğmesinden bir ton daha koyu görünmüyor.",
+    ],
+  },
+  {
     version: "0.15.17",
     date: "2026-10-04",
     highlights: [
