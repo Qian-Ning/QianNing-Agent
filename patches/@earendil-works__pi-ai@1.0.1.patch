@@ -1,15 +1,15 @@
 diff --git a/dist/api/anthropic-messages.js b/dist/api/anthropic-messages.js
-index 5dd85f19db51b73dcd0c5c4cd8c28ad99e09ee6f..b7a8cfcac811512c1007c88f7e9d51e10c564a96 100644
+index 38571b31e143e913c2bf59dad73382982e93664a..27867e896c0ba13b843baddc6d2a4b87e5c8e4ab 100644
 --- a/dist/api/anthropic-messages.js
 +++ b/dist/api/anthropic-messages.js
 @@ -1,3 +1,6 @@
 +import { hostedSearchReplayProjection, validateHostedSearchMessages } from "../utils/hosted-search.js";
 +import { asLocalRequestError, localRequestErrorDetails } from "../utils/local-request-error.js";
 +import { withLocalRequestErrors } from "../utils/local-request-stream.js";
- import Anthropic from "@anthropic-ai/sdk";
+ import Anthropic, {} from "@anthropic-ai/sdk";
+ import { ANTHROPIC_FEDERATION_RULE_ID_ENV, ANTHROPIC_IDENTITY_TOKEN_FILE_ENV, ANTHROPIC_ORGANIZATION_ID_ENV, ANTHROPIC_SERVICE_ACCOUNT_ID_ENV, ANTHROPIC_WORKSPACE_ID_ENV, } from "../env-api-keys.js";
  import { calculateCost } from "../models.js";
- import { appendAssistantMessageDiagnostic } from "../utils/diagnostics.js";
-@@ -332,8 +335,6 @@ async function* iterateAnthropicEvents(response, signal) {
+@@ -375,8 +378,6 @@ async function* iterateAnthropicEvents(response, signal) {
  }
  export const stream = (model, context, options) => {
      const stream = new AssistantMessageEventStream();
@@ -18,7 +18,7 @@ index 5dd85f19db51b73dcd0c5c4cd8c28ad99e09ee6f..b7a8cfcac811512c1007c88f7e9d51e1
      (async () => {
          const providerThinkingLevel = model.compat?.supportsMidConvoEffort ? (options?.effort ?? "high") : undefined;
          const output = {
-@@ -354,7 +355,11 @@ export const stream = (model, context, options) => {
+@@ -397,7 +398,11 @@ export const stream = (model, context, options) => {
              stopReason: "pending",
              timestamp: Date.now(),
          };
@@ -30,7 +30,7 @@ index 5dd85f19db51b73dcd0c5c4cd8c28ad99e09ee6f..b7a8cfcac811512c1007c88f7e9d51e1
              let client;
              let isOAuth;
              let usageModel = model;
-@@ -390,6 +395,8 @@ export const stream = (model, context, options) => {
+@@ -435,6 +440,8 @@ export const stream = (model, context, options) => {
                  ...(options?.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
                  maxRetries: 0,
              };
@@ -39,7 +39,7 @@ index 5dd85f19db51b73dcd0c5c4cd8c28ad99e09ee6f..b7a8cfcac811512c1007c88f7e9d51e1
              const response = await retryProviderRequest(() => client.beta.messages.create(params, requestOptions).asResponse(), {
                  maxRetries: options?.maxRetries,
                  maxRetryDelayMs: options?.maxRetryDelayMs,
-@@ -474,17 +481,50 @@ export const stream = (model, context, options) => {
+@@ -520,17 +527,50 @@ export const stream = (model, context, options) => {
                          output.content.push(block);
                          stream.push({ type: "toolcall_start", contentIndex: output.content.length - 1, partial: output });
                      }
@@ -92,7 +92,7 @@ index 5dd85f19db51b73dcd0c5c4cd8c28ad99e09ee6f..b7a8cfcac811512c1007c88f7e9d51e1
                                  partial: output,
                              });
                          }
-@@ -493,11 +533,11 @@ export const stream = (model, context, options) => {
+@@ -539,11 +579,11 @@ export const stream = (model, context, options) => {
                          const index = blocks.findIndex((b) => b.index === event.index);
                          const block = blocks[index];
                          if (block && block.type === "thinking") {
@@ -106,7 +106,7 @@ index 5dd85f19db51b73dcd0c5c4cd8c28ad99e09ee6f..b7a8cfcac811512c1007c88f7e9d51e1
                                  partial: output,
                              });
                          }
-@@ -506,12 +546,24 @@ export const stream = (model, context, options) => {
+@@ -552,12 +592,24 @@ export const stream = (model, context, options) => {
                          const index = blocks.findIndex((b) => b.index === event.index);
                          const block = blocks[index];
                          if (block && block.type === "toolCall") {
@@ -133,7 +133,7 @@ index 5dd85f19db51b73dcd0c5c4cd8c28ad99e09ee6f..b7a8cfcac811512c1007c88f7e9d51e1
                                  partial: output,
                              });
                          }
-@@ -521,7 +573,19 @@ export const stream = (model, context, options) => {
+@@ -567,7 +619,19 @@ export const stream = (model, context, options) => {
                          const block = blocks[index];
                          if (block && block.type === "thinking") {
                              block.thinkingSignature = block.thinkingSignature || "";
@@ -154,7 +154,7 @@ index 5dd85f19db51b73dcd0c5c4cd8c28ad99e09ee6f..b7a8cfcac811512c1007c88f7e9d51e1
                          }
                      }
                  }
-@@ -558,6 +622,12 @@ export const stream = (model, context, options) => {
+@@ -604,6 +668,12 @@ export const stream = (model, context, options) => {
                                  partial: output,
                              });
                          }
@@ -167,7 +167,7 @@ index 5dd85f19db51b73dcd0c5c4cd8c28ad99e09ee6f..b7a8cfcac811512c1007c88f7e9d51e1
                      }
                  }
                  else if (event.type === "message_delta") {
-@@ -625,13 +695,18 @@ export const stream = (model, context, options) => {
+@@ -676,13 +746,18 @@ export const stream = (model, context, options) => {
              stream.end();
          }
          catch (error) {
@@ -187,16 +187,16 @@ index 5dd85f19db51b73dcd0c5c4cd8c28ad99e09ee6f..b7a8cfcac811512c1007c88f7e9d51e1
              stream.push({ type: "error", reason: output.stopReason, error: output });
              stream.end();
          }
-@@ -659,7 +734,7 @@ function mapThinkingLevelToEffort(model, level) {
+@@ -710,7 +785,7 @@ function mapThinkingLevelToEffort(model, level) {
              return "high";
      }
  }
 -export const streamSimple = (model, context, options) => {
 +export const streamSimple = (model, context, options) => withLocalRequestErrors(model, options, () => {
-     assertRequestAuth(model.provider, options?.apiKey, options?.headers);
-     const base = {
-         ...buildBaseOptions(model, context, options, options?.apiKey),
-@@ -691,7 +766,7 @@ export const streamSimple = (model, context, options) => {
+     if (!getAnthropicFederation(model, options?.apiKey, options?.headers, options?.env)) {
+         assertRequestAuth(model.provider, options?.apiKey, options?.headers);
+     }
+@@ -744,7 +819,7 @@ export const streamSimple = (model, context, options) => {
          thinkingEnabled: true,
          thinkingBudgetTokens: Math.min(adjusted.thinkingBudget, Math.max(0, maxTokens - 1024)),
      });
@@ -205,7 +205,7 @@ index 5dd85f19db51b73dcd0c5c4cd8c28ad99e09ee6f..b7a8cfcac811512c1007c88f7e9d51e1
  function isOAuthToken(apiKey) {
      return apiKey.includes("sk-ant-oat");
  }
-@@ -868,6 +943,15 @@ function buildParams(model, context, isOAuthToken, options) {
+@@ -933,6 +1008,15 @@ function buildParams(model, context, isOAuthToken, options) {
              params.tools = convertTools(tools, isOAuthToken, compat.supportsEagerToolInputStreaming, compat.supportsStrictTools, toolCacheControl);
          }
      }
@@ -221,7 +221,7 @@ index 5dd85f19db51b73dcd0c5c4cd8c28ad99e09ee6f..b7a8cfcac811512c1007c88f7e9d51e1
      // Managed effort models always use adaptive thinking so prefix mismatches can
      // be dropped instead of surfacing as persistent 400 responses.
      if (model.compat?.supportsMidConvoEffort === true) {
-@@ -1072,6 +1156,15 @@ function convertMessages(transformedMessages, isOAuthToken, cacheControl, allowE
+@@ -1141,6 +1225,15 @@ convertToolDefinitions) {
                          input: block.arguments ?? {},
                      });
                  }
@@ -238,7 +238,7 @@ index 5dd85f19db51b73dcd0c5c4cd8c28ad99e09ee6f..b7a8cfcac811512c1007c88f7e9d51e1
              if (blocks.length === 0)
                  continue;
 diff --git a/dist/api/azure-openai-responses.js b/dist/api/azure-openai-responses.js
-index ec1e2069102ed3165b2d702b9fc4105d5cf8f4e1..572dce7f2c1775a48bea869fcc0df7d09ef5644b 100644
+index dc2d8f9be2f47dc73dde758c630fe12dd7749d5d..e43cc048c4bb6fcb7c3a82d27d14843cd1819ffd 100644
 --- a/dist/api/azure-openai-responses.js
 +++ b/dist/api/azure-openai-responses.js
 @@ -1,3 +1,5 @@
@@ -278,7 +278,7 @@ index ec1e2069102ed3165b2d702b9fc4105d5cf8f4e1..572dce7f2c1775a48bea869fcc0df7d0
              const { data: openaiStream, response } = await retryProviderRequest(() => client.responses.create(params, requestOptions).withResponse(), {
                  maxRetries: options?.maxRetries,
                  maxRetryDelayMs: options?.maxRetryDelayMs,
-@@ -105,6 +110,11 @@ export const stream = (model, context, options) => {
+@@ -108,6 +113,11 @@ export const stream = (model, context, options) => {
              stream.end();
          }
          catch (error) {
@@ -290,7 +290,7 @@ index ec1e2069102ed3165b2d702b9fc4105d5cf8f4e1..572dce7f2c1775a48bea869fcc0df7d0
              for (const block of output.content) {
                  delete block.index;
                  // Streaming scratch buffers are only used during parsing; never persist them.
-@@ -112,14 +122,14 @@ export const stream = (model, context, options) => {
+@@ -115,14 +125,14 @@ export const stream = (model, context, options) => {
                  delete block.customInput;
              }
              output.stopReason = options?.signal?.aborted ? "aborted" : "error";
@@ -307,7 +307,7 @@ index ec1e2069102ed3165b2d702b9fc4105d5cf8f4e1..572dce7f2c1775a48bea869fcc0df7d0
      const apiKey = options?.apiKey;
      if (!apiKey) {
          throw new Error(`No API key for provider: ${model.provider}`);
-@@ -134,7 +144,7 @@ export const streamSimple = (model, context, options) => {
+@@ -137,7 +147,7 @@ export const streamSimple = (model, context, options) => {
          ...base,
          reasoningEffort,
      });
@@ -316,7 +316,7 @@ index ec1e2069102ed3165b2d702b9fc4105d5cf8f4e1..572dce7f2c1775a48bea869fcc0df7d0
  function normalizeAzureBaseUrl(baseUrl) {
      const trimmed = baseUrl.trim().replace(/\/+$/, "");
      let url;
-@@ -235,6 +245,12 @@ function buildParams(model, context, options, deploymentName, grammarToolInputPr
+@@ -238,6 +248,12 @@ function buildParams(model, context, options, deploymentName, grammarToolInputPr
      if (options?.toolChoice !== undefined) {
          params.tool_choice = options.toolChoice;
      }
@@ -329,7 +329,7 @@ index ec1e2069102ed3165b2d702b9fc4105d5cf8f4e1..572dce7f2c1775a48bea869fcc0df7d0
      if (model.reasoning) {
          if (options?.reasoningEffort || options?.reasoningSummary) {
              const effort = options?.reasoningEffort
-@@ -252,6 +268,12 @@ function buildParams(model, context, options, deploymentName, grammarToolInputPr
+@@ -255,6 +271,12 @@ function buildParams(model, context, options, deploymentName, grammarToolInputPr
              };
          }
      }
@@ -339,14 +339,14 @@ index ec1e2069102ed3165b2d702b9fc4105d5cf8f4e1..572dce7f2c1775a48bea869fcc0df7d0
 +    if (model.webSearch === true) {
 +        params.include = [...new Set([...(params.include ?? []), "web_search_call.action.sources"])];
 +    }
-     // Last so custom keys override the named request fields.
-     if (options?.samplingParams) {
-         Object.assign(params, options.samplingParams);
+     // Last so custom keys override the named request fields. Per-request keys override model defaults.
+     Object.assign(params, model.samplingParams, options?.samplingParams);
+     return params;
 diff --git a/dist/api/mistral-conversations.js b/dist/api/mistral-conversations.js
-index 3106c5d470dc3610c05d8ee153026df20f86f66e..8b209bb46809c394ffebfd11d5dfd2731c204310 100644
+index fbcc5e25ee6752a9c5461b41fa8544a090a17b3f..92b07a1a107a9e0993bc9872d685279ccd921139 100644
 --- a/dist/api/mistral-conversations.js
 +++ b/dist/api/mistral-conversations.js
-@@ -645,6 +645,9 @@ function toChatMessages(messages, supportsImages) {
+@@ -658,6 +658,9 @@ function toChatMessages(messages, supportsImages) {
                      }
                      continue;
                  }
@@ -357,7 +357,7 @@ index 3106c5d470dc3610c05d8ee153026df20f86f66e..8b209bb46809c394ffebfd11d5dfd273
                      id: block.id,
                      type: "function",
 diff --git a/dist/api/openai-codex-responses.js b/dist/api/openai-codex-responses.js
-index dfdb6ec3651febbba6b8788f16118ecbf4b38fa8..9a3ad78a58359e8669d8a42a3f9264942044c5fd 100644
+index 40014b3b7eacb3a8e5e43daac2cec6446e8810c2..f8b215d3aec7b5124c4f9c5fa2fe5a1f0886015d 100644
 --- a/dist/api/openai-codex-responses.js
 +++ b/dist/api/openai-codex-responses.js
 @@ -411,6 +411,12 @@ function buildRequestBody(model, context, options, cacheSessionId, grammarToolIn
@@ -374,7 +374,7 @@ index dfdb6ec3651febbba6b8788f16118ecbf4b38fa8..9a3ad78a58359e8669d8a42a3f926494
          const effort = options.reasoningEffort === "none"
              ? model.thinkingLevelMap?.off === undefined
 diff --git a/dist/api/openai-completions.js b/dist/api/openai-completions.js
-index fc8e89382b75f259eb4f041b522840b0d603c033..ff54f13831eb17711b95c1984ad1b31c2d866ef8 100644
+index eecd83c753e3b758b8e44628f560b862f8252839..2390122f72d7a6f04a9e1e93b96f885392b91d5e 100644
 --- a/dist/api/openai-completions.js
 +++ b/dist/api/openai-completions.js
 @@ -1041,21 +1041,27 @@ export function convertMessages(model, context, compat, options) {
@@ -473,7 +473,7 @@ index fc8e89382b75f259eb4f041b522840b0d603c033..ff54f13831eb17711b95c1984ad1b31c
          openRouterRouting: model.compat.openRouterRouting ?? {},
          vercelGatewayRouting: model.compat.vercelGatewayRouting ?? detected.vercelGatewayRouting,
 diff --git a/dist/api/openai-responses-shared.js b/dist/api/openai-responses-shared.js
-index 53597d2c3becdd2c03d4fd265c213a36b403f26b..763f99a6e7d726ff9fc1ed59a45f6c8173ad108a 100644
+index f413fe5f2a1abcac39c38bbd4a77b38c349a5918..af7832b03b722013d7fcbc01423d6b36dd8c146b 100644
 --- a/dist/api/openai-responses-shared.js
 +++ b/dist/api/openai-responses-shared.js
 @@ -1,3 +1,4 @@
@@ -503,7 +503,7 @@ index 53597d2c3becdd2c03d4fd265c213a36b403f26b..763f99a6e7d726ff9fc1ed59a45f6c81
                  else if (block.type === "toolCall") {
                      const toolCall = block;
                      const [callId, itemIdRaw] = toolCall.id.split("|");
-@@ -405,6 +414,28 @@ export async function processResponsesStream(openaiStream, output, stream, model
+@@ -406,6 +415,28 @@ export async function processResponsesStream(openaiStream, output, stream, model
              stream.push({ type: "toolcall_start", contentIndex: slot.contentIndex, partial: output });
              return slot;
          }
@@ -532,7 +532,7 @@ index 53597d2c3becdd2c03d4fd265c213a36b403f26b..763f99a6e7d726ff9fc1ed59a45f6c81
          return undefined;
      };
      const getOrCreateSlot = (outputIndex, item) => {
-@@ -485,11 +516,11 @@ export async function processResponsesStream(openaiStream, output, stream, model
+@@ -487,11 +518,11 @@ export async function processResponsesStream(openaiStream, output, stream, model
              const slot = getSlot(event.output_index, "thinking");
              if (!slot)
                  continue;
@@ -546,7 +546,7 @@ index 53597d2c3becdd2c03d4fd265c213a36b403f26b..763f99a6e7d726ff9fc1ed59a45f6c81
                  partial: output,
              });
          }
-@@ -509,11 +540,11 @@ export async function processResponsesStream(openaiStream, output, stream, model
+@@ -511,11 +542,11 @@ export async function processResponsesStream(openaiStream, output, stream, model
              const slot = getSlot(event.output_index, "thinking");
              if (!slot)
                  continue;
@@ -560,7 +560,7 @@ index 53597d2c3becdd2c03d4fd265c213a36b403f26b..763f99a6e7d726ff9fc1ed59a45f6c81
                  partial: output,
              });
          }
-@@ -521,23 +552,44 @@ export async function processResponsesStream(openaiStream, output, stream, model
+@@ -523,23 +554,44 @@ export async function processResponsesStream(openaiStream, output, stream, model
              const slot = getSlot(event.output_index, "text");
              if (!slot)
                  continue;
@@ -609,7 +609,7 @@ index 53597d2c3becdd2c03d4fd265c213a36b403f26b..763f99a6e7d726ff9fc1ed59a45f6c81
                  partial: output,
              });
          }
-@@ -545,9 +597,9 @@ export async function processResponsesStream(openaiStream, output, stream, model
+@@ -547,9 +599,9 @@ export async function processResponsesStream(openaiStream, output, stream, model
              const slot = getSlot(event.output_index, "toolCall");
              if (!slot || slot.block.partialJson === undefined)
                  continue;
@@ -621,7 +621,7 @@ index 53597d2c3becdd2c03d4fd265c213a36b403f26b..763f99a6e7d726ff9fc1ed59a45f6c81
          }
          else if (event.type === "response.function_call_arguments.done") {
              const slot = getSlot(event.output_index, "toolCall");
-@@ -633,9 +685,25 @@ export async function processResponsesStream(openaiStream, output, stream, model
+@@ -635,9 +687,25 @@ export async function processResponsesStream(openaiStream, output, stream, model
                  });
                  outputSlots.delete(event.output_index);
              }
@@ -648,7 +648,7 @@ index 53597d2c3becdd2c03d4fd265c213a36b403f26b..763f99a6e7d726ff9fc1ed59a45f6c81
          else if (event.type === "error") {
              throw new Error(`Error Code ${event.code}: ${event.message}` || "Unknown error");
 diff --git a/dist/api/openai-responses.js b/dist/api/openai-responses.js
-index 1396c8d57ffb0e300382281a026d878e6a96b43a..39d201fc29deaa3cf19a8aaafe57ff15bc29cdf4 100644
+index 4d58c9772b49f0d40e31d42c251a6d993a4a673f..c928c3f640a0b58941ebfc509171ec1984be56ba 100644
 --- a/dist/api/openai-responses.js
 +++ b/dist/api/openai-responses.js
 @@ -1,3 +1,5 @@
@@ -657,7 +657,7 @@ index 1396c8d57ffb0e300382281a026d878e6a96b43a..39d201fc29deaa3cf19a8aaafe57ff15
  import OpenAI from "openai";
  import { clampThinkingLevel } from "../models.js";
  import { formatProviderError, normalizeProviderError } from "../utils/error-body.js";
-@@ -81,7 +83,6 @@ function getPromptCacheOptions(compat, cacheRetention) {
+@@ -92,7 +94,6 @@ function getPromptCacheOptions(compat, cacheRetention) {
   */
  export const stream = (model, context, options) => {
      const stream = new AssistantMessageEventStream();
@@ -665,7 +665,7 @@ index 1396c8d57ffb0e300382281a026d878e6a96b43a..39d201fc29deaa3cf19a8aaafe57ff15
      // Start async processing
      (async () => {
          const output = {
-@@ -101,7 +102,9 @@ export const stream = (model, context, options) => {
+@@ -112,7 +113,9 @@ export const stream = (model, context, options) => {
              stopReason: "pending",
              timestamp: Date.now(),
          };
@@ -675,7 +675,7 @@ index 1396c8d57ffb0e300382281a026d878e6a96b43a..39d201fc29deaa3cf19a8aaafe57ff15
              // Create OpenAI client
              const apiKey = getClientApiKey(model.provider, options?.apiKey, options?.headers);
              const cacheRetention = resolveCacheRetention(options?.cacheRetention, options?.env);
-@@ -119,6 +122,9 @@ export const stream = (model, context, options) => {
+@@ -130,6 +133,9 @@ export const stream = (model, context, options) => {
                  ...(options?.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
                  maxRetries: 0,
              };
@@ -685,7 +685,7 @@ index 1396c8d57ffb0e300382281a026d878e6a96b43a..39d201fc29deaa3cf19a8aaafe57ff15
              const { data: openaiStream, response } = await retryProviderRequest(() => client.responses.create(params, requestOptions).withResponse(), {
                  maxRetries: options?.maxRetries,
                  maxRetryDelayMs: options?.maxRetryDelayMs,
-@@ -144,6 +150,11 @@ export const stream = (model, context, options) => {
+@@ -156,6 +162,11 @@ export const stream = (model, context, options) => {
              stream.end();
          }
          catch (error) {
@@ -697,15 +697,16 @@ index 1396c8d57ffb0e300382281a026d878e6a96b43a..39d201fc29deaa3cf19a8aaafe57ff15
              for (const block of output.content) {
                  delete block.index;
                  // Streaming scratch buffers are only used during parsing; never persist them.
-@@ -151,14 +162,14 @@ export const stream = (model, context, options) => {
+@@ -163,7 +174,7 @@ export const stream = (model, context, options) => {
                  delete block.customInput;
              }
              output.stopReason = options?.signal?.aborted ? "aborted" : "error";
--            output.errorMessage = formatProviderError(normalizeProviderError(error), `${model.provider === "openai" ? "OpenAI" : model.provider} API error`);
-+            output.errorMessage = errorDetails?.message ?? formatProviderError(normalizeProviderError(error), `${model.provider === "openai" ? "OpenAI" : model.provider} API error`);
-             stream.push({ type: "error", reason: output.stopReason, error: output });
-             stream.end();
-         }
+-            const errorMessage = formatProviderError(normalizeProviderError(error), `${model.provider === "openai" ? "OpenAI" : model.provider} API error`);
++            const errorMessage = errorDetails?.message ?? formatProviderError(normalizeProviderError(error), `${model.provider === "openai" ? "OpenAI" : model.provider} API error`);
+             // Sign in with ChatGPT shares the subscription's usage limit with other apps.
+             output.errorMessage = errorMessage.includes("subscription_sharing_usage_limit_exceeded")
+                 ? `${errorMessage}\nCheck your ChatGPT usage: ${CHATGPT_USAGE_URL}`
+@@ -174,7 +185,7 @@ export const stream = (model, context, options) => {
      })();
      return stream;
  };
@@ -714,7 +715,7 @@ index 1396c8d57ffb0e300382281a026d878e6a96b43a..39d201fc29deaa3cf19a8aaafe57ff15
      getClientApiKey(model.provider, options?.apiKey, options?.headers);
      const base = {
          ...buildBaseOptions(model, context, options, options?.apiKey),
-@@ -170,7 +181,7 @@ export const streamSimple = (model, context, options) => {
+@@ -186,7 +197,7 @@ export const streamSimple = (model, context, options) => {
          ...base,
          reasoningEffort,
      });
@@ -723,7 +724,7 @@ index 1396c8d57ffb0e300382281a026d878e6a96b43a..39d201fc29deaa3cf19a8aaafe57ff15
  function createClient(model, context, apiKey, optionsHeaders, fetch, sessionId) {
      const compat = getCompat(model);
      const headers = { "User-Agent": getPiUserAgent(), ...model.headers };
-@@ -242,6 +253,12 @@ function buildParams(model, context, options, compat = getCompat(model), grammar
+@@ -260,6 +271,12 @@ function buildParams(model, context, options, compat = getCompat(model), grammar
              supportsOpenAIGrammarTools: compat.supportsOpenAIGrammarTools,
          });
      }
@@ -736,7 +737,7 @@ index 1396c8d57ffb0e300382281a026d878e6a96b43a..39d201fc29deaa3cf19a8aaafe57ff15
      if (options?.toolChoice !== undefined) {
          params.tool_choice = options.toolChoice;
      }
-@@ -264,6 +281,12 @@ function buildParams(model, context, options, compat = getCompat(model), grammar
+@@ -282,6 +299,12 @@ function buildParams(model, context, options, compat = getCompat(model), grammar
          if (model.provider === "xai")
              params.include = ["reasoning.encrypted_content"];
      }
@@ -746,11 +747,11 @@ index 1396c8d57ffb0e300382281a026d878e6a96b43a..39d201fc29deaa3cf19a8aaafe57ff15
 +    if (model.webSearch === true) {
 +        params.include = [...new Set([...(params.include ?? []), "web_search_call.action.sources"])];
 +    }
-     // Last so custom keys override the named request fields.
-     if (options?.samplingParams) {
-         Object.assign(params, options.samplingParams);
+     // Last so custom keys override the named request fields. Per-request keys override model defaults.
+     Object.assign(params, model.samplingParams, options?.samplingParams);
+     return params;
 diff --git a/dist/api/simple-options.js b/dist/api/simple-options.js
-index 216a45feebc02acef047d1ff133729fb0751b76c..23528b801d65e33d22eb1d63ea49945d24a5e658 100644
+index da0fc83be3031326465b7dc1c53030a0d184517a..d56ef2ab9d76579b6b335c1083da94f1a84e8e93 100644
 --- a/dist/api/simple-options.js
 +++ b/dist/api/simple-options.js
 @@ -4,7 +4,7 @@ const MIN_MAX_TOKENS = 1;
@@ -763,12 +764,12 @@ index 216a45feebc02acef047d1ff133729fb0751b76c..23528b801d65e33d22eb1d63ea49945d
  }
  export function buildBaseOptions(model, context, options, apiKey) {
 diff --git a/dist/auth/oauth/anthropic.js b/dist/auth/oauth/anthropic.js
-index 8692e906caa2609396bdccae98d4d593e024ecf6..029138715f58dbb2e5825f9a2d0c182ed7e81f2a 100644
+index e136a751e45d059b721257f829f418a601ce3243..0d35358ce444ff32278521cf2b37997ada17f9d9 100644
 --- a/dist/auth/oauth/anthropic.js
 +++ b/dist/auth/oauth/anthropic.js
-@@ -140,21 +140,90 @@ async function startCallbackServer(expectedState) {
-         });
-     });
+@@ -64,21 +64,90 @@ function formatErrorDetails(error) {
+     }
+     return String(error);
  }
 -async function postJson(url, body, signal) {
 -    const response = await fetch(url, {
@@ -870,7 +871,7 @@ index 8692e906caa2609396bdccae98d4d593e024ecf6..029138715f58dbb2e5825f9a2d0c182e
  }
  async function exchangeAuthorizationCode(code, state, verifier, redirectUri, signal) {
      let responseBody;
-@@ -169,6 +238,8 @@ async function exchangeAuthorizationCode(code, state, verifier, redirectUri, sig
+@@ -93,6 +162,8 @@ async function exchangeAuthorizationCode(code, state, verifier, redirectUri, sig
          }, signal);
      }
      catch (error) {
@@ -879,7 +880,7 @@ index 8692e906caa2609396bdccae98d4d593e024ecf6..029138715f58dbb2e5825f9a2d0c182e
          throw new Error(`Token exchange request failed. url=${TOKEN_URL}; redirect_uri=${redirectUri}; response_type=authorization_code; details=${formatErrorDetails(error)}`);
      }
      let tokenData;
-@@ -176,7 +247,7 @@ async function exchangeAuthorizationCode(code, state, verifier, redirectUri, sig
+@@ -100,7 +171,7 @@ async function exchangeAuthorizationCode(code, state, verifier, redirectUri, sig
          tokenData = JSON.parse(responseBody);
      }
      catch (error) {
@@ -888,7 +889,7 @@ index 8692e906caa2609396bdccae98d4d593e024ecf6..029138715f58dbb2e5825f9a2d0c182e
      }
      return {
          type: "oauth",
-@@ -280,6 +351,8 @@ async function refreshAnthropicToken(refreshToken, signal) {
+@@ -205,6 +276,8 @@ async function refreshAnthropicToken(refreshToken, signal) {
          }, signal);
      }
      catch (error) {
@@ -897,7 +898,7 @@ index 8692e906caa2609396bdccae98d4d593e024ecf6..029138715f58dbb2e5825f9a2d0c182e
          throw new Error(`Anthropic token refresh request failed. url=${TOKEN_URL}; details=${formatErrorDetails(error)}`);
      }
      let data;
-@@ -287,7 +360,7 @@ async function refreshAnthropicToken(refreshToken, signal) {
+@@ -212,7 +285,7 @@ async function refreshAnthropicToken(refreshToken, signal) {
          data = JSON.parse(responseBody);
      }
      catch (error) {
@@ -907,10 +908,10 @@ index 8692e906caa2609396bdccae98d4d593e024ecf6..029138715f58dbb2e5825f9a2d0c182e
      return {
          type: "oauth",
 diff --git a/dist/index.d.ts b/dist/index.d.ts
-index 5e8403dd62895d30eb7d8e3f95b87d6535221839..50f728e4427e1cadb9aded7e35f3e44611eefc85 100644
+index 75c0d7ba79dbf893724a302829011bc0f8ded282..b0bf6975cb155df67e7cad59e4c65d751f47ec8b 100644
 --- a/dist/index.d.ts
 +++ b/dist/index.d.ts
-@@ -34,4 +34,7 @@ export * from "./utils/transcript.ts";
+@@ -33,4 +33,7 @@ export * from "./utils/transcript.ts";
  export * from "./utils/typebox-helpers.ts";
  export { uuidv7 } from "./utils/uuid.ts";
  export * from "./utils/validation.ts";
@@ -920,10 +921,10 @@ index 5e8403dd62895d30eb7d8e3f95b87d6535221839..50f728e4427e1cadb9aded7e35f3e446
  //# sourceMappingURL=index.d.ts.map
 \ No newline at end of file
 diff --git a/dist/index.js b/dist/index.js
-index cf46c043b854412d56c5d65230a509165229806e..0fe002385c3d9906709be1cce6867d0c30a3a151 100644
+index 4fafddad713ac5811fe2b1dfea629b4b8f6627e1..2e4ed41e548807b836625b35ba753a8422aea160 100644
 --- a/dist/index.js
 +++ b/dist/index.js
-@@ -21,4 +21,6 @@ export * from "./utils/transcript.js";
+@@ -20,4 +20,6 @@ export * from "./utils/transcript.js";
  export * from "./utils/typebox-helpers.js";
  export { uuidv7 } from "./utils/uuid.js";
  export * from "./utils/validation.js";
@@ -931,11 +932,18 @@ index cf46c043b854412d56c5d65230a509165229806e..0fe002385c3d9906709be1cce6867d0c
 +export * from "./utils/hosted-search.js";
  //# sourceMappingURL=index.js.map
 \ No newline at end of file
+diff --git a/dist/providers/data/deepseek.json b/dist/providers/data/deepseek.json
+index 1443bb592b2913ba09579f3f555a2b09456e63cf..5fc0625778014863aa267ac5186db2cdf356d789 100644
+--- a/dist/providers/data/deepseek.json
++++ b/dist/providers/data/deepseek.json
+@@ -1 +1 @@
+-{"openai-completions":{"chat:deepseek-flash":{"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"thinkingLevelMap":{"minimal":null,"low":"low","medium":null,"high":"high","max":"max"},"input":["text","image"],"cost":{"input":0.3,"output":1.2,"cacheRead":0.006,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true},"inputLimits":{"images":{"resize":{"maxWidth":2000,"maxHeight":2000,"maxBytes":4718592,"jpegQuality":80}}},"type":"chat"},"chat:deepseek-v4-pro":{"id":"deepseek-v4-pro","name":"DeepSeek V4 Pro","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"input":["text"],"cost":{"input":1.32,"output":3.96,"cacheRead":0.044,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"thinkingLevelMap":{"minimal":null,"low":null,"medium":null,"high":"high","max":"max"},"type":"chat"}}}
++{"openai-completions":{"chat:deepseek-flash":{"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"thinkingLevelMap":{"minimal":null,"low":"low","medium":null,"high":"high","max":"max"},"input":["text","image"],"cost":{"input":0.3,"output":1.2,"cacheRead":0.006,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"inputLimits":{"images":{"resize":{"maxWidth":2000,"maxHeight":2000,"maxBytes":4718592,"jpegQuality":80}}},"type":"chat"},"chat:deepseek-v4-pro":{"id":"deepseek-v4-pro","name":"DeepSeek V4 Pro","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"input":["text"],"cost":{"input":1.32,"output":3.96,"cacheRead":0.044,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"thinkingLevelMap":{"minimal":null,"low":null,"medium":null,"high":"high","max":"max"},"type":"chat"}}}
 diff --git a/dist/types.d.ts b/dist/types.d.ts
-index 5915ca64b161bc7bcebdb14d2ad1a2c18cde942e..f5d4114e94a27d72b33ba83cc45f1d09274c271c 100644
+index b141efdc528c806524d40f097256f7173c12ba3b..d0007a3d5b0bd0a54fee93a3a26b1af7f5ce04a9 100644
 --- a/dist/types.d.ts
 +++ b/dist/types.d.ts
-@@ -267,6 +267,30 @@ export interface ToolCall {
+@@ -286,6 +286,30 @@ export interface ToolCall {
      /** OpenAI Responses namespace for calls to dynamically loaded or namespaced tools. */
      namespace?: string;
  }
@@ -966,7 +974,7 @@ index 5915ca64b161bc7bcebdb14d2ad1a2c18cde942e..f5d4114e94a27d72b33ba83cc45f1d09
  export interface Usage {
      input: number;
      output: number;
-@@ -352,7 +376,7 @@ export interface UserMessage {
+@@ -371,7 +395,7 @@ export interface UserMessage {
  }
  export interface AssistantMessage {
      role: "assistant";
@@ -975,7 +983,7 @@ index 5915ca64b161bc7bcebdb14d2ad1a2c18cde942e..f5d4114e94a27d72b33ba83cc45f1d09
      api: Api;
      provider: ProviderId;
      model: string;
-@@ -365,6 +389,8 @@ export interface AssistantMessage {
+@@ -386,6 +410,8 @@ export interface AssistantMessage {
      stopReason: StopReason;
      deferred?: DeferredHandle;
      errorMessage?: string;
@@ -984,7 +992,7 @@ index 5915ca64b161bc7bcebdb14d2ad1a2c18cde942e..f5d4114e94a27d72b33ba83cc45f1d09
      rawStopReason?: string;
      /**
       * Provider indication of whether the model explicitly ended its turn.
-@@ -512,6 +538,10 @@ export type AssistantMessageEvent = {
+@@ -606,6 +632,10 @@ export type AssistantMessageEvent = {
      contentIndex: number;
      toolCall: ToolCall;
      partial: AssistantMessage;
@@ -995,7 +1003,7 @@ index 5915ca64b161bc7bcebdb14d2ad1a2c18cde942e..f5d4114e94a27d72b33ba83cc45f1d09
  } | {
      type: "done";
      reason: Extract<StopReason, "stop" | "length" | "toolUse" | "deferred">;
-@@ -546,6 +576,12 @@ export interface OpenAICompletionsCompat {
+@@ -640,6 +670,12 @@ export interface OpenAICompletionsCompat {
      requiresThinkingAsText?: boolean;
      /** Whether all replayed assistant messages must include an empty reasoning_content field when reasoning is enabled. Default: auto-detected from URL. */
      requiresReasoningContentOnAssistantMessages?: boolean;
@@ -1008,9 +1016,9 @@ index 5915ca64b161bc7bcebdb14d2ad1a2c18cde942e..f5d4114e94a27d72b33ba83cc45f1d09
      /** Format for reasoning/thinking parameter. "openai" uses reasoning_effort, "openrouter" uses reasoning: { effort }, "deepseek" uses thinking: { type } plus reasoning_effort when supported, "together" uses reasoning: { enabled } plus reasoning_effort when supported, "baseten" uses configurable chat_template_args plus reasoning_effort when supported, "zai" uses thinking: { type }, "qwen" uses top-level enable_thinking: boolean, "qwen-chat-template" uses chat_template_kwargs.enable_thinking and preserve_thinking, "chat-template" uses configurable chat_template_kwargs, "string-thinking" uses top-level thinking: string, and "ant-ling" uses reasoning: { effort } only when the mapped effort is non-null. Default: "openai". */
      thinkingFormat?: "openai" | "openrouter" | "deepseek" | "together" | "baseten" | "zai" | "qwen" | "chat-template" | "qwen-chat-template" | "string-thinking" | "ant-ling";
      /** Kwargs to send as `chat_template_kwargs` when `thinkingFormat` is `chat-template`. Use `{ "$var": "thinking.enabled" }`, `{ "$var": "thinking.effort" }`, or `{ "$var": "thinking.budget" }` for pi-controlled thinking values. */
-@@ -809,6 +845,8 @@ export interface Model<TApi extends Api> {
-     provider: ProviderId;
-     baseUrl: string;
+@@ -918,6 +954,8 @@ export interface Model<TApi extends Api> extends BaseModel<TApi> {
+      */
+     type?: "chat";
      reasoning: boolean;
 +    /** Opt in to hosted search on the existing Anthropic/Responses adapters. */
 +    webSearch?: boolean;
@@ -1612,3 +1620,10 @@ index 0000000000000000000000000000000000000000..5c63b882ae4cb618e964c5d2ce8d3c18
 +        return stream;
 +    }
 +}
+diff --git a/dist/providers/data/deepseek.json b/dist/providers/data/deepseek.json
+--- a/dist/providers/data/deepseek.json
++++ b/dist/providers/data/deepseek.json
+@@ -1 +1 @@
+-{"openai-completions":{"chat:deepseek-flash":{"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"thinkingLevelMap":{"minimal":null,"low":"low","medium":null,"high":"high","max":"max"},"input":["text","image"],"cost":{"input":0.3,"output":1.2,"cacheRead":0.006,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true},"inputLimits":{"images":{"resize":{"maxWidth":2000,"maxHeight":2000,"maxBytes":4718592,"jpegQuality":80}}},"type":"chat"},"chat:deepseek-v4-pro":{"id":"deepseek-v4-pro","name":"DeepSeek V4 Pro","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"input":["text"],"cost":{"input":1.32,"output":3.96,"cacheRead":0.044,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"thinkingLevelMap":{"minimal":null,"low":null,"medium":null,"high":"high","max":"max"},"type":"chat"}}}
++{"openai-completions":{"chat:deepseek-flash":{"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"thinkingLevelMap":{"minimal":null,"low":"low","medium":null,"high":"high","max":"max"},"input":["text","image"],"cost":{"input":0.3,"output":1.2,"cacheRead":0.006,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"inputLimits":{"images":{"resize":{"maxWidth":2000,"maxHeight":2000,"maxBytes":4718592,"jpegQuality":80}}},"type":"chat"},"chat:deepseek-v4-pro":{"id":"deepseek-v4-pro","name":"DeepSeek V4 Pro","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"input":["text"],"cost":{"input":1.32,"output":3.96,"cacheRead":0.044,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"thinkingLevelMap":{"minimal":null,"low":null,"medium":null,"high":"high","max":"max"},"type":"chat"}}}
+\ No newline at end of file
