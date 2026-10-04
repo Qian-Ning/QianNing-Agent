@@ -51,6 +51,7 @@
 | D644 | 未签名 macOS 通道自证签名 | **在未签名 macOS 通道上加一个 runner 步骤：对打包出的 `.app` 执行 `codesign -dv --verbose=4`，要求出现 `Signature=adhoc` 行，并且不得出现任何 `Authority=` 行，否则作业失败。这是唯一执行 `-c.mac.identity=-`（D642）的通道，而 `scripts/verify-macos-release.sh` 覆盖不到它，因为该步骤被 `signed == 'true'` 门控。由 `ci-workflow.test.mjs` 把关。** | 该覆盖项曾经静默失效：electron-builder 打印 `skipped macOS application code signing`，作业却报成功，发布出一个完全没有签名的应用包。只检查退出码抓不到这个问题，因为「没有签名」和「ad-hoc 签名」在校验时都返回 0。 |
 | D643 | 应用内更新恢复标准策略 | **本分支恢复 D628 / D603 / D120 / ADR 0022：`updater.ts` 不再把下发方式钉死为 `disabled`——构造函数与偏好设置路径都改回通过 `resolveUpdateMode` 解析，因此安装版会重新检查本仓库自己的 GitHub Releases、下载并安装；便携版 / ZIP、deb 安装和未打包的开发版保持原有的「提醒并打开发布页」/ 禁用行为。`RELEASES_URL` 与问题反馈 URL 都指向 `Qian-Ning/QianNing-Agent`，设置页那一行恢复可用。更新源就是本仓库的 Releases，因此仓库必须保持公开可匿名读取：electron-updater 会匿名拉取 `latest*.yml` 与安装包，私有仓库会返回 404，表现为手动检查更新失败。相关规格：`README.md` / `README.en.md`（应用内更新一节）、`06-delivery/06-release-runbook.md`。** | 装了安装版的用户必须能在应用内升级到下一个版本。明确否决「在客户端内置只读 GitHub token 去访问私有更新源」的做法，改为公开仓库。 |
 | D642 | macOS 签名改为探测而非假定 | **修订 D450 / ADR 0289：`release.yml` 增加 `macos-signing` 前置作业，对仓库的签名配置分类。`CSC_LINK`、`CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID` 全部存在 → macOS 通道按原样做 Developer ID 签名、公证、装订与 Gatekeeper 校验，证书裸通用名取自仓库变量 `MAC_SIGNING_IDENTITY`，通过 `CSC_NAME` 传入。全部不存在 → 通道传入 `-c.mac.identity=-`，发布 ad-hoc 签名产物并告警，因此没有付费 Apple Developer Program 会员资格的仓库依然能发出 GitHub Release。只存在一部分 → 整个运行在任何构建之前失败，半配置的仓库不可能悄悄发出更弱的产物。移除 workflow_dispatch 的 `sign_macos` 输入，以及 macOS 脚本里 `DUV63RKYTW` / `QianNing Agent` 的硬编码；`APPLE_TEAM_ID` 改为按十位字符形状校验，而不是比对某一个账号。签名仍是 Gatekeeper 洁净产物的必要条件：ad-hoc 通道需要右键 → 打开或清除 `com.apple.quarantine`。各通道绝不使用 `pnpm run <脚本> -- <参数>` 追加 electron-builder 覆盖项：pnpm 会在子进程命令行留下字面量 `--`，electron-builder 会把它之后的一切当作位置参数丢弃——本仓库已因此发布过一次「声称 ad-hoc 签名、实际完全未签名」的 macOS 构建。覆盖项写在 `dist:mac:unsigned` / `dist:mac:signed` npm 脚本内部，架构取自经断言的本机运行器。相关规格：`06-delivery/06-release-runbook.md`（§ 2、§ 4.2、§ 4.3、§ 4.6）、`06-delivery/04-e2e-test-plan.md`（E2E-196a、E2E-196c）、`scripts/README.md`。** | 没有签名账号的分支仍应发出 macOS 产物，而不是整个发布失败；日后购买会员时只需补密钥即可升级该通道，无需改动代码。E2E-196a 覆盖 ad-hoc 标签通道；E2E-196c 仍门禁签名通道。 |
+| D640 | 用户 MCP 工具保持常规审批路径 | **host-core 将 `mcp_<serverId>_<tool>` 调用视为 `medium` 风险：在 `ask` 与 `accept-edits` 下每次调用都显示审批卡片（"MCP server tool requires approval"），允许一次与本会话允许保持原有范围（单次调用 / 该会话内同一工具名），`auto` 不显示卡片直接执行，Plan/Goal 仍然拒绝。MCP 服务器对自身工具声明的标注或风险值被忽略，绝不降低审批路径。分发、只读模式处理与 `mcp_` 命名空间不变；不改主机协议或持久化。见 ADR `mcp-tool-approval-risk` 与 E2E-MCP-tool-requires-approval。** | MCP 工具此前按 `low` 风险自动放行，已配置的服务器在 `ask` 下可以不经提示写文件、访问网络或执行命令。配置服务器意味着同意启动它，而不是同意其不透明工具的每一个操作。 |
 | D450 | 签名的 macOS GitHub Release | **修订 D078 / ADR 0022：GitHub tag 发布使用身份 `Developer ID Application: XingYu Liu (DUV63RKYTW)` / 团队 `DUV63RKYTW`，通过 Actions 密钥（`CSC_LINK`、`CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`）对 macOS DMG/ZIP 做 Developer ID 签名、`notarytool` 公证、装订和 Gatekeeper 校验；缺少密钥则失败。无证书的本地未签名打包仍可用。`workflow_dispatch` 仅可把 `sign_macos: false` 用于未签名调试产物。打包的 macOS 走应用内 `electron-updater`（ZIP + 合并后的 `latest-mac.yml`）；Linux deb/rpm 与 Windows 便携版 ZIP 仍为通知并打开发布页。禁止 afterPack/afterSign adhoc 签名（ADR 0278）。** | 正式 DMG 应无需 Gatekeeper 警告即可打开，已签名 macOS 安装可下载并重启到新 tag。见 ADR 0289、E2E-196c、E2E-067A。 |
 
 ## B. 辅助实现默认值
@@ -5184,3 +5185,12 @@ Markdown 源码，不是 `text/html` 负载；对禁用行内 HTML 的外部编�
   状态色的规则一致。
 - `scripts/style-surface-tokens.mjs` 依旧通过：新色相定义在主题根块里，那正是字面
   值该待的地方；`usage.css` 只引用 `--ds-*` 令牌。
+## 2026-10-03 —— 用户 MCP 工具保持常规审批路径（D640）
+
+- D640 在 `PermissionManager` 中把 `mcp_` 工具从 `low` 调整为 `medium` 风险。在 `ask` 与
+  `accept-edits` 下每次调用都显示审批卡片，原因为 "MCP server tool requires approval"；
+  `auto` 不显示卡片直接执行，Plan/Goal 即使存在会话授权也拒绝。
+- 本会话允许只覆盖该会话内同一 `mcp_<serverId>_<tool>` 名称，不覆盖该服务器的其他工具。
+  服务器对自身工具声明的风险标注不被信任，绝不降低审批路径。
+- 通过 `plugins.execute` 的分发、只读模式处理与 `mcp_` 命名空间不变。见 ADR
+  `mcp-tool-approval-risk` 与 E2E-MCP-tool-requires-approval。
