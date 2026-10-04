@@ -8766,6 +8766,9 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | Quality (Windows updater cache) | E2E-260 |
 | Security (desktop control) | E2E-261 |
 | Quality (desktop control) | E2E-261 |
+| Security (outbound connections) | E2E-262 |
+| Quality (outbound connections) | E2E-263 |
+| Quality (outbound connections) | E2E-264 |
 | G — Plugins (Session Orchestrator) | E2E-PLUGIN-session-orchestrator-real-workers |
 | Security (Session Orchestrator) | E2E-PLUGIN-session-orchestrator-real-workers |
 | Quality (Session Orchestrator) | E2E-PLUGIN-session-orchestrator-real-workers |
@@ -8815,6 +8818,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | M6+ (Destination loading and focus) | E2E-087b |
 | M6+ (Session list responsiveness) | E2E-SESSION-list-refresh-keeps-desktop-responsive |
 | M6+ (Windows updater cache) | E2E-260 |
+| M6+ (outbound connections) | E2E-262, E2E-263, E2E-264 |
 | M6+ (Independent session communication) | E2E-SESSION-independent-top-level-communication, E2E-SESSION-hover-card-model-and-links |
 | M5 (Chat file references) | E2E-CHAT-shorthand-file-ref-opens-the-matching-file, E2E-CHAT-file-ref-opens-the-surface-that-owns-it |
 | M5 (Conversation MP4 attachments) | E2E-CHAT-mp4-attachment-opens-in-system-player |
@@ -15714,3 +15718,33 @@ renderer's durable transcript reads. No real model or provider is contacted.
 - **Acceptance:** `cargo test -p host-core computer` passes on the Linux runner, which never compiles the Win32 half; the `mcp-control` and `plugin-desktop-control` suites pass; a Windows task-candidate run confirms the switch actually gates the pointer.
 - **Milestone:** M6+
 - **Status:** Gate and tool listing covered by host unit tests and source contracts; the Windows end-to-end pointer check remains required.
+
+#### E2E-262: An outbound connection is refused until the user enables both switches
+
+- **Preconditions:** A fresh profile, so `remoteControlEnabled` has never been written. No connection profile exists. An SSH host reachable from this machine is available, and a serial device is present on at least one test machine.
+- **Steps:** 1) Open Settings ▸ AI and confirm the Connections switch is off. 2) Ask the agent to list targets and to run a command on a target id. 3) Read the tool list the host advertises for the session. 4) Turn the global switch on. 5) Ask the agent to run a command again, with no profile created. 6) Create a profile in the Connections destination, leave it disabled, and ask again naming it. 7) Enable the profile and ask once more.
+- **Expected:** While the global switch is off, `connection.list` and every other agent-facing method answer `CONNECTION_DISABLED`, neither `Connection` nor `Console` appears in the advertised tool list, and a call that still holds a definition from an earlier turn is refused rather than executed. Turning the switch on alone reaches nothing: with no profile the refusal is `CONNECTION_NOT_FOUND`, and with the profile left disabled it is `CONNECTION_PROFILE_DISABLED` naming that profile. Only after the profile is enabled does the command run. At no point does the agent have a method that creates, edits, enables, or deletes a profile — step 6 is performed in the interface, by a person.
+- **Specs:** `03-runtime/06-host-rpc-protocol.md`, `03-runtime/08-error-codes.md`, `03-runtime/23-connections-protocol.md`, `04-ux/01-ui-ia.md`, `04-ux/06-settings-ia.md`, `05-security/03-connections-security.md`.
+- **Acceptance:** Host unit tests assert the listing predicate and the execution predicate are the same function in both switch states; the `mcp-control` suite passes; a task-candidate run exercises both doors.
+- **Milestone:** M6+
+- **Status:** Specified, not implemented.
+
+#### E2E-263: A remote command behaves like a local one
+
+- **Preconditions:** The global switch on, one enabled SSH profile pointing at a test host.
+- **Steps:** 1) Run a command that succeeds. 2) Run a command that exits non-zero. 3) Run a command that floods stdout past the budget. 4) Start a long-running command, then interrupt the turn. 5) Inspect the process tree on both sides.
+- **Expected:** The successful command returns its stdout, stderr, and exit code 0. The failing command returns its non-zero exit code as result data, not as an error. The flooding command's stdout is truncated with the same marker the local `Bash` tool writes, and the spill file that marker names opens with the local `Read` tool. After the interrupt, no `ssh` child survives on this machine and none survives on the target, and the in-flight call is reported as interrupted rather than as a timeout.
+- **Specs:** `03-runtime/06-host-rpc-protocol.md`, `03-runtime/16-tool-result-limits.md`, `03-runtime/23-connections-protocol.md`.
+- **Acceptance:** A host test asserts the truncation marker and the spill path match the local tool's; a task-candidate run confirms teardown on both sides.
+- **Milestone:** M6+
+- **Status:** Specified, not implemented.
+
+#### E2E-264: A target that cannot serve an action is refused by name
+
+- **Preconditions:** The global switch on, an enabled serial profile and an enabled SSH profile, a serial device present.
+- **Steps:** 1) Ask the agent to `exec` on the serial profile. 2) Ask the agent to `upload` a local file to a target path outside the session workspace and scratch directory. 3) Probe a host whose key has changed since it was recorded. 4) Read the audit trail for the profile afterwards.
+- **Expected:** The serial `exec` is refused with `CONNECTION_NO_EXEC` and no connection is attempted. The out-of-workspace upload is refused on the same rule the local `Read` tool applies to a path. The changed host key is refused with `CONNECTION_HOST_KEY` and `details.kind: "changed"` on every policy, and clearing it requires a person in the destination — no retry changes the outcome. The audit trail holds a row for each attempt including the refusals, and no row contains a credential.
+- **Specs:** `03-runtime/08-error-codes.md`, `03-runtime/23-connections-protocol.md`, `05-security/03-connections-security.md`.
+- **Acceptance:** Host tests cover the refusal-before-connect rule and the payload-beside-slug rule; a task-candidate run confirms the audit rows.
+- **Milestone:** M6+
+- **Status:** Specified, not implemented.

@@ -233,6 +233,16 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   agent tool, the host methods, and the reviewed plugin/MCP catalog together
   rather than one control per door. Windows only — on any other host the
   control layer reports `COMPUTER_UNSUPPORTED` and this switch changes nothing.
+- **Connections** card: the global switch for outbound targets (D660 / D662).
+  Off by default, and it is only the outer half — each target carries its own
+  switch, so turning this on does not by itself reach anything, and a target a
+  person has not enabled is still refused, by name. While it is off the
+  `Connection` and `Console` tools are not advertised and every agent-facing
+  `connection.*` method is refused; the profile methods that create and edit a
+  target are deliberately not behind it, because they are how a person turns one
+  on. The card links to the Connections destination, where a target is added,
+  probed, and where a changed host key is cleared. It never shows a credential,
+  only whether one is configured. Settings search indexes the row.
   Settings search indexes the row.
 - **Defaults** card: the host-backed default operating mode (Agent / Plan / Goal),
   command shell selection, Link open destination, context usage display

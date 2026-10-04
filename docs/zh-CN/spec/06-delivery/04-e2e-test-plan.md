@@ -5435,6 +5435,9 @@ eleven-tool-round desktop paths are verified by
 | 品质（Windows 更新缓存） | E2E-260 |
 | 安全（桌面控制） | E2E-261 |
 | 品质（桌面控制） | E2E-261 |
+| 安全（出向连接） | E2E-262 |
+| 品质（出向连接） | E2E-263 |
+| 品质（出向连接） | E2E-264 |
 | 安全性（导入扩展依赖） | E2E-PLUGIN-import-extension-installs-dependencies、E2E-PLUGIN-import-extension-reports-missing-dependency |
 | 品质（导入扩展依赖） | E2E-PLUGIN-import-extension-installs-dependencies、E2E-PLUGIN-import-extension-reports-missing-dependency |
 | F / G / 安全性 / 品质 — 导入扩展的 npm 恢复 | E2E-PLUGIN-import-extension-recovers-missing-npm |
@@ -5472,6 +5475,7 @@ eleven-tool-round desktop paths are verified by
 | M6+（目的页加载与焦点） | E2E-087b |
 | M6+（会话列表响应性） | E2E-SESSION-list-refresh-keeps-desktop-responsive |
 | M6+（Windows 更新缓存） | E2E-260 |
+| M6+（出向连接） | E2E-262, E2E-263, E2E-264 |
 | M6+（独立会话通信） | E2E-SESSION-independent-top-level-communication、E2E-SESSION-hover-card-model-and-links |
 | M5（聊天文件引用） | E2E-CHAT-shorthand-file-ref-opens-the-matching-file、E2E-CHAT-file-ref-opens-the-surface-that-owns-it |
 | M5（对话 MP4 附件） | E2E-CHAT-mp4-attachment-opens-in-system-player |
@@ -9105,3 +9109,33 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **验收：** `cargo test -p host-core computer` 在从不编译 Win32 那半边的 Linux runner 上通过；`mcp-control` 与 `plugin-desktop-control` 套件通过；Windows task-candidate 验证确认开关真的管住了指针。
 - **里程碑：** M6+
 - **状态：** 闸门与工具列举由宿主单测和源码契约覆盖；仍需 Windows 端到端指针验证。
+
+#### E2E-262：在用户打开两道开关之前，出向连接一律被拒绝
+
+- **前置：** 全新配置文件，`remoteControlEnabled` 从未被写入。不存在任何连接配置。本机可连到一台 SSH 主机，且至少一台测试机上有串口设备。
+- **步骤：** 1) 打开 设置 ▸ AI，确认连接开关处于关闭。2) 让智能体列出目标，并用一个目标 id 执行命令。3) 读取宿主为该会话公布的工单列表。4) 打开全局开关。5) 在尚未创建任何配置的情况下让智能体再执行一次命令。6) 在连接目的地创建一条配置，保持禁用，点名它再问一次。7) 启用该配置再问一次。
+- **预期：** 全局开关关闭时，`connection.list` 与其他所有面向智能体的方法都回答 `CONNECTION_DISABLED`，公布的工单列表中不出现 `Connection` 或 `Console`，而仍然握着上一轮定义的调用被拒绝而不是执行。只打开全局开关触达不到任何东西：没有配置时拒绝是 `CONNECTION_NOT_FOUND`；配置保持禁用时拒绝是 `CONNECTION_PROFILE_DISABLED` 并点名该配置。只有配置被启用之后命令才会执行。任何时刻智能体都没有创建、编辑、启用或删除配置的方法 —— 步骤 6 是由人在界面上完成的。
+- **规格：** `03-runtime/06-host-rpc-protocol.md`、`03-runtime/08-error-codes.md`、`03-runtime/23-connections-protocol.md`、`04-ux/01-ui-ia.md`、`04-ux/06-settings-ia.md`、`05-security/03-connections-security.md`。
+- **验收：** 宿主单测断言列表判定与执行判定在两种开关状态下是同一个函数；`mcp-control` 套件通过；任务候选运行覆盖两扇门。
+- **里程碑：** M6+
+- **状态：** 已定规格，尚未实现。
+
+#### E2E-263：远端命令的行为与本地命令一致
+
+- **前置：** 全局开关打开，一条已启用、指向测试主机的 SSH 配置。
+- **步骤：** 1) 执行一条成功的命令。2) 执行一条非零退出的命令。3) 执行一条刷屏超出预算的命令。4) 启动一条长时间运行的命令，然后中断轮次。5) 检查两侧的进程树。
+- **预期：** 成功的命令返回其 stdout、stderr 与退出码 0。失败的命令把非零退出码作为结果数据返回，而不是错误。刷屏命令的 stdout 以本地 `Bash` 工具写入的同一个标记截断，标记点名的溢出文件可以用本地 `Read` 工具打开。中断之后，本机不残留 `ssh` 子进程，目标上也不残留，且进行中的调用报告为「已中断」而不是「超时」。
+- **规格：** `03-runtime/06-host-rpc-protocol.md`、`03-runtime/16-tool-result-limits.md`、`03-runtime/23-connections-protocol.md`。
+- **验收：** 宿主测试断言截断标记与溢出路径与本地工具一致；任务候选运行确认两侧都完成回收。
+- **里程碑：** M6+
+- **状态：** 已定规格，尚未实现。
+
+#### E2E-264：服务不了某个动作的目标按名字被拒绝
+
+- **前置：** 全局开关打开，一条已启用的串口配置与一条已启用的 SSH 配置，串口设备在位。
+- **步骤：** 1) 让智能体在串口配置上 `exec`。2) 让智能体把一个本地文件 `upload` 到会话工作区与 scratch 目录之外的目标路径。3) 探测一台自上次记录以来密钥已变更的主机。4) 之后读取该配置的审计轨迹。
+- **预期：** 串口 `exec` 以 `CONNECTION_NO_EXEC` 被拒绝，且不尝试任何连接。工作区之外的 `upload` 按本地 `Read` 工具对路径的同一条规则被拒绝。变更的主机密钥在任何策略下都以 `CONNECTION_HOST_KEY` 与 `details.kind: "changed"` 被拒绝，清除它需要人在目的地里操作 —— 重试不会改变结果。审计轨迹为每一次尝试（含拒绝）都留有一行，且没有任何一行包含凭据。
+- **规格：** `03-runtime/08-error-codes.md`、`03-runtime/23-connections-protocol.md`、`05-security/03-connections-security.md`。
+- **验收：** 宿主测试覆盖「连接之前先拒绝」规则与「负载与 slug 并列」规则；任务候选运行确认审计行。
+- **里程碑：** M6+
+- **状态：** 已定规格，尚未实现。

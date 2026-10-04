@@ -81,6 +81,12 @@ across devices without synchronizing conversation history or source files.
 - Host-owned encrypted WebDAV configuration sync with category selection,
   conditional-write probing, three-way merge, and local activation review
 - Rust host core skeleton for privileged operations
+- Connections — user-registered outbound targets (SSH, serial, telnet, raw TCP)
+  the agent may execute against, read, and write, with per-target policy,
+  host-key verification, a per-target switch, and an audit trail. Specified
+  but not yet shipped (`02-architecture/06-connections.md`,
+  `03-runtime/23-connections-protocol.md`, D660 / ADR 0320). This is neither a
+  remote Gateway nor browser takeover, both of which stay out of scope
 
 ## 5. Out of scope (current phase)
 

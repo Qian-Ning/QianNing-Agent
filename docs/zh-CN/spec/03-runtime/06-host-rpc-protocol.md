@@ -518,6 +518,31 @@ off | minimal | low | medium | high | xhigh | max
 写方法会向用户的桌面会话注入真实输入。宿主不为它们设闸门；谁可以调用由上层界面 ——
 代理工具集与喂给它的桌面设置 —— 决定。
 
+### 连接
+
+智能体可以操作的外向目标：经 SSH 的远端 shell、串口设备、telnet 端点，或原始 TCP
+套接字。配置是一条持久化记录，由人通过面向用户的方法创建、编辑、启用、删除；
+面向智能体的方法面不含其中任何一个，因此人没有启用的目标不可达，智能体也无法
+把某个目标提升为可达。
+
+- `connection.list -> { profiles: [{ id, label, kind, lastProbe }] }` —— 只列已启用的
+  配置；只有 id 与标签，绝不含凭据。
+- `connection.probe({ profileId }) -> { ok, durationMs, hostKey, multiplexed }` ——
+  连接、认证、校验主机密钥、断开，并记录 `lastProbe`。结果带上对方出示的指纹，以及
+  **是否真的**拿到了共享连接。
+- `connection.exec({ profileId, command, timeoutMs? }) -> { ok, exitCode, stdout,
+  stderr, truncated, durationMs }` —— 一次调用一个进程，在目标自己的登录 shell 里执行，
+  输出预算与溢出标记与本地 `Bash` 工具相同。非零 `exitCode` 是结果数据，不是错误。
+- `connection.read`、`connection.write`、`connection.upload`、`connection.download`、
+  `connection.stat` 是经 SFTP 的文件操作。在对应增量落地之前它们不出现在目录里，
+  因此调用者收到的是分发器的未知方法错误，而不会学到一个不存在的方法。
+
+全局开关关闭时，每一次面向智能体的调用都以 `1029 CONNECTION_DISABLED` 拒绝；指名
+配置自己的开关关闭时，以 `1031 CONNECTION_PROFILE_DISABLED` 拒绝。列表门与执行门
+读的是同一个判定，因此会话无法沿用它在开关变动之前拿到的工具定义。完整目录、两个
+工具、传输选项规则与错误码表见
+[23-connections-protocol](23-connections-protocol.md)。
+
 ### 审计
 - `audit.append`
 
@@ -955,6 +980,15 @@ JSON-RPC 错误携带一个数字 `code` 以及 `data.errorCode`，后者是来�
 | 1026 | COMPUTER_FAILED | 平台调用失败；有报告时 `data.code` 携带平台自身的错误值 |
 | 1027 | COMPUTER_WINDOW_GONE | 指定窗口已不存在，因此什么都没发出；`data.handle` 指出是哪个 |
 | 1028 | COMPUTER_DISABLED | 电脑操作开关处于关闭状态，因此没有注入任何输入；读方法不会被这样拒绝 |
+| 1029 | CONNECTION_DISABLED | 出向连接总开关关闭，因此什么都没发出去；读方法与面向用户的配置方法永远不会被这样拒绝 |
+| 1030 | CONNECTION_NOT_FOUND | 没有这个 id 的连接配置；与「已禁用的配置」可区分，因为补救办法不同 |
+| 1031 | CONNECTION_PROFILE_DISABLED | 该配置自己的开关关闭；`data.profile` 指出是哪条 |
+| 1032 | CONNECTION_UNREACHABLE | 目标不可达；`data.reason` 指出是哪个阶段 |
+| 1033 | CONNECTION_HOST_KEY | 主机密钥未知或已变更；`data.fingerprint` 与 `data.kind`（`unknown` 或 `changed`） |
+| 1034 | CONNECTION_AUTH_FAILED | 目标拒绝了凭据；错误里不含任何关于凭据的内容 |
+| 1035 | CONNECTION_TIMEOUT | 操作超出超时；返回该错误之前先终止 spawn 出去的进程树 |
+| 1036 | CONNECTION_UNSUPPORTED | 该传输种类在这里没有实现，或所需的程序不存在 |
+| 1037 | CONNECTION_NO_EXEC | 该传输没有命令通道；请用 `Console` 工具 |
 | -32029 | HOST_OVERLOADED | RPC 调度程序容量已耗尽 |
 | -32601 | — | 未知方法 |
 | -32700 | — | 无法解析的请求行 |

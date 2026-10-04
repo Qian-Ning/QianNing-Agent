@@ -334,6 +334,32 @@ the same code as the method it mirrors; a payload that replaced the slug made a
 vanished window answer `INTERNAL` through one door and `COMPUTER_WINDOW_GONE`
 through the other.
 
+### 3.10 Connections
+
+Emitted by the host's outbound-connection layer
+(see [06-host-rpc-protocol](06-host-rpc-protocol.md) § 4, `connection.*`).
+A profile is created, enabled, and deleted by a person; the agent can use one
+only once it is enabled, and only while the global switch is on.
+
+| code | retriable | meaning |
+|---|---|---|
+| `CONNECTION_DISABLED` | no | the global switch is off, so nothing was sent. This is a user decision rather than a host or platform limit: the same call succeeds once the switch is on, and the read methods and the profile methods are never refused this way |
+| `CONNECTION_NOT_FOUND` | no | no profile has that id. Distinct from a disabled profile, because the remedies differ |
+| `CONNECTION_PROFILE_DISABLED` | no | this profile's own switch is off; `details.profile` names it. The global switch is on, so other profiles still work |
+| `CONNECTION_UNREACHABLE` | yes | the target could not be reached; `details.reason` names the stage (resolution, connect, handshake, or transport) |
+| `CONNECTION_HOST_KEY` | no | the host key is unknown or changed; `details.fingerprint` carries it and `details.kind` is `unknown` or `changed`. A changed key is refused on every policy and requires a person in the Connections destination — no method call, retry, or policy change accepts one |
+| `CONNECTION_AUTH_FAILED` | no | the target rejected the credential. The error names the profile and carries nothing about the credential, so it cannot be used to probe the stored secret's shape |
+| `CONNECTION_TIMEOUT` | yes | the operation exceeded its timeout; the spawned process tree is terminated before this is returned |
+| `CONNECTION_UNSUPPORTED` | no | this transport kind has no implementation on this platform, or the transport program itself is absent; reported rather than returning an empty result, so a caller never mistakes "cannot" for "nothing there" |
+| `CONNECTION_NO_EXEC` | no | the transport has no command channel (serial, telnet, raw TCP). Decided before any connection is attempted |
+
+Every code in this table that carries a payload field — `details.profile`,
+`details.reason`, `details.fingerprint`, or `details.kind` — carries
+`details.errorCode` with its own slug beside it. The payload travels beside the
+slug rather than instead of it, which is the rule §3.9 states for the
+computer-control codes and for the same reason: one failure must answer the same
+code through the method and through the mirrored tool.
+
 ## 4. Mapping rules
 
 ### Host RPC numeric → AppError.code

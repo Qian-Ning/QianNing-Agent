@@ -20,6 +20,7 @@
 - [04-documentation-site.md](02-architecture/04-documentation-site.md)
 - [03-repo-structure.md](02-architecture/03-repo-structure.md)
 - [05-remote-agent-control.md](02-architecture/05-remote-agent-control.md)
+- [06-connections.md](02-architecture/06-connections.md)
 
 ## 3. Runtime
 - [README.md](03-runtime/README.md)
@@ -45,6 +46,7 @@
 - [20-speech.md](03-runtime/20-speech.md)
 - [21-image-generation.md](03-runtime/21-image-generation.md)
 - [22-config-sync.md](03-runtime/22-config-sync.md)
+- [23-connections-protocol.md](03-runtime/23-connections-protocol.md)
 - [svg-attachment-input.md](03-runtime/svg-attachment-input.md)
 
 ## 4. UX
@@ -65,6 +67,7 @@
 - [README.md](05-security/README.md)
 - [01-security.md](05-security/01-security.md)
 - [02-remote-control-security.md](05-security/02-remote-control-security.md)
+- [03-connections-security.md](05-security/03-connections-security.md)
 
 ## 6. Delivery
 - [README.md](06-delivery/README.md)
