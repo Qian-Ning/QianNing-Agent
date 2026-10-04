@@ -28,21 +28,41 @@
   color: var(--ds-text-primary);
 }
 
-:root[data-theme="dark"] .composer-toolbar .icon-btn,
-:root[data-theme="dark"] .mode-chip {
+/* Dark resting ink for the composer toolbar's controls. The icon button is the
+ * reference value: 78% of primary. */
+:root[data-theme="dark"] .composer-toolbar .icon-btn {
   color: color-mix(in oklab, var(--ds-text-primary) 78%, transparent);
 }
 
-/* Same state-shadow shape as the light palette's companion: at (0,3,0) the dark
- * resting rule outranks `.icon-btn:hover` (0,2,0), so the icon button showed a
- * hover background with the ink frozen at 78%. This re-states the hover ink at
- * (0,4,0). `!important` is deliberate rather than required — the light
- * counterpart needs it, so keeping both sides identical means the pair cannot
- * drift into a silent half-fix if the resting rules gain importance later. */
+/* The chip cannot share that rule. Its base rule — `.mode-chip` in
+ * theme-overrides.css — states its ink with `!important`, and `!important`
+ * outranks any amount of specificity, so a dark resting value without one never
+ * reached the chip: it sat at the darker `--ds-text-secondary` (70%) while the
+ * icon button beside it sat at 78%. Matching the icon means matching its
+ * importance too.
+ *
+ * `:not(:disabled)` keeps the one non-editable chip — the permission chip's
+ * blocked / `mode === "goal"` state — out of the change. That chip also carries
+ * `icon-btn`, and `.composer-permission .mode-chip:disabled:hover` holds it at
+ * secondary; a bare `.mode-chip` restatement would outrank `.mode-chip:hover`
+ * (0,2,0) and brighten a control that is explicitly not interactive. Only the
+ * enabled chip disagreed with its neighbours, so only the enabled chip moves. */
+:root[data-theme="dark"] .mode-chip:not(:disabled) {
+  color: color-mix(in oklab, var(--ds-text-primary) 78%, transparent) !important;
+}
+
+/* Same state-shadow shape as the light palette's companion: the dark resting
+ * rules above outrank the base `.icon-btn:hover` / `.mode-chip:hover` rules
+ * (0,2,0), so without this the hover would keep a hover background with the ink
+ * frozen at 78%. This re-states the hover ink one attribute up. `!important` is
+ * deliberate rather than required — the light counterpart needs it, so keeping
+ * both sides identical means the pair cannot drift into a silent half-fix if
+ * the resting rules gain importance later. */
 @media (hover: hover) and (pointer: fine) {
   /* Pointer-gated hover (design-system §8.7): a touch tap latches
      `:hover` until the next tap, so an ungated reveal sticks. */
-:root[data-theme="dark"] .composer-toolbar .icon-btn:hover {
+:root[data-theme="dark"] .composer-toolbar .icon-btn:hover,
+:root[data-theme="dark"] .mode-chip:hover:not(:disabled) {
   color: var(--ds-text-primary) !important;
 }
 }
