@@ -293,7 +293,7 @@ the next launch rather than changing the NSIS installer or writing into
 
 ### Release
 - package Electron app
-- ship Rust host binary in resources (`Resources/bin/pi-desktop-host-core`)
+- ship Rust host binary in resources (`Resources/bin/QianNing-Agent-Host-Core`)
 - agent sidecar runs the bundled `agent-runtime/sidecar.js` on the Electron
   binary itself with `ELECTRON_RUN_AS_NODE=1` — no separate Node runtime is
   shipped (resolves **D008**)

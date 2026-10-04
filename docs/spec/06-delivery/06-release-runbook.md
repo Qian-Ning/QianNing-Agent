@@ -277,7 +277,7 @@ forces code signing and `notarytool` notarization of the app bundle. The DMG is
 then submitted to the same service on its own
 (`scripts/notarize-and-staple-macos-release-dmg.sh`), and only an `Accepted`
 status allows the ticket to be stapled. Verification then checks the identity,
-code-signing integrity (including `pi-desktop-host-core`), Gatekeeper
+code-signing integrity (including `QianNing-Agent-Host-Core`), Gatekeeper
 `Notarized Developer ID`, and both stapled tickets before any artifact upload.
 The per-architecture `latest-mac.yml` files are renamed before upload; the
 publish job merges them into one feed after downloading both artifacts.

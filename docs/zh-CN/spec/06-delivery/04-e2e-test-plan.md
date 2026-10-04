@@ -3749,7 +3749,7 @@ IPC 请求无法关闭。
      模块、源映射、tests/examples/declarations、Chromium 语言环境以及
      本机预构建目标。
   3. 对每个 macOS 软件包使用 `file`（或 `lipo -info`）检查应用程序
-     可执行文件和 `Resources/bin/pi-desktop-host-core`；确认 arm64 和
+     可执行文件和 `Resources/bin/QianNing-Agent-Host-Core`；确认 arm64 和
      x86_64 软件包只包含声明的架构，且 Rust 主机与 Electron 应用一致。
      确认共享的 `apps/desktop/package.json` macOS 配置生成 arm64 文件
      `QianNing-Agent-X.Y.Z-arm64.dmg` 和 `QianNing-Agent-X.Y.Z-arm64-mac.zip`，
@@ -7254,7 +7254,7 @@ eleven-tool-round desktop paths are verified by
   Redistributable、Node.js 或其他本地代理运行时；已有 x64 NSIS 安装程序。
 - **步骤**：1）安装 QianNing Agent。2）首次启动。3）等待启动 splash 让出给主 shell。4）检查运行时和
   timing 日志，然后打开“设置 → 信息”。
-- **预期**：捆绑的 x64 `pi-desktop-host-core.exe` 启动并完成 `app.handshake`，没有
+- **预期**：捆绑的 x64 `QianNing-Agent-Host-Core.exe` 启动并完成 `app.handshake`，没有
   `0xC0000135`（`STATUS_DLL_NOT_FOUND`）；shell 不会停留在“无法连接本地服务”，主机状态健康，
   “设置 → 信息”显示主机版本而非 `host unknown`。软件包使用静态链接的 MSVC CRT，无需单独安装运行时。
   原生 Windows ARM64 工件仍不在范围内。

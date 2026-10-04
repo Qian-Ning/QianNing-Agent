@@ -206,7 +206,7 @@ sidecar/host 关闭序列在更新程序替换应用程序之前运行。
 
 ### 发布
 - Electron 应用程序包
-- 在资源中发送 Rust 主机二进制文件 (`Resources/bin/pi-desktop-host-core`)
+- 在资源中发送 Rust 主机二进制文件 (`Resources/bin/QianNing-Agent-Host-Core`)
 - 代理 sidecar 在 Electron 上运行捆绑的 `agent-runtime/sidecar.js`
   二进制文件本身与 `ELECTRON_RUN_AS_NODE=1` — 没有单独的 Node 运行时
   已发货（解决 **D008**）
