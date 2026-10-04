@@ -3972,17 +3972,20 @@ pub fn get_usage_breakdown(
     let conn = db.conn();
     let pricing_map = crate::pricing::load_pricing_map(conn)?;
     let mut stmt = conn.prepare_cached(
-        "SELECT provider_id, model_id, status, input_tokens, output_tokens, usage_json, started_at, ended_at
-         FROM turns
-         WHERE ended_at IS NOT NULL
-           AND ended_at >= ?1 AND ended_at <= ?2
-           AND status IN ('completed', 'error')
-           AND (?3 IS NULL OR provider_id = ?3)
-           AND (?4 IS NULL OR model_id = ?4)
+        "SELECT t.provider_id, t.model_id, t.status, t.input_tokens, t.output_tokens, t.usage_json, t.started_at, t.ended_at,
+                s.project_id, p.name
+         FROM turns t
+         LEFT JOIN sessions s ON s.id = t.session_id
+         LEFT JOIN projects p ON p.id = s.project_id
+         WHERE t.ended_at IS NOT NULL
+           AND t.ended_at >= ?1 AND t.ended_at <= ?2
+           AND t.status IN ('completed', 'error')
+           AND (?3 IS NULL OR t.provider_id = ?3)
+           AND (?4 IS NULL OR t.model_id = ?4)
          -- Ties are real: `ended_at` is milliseconds, and a fast turn can land
          -- in the same one. `rowid` breaks them by insertion order, so
          -- newest-first is a stable fact rather than whatever SQLite walks.
-         ORDER BY ended_at DESC, rowid DESC",
+         ORDER BY t.ended_at DESC, t.rowid DESC",
     )?;
 
     let rows = stmt.query_map(
@@ -3997,12 +4000,17 @@ pub fn get_usage_breakdown(
                 row.get::<_, Option<String>>(5)?,
                 row.get::<_, i64>(6)?,
                 row.get::<_, i64>(7)?,
+                row.get::<_, Option<i64>>(8)?,
+                row.get::<_, Option<String>>(9)?,
             ))
         },
     )?;
 
     let mut by_provider: BTreeMap<String, UsageGroupAcc> = BTreeMap::new();
     let mut by_model: BTreeMap<String, (Option<String>, UsageGroupAcc)> = BTreeMap::new();
+    // Keyed by project id so the order is deterministic; `None` collects the
+    // turns whose session carries no project.
+    let mut by_project: BTreeMap<Option<i64>, (Option<String>, UsageGroupAcc)> = BTreeMap::new();
     let mut recent: Vec<Value> = Vec::new();
 
     for row in rows {
@@ -4015,6 +4023,8 @@ pub fn get_usage_breakdown(
             usage_json,
             started_at,
             ended_at,
+            project_id,
+            project_name,
         ) = row?;
         let completed = status == "completed";
 
@@ -4059,6 +4069,21 @@ pub fn get_usage_breakdown(
             entry.0 = provider_id.clone();
         }
         entry.1.add(
+            completed,
+            input_tokens,
+            output_tokens,
+            cache_read,
+            cache_write,
+            turn_cost,
+        );
+
+        let project_entry = by_project
+            .entry(project_id)
+            .or_insert_with(|| (project_name.clone(), UsageGroupAcc::default()));
+        if project_entry.0.is_none() {
+            project_entry.0 = project_name.clone();
+        }
+        project_entry.1.add(
             completed,
             input_tokens,
             output_tokens,
@@ -4134,6 +4159,31 @@ pub fn get_usage_breakdown(
             .cmp(&a["totalTokens"].as_i64().unwrap_or(0))
     });
 
+    // Project is a dimension of the *session*, joined in above: a turn with no
+    // session project lands in the `null` bucket the UI labels as unattributed.
+    let mut projects: Vec<Value> = by_project
+        .into_iter()
+        .map(|(project_id, (project_name, acc))| {
+            json!({
+                "projectId": project_id,
+                "projectName": project_name,
+                "turnCount": acc.turns,
+                "successCount": acc.success,
+                "totalTokens": acc.total_tokens(),
+                "inputTokens": acc.input,
+                "outputTokens": acc.output,
+                "costUsd": acc.cost,
+                "unpricedTurns": acc.unpriced_turns,
+            })
+        })
+        .collect();
+    projects.sort_by(|a, b| {
+        b["totalTokens"]
+            .as_i64()
+            .unwrap_or(0)
+            .cmp(&a["totalTokens"].as_i64().unwrap_or(0))
+    });
+
     // Grand totals for the hero: sum cost across providers, and note whether any
     // turn was unpriced so the UI can mark the figure as a partial estimate.
     let total_cost: f64 = providers
@@ -4155,6 +4205,7 @@ pub fn get_usage_breakdown(
         "rangeEnd": range_end,
         "byProvider": providers,
         "byModel": models,
+        "byProject": projects,
         "recent": recent,
         "totalCostUsd": total_cost,
         "pricedTurns": priced_turns,
@@ -7577,6 +7628,72 @@ mod tests {
             .find(|item| item.get("turnCount").and_then(|v| v.as_i64()) == Some(1))
             .expect("active day");
         assert_eq!(active.get("totalTokens").unwrap().as_i64(), Some(250));
+    }
+
+    #[test]
+    fn usage_breakdown_groups_turns_by_session_project() {
+        let db = test_db();
+        let attributed = create_session(&db, None, None, None, None, None).unwrap();
+        let named_turn = begin_turn(&db, &attributed.id, None, None).unwrap();
+        end_turn_settling(
+            &db,
+            &named_turn,
+            "completed",
+            None,
+            Some(&json!({ "inputTokens": 10, "outputTokens": 5 })),
+            false,
+            false,
+        )
+        .unwrap();
+
+        let loose = create_session(&db, None, None, None, None, None).unwrap();
+        let loose_turn = begin_turn(&db, &loose.id, None, None).unwrap();
+        end_turn_settling(
+            &db,
+            &loose_turn,
+            "completed",
+            None,
+            Some(&json!({ "inputTokens": 3, "outputTokens": 1 })),
+            false,
+            false,
+        )
+        .unwrap();
+
+        let moved = move_session_project(&db, &attributed.id, "/tmp/qn-usage-project").unwrap();
+        assert!(matches!(moved, MoveSessionProjectResult::Moved(_)));
+
+        // `None` window bounds fall back to the default lookback, which the
+        // turns just written sit inside.
+        let breakdown = get_usage_breakdown(&db, None, None, None, None, 10).unwrap();
+        let projects = breakdown.get("byProject").unwrap().as_array().unwrap();
+        assert_eq!(
+            projects.len(),
+            2,
+            "one named project plus the unattributed bucket"
+        );
+
+        let named = projects
+            .iter()
+            .find(|p| !p.get("projectId").unwrap().is_null())
+            .expect("the attributed project");
+        assert_eq!(named.get("totalTokens").and_then(Value::as_i64), Some(15));
+        assert_eq!(named.get("turnCount").and_then(Value::as_i64), Some(1));
+        assert!(
+            named
+                .get("projectName")
+                .and_then(Value::as_str)
+                .is_some_and(|name| !name.is_empty()),
+            "a named project reports its name"
+        );
+
+        let unattributed = projects
+            .iter()
+            .find(|p| p.get("projectId").unwrap().is_null())
+            .expect("the unattributed bucket");
+        assert_eq!(
+            unattributed.get("totalTokens").and_then(Value::as_i64),
+            Some(4)
+        );
     }
 
     #[test]

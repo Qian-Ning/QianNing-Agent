@@ -287,8 +287,11 @@ marketplace plugin `pi.token-insights`, opened from the command palette
 (`usage`, `tokens`, `用量`). This fork reverses the destination half of that
 decision: D631 / D632 / D647 / D648 add a Settings ▸ Usage statistics tab with
 an hour-bucketed trend, an editable model-pricing cost estimate, and a
-per-series colour palette, and Settings search indexes it under `usage`. The
-plugin remains the upstream surface; the fork does not depend on it.
+per-series colour palette, and Settings search indexes it under `usage`. D656
+extends the tab with a 26-week calendar heatmap, a per-project breakdown, a
+least-squares projection of the next buckets with a robust outlier list, and
+CSV/JSON export of the window. The plugin remains the upstream surface; the
+fork does not depend on it.
 
 ### Shortcuts (`shortcuts` tab)
 - **Keyboard shortcuts** card:

@@ -102,6 +102,20 @@ export type UsageModelStat = {
   unpricedTurns: number;
 };
 
+export type UsageProjectStat = {
+  /** The session's project, or null for turns whose session has none. */
+  projectId: number | null;
+  /** The project's display name, or null for the unattributed bucket. */
+  projectName: string | null;
+  turnCount: number;
+  successCount: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+  unpricedTurns: number;
+};
+
 export type UsageRecentTurn = {
   timestamp: number;
   providerId: string | null;
@@ -120,6 +134,7 @@ export type UsageBreakdownResult = {
   rangeEnd: number;
   byProvider: UsageProviderStat[];
   byModel: UsageModelStat[];
+  byProject: UsageProjectStat[];
   recent: UsageRecentTurn[];
   /** Grand total estimated USD across every priced turn in the window. */
   totalCostUsd: number;

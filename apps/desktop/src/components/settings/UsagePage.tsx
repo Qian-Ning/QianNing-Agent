@@ -16,26 +16,34 @@ import type {
 } from "@pi-desktop/shared";
 import { formatCompactTokenCount } from "@pi-desktop/shared";
 import { api } from "../../lib/api";
+import {
+  buildCalendarHeatmap,
+  detectAnomalies,
+  forecastUsage,
+  formatUsd,
+  usageCsv,
+  usageExportStem,
+  usageToJson,
+} from "../../lib/usage-insights";
 import { useAppStore } from "../../stores/app-store";
 import { providerDisplayName } from "../../lib/provider-display";
 import { Badge, Button, SegmentedControl } from "../ui";
 import { SettingsMenuSelect } from "./SettingsMenuSelect";
 import { ModelPricingEditor } from "./ModelPricingEditor";
+import { UsageForecastPanel } from "./usage/UsageForecastPanel";
+import { UsageHeatmap } from "./usage/UsageHeatmap";
+import { UsageProjectTable } from "./usage/UsageProjectTable";
 import { IconActivity, IconRefresh } from "../icons";
 
 type RangeId = "today" | "7d" | "30d";
 
 const DAY_MS = 86_400_000;
 
-/**
- * Approximate USD cost for display. Sub-cent figures keep more precision so a
- * genuinely tiny spend does not collapse to "$0.00".
- */
-function formatCost(usd: number): string {
-  if (!Number.isFinite(usd) || usd <= 0) return "$0.00";
-  if (usd < 0.01) return `$${usd.toFixed(4)}`;
-  return `$${usd.toFixed(2)}`;
-}
+/** How many weeks of recent days the calendar heatmap shows. */
+const HEATMAP_WEEKS = 26;
+
+/** Buckets the projection reaches past the end of the window. */
+const FORECAST_HORIZON = 7;
 
 /** Local midnight `daysAgo` days before now, as an epoch-ms timestamp. */
 function startOfDay(daysAgo: number): number {
@@ -470,6 +478,7 @@ export function UsagePage() {
   const [failed, setFailed] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [showPricing, setShowPricing] = useState(false);
+  const [heatmapSeries, setHeatmapSeries] = useState<TokenUsageHistoryItem[]>([]);
 
   // "Today" is an intraday question, and one daily bucket cannot show a trend —
   // it asks the host to bucket by hour instead. Wider windows stay daily.
@@ -524,6 +533,27 @@ export function UsagePage() {
     };
   }, [range, bucket, providerFilter, modelFilter, reloadNonce]);
 
+  // The calendar asks for its own window: the trend window above is a day or a
+  // month, and 26 weeks of days is neither. It is one extra read that never
+  // blocks the page — a failure leaves the calendar empty rather than failing
+  // the whole view.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const endDate = Date.now();
+        const startDate = startOfDay(HEATMAP_WEEKS * 7 - 1);
+        const result = await api.getTokenUsageHistory({ startDate, endDate, bucket: "day" });
+        if (!cancelled) setHeatmapSeries(result.items);
+      } catch {
+        if (!cancelled) setHeatmapSeries([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadNonce]);
+
   const totals = history?.totals;
   const totalTokens = totals?.totalTokens ?? 0;
   const requestCount = useMemo(
@@ -577,6 +607,46 @@ export function UsagePage() {
         ? t("settings.usageStats.range7d")
         : t("settings.usageStats.range30d");
 
+  // Derived from the payloads the page already holds. The calendar reads the
+  // daily series it requested, the projection and the outliers read the trend
+  // window — none of them is a further host call.
+  const heatmapCells = useMemo(
+    () => buildCalendarHeatmap(heatmapSeries, HEATMAP_WEEKS),
+    [heatmapSeries],
+  );
+  const forecast = useMemo(
+    () => forecastUsage(history?.items ?? [], FORECAST_HORIZON),
+    [history],
+  );
+  const anomalies = useMemo(() => detectAnomalies(history?.items ?? []), [history]);
+
+  /**
+   * Hand the export to the browser's download path rather than a host IPC: the
+   * payload is already in this process, and a Blob needs no new channel, no
+   * renderer-to-main round trip, and no privilege beyond the one the page has.
+   */
+  const exportUsage = useCallback(
+    (format: "csv" | "json") => {
+      const filename = `${usageExportStem(range)}.${format}`;
+      const text =
+        format === "csv"
+          ? usageCsv({ history, breakdown })
+          : usageToJson({ rangeId: range, bucket: shownBucket, history, breakdown });
+      const blob = new Blob([text], {
+        type: format === "csv" ? "text/csv;charset=utf-8" : "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    },
+    [range, shownBucket, history, breakdown],
+  );
+
   if (showPricing) {
     return <ModelPricingEditor onBack={() => {
       setShowPricing(false);
@@ -619,6 +689,18 @@ export function UsagePage() {
           </Button>
           <Button
             variant="secondary"
+            onClick={() => exportUsage("csv")}
+          >
+            {t("settings.usageStats.exportCsv")}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => exportUsage("json")}
+          >
+            {t("settings.usageStats.exportJson")}
+          </Button>
+          <Button
+            variant="secondary"
             onClick={() => setReloadNonce((n) => n + 1)}
             aria-label={t("settings.usageStats.refresh")}
           >
@@ -658,7 +740,7 @@ export function UsagePage() {
                       <span className="usage-free">{t("settings.usageStats.costLocalFree")}</span>
                     ) : totalCost > 0 ? (
                       <span>
-                        {formatCost(totalCost)}
+                        {formatUsd(totalCost)}
                         <small className="usage-cost-est"> {t("settings.usageStats.costEstimated")}</small>
                       </span>
                     ) : (
@@ -717,6 +799,18 @@ export function UsagePage() {
                 cache: t("settings.usageStats.legendCache"),
               }}
             />
+            <UsageForecastPanel forecast={forecast} anomalies={anomalies} />
+          </div>
+
+          {/* Calendar */}
+          <div className="usage-card">
+            <div className="usage-card-h">
+              <div className="usage-card-t">{t("settings.usageStats.heatmapTitle")}</div>
+              <div className="usage-card-r">
+                {t("settings.usageStats.heatmapSubtitle", { weeks: HEATMAP_WEEKS })}
+              </div>
+            </div>
+            <UsageHeatmap cells={heatmapCells} />
           </div>
 
           {/* Provider / model tables */}
@@ -792,7 +886,7 @@ export function UsagePage() {
                           {local
                             ? t("settings.usageStats.free")
                             : row.costUsd > 0
-                              ? formatCost(row.costUsd)
+                              ? formatUsd(row.costUsd)
                               : t("settings.usageStats.unpriced")}
                         </td>
                       </tr>
@@ -809,6 +903,9 @@ export function UsagePage() {
               </table>
             </div>
           </div>
+
+          {/* Project attribution */}
+          <UsageProjectTable rows={breakdown?.byProject ?? []} />
 
           {/* Request detail */}
           <div className="usage-card">
@@ -845,7 +942,7 @@ export function UsagePage() {
                       {row.costUsd == null
                         ? t("settings.usageStats.unpriced")
                         : row.costUsd > 0
-                          ? formatCost(row.costUsd)
+                          ? formatUsd(row.costUsd)
                           : t("settings.usageStats.free")}
                     </td>
                     <td>{formatDuration(row.durationMs)}</td>
