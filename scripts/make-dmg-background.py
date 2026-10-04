@@ -6,10 +6,18 @@ emits the 1x plate and the 1440x880 retina companion that electron-builder
 picks up as ``dmg-background@2x.png``.
 
 Run: python3 scripts/make-dmg-background.py
+
+The wordmark comes from ``build.productName`` in ``apps/desktop/package.json``
+rather than a literal, so renaming the product cannot leave the installer
+reading a previous name. The committed plate is the macOS rendering, where
+Helvetica Neue and Hiragino Sans GB are the brand faces; the font chains below
+keep the script usable on a machine without them, because the previous version
+degraded to a bitmap default and that is how a stale wordmark stayed plausible.
 """
 
 from __future__ import annotations
 
+import json
 import math
 from pathlib import Path
 
@@ -18,6 +26,11 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "apps" / "desktop" / "build"
 ICON_SOURCE = BUILD / "icon_1024.png"
+
+# The single source of truth for the name on the plate. `build.productName` is
+# what electron-builder itself uses to name the packaged application.
+with open(ROOT / "apps" / "desktop" / "package.json", encoding="utf-8") as _f:
+    PRODUCT_NAME: str = json.load(_f)["build"]["productName"]
 
 # Logical 1x coordinates. Keep in sync with apps/desktop/package.json build.dmg.
 WIDTH = 720
@@ -35,16 +48,41 @@ MUTED = (180, 180, 180, 255)
 FAINT = (120, 120, 120, 255)
 ARROW = (232, 232, 232, 255)
 
+# Ordered face candidates: the macOS brand face first, then the closest
+# available substitute. Weight matters more than metrics at this size, so the
+# chains lead with a medium/semibold face rather than a bold or a light one.
+TITLE_FACES: tuple[tuple[str, int], ...] = (
+    ("/System/Library/Fonts/HelveticaNeue.ttc", 10),  # Helvetica Neue Medium
+    ("C:/Windows/Fonts/seguisb.ttf", 0),  # Segoe UI Semibold
+    ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 0),
+)
+CAPTION_FACES: tuple[tuple[str, int], ...] = (
+    ("/System/Library/Fonts/HelveticaNeue.ttc", 0),  # Helvetica Neue Regular
+    ("C:/Windows/Fonts/segoeui.ttf", 0),  # Segoe UI Regular
+    ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 0),
+)
+CJK_FACES: tuple[tuple[str, int], ...] = (
+    ("/System/Library/Fonts/Hiragino Sans GB.ttc", 0),
+    ("C:/Windows/Fonts/msyh.ttc", 0),  # Microsoft YaHei
+    ("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 0),
+    ("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc", 0),
+)
+
 
 def _px(value: float) -> int:
     return int(round(value * SCALE))
 
 
-def _font(path: str, size: float, index: int = 0) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    try:
-        return ImageFont.truetype(path, _px(size), index=index)
-    except OSError:
-        return ImageFont.load_default()
+def _font(
+    faces: tuple[tuple[str, int], ...],
+    size: float,
+) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    for path, index in faces:
+        try:
+            return ImageFont.truetype(path, _px(size), index=index)
+        except OSError:
+            continue
+    return ImageFont.load_default()
 
 
 def _center_text(
@@ -130,12 +168,12 @@ def _wordmark(base: Image.Image) -> None:
     with Image.open(ICON_SOURCE) as source:
         mark = source.convert("RGBA").resize((mark_size, mark_size), Image.LANCZOS)
 
-    title_font = _font("/System/Library/Fonts/HelveticaNeue.ttc", 21, index=10)
-    caption_font = _font("/System/Library/Fonts/HelveticaNeue.ttc", 13, index=0)
-    zh_font = _font("/System/Library/Fonts/Hiragino Sans GB.ttc", 12, index=0)
+    title_font = _font(TITLE_FACES, 21)
+    caption_font = _font(CAPTION_FACES, 13)
+    zh_font = _font(CJK_FACES, 12)
 
     draw = ImageDraw.Draw(base)
-    title = "PI-Desktop"
+    title = PRODUCT_NAME
     x0, y0, x1, y1 = draw.textbbox((0, 0), title, font=title_font)
     gap = _px(10)
     cluster_w = mark_size + gap + (x1 - x0)
