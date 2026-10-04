@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Policy-Sync: 2026-09-26.1
+Policy-Sync: 2026-10-04.1
 
 Instructions for Claude Code CLI and Claude Cowork on PI-Desktop.
 
@@ -132,6 +132,12 @@ Boundaries you must not break:
 - Plugin permissions and sandbox boundaries are never bypassed.
 
 Changing a frozen architecture, public interface, data ownership model, or security boundary requires an ADR under `docs/adr/`.
+
+### Documented exception channels
+
+A frozen boundary may carry a deliberate exception, never an undocumented one. An exception is valid only when the code implementing it states all five parts in place: (1) what the channel may do and what it must never grow into; (2) which side owns the wire-format type, how the other side aligns, and which test enforces the alignment; (3) the exact file and symbol any unavoidable coupling reaches into, and what happens when that symbol moves; (4) what degrades when the channel is unavailable or throws, and which guarantee that degradation must not break; (5) where setup pairs with teardown, across stop / restart / delete / disable / reload / shutdown.
+
+A channel missing any part is drift. Exceptions do not compound — a new one does not extend an existing one, or become a second general-purpose channel between layers the frozen model separates. Delete the exception and its dependents together when it is no longer needed. Adding or changing one is a frozen-boundary change and requires an ADR; an existing exception without its five parts is documented when the surrounding code is next touched, not in a retrofitting sweep.
 
 ### Behavior and data safety
 
@@ -338,3 +344,13 @@ Security reports are private via `SECURITY.md` — never open a public issue for
 | Cross-cutting protocol types | `packages/shared/` |
 
 When unsure which layer owns a concern, follow the frozen process model and existing domain modules — do not invent a new boundary without an ADR.
+
+---
+
+## Policy maintenance
+
+Write every hard rule as trigger + action + check, and keep the reason it exists — the failure it prevented, dated when known.
+
+`AGENTS.md` is injected in full into every agent session, so its length is a recurring cost. Adding a rule is an invitation to remove one that the model already infers from code, that has never influenced a decision, or that is obsolete. When a rule is superseded or disproven, delete it in the same change — no "deprecated" markers, no tombstones; a tombstone keeps the dead rule in context forever.
+
+Every change to either file bumps `Policy-Sync` in both and passes `pnpm check:agent-policy`.
