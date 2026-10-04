@@ -956,6 +956,90 @@
   max-width: 100%;
 }
 
+/*
+ * First-run checklist celebration (design-system §8, D652). A tick is the one
+ * moment this app may celebrate: each step completes at most once per machine.
+ * `is-celebrating` is set by the component for the step that *just* completed,
+ * never for steps that were already done when the checklist appeared, so
+ * walking back to the empty home replays nothing.
+ */
+.home-onboarding-checklist .onboarding-check {
+  position: relative;
+}
+
+.home-onboarding-checklist .onboarding-check::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: var(--radius-round);
+  border: 1.5px solid var(--ds-success);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.home-onboarding-checklist .onboarding-check.is-celebrating {
+  animation: onboarding-check-in var(--motion-duration-normal) var(--motion-ease-out) both;
+}
+
+.home-onboarding-checklist .onboarding-check.is-celebrating svg {
+  animation: onboarding-tick-in var(--motion-duration-normal) var(--motion-ease-out) both;
+}
+
+.home-onboarding-checklist .onboarding-check.is-celebrating::after {
+  animation: onboarding-ring-out 520ms var(--motion-ease-out) both;
+}
+
+.home-onboarding-checklist.is-leaving {
+  animation: onboarding-checklist-out var(--motion-duration-normal) var(--motion-ease-in) both;
+}
+
+/* §8.6: ease-out to 1, never past it — the tick settles, it does not bounce. */
+@keyframes onboarding-check-in {
+  from {
+    transform: scale(0.62);
+  }
+
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes onboarding-tick-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes onboarding-ring-out {
+  from {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(2.15);
+  }
+}
+
+@keyframes onboarding-checklist-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+
 @media (max-height: 760px) {
   .home-stack-inner {
     padding-top: 24px;

@@ -810,6 +810,28 @@ Toast enter/exit 保留现有移除合同（`animationend` 于
 `apps/desktop/test/anchored-origin.test.mjs` 做单元测试；样式表一侧由
 `apps/desktop/test/fixed-dropdown-surfaces.test.mjs` 固定。
 
+### 8. 10 稀有时刻（首次运行清单）
+
+只有"按构造即稀有"的地方才允许放庆祝动效。首次运行清单
+（`OnboardingChecklist`）是唯一符合的表面：每一步在一台机器上最多完成一次，
+而清单不会再回来。那里有两处动效，且都由状态变化驱动，而不是由挂载驱动。
+
+- 刚刚完成的那一步，勾是"落定"上去的。圆环从 0.62 缩到 1，勾本身从 0.4 抵达
+  并淡入，两者都用 `--motion-duration-normal` + `--motion-ease-out`；同时由圆环
+  自己的 `::after` 画出一圈光晕，扩散到 2.15 后淡出。光晕不需要新增元素，标记
+  因此不变。§8. 6 依然成立：ease-out 到 1 且绝不超过 1——是落定，不是回弹。
+- 整张卡是"离开"而不是"凭空消失"：`--motion-duration-normal` +
+  `--motion-ease-in`，淡出的同时上移 5px，并在该动画的 `animationend` 上卸载。
+  对已经向系统要求减少动的读者，§8. 5 的全局兜底把退场压到 0.01ms，事件仍会到达，
+  卡片仍会正常卸载。
+
+"稀有"只有在动效跟着"变化"走时才成立。勾只为刚刚完成的那一步播放，绝不会为清单
+挂载时就已完成的那几步补放，所以走回空首页不会重放任何东西；挂载时就已经全部完成
+的清单，直接什么都不渲染，而不是先出现再演一遍退场。这个判断放在
+`apps/desktop/src/components/onboarding-motion.ts`，由
+`apps/desktop/test/onboarding-motion.test.mjs` 做单元测试；上面的形状由
+`apps/desktop/test/motion-contract.test.mjs` 固定。
+
 ## 8. 0 Home 空栈和底部 Composer (D111/D204/D206)
 
 空输入框占位提示按当前页面和会话作用域保持稳定：首页从

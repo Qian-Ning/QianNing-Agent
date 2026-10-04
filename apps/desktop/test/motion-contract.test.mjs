@@ -134,3 +134,52 @@ test("pointer-only reveals are gated and keyboard pairings stay paired", () => {
     "hover + focus-visible pairings must remain in one rule",
   );
 });
+
+/**
+ * The first-run checklist is the one surface D652 allows a celebration on —
+ * each step completes at most once per machine, so the motion stays rare by
+ * construction. Its shapes are pinned here so the guard's silence is not
+ * mistaken for correctness: the tick has to settle into place rather than
+ * bounce, and the finished card has to leave rather than vanish.
+ */
+test("the first-run checklist settles its tick and leaves its card", () => {
+  const source = styles("chat-shell.css");
+  const frames = (name) =>
+    source.match(new RegExp("@keyframes " + name + " \\{([\\s\\S]*?)\\n\\}"))?.[1] ?? "";
+
+  for (const name of [
+    "onboarding-check-in",
+    "onboarding-tick-in",
+    "onboarding-ring-out",
+    "onboarding-checklist-out",
+  ]) {
+    assert.ok(frames(name), "chat-shell.css must define @keyframes " + name);
+  }
+
+  // §8.6: ease-out to 1 and never past it — a settling tick, not a bounce.
+  assert.match(frames("onboarding-check-in"), /scale\(0\.62\)/);
+  for (const name of ["onboarding-check-in", "onboarding-tick-in"]) {
+    const scales = [...frames(name).matchAll(/scale\(([\d.]+)\)/g)].map((hit) => Number(hit[1]));
+    assert.ok(scales.length > 0, name + " must scale");
+    assert.ok(
+      scales.every((value) => value <= 1),
+      name + " must not overshoot 1 (§8.6)",
+    );
+  }
+
+  // The ring is drawn by the element that is already there: invisible at rest,
+  // so it never reads as a second border.
+  assert.match(source, /\.onboarding-check::after \{[^}]*opacity: 0/);
+  // Durations come from the §8.1 tokens; the ring's one-off 520ms is allowed.
+  assert.match(
+    source,
+    /\.onboarding-check\.is-celebrating \{[\s\S]*?animation: onboarding-check-in var\(--motion-duration-normal\) var\(--motion-ease-out\) both/,
+  );
+  // The exit runs `ease-in` on purpose: leaving accelerates away.
+  assert.match(
+    source,
+    /\.home-onboarding-checklist\.is-leaving \{[\s\S]*?animation: onboarding-checklist-out var\(--motion-duration-normal\) var\(--motion-ease-in\) both/,
+  );
+  assert.match(frames("onboarding-checklist-out"), /opacity: 0/);
+  assert.match(frames("onboarding-checklist-out"), /translateY\(-5px\)/);
+});
