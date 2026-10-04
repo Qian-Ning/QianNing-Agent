@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "0.15.18",
+    date: "2026-10-04",
+    highlights: [
+      "Les menus et sélecteurs qui s'ouvrent depuis un bouton grandissent désormais depuis ce bouton : les menus de réglages, ceux des projets et des extensions, ainsi que les sélecteurs de modèle et de raisonnement du champ de saisie s'agrandissent depuis le coin le plus proche du contrôle qui les a ouverts, où qu'il soit à l'écran.",
+      "Un appui tactile ne laisse plus un surlignage de survol accroché, et les contrôles compacts s'enfoncent légèrement à l'appui puis reviennent en douceur au relâchement.",
+      "Si votre système demande des animations réduites, l'application le respecte désormais partout : les dernières animations en boucle — l'halo de la mascotte, le point et l'indicateur d'enregistrement vocal, un clignotement d'avertissement, les anneaux de rechargement et un interrupteur occupé — s'arrêtent au lieu de se redessiner à chaque image.",
+      "Une étape de la liste de premier démarrage pose maintenant sa coche avec un petit halo, et une liste terminée s'efface au lieu de disparaître.",
+      "En thème sombre, la pastille de mode du champ de saisie ne paraît plus d'un cran plus sombre que le bouton d'icône à côté.",
+    ],
+  },
+  {
     version: "0.15.17",
     date: "2026-10-04",
     highlights: [

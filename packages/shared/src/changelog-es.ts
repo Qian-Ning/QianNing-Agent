@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "0.15.18",
+    date: "2026-10-04",
+    highlights: [
+      "Los menús y selectores que se abren desde un botón ahora crecen desde ese botón: los menús de ajustes, los de proyectos y complementos, y los selectores de modelo y razonamiento del cuadro de texto se escalan desde la esquina más cercana al control que los abrió, esté donde esté en la pantalla.",
+      "Un toque ya no deja un resaltado de hover pegado a él, y los controles compactos se hunden ligeramente mientras se pulsan y vuelven suavemente al soltarlos.",
+      "Si tu sistema pide movimiento reducido, la aplicación ahora lo respeta en todas partes: las últimas animaciones en bucle — el brillo de la mascota, el punto y el indicador giratorio de grabación de voz, un parpadeo de aviso, los anillos de recarga y un interruptor ocupado — se detienen en lugar de repintarse en cada fotograma.",
+      "Un paso de la lista de primeros pasos ahora asienta su marca con un pequeño halo, y una lista completada se desvanece en lugar de desaparecer.",
+      "En el tema oscuro, la píldora de modo del cuadro de texto ya no se lee un tono más oscura que el botón de icono que tiene al lado.",
+    ],
+  },
+  {
     version: "0.15.17",
     date: "2026-10-04",
     highlights: [
