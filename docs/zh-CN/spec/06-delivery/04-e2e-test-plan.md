@@ -9091,8 +9091,8 @@ the latest destination. These assertions measure work counts, not device FPS.
 #### E2E-261：桌面控制在用户打开之前一直是关的
 
 - **前提：** Windows x64 构建。全新配置，因此 `computerControlEnabled` 从未被写入。屏幕上有一个智能体看得见的窗口。
-- **步骤：** 1）打开「设置 ▸ AI」，确认「电脑操作」开关为关闭。2）要求智能体点击屏幕上某个可见控件。3）确认被拒绝。4）读取宿主为该会话提供的工具列表。5）打开开关后再次要求，确认点击真的落下。6）在会话仍然打开时把开关关回去，再要求一次。
-- **预期：** 开关关闭时，宿主提供的列表里没有 `Computer` 工具，而仍持有上一回合定义的调用会以 `COMPUTER_DISABLED` 被拒绝而不是执行；关闭期间不会注入任何输入 —— 指针不动、也不送出按键。读动作（`screen`、`cursor`、`windows`、`windowAt`）全程照常作答，因为「看」不在闸门之内。开关打开后，同一次点击落在被指定的控件上。再次关闭后，下一次列举不再出现该工具、下一次调用被拒绝，因此会话无法沿用先前拿到的定义。
+- **步骤：** 1）打开「设置 ▸ AI」，确认「电脑操作」开关为关闭。2）要求智能体点击屏幕上某个可见控件。3）确认被拒绝。4）读取宿主为该会话提供的工具列表。5）打开开关后再次要求，确认点击真的落下。6）在会话仍然打开时把开关关回去，再要求一次。7）在开关打开时，通过宿主方法和工具分别指向一个已不存在的窗口句柄，比较两边给出的错误码。
+- **预期：** 开关关闭时，宿主提供的列表里没有 `Computer` 工具，而仍持有上一回合定义的调用会以 `COMPUTER_DISABLED` 被拒绝而不是执行；关闭期间不会注入任何输入 —— 指针不动、也不送出按键。读动作（`screen`、`cursor`、`windows`、`windowAt`）全程照常作答，因为「看」不在闸门之内。开关打开后，同一次点击落在被指定的控件上。再次关闭后，下一次列举不再出现该工具、下一次调用被拒绝，因此会话无法沿用先前拿到的定义。第 7 步中两扇门都回答 `COMPUTER_WINDOW_GONE`，且 RPC 负载在 `handle` 之外仍带 `errorCode`：曾经替换掉 slug 的负载会让工具端对同一个失败回答 `INTERNAL`。
 - **规格：** `03-runtime/06-host-rpc-protocol.md`、`03-runtime/08-error-codes.md`、`04-ux/06-settings-ia.md`、`07-plugins/03-plugin-api.md`。
 - **验收：** `cargo test -p host-core computer` 在从不编译 Win32 那半边的 Linux runner 上通过；`mcp-control` 与 `plugin-desktop-control` 套件通过；Windows task-candidate 验证确认开关真的管住了指针。
 - **里程碑：** M6+

@@ -327,6 +327,13 @@ computer control on.
 | `COMPUTER_WINDOW_GONE` | yes | the named window no longer exists, so nothing was sent; `details.handle` names it. Re-list the windows and retry — `COMPUTER_UNSUPPORTED` and `COMPUTER_FAILED` are the terminal pair |
 | `COMPUTER_DISABLED` | no | computer control is switched off in Settings, so no input was injected. Unlike the three above this is a user decision rather than a host or platform limit: the same call succeeds once the switch is on. The read methods are never refused this way |
 
+The two rows that document a payload field — `details.code` and `details.handle`
+— carry `details.errorCode` beside it rather than instead of it. The slug stays
+readable on every code this layer emits, which is what lets the agent tool report
+the same code as the method it mirrors; a payload that replaced the slug made a
+vanished window answer `INTERNAL` through one door and `COMPUTER_WINDOW_GONE`
+through the other.
+
 ## 4. Mapping rules
 
 ### Host RPC numeric → AppError.code

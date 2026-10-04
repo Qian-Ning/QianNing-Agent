@@ -113,12 +113,7 @@ pub fn execute(st: &AppState, p: &ToolsExecuteParams) -> ToolsExecuteResult {
     let (ok, content, error_code) = match result {
         Ok(content) => (true, content, None),
         Err(error) => {
-            let code = error
-                .data
-                .as_ref()
-                .and_then(|data| data["errorCode"].as_str())
-                .unwrap_or("INTERNAL")
-                .to_string();
+            let code = result_code(&error);
             (
                 false,
                 json!({ "error": error.message, "code": code }),
@@ -136,6 +131,23 @@ pub fn execute(st: &AppState, p: &ToolsExecuteParams) -> ToolsExecuteResult {
         error_code,
         command_shell_id: None,
     }
+}
+
+/// The code slug this door reports for a host error.
+///
+/// Every error the computer layer produces carries `data.errorCode`, including
+/// the two whose payload field travels beside it — `handle` for a vanished
+/// window and `code` for a refused platform call. That is not incidental: this
+/// function reads only the slug, so a payload that replaced the slug instead of
+/// extending it made a vanished window report `INTERNAL` here while the RPC
+/// method reported `1027`.
+fn result_code(error: &JsonRpcError) -> String {
+    error
+        .data
+        .as_ref()
+        .and_then(|data| data["errorCode"].as_str())
+        .unwrap_or("INTERNAL")
+        .to_string()
 }
 
 #[cfg(test)]
@@ -330,5 +342,34 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// The tool door reports the same code the RPC method does.
+    ///
+    /// This is the half that made the two doors disagree: the result code comes
+    /// from `data.errorCode`, and the payload arms of `computer_err` used to
+    /// replace that field with their own, so a vanished window answered
+    /// `INTERNAL` here and `1027` there.
+    #[test]
+    fn a_payload_error_reports_its_code_rather_than_internal() {
+        let gone = super::super::computer_rpc::computer_err(computer::ComputerError::WindowGone(
+            "42".to_string(),
+        ));
+        assert_eq!(gone.code, 1027);
+        assert_eq!(result_code(&gone), "COMPUTER_WINDOW_GONE");
+
+        let failed = super::super::computer_rpc::computer_err(computer::ComputerError::Platform {
+            operation: "testCall",
+            code: Some(5),
+        });
+        assert_eq!(result_code(&failed), "COMPUTER_FAILED");
+
+        // An error that carries no slug at all still has to answer something.
+        let bare = JsonRpcError {
+            code: 1000,
+            message: "no data".to_string(),
+            data: None,
+        };
+        assert_eq!(result_code(&bare), "INTERNAL");
     }
 }

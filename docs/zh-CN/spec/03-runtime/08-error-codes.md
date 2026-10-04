@@ -321,6 +321,11 @@ ADR 0285）。渲染进程除了一个标识徽章外看不到本地/远程之�
 | `COMPUTER_WINDOW_GONE` | 是 | 指定窗口已不存在，因此什么都没发出；`details.handle` 指出是哪个。重新列出窗口再试 —— `COMPUTER_UNSUPPORTED` 与 `COMPUTER_FAILED` 才是终结性的两个 |
 | `COMPUTER_DISABLED` | 否 | 设置里的电脑操作开关处于关闭状态，因此没有注入任何输入。与上面三个不同，这是用户的决定而不是宿主或平台的限制：开关打开后同一个调用就会成功。读方法永远不会被这样拒绝 |
 
+文档中标出负载字段的那两行 —— `details.code` 与 `details.handle` —— 是**在** `details.errorCode`
+**之外**附带该字段，而不是替换它。这一层发出的每个错误码都保留可读的 slug，这正是智能体工具
+能报告出与其镜像方法相同的错误码的原因；曾经替换掉 slug 的负载会让同一个「窗口已消失」在一扇门
+报 `INTERNAL`、在另一扇门报 `COMPUTER_WINDOW_GONE`。
+
 ## 4. 映射规则
 
 ### 主机 RPC 数字 → AppError.code

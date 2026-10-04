@@ -148,6 +148,14 @@ fn invalid(message: &str) -> JsonRpcError {
     rpc_err(-32602, message.to_string(), "INVALID_PARAMS")
 }
 
+/// The error object this layer answers with.
+///
+/// The two payload arms below *add* their field to the code slug rather than
+/// replacing it. Every other error the host emits carries `data.errorCode`, and
+/// `rpc/computer_tool.rs` reads its result code out of exactly that field — so a
+/// payload that dropped the slug made the agent tool answer `INTERNAL` for a
+/// vanished window while this door answered `1027`. Both keys travel together:
+/// `handle`/`code` keep their documented meaning and the slug stays readable.
 pub(super) fn computer_err(error: ComputerError) -> JsonRpcError {
     let message = error.to_string();
     match error {
@@ -158,16 +166,31 @@ pub(super) fn computer_err(error: ComputerError) -> JsonRpcError {
             let mut reply = rpc_err(COMPUTER_WINDOW_GONE, message, "COMPUTER_WINDOW_GONE");
             // The handle lets a caller match the failure to the window it
             // asked about without parsing the message text.
-            reply.data = Some(json!({ "handle": handle }));
+            insert_data(&mut reply, json!(handle), "handle");
             reply
         }
         ComputerError::Platform { code, .. } => {
             let mut reply = rpc_err(COMPUTER_FAILED, message, "COMPUTER_FAILED");
             // `code` is the platform's own error value, which is what
             // distinguishes a refused input stream from a missing window.
-            reply.data = Some(json!({ "code": code }));
+            insert_data(&mut reply, json!(code), "code");
             reply
         }
+    }
+}
+
+/// Add one field beside the code slug `rpc_err` already wrote.
+fn insert_data(reply: &mut JsonRpcError, value: Value, key: &str) {
+    // `rpc_err` always leaves an object here; the fallback keeps this total
+    // rather than relying on that.
+    let data = reply
+        .data
+        .get_or_insert_with(|| Value::Object(Default::default()));
+    match data {
+        Value::Object(object) => {
+            object.insert(key.to_string(), value);
+        }
+        other => *other = json!({ key: value }),
     }
 }
 
@@ -452,6 +475,40 @@ mod tests {
         assert_eq!(
             code_of(call(&state, "computer.teleport", json!({})).await),
             -32601
+        );
+    }
+
+    /// The payload arms carry the code slug as well as their own field.
+    ///
+    /// `rpc/computer_tool.rs` derives the agent tool's result code from
+    /// `data.errorCode`, so a payload that replaced the slug made the tool door
+    /// answer `INTERNAL` for a vanished window while this door answered 1027.
+    /// Both keys are asserted here because both are what a caller reads.
+    #[test]
+    fn a_payload_error_keeps_its_code_slug() {
+        let gone = computer_err(ComputerError::WindowGone("42".to_string()));
+        assert_eq!(gone.code, COMPUTER_WINDOW_GONE);
+        assert_eq!(
+            gone.data.as_ref().unwrap()["errorCode"],
+            "COMPUTER_WINDOW_GONE"
+        );
+        assert_eq!(gone.data.as_ref().unwrap()["handle"], "42");
+
+        let failed = computer_err(ComputerError::Platform {
+            operation: "testCall",
+            code: Some(5),
+        });
+        assert_eq!(failed.code, COMPUTER_FAILED);
+        assert_eq!(
+            failed.data.as_ref().unwrap()["errorCode"],
+            "COMPUTER_FAILED"
+        );
+        assert_eq!(failed.data.as_ref().unwrap()["code"], 5);
+
+        let unsupported = computer_err(ComputerError::Unsupported);
+        assert_eq!(
+            unsupported.data.as_ref().unwrap()["errorCode"],
+            "COMPUTER_UNSUPPORTED"
         );
     }
 
