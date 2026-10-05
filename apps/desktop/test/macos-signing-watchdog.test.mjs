@@ -148,7 +148,13 @@ test("a silent signing stage produces a stall dump without failing the run", asy
   assert.ok(elapsedMs < 20_000, `watchdog took ${elapsedMs}ms`);
 });
 
-test("a hard timeout kills the process group, dumps diagnostics and exits 124", async () => {
+// The watchdog reaps a stalled signer by killing its process group, which needs
+// a POSIX process group (a negative pid); Windows has none, so the stall runs to
+// completion instead of being cut off and the elapsed bound cannot hold.
+const watchdogNeedsProcessGroup =
+  process.platform === "win32" ? "process-group kill needs a POSIX group" : false;
+
+test("a hard timeout kills the process group, dumps diagnostics and exits 124", { skip: watchdogNeedsProcessGroup }, async () => {
   const { status, stdout, elapsedMs } = await runWatchdog([
     "--label",
     "timeout",

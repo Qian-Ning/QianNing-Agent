@@ -1,21 +1,28 @@
 import assert from "node:assert/strict";
 import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
-const verifyScript = new URL(
-  "../../../scripts/verify-macos-release.sh",
-  import.meta.url,
+// A `file://` URL's `.pathname` is not a filesystem path on Windows — it renders
+// a drive letter as `/C:/...`, which bash cannot open. Resolve the URL once.
+const verifyScript = fileURLToPath(
+  new URL("../../../scripts/verify-macos-release.sh", import.meta.url),
 );
-const notarizeScript = new URL(
-  "../../../scripts/notarize-and-staple-macos-release-dmg.sh",
-  import.meta.url,
+const notarizeScript = fileURLToPath(
+  new URL("../../../scripts/notarize-and-staple-macos-release-dmg.sh", import.meta.url),
 );
 
 const SIGNING_IDENTITY = "Developer ID Application: Example Signer (ABCDE12345)";
 const SIGNING_IDENTITY_NAME = "Example Signer (ABCDE12345)";
+
+// The release scripts are POSIX shell, so they join the paths they print with
+// `/`. Compare paths with a single separator on both sides rather than asserting
+// the host's, which would make the assertion Windows-shaped.
+const posix = (value) => value.replaceAll("\\", "/");
+
 const SUBMISSION_ID = "11111111-2222-3333-4444-555555555555";
 const NOTARY_ENV = {
   APPLE_ID: "release@example.com",
@@ -84,12 +91,12 @@ exit 0
 }
 
 function runNotarize(release, bin, log, extraEnv = {}) {
-  return spawnSync("bash", [notarizeScript.pathname, release], {
+  return spawnSync("bash", [notarizeScript, release], {
     encoding: "utf8",
     env: {
       ...process.env,
       ...NOTARY_ENV,
-      PATH: `${bin}:${process.env.PATH}`,
+      PATH: `${bin}${delimiter}${process.env.PATH}`,
       NOTARY_LOG: log,
       STAPLE_DELAY_SECONDS: "1",
       ...extraEnv,
@@ -112,10 +119,10 @@ test("the DMG is submitted to Apple before it is stapled", async (t) => {
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   const calls = (await readFile(log, "utf8")).trim().split("\n");
   assert.match(calls[0], /^notarytool submit .*--wait$/);
-  assert.ok(calls[0].includes(dmg), "the submitted artifact is the DMG");
+  assert.ok(posix(calls[0]).includes(posix(dmg)), "the submitted artifact is the DMG");
   assert.ok(calls[0].includes("--apple-id release@example.com"));
-  assert.equal(calls[1], `stapler staple ${dmg}`);
-  assert.equal(calls[2], `stapler validate ${dmg}`);
+  assert.equal(posix(calls[1]), `stapler staple ${posix(dmg)}`);
+  assert.equal(posix(calls[2]), `stapler validate ${posix(dmg)}`);
   assert.match(result.stdout, /status.*Accepted/);
 });
 
@@ -191,7 +198,7 @@ test("the notarization step fails closed without team-scoped credentials", async
   const missing = { ...process.env, ...NOTARY_ENV, NOTARY_LOG: log };
   delete missing.APPLE_ID;
   delete missing.APPLE_APP_SPECIFIC_PASSWORD;
-  const missingResult = spawnSync("bash", [notarizeScript.pathname, release], {
+  const missingResult = spawnSync("bash", [notarizeScript, release], {
     encoding: "utf8",
     env: missing,
   });
@@ -241,12 +248,12 @@ test("macOS release verification requires a notarized Developer ID app and DMG",
 
   // The local lane passes the bare common name; the script must still match the
   // prefixed Authority line codesign prints.
-  const result = spawnSync("bash", [verifyScript.pathname, release], {
+  const result = spawnSync("bash", [verifyScript, release], {
     encoding: "utf8",
     env: {
       ...process.env,
       MAC_SIGNING_IDENTITY: SIGNING_IDENTITY_NAME,
-      PATH: `${bin}:${process.env.PATH}`,
+      PATH: `${bin}${delimiter}${process.env.PATH}`,
       STAPLER_LOG: staplerLog,
     },
   });
@@ -256,8 +263,8 @@ test("macOS release verification requires a notarized Developer ID app and DMG",
   assert.match(result.stdout, /PI-Desktop-0\.14\.2-arm64\.dmg/);
   assert.match(result.stdout, /host-core sidecar/);
   assert.equal(
-    await readFile(staplerLog, "utf8"),
-    `stapler validate ${app}\nstapler validate ${dmg}\n`,
+    posix(await readFile(staplerLog, "utf8")),
+    posix(`stapler validate ${app}\nstapler validate ${dmg}\n`),
   );
 });
 
@@ -282,12 +289,12 @@ test("macOS release verification rejects a Developer ID app without notarization
     ["codesign", "spctl", "xcrun"].map((name) => chmod(join(bin, name), 0o755)),
   );
 
-  const result = spawnSync("bash", [verifyScript.pathname, release], {
+  const result = spawnSync("bash", [verifyScript, release], {
     encoding: "utf8",
     env: {
       ...process.env,
       MAC_SIGNING_IDENTITY: SIGNING_IDENTITY_NAME,
-      PATH: `${bin}:${process.env.PATH}`,
+      PATH: `${bin}${delimiter}${process.env.PATH}`,
     },
   });
 
@@ -316,12 +323,12 @@ test("macOS release verification accepts the prefixed identity form", async (t) 
     ["codesign", "spctl", "xcrun"].map((name) => chmod(join(bin, name), 0o755)),
   );
 
-  const result = spawnSync("bash", [verifyScript.pathname, release], {
+  const result = spawnSync("bash", [verifyScript, release], {
     encoding: "utf8",
     env: {
       ...process.env,
       MAC_SIGNING_IDENTITY: SIGNING_IDENTITY,
-      PATH: `${bin}:${process.env.PATH}`,
+      PATH: `${bin}${delimiter}${process.env.PATH}`,
     },
   });
 
@@ -349,12 +356,12 @@ test("macOS release verification rejects a different signing identity", async (t
     ["codesign", "spctl", "xcrun"].map((name) => chmod(join(bin, name), 0o755)),
   );
 
-  const result = spawnSync("bash", [verifyScript.pathname, release], {
+  const result = spawnSync("bash", [verifyScript, release], {
     encoding: "utf8",
     env: {
       ...process.env,
       MAC_SIGNING_IDENTITY: SIGNING_IDENTITY_NAME,
-      PATH: `${bin}:${process.env.PATH}`,
+      PATH: `${bin}${delimiter}${process.env.PATH}`,
     },
   });
 
@@ -380,9 +387,9 @@ test("macOS release verification requires a configured signing identity", async 
     ["codesign", "spctl", "xcrun"].map((name) => chmod(join(bin, name), 0o755)),
   );
 
-  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const env = { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}` };
   delete env.MAC_SIGNING_IDENTITY;
-  const result = spawnSync("bash", [verifyScript.pathname, release], {
+  const result = spawnSync("bash", [verifyScript, release], {
     encoding: "utf8",
     env,
   });
@@ -419,16 +426,16 @@ test("macOS release verification discovers the app bundle instead of naming it",
     ["codesign", "spctl", "xcrun"].map((name) => chmod(join(bin, name), 0o755)),
   );
 
-  const result = spawnSync("bash", [verifyScript.pathname, release], {
+  const result = spawnSync("bash", [verifyScript, release], {
     encoding: "utf8",
     env: {
       ...process.env,
       MAC_SIGNING_IDENTITY: SIGNING_IDENTITY_NAME,
-      PATH: `${bin}:${process.env.PATH}`,
+      PATH: `${bin}${delimiter}${process.env.PATH}`,
     },
   });
 
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-  assert.ok(result.stdout.includes(app), result.stdout);
+  assert.ok(posix(result.stdout).includes(posix(app)), result.stdout);
   assert.match(result.stdout, /QianNing-Agent-0\.15\.13-arm64\.dmg/);
 });

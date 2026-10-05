@@ -111,15 +111,18 @@ test("optional dependencies and overrides cannot escape the registry before npm 
     assert.match(String(result.error), /non-registry spec/);
     assert.equal(npmRan, false);
   }
-  let deepOverrides = {};
-  let cursor = deepOverrides;
-  for (let index = 0; index < 2000; index += 1) {
-    cursor[`package-${index}`] = {};
-    cursor = cursor[`package-${index}`];
-  }
-  cursor.evil = "git+ssh://git@evil.example/evil.git";
+  // A 2000-deep override chain with the foreign spec at the bottom. The JSON is
+  // assembled as text on purpose: `JSON.stringify` recurses once per level and
+  // overflows the stack on Windows long before this depth.
+  const depth = 2000;
+  const deepJson =
+    `{"dependencies":{"ok":"^1"},"overrides":` +
+    Array.from({ length: depth }, (_, index) => `{"package-${index}":`).join("") +
+    `{"evil":"git+ssh://git@evil.example/evil.git"}` +
+    "}".repeat(depth) +
+    "}";
   const deepRoot = mkdtempSync(join(tmpdir(), "ext-deps-deep-overrides-"));
-  writeFileSync(join(deepRoot, "package.json"), JSON.stringify({ dependencies: { ok: "^1" }, overrides: deepOverrides }));
+  writeFileSync(join(deepRoot, "package.json"), deepJson);
   const deepResult = await installExtensionDependencies(deepRoot, { runner: async () => ({ code: 0, stderr: "" }) });
   assert.equal(deepResult.state, "failed");
   assert.match(String(deepResult.error), /non-registry spec/);

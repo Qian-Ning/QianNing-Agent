@@ -11,12 +11,15 @@
 import assert from "node:assert/strict";
 import { register } from "node:module";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 register(new URL("./helpers/ts-import-hooks.mjs", import.meta.url));
 
 const { ModelsDevCatalog } = await import("../electron/main/models-dev-catalog.ts");
 
-const catalogPath = new URL("../resources/models.dev/api.json", import.meta.url).pathname;
+// `.pathname` on a `file://` URL is not a filesystem path on Windows — it renders
+// the drive as `/C:/...`, which the catalog loader cannot open.
+const catalogPath = fileURLToPath(new URL("../resources/models.dev/api.json", import.meta.url));
 
 async function loadedCatalog() {
   const catalog = new ModelsDevCatalog({ catalogPath });
