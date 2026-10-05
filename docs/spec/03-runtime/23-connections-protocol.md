@@ -188,6 +188,12 @@ record that fails later.
 
 One tool with an `action` field, following the `Computer` precedent.
 
+The model learns it exists the same way it learns about `Computer`: the session
+runtime mirrors `tools.list` at session start and on each redelivery into a live
+session. The runtime holds no copy of the gate, so the host's current answer is
+the only thing that puts `Connection` in front of the model, and a host that
+cannot answer leaves the session with the tools the runtime declares itself.
+
 ```jsonc
 {
   "name": "Connection",
