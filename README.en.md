@@ -22,7 +22,7 @@ Windows-first · Data stays on your machine · Bring your own model · Plugin-ex
 
 </div>
 
-> Current release line: `0.15.x` (latest `0.15.18`).
+> Current release line: `0.16.x` (latest `0.16.2`).
 
 ---
 

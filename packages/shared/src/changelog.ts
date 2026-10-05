@@ -29,6 +29,17 @@ export type ChangelogEntry = {
 };
 
 const enEntries: ChangelogEntry[] = [
+    {
+      version: "0.16.2",
+      date: "2026-10-05",
+      highlights: [
+        "Saved SSH destinations: point the app at a host, see its host key before anything is sent to it, and let the agent run commands there — the agent can never create or widen a connection, and every command it runs is written to an audit trail.",
+        "Desktop control arrives switched off: reading the screen and moving the pointer stay unavailable until you turn them on in Settings, and each one reports its own error code when the platform refuses it.",
+        "The usage view reads your spend by project, by calendar period and by what is expected next, and a month's budget can now be capped from the same dashboard.",
+        "Tools installed through MCP now ask for approval before they run, the way shell and file tools already do.",
+        "In the chat transcript, a streamed reply no longer shifts the layout while it renders, a resent or edited prompt reconciles with the one already on screen instead of appearing twice, and copies of a session collapse onto a single entry.",
+      ],
+    },
   {
     version: "0.15.18",
     date: "2026-10-04",
@@ -939,6 +950,17 @@ const enEntries: ChangelogEntry[] = [
 ];
 
 const zhCNEntries: ChangelogEntry[] = [
+    {
+      version: "0.16.2",
+      date: "2026-10-05",
+      highlights: [
+        "新增保存的 SSH 目的地：把应用指向一台主机，在向它发送任何内容之前先看清它的主机密钥，再让智能体在上面执行命令——智能体永远不能新建或放宽一条连接，它执行的每条命令都会写进审计记录。",
+        "桌面控制默认关闭：在你到设置里打开之前，读取屏幕与移动指针都不可用；平台拒绝时，每一项都会报出各自的错误码。",
+        "用量视图按项目、按自然时段、按预计后续支出读你的花费，并且可以在同一个面板里给某一个月设定上限。",
+        "通过 MCP 安装的工具现在执行前会请求批准，和 shell、文件工具一样。",
+        "在聊天记录里，流式回复在渲染时不再顶动布局；重发或编辑过的提示会与屏幕上已有的那条合并，而不是出现两次；同一会话的副本折叠成一条。",
+      ],
+    },
   {
     version: "0.15.18",
     date: "2026-10-04",
@@ -1849,6 +1871,17 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+    {
+      version: "0.16.2",
+      date: "2026-10-05",
+      highlights: [
+        "新增儲存的 SSH 目的地：把應用指向一台主機，在向它送出任何內容之前先看清它的主機金鑰，再讓智慧體在上面執行指令——智慧體永遠不能建立或放寬一條連線，它執行的每道指令都會寫進稽核記錄。",
+        "桌面控制預設關閉：在你到設定裡開啟之前，讀取畫面與移動指標都無法使用；平台拒絕時，每一項都會回報各自的錯誤碼。",
+        "用量檢視按專案、按日曆期間、按預期後續支出讀你的花費，而且可以在同一個面板裡為某個月設定上限。",
+        "透過 MCP 安裝的工具現在執行前會要求核准，和 shell、檔案工具一樣。",
+        "在聊天記錄裡，串流回覆在繪製時不再推動版面；重送或編輯過的提示會與畫面上既有的那則合併，而不是出現兩次；同一工作階段的副本會收合成一筆。",
+      ],
+    },
   {
     version: "0.15.18",
     date: "2026-10-04",

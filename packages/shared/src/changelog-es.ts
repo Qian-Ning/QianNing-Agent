@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "0.16.2",
+    date: "2026-10-05",
+    highlights: [
+      "Destinos SSH guardados: apunta la app a un host, consulta su clave de host antes de que se le envíe nada y deja que el agente ejecute comandos allí — el agente nunca puede crear ni ampliar una conexión, y cada comando que ejecuta queda escrito en un rastro de auditoría.",
+      "El control del escritorio llega desactivado: leer la pantalla y mover el puntero siguen sin estar disponibles hasta que tú los actives en Ajustes, y cada uno informa su propio código de error cuando la plataforma lo rechaza.",
+      "La vista de uso lee tu gasto por proyecto, por periodo del calendario y por lo que se espera a continuación, y el presupuesto de un mes ahora puede limitarse desde el mismo panel.",
+      "Las herramientas instaladas a través de MCP ahora piden aprobación antes de ejecutarse, igual que ya lo hacen las herramientas de shell y de archivos.",
+      "En el historial del chat, una respuesta en streaming ya no desplaza el diseño mientras se renderiza, un prompt reenviado o editado se concilia con el que ya está en pantalla en lugar de aparecer dos veces, y las copias de una sesión se agrupan en una sola entrada.",
+    ],
+  },
+  {
     version: "0.15.18",
     date: "2026-10-04",
     highlights: [

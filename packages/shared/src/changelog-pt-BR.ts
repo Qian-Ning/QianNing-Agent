@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "0.16.2",
+    date: "2026-10-05",
+    highlights: [
+      "Destinos SSH salvos: aponte o app para um host, veja a chave do host antes que qualquer coisa seja enviada a ele e deixe o agente executar comandos lá — o agente nunca pode criar ou ampliar uma conexão, e todo comando que ele executa fica registrado em uma trilha de auditoria.",
+      "O controle da área de trabalho chega desativado: ler a tela e mover o ponteiro continuam indisponíveis até você ativá-los nas Configurações, e cada um informa seu próprio código de erro quando a plataforma o recusa.",
+      "A visão de uso lê seus gastos por projeto, por período do calendário e pelo que é esperado a seguir, e o orçamento de um mês agora pode ser limitado no mesmo painel.",
+      "As ferramentas instaladas via MCP agora pedem aprovação antes de serem executadas, como as ferramentas de shell e de arquivos já fazem.",
+      "No histórico do chat, uma resposta transmitida em stream não desloca mais o layout enquanto é renderizada, um prompt reenviado ou editado se concilia com o que já está na tela em vez de aparecer duas vezes, e as cópias de uma sessão se agrupam em uma única entrada.",
+    ],
+  },
+  {
     version: "0.15.18",
     date: "2026-10-04",
     highlights: [

@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "0.16.2",
+    date: "2026-10-05",
+    highlights: [
+      "Gespeicherte SSH-Ziele: die App auf einen Host richten, den Hostschlüssel sehen, bevor irgendetwas an ihn gesendet wird, und den Agent dort Befehle ausführen lassen — der Agent kann selbst nie eine Verbindung herstellen oder erweitern, und jeder Befehl, den er ausführt, wird in einem Prüfprotokoll festgehalten.",
+      "Die Desktop-Steuerung ist standardmäßig ausgeschaltet: das Bildschirmlesen und das Bewegen des Zeigers bleiben nicht verfügbar, bis Sie beides in den Einstellungen einschalten, und jedes von beiden meldet seinen eigenen Fehlercode, wenn die Plattform es ablehnt.",
+      "Die Nutzungsansicht liest Ihre Ausgaben nach Projekt, nach Kalenderzeitraum und danach, was als Nächstes erwartet wird, und das Budget eines Monats lässt sich jetzt im selben Dashboard begrenzen.",
+      "Über MCP installierte Tools fragen jetzt vor der Ausführung um Freigabe, so wie es Shell- und Datei-Tools bereits tun.",
+      "Im Chat-Verlauf verschiebt eine im Stream eintreffende Antwort das Layout nicht mehr, während sie gerendert wird, ein erneut gesendeter oder bearbeiteter Prompt gleicht sich mit dem bereits angezeigten ab, statt doppelt zu erscheinen, und Kopien einer Sitzung werden zu einem einzigen Eintrag zusammengefasst.",
+    ],
+  },
+  {
     version: "0.15.18",
     date: "2026-10-04",
     highlights: [
