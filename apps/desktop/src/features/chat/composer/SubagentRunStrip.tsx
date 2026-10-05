@@ -17,6 +17,7 @@ export const SubagentRunStrip = memo(function SubagentRunStrip() {
   const messages = useAppStore((state) => state.messages);
   const runs = runningDelegations(messages);
   const oldest = runs[0];
+  const newest = runs[runs.length - 1];
   // The longest run is the one worth timing: it is the one that can look stuck.
   const elapsed = useElapsedLabel(oldest?.startedAt, undefined, runs.length > 0);
 
@@ -38,7 +39,9 @@ export const SubagentRunStrip = memo(function SubagentRunStrip() {
       onClick={() => reveal(runs[runs.length - 1].toolCallId)}
     >
       <span className="tool-spinner" aria-hidden />
-      <span className="subagent-strip-label">{label}</span>
+      <span className="subagent-strip-label">
+        {newest?.model ? `${label} · ${newest.model}` : label}
+      </span>
       {elapsed ? (
         <span className="subagent-strip-time" aria-label={t("chat.subagentDuration", { duration: elapsed })}>
           {elapsed}

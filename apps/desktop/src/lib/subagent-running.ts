@@ -7,6 +7,8 @@ export type RunningDelegation = {
   toolCallId: string;
   startedAt: string;
   agentName?: string;
+  /** The delegate's model, once one of its turns has named one. */
+  model?: string;
 };
 
 /**
@@ -18,9 +20,23 @@ export type RunningDelegation = {
  * Lifecycle calls (TaskWait/TaskList/TaskStop) are not delegations of their own
  * (D319), and a call with no id cannot be revealed, so both are skipped.
  */
+/** The model the parent pinned for this run, when it pinned one. */
+function pinnedModel(args: unknown): string | undefined {
+  if (!args || typeof args !== "object" || Array.isArray(args)) return undefined;
+  const pinned = (args as { model?: unknown }).model;
+  return typeof pinned === "string" && pinned.trim() ? pinned.trim() : undefined;
+}
 export function runningDelegations(
   messages: readonly UiMessage[],
 ): RunningDelegation[] {
+  // The delegate's turns carry the model that produced them, which is the
+  // same model the Task result reports once the call settles.
+  const spoke = new Map<string, string>();
+  for (const message of messages) {
+    const parent = message.parentToolCallId;
+    if (!parent || !message.modelId) continue;
+    if (!spoke.has(parent)) spoke.set(parent, message.modelId);
+  }
   const running: RunningDelegation[] = [];
   for (const message of messages) {
     if (message.role !== "tool") continue;
@@ -32,6 +48,7 @@ export function runningDelegations(
       toolCallId,
       startedAt: message.createdAt,
       agentName: message.agentName,
+      model: spoke.get(toolCallId) ?? pinnedModel(message.toolArgs),
     });
   }
   return running.sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));

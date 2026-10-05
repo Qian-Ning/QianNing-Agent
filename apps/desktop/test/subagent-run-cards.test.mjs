@@ -110,6 +110,40 @@ test("runningDelegations counts only what is actually in flight", () => {
   assert.deepEqual(runningDelegations([]), []);
 });
 
+test("a running delegate reports the model it is on", () => {
+  // The delegate's own turns carry the model that produced them, which is the
+  // same model the Task result reports once the call settles.
+  const spoke = runningDelegations([
+    message({ id: "call", toolCallId: "call", toolName: "Task", toolStatus: "running" }),
+    message({
+      id: "turn",
+      role: "assistant",
+      content: "working",
+      parentToolCallId: "call",
+      modelId: "anthropic/claude-sonnet-4",
+    }),
+  ]);
+  assert.equal(spoke[0].model, "anthropic/claude-sonnet-4");
+
+  // Before the delegate says anything, the parent's override is the answer.
+  const pinned = runningDelegations([
+    message({
+      id: "call",
+      toolCallId: "call",
+      toolName: "Task",
+      toolStatus: "running",
+      toolArgs: { model: "openai/gpt-5" },
+    }),
+  ]);
+  assert.equal(pinned[0].model, "openai/gpt-5");
+
+  // Unknown stays unknown: an inherited model must not be invented here.
+  const unknown = runningDelegations([
+    message({ id: "call", toolCallId: "call", toolName: "Task", toolStatus: "running" }),
+  ]);
+  assert.equal(unknown[0].model, undefined);
+});
+
 test("the strip and the card are wired to the same call id", async () => {
   const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
   const [composer, toolRow, strip, css] = await Promise.all([
@@ -125,6 +159,10 @@ test("the strip and the card are wired to the same call id", async () => {
   assert.match(toolRow, /useElapsedLabel\(/);
   assert.match(toolRow, /className="tool-row-elapsed"/);
   assert.match(toolRow, /"data-delegation-call": message\.toolCallId/);
+  // The card names its model too, resolved before the call has to settle.
+  assert.match(toolRow, /runHead && modelLabel/);
+  assert.match(toolRow, /delegationModelId\(message, delegate\)/);
+  assert.match(strip, /newest\?\.model/);
   // One attribute, read back by the one place that scrolls to it.
   assert.match(strip, /\[data-delegation-call="\$\{CSS\.escape\(toolCallId\)\}"\]/);
   assert.match(strip, /runningDelegations\(messages\)/);

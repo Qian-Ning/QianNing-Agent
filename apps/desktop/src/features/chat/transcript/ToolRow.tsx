@@ -79,6 +79,7 @@ import {
 import {
   delegateAgentName,
   delegateModelId,
+  delegationModelId,
   delegateThinkingLevel,
 } from "./model";
 
@@ -223,7 +224,11 @@ export const ToolRow = memo(function ToolRow({
     action === "delegate" && !lifecycle
       ? delegateAgentName(message, delegate)
       : "";
-  const modelId = variant === "topology" ? delegateModelId(message) : "";
+  // The card needs the model as much as the topology node does: it is
+  // what explains how fast the delegate is working, and it is knowable
+  // before the call settles (delegationModelId).
+  const modelId =
+    variant === "topology" || runHead ? delegationModelId(message, delegate) : "";
   const thinkingLevel =
     variant === "topology" ? delegateThinkingLevel(message) : undefined;
   const thinkingLabel = thinkingLevel ?? "";
@@ -479,6 +484,11 @@ export const ToolRow = memo(function ToolRow({
             {agentName ? (
               <span className="tool-row-agent" title={t("chat.subagentAgent")}>
                 {agentName}
+              </span>
+            ) : null}
+            {runHead && modelLabel ? (
+              <span className="tool-row-agent" title={modelLabel}>
+                {modelLabel}
               </span>
             ) : null}
             {summary ? (

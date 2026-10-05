@@ -28,6 +28,30 @@ export function delegateModelId(message: UiMessage): string {
 
 /** Effective thinking level resolved for this delegation, from the Task result.
  * `off` and `omit` deliberately have no visible suffix. */
+/**
+ * The model a delegation runs on, for the inline card.
+ *
+ * `delegateModelId` answers only once the call has returned, because the
+ * resolution is reported in the result payload — too late for a card that is
+ * worth reading while the delegate works. So the delegate's own turns are
+ * consulted first: every assistant turn it produced names the model that
+ * produced it, which is the same model the result goes on to report. The
+ * parent's explicit override covers the first seconds of a run that has not
+ * spoken yet.
+ */
+export function delegationModelId(message: UiMessage, run?: SubagentRun): string {
+  const settled = delegateModelId(message);
+  if (settled) return settled;
+  const fromTurn = run?.items.find((item) => item.message.modelId)?.message.modelId;
+  if (fromTurn) return fromTurn.trim();
+  const args = message.toolArgs;
+  if (args && typeof args === "object" && !Array.isArray(args)) {
+    const pinned = (args as { model?: unknown }).model;
+    if (typeof pinned === "string" && pinned.trim()) return pinned.trim();
+  }
+  return "";
+}
+
 export function delegateThinkingLevel(message: UiMessage): ThinkingLevel | undefined {
   const payload = toolResultPayload(message);
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
