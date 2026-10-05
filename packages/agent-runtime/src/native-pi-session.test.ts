@@ -1,6 +1,6 @@
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentSession, ModelRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
 import { createAssistantMessageEventStream, type AssistantMessage } from "@earendil-works/pi-ai";
@@ -848,7 +848,11 @@ describe("native fork children", () => {
         expect(failure?.message).not.toContain(f.group);
         expect(existsSync(foreignPath)).toBe(true);
         expect(readFileSync(foreignPath, "utf8")).toContain("collision");
-        expect(groupEntries(f.group).sort()).toEqual(before.concat([foreignPath.split("/").at(-1)!]).sort());
+        // `foreignPath` is an absolute path and on Windows it is separated by
+        // `\`, so splitting on `/` yields the whole path and the comparison
+        // can never hold. `groupEntries` lists bare names, so take the name
+        // the portable way.
+        expect(groupEntries(f.group).sort()).toEqual(before.concat([basename(foreignPath)]).sort());
         expect(readFileSync(f.file, "utf8")).toBe(parentBytes);
       } finally { service.disposeAll(); }
     } finally {

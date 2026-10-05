@@ -1,6 +1,6 @@
 import { readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import { RacpError, type Principal, type SessionSummary } from "@pi-desktop/agent-host";
 import {
@@ -158,6 +158,18 @@ export function createSessionCatalog(deps: HostOperationsDeps): RacpSessionCatal
   };
 }
 
+/**
+ * Containment test for the browse root. `relative` applies the platform's
+ * separator and case rules, so `C:\root\work` counts as inside `C:\root`; the
+ * previous hardcoded `/` prefix only ever matched POSIX paths and therefore
+ * rejected every subdirectory on Windows.
+ */
+function isWithinRoot(root: string, target: string): boolean {
+  if (target === root) return true;
+  const rel = relative(root, target);
+  return rel !== "" && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+}
+
 async function canonicalDirectory(path: string): Promise<string> {
   if (!isAbsolute(path)) throw new RacpError("INVALID_ARGUMENT", "path must be absolute");
   let real: string;
@@ -191,7 +203,7 @@ export function createProjectCatalog(deps: HostOperationsDeps): RacpProjectCatal
     async browse(path) {
       const target = path ? await canonicalDirectory(path) : browseRoot;
       const rootReal = await realpath(browseRoot).catch(() => browseRoot);
-      if (target !== rootReal && !target.startsWith(rootReal.endsWith("/") ? rootReal : `${rootReal}/`)) {
+      if (!isWithinRoot(rootReal, target)) {
         throw new RacpError("REMOTE_PATH_FORBIDDEN", "path is outside the browsable root");
       }
       const dirents = await readdir(target, { withFileTypes: true }).catch(() => {
