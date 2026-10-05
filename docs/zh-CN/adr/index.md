@@ -286,7 +286,7 @@ ADR 记录那些不应被静默改变的架构选择。中文入口与英文索�
  | 0267 | [插件标签跟随应用语言](/adr/0267-plugin-labels-follow-the-app-language) | 已接受（修订 ADR 0160；ADR 0182） |
  | 0272 | [按请求实际会走的线路判定公网地址](/adr/0272-connection-time-public-network-route) | 已接受待实现（修订 ADR 0243；issue #419 / PR #473） |
 | 0276 | [官方插件渠道与备份渠道](/adr/0276-official-plugin-channel-and-backup-channels) | 已接受待实现（修订 ADR 0102；D442） |
-| 0278 | [规范应用 ID `net.aiuo.pi-desktop`](/adr/0278-canonical-application-id) | 已接受（D443；修订 D141 / D371 / ADR 0204；issue #524） |
+| 0278 | [规范应用 ID `com.qianning.agent`](/adr/0278-canonical-application-id) | 已接受（D443；修订 D141 / D371 / ADR 0204；issue #524） |
 | 0279 | [可恢复的子代理委托](/adr/0279-resumable-subagent-delegations) | 已接受待实现（修订 ADR 0062；ADR 0089；issue #513） |
 | 0280 | [插件自有界面按宿主语言自行本地化](/adr/0280-plugin-owned-ui-localizes-from-host-locale) | 已接受（修订 ADR 0267；ADR 0159） |
 | 0282 | [压缩摘要先重试并按实际提示大小预检，再回退保留尾部](/adr/0282-compaction-summary-retry-and-sizing) | 已接受（修订 ADR 0049；issue #543） |

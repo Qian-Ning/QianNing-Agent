@@ -21,7 +21,7 @@ single attribute that causes this launch failure.
    places the helper in a visible first-launch row below the install gesture.
 2. The helper searches only `/Applications/QianNing Agent.app` and
    `~/Applications/QianNing Agent.app`. It verifies the bundle identifier is
-   `net.aiuo.pi-desktop`, and the user must move the app into one of those
+   `com.qianning.agent`, and the user must move the app into one of those
    directories before running it.
 3. When the verified app carries `com.apple.quarantine`, the helper recursively
    removes only that attribute and then opens QianNing Agent. It never uses `sudo`,
