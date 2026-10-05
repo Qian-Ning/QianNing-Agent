@@ -164,7 +164,7 @@ MCP 市场只接受无凭据的公网 HTTPS 源和目录端点。Main 在每一�
 - 未签名 macOS 分发包为可信来源保留范围明确的首次启动兜底路径。DMG 是双图标安装，
   不再放入该说明。ZIP 安装包包含文本说明和可执行助手：它只搜索
   `/Applications/QianNing Agent.app` 和 `~/Applications/QianNing Agent.app`，并在删除前先校验
-  `CFBundleIdentifier=net.aiuo.pi-desktop`，再删除唯一的 `com.apple.quarantine` 属性并
+  `CFBundleIdentifier=com.qianning.agent`，再删除唯一的 `com.apple.quarantine` 属性并
   打开应用。它不接受任意路径，不提升权限，也不替代 Developer ID 签名或公证。说明给出
   手动的 `com.apple.quarantine` 命令，并说明已签名/公证版本无需执行。
 - 本地化产品“新增内容”文本 (D164/D345) 在 Main 中从

@@ -143,7 +143,7 @@ the internal `page = "chat"` route value; that value is not an operating mode.
 
 - Product: `QianNing Agent`
 - Package: `pi-desktop`
-- Application ID: `net.aiuo.pi-desktop`
+- Application ID: `com.qianning.agent`
 - Window title: `QianNing Agent`
 
 ## 9. Platform strategy

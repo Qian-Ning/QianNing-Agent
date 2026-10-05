@@ -27,7 +27,7 @@
 关于面板。运行时还将 `build/icon_1024.png` 应用于 Dock。库存
 `node_modules` 下的文件永远不会被修改。 Windows/Linux 不断发展
 正常的 electro-vite 可执行文件。尽管如此，Windows Main 还是注册了
-之前 NSIS 包使用的相同 `net.aiuo.pi-desktop` AppUserModelID
+之前 NSIS 包使用的相同 `com.qianning.agent` AppUserModelID
 Electron 准备就绪，防止库存主机身份拥有本机
 通知或任务栏组。 Windows 封装另外引脚
 `QianNing Agent` 可执行文件和“开始”菜单快捷方式名称。启动器设置
