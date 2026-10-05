@@ -7,6 +7,8 @@ export type RunningDelegation = {
   toolCallId: string;
   startedAt: string;
   agentName?: string;
+  /** The last tool the delegate called, when it has called one. */
+  lastTool?: string;
   /** The delegate's model, once one of its turns has named one. */
   model?: string;
 };
@@ -32,10 +34,12 @@ export function runningDelegations(
   // The delegate's turns carry the model that produced them, which is the
   // same model the Task result reports once the call settles.
   const spoke = new Map<string, string>();
+  const lastTool = new Map<string, string>();
   for (const message of messages) {
     const parent = message.parentToolCallId;
-    if (!parent || !message.modelId) continue;
-    if (!spoke.has(parent)) spoke.set(parent, message.modelId);
+    if (!parent) continue;
+    if (message.modelId && !spoke.has(parent)) spoke.set(parent, message.modelId);
+    if (message.toolName) lastTool.set(parent, message.toolName);
   }
   const running: RunningDelegation[] = [];
   for (const message of messages) {
@@ -49,6 +53,7 @@ export function runningDelegations(
       startedAt: message.createdAt,
       agentName: message.agentName,
       model: spoke.get(toolCallId) ?? pinnedModel(message.toolArgs),
+      lastTool: lastTool.get(toolCallId),
     });
   }
   return running.sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));

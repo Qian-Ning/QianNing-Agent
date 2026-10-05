@@ -30,23 +30,45 @@ export const SubagentRunStrip = memo(function SubagentRunStrip() {
 
   if (runs.length === 0 || !oldest) return null;
   const label = t("chat.subagentRunning", { count: runs.length });
+  const delegate = (run: (typeof runs)[number]) =>
+    run.agentName || t("chat.subagentAgent");
 
   return (
-    <button
-      type="button"
-      className="subagent-strip"
-      title={t("chat.subagentReveal")}
-      onClick={() => reveal(runs[runs.length - 1].toolCallId)}
-    >
-      <span className="tool-spinner" aria-hidden />
-      <span className="subagent-strip-label">
-        {newest?.model ? `${label} · ${newest.model}` : label}
-      </span>
-      {elapsed ? (
-        <span className="subagent-strip-time" aria-label={t("chat.subagentDuration", { duration: elapsed })}>
-          {elapsed}
+    <div className="subagent-strip" role="status" aria-live="polite">
+      <div className="subagent-strip-head">
+        <span className="tool-spinner" aria-hidden />
+        <span className="subagent-strip-label">
+          {newest?.model ? `${label} · ${newest.model}` : label}
         </span>
-      ) : null}
-    </button>
+        {elapsed ? (
+          <span
+            className="subagent-strip-time"
+            aria-label={t("chat.subagentDuration", { duration: elapsed })}
+          >
+            {elapsed}
+          </span>
+        ) : null}
+      </div>
+      <ul className="subagent-strip-rows">
+        {runs.map((run) => (
+          <li key={run.toolCallId}>
+            <button
+              type="button"
+              className="subagent-strip-row"
+              title={t("chat.subagentReveal")}
+              onClick={() => reveal(run.toolCallId)}
+            >
+              <span className="subagent-strip-row-name">{delegate(run)}</span>
+              {run.model ? (
+                <span className="subagent-strip-row-model">{run.model}</span>
+              ) : null}
+              {run.lastTool ? (
+                <span className="subagent-strip-row-tool">{run.lastTool}</span>
+              ) : null}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 });

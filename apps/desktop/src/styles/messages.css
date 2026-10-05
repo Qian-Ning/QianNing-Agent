@@ -2801,11 +2801,12 @@
 
 /* What is still running, above the composer. A delegate can work for minutes
  * with its card scrolled out of view, so the count and the longest elapsed time
- * stay where the eye already is; clicking brings the newest card back (D302). */
+ * stay where the eye already is, and each run is one row that scrolls to it
+ * (D302 follow scrolling keeps the card itself out of view often enough). */
 .subagent-strip {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 2px;
   width: 100%;
   border: 0;
   border-radius: var(--radius-xs);
@@ -2817,10 +2818,59 @@
   text-align: left;
 }
 
+.subagent-strip-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.subagent-strip-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.subagent-strip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-xs);
+  padding: 1px 2px;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+  text-align: left;
+}
+
 @media (hover: hover) and (pointer: fine) {
-  .subagent-strip:hover {
+  .subagent-strip-row:hover {
     background: var(--ds-tile-deep);
   }
+}
+
+.subagent-strip-row-name {
+  flex: none;
+  color: var(--ds-text-secondary);
+}
+
+.subagent-strip-row-model {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.subagent-strip-row-tool {
+  flex: none;
+  margin-left: auto;
+  opacity: 0.75;
 }
 
 .subagent-strip-label {

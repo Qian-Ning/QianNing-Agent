@@ -106,6 +106,15 @@ test("runningDelegations counts only what is actually in flight", () => {
     ["older", "newer"],
   );
   assert.equal(runs[1].agentName, "researcher");
+  // Each row names what the delegate is doing, so the panel is not just a count.
+  assert.equal(
+    runningDelegations([
+      message({ id: "call", toolCallId: "call", toolName: "Task", toolStatus: "running" }),
+      message({ id: "a", toolCallId: "a", toolName: "Read", parentToolCallId: "call" }),
+      message({ id: "b", toolCallId: "b", toolName: "Grep", parentToolCallId: "call" }),
+    ])[0].lastTool,
+    "Grep",
+  );
   // A settled transcript shows nothing at all.
   assert.deepEqual(runningDelegations([]), []);
 });
@@ -163,6 +172,10 @@ test("the strip and the card are wired to the same call id", async () => {
   assert.match(toolRow, /runHead && modelLabel/);
   assert.match(toolRow, /delegationModelId\(message, delegate\)/);
   assert.match(strip, /newest\?\.model/);
+  // The panel is a list, not just a badge: one row per run, and each row says
+  // what that delegate is doing.
+  assert.match(strip, /className="subagent-strip-row"/);
+  assert.match(strip, /run\.lastTool/);
   // One attribute, read back by the one place that scrolls to it.
   assert.match(strip, /\[data-delegation-call="\$\{CSS\.escape\(toolCallId\)\}"\]/);
   assert.match(strip, /runningDelegations\(messages\)/);
