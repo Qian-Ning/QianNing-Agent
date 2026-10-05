@@ -374,6 +374,29 @@ describe("session persona", () => {
     await runtime.dispose();
   });
 
+  it("gives a custom persona the same operational brief and nothing above it", async () => {
+    // The per-conversation prompt replaces the persona layer only. The operating
+    // sections under it are product mechanics, so they reach a custom persona
+    // unchanged; product identity does not, because it rides the built-in persona.
+    const runtime = createRuntime({ systemPrompt: persona });
+    const prompt = promptOf(runtime);
+
+    for (const section of [
+      "## Working agreement",
+      "## Tone and formatting",
+      "## Following the codebase",
+      "## Tool use",
+      "## Safety",
+      "## Verification",
+    ]) {
+      expect(prompt).toContain(section);
+    }
+    expect(prompt.startsWith(persona)).toBe(true);
+    expect(prompt).not.toContain("official Chinese product name");
+
+    await runtime.dispose();
+  });
+
   it("carries a grouped project's extra roots alongside the persona", async () => {
     // Multi-root geography is session facts, not a persona: both must reach the
     // prompt, the roots without displacing the persona.

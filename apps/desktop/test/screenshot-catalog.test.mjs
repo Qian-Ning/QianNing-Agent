@@ -89,18 +89,18 @@ test("the gallery pages reference frames the publisher generates", async () => {
   }
 });
 
-test("the landing components reference only declared slots", async () => {
+test("the landing component references only declared slots", async () => {
   const declared = new Set(landingShots.map(([, stem]) => stem));
-  const modules = await read("docs/.vitepress/theme/components/HomeModules.vue");
-  const hero = await read("docs/.vitepress/theme/components/HomeHeroVisual.vue");
+  const home = await read("docs/.vitepress/theme/components/DocumentationHome.vue");
 
-  const slugs = [...modules.matchAll(/shot\('([^']+)'\)/g)].map((match) => match[1]);
-  assert.ok(slugs.length > 8, "HomeModules.vue slot extraction found suspiciously few usages");
+  // Every landing frame is resolved through a declared stem, so a renamed or
+  // removed slot surfaces here instead of as a broken image on the home page.
+  const slugs = [...home.matchAll(/readme\/([a-z0-9-]+)\.\$\{/g)].map((match) => match[1]);
+  assert.ok(slugs.length > 0, "DocumentationHome.vue slot extraction found no usages");
   for (const slug of slugs) {
-    assert.ok(declared.has(slug), `HomeModules.vue references undeclared slot ${slug}`);
-    assert.doesNotMatch(slug, /\./, `HomeModules.vue slot ${slug} hardcodes a filename`);
+    assert.ok(declared.has(slug), `DocumentationHome.vue references undeclared slot ${slug}`);
   }
-  assert.match(hero, /readme\/hero\.\$\{/, "HomeHeroVisual.vue must resolve the hero by locale");
+  assert.match(home, /readme\/hero\.\$\{/, "DocumentationHome.vue must resolve the hero by locale");
 });
 
 test("the front pages embed frames the publisher generates", async () => {
