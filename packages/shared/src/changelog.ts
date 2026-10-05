@@ -30,6 +30,17 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
       {
+        version: "0.17.0",
+        date: "2026-10-06",
+        highlights: [
+          "The product is `QianNing Agent` in every language and locale. `千凝` is the developer — the person, whose pen name is `QianNing` — and it also names two features that keep theirs: the desktop companion `千凝狐` / `QianNing Fox` and the default theme `千凝主题`.",
+          "The built-in prompt now introduces the agent as a general-purpose agent running on your own computer — reading and writing files, running commands, fetching pages, working with documents and data — instead of a coding agent, and never as something that lives inside another application.",
+          "A new `## Scope` section leads the built-in prompt so the agent stops narrowing its range to programming, and `## Following the codebase` now applies only when the work actually involves a codebase.",
+          "`## Verification` asks for the real thing — run it, open what you wrote, read the result back — instead of treating a build or a test as the only acceptable proof.",
+          "The READMEs and the Chinese documentation name the product `QianNing Agent` throughout, and the built-in prompt section list was corrected from six named sections to seven.",
+        ],
+      },
+      {
         version: "0.16.4",
         date: "2026-10-05",
         highlights: [
@@ -973,6 +984,17 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
       {
+        version: "0.17.0",
+        date: "2026-10-06",
+        highlights: [
+          "产品名在**任何语言、任何地区**都是 `QianNing Agent`。**千凝**是开发者本人（笔名 `QianNing`），同时也是两个**保持原名**的功能：桌面宠物`千凝狐`与内置主题`千凝主题`。",
+          "内置提示词现在把智能体描述为跑在**你自己电脑上**的通用智能体——读写文件、执行命令、抓取网页、处理文档与数据——而不只是写代码的工具，更不是活在别的软件里的附属功能。",
+          "内置提示词新增置顶的 `## Scope` 段，智能体不再把自身能力范围收窄到编程；`## Following the codebase` 只在任务**确实涉及代码库**时适用。",
+          "`## Verification` 要求真验证——跑一遍、打开你写的文件、把结果读回来——而不是把构建或测试当作唯一可接受的证明。",
+          "README 与中文文档统一使用 `QianNing Agent` 作为产品名；内置提示词的段落清单也从六段更正为七段。",
+        ],
+      },
+      {
         version: "0.16.4",
         date: "2026-10-05",
         highlights: [
@@ -1915,6 +1937,17 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+      {
+        version: "0.17.0",
+        date: "2026-10-06",
+        highlights: [
+          "產品名在**任何語言、任何地區**都是 `QianNing Agent`。**千凝**是開發者本人（筆名 `QianNing`），同時也是兩個**保持原名**的功能：桌面寵物`千凝狐`與內建主題`千凝主題`。",
+          "內建提示詞現在把智慧體描述為跑在**你自己的電腦上**的通用智慧體——讀寫檔案、執行指令、抓取網頁、處理文件與資料——而不只是寫程式的工具，更不是活在別的軟體裡的附屬功能。",
+          "內建提示詞新增置頂的 `## Scope` 段，智慧體不再把自身能力範圍收窄到寫程式；`## Following the codebase` 只在任務**確實涉及程式碼庫**時適用。",
+          "`## Verification` 要求真驗證——跑一遍、開啟你寫的檔案、把結果讀回來——而不是把建置或測試當作唯一可接受的證明。",
+          "README 與中文文件統一使用 `QianNing Agent` 作為產品名；內建提示詞的段落清單也從六段更正為七段。",
+        ],
+      },
       {
         version: "0.16.4",
         date: "2026-10-05",

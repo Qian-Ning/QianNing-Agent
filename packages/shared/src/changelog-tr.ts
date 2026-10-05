@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
       {
+        version: "0.17.0",
+        date: "2026-10-06",
+        highlights: [
+          "Ürün, her dilde ve bölgede `QianNing Agent` adını taşır. `千凝`, takma adı `QianNing` olan geliştiricinin kendisidir; aynı zamanda adını koruyan iki özelliğin adıdır: masaüstü arkadaşı `千凝狐` / `QianNing Fox` ve varsayılan tema `千凝主题`.",
+          "Yerleşik istem artık aracıyı kendi bilgisayarınızda çalışan genel amaçlı bir aracı olarak tanıtıyor — dosya okuma ve yazma, komut çalıştırma, sayfa getirme, belge ve verilerle çalışma — kodlama aracısı olarak değil ve asla başka bir uygulamanın içinde yaşayan bir şey olarak değil.",
+          "Yerleşik istemin başına yeni bir `## Scope` bölümü eklendi; böylece aracı kapsamını programlamaya daraltmıyor. `## Following the codebase` yalnızca iş gerçekten bir kod tabanını kapsadığında geçerli.",
+          "`## Verification` gerçek olanı istiyor — çalıştır, yazdığını aç, sonucu geri oku — bir derlemeyi ya da testi kabul edilebilir tek kanıt saymak yerine.",
+          "README dosyaları ve Çince belgeler ürünü tutarlı biçimde `QianNing Agent` olarak adlandırıyor; yerleşik istemin bölüm listesi de altıdan yediye düzeltildi.",
+        ],
+      },
+      {
         version: "0.16.4",
         date: "2026-10-05",
         highlights: [

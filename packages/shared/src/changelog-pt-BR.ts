@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
       {
+        version: "0.17.0",
+        date: "2026-10-06",
+        highlights: [
+          "O produto é `QianNing Agent` em todos os idiomas e regiões. `千凝` é a desenvolvedora — a pessoa, cujo pseudônimo é `QianNing` — e também nomeia duas funções que mantêm os seus: o companheiro de desktop `千凝狐` / `QianNing Fox` e o tema padrão `千凝主题`.",
+          "O prompt integrado agora apresenta o agente como um agente de propósito geral que roda no seu próprio computador — ler e escrever arquivos, executar comandos, buscar páginas, trabalhar com documentos e dados — em vez de um agente de programação, e nunca como algo que vive dentro de outro aplicativo.",
+          "Uma nova seção `## Scope` abre o prompt integrado para que o agente pare de restringir seu alcance à programação, e `## Following the codebase` agora só se aplica quando o trabalho realmente envolve uma base de código.",
+          "`## Verification` pede a coisa real — executar, abrir o que você escreveu, ler o resultado de volta — em vez de tratar uma compilação ou um teste como a única prova aceitável.",
+          "Os READMEs e a documentação em chinês nomeiam o produto `QianNing Agent` de forma consistente, e a lista de seções do prompt integrado foi corrigida de seis para sete.",
+        ],
+      },
+      {
         version: "0.16.4",
         date: "2026-10-05",
         highlights: [
