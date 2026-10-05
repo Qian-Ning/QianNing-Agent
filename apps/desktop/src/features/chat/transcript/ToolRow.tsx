@@ -16,6 +16,7 @@ import { useOpenPreviewTarget } from "../../../hooks/use-preview-target";
 import { useChatFileMenu } from "../../../hooks/use-chat-file-menu";
 import { ContextMenu } from "../../../components/ContextMenu";
 import { useFollowScroll } from "../../../hooks/use-follow-scroll";
+import { useElapsedLabel } from "../../../hooks/use-elapsed-label";
 import { getToolPreviewTarget } from "../../../lib/chat-links";
 import { disclosureKey } from "./disclosure";
 import {
@@ -78,6 +79,7 @@ import {
 import {
   delegateAgentName,
   delegateModelId,
+  delegationModelId,
   delegateThinkingLevel,
 } from "./model";
 
@@ -197,6 +199,13 @@ export const ToolRow = memo(function ToolRow({
   // the head carries the two things the body no longer offers: a copy of the
   // command, and the outcome (D226).
   const runHead = action === "run" && variant !== "topology";
+  // A delegation card carries its own clock: the interval only exists while
+  // the call is in flight (useElapsedLabel), so settled rows cost nothing.
+  const elapsed = useElapsedLabel(
+    message.createdAt,
+    message.toolCompletedAt,
+    runHead && message.toolStatus === "running",
+  );
   const command = runHead
     ? getToolSummaryValue(message.toolName, message.toolArgs)
     : "";
@@ -215,7 +224,11 @@ export const ToolRow = memo(function ToolRow({
     action === "delegate" && !lifecycle
       ? delegateAgentName(message, delegate)
       : "";
-  const modelId = variant === "topology" ? delegateModelId(message) : "";
+  // The card needs the model as much as the topology node does: it is
+  // what explains how fast the delegate is working, and it is knowable
+  // before the call settles (delegationModelId).
+  const modelId =
+    variant === "topology" || runHead ? delegationModelId(message, delegate) : "";
   const thinkingLevel =
     variant === "topology" ? delegateThinkingLevel(message) : undefined;
   const thinkingLabel = thinkingLevel ?? "";
@@ -432,7 +445,12 @@ export const ToolRow = memo(function ToolRow({
           ) : null}
         </button>
       ) : (
-        <div className={`tool-row-head${runHead ? " is-run" : ""}`}>
+        <div
+          className={`tool-row-head${runHead ? " is-run" : ""}`}
+          {...(runHead && message.toolCallId
+            ? { "data-delegation-call": message.toolCallId }
+            : {})}
+        >
           <button
             ref={titleRef}
             className="tool-row-header"
@@ -468,6 +486,11 @@ export const ToolRow = memo(function ToolRow({
                 {agentName}
               </span>
             ) : null}
+            {runHead && modelLabel ? (
+              <span className="tool-row-agent" title={modelLabel}>
+                {modelLabel}
+              </span>
+            ) : null}
             {summary ? (
               <span
                 className={`tool-row-summary${previewTarget ? " linked" : ""}`}
@@ -498,6 +521,14 @@ export const ToolRow = memo(function ToolRow({
               </span>
             ) : null}
             <ToolChips chips={chips} />
+            {runHead && elapsed ? (
+              <span
+                className="tool-row-elapsed"
+                title={t("chat.subagentDuration", { duration: elapsed })}
+              >
+                {elapsed}
+              </span>
+            ) : null}
             {runHead && statusLabel ? (
               <span
                 className={`tool-row-state ${statusTone}`}
