@@ -29,6 +29,17 @@ export type ChangelogEntry = {
 };
 
 const enEntries: ChangelogEntry[] = [
+      {
+        version: "0.16.3",
+        date: "2026-10-05",
+        highlights: [
+          "Saved SSH destinations have a proper editor at last: the page scrolls again, the dialog is opaque, and the three ways in — the system ssh config, an identity file, or a stored password — sit side by side.",
+          "An identity file is chosen through a native dialog and the editor shows only its name: the stored path never appears on screen, and a value carrying key material is refused before it can be saved.",
+          "The connection defaults are prefilled with the host's own limits (a 60 000 ms timeout, 256 KiB of output, 64 KiB of stream), and an emptied field falls back to the default instead of failing the save.",
+          "A delegation now shows its face: the Task row ticks the elapsed time and names the model it is running on, and a strip above the composer lists every subagent still working — each row jumps to its card.",
+          "When the agent's turn ends while subagents are still working, their settled reports are delivered on their own and the agent resumes (resume-after-idle).",
+        ],
+      },
     {
       version: "0.16.2",
       date: "2026-10-05",
@@ -950,6 +961,17 @@ const enEntries: ChangelogEntry[] = [
 ];
 
 const zhCNEntries: ChangelogEntry[] = [
+      {
+        version: "0.16.3",
+        date: "2026-10-05",
+        highlights: [
+          "保存的 SSH 目的地终于有了像样的编辑器：页面恢复滚动、对话框不再透出底色，三种接入方式——系统 ssh 配置、私钥文件、存储的口令——并排可选。",
+          "私钥文件通过原生对话框选择，编辑器里只显示文件名：完整路径永不显示在界面上，带密钥内容的值在保存前就会被拒绝。",
+          "连接默认值已按宿主自身限额预填（超时 60000 ms、输出 256 KiB、流 64 KiB），清空的输入框回落默认值，保存不再因此失败。",
+          "委派露出真容：Task 行实时显示耗时并标注运行中的模型，输入框上方逐行列出仍在工作的子智能体——点任意一行跳到它的卡片。",
+          "父智能体的回合结束而子智能体仍在工作时，它们落地的报告会自动送达，父智能体随之自行恢复（resume-after-idle）。",
+        ],
+      },
     {
       version: "0.16.2",
       date: "2026-10-05",
@@ -1871,6 +1893,17 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+      {
+        version: "0.16.3",
+        date: "2026-10-05",
+        highlights: [
+          "已儲存的 SSH 目的地終於有了像樣的編輯器：頁面恢復捲動、對話框不再透出底色，三種接取方式——系統 ssh 組態、私鑰檔案、已儲存的口令——並排可選。",
+          "私鑰檔案透過原生對話框選取，編輯器裡只顯示檔名：完整路徑永不顯示在介面上，含金鑰內容的值在儲存前就會被拒絕。",
+          "連線預設值已依宿主自身上限預填（逾時 60000 ms、輸出 256 KiB、串流 64 KiB），清空的輸入框回到預設值，儲存不再因此失敗。",
+          "委派露出真容：Task 列即時顯示耗時並標示運行中的模型，輸入框上方逐列列出仍在工作的子智慧體——點任一行跳到它的卡片。",
+          "父智慧體的回合結束而子智慧體仍在工作時，它們落地的報告會自動送達，父智慧體隨之自行恢復（resume-after-idle）。",
+        ],
+      },
     {
       version: "0.16.2",
       date: "2026-10-05",

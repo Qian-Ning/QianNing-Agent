@@ -1,6 +1,17 @@
 import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
+      {
+        version: "0.16.3",
+        date: "2026-10-05",
+        highlights: [
+          "Los destinos SSH guardados por fin tienen un editor de verdad: la página vuelve a desplazarse, el diálogo es opaco y las tres vías de acceso — la configuración ssh del sistema, un archivo de identidad o una contraseña guardada — se ofrecen en paralelo.",
+          "Un archivo de identidad se elige con un diálogo nativo y el editor solo muestra su nombre: la ruta completa nunca aparece en pantalla, y un valor que trae material de clave se rechaza antes de poder guardarse.",
+          "Los valores por defecto de la conexión vienen prellenados con los límites del propio host (60 000 ms de tiempo de espera, 256 KiB de salida, 64 KiB de flujo), y un campo vaciado vuelve al valor por defecto en lugar de fallar al guardar.",
+          "La delegación muestra su cara: la fila Task marca el tiempo transcurrido y nombra el modelo en el que corre, y una franja sobre el compositor lista cada subagente que sigue trabajando — pinchar una fila salta a su tarjeta.",
+          "Cuando el turno del agente principal termina mientras los subagentes siguen trabajando, sus informes concluidos se entregan automáticamente y el agente reanuda (resume-after-idle).",
+        ],
+      },
   {
     version: "0.16.2",
     date: "2026-10-05",

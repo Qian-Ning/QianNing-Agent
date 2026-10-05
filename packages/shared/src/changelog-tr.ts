@@ -1,6 +1,17 @@
 import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
+      {
+        version: "0.16.3",
+        date: "2026-10-05",
+        highlights: [
+          "Kaydedilen SSH hedefleri artık gerçek bir düzenleyiciye sahip: sayfa yeniden kayıyor, iletişim kutusu opak ve üç erişim yolu — sistem ssh yapılandırması, kimlik dosyası veya kayıtlı parola — yan yana sunuluyor.",
+          "Kimlik dosyası yerel bir iletişim kutusuyla seçilir ve düzenleyici yalnızca adını gösterir: kayıtlı yol ekranda asla görünmez ve anahtar içeren bir değer kaydedilmeden önce reddedilir.",
+          "Bağlantı varsayılanları, ana bilgisayarın kendi sınırlarıyla önceden doldurulur (60.000 ms zaman aşımı, 256 KiB çıktı, 64 KiB akış); boşaltılan bir alan, kaydetmeyi başarısızlığa uğratmak yerine varsayılana döner.",
+          "Delegasyon yüzünü gösteriyor: Task satırı geçen süreyi işaretler ve üzerinde çalıştığı modeli adlandırır; bestecinin üzerindeki bir şerit hâlâ çalışan her alt ajanı listeler — bir satıra tıklamak kartına atlar.",
+          "Alt ajanlar hâlâ çalışırken üst ajanın turu sona erdiğinde, tamamlanan raporlar otomatik teslim edilir ve ajan devam eder (resume-after-idle).",
+        ],
+      },
   {
     version: "0.16.2",
     date: "2026-10-05",
