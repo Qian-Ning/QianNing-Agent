@@ -167,6 +167,9 @@ const zhNav: DefaultTheme.NavItem[] = [
 export default defineConfig({
   title: 'QianNing Agent',
   description: 'A local-first desktop workspace for AI agents',
+  // GitHub Pages serves a project site from `/<repo>/`, so the deploy workflow
+  // sets this. Local dev and preview keep the root.
+  base: process.env.VITEPRESS_BASE ?? '/',
   // Product shell is dark-base; lock docs to the same charcoal system.
   appearance: 'force-dark',
   cleanUrls: true,
