@@ -1,6 +1,6 @@
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, basename } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { RacpError } from "@pi-desktop/agent-host";
@@ -60,7 +60,7 @@ describe("pi-host operations over host-core", () => {
       browseRoot: root,
     });
     const listed = await operations.sessions.list();
-    expect(listed[0]).toMatchObject({ id: "s1", workspaceLabel: root.split("/").pop() });
+    expect(listed[0]).toMatchObject({ id: "s1", workspaceLabel: basename(root) });
     const created = await operations.sessions.create({ title: "T", projectId: "7", permissionMode: "auto" }, { subject: "d", roles: ["owner"] });
     expect(created.permissionMode).toBe("auto");
     expect(calls.find((call) => call.method === "session.create")?.params).toMatchObject({ projectPath: root });
@@ -77,6 +77,10 @@ describe("pi-host operations over host-core", () => {
     const { mkdir } = await import("node:fs/promises");
     await mkdir(join(root, "work", "app"), { recursive: true });
     await mkdir(join(root, ".hidden"), { recursive: true });
+    // A real directory that only shares a string prefix with the root.
+    const sibling = `${root}-sibling`;
+    await mkdir(sibling, { recursive: true });
+    dirs.push(sibling);
     const operations = createHostOperations({ getHost: () => fakeHost([], root), runtime: { compact: async () => ({ accepted: true }), isBusy: () => false }, browseRoot: root });
     const registered = await operations.projects.register(join(root, "work", "app"));
     expect(registered).toMatchObject({ id: "8", label: "app" });
@@ -89,6 +93,9 @@ describe("pi-host operations over host-core", () => {
     expect(nested.entries.map((entry) => entry.name)).toEqual(["app"]);
     expect(nested.parent).toBeDefined();
     await expect(operations.projects.browse("/")).rejects.toMatchObject({ code: "REMOTE_PATH_FORBIDDEN" });
+    // Containment compares path segments, not string prefixes: a directory that
+    // merely starts with the root's path is still outside the root.
+    await expect(operations.projects.browse(sibling)).rejects.toMatchObject({ code: "REMOTE_PATH_FORBIDDEN" });
   });
 
   it("serves workspace reads against the session root and refuses escapes", async () => {
