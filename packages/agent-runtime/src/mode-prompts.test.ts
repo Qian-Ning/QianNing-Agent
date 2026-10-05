@@ -1,9 +1,34 @@
 import { describe, expect, it } from "vitest";
 import {
   composeModeSystemPrompt,
+  DEFAULT_RUNTIME_SYSTEM_PROMPT,
   GOAL_MODE_SYSTEM_PROMPT,
   PLAN_MODE_SYSTEM_PROMPT,
+  PRODUCT_IDENTITY_SYSTEM_PROMPT,
 } from "./mode-prompts.js";
+
+describe("built-in runtime persona", () => {
+  it("states the official Chinese product name as a positive fact", () => {
+    expect(DEFAULT_RUNTIME_SYSTEM_PROMPT).toContain("QianNing Agent");
+    expect(DEFAULT_RUNTIME_SYSTEM_PROMPT).toContain("千凝");
+    expect(PRODUCT_IDENTITY_SYSTEM_PROMPT).toContain("千凝");
+    // State the right name; never seed the model with a wrong homophone.
+    for (const wrong of ["乾宁", "千宁"]) {
+      expect(DEFAULT_RUNTIME_SYSTEM_PROMPT).not.toContain(wrong);
+      expect(PRODUCT_IDENTITY_SYSTEM_PROMPT).not.toContain(wrong);
+    }
+  });
+
+  it("opens with the persona line a custom prompt replaces", () => {
+    // The per-conversation prompt swaps this first layer out; the wording is
+    // pinned so the swap stays detectable.
+    expect(
+      DEFAULT_RUNTIME_SYSTEM_PROMPT.startsWith(
+        "You are QianNing Agent, a coding agent.",
+      ),
+    ).toBe(true);
+  });
+});
 
 describe("mode-specific system prompts", () => {
   it("composes Plan instructions over the shared runtime prompt", () => {
