@@ -357,29 +357,39 @@ pub fn fingerprint_from_base64(blob: &str) -> Option<String> {
     Some(format!("SHA256:{}", B64.encode(digest)))
 }
 
-/// The first fingerprint in `ssh-keyscan` output.
+/// Every fingerprint in `ssh-keyscan` output, in the order it printed them.
 ///
-/// Each line is `host keytype base64key`. A comment line, a blank line, or a
-/// line from a target that did not answer is skipped rather than turned into a
+/// Each line is `host keytype base64key`. A comment line, a blank line, or a line
+/// from a target that did not answer is skipped rather than turned into a
 /// fingerprint of nothing.
-pub fn parse_keyscan_fingerprint(stdout: &str) -> Option<String> {
+///
+/// The whole set is kept, not just the first entry. A host offers one key per
+/// algorithm, and which of them a connection negotiates is not ours to choose:
+/// the fingerprint a person accepts is the one `ssh` announced while refusing,
+/// while a scan reports its own order. A pin compared against a single entry
+/// therefore rejects a host whose key never changed.
+pub fn parse_keyscan_fingerprints(stdout: &str) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
     for line in stdout.lines() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        let mut fields = line.split_whitespace();
-        let _host = fields.next()?;
-        let key_type = fields.next()?;
-        let blob = fields.next()?;
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        if fields.len() < 3 {
+            continue;
+        }
+        let (key_type, blob) = (fields[1], fields[2]);
         if key_type.is_empty() || blob.is_empty() {
             continue;
         }
         if let Some(fingerprint) = fingerprint_from_base64(blob) {
-            return Some(fingerprint);
+            if !found.contains(&fingerprint) {
+                found.push(fingerprint);
+            }
         }
     }
-    None
+    found
 }
 
 /// Turn a finished `ssh` run into the failure it represents.
@@ -505,7 +515,7 @@ fn which(name: &str) -> Option<PathBuf> {
 }
 
 /// One finished child.
-struct Captured {
+pub(crate) struct Captured {
     exit_code: i32,
     stdout: String,
     stderr: String,
@@ -643,18 +653,6 @@ pub fn askpass_program() -> String {
 
 /// Read the target's host key without trusting it.
 ///
-/// Returns the fingerprint, or `None` when `ssh-keyscan` is unavailable or the
-/// target did not answer — which is a probe that can still succeed, just
-/// without a fingerprint to report.
-pub async fn scan_host_key(target: &Target) -> Option<String> {
-    let program = find_ssh_keyscan()?;
-    let args = keyscan_args(target).ok()?;
-    let captured = run_captured(&program, &args, KEYSCAN_TIMEOUT, None)
-        .await
-        .ok()?;
-    parse_keyscan_fingerprint(&captured.stdout)
-}
-
 /// Resolve the credential value for a profile.
 ///
 /// The only place in this layer a secret is read. It is returned to the caller
@@ -678,18 +676,31 @@ pub async fn probe(
     let args = probe_args(profile)?;
     let started = Instant::now();
 
-    // The pinned policy is enforced here, before a connection: the recorded
-    // fingerprint and the observed one must agree, or nothing is dialled.
-    let observed = scan_host_key(&profile.target).await;
-    if profile.host_key_policy == HostKeyPolicy::Pinned {
-        match (&profile.host_key_fingerprint, &observed) {
-            (Some(recorded), Some(observed)) if recorded != observed => {
+    // The pin is the one decision that has to be made before a connection, so its
+    // scan is awaited. Every other policy connects first and decides afterwards
+    // whether the scan's answer was needed at all.
+    let pinned = profile.host_key_policy == HostKeyPolicy::Pinned;
+    let target = profile.target.clone();
+    let scanning = if pinned {
+        None
+    } else {
+        Some(tokio::spawn(async move { scan_host_keys(&target).await }))
+    };
+    let pinned_scan = if pinned {
+        scan_host_keys(&profile.target).await
+    } else {
+        Vec::new()
+    };
+
+    if pinned {
+        match pin_outcome(profile.host_key_fingerprint.as_deref(), &pinned_scan) {
+            PinOutcome::Changed { fingerprint } => {
                 return Err(ConnectionError::HostKey {
-                    fingerprint: observed.clone(),
+                    fingerprint,
                     changed: true,
                 });
             }
-            (Some(_), None) => {
+            PinOutcome::Unreadable => {
                 // The key could not be read, so the pin cannot be checked. The
                 // failure mode of an unverifiable pin must be closed.
                 return Err(ConnectionError::Unsupported(
@@ -697,12 +708,37 @@ pub async fn probe(
                         .into(),
                 ));
             }
-            _ => {}
+            PinOutcome::Holds | PinOutcome::NotEnforced => {}
         }
     }
 
     let secret = resolve_secret(secrets, profile);
-    let captured = run_captured(&program, &args, timeout, secret.as_deref()).await?;
+    let captured = run_captured(&program, &args, timeout, secret.as_deref()).await;
+
+    // A scan is waited for only where its answer is used. A refusal names the
+    // fingerprint a person has to accept, and a report with no recorded
+    // fingerprint has no other source for the one it publishes; everywhere else
+    // the scan is taken if it happens to have finished and abandoned if it has
+    // not, because on a build that cannot read the key at all that wait is seconds
+    // of nothing, on every probe.
+    //
+    // Collected before the capture is inspected, so the scan is either taken or
+    // abandoned on every path out of here.
+    let waited = match &captured {
+        Ok(captured) => {
+            captured.timed_out || captured.exit_code != 0 || profile.host_key_fingerprint.is_none()
+        }
+        // A spawn that produced no capture at all is a failure to report.
+        Err(_) => true,
+    };
+    let observed = if pinned {
+        pinned_scan
+    } else if waited {
+        await_scan(scanning).await
+    } else {
+        collect_scan(scanning).await
+    };
+    let captured = captured?;
 
     if captured.timed_out {
         return Err(ConnectionError::Timeout);
@@ -711,7 +747,7 @@ pub async fn probe(
         return Err(refine(
             profile,
             classify_failure(&captured.stderr),
-            observed,
+            observed.first().cloned(),
         ));
     }
 
@@ -723,7 +759,10 @@ pub async fn probe(
         .map(str::to_string);
 
     Ok(ProbeReport {
-        fingerprint: observed.or_else(|| profile.host_key_fingerprint.clone()),
+        fingerprint: observed
+            .first()
+            .cloned()
+            .or_else(|| profile.host_key_fingerprint.clone()),
         shell,
         // `ssh -O check` is the only honest answer, and asking it would cost a
         // second connection; the field therefore reports what was *requested*
@@ -754,11 +793,11 @@ pub async fn exec(
     // status and is the answer, not an error — this is the line that keeps a
     // failing build from being reported as a broken connection.
     if captured.exit_code == 255 {
-        let observed = scan_host_key(&profile.target).await;
+        let observed = scan_host_keys(&profile.target).await;
         return Err(refine(
             profile,
             classify_failure(&captured.stderr),
-            observed,
+            observed.first().cloned(),
         ));
     }
 
@@ -796,6 +835,9 @@ fn refine(
         other => other,
     }
 }
+
+mod hostkey;
+pub use hostkey::*;
 
 #[cfg(test)]
 mod tests;
