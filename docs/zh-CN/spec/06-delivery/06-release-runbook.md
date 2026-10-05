@@ -180,7 +180,7 @@ scripts/release-macos.sh
 
 ### 4.3 GitHub 标签和手动工作流程
 
-**千凝分支的发布通道。** 本分支的 `release.yml` 构建 Windows x64 安装包（`dist:win`：NSIS 安装程序、便携版、win zip）、Linux x64 桌面包（AppImage/deb/rpm 以及系统 Electron 的 ASAR 导出）、两个 macOS 架构（DMG + ZIP）与 Linux `pi-host` 远程主机包，然后自行创建 GitHub Release。发版只需两条命令：在 `main` 上运行 `node scripts/release.mjs <version> --tag`，然后 `git push origin main v<version>`。推送标签即是全部触发条件——不需要手动上传产物。
+**QianNing Agent 分支的发布通道。** 本分支的 `release.yml` 构建 Windows x64 安装包（`dist:win`：NSIS 安装程序、便携版、win zip）、Linux x64 桌面包（AppImage/deb/rpm 以及系统 Electron 的 ASAR 导出）、两个 macOS 架构（DMG + ZIP）与 Linux `pi-host` 远程主机包，然后自行创建 GitHub Release。发版只需两条命令：在 `main` 上运行 `node scripts/release.mjs <version> --tag`，然后 `git push origin main v<version>`。推送标签即是全部触发条件——不需要手动上传产物。
 
 **macOS 签名是探测出来的，不是假定存在的。** 构建矩阵之前有一个 `macos-signing` 作业读取运行器的签名配置。配置齐全时，矩阵会把它们带进打包步骤，流程与上游发布完全一致——Developer ID 签名、`notarytool` 公证、装订、Gatekeeper 校验。一条都没有时，macOS 通道改为产出 ad-hoc 签名的产物并给出警告，因此没有 Apple 开发者账号的仓库依然能发版。**部分**配置会让整个运行失败：发出比仓库声明更弱的产物，比不发更糟。各字段及获取方式见下文「macOS 签名配置」。
 
@@ -444,9 +444,9 @@ Electron 目标布局。
 - **旧字体格式被剔除。** `pi-drop-legacy-font-fallbacks` 插件会在 Vite 把
   `woff` 与 `truetype` 的 `src` 条目注册为资源之前移除它们。随包的 Chromium
   普遍支持 `woff2`，这些字形只会被产出而永远不会被使用。
-- **品牌标识按渲染器尺寸提供。** `src/assets/brand/logo-{light,dark}.png` 是
-  渲染器资源；`build/icon_1024.png` 与 `build/logo_dark.png` 是
-  electron-builder 的安装包图标，渲染器不得引用。
+- **品牌标识按渲染器尺寸提供。** `src/assets/brand/logo.png` 是唯一的透明
+  渲染器标识：它不随主题变化，渲染器也从不引用构建母版。
+  `build/icon_1024.png` 是安装包图标母版，渲染器不得引用。
 
 应用这三项控制后于 2026-08-26 测得的渲染器产物，对照同一棵树在 `v0.10.8`
 的状态：

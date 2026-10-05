@@ -682,7 +682,7 @@ export const ptBR = {
     saveInvalid: "Este skin tem valores inválidos",
   },
   pet: {
-    ariaLabel: "Mascote de desktop QianNing",
+    ariaLabel: "Mascote de desktop QianNing Fox",
     say: {
       idle: "Estou aqui~",
       thinking: "Deixa eu pensar…",

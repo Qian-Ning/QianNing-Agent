@@ -690,7 +690,7 @@ export const en = {
     saveInvalid: "This skin has invalid values",
   },
   pet: {
-    ariaLabel: "QianNing desktop pet",
+    ariaLabel: "QianNing Fox desktop pet",
     say: {
       idle: "I'm right here~",
       thinking: "Let me think…",

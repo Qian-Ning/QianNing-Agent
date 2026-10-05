@@ -688,7 +688,7 @@ export const zhCN = {
     saveInvalid: "该皮肤的取值无效",
   },
   pet: {
-    ariaLabel: "千凝桌面宠物",
+    ariaLabel: "千凝狐桌面宠物",
     say: {
       idle: "我在这儿～",
       thinking: "让我想想…",

@@ -1,6 +1,18 @@
 # QianNing Agent Brand Contract
 
-QianNing Agent is the shipped product identity. Its Chinese name is 千凝.
+QianNing Agent is the shipped product identity — its name in every language and
+locale. The product is never named 千凝.
+
+千凝 is the developer: the person who builds and maintains the product, whose
+pen name is QianNing. Two features carry that name — the desktop companion and
+the default theme — so 千凝 does appear in the product, as a feature name. That
+is the whole of it: 千凝 is not the product, not the software, and not the
+agent's own name.
+
+QianNing Agent is developed and maintained by QianNing, and by no one else. That
+is the only developer, vendor, and owning organization the product recognizes:
+neither the agent in chat nor any bundled copy may name another company,
+upstream project, or parent organization as its maker.
 
 The following operating-system and user-visible surfaces use `QianNing Agent`:
 

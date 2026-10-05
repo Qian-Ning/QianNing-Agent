@@ -692,7 +692,7 @@ export const ko = {
     saveInvalid: "이 스킨에 잘못된 값이 있습니다",
   },
   pet: {
-    ariaLabel: "QianNing 데스크톱 펫",
+    ariaLabel: "QianNing Fox 데스크톱 펫",
     say: {
       idle: "여기 있어요~",
       thinking: "생각 좀 할게요…",

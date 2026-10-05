@@ -5081,10 +5081,9 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   Windows/Linux render the canonical 20px logo beside the 15px shell name; the
   complete brand has a localized Home accessible name, visible hover/focus
   feedback, and returns the main pane to chat without clearing the active
-  conversation or workspace. The logo itself is theme-aware: light mode shows
-  `src/assets/brand/logo-light.png`,
-  dark mode shows `src/assets/brand/logo-dark.png`, swapping live with
-  `data-theme` (no reload).
+  conversation or workspace. The mark carries no theme variant: one transparent
+  `src/assets/brand/logo.png` serves every theme, so nothing swaps when
+  `data-theme` changes.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/07-ui-design-system.md`,
   `04-ux/08-component-spec.md`
 - **Acceptance**: Quality
@@ -5467,14 +5466,12 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   4. Re-inspect the same surfaces without reloading.
   5. Switch back to light and re-inspect.
 - **Expected**:
-  - Light and dark mode render `src/assets/brand/logo-light.png` /
-    `src/assets/brand/logo-dark.png`
-    live in the sidebar and startup splash without a window reload.
-  - The empty-home hero renders the 100px eight-frame mascot GIF for the
-    active theme (`home-mascot-light.gif` / `home-mascot-dark.gif`) with a
-    short idle hold and a looping wave. Switching theme swaps the pair live
-    without a window reload. Pointer hover does not change the cadence;
-    under reduced motion the matching still first frame remains visible.
+  - Light and dark mode render the same single transparent mark
+    (`src/assets/brand/logo.png`) in the sidebar and startup splash, with no
+    source swap on a theme change and no window reload.
+  - The empty-home hero renders the 100px still mascot
+    (`src/assets/home-mascot.png`) in both themes: there is no mascot GIF, no
+    per-theme pair, and no hover- or reduced-motion-driven substitution.
   - Sizes stay stable across theme changes (sidebar 20px, hero 100px, splash
     64px), and the marks stay decorative with no click, keyboard, or focus
     behavior.
@@ -9880,7 +9877,7 @@ This test plan spec is accepted when:
   minimize/restore; a taskbar click on a covered window brings it to the front.
   Close to tray is the only Windows/Linux close path that hides the window,
   while Quit exits. On macOS the menu bar icon is a readable transparent
-  monochrome PI mark without the rounded application tile, and native minimize
+  monochrome mark without the rounded application tile, and native minimize
   remains tray-resident. Show/click/double-click/app activation restores the
   existing window; the localized menu contains Show QianNing Agent and Quit
   QianNing Agent. Quit runs the normal shutdown sequence and leaves no orphan host,

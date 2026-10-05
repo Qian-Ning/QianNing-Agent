@@ -59,7 +59,7 @@ def main() -> None:
     # macOS menu bar icons are template images: the opaque pixels are tinted
     # by the system. The application icon has an opaque light tile, so using
     # it directly would turn that tile into the tray silhouette. Derive the
-    # dark PI mark as a transparent, monochrome image instead.
+    # mark's own dark strokes as a transparent, monochrome image instead.
     tray_icon = master.convert("L")
     tray_alpha = ImageChops.multiply(
         tray_icon.point(
@@ -68,7 +68,7 @@ def main() -> None:
         master.getchannel("A"),
     )
     # The source artwork also contains a soft outline around its light app
-    # tile. Keep the known PI mark area so that outline cannot leak into the
+    # tile. Keep the known mark area so that outline cannot leak into the
     # menu bar template silhouette.
     mark_clip = Image.new("L", master.size, 0)
     mark_draw = ImageDraw.Draw(mark_clip)
@@ -79,7 +79,7 @@ def main() -> None:
     tray_icon_mac.putalpha(tray_alpha)
     mark_bounds = tray_alpha.getbbox()
     if mark_bounds is None:
-        raise ValueError("canonical logo does not contain a dark PI mark")
+        raise ValueError("canonical logo does not contain a dark mark")
     mark = tray_icon_mac.crop(mark_bounds).resize((768, 768), Image.LANCZOS)
     tray_icon_mac = Image.new("RGBA", master.size, (0, 0, 0, 0))
     tray_icon_mac.paste(mark, (128, 128), mark)

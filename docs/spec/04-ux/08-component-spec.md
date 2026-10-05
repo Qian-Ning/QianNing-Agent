@@ -187,7 +187,7 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
   to the front. Tray activation restores and focuses tray-hidden windows; Quit
   remains explicit and, except for automated probes, confirms with a native
   warning before shutdown (D363). On macOS the tray uses a transparent monochrome template
-  of the PI mark rather than the rounded application tile, so it remains
+  of the mark rather than the rounded application tile, so it remains
   readable in the menu bar.
 - Windows/Linux do not render File/Edit/View/Window/Help in the titlebar and
   do not reserve left-side space for an application menubar. F10 and
@@ -666,20 +666,15 @@ visually distinct from list content.
   conversation topbar toggle, and the composer's add/enhance/undo controls all
   render the same 28px square target as the topbar and work-panel actions
   instead of a wider-than-tall pill.
-- `BrandLogo` imports the renderer-sized marks derived from the canonical
-  masters through Vite: `src/assets/brand/logo-light.png` for light mode and
-  `src/assets/brand/logo-dark.png` for dark mode (192x192, covering the 64 px
-  splash at 3x; ADR 0125). The component subscribes to
-  `document.documentElement[data-theme]` via a `MutationObserver` and swaps the
-  source at runtime for the sidebar and startup splash without a reload. The
-  empty-home hero uses `HomeMascotLogo` as a 100px eight-frame GIF. Light and
-  dark themes each have a dedicated GIF plus still PNG. CSS follows
-  `document.documentElement[data-theme]` without a reload; anything other than
-  `light` uses the dark artwork. The mascot loops a processed wave with a
-  short idle hold on the first frame. Playback is native to the GIF and does
-  not change on pointer hover; reduced motion swaps to the matching still
-  first-frame PNG. The expanded/collapsed sidebar remains 20px/18px and the
-  startup splash 64px.
+- `BrandLogo` imports one renderer-sized mark through Vite,
+  `src/assets/brand/logo.png`: a single transparent fox cutout with no per-theme
+  plate (ADR 0125). Because one file serves every theme, appearance, and skin,
+  the component observes nothing at runtime — there is no `data-theme`
+  subscription, no `MutationObserver`, and no source swap. The empty-home hero
+  uses `HomeMascotLogo`, which likewise imports a single transparent cutout
+  (`src/assets/home-mascot.png`) rendered as a still 100px image: there is no
+  mascot GIF, no per-theme pair, and no reduced-motion substitute. The
+  expanded/collapsed sidebar remains 20px/18px and the startup splash 64px.
   Home and thread-docked composer prompt rows do not render a leading brand
   icon.
 - Project and Temporary session creation controls render the dedicated

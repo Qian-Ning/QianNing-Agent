@@ -3112,9 +3112,8 @@ QianNing Agent 图标；两个表面都不会暴露库存 Electron 名称或图�
 完整的品牌有一个本地化的主页可访问名称，可见 hover/focus
   反馈，并返回主窗格进行聊天，而不清除活动的
   对话或工作空间。的
-  徽标本身具有主题感知：浅色模式显示 `src/assets/brand/logo-light.png`，
-  深色模式显示 `src/assets/brand/logo-dark.png`，与 `data-theme` 实时交换
-  （无需重新加载）。
+  该标识不带主题变体：唯一的透明 `src/assets/brand/logo.png` 服务于所有主题，
+  `data-theme` 变化时不发生任何资源切换。
 - **链接规格**：`04-ux/01-ui-ia.md`、`04-ux/07-ui-design-system.md`、
   `04-ux/08-component-spec.md`
 - **验收**：质量
@@ -3315,13 +3314,11 @@ IPC 请求无法关闭。
   4. 重新检查相同的表面，无需重新加载。
   5. 切换回光源并重新检查。
 - **预期**：
-  - 明暗模式渲染 `src/assets/brand/logo-light.png` /
-    `src/assets/brand/logo-dark.png`
-    位于侧边栏和启动画面中，无需重新加载窗口。
-- 空首页英雄按当前主题渲染 100 像素的八帧吉祥物 GIF
-    （`home-mascot-light.gif` / `home-mascot-dark.gif`），首帧短暂停留后
-    循环挥手。切换主题时即时更换资源，无需重新加载窗口。指针悬停
-    不改变节奏；减少运动时对应静止首帧仍然可见。
+  - 明暗模式在侧边栏与启动画面中渲染同一张透明标识
+    （`src/assets/brand/logo.png`），主题切换时不更换资源，也无需重新加载窗口。
+  - 空状态主屏在两种主题下都渲染 100 像素静态吉祥物
+    （`src/assets/home-mascot.png`）：没有 GIF、没有明暗成对资源，
+    也没有悬停或减少运动驱动的替换。
   - 尺寸在主题变化时保持稳定（侧边栏 20 像素、英雄 100 像素、启动栏
     64px），标记保持装饰性，无需点击、键盘或焦点
     行为。

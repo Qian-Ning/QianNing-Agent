@@ -688,7 +688,7 @@ export const zhTW = {
     saveInvalid: "該皮膚的數值無效",
   },
   pet: {
-    ariaLabel: "千凝桌面寵物",
+    ariaLabel: "千凝狐桌面寵物",
     say: {
       idle: "我在這兒～",
       thinking: "讓我想想…",

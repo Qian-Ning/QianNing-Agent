@@ -1,6 +1,6 @@
 ---
 title: 安装与升级
-description: 在 Windows、macOS 或 Linux 上选择、安装、升级和移除正确的千凝安装包。
+description: 在 Windows、macOS 或 Linux 上选择、安装、升级和移除正确的 QianNing Agent 安装包。
 ---
 
 # 安装与升级
@@ -18,7 +18,7 @@ description: 在 Windows、macOS 或 Linux 上选择、安装、升级和移除�
 | Debian / Ubuntu x64 | `qianning-agent_<version>_amd64.deb` | 提醒新版本并打开下载页 |
 | Fedora / RPM x64 | `qianning-agent-<version>-x86_64.rpm` | 提醒新版本并打开下载页 |
 
-千凝发布原生 macOS arm64 与 x64、Windows x64 和 Linux x64 安装包。Linux 正式版以 glibc 2.35 及以上为目标，包括 Ubuntu 22.04、Debian 12 与 Fedora 36 及以上版本。
+QianNing Agent 发布原生 macOS arm64 与 x64、Windows x64 和 Linux x64 安装包。Linux 正式版以 glibc 2.35 及以上为目标，包括 Ubuntu 22.04、Debian 12 与 Fedora 36 及以上版本。
 
 ## Windows
 
@@ -62,7 +62,7 @@ Linux 包安装的可执行文件名是 `qianning-agent`。
 
 ## 第一次启动
 
-千凝会启动名为 `QianNing-Agent-Host-Core` 的 Rust 宿主进程，以及打包在应用内的 Node Agent Runtime。如果启动页报告宿主或运行时故障：
+QianNing Agent 会启动名为 `QianNing-Agent-Host-Core` 的 Rust 宿主进程，以及打包在应用内的 Node Agent Runtime。如果启动页报告宿主或运行时故障：
 
 1. 先完整重启应用一次；
 2. 打开错误页提供的日志位置；

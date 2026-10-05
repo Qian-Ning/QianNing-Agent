@@ -692,7 +692,7 @@ export const tr = {
     saveInvalid: "Bu skinde geçersiz değerler var",
   },
   pet: {
-    ariaLabel: "QianNing masaüstü dostu",
+    ariaLabel: "QianNing Fox masaüstü dostu",
     say: {
       idle: "Buradayım~",
       thinking: "Bir düşüneyim…",

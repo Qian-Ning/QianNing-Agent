@@ -94,9 +94,9 @@ tag lane still publishes, with ad-hoc macOS artifacts (§4.3, §4.6).
   independently of Chromium locales.
 - App icons `build/icon.icns` and `build/icon.ico` (derived from canonical
   `build/icon_1024.png` by `scripts/make-icon.py`).
-- macOS menu bar template `build/tray-icon-mac.png`, derived from the dark PI
-  mark with a transparent background; Windows/Linux use the product PNG tray
-  resource.
+- macOS menu bar template `build/tray-icon-mac.png`, derived from the mark's
+  dark strokes on a transparent background; Windows/Linux use the product PNG
+  tray resource.
 
 ## 4. Release steps
 
@@ -610,9 +610,10 @@ publication:
   plugin removes `woff` and `truetype` `src` entries before Vite registers
   them as assets. The bundled Chromium supports `woff2` universally, so those
   faces would be emitted and never served.
-- **Brand marks are renderer-sized.** `src/assets/brand/logo-{light,dark}.png`
-  are the renderer assets. `build/icon_1024.png` and `build/logo_dark.png` are
-  electron-builder installer icons and must not be imported by the renderer.
+- **Brand marks are renderer-sized.** `src/assets/brand/logo.png` is the single
+  transparent renderer mark: it is not theme-dependent, and the renderer never
+  imports a build master. `build/icon_1024.png` is the installer-icon master
+  and must not be imported by the renderer.
 
 Renderer output measured on 2026-08-26 after applying these three controls,
 against the same tree at `v0.10.8`:
