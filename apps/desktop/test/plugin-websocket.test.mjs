@@ -301,10 +301,19 @@ test("a timed-out connect refuses and leaves nothing behind", async () => {
     connectTimeoutMs: 20,
   });
 
-  await assert.rejects(
-    registry.connect({ pluginId: PLUGIN_ID, url: "wss://voice.example.com/live" }),
-    (error) => error.code === "TIMEOUT",
-  );
+  // The connect timeout is deliberately unref'd (a pending connect must not
+  // keep the app alive), so with no other handle this process drains before the
+  // timer fires and the runner cancels every test after this one. Hold the loop
+  // for the wait being asserted.
+  const keepAlive = setTimeout(() => {}, 200);
+  try {
+    await assert.rejects(
+      registry.connect({ pluginId: PLUGIN_ID, url: "wss://voice.example.com/live" }),
+      (error) => error.code === "TIMEOUT",
+    );
+  } finally {
+    clearTimeout(keepAlive);
+  }
   assert.deepEqual(registry.list(PLUGIN_ID), []);
   assert.deepEqual(transport.calls.terminates, ["wss://voice.example.com/live"]);
 });
