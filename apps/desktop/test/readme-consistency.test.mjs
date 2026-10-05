@@ -136,12 +136,22 @@ test("every relative link and image in the READMEs resolves", () => {
 });
 
 test("the table of contents matches the headings it points at", () => {
+  // GitHub's own heading-anchor algorithm, established by rendering a probe
+  // document through GitHub rather than from memory: lowercase, drop the
+  // punctuation listed here, drop emoji, then turn EVERY remaining space into
+  // a hyphen -- runs are not collapsed and the ends are not trimmed. That is
+  // why `1. ✨ 这是什么` anchors as `1--这是什么` and `✨ 1. 这是什么` as
+  // `-1-这是什么`. The previous version left emoji inside the anchor, so it
+  // could not describe an icon in a heading.
   const slug = (heading) =>
     heading
-      .trim()
       .toLowerCase()
       .replace(/[.!?:,、。：]/g, "")
-      .replace(/\s+/g, "-");
+      .replace(
+        /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}\u{2B00}-\u{2BFF}]/gu,
+        "",
+      )
+      .replace(/\s/g, "-");
 
   for (const file of READMES) {
     const text = read(file);
