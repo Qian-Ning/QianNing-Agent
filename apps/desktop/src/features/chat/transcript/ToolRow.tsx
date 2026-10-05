@@ -16,6 +16,7 @@ import { useOpenPreviewTarget } from "../../../hooks/use-preview-target";
 import { useChatFileMenu } from "../../../hooks/use-chat-file-menu";
 import { ContextMenu } from "../../../components/ContextMenu";
 import { useFollowScroll } from "../../../hooks/use-follow-scroll";
+import { useElapsedLabel } from "../../../hooks/use-elapsed-label";
 import { getToolPreviewTarget } from "../../../lib/chat-links";
 import { disclosureKey } from "./disclosure";
 import {
@@ -197,6 +198,13 @@ export const ToolRow = memo(function ToolRow({
   // the head carries the two things the body no longer offers: a copy of the
   // command, and the outcome (D226).
   const runHead = action === "run" && variant !== "topology";
+  // A delegation card carries its own clock: the interval only exists while
+  // the call is in flight (useElapsedLabel), so settled rows cost nothing.
+  const elapsed = useElapsedLabel(
+    message.createdAt,
+    message.toolCompletedAt,
+    runHead && message.toolStatus === "running",
+  );
   const command = runHead
     ? getToolSummaryValue(message.toolName, message.toolArgs)
     : "";
@@ -432,7 +440,12 @@ export const ToolRow = memo(function ToolRow({
           ) : null}
         </button>
       ) : (
-        <div className={`tool-row-head${runHead ? " is-run" : ""}`}>
+        <div
+          className={`tool-row-head${runHead ? " is-run" : ""}`}
+          {...(runHead && message.toolCallId
+            ? { "data-delegation-call": message.toolCallId }
+            : {})}
+        >
           <button
             ref={titleRef}
             className="tool-row-header"
@@ -498,6 +511,14 @@ export const ToolRow = memo(function ToolRow({
               </span>
             ) : null}
             <ToolChips chips={chips} />
+            {runHead && elapsed ? (
+              <span
+                className="tool-row-elapsed"
+                title={t("chat.subagentDuration", { duration: elapsed })}
+              >
+                {elapsed}
+              </span>
+            ) : null}
             {runHead && statusLabel ? (
               <span
                 className={`tool-row-state ${statusTone}`}
