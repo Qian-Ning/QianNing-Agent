@@ -13,6 +13,10 @@ Windows 优先 · 数据留在本机 · 模型自选 · 插件可扩展 · 语�
 [![Release](https://img.shields.io/github/v/release/Qian-Ning/QianNing-Agent?label=release)](https://github.com/Qian-Ning/QianNing-Agent/releases)
 [![CI](https://github.com/Qian-Ning/QianNing-Agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Qian-Ning/QianNing-Agent/actions)
 [![License](https://img.shields.io/badge/license-LGPL--3.0-blue.svg)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/Qian-Ning/QianNing-Agent?label=star)](https://github.com/Qian-Ning/QianNing-Agent/stargazers)
+[![Platform](https://img.shields.io/badge/platform-Windows-1f6feb)](https://github.com/Qian-Ning/QianNing-Agent/releases)
+[![Electron](https://img.shields.io/badge/Electron-43-47848f)](https://github.com/Qian-Ning/QianNing-Agent)
+[![Sponsor](https://img.shields.io/badge/sponsor-Ko--fi-ff5e5b)](https://ko-fi.com/qianning)
 
 [下载安装包](https://github.com/Qian-Ning/QianNing-Agent/releases) ·
 [在线文档](https://qian-ning.github.io/QianNing-Agent/) ·
@@ -24,6 +28,17 @@ Windows 优先 · 数据留在本机 · 模型自选 · 插件可扩展 · 语�
 </div>
 
 > 当前发布线：`0.16.x`（最新 `0.16.3`）。
+
+![千凝工作台](docs/public/readme/hero.zh.webp)
+
+## 核心亮点
+
+- **独立运行** —— 不是编辑器插件，也不需要宿主 IDE：项目、会话、凭据、工具执行和审批策略都由应用自己持有，关掉再打开，工作现场还在。
+- **面向长期工作** —— 项目是持久的、会话是持久的；可以搜、可以导、可以回看任意历史分支。
+- **能力受控** —— 模型决定「想做什么」，宿主决定「能不能做」；文件写入、命令执行、越出工作区的访问都过策略判定。
+- **模型可换** —— OpenAI、Anthropic、兼容网关、自建服务、本地模型走同一套会话与工作流。
+- **可扩展** —— 插件、技能与 MCP 都有稳定契约，权限逐项授予。
+- **文档完备** —— 规格、决策记录与操作指南随仓库发布：534 页文档，规格中英成对。
 
 ## 快速开始
 
@@ -417,6 +432,37 @@ scripts/                 构建、发布、校验与 E2E 脚本
 界面已支持 9 种语言：`de` `en` `es` `fr` `ko` `pt-BR` `tr` `zh-CN` `zh-TW`；英文是产品的源语言。
 
 **内部标识刻意保留。** 你会在代码里看到 `@pi-desktop/*` 包名、`pi-desktop/` IPC 通道、`PI_DESKTOP_*` 环境变量和 `pi-desktop-host-core` 这个 Cargo 产物名。它们是**兼容契约**，不是对外品牌：改名会破坏已有的数据、插件、自动化与构建流程。品牌与契约的边界在[品牌契约](docs/spec/01-qianning-brand.md)里写得很清楚。
+
+---
+
+## 社区交流
+
+千凝是一个人做的，反馈和讨论都靠这两个群。
+
+| 渠道 | 入口 |
+|---|---|
+| **QQ 交流群** | `1126120399` |
+| **微信群** | 扫下方二维码（群二维码 7 天有效，过期请加作者微信） |
+| **作者微信** | `qianning-666`（加好友请备注「千凝」） |
+
+<p align="center">
+  <img src="docs/image/community/wechat-group.png" alt="QianNing Agent 微信群二维码" width="260" />
+</p>
+
+---
+
+## 赞助
+
+时间、精力和服务器都是作者自己出的。如果它帮到了你，欢迎请作者喝杯咖啡：
+
+- **Ko-fi**：<https://ko-fi.com/qianning>
+- **微信赞赏码**：扫码即可
+
+<p align="center">
+  <img src="docs/image/community/wechat-sponsor.png" alt="千凝的微信赞赏码" width="260" />
+</p>
+
+赞助不附带任何特权，也不影响功能取舍——所有功能对所有人一视同仁。
 
 ---
 
