@@ -15,6 +15,7 @@ Windows 优先 · 数据留在本机 · 模型自选 · 插件可扩展 · 语�
 [![License](https://img.shields.io/badge/license-LGPL--3.0-blue.svg)](LICENSE)
 
 [下载安装包](https://github.com/Qian-Ning/QianNing-Agent/releases) ·
+[在线文档](https://qian-ning.github.io/QianNing-Agent/) ·
 [项目文档](docs/README.md) ·
 [插件开发](docs/plugin-development.md) ·
 [隐私政策](docs/privacy-policy.md) ·
@@ -23,6 +24,15 @@ Windows 优先 · 数据留在本机 · 模型自选 · 插件可扩展 · 语�
 </div>
 
 > 当前发布线：`0.16.x`（最新 `0.16.3`）。
+
+## 快速开始
+
+1. **装** — 到[发布页](https://github.com/Qian-Ning/QianNing-Agent/releases)取 Windows 安装包，或用便携版。
+2. **接模型** — 首次启动在设置里填入服务商密钥，或把基址指向本地服务；模型随时可换，会话不受影响。
+3. **开项目** — 选一个工作目录作为项目，在里面开会话；工具调用的根目录就是它。
+4. **用起来** — 需要扩展时再看插件市场、技能与 MCP。
+
+完整文档在文档站 <https://qian-ning.github.io/QianNing-Agent/>；本仓库的 `docs/` 是它的源文件。
 
 ---
 

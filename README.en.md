@@ -15,6 +15,7 @@ Windows-first · Data stays on your machine · Bring your own model · Plugin-ex
 [![License](https://img.shields.io/badge/license-LGPL--3.0-blue.svg)](LICENSE)
 
 [Download](https://github.com/Qian-Ning/QianNing-Agent/releases) ·
+[Documentation site](https://qian-ning.github.io/QianNing-Agent/) ·
 [Documentation](docs/README.md) ·
 [Plugin development](docs/plugin-development.md) ·
 [Privacy](docs/privacy-policy.md) ·
@@ -23,6 +24,15 @@ Windows-first · Data stays on your machine · Bring your own model · Plugin-ex
 </div>
 
 > Current release line: `0.16.x` (latest `0.16.3`).
+
+## Quick start
+
+1. **Install** — grab the Windows installer from the [releases page](https://github.com/Qian-Ning/QianNing-Agent/releases), or take the portable build.
+2. **Connect a model** — on first run, add a provider key in settings, or point the base URL at a local service. The model can change at any time without touching your sessions.
+3. **Open a project** — pick a working directory as a project and start a session inside it; that directory is the root the tools operate in.
+4. **Extend** — reach for the plugin marketplace, skills, and MCP when you need more.
+
+The full documentation lives at the docs site <https://qian-ning.github.io/QianNing-Agent/>; the `docs/` directory here holds its source.
 
 ---
 
