@@ -1,0 +1,82 @@
+name: Docs site
+
+# Publishes the VitePress documentation to GitHub Pages.
+#
+# `docs-check.yml` already builds the tree on a pull request, but only to catch
+# dead links and broken routes -- it uploads nothing. This workflow is the
+# publishing half: it builds the same site and deploys it, so the 500-plus pages
+# are readable as a site instead of as markdown in the repository listing.
+#
+# The site is a PROJECT page, so it is served from `/QianNing-Agent/` rather
+# than the domain root. The build is told so through `VITEPRESS_BASE`, which
+# `docs/.vitepress/config.mts` reads; leaving it unset keeps `/` for local
+# `pnpm docs:dev` and `pnpm docs:preview`.
+#
+# Pages must be switched on with "GitHub Actions" as the source
+# (GET/POST /repos/{owner}/{repo}/pages). The source is a repository setting,
+# not something this file can enable for you.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'README*.md'
+      - '.github/workflows/docs-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time. `cancel-in-progress: false` is deliberate: a
+# half-uploaded Pages artifact is worse than a queued run, because the live
+# site can end up serving a partial build.
+concurrency:
+  group: docs-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build the documentation site
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          # Same Node as ci.yml (matches the runtime Electron 43 bundles).
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Build the documentation site
+        run: pnpm docs:build
+        env:
+          VITEPRESS_BASE: /QianNing-Agent/
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/.vitepress/dist
+
+  deploy:
+    name: Deploy to Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5
