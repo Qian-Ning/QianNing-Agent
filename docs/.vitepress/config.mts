@@ -164,12 +164,17 @@ const zhNav: DefaultTheme.NavItem[] = [
   { text: 'GitHub', link: 'https://github.com/Qian-Ning/QianNing-Agent' },
 ]
 
+// GitHub Pages serves a project site from `/<repo>/`, so the deploy workflow
+// sets `VITEPRESS_BASE`. Local dev and preview keep the root. VitePress applies
+// the base to markdown links and to `themeConfig.logo`, but NOT to `head` link
+// hrefs -- those are emitted verbatim, so the favicon has to carry the prefix
+// itself or it 404s on the deployed sub-path.
+const siteBase = process.env.VITEPRESS_BASE ?? '/'
+
 export default defineConfig({
   title: 'QianNing Agent',
   description: 'A local-first desktop workspace for AI agents',
-  // GitHub Pages serves a project site from `/<repo>/`, so the deploy workflow
-  // sets this. Local dev and preview keep the root.
-  base: process.env.VITEPRESS_BASE ?? '/',
+  base: siteBase,
   // Product shell is dark-base; lock docs to the same charcoal system.
   appearance: 'force-dark',
   cleanUrls: true,
@@ -177,6 +182,8 @@ export default defineConfig({
   head: [
     ['meta', { name: 'theme-color', content: '#0d0d0d' }],
     ['meta', { name: 'color-scheme', content: 'dark light' }],
+    ['link', { rel: 'icon', type: 'image/png', sizes: '64x64', href: `${siteBase}favicon.png` }],
+    ['link', { rel: 'apple-touch-icon', sizes: '180x180', href: `${siteBase}app-icon.png` }],
   ],
   locales: {
     root: { label: 'English', lang: 'en' },

@@ -1262,6 +1262,55 @@ body {
   line-height: 1.6;
 }
 
+/* The mark is the transparent fox cutout the app itself uses, so it reads on
+   the black canvas without a plate behind it. */
+.qn-mark {
+  width: 22px;
+  height: 22px;
+  margin-right: 10px;
+  object-fit: contain;
+  vertical-align: -5px;
+}
+
+.qn-mark--lg {
+  display: block;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 18px;
+}
+
+.qn-cta {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 40px;
+  align-items: center;
+  padding-bottom: 96px;
+}
+
+.qn-cta__copy h2 {
+  margin: 0 0 14px;
+  color: var(--chalk);
+  font-size: clamp(1.5rem, 2.3vw, 1.95rem);
+  font-weight: 700;
+  line-height: 1.14;
+  letter-spacing: -0.028em;
+}
+
+.qn-cta__copy p {
+  max-width: 52ch;
+  margin: 0;
+  color: var(--docs-text-2);
+  font-size: 0.9375rem;
+  line-height: 1.66;
+}
+
+.qn-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
 @media (max-width: 960px) {
   .qn-hero {
     grid-template-columns: minmax(0, 1fr);
@@ -1282,6 +1331,17 @@ body {
   .qn-boundary {
     grid-template-columns: minmax(0, 1fr);
     gap: 28px;
+  }
+
+  .qn-cta {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    align-items: start;
+    padding-bottom: 64px;
+  }
+
+  .qn-cta__actions {
+    justify-content: flex-start;
   }
 }
 
