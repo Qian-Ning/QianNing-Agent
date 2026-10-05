@@ -15735,7 +15735,7 @@ renderer's durable transcript reads. No real model or provider is contacted.
   `apps/desktop/test/connections-destination.test.mjs` (the probe gate, the
   secret-never-returns rule, and the nine-catalog key set). The task-candidate run
   remains: it needs a real SSH host and a serial device, so it is not part of the
-  static gate.
+  static gate. The task-candidate run was performed against a real SSH host on 2026-10-05: the switch, both doors, and the refusal order all held. The serial-device leg is still uncovered.
 
 #### E2E-263: A remote command behaves like a local one
 
@@ -15748,7 +15748,7 @@ renderer's durable transcript reads. No real model or provider is contacted.
 - **Status:** Host layer implemented and unit-covered: the truncation marker and the
   spill path are produced by the same `truncate_with_spill` the local tool uses, the
   output ceiling is read from the local tool's budget, and teardown reuses
-  `ProcessOwnership`. The real-host run and the task-candidate run remain.
+  `ProcessOwnership`. The real-host run and the task-candidate run remain. The real-host run was performed on 2026-10-05: a command's stdout and exit code, a non-zero exit as a result rather than an error, the truncation marker under a reduced budget, and a `1035` refusal in four seconds with no `ssh` left running.
 
 #### E2E-264: A target that cannot serve an action is refused by name
 
@@ -15761,3 +15761,4 @@ renderer's durable transcript reads. No real model or provider is contacted.
 - **Status:** Partially implemented. The refusal-before-connect rule, the
   payload-beside-slug rule, and the audit-row shape are unit-covered. The byte-stream
   transports and the `Console` tool are R4; the task-candidate run remains.
+ The refusal was confirmed against a real host on 2026-10-05: a byte-stream profile answers `CONNECTION_NO_EXEC` before any connection is attempted.

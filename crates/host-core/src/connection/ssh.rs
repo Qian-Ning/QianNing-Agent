@@ -59,11 +59,15 @@ const KEYSCAN_TIMEOUT: Duration = Duration::from_secs(8);
 /// answering, and waiting longer only delays the same answer.
 const CONNECT_TIMEOUT_SECS: u32 = 10;
 
-/// The environment variable carrying a credential to the askpass helper.
+/// The environment variable naming the file that carries a credential to the
+/// askpass helper.
 ///
-/// It is set on the child process only, for the lifetime of that process, and
-/// is never written to the store, a log line, or an audit row.
-pub const ASKPASS_SECRET_ENV: &str = "PI_CONNECTION_SECRET";
+/// The file's *path* travels here, never the secret. A secret in the child's
+/// environment would be inherited by everything the child starts and readable
+/// by any process of the same user, which `03-connections-security.md` rules
+/// out. The file itself is `0600` inside a `0700` directory, and the spawn that
+/// owns it removes both when it returns.
+pub const ASKPASS_SECRET_FILE_ENV: &str = "PI_CONNECTION_SECRET_FILE";
 
 /// The argv the host binary is re-invoked with to answer one askpass prompt.
 ///
@@ -71,6 +75,89 @@ pub const ASKPASS_SECRET_ENV: &str = "PI_CONNECTION_SECRET";
 /// same behaviour on both platforms, where a shell script would need a
 /// different interpreter on each.
 pub const ASKPASS_ARG: &str = "--connection-askpass";
+
+/// The environment variable marking a process as one `ssh` asked for an answer.
+///
+/// OpenSSH runs `SSH_ASKPASS` with the prompt as its only argument, so
+/// [`ASKPASS_ARG`] cannot reach the helper through argv. This marker travels in
+/// the child's environment instead, and the spawn that owns the credential is
+/// the only thing that ever sets it.
+pub const ASKPASS_MARKER_ENV: &str = "PI_CONNECTION_ASKPASS";
+
+/// Whether this process was started to answer one askpass prompt.
+///
+/// The environment marker is what identifies it, because OpenSSH passes a
+/// prompt rather than our flag. The flag is still honoured so a wrapper script
+/// on a POSIX host can forward it explicitly. A credential path on its own is
+/// deliberately not enough: a host process that inherited one must not be
+/// mistaken for a helper.
+pub fn is_askpass_child(
+    args: impl IntoIterator<Item = String>,
+    env: impl Fn(&str) -> Option<String>,
+) -> bool {
+    args.into_iter().any(|arg| arg == ASKPASS_ARG) || env(ASKPASS_MARKER_ENV).is_some()
+}
+
+/// One credential, on disk, for exactly as long as one spawn needs it.
+///
+/// The secret is written to a `0600` file inside a freshly created `0700`
+/// directory under the platform temp directory. The helper reads that file, so
+/// no environment variable ever holds the value, and dropping this removes both
+/// the file and the directory.
+struct AskpassSecret {
+    dir: PathBuf,
+    path: PathBuf,
+}
+
+impl AskpassSecret {
+    fn create(secret: &str) -> Result<Self, ConnectionError> {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|elapsed| elapsed.as_nanos())
+            .unwrap_or(0);
+        let dir =
+            std::env::temp_dir().join(format!("pi-desktop-askpass-{}-{nanos}", std::process::id()));
+
+        // The mode is part of the creation call on unix and absent on Windows,
+        // where the effective boundary is the same-user ACL either way.
+        #[cfg(unix)]
+        let created = {
+            use std::os::unix::fs::DirBuilderExt as _;
+            std::fs::DirBuilder::new().mode(0o700).create(&dir)
+        };
+        #[cfg(not(unix))]
+        let created = std::fs::DirBuilder::new().create(&dir);
+        created.map_err(|err| ConnectionError::Unsupported(format!("askpass directory: {err}")))?;
+
+        let path = dir.join("secret");
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt as _;
+            options.mode(0o600);
+        }
+        // Written without a trailing newline, so the helper's answer is the
+        // secret byte for byte and a secret that ends in whitespace survives.
+        options
+            .open(&path)
+            .and_then(|mut file| std::io::Write::write_all(&mut file, secret.as_bytes()))
+            .map_err(|err| {
+                let _ = std::fs::remove_dir_all(&dir);
+                ConnectionError::Unsupported(format!("askpass secret file: {err}"))
+            })?;
+
+        Ok(Self { dir, path })
+    }
+}
+
+impl Drop for AskpassSecret {
+    fn drop(&mut self) {
+        // Best effort: a leaked file would still be `0600` inside a `0700`
+        // directory, and the OS temp directory reclaims it.
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
 
 /// The remote command a probe runs.
 ///
@@ -204,8 +291,12 @@ fn connection_args(
         args.push("-p".into());
         args.push(port.to_string());
     }
-    args.extend_from_slice(program_args);
+    // `ssh [options] destination [command]`: the destination is the first
+    // positional argument, so it precedes the remote command. Pushing the
+    // command first makes ssh read it as a hostname, which fails every probe
+    // and every exec against a real target.
     args.push(destination(target)?);
+    args.extend_from_slice(program_args);
     Ok(args)
 }
 
@@ -443,11 +534,22 @@ async fn run_captured(
     #[cfg(unix)]
     command.process_group(0);
 
-    if let Some(secret) = secret {
+    // The credential exists on disk only while this spawn exists, and the file
+    // goes away when this binding drops — after the child has been reaped.
+    let askpass = match secret {
+        Some(secret) => Some(AskpassSecret::create(secret)?),
+        None => None,
+    };
+
+    if let Some(askpass) = &askpass {
         // Askpass, forced: `ssh` is told there is no terminal and to take the
-        // answer from the helper instead. The value travels in this child's
-        // environment only.
-        command.env(ASKPASS_SECRET_ENV, secret);
+        // answer from the helper instead. Only the path to the `0600` file
+        // travels in this child's environment; the value itself does not.
+        command.env(ASKPASS_SECRET_FILE_ENV, &askpass.path);
+        // OpenSSH hands the prompt to `SSH_ASKPASS` as its only argument,
+        // so the marker is what tells the re-invoked binary that it is the
+        // helper. It is set here and nowhere else.
+        command.env(ASKPASS_MARKER_ENV, "1");
         command.env("SSH_ASKPASS_REQUIRE", "force");
         command.env("SSH_ASKPASS", askpass_program());
         command.env("DISPLAY", "pi-desktop-askpass");

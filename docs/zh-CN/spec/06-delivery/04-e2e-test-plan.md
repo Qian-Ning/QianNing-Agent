@@ -9123,7 +9123,7 @@ the latest destination. These assertions measure work counts, not device FPS.
   全局开关读取），拒绝码由契约表测试钉住。设置里的开关与连接目的地已实现，界面侧
   由 `apps/desktop/test/connections-destination.test.mjs` 钉住（探测门控、秘密不回流、
   九语言键集合）。任务候选运行仍待完成：它需要一台真实 SSH 主机和一个串口设备，
-  不属于静态门禁。
+  不属于静态门禁。 任务候选运行已于 2026-10-05 对一台真实 SSH 主机执行：开关、两扇门与拒绝顺序全部成立。串口设备那一条仍未覆盖。
 
 #### E2E-263：远端命令的行为与本地命令一致
 
@@ -9135,7 +9135,7 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **里程碑：** M6+
 - **状态：** 宿主层已实现并有单元覆盖：截断标记与溢出路径由本地工具所用的同一个
   `truncate_with_spill` 产出，输出上限取自本地工具的预算，进程回收复用
-  `ProcessOwnership`。真实主机验证与任务候选验证仍待完成。
+  `ProcessOwnership`。真实主机验证与任务候选验证仍待完成。 真实主机验证已于 2026-10-05 执行：命令的 stdout 与退出码、非零退出作为结果而非错误、压低预算后的截断标记，以及四秒内返回的 `1035`，且不残留任何 `ssh`。
 
 #### E2E-264：服务不了某个动作的目标按名字被拒绝
 
@@ -9147,3 +9147,4 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **里程碑：** M6+
 - **状态：** 部分实现。先拒绝后连接规则、附加字段与 slug 并列规则、审计行形状
   均有单元覆盖。字节流传输与 `Console` 工具属于 R4；任务候选验证仍待完成。
+ 该拒绝已于 2026-10-05 在真实主机上确认：字节流配置在任何连接尝试之前就回答 `CONNECTION_NO_EXEC`。
