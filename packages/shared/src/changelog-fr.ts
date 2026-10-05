@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
       {
+        version: "0.16.4",
+        date: "2026-10-05",
+        highlights: [
+          "L'invite système intégré est désormais organisé en six sections nommées — accord de travail, ton et format, suivre la base de code, usage des outils, sécurité et vérification — au lieu d'un bloc de règles à plat : les réponses commencent par le résultat, les références au code s'écrivent `path/to/file.ts:42` et sont cliquables, et l'agent doit vérifier avec une vraie commande plutôt que de déduire le succès d'un diff.",
+          "Chaque session porte l'identité du produit, qu'elle utilise la persona intégrée ou une persona personnalisée : en chinois, l'agent écrit 千凝 et ne translittère jamais le nom latin, tandis que le code, les identifiants, les commentaires et les messages de commit restent en anglais.",
+          "Les outils de capacité de l'hôte atteignent désormais le modèle : `Computer` et `Connection` sont reflétés depuis le catalogue de l'hôte avant chaque invite, si bien que l'interrupteur des Réglages s'applique au message suivant au lieu de la session suivante ; en modes Plan et Goal, ils restent en lecture seule.",
+          "La carte Connexions des Réglages gagne une ligne de cibles qui saute directement à la page Connexions, et l'interrupteur d'accès de l'agent porte désormais le nom de ce qu'il contrôle réellement.",
+          "Le parcours de la racine du projet refonctionne sous Windows : le test de confinement codait en dur un séparateur `/` et refusait donc chaque sous-répertoire ; il suit maintenant le séparateur et les règles de casse de la plateforme.",
+        ],
+      },
+      {
         version: "0.16.3",
         date: "2026-10-05",
         highlights: [

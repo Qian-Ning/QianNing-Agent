@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
       {
+        version: "0.16.4",
+        date: "2026-10-05",
+        highlights: [
+          "El prompt de sistema integrado ahora se organiza en seis secciones con nombre — acuerdo de trabajo, tono y formato, seguir el código, uso de herramientas, seguridad y verificación — en lugar de un bloque plano de reglas: las respuestas empiezan por el resultado, las referencias al código se leen como `path/to/file.ts:42` y se pide al agente que verifique con un comando real en vez de deducir el éxito de un diff.",
+          "Cada sesión lleva la identidad del producto, ya corra la persona integrada o una propia: cuando el agente escribe en chino usa 千凝 y nunca translitera el nombre latino, mientras que el código, los identificadores, los comentarios y los mensajes de commit siguen en inglés.",
+          "Las herramientas de capacidad del propio host ahora llegan al modelo: `Computer` y `Connection` se reflejan desde el catálogo del host antes de cada prompt, de modo que el interruptor de Ajustes surte efecto en el mensaje siguiente en lugar de en la sesión siguiente, y en los modos Plan y Goal siguen siendo de solo lectura.",
+          "La tarjeta de Conexiones en Ajustes incorpora una fila de destinos que salta directamente a la página de Conexiones, y el interruptor de acceso del agente ahora se llama como lo que realmente controla.",
+          "Volver a explorar la raíz del proyecto funciona en Windows otra vez: la comprobación de contención fijaba un separador `/` y por eso rechazaba cada subdirectorio; ahora usa el separador y las reglas de mayúsculas de la propia plataforma.",
+        ],
+      },
+      {
         version: "0.16.3",
         date: "2026-10-05",
         highlights: [

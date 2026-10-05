@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
       {
+        version: "0.16.4",
+        date: "2026-10-05",
+        highlights: [
+          "Der eingebaute Systemprompt ist jetzt in sechs benannte Abschnitte gegliedert — Arbeitsvereinbarung, Ton und Format, dem Codebase folgen, Werkzeugnutzung, Sicherheit und Verifikation — statt in einen flachen Regelblock: Antworten beginnen mit dem Ergebnis, Codestellen stehen als klickbares `path/to/file.ts:42`, und der Agent soll mit einem echten Befehl verifizieren statt aus einem Diff auf Erfolg zu schließen.",
+          "Jede Sitzung trägt die Produktidentität, ob mit eingebauter oder eigener Persona: Schreibt der Agent auf Chinesisch, nutzt er 千凝 und transliteriert den lateinischen Namen nie; Code, Bezeichner, Kommentare und Commit-Nachrichten bleiben englisch.",
+          "Die eigenen Fähigkeitswerkzeuge des Hosts erreichen jetzt das Modell: `Computer` und `Connection` werden vor jedem Prompt aus dem Katalog des Hosts gespiegelt, sodass der Schalter in den Einstellungen schon bei der nächsten Nachricht greift statt erst in der nächsten Sitzung; im Plan- und Goal-Modus bleiben sie ausschließlich lesend.",
+          "Die Verbindungs-Karte in den Einstellungen hat eine Ziel-Zeile bekommen, die direkt zur Verbindungsseite springt, und der Schalter für den Agenten-Zugriff heißt jetzt so, wie er tatsächlich wirkt.",
+          "Das Durchsuchen des Projektstamms funktioniert unter Windows wieder: die Prüfung auf den Wurzelpfad hatte ein `/` fest verdrahtet und lehnte dadurch jedes Unterverzeichnis ab; jetzt gelten die Trennzeichen- und Groß-/Kleinschreibungsregeln der Plattform.",
+        ],
+      },
+      {
         version: "0.16.3",
         date: "2026-10-05",
         highlights: [
