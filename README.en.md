@@ -13,6 +13,10 @@ Windows-first · Data stays on your machine · Bring your own model · Plugin-ex
 [![Release](https://img.shields.io/github/v/release/Qian-Ning/QianNing-Agent?label=release)](https://github.com/Qian-Ning/QianNing-Agent/releases)
 [![CI](https://github.com/Qian-Ning/QianNing-Agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Qian-Ning/QianNing-Agent/actions)
 [![License](https://img.shields.io/badge/license-LGPL--3.0-blue.svg)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/Qian-Ning/QianNing-Agent?label=star)](https://github.com/Qian-Ning/QianNing-Agent/stargazers)
+[![Platform](https://img.shields.io/badge/platform-Windows-1f6feb)](https://github.com/Qian-Ning/QianNing-Agent/releases)
+[![Electron](https://img.shields.io/badge/Electron-43-47848f)](https://github.com/Qian-Ning/QianNing-Agent)
+[![Sponsor](https://img.shields.io/badge/sponsor-Ko--fi-ff5e5b)](https://ko-fi.com/qianning)
 
 [Download](https://github.com/Qian-Ning/QianNing-Agent/releases) ·
 [Documentation site](https://qian-ning.github.io/QianNing-Agent/) ·
@@ -24,6 +28,17 @@ Windows-first · Data stays on your machine · Bring your own model · Plugin-ex
 </div>
 
 > Current release line: `0.16.x` (latest `0.16.3`).
+
+![The QianNing workbench](docs/public/readme/hero.en.webp)
+
+## Highlights
+
+- **Runs on its own** -- not an editor plugin and not a hosted IDE. Projects, sessions, credentials, tool execution and approval policy all belong to the app; close the window and the work is still there when you come back.
+- **Built for long work** -- projects are persistent and so are sessions; search them, export them, or reopen any historical branch.
+- **Capability is gated** -- the model decides what it wants to do; the host decides whether it may. File writes, command execution and out-of-workspace access all pass through policy.
+- **Bring your own model** -- OpenAI, Anthropic, compatible gateways, self-hosted services and local models share one set of sessions and workflows.
+- **Extensible** -- plugins, skills and MCP all have stable contracts, with permissions granted item by item.
+- **Documented** -- specifications, decision records and operating guides ship with the repository: 534 pages, with specifications paired in English and Chinese.
 
 ## Quick start
 
@@ -418,6 +433,37 @@ scripts/                 Build, release, verification, and E2E scripts
 The interface ships 9 locales: `de` `en` `es` `fr` `ko` `pt-BR` `tr` `zh-CN` `zh-TW`; English is the product's source language.
 
 **Internal identifiers are intentionally retained.** You will see `@pi-desktop/*` package names, `pi-desktop/` IPC channels, `PI_DESKTOP_*` environment variables, and the Cargo artifact name `pi-desktop-host-core`. These are **compatibility contracts**, not product branding — renaming them would break existing data, plugins, automation, and build tooling. The boundary is written out in the [brand contract](docs/spec/01-qianning-brand.md).
+
+---
+
+## Community
+
+QianNing is a one-person project; these two groups are where feedback and discussion happen.
+
+| Channel | Where |
+|---|---|
+| **QQ group** | `1126120399` |
+| **WeChat group** | Scan the code below (group codes expire after 7 days; add the author on WeChat once it lapses) |
+| **Author on WeChat** | `qianning-666` (mention "QianNing" when you add) |
+
+<p align="center">
+  <img src="docs/image/community/wechat-group.png" alt="QianNing Agent WeChat group QR code" width="260" />
+</p>
+
+---
+
+## Sponsorship
+
+The time, the effort, and the running costs are the author's own. If this has been useful to you, buying a coffee is a direct way to say so:
+
+- **Ko-fi**: <https://ko-fi.com/qianning>
+- **WeChat appreciation code**: scan below
+
+<p align="center">
+  <img src="docs/image/community/wechat-sponsor.png" alt="Qianning's WeChat appreciation code" width="260" />
+</p>
+
+Sponsorship buys no privileges and does not steer the roadmap -- every feature is available to everyone.
 
 ---
 
