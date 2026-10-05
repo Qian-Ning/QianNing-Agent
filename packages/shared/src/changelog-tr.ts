@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
       {
+        version: "0.16.4",
+        date: "2026-10-05",
+        highlights: [
+          "Yerleşik sistem istemi artık düz bir kural bloğu yerine altı adlandırılmış bölüme ayrılıyor — çalışma anlaşması, ton ve biçim, kod tabanını izleme, araç kullanımı, güvenlik ve doğrulama: yanıtlar sonuçla başlıyor, kod başvuruları `path/to/file.ts:42` biçiminde okunuyor ve ajan bir diff'ten başarı çıkarmak yerine gerçek bir komutla doğrulamaya yönlendiriliyor.",
+          "Her oturum ürün kimliğini taşıyor, yerleşik persona da özel persona da olsa: ajan Çince yazarken 千凝 adını kullanıyor ve Latin adını asla harf çevirisiyle yazmıyor; kod, tanımlayıcılar, yorumlar ve commit mesajları İngilizce kalıyor.",
+          "Ana bilgisayarın kendi yetenek araçları artık modele ulaşıyor: `Computer` ve `Connection` her istemden önce ana bilgisayarın kataloğundan yansıtılıyor, böylece Ayarlar'daki anahtar bir sonraki oturum yerine bir sonraki mesajda geçerli oluyor; Plan ve Goal kiplerinde bu araçlar salt okunur kalıyor.",
+          "Ayarlar'daki Bağlantılar kartı, doğrudan Bağlantılar sayfasına atlayan bir hedef satırı kazandı ve ajan erişimi anahtarı artık gerçekten denetlediği şeyin adını taşıyor.",
+          "Proje kökünde gezinme Windows'ta yeniden çalışıyor: kapsama denetimi `/` ayırıcısını sabit kodladığı için her alt dizini reddediyordu, artık platformun kendi ayırıcı ve büyük/küçük harf kurallarını izliyor.",
+        ],
+      },
+      {
         version: "0.16.3",
         date: "2026-10-05",
         highlights: [

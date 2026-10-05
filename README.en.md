@@ -27,7 +27,7 @@ Windows-first · Data stays on your machine · Bring your own model · Plugin-ex
 
 </div>
 
-> Current release line: `0.16.x` (latest `0.16.3`).
+> Current release line: `0.16.x` (latest `0.16.4`).
 
 ![The QianNing workbench](docs/public/readme/hero.en.webp)
 
@@ -84,6 +84,12 @@ It is built for **long-running work**, not one-shot questions:
 ### The name
 
 The Chinese name is **千凝** (*níng* — to gather, to focus). The English product name is fixed as **QianNing Agent**, the application id is `com.qianning.agent`, and the data directory is `~/.qianning-agent`. The full contract for where the brand applies is in the [brand contract](docs/spec/01-qianning-brand.md).
+
+### The working agreement
+
+The built-in system prompt is organised into **six sections** — working agreement, tone and formatting, following the codebase, tool use, safety, and verification — and it constrains the **process** rather than a feature list: lead with the outcome and then the evidence; never describe intended work as done; write code references as a clickable `path:line`; verify with a real command instead of inferring success from a plausible-looking diff; and when something is genuinely ambiguous, ask one or two focused questions rather than guess and waste the work.
+
+That identity and agreement is **re-appended to every session**, built-in persona or custom one: a custom persona may change how the agent speaks, but it cannot rename the product — in Chinese it is always 千凝, never a transliteration of the Latin name.
 
 ### The interface
 
@@ -240,6 +246,7 @@ Additional rules:
 
 - **An explicit outside-workspace path is a first-class exception**: auto-allowed only under `auto`; both `ask` and `accept-edits` still confirm it.
 - **Plan / Goal's hard deny outranks every permission mode**: `auto` cannot re-enable a hidden or denied tool.
+- **Host capability tools carry a second gate**: `Computer` and `Connection` are high-risk, but above the permission mode each is governed by its own Settings switch, **off by default**. While it is off the tool never enters the model's tool catalog and the host refuses the same name; once on, Plan and Goal still keep it read-only.
 - Low-risk tools (`Read` / `Glob` / `Grep`) auto-allow inside the session roots in every mode.
 - Writes into the session scratch directory never raise a card, in any mode.
 - A confirmation card **auto-denies after 120 seconds** (fail closed rather than hang).
@@ -278,6 +285,8 @@ Scheduled and other unattended runs are **not allowed** to use Plan or Goal — 
 | `Write` | high | Create or overwrite files; returns the post-write `tag` |
 | `Edit` | high | Line-anchored edits against a verified `tag` |
 | `Bash` | high | Execute commands (non-interactive, streamed output, using the shell selected from the host catalog) |
+| `Computer` | high | Move the mouse and type on this machine; **off by default**, offered only while its switch is on, and Windows-only |
+| `Connection` | high | Work on the targets you add on the Connections page; **off by default**, each target carrying its own switch above the master one |
 | `new_context` | low | Start a new context window at the next turn boundary; changes no environment state |
 | `EnterPlanMode` / `EnterGoalMode` | low | Move the same agent into Plan / Goal after host validation |
 | `SubmitPlan` / `SubmitGoal` | low | Preserve the contract artifact and request approval |
@@ -287,6 +296,10 @@ Scheduled and other unattended runs are **not allowed** to use Plan or Goal — 
 | `ToolSearch` | low | Search on-demand tools by name or capability |
 
 **On-demand tools.** Each turn's first request carries only `Read` `Bash` `Edit` `Write` `Glob` `Grep` (plus `Skill` when the skill catalog is non-empty), so routine exploration does not pay a discovery round trip. The rest — `BrowserPreview`, the plugin scaffolding tools, and plugin-declared agent tools — live in a bounded on-demand catalog that the model activates with `ToolSearch`. Loading a tool never relaxes a permission, sandbox, or audit rule.
+
+**Host capability tools.** `Computer` and `Connection` are not the runtime's own; they are **declared by the host**. Before every prompt the runtime mirrors them from the host's tool catalog into the turn's catalog, so a Settings switch takes effect on the **next message** rather than in a new session. While a switch is off they are absent from the catalog and the host refuses the same name; in Agent mode they ship with the first request, and Plan and Goal keep them read-only (the same tier as `Bash` / `Write` / `Edit`). The mirror is strictly **additive**: an unresponsive host leaves the runtime's own catalog exactly as it was instead of failing a prompt.
+
+**Connection targets.** The Connections card in Settings maintains the **targets** beyond this machine: the system ssh config, an identity file, and a stored password are offered side by side. An identity file is chosen through a native dialog and the interface shows only its file name — the **full path never appears** — and a value carrying key material is refused before it can be saved. Each target has its own enable switch, layered above the master one: only with both on does the `Connection` tool enter the model's catalog. The connection defaults are prefilled with the host's own limits (a 60 000 ms timeout, 256 KiB of output, 64 KiB of stream), and an emptied field falls back to the default instead of failing the save.
 
 **Subagents.** Rows a subagent produces share the parent's transcript file and index, marked by message metadata. The UI nests them under their `Task` row; rebuilding model context **excludes** them — the parent only ever saw the delegate's report, and replaying the delegate's own process would both misrepresent the conversation and hand back the context cost that delegation exists to save.
 

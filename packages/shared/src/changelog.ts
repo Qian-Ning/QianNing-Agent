@@ -30,6 +30,17 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
       {
+        version: "0.16.4",
+        date: "2026-10-05",
+        highlights: [
+          "The built-in system prompt is organised into six named sections — working agreement, tone and formatting, following the codebase, tool use, safety, and verification — instead of one flat block of rules, so answers lead with the outcome, code references read as `path/to/file.ts:42`, and the agent is told to verify with a real command rather than infer success from a diff.",
+          "Every session carries the product identity, whether it runs the built-in persona or a custom one: writing in Chinese the agent uses 千凝 and never transliterates the Latin name, while code, identifiers, comments, and commit messages stay English.",
+          "The host's own capability tools now reach the model: `Computer` and `Connection` are mirrored from the host catalogue before every prompt, so the Settings switch applies to the next message instead of the next session, and Plan and Goal modes keep them read-only.",
+          "The Connections card in Settings gained a targets row that jumps straight to the Connections page, and the agent-access toggle is named for what it actually gates.",
+          "Browsing the project root works on Windows again: the containment check hardcoded a `/` separator and therefore refused every subdirectory, and it now follows the platform's own separator and case rules.",
+        ],
+      },
+      {
         version: "0.16.3",
         date: "2026-10-05",
         highlights: [
@@ -962,6 +973,17 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
       {
+        version: "0.16.4",
+        date: "2026-10-05",
+        highlights: [
+          "内置系统提示词按职责重写为六段——协作约定、语气与格式、遵循代码库、工具使用、安全、验证——不再是一整块平铺的规则：回答先给结论，代码引用写成可点击的 `path/to/file.ts:42`，并被要求用真实命令验证，而不是从 diff 上推断成功。",
+          "每次会话都会带上产品身份，无论跑的是内置人格还是自定义人格：写中文时一律用「千凝」，绝不音译；代码、标识符、注释与提交信息保持英文。",
+          "宿主自己的工具现在能到达模型：`Computer` 与 `Connection` 在每次提问前从宿主工具目录镜像过来，设置里的开关下一句话就生效，不必重开会话；Plan 与 Goal 模式下这两个工具保持只读。",
+          "设置里的连接卡片新增目标行，一键跳到「连接」页；智能体访问开关也改成了它真正控制的名字。",
+          "Windows 上重新可以浏览项目根目录：原先的判断硬编码了 `/` 分隔符，导致每个子目录都被拒绝，现在改用平台自己的分隔符与大小写规则。",
+        ],
+      },
+      {
         version: "0.16.3",
         date: "2026-10-05",
         highlights: [
@@ -1893,6 +1915,17 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+      {
+        version: "0.16.4",
+        date: "2026-10-05",
+        highlights: [
+          "內建系統提示詞按職責重寫為六段——協作約定、語氣與格式、遵循程式碼庫、工具使用、安全、驗證——不再是一整塊平鋪的規則：回答先給結論，程式碼引用寫成可點擊的 `path/to/file.ts:42`，並被要求用真實指令驗證，而不是從 diff 上推斷成功。",
+          "每個工作階段都會帶上產品身分，無論跑的是內建人格還是自訂人格：寫中文時一律用「千凝」，絕不音譯；程式碼、識別字、註解與提交訊息保持英文。",
+          "宿主自己的工具現在能到達模型：`Computer` 與 `Connection` 在每次提問前從宿主工具目錄鏡像過來，設定裡的開關下一句話就生效，不必重開工作階段；Plan 與 Goal 模式下這兩個工具保持唯讀。",
+          "設定裡的連線卡片新增目標列，一鍵跳到「連線」頁；智慧體存取開關也改成了它真正控制的名字。",
+          "Windows 上重新可以瀏覽專案根目錄：原先的判斷硬編碼了 `/` 分隔符，導致每個子目錄都被拒絕，現在改用平台自己的分隔符與大小寫規則。",
+        ],
+      },
       {
         version: "0.16.3",
         date: "2026-10-05",

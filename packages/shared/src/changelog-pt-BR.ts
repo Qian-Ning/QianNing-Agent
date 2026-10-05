@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
       {
+        version: "0.16.4",
+        date: "2026-10-05",
+        highlights: [
+          "O prompt de sistema embutido agora se organiza em seis seções nomeadas — acordo de trabalho, tom e formatação, seguir o código, uso de ferramentas, segurança e verificação — em vez de um bloco plano de regras: as respostas começam pelo resultado, as referências ao código aparecem como `path/to/file.ts:42` e clicáveis, e o agente deve verificar com um comando real em vez de deduzir o sucesso de um diff.",
+          "Toda sessão carrega a identidade do produto, seja com a persona embutida ou com uma personalizada: ao escrever em chinês o agente usa 千凝 e nunca translitera o nome latino, enquanto código, identificadores, comentários e mensagens de commit seguem em inglês.",
+          "As ferramentas de capacidade do próprio host agora chegam ao modelo: `Computer` e `Connection` são espelhadas do catálogo do host antes de cada prompt, então o interruptor das Configurações vale para a próxima mensagem em vez da próxima sessão, e nos modos Plan e Goal elas continuam somente leitura.",
+          "O cartão de Conexões nas Configurações ganhou uma linha de destinos que pula direto para a página de Conexões, e o interruptor de acesso do agente agora tem o nome do que realmente controla.",
+          "Navegar pela raiz do projeto voltou a funcionar no Windows: a checagem de contenção fixava um separador `/` e por isso recusava todo subdiretório; agora segue o separador e as regras de maiúsculas da própria plataforma.",
+        ],
+      },
+      {
         version: "0.16.3",
         date: "2026-10-05",
         highlights: [
