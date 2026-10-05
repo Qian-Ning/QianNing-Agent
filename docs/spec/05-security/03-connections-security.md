@@ -205,6 +205,22 @@ stored secret's shape.
   what keeps the credential out of the environment while the answer still
   reaches `ssh` over the pipe the parent owns.
 
+### Reading a host key without trusting it
+
+The key is read before anything is trusted. `ssh` is asked first, because it is the
+same program the connection itself will use: a build whose `ssh-keyscan` cannot
+negotiate with the target still reports its keys that way, and `ssh-keyscan` is kept
+as the fallback for a target that answers a scan but not a connection. That read
+declines every authentication method, so it can offer nothing of ours, and the keys
+it learns land in a known-hosts file inside a `0700` directory of our own, read and
+then removed with the directory.
+
+A host offers one key per algorithm, and which of them a connection negotiates is
+not ours to choose. A pinned profile therefore holds when the recorded fingerprint
+matches *any* key the host offers, and is refused when none of them match. A key
+that could not be read at all is neither of those: the pin cannot be checked, so the
+failure mode is closed.
+
 ## 7. Bounds
 
 | Resource | Bound | Applied where |

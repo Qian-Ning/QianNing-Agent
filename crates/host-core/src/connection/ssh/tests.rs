@@ -236,43 +236,159 @@ fn a_fingerprint_is_stable_for_the_same_key() {
 
 #[test]
 fn keyscan_output_parses_and_skips_noise() {
-    // A real run prints a comment per host it tried and then one line per
-    // key. A comment, a blank line, or a line from a target that did not
-    // answer must be skipped rather than turned into a fingerprint of
-    // nothing.
+    // A real run prints a comment per host it tried and then one line per key. A
+    // comment, a blank line, or a line from a target that did not answer must be
+    // skipped rather than turned into a fingerprint of nothing.
     let blob = "AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl";
     let stdout = format!("# build-box:22 SSH-2.0-OpenSSH_9.5\n\nbuild-box ssh-ed25519 {blob}\n");
     assert_eq!(
-        parse_keyscan_fingerprint(&stdout).as_deref(),
-        Some("SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU")
+        parse_keyscan_fingerprints(&stdout),
+        vec!["SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU".to_string()]
     );
 
-    assert!(parse_keyscan_fingerprint("# only a comment\n").is_none());
-    assert!(parse_keyscan_fingerprint("build-box ssh-ed25519\n").is_none());
-    assert!(parse_keyscan_fingerprint("build-box ssh-ed25519 notbase64!!").is_none());
-    assert!(parse_keyscan_fingerprint("").is_none());
+    assert!(parse_keyscan_fingerprints("# only a comment\n").is_empty());
+    assert!(parse_keyscan_fingerprints("build-box ssh-ed25519\n").is_empty());
+    assert!(parse_keyscan_fingerprints("build-box ssh-ed25519 notbase64!!").is_empty());
+    assert!(parse_keyscan_fingerprints("").is_empty());
 }
 
 #[test]
-fn keyscan_reports_the_first_key_it_printed() {
-    // `ssh-keyscan` prints what it found, in its own order, and the first
-    // line is the answer, so the order on the wire is the order reported.
+fn every_key_the_scan_printed_is_kept_in_order() {
+    // A host offers one key per algorithm and the scan prints all of them, so the
+    // whole set is kept: which of them a later connection negotiates is not ours
+    // to choose, and the first entry is only what a report chooses to show.
     let ed = "AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl";
     let ecdsa = "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=";
-    let both = format!("build-box ssh-ed25519 {ed}\nbuild-box ecdsa-sha2-nistp256 {ecdsa}\n");
+    let both = format!("build-box ssh-rsa {ed}\nbuild-box ecdsa-sha2-nistp256 {ecdsa}\n");
     let only_ecdsa = format!("build-box ecdsa-sha2-nistp256 {ecdsa}\n");
 
+    let both = parse_keyscan_fingerprints(&both);
+    assert_eq!(both.len(), 2, "both keys are kept");
     assert_eq!(
-        parse_keyscan_fingerprint(&both).as_deref(),
+        both.first().map(String::as_str),
         Some("SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU"),
-        "the first line ssh-keyscan printed is the answer"
+        "the order the scan printed is the order kept"
     );
-    // With the ed25519 line gone the next key becomes the answer: the
-    // parser reports what it was given rather than preferring an algorithm.
-    assert!(parse_keyscan_fingerprint(&only_ecdsa).is_some());
-    assert_ne!(
-        parse_keyscan_fingerprint(&only_ecdsa),
-        parse_keyscan_fingerprint(&both)
+
+    let only_ecdsa = parse_keyscan_fingerprints(&only_ecdsa);
+    assert_eq!(only_ecdsa.len(), 1);
+    assert!(
+        both.contains(&only_ecdsa[0]),
+        "the ecdsa key is one of the two"
+    );
+    assert_ne!(only_ecdsa[0], both[0]);
+}
+
+#[test]
+fn a_repeated_key_is_kept_once() {
+    let blob = "AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl";
+    let twice = format!("build-box ssh-ed25519 {blob}\nbuild-box ssh-ed25519 {blob}\n");
+    assert_eq!(parse_keyscan_fingerprints(&twice).len(), 1);
+}
+
+#[test]
+fn a_pin_holds_when_the_host_offers_the_accepted_key_among_others() {
+    // The regression this exists for: the fingerprint a person accepts is the one
+    // `ssh` announced while refusing, and a scan prints its own order — so a pin
+    // compared against a single entry reported an unchanged host as changed, and
+    // no acceptance could clear it.
+    let accepted = "SHA256:x3p5sYsZERhA6jN5pmL7Ulns+mYsNC6qyt3Zk8BQiUg";
+    let offered = vec![
+        "SHA256:vd05SXx4Tk2btT97xoEM20JyrvcCDKMMaljg5HQfa3I".to_string(),
+        accepted.to_string(),
+    ];
+    assert!(matches!(
+        pin_outcome(Some(accepted), &offered),
+        PinOutcome::Holds
+    ));
+}
+
+#[test]
+fn a_pin_reports_a_change_only_when_no_offered_key_matches() {
+    let offered = vec!["SHA256:other".to_string(), "SHA256:another".to_string()];
+    match pin_outcome(Some("SHA256:accepted"), &offered) {
+        PinOutcome::Changed { fingerprint } => {
+            assert_eq!(
+                fingerprint, "SHA256:other",
+                "the first offered key is named"
+            );
+        }
+        _ => panic!("a key the host no longer offers is a change"),
+    }
+}
+
+#[test]
+fn an_unreadable_host_key_leaves_a_pin_unchecked() {
+    // Fail closed: a pin that cannot be checked is not a pin that holds.
+    assert!(matches!(
+        pin_outcome(Some("SHA256:accepted"), &[]),
+        PinOutcome::Unreadable
+    ));
+}
+
+#[test]
+fn a_pin_with_nothing_recorded_is_not_enforced() {
+    let offered = vec!["SHA256:whatever".to_string()];
+    assert!(matches!(
+        pin_outcome(None, &offered),
+        PinOutcome::NotEnforced
+    ));
+}
+
+#[tokio::test]
+async fn a_finished_scan_is_taken_and_a_running_one_is_abandoned() {
+    // A scan must never be waited for where its answer is not used: on a build
+    // that cannot read the key at all, waiting is seconds of nothing on every
+    // probe, which is what this whole path exists to stop paying.
+    let finished = tokio::spawn(async { vec!["SHA256:found".to_string()] });
+    tokio::task::yield_now().await;
+    assert_eq!(
+        collect_scan(Some(finished)).await,
+        vec!["SHA256:found".to_string()]
+    );
+
+    let running = tokio::spawn(async {
+        tokio::time::sleep(Duration::from_secs(30)).await;
+        vec!["SHA256:never".to_string()]
+    });
+    let started = Instant::now();
+    assert!(collect_scan(Some(running)).await.is_empty());
+    assert!(
+        started.elapsed() < Duration::from_secs(5),
+        "it did not wait"
+    );
+}
+
+#[test]
+fn the_ssh_fallback_refuses_every_authentication_method() {
+    // The key is exchanged before any credential is, so the fallback read works
+    // while being unable to authenticate: no method is offered, no key file of
+    // ours is reachable, and only the known-hosts file named here is read.
+    let target = ssh_profile().target;
+    let args = announced_host_key_args(&target, std::path::Path::new("C:/tmp/qn-known-hosts"))
+        .expect("argv for a target with a host");
+    let joined = args.join(" ");
+
+    assert!(joined.contains("PreferredAuthentications=none"), "{joined}");
+    assert!(joined.contains("GlobalKnownHostsFile=none"), "{joined}");
+    assert!(joined.contains("UserKnownHostsFile="), "{joined}");
+    assert!(
+        joined.contains("StrictHostKeyChecking=accept-new"),
+        "{joined}"
+    );
+
+    let destination = destination(&target).expect("a destination");
+    let position = args
+        .iter()
+        .position(|arg| *arg == destination)
+        .expect("the destination is present");
+    let command = args
+        .iter()
+        .position(|arg| arg == "true")
+        .expect("a command for ssh to carry");
+    assert!(
+        position < command,
+        "the destination comes before the command: {joined}"
     );
 }
 
