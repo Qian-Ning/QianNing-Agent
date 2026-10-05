@@ -34,8 +34,12 @@ test("repository entry documents present the QianNing product", () => {
   for (const [name, source] of publicDocuments) {
     assert.match(source, /QianNing Agent/, name);
   }
+  // The maintainer is credited by name in the README.
   assert.match(readme, /千凝/);
-  assert.match(docsZhIndex, /千凝/);
+  // The Chinese entry document names the product too, and must not present the
+  // maintainer's name as the product: that is the D671 naming contract.
+  assert.match(docsZhIndex, /QianNing Agent/);
+  assert.doesNotMatch(docsZhIndex, /title:.*千凝/);
   // Two near-miss homophones the product name has actually been misread as.
   assert.doesNotMatch(
     `${readme}\n${englishReadme}\n${docsIndex}\n${docsZhIndex}\n${docsConfig}\n${homeComponent}\n${docsLayout}`,

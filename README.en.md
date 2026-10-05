@@ -87,7 +87,7 @@ The Chinese name is **千凝** (*níng* — to gather, to focus). The English pr
 
 ### The working agreement
 
-The built-in system prompt is organised into **six sections** — working agreement, tone and formatting, following the codebase, tool use, safety, and verification — and it constrains the **process** rather than a feature list: lead with the outcome and then the evidence; never describe intended work as done; write code references as a clickable `path:line`; verify with a real command instead of inferring success from a plausible-looking diff; and when something is genuinely ambiguous, ask one or two focused questions rather than guess and waste the work.
+The built-in system prompt is organised into **seven sections** — scope, working agreement, tone and formatting, following the codebase, tool use, safety, and verification — and it constrains the **process** rather than a feature list: lead with the outcome and then the evidence; never describe intended work as done; write code references as a clickable `path:line`; verify with a real command instead of inferring success from a plausible-looking diff; and when something is genuinely ambiguous, ask one or two focused questions rather than guess and waste the work.
 
 That identity and agreement is **re-appended to every session**, built-in persona or custom one: a custom persona may change how the agent speaks, but it cannot rename the product — in Chinese it is always 千凝, never a transliteration of the Latin name.
 
