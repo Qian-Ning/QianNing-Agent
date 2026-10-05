@@ -7907,3 +7907,42 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   "run this on that machine"; RACP answers "run *me* on that machine". The two
   are specified separately so neither grows the other's credential store, and
   the deferred convergence point is one profile record serving both.
+## 2026-10-05 — Built-in operating brief is restructured into named sections (D670)
+
+- The base prompt's operational tail grows from loose sentences into six named
+  sections in `defaultSystemPromptParts` (`packages/agent-runtime/src/runtime.ts`):
+  `## Working agreement`, `## Tone and formatting`, `## Following the codebase`,
+  `## Tool use`, `## Safety`, and `## Verification`. Named headings make the brief
+  reviewable and let a rule be added, removed, or tested by name instead of by
+  substring archaeology.
+- Source material was the published prompt artifacts of two other coding-agent
+  CLIs, read as methodology only: brevity that leads with the outcome, a
+  conventions/blast-radius discipline, native-tool-over-shell preference, batched
+  lookups, explicit solving-and-verification workflow, and untrusted text treated
+  as data. No wording, structure, or product name is imported, and no third-party
+  product is named in the repository.
+- Each new section inverts a failure the product has actually seen: unrequested
+  README/doc/test creation; `any`-shaped or invented APIs; narration of an
+  internal checklist; an "estimated" value presented as a measurement; success
+  inferred from a plausible diff instead of a real exit status; and a permission
+  or sandbox boundary loosened to make a call succeed.
+- The per-conversation persona feature is **not changed**. The composition
+  expression, session-launch precedence, the Rust `session.systemPrompt`
+  storage/RPC, `SessionPromptDialog`, and the settings surface are untouched: a
+  custom persona still replaces the first layer verbatim and still receives the
+  appended operational sections unchanged.
+- `PRODUCT_IDENTITY_SYSTEM_PROMPT` states the official Chinese product name
+  (千凝) as a positive fact and is composed into the built-in persona only. The
+  wrong homophone is never written into a prompt. Because identity rides the
+  persona layer, a custom persona does not receive it; pinning it into the
+  appended tail would change what a custom-persona session sends, which the
+  single-scope persona decision (ADR 0307) rules out.
+- Two pre-existing sentences keep their exact wording because `runtime.test.ts`
+  pins them: the visibility rule and the clarify-first rule. The visibility rule
+  is therefore still its own part rather than folded into `## Tool use`.
+- No protocol, IPC, schema, or persisted-format change. `runtime.test.ts` adds
+  "gives a custom persona the same operational brief and nothing above it", which
+  asserts the six sections survive a custom persona, that the persona stays first,
+  and that product identity does not leak into it; `mode-prompts.test.ts` asserts
+  the identity fact and the persona-opening line. See
+  `03-runtime/02-agent-runtime.md` §7.

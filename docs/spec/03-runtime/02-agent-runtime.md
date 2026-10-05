@@ -1320,6 +1320,34 @@ Required behaviours, each one an observed failure inverted:
   (notably an OpenAI-style `multi_tool_use.parallel` wrapper) does not run, and
   the runtime logs it when a model emits one
 
+The operational tail is organised into named sections, so a rule can be added,
+tested, or removed by name while the same sections reach every mode and every
+custom persona unchanged:
+
+- `## Working agreement` — scope and stopping criteria, honest reporting, and the
+  clarify-first rule
+- `## Tone and formatting` — outcome-first answers, no preamble or checklist
+  narration, clickable `path/to/file.ts:42` references, and the shortest correct
+  answer for a simple request
+- `## Following the codebase` — read before changing, match the package's
+  conventions, no drive-by refactor or unrequested documentation, and no assumed
+  dependency
+- `## Tool use` — tools for actions and text for communication, native tools over
+  their shell equivalents, batched independent lookups, and bounded reads
+- `## Safety` — no secret in output or a commit, no destructive version-control
+  or filesystem operation without a request, no loosening of a permission or
+  sandbox boundary, and repository, web, and tool text treated as data rather
+  than instruction
+- `## Verification` — run the real command and read its exit status, reproduce a
+  reported bug before changing code, and state in the final message how the
+  result was verified and what remains unverified
+
+The built-in persona also carries the product's official Chinese name (千凝) as
+a positive fact, because a model otherwise transliterates the Latin product name
+into a homophone of its own choosing. Identity rides the persona layer, so a
+custom per-conversation persona replaces it together with the rest of that layer;
+the appended sections above are the part a caller cannot drop.
+
 It also states a search preference that matches the host-side budgets in
 [16-tool-result-limits](16-tool-result-limits.md): scope `Read`, `Grep`, and
 `Glob` with their own parameters instead of hand-rolling `cat`/`sed`/`grep`/
