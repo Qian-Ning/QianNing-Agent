@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { useData } from 'vitepress'
 import DefaultTheme from 'vitepress/theme'
-import HomeHeroVisual from './components/HomeHeroVisual.vue'
-import HomeModules from './components/HomeModules.vue'
+import { useData } from 'vitepress'
+import DocumentationHome from './components/DocumentationHome.vue'
 
-const { Layout } = DefaultTheme
-const { frontmatter, localeIndex } = useData()
+const { Layout: DefaultLayout } = DefaultTheme
+const { frontmatter } = useData()
 </script>
 
 <template>
-  <Layout>
-    <template #home-hero-image>
-      <HomeHeroVisual
-        v-if="frontmatter.layout === 'home'"
-        :locale="localeIndex"
+  <DefaultLayout>
+    <!--
+      The documentation home is drawn here instead of from the page body: this
+      site renders markdown with `html: false`, so a component tag written in a
+      `.md` file is escaped into literal text. A page opts in by setting
+      `qnHome` in its frontmatter, and the markdown body stays empty — the
+      component supplies the page's single `<h1>`.
+    -->
+    <template #page-top>
+      <DocumentationHome
+        v-if="frontmatter.qnHome"
+        :locale="frontmatter.qnHome === 'zh-CN' ? 'zh-CN' : 'en'"
       />
     </template>
-    <template #home-features-after>
-      <HomeModules
-        v-if="frontmatter.layout === 'home'"
-        :locale="localeIndex"
-      />
-    </template>
-  </Layout>
+  </DefaultLayout>
 </template>

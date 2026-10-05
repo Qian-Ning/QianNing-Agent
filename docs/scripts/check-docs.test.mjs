@@ -50,10 +50,19 @@ test('page structure ignores markdown inside fences', () => {
     'broken-table.md': '# Title\n\n| a | b |\n|---|---|\n| 1 | 2 | 3 |\n',
     'unbalanced.md': '# Title\n\n```text\nno closing fence\n',
     'home.md': '---\nlayout: home\n---\n\nhero only\n',
+    'home-page.md': '---\nlayout: page\nqnHome: en\n---\n',
+    'bare-page.md': '---\nlayout: page\n---\n\nno heading here\n',
   })
 
   assert.deepEqual(verifyPageStructure(['ok.md'], root), [])
   assert.deepEqual(verifyPageStructure(['home.md'], root), [])
+  // A page that mounts the documentation home draws its own heading from the
+  // layout; a page without that marker still owes one.
+  assert.deepEqual(verifyPageStructure(['home-page.md'], root), [])
+  assert.match(
+    verifyPageStructure(['bare-page.md'], root).join('\n'),
+    /expected exactly one H1/,
+  )
   assert.match(verifyPageStructure(['two-h1.md'], root).join('\n'), /expected exactly one H1/)
   assert.match(verifyPageStructure(['broken-table.md'], root).join('\n'), /has 2 columns but this row has 3/)
   assert.match(verifyPageStructure(['unbalanced.md'], root).join('\n'), /unbalanced code fence/)

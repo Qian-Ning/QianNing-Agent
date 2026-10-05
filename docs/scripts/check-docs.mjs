@@ -85,10 +85,21 @@ function topSection(source, title) {
   return end ? rest.slice(0, end.index) : rest
 }
 
-/** A VitePress `layout: home` page renders a hero instead of a markdown H1. */
-function isHomeLayout(source) {
+/**
+ * True when a page deliberately renders no markdown H1 because the theme draws
+ * the heading instead.
+ *
+ * `layout: home` renders VitePress's hero. A page that sets `qnHome` mounts the
+ * documentation home, which draws its own `<h1>` from the layout slot — the
+ * requirement this rule protects is "one top-level heading per page", and a
+ * component-rendered page satisfies it in the component, not in markdown.
+ */
+function delegatesHeading(source) {
   const frontmatter = /^---\n([\s\S]*?)\n---/.exec(source)?.[1]
-  return Boolean(frontmatter && /^layout:\s*home\s*$/m.test(frontmatter))
+  if (!frontmatter) return false
+  return (
+    /^layout:\s*home\s*$/m.test(frontmatter) || /^qnHome:\s*\S+/m.test(frontmatter)
+  )
 }
 
 /**
@@ -129,7 +140,7 @@ export function verifyPageStructure(relativePaths, root = docsRoot) {
     }
 
     const h1Count = prose.filter((line) => line !== null && /^#\s+\S/.test(line)).length
-    if (h1Count !== 1 && !isHomeLayout(source)) {
+    if (h1Count !== 1 && !delegatesHeading(source)) {
       failures.push(`${relativePath}: expected exactly one H1, found ${h1Count}`)
     }
 

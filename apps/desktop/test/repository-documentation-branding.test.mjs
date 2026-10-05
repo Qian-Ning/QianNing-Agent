@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../../../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
 
-const [readme, englishReadme, security, contributing, privacy, docsIndex, docsConfig] =
+const [readme, englishReadme, security, contributing, privacy, docsIndex, docsZhIndex, docsConfig, homeComponent, docsLayout] =
   await Promise.all([
     read("README.md"),
     read("README.en.md"),
@@ -13,7 +13,10 @@ const [readme, englishReadme, security, contributing, privacy, docsIndex, docsCo
     read("CONTRIBUTING.md"),
     read("docs/privacy-policy.md"),
     read("docs/index.md"),
+    read("docs/zh-CN/index.md"),
     read("docs/.vitepress/config.mts"),
+    read("docs/.vitepress/theme/components/DocumentationHome.vue"),
+    read("docs/.vitepress/theme/Layout.vue"),
   ]);
 
 const publicDocuments = [
@@ -23,6 +26,7 @@ const publicDocuments = [
   ["CONTRIBUTING.md", contributing],
   ["docs/privacy-policy.md", privacy],
   ["docs/index.md", docsIndex],
+  ["docs/zh-CN/index.md", docsZhIndex],
   ["docs/.vitepress/config.mts", docsConfig],
 ];
 
@@ -31,8 +35,45 @@ test("repository entry documents present the QianNing product", () => {
     assert.match(source, /QianNing Agent/, name);
   }
   assert.match(readme, /千凝/);
+  assert.match(docsZhIndex, /千凝/);
+  // Two near-miss homophones the product name has actually been misread as.
+  assert.doesNotMatch(
+    `${readme}\n${englishReadme}\n${docsIndex}\n${docsZhIndex}\n${docsConfig}\n${homeComponent}\n${docsLayout}`,
+    /乾宁|千宁/,
+  );
   assert.match(readme, /Qian-Ning\/QianNing-Agent/);
   assert.match(englishReadme, /Qian-Ning\/QianNing-Agent/);
+});
+
+test("the documentation home mounts the maintained product module and states the real secret boundary", () => {
+  // The home page cannot carry a component tag in its markdown: this site
+  // renders markdown with `html: false`, which escapes the tag into text. The
+  // page declares `qnHome` instead and the theme's Layout mounts the component.
+  assert.match(docsIndex, /^qnHome:\s*en\s*$/m);
+  assert.match(docsZhIndex, /^qnHome:\s*zh-CN\s*$/m);
+  assert.match(docsLayout, /<DocumentationHome\b/);
+  assert.match(docsLayout, /frontmatter\.qnHome/);
+  assert.match(
+    homeComponent,
+    /OS keychain backend is not implemented|尚未接入操作系统钥匙串/,
+  );
+  // The home body must stay empty: markdown here is rendered with
+  // `html: false`, so a raw tag or an HTML comment written into these files is
+  // escaped and printed as visible page text instead of being interpreted.
+  for (const [name, source] of [
+    ["docs/index.md", docsIndex],
+    ["docs/zh-CN/index.md", docsZhIndex],
+  ]) {
+    assert.equal(
+      source.replace(/^---[\s\S]*?\n---/, "").trim(),
+      "",
+      `${name} must carry frontmatter only`,
+    );
+  }
+  assert.doesNotMatch(
+    homeComponent,
+    /Credentials live in the OS keychain|凭据进系统钥匙串/,
+  );
 });
 
 test("repository entry documents do not advertise upstream releases or community metrics", () => {

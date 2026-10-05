@@ -1,16 +1,10 @@
 ---
-layout: home
-title: QianNing Agent
-titleTemplate: A local-first desktop workspace for AI agents
-hero:
-  name: QianNing Agent
-  text: A local-first desktop workspace for AI agents.
-  tagline: Persistent projects, configurable models, voice input, plugins, usage pricing, skins, and agent workflows.
-  actions:
-    - theme: brand
-      text: Download
-      link: https://github.com/Qian-Ning/QianNing-Agent/releases
-    - theme: alt
-      text: Documentation
-      link: /guide/
+layout: page
+sidebar: false
+aside: false
+outline: false
+qnHome: en
+title: QianNing Agent documentation
+titleTemplate: Local-first desktop workspace for AI agents
+description: Install QianNing Agent, connect a model, open a project, and understand its local-first architecture, permissions, plugins, and agent workflows.
 ---
