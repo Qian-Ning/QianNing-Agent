@@ -6,7 +6,7 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { register } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -19,6 +19,13 @@ const { buildBootstrapScript, parseBootstrapOutput, shellQuote } = await import(
 const VERSION = "0.15.1-beta.5";
 const BUNDLE_DIR = `pi-host-${VERSION}-linux-x64`;
 const ARTIFACT_NAME = `${BUNDLE_DIR}.tar.gz`;
+
+// The installer is POSIX: it stages its work under `mktemp -d`/`$TMPDIR`. Under
+// MSYS those come back as `/tmp/...`, which the Windows-side Node shims in the
+// sandbox resolve to `C:\tmp\...` and cannot open. The script is correct for its
+// Linux target; only this end-to-end run cannot be hosted on Windows.
+const posixTempUnsupported =
+  process.platform === "win32" ? "MSYS temp paths do not resolve for the Windows shims" : false;
 const ARTIFACT_URL = `https://github.com/Qian-Ning/QianNing-Agent/releases/download/v${VERSION}/${ARTIFACT_NAME}`;
 const DIGEST = "0123456789abcdef".repeat(4);
 /** The sandbox the script's `HOME`/`PATH` point at, outside the real user's. */
@@ -63,7 +70,12 @@ async function prepareSandbox(root, { readyVersion = VERSION } = {}) {
   await writeFile(join(stage, BUNDLE_DIR, "install.sh"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
 
   const tarball = join(root, "artifact.tar.gz");
-  execFileSync("tar", ["-czf", tarball, "-C", stage, BUNDLE_DIR]);
+  // `cwd: root` plus a relative `-f` is deliberate: GNU tar reads an absolute
+  // `-f C:\...` argument as its remote `host:path` syntax and tries to connect
+  // to the drive letter. Only `-f` carries that meaning, so `-C` stays absolute.
+  execFileSync("tar", ["-czf", relative(root, tarball), "-C", stage, BUNDLE_DIR], {
+    cwd: root,
+  });
   const digest = createHash("sha256").update(await readFile(tarball)).digest("hex");
 
   // `sha256_of` prefers `sha256sum`; the stand-in delegates to the real Node so
@@ -240,7 +252,7 @@ test("a hostile version stays one literal value when the assignments run", async
   }
 });
 
-test("the generated script installs, starts, and prints the ready/pairing lines", async () => {
+test("the generated script installs, starts, and prints the ready/pairing lines", { skip: posixTempUnsupported }, async () => {
   const { dir, cleanup } = await tempDir("pi-host-script-run-");
   try {
     const sandbox = await prepareSandbox(dir);

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, delimiter, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -139,7 +139,7 @@ function runDiagnostics(bin, { args = [], env = {} } = {}) {
     // every test that expects an identity states which one.
     env: {
       ...BASE_ENV,
-      PATH: `${bin}:${process.env.PATH}`,
+      PATH: `${bin}${delimiter}${process.env.PATH}`,
       MAC_SIGNING_IDENTITY: SIGNING_IDENTITY_NAME,
       ...env,
     },
@@ -369,7 +369,13 @@ test("diagnostics never echo signing secrets", async (t) => {
   }
 });
 
-test("inventory counts the signing payload of a release directory", async (t) => {
+// The inventory classifies a bundle entry as an executable from its POSIX exec
+// bit; Windows carries no such bit (chmod there only toggles the read-only
+// attribute), so the count is structurally 0 there rather than a wrong answer.
+const inventoryNeedsExecBits =
+  process.platform === "win32" ? "executable detection needs POSIX exec bits" : false;
+
+test("inventory counts the signing payload of a release directory", { skip: inventoryNeedsExecBits }, async (t) => {
   const root = await tempRoot(t, "pi-desktop-bundle-inventory-");
   const release = join(root, "release");
   const app = await writeBundleFixture(release);

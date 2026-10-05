@@ -256,7 +256,11 @@ test("a slow server times out instead of hanging the load", async () => {
     rootPath: dir,
     server: { id: "stub", transport: "stdio", command: "node", args: ["./server.mjs"] },
     values: { STUB_PID_FILE: pidFile },
-    connectTimeoutMs: 250,
+    // Generous on purpose: the stub has to cold-start and write its pid before
+    // the budget expires, and Windows process start stretches under parallel
+    // load. The assertion is that the timeout fires and the child is reaped —
+    // not how quickly the budget elapses.
+    connectTimeoutMs: 2000,
   });
   await assert.rejects(client.connect(), (error) => {
     assert.equal(error.code, "TIMEOUT");
@@ -379,13 +383,16 @@ test("a remote mcp server negotiates over http and keeps its session", async (t)
 });
 
 test("a remote MCP tool can run longer than the connection timeout", async (t) => {
-  const { url } = await startHttpServer(t, { slowToolDelayMs: 80 });
+  // The budgets keep their relationship — connect well under the tool delay,
+  // call timeout well over it — but every one of them is wide enough for a
+  // loopback round trip on a loaded Windows host.
+  const { url } = await startHttpServer(t, { slowToolDelayMs: 600 });
   const client = new McpServerClient({
     rootPath: mkdtempSync(join(tmpdir(), "pi-mcp-http-")),
     server: { id: "remote", transport: "http", url },
     values: {},
-    connectTimeoutMs: 20,
-    callTimeoutMs: 500,
+    connectTimeoutMs: 150,
+    callTimeoutMs: 2000,
   });
   t.after(() => client.close());
 
