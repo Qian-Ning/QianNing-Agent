@@ -280,6 +280,7 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
   registerConnectionIpc({
     registrar,
     getHost,
+    getMainWindow,
   });
   registerProviderIpc({
     registrar,

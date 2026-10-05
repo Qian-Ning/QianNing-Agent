@@ -368,14 +368,14 @@ agent may operate. It is a sibling of Scheduled and Extensions rather than a
 member of a project tree, because a target is not owned by a project. Each row
 shows its label, its transport kind, and its last probe state, and carries its
 own switch; the whole list sits behind the global switch on the Connections
-settings card. Selecting a row opens a detail view: the transport and target
-summary, the credential's *kind* rather than its value, the last probe result
-including the host-key fingerprint, recent audit activity, and the enable,
-edit, probe, and delete actions. The destination is where a changed host key is
-cleared, because that decision belongs to a person and to no method call. There
-is no terminal view here: a live shell the user drives themselves is a different
-capability, and §10 of `02-architecture/06-connections.md` records the
-exclusion.
+settings card. Selecting a row opens its detail view beneath that row: the
+transport and target summary, the credential's *kind* rather than its value, the
+last probe result including the host-key fingerprint, recent audit activity, and
+the enable, edit, probe, and delete actions. The destination is where a changed
+host key is cleared, because that decision belongs to a person and to no method
+call. There is no terminal view here: a live shell the user drives themselves is
+a different capability, and §10 of `02-architecture/06-connections.md` records
+the exclusion.
 
 ## 4. Overlays
 

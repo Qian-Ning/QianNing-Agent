@@ -131,3 +131,15 @@
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
 }
+
+/* The add/edit target form is a long form: wider than a confirm dialog and
+   taller than the viewport, so the card owns the scroll instead of the window
+   clipping it. Tokens only; the shell keeps its own surfaces untouched. */
+.connections-editor {
+  width: min(100%, 760px);
+  max-height: min(86vh, 920px);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+}
