@@ -1,6 +1,17 @@
 import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
+      {
+        version: "0.16.3",
+        date: "2026-10-05",
+        highlights: [
+          "Les destinations SSH enregistrées ont enfin un vrai éditeur : la page défile à nouveau, la boîte de dialogue est opaque, et les trois modes d'accès — la configuration ssh du système, un fichier d'identité ou un mot de passe enregistré — sont proposés côte à côte.",
+          "Un fichier d'identité se choisit par une boîte de dialogue native et l'éditeur n'en montre que le nom : le chemin complet n'apparaît jamais à l'écran, et une valeur contenant du matériel de clé est refusée avant d'être enregistrée.",
+          "Les valeurs par défaut de la connexion sont préremplies avec les limites de l'hôte (délai de 60 000 ms, 256 Kio de sortie, 64 Kio de flux), et un champ vidé retombe sur la valeur par défaut au lieu de faire échouer l'enregistrement.",
+          "La délégation montre son visage : la ligne Task fait défiler le temps écoulé et nomme le modèle sur lequel elle tourne, et une bande au-dessus du compositeur liste chaque sous-agent encore en activité — cliquer sur une ligne saute vers sa carte.",
+          "Quand le tour de l'agent principal se termine pendant que des sous-agents travaillent encore, leurs rapports aboutis sont livrés automatiquement et l'agent reprend (resume-after-idle).",
+        ],
+      },
   {
     version: "0.16.2",
     date: "2026-10-05",

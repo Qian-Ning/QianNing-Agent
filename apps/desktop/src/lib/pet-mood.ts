@@ -1,5 +1,5 @@
 /**
- * Pure state → mood mapping for the desktop companion ("千凝" pet, D633).
+ * Pure state → mood mapping for the desktop companion ("千凝" pet, D664).
  *
  * The pet is a passive mirror of the active session's agent state. Keeping the
  * decision here — a pure function over a plain snapshot — is what lets it be

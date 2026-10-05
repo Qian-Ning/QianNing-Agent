@@ -12072,9 +12072,9 @@ are withdrawn with ADR 0165.
   from the command palette (`usage` / `用量`). 5) Confirm the transcript
   assistant chip.
 - **Expected**:
-  - The rail has no Usage / 用量 destination. Preferences is General, AI,
-    Shortcuts.
-  - Settings search does not surface a usage tab.
+  - The rail has no Usage / 用量 destination; Settings is the only way in.
+  - Settings search surfaces the usage tab under `usage` / `用量` / `tokens`
+    (the indexed `settings-search` entry for `id: "usage"`).
   - `stats.getTokenUsageHistory` still returns completed-turn totals that
     include subagent spend.
   - The assistant chip under the transcript still shows parent-only provider

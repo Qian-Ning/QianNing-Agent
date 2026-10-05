@@ -1235,7 +1235,6 @@ numeric slot; the string is the contract, the number is transport detail.
 | 1012 | PLUGIN_INTEGRITY | package checksum/signature mismatch |
 | 1013 | PLUGIN_PERMISSION_DENIED | plugin lacks the permission the call needs |
 | 1014 | PLUGIN_NETWORK | marketplace download/catalog fetch failed |
-| 1015 | MCP_INVALID | user MCP server definition failed validation |
 | 1015 | PLAN_* | every Plan/Goal checkpoint failure (`PLAN_APPROVAL_TIMEOUT`, `PLAN_APPROVAL_STALE`, `PLAN_APPROVAL_INTERRUPTED`, `PLAN_SESSION_NOT_FOUND`, `PLAN_WORKSPACE_REQUIRED`, …) shares this slot; the string code distinguishes them |
 | 1016 | SKILL_INVALID | user skill document failed validation |
 | 1017 | SUBAGENT_INVALID | user subagent document failed validation |
@@ -1259,6 +1258,7 @@ numeric slot; the string is the contract, the number is transport detail.
 | 1035 | CONNECTION_TIMEOUT | the operation exceeded its timeout; the spawned process tree is terminated before this is returned |
 | 1036 | CONNECTION_UNSUPPORTED | this transport kind has no implementation here, or the required program is absent |
 | 1037 | CONNECTION_NO_EXEC | the transport has no command channel; use the `Console` tool |
+| 1038 | MCP_INVALID | user MCP server definition failed validation |
 | -32029 | HOST_OVERLOADED | RPC dispatcher capacity exhausted |
 | -32601 | — | unknown method |
 | -32700 | — | unparseable request line |

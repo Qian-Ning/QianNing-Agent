@@ -965,7 +965,6 @@ JSON-RPC 错误携带一个数字 `code` 以及 `data.errorCode`，后者是来�
 | 1012 | PLUGIN_INTEGRITY | 包 checksum/signature 不匹配 |
 | 1013 | PLUGIN_PERMISSION_DENIED | 插件缺少该调用所需的权限 |
 | 1014 | PLUGIN_NETWORK | 市场 download/catalog 拉取失败 |
-| 1015 | MCP_INVALID | 用户 MCP 服务器定义校验失败 |
 | 1015 | PLAN_* | 所有 Plan/Goal 检查点失败（`PLAN_APPROVAL_TIMEOUT`、`PLAN_APPROVAL_STALE`、`PLAN_APPROVAL_INTERRUPTED`、`PLAN_SESSION_NOT_FOUND`、`PLAN_WORKSPACE_REQUIRED`……）共用此槽位；由字符串码区分 |
 | 1016 | SKILL_INVALID | 用户技能文档校验失败 |
 | 1017 | SUBAGENT_INVALID | 用户子代理文档校验失败 |
@@ -989,6 +988,7 @@ JSON-RPC 错误携带一个数字 `code` 以及 `data.errorCode`，后者是来�
 | 1035 | CONNECTION_TIMEOUT | 操作超出超时；返回该错误之前先终止 spawn 出去的进程树 |
 | 1036 | CONNECTION_UNSUPPORTED | 该传输种类在这里没有实现，或所需的程序不存在 |
 | 1037 | CONNECTION_NO_EXEC | 该传输没有命令通道；请用 `Console` 工具 |
+| 1038 | MCP_INVALID | 用户 MCP 服务器定义校验失败 |
 | -32029 | HOST_OVERLOADED | RPC 调度程序容量已耗尽 |
 | -32601 | — | 未知方法 |
 | -32700 | — | 无法解析的请求行 |

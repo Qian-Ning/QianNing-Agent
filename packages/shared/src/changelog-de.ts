@@ -1,6 +1,17 @@
 import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
+      {
+        version: "0.16.3",
+        date: "2026-10-05",
+        highlights: [
+          "Gespeicherte SSH-Ziele haben endlich einen richtigen Editor: die Seite scrollt wieder, der Dialog ist deckend, und die drei Zugangswege — die System-ssh-Konfiguration, eine Schlüsseldatei oder ein gespeichertes Passwort — stehen nebeneinander zur Wahl.",
+          "Eine Schlüsseldatei wird über einen nativen Dialog gewählt, und der Editor zeigt nur ihren Namen: der gespeicherte Pfad erscheint nie auf dem Bildschirm, und ein Wert mit Schlüsselmaterial wird vor dem Speichern abgelehnt.",
+          "Die Verbindungs-Standardwerte sind mit den Grenzen des Hosts vorbelegt (60 000 ms Timeout, 256 KiB Ausgabe, 64 KiB Stream); ein geleertes Feld fällt auf den Standard zurück, statt den Speichervorgang scheitern zu lassen.",
+          "Delegationen zeigen ihr Gesicht: die Task-Zeile tickt die verstrichene Zeit hoch und nennt das Modell, auf dem sie läuft; über dem Composer listet ein Streifen jeden noch arbeitenden Subagenten auf — ein Klick auf eine Zeile springt zu deren Karte.",
+          "Endet der Turn des Haupt-Agenten, während Subagenten noch arbeiten, werden ihre fertigen Berichte automatisch zugestellt und der Agent nimmt seine Arbeit wieder auf (resume-after-idle).",
+        ],
+      },
   {
     version: "0.16.2",
     date: "2026-10-05",

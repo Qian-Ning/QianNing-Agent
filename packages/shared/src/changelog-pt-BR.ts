@@ -1,6 +1,17 @@
 import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
+      {
+        version: "0.16.3",
+        date: "2026-10-05",
+        highlights: [
+          "Os destinos SSH salvos agora têm um editor de verdade: a página volta a rolar, o diálogo é opaco e as três formas de acesso — a configuração ssh do sistema, um arquivo de identidade ou uma senha salva — são oferecidas lado a lado.",
+          "Um arquivo de identidade é escolhido por um diálogo nativo e o editor mostra apenas o nome: o caminho completo nunca aparece na tela, e um valor que traz material de chave é recusado antes de ser salvo.",
+          "Os padrões da conexão já vêm preenchidos com os limites do próprio host (tempo limite de 60.000 ms, 256 KiB de saída, 64 KiB de fluxo), e um campo esvaziado volta ao padrão em vez de falhar ao salvar.",
+          "A delegação mostra sua cara: a linha de Task marca o tempo decorrido e nomeia o modelo em que roda, e uma faixa acima do compositor lista cada subagente ainda em ação — clicar numa linha pula para o cartão dele.",
+          "Quando o turno do agente principal termina enquanto subagentes ainda trabalham, seus relatórios concluídos são entregues automaticamente e o agente retoma (resume-after-idle).",
+        ],
+      },
   {
     version: "0.16.2",
     date: "2026-10-05",
