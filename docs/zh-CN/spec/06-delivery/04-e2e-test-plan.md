@@ -9112,7 +9112,7 @@ the latest destination. These assertions measure work counts, not device FPS.
 
 #### E2E-262：在用户打开两道开关之前，出向连接一律被拒绝
 
-- **前置：** 全新配置文件，`remoteControlEnabled` 从未被写入。不存在任何连接配置。本机可连到一台 SSH 主机，且至少一台测试机上有串口设备。
+- **前置：** 全新配置文件，`remoteControlEnabled` 从未被写入。不存在任何连接配置。本机可连到一台 SSH 主机，且至少一台测试机上有串口设备。串口设备只需在位：字节流目标在任何连接尝试之前即被拒绝，因此不会打开该端口——null-modem 线对或回环插头要等 `Console` 字节流（R4）落地后才需要。
 - **步骤：** 1) 打开 设置 ▸ AI，确认连接开关处于关闭。2) 让智能体列出目标，并用一个目标 id 执行命令。3) 读取宿主为该会话公布的工单列表。4) 打开全局开关。5) 在尚未创建任何配置的情况下让智能体再执行一次命令。6) 在连接目的地创建一条配置，保持禁用，点名它再问一次。7) 启用该配置再问一次。
 - **预期：** 全局开关关闭时，`connection.list` 与其他所有面向智能体的方法都回答 `CONNECTION_DISABLED`，公布的工单列表中不出现 `Connection` 或 `Console`，而仍然握着上一轮定义的调用被拒绝而不是执行。只打开全局开关触达不到任何东西：没有配置时拒绝是 `CONNECTION_NOT_FOUND`；配置保持禁用时拒绝是 `CONNECTION_PROFILE_DISABLED` 并点名该配置。只有配置被启用之后命令才会执行。任何时刻智能体都没有创建、编辑、启用或删除配置的方法 —— 步骤 6 是由人在界面上完成的。
 - **规格：** `03-runtime/06-host-rpc-protocol.md`、`03-runtime/08-error-codes.md`、`03-runtime/23-connections-protocol.md`、`04-ux/01-ui-ia.md`、`04-ux/06-settings-ia.md`、`05-security/03-connections-security.md`。
@@ -9139,7 +9139,7 @@ the latest destination. These assertions measure work counts, not device FPS.
 
 #### E2E-264：服务不了某个动作的目标按名字被拒绝
 
-- **前置：** 全局开关打开，一条已启用的串口配置与一条已启用的 SSH 配置，串口设备在位。
+- **前置：** 全局开关打开，一条已启用的串口配置与一条已启用的 SSH 配置，串口设备在位。设备只需在位：第 1 步的拒绝先于任何连接尝试，端口不会被打开。
 - **步骤：** 1) 让智能体在串口配置上 `exec`。2) 让智能体把一个本地文件 `upload` 到会话工作区与 scratch 目录之外的目标路径。3) 探测一台自上次记录以来密钥已变更的主机。4) 之后读取该配置的审计轨迹。
 - **预期：** 串口 `exec` 以 `CONNECTION_NO_EXEC` 被拒绝，且不尝试任何连接。工作区之外的 `upload` 按本地 `Read` 工具对路径的同一条规则被拒绝。变更的主机密钥在任何策略下都以 `CONNECTION_HOST_KEY` 与 `details.kind: "changed"` 被拒绝，清除它需要人在目的地里操作 —— 重试不会改变结果。审计轨迹为每一次尝试（含拒绝）都留有一行，且没有任何一行包含凭据。
 - **规格：** `03-runtime/08-error-codes.md`、`03-runtime/23-connections-protocol.md`、`05-security/03-connections-security.md`。
