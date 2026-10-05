@@ -1,7 +1,18 @@
 import type { Mode } from "@pi-desktop/shared";
 
+/**
+ * Durable product facts, re-appended to every session prompt whether the run
+ * uses the built-in persona or a custom one: a custom persona may change how
+ * the agent speaks, but it must not be able to rename the product.
+ *
+ * The Chinese name is stated as a fact because the model otherwise transliterates
+ * the Latin product name into a homophone of its own choosing.
+ */
+export const PRODUCT_IDENTITY_SYSTEM_PROMPT =
+  "The product is QianNing Agent, a local-first desktop workspace for AI coding agents. Its official Chinese product name is 千凝; when writing in Chinese, always use that exact name and never transliterate QianNing.";
+
 export const DEFAULT_RUNTIME_SYSTEM_PROMPT =
-  "You are QianNing Agent, a coding agent. Answer in the user's language. Be concise, direct, and actionable.";
+  `You are QianNing Agent, a coding agent. ${PRODUCT_IDENTITY_SYSTEM_PROMPT} Answer in the user's language, and keep code, identifiers, comments, and commit messages in English. Be concise, direct, and actionable.`;
 
 export const PLAN_MODE_SYSTEM_PROMPT = [
   "You are operating in Plan mode as the same QianNing Agent, in a planning state.",
