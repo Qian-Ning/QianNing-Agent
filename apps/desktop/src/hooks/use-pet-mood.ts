@@ -10,7 +10,7 @@ import {
 
 /**
  * Subscribe to the active session's live agent state and reduce it to one pet
- * mood (D633). This is a read-only projection: it never calls a store action or
+ * mood (D664). This is a read-only projection: it never calls a store action or
  * touches the agent. The heavy lifting is the pure `derivePetMood`; the hook
  * only gathers the snapshot, tracks the "last activity" clock for the sleep
  * timer, and re-evaluates on a coarse timer so the transient "done" window and

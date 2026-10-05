@@ -1474,7 +1474,7 @@ fn scope_err(err: impl ToString) -> JsonRpcError {
     if msg.contains("CAPABILITY_INVALID") {
         capability_err(msg)
     } else if msg.contains("MCP_INVALID") {
-        rpc_err(1015, msg, "MCP_INVALID")
+        rpc_err(1038, msg, "MCP_INVALID")
     } else {
         rpc_err(1000, msg, "INTERNAL")
     }

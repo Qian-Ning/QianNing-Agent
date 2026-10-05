@@ -7182,7 +7182,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   duplicating an id), plus the `scripts/e2e/provider-api-style.tsx` and
   `scripts/e2e/image-generation-ui.tsx` probes, which no longer click Manage
   models.
-## 2026-09-26 — Named local-runtime presets and keyless local auth (D628)
+## 2026-09-26 — Named local-runtime presets and keyless local auth (D668)
 
 - Amend D029 / D310 / D312 / ADR 0012. D029 already supports local models
   through OpenAI-compatible gateways, but reaching Ollama or LM Studio meant
@@ -7279,11 +7279,11 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `UsageBreakdownResult` shared type. No write path, schema, migration, or
   persisted-format change; the existing `turns` columns already carry the data.
   A provider is treated as local·free when its `authKind` is `none` or its base
-  URL is loopback (matching the D628 keyless local presets), so cost is never
+  URL is loopback (matching the D668 keyless local presets), so cost is never
   invented — paid providers read as "unpriced". See ADR 0171,
   `03-runtime/11-provider-model-system.md`, and E2E token-usage coverage.
 
-## 2026-09-27 — Editable model pricing and cost estimate (D632)
+## 2026-09-27 — Editable model pricing and cost estimate (D663)
 
 - QianNing fork addition, extending D631. The user compared the usage page to
   cc-switch and asked for real cost figures with "先定个默认的模板，但是也可以像
@@ -7318,7 +7318,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   reference estimate from list prices, not a billing figure. See ADR 0171 and
   `03-runtime/11-provider-model-system.md`.
 
-## 2026-09-27 — Opt-in desktop companion that mirrors agent state (D633)
+## 2026-09-27 — Opt-in desktop companion that mirrors agent state (D664)
 
 - QianNing fork addition. The user wanted a mascot-based desktop pet that is
   "立体状态" and "活灵活现", rejecting a flat "圆圈里放图片" avatar, scoped to a
@@ -7360,7 +7360,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   boned rig (B) or an image-to-3D GLB model (C) — remain open follow-ups; the
   read-only mood wiring is designed to be reused by either.
 
-## 2026-09-28 — "千凝 / QianNing" built-in appearance theme (D634)
+## 2026-09-28 — "千凝 / QianNing" built-in appearance theme (D665)
 
 - QianNing fork addition. The user asked for a theme skin feature — keep the
   existing Light and Dark themes and add one more that matches the fox mascot's
@@ -7464,7 +7464,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - Covered by `apps/desktop/test/update-preference.test.mjs`, the updated
   `apps/desktop/test/auto-update.test.mjs`, and E2E-UPDATE-preference-and-once-only-reminder.
 
-## 2026-09-26 — Bound aggregate image history without an arbitrary message cutoff (D629)
+## 2026-09-26 — Bound aggregate image history without an arbitrary message cutoff (D669)
 
 - Vision history restoration keeps the existing 10 MB per-image ceiling and adds
   a 30 MB aggregate raw-byte budget per runtime rebuild. Eligible refs are
@@ -7501,7 +7501,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `03-runtime/13-model-catalog-and-selection.md` §11.3 and
   `04-ux/08-component-spec.md` §11.
 
-## 2026-09-27 — Agent workspace search is available from turn one (D631)
+## 2026-09-27 — Agent workspace search is available from turn one (D666)
 
 - Amend D185 / D208 and ADR 0069's Agent activation boundary: `Glob` and
   `Grep` are included with `Read`, `Bash`, `Edit`, and `Write` in the first
@@ -7715,7 +7715,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   locales. Still renderer-only: no host, schema, protocol, IPC, or
   persisted-database change. See `04-ux/08-component-spec.md` §11.
 
-## 2026-10-02 — Manual "summarize & start new chat" (D640)
+## 2026-10-02 — Manual "summarize & start new chat" (D667)
 
 - QianNing fork addition. Problem: a very long thread degrades regardless of
   automatic compaction, and the user wants to carry its gist into a clean

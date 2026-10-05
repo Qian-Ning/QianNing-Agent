@@ -306,7 +306,7 @@ Completed-turn history stays host-owned (`session.endTurn.usage`,
 `stats.getTokenUsageHistory`), and the upstream user-facing dashboard is
 marketplace plugin `pi.token-insights`, opened from the command palette
 (`usage`, `tokens`, `用量`). This fork reverses the destination half of that
-decision: D631 / D632 / D647 / D648 add a Settings ▸ Usage statistics tab with
+decision: D631 / D663 / D647 / D648 add a Settings ▸ Usage statistics tab with
 an hour-bucketed trend, an editable model-pricing cost estimate, and a
 per-series colour palette, and Settings search indexes it under `usage`. D656
 extends the tab with a 26-week calendar heatmap, a per-project breakdown, a

@@ -139,7 +139,7 @@ export type AppSettings = {
   /** Voice input settings (D-voice-runtime). */
   voice?: VoiceInputSettings;
   /**
-   * Desktop companion ("千凝" pet) overlay (D633). When true, a floating fox
+   * Desktop companion ("千凝" pet) overlay (D664). When true, a floating fox
    * mirrors the active session's agent state (idle/thinking/working/done/
    * error/permission/sleep) in the corner of the chat shell. Absent and false
    * keep it hidden — the pet is opt-in. It only reads run state; it never
