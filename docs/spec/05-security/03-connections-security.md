@@ -196,6 +196,15 @@ surface to distinguish "wrong password" from "wrong key" beyond what the
 transport itself reported, so the error cannot be used as an oracle for the
 stored secret's shape.
 
+  OpenSSH runs `SSH_ASKPASS` with the prompt as its only argument, so the
+  helper is identified by the `PI_CONNECTION_ASKPASS` marker in its
+  environment rather than by a flag: a helper that waits for an argument of
+  ours never answers, and the rejection it produces is indistinguishable from
+  a wrong password. The value is read from a `0600` file inside a `0700`
+  directory created for that one spawn and removed when it returns, which is
+  what keeps the credential out of the environment while the answer still
+  reaches `ssh` over the pipe the parent owns.
+
 ## 7. Bounds
 
 | Resource | Bound | Applied where |

@@ -57,22 +57,19 @@ async fn main() -> anyhow::Result<()> {
         std::process::exit(exit_code);
     }
 
-    // The SSH askpass helper. `ssh` re-invokes this binary with this flag and
+    // The SSH askpass helper. `ssh` re-invokes this binary as `SSH_ASKPASS` and
     // reads one answer from its stdout, so it is handled before logging is
-    // configured: anything else on stdout would be read as the credential. The
-    // value arrives in this process's environment only, and it is written to a
-    // pipe the parent already owns — never to a file, a log, or the store.
-    if std::env::args().any(|arg| arg == connection::ssh::ASKPASS_ARG) {
-        match std::env::var(connection::ssh::ASKPASS_SECRET_ENV) {
-            Ok(secret) => {
-                println!("{secret}");
-                std::process::exit(0);
-            }
-            Err(_) => {
-                eprintln!("connection askpass: no credential in the environment");
-                std::process::exit(1);
-            }
+    // configured: anything else on stdout would be read as the credential. What
+    // identifies this process is the marker in its environment, because OpenSSH
+    // passes a prompt rather than an argument of ours. The value itself arrives
+    // in the `0600` file the spawn staged, never in this environment, and it is
+    // written to a pipe the parent already owns — never to a log or the store.
+    if connection::ssh::is_askpass_child(std::env::args(), |key| std::env::var(key).ok()) {
+        if let Err(message) = answer_askpass() {
+            eprintln!("connection askpass: {message}");
+            std::process::exit(1);
         }
+        std::process::exit(0);
     }
 
     tracing_subscriber::fmt()
@@ -114,4 +111,22 @@ async fn main() -> anyhow::Result<()> {
         }
     }
     rpc::serve(state).await
+}
+
+/// Answer one askpass prompt: echo the credential the caller staged for it.
+///
+/// The value is read from the `0600` file the spawn wrote for this one answer,
+/// so no environment variable ever holds it. It is written to stdout byte for
+/// byte, followed by the line break `ssh` reads the answer up to.
+fn answer_askpass() -> Result<(), String> {
+    let path = std::env::var(connection::ssh::ASKPASS_SECRET_FILE_ENV)
+        .map_err(|_| "no credential path in the environment".to_string())?;
+    let secret =
+        std::fs::read(&path).map_err(|err| format!("credential file unreadable: {err}"))?;
+
+    let mut out = std::io::stdout().lock();
+    std::io::Write::write_all(&mut out, &secret)
+        .and_then(|()| std::io::Write::write_all(&mut out, b"\n"))
+        .and_then(|()| std::io::Write::flush(&mut out))
+        .map_err(|err| format!("the answer could not be written: {err}"))
 }

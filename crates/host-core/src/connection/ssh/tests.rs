@@ -32,19 +32,21 @@ fn ssh_profile() -> ConnectionProfile {
 
 #[test]
 fn a_destination_carries_the_user_when_there_is_one() {
-    let with_user = ssh_profile();
-    assert!(probe_args(&with_user)
-        .unwrap()
-        .last()
-        .unwrap()
-        .as_str()
-        .eq("deploy@build-box"));
+    let with_user = probe_args(&ssh_profile()).unwrap();
+    assert!(
+        with_user.contains(&"deploy@build-box".to_string()),
+        "the user is part of the destination"
+    );
 
     let mut anonymous = ssh_profile();
     if let Target::Ssh { user, .. } = &mut anonymous.target {
         *user = None;
     }
-    assert_eq!(probe_args(&anonymous).unwrap().last().unwrap(), "build-box");
+    let bare = probe_args(&anonymous).unwrap();
+    assert!(
+        bare.contains(&"build-box".to_string()) && !bare.contains(&"deploy@build-box".to_string()),
+        "no user means no user@ prefix"
+    );
 }
 
 #[test]
@@ -99,9 +101,23 @@ fn a_probe_pins_a_byte_stream_and_refuses_to_prompt() {
     assert!(args.contains(&"ConnectTimeout=10".to_string()));
     assert!(args.contains(&"BatchMode=yes".to_string()));
     assert!(args.contains(&"StrictHostKeyChecking=yes".to_string()));
-    assert_eq!(args.last().unwrap(), "deploy@build-box");
-    // The probe command is the last thing before the destination.
-    assert_eq!(args[args.len() - 2], PROBE_COMMAND);
+    // `ssh [options] destination [command]`: the destination is the first
+    // positional argument, so the remote command follows it. Reading these the
+    // other way round makes ssh treat the probe command as a hostname, which no
+    // option in this list can mask.
+    let destination = args
+        .iter()
+        .position(|arg| arg == "deploy@build-box")
+        .expect("the destination is passed");
+    let command = args
+        .iter()
+        .position(|arg| arg == PROBE_COMMAND)
+        .expect("the probe command is passed");
+    assert!(
+        destination < command,
+        "ssh reads the destination before the command"
+    );
+    assert_eq!(args.last().unwrap(), PROBE_COMMAND);
 }
 
 #[test]
@@ -159,10 +175,18 @@ fn an_identity_and_a_jump_host_are_passed_with_the_identity_pinned() {
 }
 
 #[test]
-fn an_exec_carries_the_command_verbatim_ahead_of_the_destination() {
+fn an_exec_puts_the_destination_before_the_command_it_carries_verbatim() {
     let args = exec_args(&ssh_profile(), "make -j4 && echo done").unwrap();
-    assert_eq!(args[args.len() - 2], "make -j4 && echo done");
-    assert_eq!(args.last().unwrap(), "deploy@build-box");
+    let destination = args
+        .iter()
+        .position(|arg| arg == "deploy@build-box")
+        .expect("the destination is passed");
+    assert_eq!(args.last().unwrap(), "make -j4 && echo done");
+    assert!(
+        destination < args.len() - 1,
+        "the command follows the destination, it does not replace it"
+    );
+    assert_eq!(args[destination + 1], "make -j4 && echo done");
 }
 
 #[test]
@@ -402,6 +426,64 @@ fn the_askpass_reuses_the_running_binary() {
     // interpreter on each.
     assert!(ASKPASS_ARG.starts_with("--"));
     assert!(!askpass_program().is_empty());
+}
+
+#[test]
+fn an_askpass_child_is_identified_by_its_environment_not_its_arguments() {
+    // OpenSSH runs `SSH_ASKPASS` with the prompt as its only argument, so it can
+    // never deliver a flag of ours. A helper that waits for one does not answer:
+    // the host comes up as an ordinary process and `ssh` reports a rejected
+    // credential, which looks like a wrong password rather than a broken seam.
+    let marked = |key: &str| (key == ASKPASS_MARKER_ENV).then(|| "1".to_string());
+    let path_only = |key: &str| (key == ASKPASS_SECRET_FILE_ENV).then(|| "/tmp/x".to_string());
+    let nothing = |_: &str| None::<String>;
+
+    assert!(
+        is_askpass_child(Vec::<String>::new(), marked),
+        "the marker alone is what ssh is able to deliver"
+    );
+    assert!(
+        is_askpass_child(vec!["host".to_string(), ASKPASS_ARG.to_string()], nothing),
+        "a wrapper may still forward the flag"
+    );
+    assert!(!is_askpass_child(Vec::<String>::new(), nothing));
+    assert!(
+        !is_askpass_child(Vec::<String>::new(), path_only),
+        "a stray credential path must not make a host answer a prompt"
+    );
+}
+
+#[test]
+fn a_staged_credential_is_one_locked_file_that_does_not_outlive_its_spawn() {
+    // The security spec puts the credential in a file rather than the child's
+    // environment, so the file has to hold the exact bytes and has to be gone
+    // once the spawn that owns it has returned.
+    let secret = "corr3ct horse battery";
+    let staged = AskpassSecret::create(secret).expect("a staged credential");
+
+    assert_eq!(
+        std::fs::read(&staged.path).expect("the secret file"),
+        secret.as_bytes(),
+        "written byte for byte, with no trailing newline to trim"
+    );
+    let dir = staged.dir.clone();
+    assert!(dir.is_dir());
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let file = std::fs::metadata(&staged.path).expect("metadata");
+        assert_eq!(file.permissions().mode() & 0o777, 0o600);
+        let parent = std::fs::metadata(&dir).expect("metadata");
+        assert_eq!(parent.permissions().mode() & 0o777, 0o700);
+    }
+
+    drop(staged);
+    assert!(
+        std::fs::read(dir.join("secret")).is_err(),
+        "the file is removed with the material"
+    );
+    assert!(!dir.exists(), "and so is the directory that held it");
 }
 
 #[test]
