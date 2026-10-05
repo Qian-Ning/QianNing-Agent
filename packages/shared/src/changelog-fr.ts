@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
       {
+        version: "0.17.0",
+        date: "2026-10-06",
+        highlights: [
+          "Le produit s'appelle `QianNing Agent` dans toutes les langues et toutes les régions. `千凝` désigne la développeuse — la personne, dont le pseudonyme est `QianNing` — et nomme aussi deux fonctions qui gardent le leur : le compagnon de bureau `千凝狐` / `QianNing Fox` et le thème par défaut `千凝主题`.",
+          "L'invite intégrée présente désormais l'agent comme un agent général qui s'exécute sur votre propre ordinateur — lire et écrire des fichiers, exécuter des commandes, récupérer des pages, travailler sur des documents et des données — au lieu d'un agent de programmation, et jamais comme un élément qui vit dans une autre application.",
+          "Une nouvelle section `## Scope` ouvre l'invite intégrée pour que l'agent cesse de restreindre son périmètre à la programmation, et `## Following the codebase` ne s'applique plus que lorsque le travail concerne réellement une base de code.",
+          "`## Verification` exige la chose réelle — l'exécuter, ouvrir ce que vous avez écrit, relire le résultat — au lieu de considérer une compilation ou un test comme la seule preuve acceptable.",
+          "Les README et la documentation chinoise nomment le produit `QianNing Agent` de façon cohérente, et la liste des sections de l'invite intégrée est passée de six à sept.",
+        ],
+      },
+      {
         version: "0.16.4",
         date: "2026-10-05",
         highlights: [
