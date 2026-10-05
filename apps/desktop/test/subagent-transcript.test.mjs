@@ -152,8 +152,10 @@ test("a Task node shows the effective model after the subagent name", () => {
   );
   assert.match(
     transcriptSource,
-    /const modelId = variant === "topology" \? delegateModelId\(message\) : "";/,
+    /const modelId =\s*\n\s*variant === "topology" \|\| runHead \? delegationModelId\(message, delegate\) : "";/,
   );
+  // The inline card names the same model, resolved before the call has to settle.
+  assert.match(transcriptSource, /\{runHead && modelLabel \? \(/);
   assert.match(
     transcriptSource,
     /className="subagent-topology-node-model"[\s\S]*?title=\{modelLabel\}/,
