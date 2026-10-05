@@ -1,0 +1,9 @@
+# Funding platforms GitHub reads to render the "Sponsor" button in the
+# repository header, next to Watch / Fork / Star.
+#
+# https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+#
+# The key name is fixed by GitHub's schema: `ko_fi` maps to
+# https://ko-fi.com/<value>. The repository's front page and its 赞助 section
+# link to the same page.
+ko_fi: qianning

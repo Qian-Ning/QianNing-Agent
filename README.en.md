@@ -31,7 +31,7 @@ Windows-first · Data stays on your machine · Bring your own model · Plugin-ex
 
 ![The QianNing workbench](docs/public/readme/hero.en.webp)
 
-## Highlights
+## ✨ Highlights
 
 - **Runs on its own** -- not an editor plugin and not a hosted IDE. Projects, sessions, credentials, tool execution and approval policy all belong to the app; close the window and the work is still there when you come back.
 - **Built for long work** -- projects are persistent and so are sessions; search them, export them, or reopen any historical branch.
@@ -40,7 +40,7 @@ Windows-first · Data stays on your machine · Bring your own model · Plugin-ex
 - **Extensible** -- plugins, skills and MCP all have stable contracts, with permissions granted item by item.
 - **Documented** -- specifications, decision records and operating guides ship with the repository: 534 pages, with specifications paired in English and Chinese.
 
-## Quick start
+## 🚀 Quick start
 
 1. **Install** — grab the Windows installer from the [releases page](https://github.com/Qian-Ning/QianNing-Agent/releases), or take the portable build.
 2. **Connect a model** — on first run, add a provider key in settings, or point the base URL at a local service. The model can change at any time without touching your sessions.
@@ -51,26 +51,26 @@ The full documentation lives at the docs site <https://qian-ning.github.io/QianN
 
 ---
 
-## Contents
+## 📑 Contents
 
-- [1. What this is](#1-what-this-is)
-- [2. Relationship to upstream](#2-relationship-to-upstream)
-- [3. Architecture](#3-architecture)
-- [4. Where your data lives](#4-where-your-data-lives)
-- [5. Permission model](#5-permission-model)
-- [6. Three operating modes](#6-three-operating-modes)
-- [7. Built-in tools](#7-built-in-tools)
-- [8. Extensions: plugins, skills, and MCP](#8-extensions-plugins-skills-and-mcp)
-- [9. Platforms and packages](#9-platforms-and-packages)
-- [10. In-app updates](#10-in-app-updates)
-- [11. Build from source](#11-build-from-source)
-- [12. Verification](#12-verification)
-- [13. Repository layout](#13-repository-layout)
-- [14. Contributing, security, and license](#14-contributing-security-and-license)
+- [1. 🧭 What this is](#1--what-this-is)
+- [2. 🔗 Relationship to upstream](#2--relationship-to-upstream)
+- [3. 🏢 Architecture](#3--architecture)
+- [4. 💾 Where your data lives](#4--where-your-data-lives)
+- [5. 🔐 Permission model](#5--permission-model)
+- [6. 🎯 Three operating modes](#6--three-operating-modes)
+- [7. 🧰 Built-in tools](#7--built-in-tools)
+- [8. 🧩 Extensions: plugins, skills, and MCP](#8--extensions-plugins-skills-and-mcp)
+- [9. 📦 Platforms and packages](#9--platforms-and-packages)
+- [10. 🔄 In-app updates](#10--in-app-updates)
+- [11. 🔧 Build from source](#11--build-from-source)
+- [12. 🧪 Verification](#12--verification)
+- [13. 📁 Repository layout](#13--repository-layout)
+- [14. 📄 Contributing, security, and license](#14--contributing-security-and-license)
 
 ---
 
-## 1. What this is
+## 1. 🧭 What this is
 
 QianNing Agent is a standalone AI-agent desktop application. It is not an IDE plugin and needs no host editor: the application owns the projects, the sessions, the model credentials, tool execution, and the approval policy. Close the window and reopen it — the workbench is where you left it.
 
@@ -97,7 +97,7 @@ Every frame below comes out of the repository's own capture rig: the app runs wi
 
 ---
 
-## 2. Relationship to upstream
+## 2. 🔗 Relationship to upstream
 
 This project is a **derivative** of [vastsa/PI-Desktop](https://github.com/vastsa/PI-Desktop) and a **customized distribution** of it. It is not the official upstream release and does not represent the upstream project. Upstream copyright and license notices are preserved verbatim in this repository.
 
@@ -117,7 +117,7 @@ When triaging a problem, first decide whether it lives in an upstream capability
 
 ---
 
-## 3. Architecture
+## 3. 🏢 Architecture
 
 ### 3.1 Processes and ownership
 
@@ -189,7 +189,7 @@ The load-bearing part: **permission decisions live in host-core, and the model i
 
 ---
 
-## 4. Where your data lives
+## 4. 💾 Where your data lives
 
 A packaged installation keeps its data in `~/.qianning-agent`; a development build uses `~/.qianning-agent-dev`. Setting `PI_DESKTOP_DATA_DIR` replaces the root outright (used by the E2E harnesses and for side-by-side debugging).
 
@@ -220,7 +220,7 @@ Transcripts are never pruned for age; only deleting a session deletes one. For t
 
 ---
 
-## 5. Permission model
+## 5. 🔐 Permission model
 
 Tools are risk-classified. Low-risk tools auto-allow inside the session roots; high-risk tools are governed by a **permission mode**.
 
@@ -247,7 +247,7 @@ Additional rules:
 
 ---
 
-## 6. Three operating modes
+## 6. 🎯 Three operating modes
 
 One agent, three postures. **Neither Plan nor Goal switches to another runtime** — they are the same agent negotiating a different kind of contract.
 
@@ -267,7 +267,7 @@ Scheduled and other unattended runs are **not allowed** to use Plan or Goal — 
 
 ---
 
-## 7. Built-in tools
+## 7. 🧰 Built-in tools
 
 | Tool | Risk | Purpose |
 | --- | --- | --- |
@@ -294,7 +294,7 @@ Scheduled and other unattended runs are **not allowed** to use Plan or Goal — 
 
 ---
 
-## 8. Extensions: plugins, skills, and MCP
+## 8. 🧩 Extensions: plugins, skills, and MCP
 
 - **Plugins** are part of the workbench, not an afterthought. A plugin can contribute tools, panel views, settings pages, model providers, shortcuts, and background services, with its own permission declarations. Start with the [plugin development guide](docs/plugin-development.md); the contract lives in the [plugin system specification](docs/spec/07-plugins/01-plugin-system.md) and the [Plugin SDK](packages/plugin-sdk).
 - **Skills** are instruction bundles invoked as `/skill-name`; when the catalog is non-empty, the `Skill` tool ships with the first request.
@@ -303,7 +303,7 @@ Scheduled and other unattended runs are **not allowed** to use Plan or Goal — 
 
 ---
 
-## 9. Platforms and packages
+## 9. 📦 Platforms and packages
 
 | Platform | Target | Artifact name |
 | --- | --- | --- |
@@ -321,7 +321,7 @@ Installers are published in this repository's [Releases](https://github.com/Qian
 
 ---
 
-## 10. In-app updates
+## 10. 🔄 In-app updates
 
 Settings → About → Software update checks for new versions, fed by this repository's GitHub Releases.
 
@@ -337,7 +337,7 @@ Settings → About → Software update checks for new versions, fed by this repo
 
 ---
 
-## 11. Build from source
+## 11. 🔧 Build from source
 
 ### Requirements
 
@@ -383,7 +383,7 @@ pnpm exec electron-builder --win nsis portable --publish never
 
 ---
 
-## 12. Verification
+## 12. 🧪 Verification
 
 A change should ship with the verification it needs. The most common gates:
 
@@ -411,7 +411,7 @@ End-to-end suites are organized by surface; `package.json` lists them all under 
 
 ---
 
-## 13. Repository layout
+## 13. 📁 Repository layout
 
 ```text
 apps/desktop/            Electron main, preload, and the React renderer
@@ -436,7 +436,7 @@ The interface ships 9 locales: `de` `en` `es` `fr` `ko` `pt-BR` `tr` `zh-CN` `zh
 
 ---
 
-## Community
+## 💬 Community
 
 QianNing is a one-person project; these two groups are where feedback and discussion happen.
 
@@ -452,7 +452,7 @@ QianNing is a one-person project; these two groups are where feedback and discus
 
 ---
 
-## Sponsorship
+## ☕ Sponsorship
 
 The time, the effort, and the running costs are the author's own. If this has been useful to you, buying a coffee is a direct way to say so:
 
@@ -467,7 +467,7 @@ Sponsorship buys no privileges and does not steer the roadmap -- every feature i
 
 ---
 
-## 14. Contributing, security, and license
+## 14. 📄 Contributing, security, and license
 
 - [Contribution guide](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
