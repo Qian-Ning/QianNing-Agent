@@ -596,6 +596,65 @@ describe("DesktopAgentRuntime configuration matching", () => {
     await runtime.dispose();
   });
 
+  it("mirrors host-declared capability tools into the session catalogue", async () => {
+    const host = {
+      call: vi.fn().mockImplementation(async (method: string) =>
+        method === "tools.list"
+          ? {
+              tools: [
+                {
+                  name: "Connection",
+                  description: "Run work on a registered target.",
+                  risk: "high",
+                  parameters: {
+                    type: "object",
+                    properties: { action: { type: "string" } },
+                    required: ["action"],
+                  },
+                },
+                // A name the runtime already declares itself must not be
+                // shadowed by a host entry of the same name.
+                {
+                  name: "Read",
+                  description: "host copy of Read",
+                  parameters: { type: "object", properties: {} },
+                },
+              ],
+            }
+          : {},
+      ),
+    };
+    const runtime = createRuntime({ host });
+    await runtime.refreshHostTools();
+
+    const tools = (runtime as any).agent.state.tools as any[];
+    const connection = tools.find((tool) => tool.name === "Connection");
+    expect(connection).toBeDefined();
+    expect(connection.description).toBe("Run work on a registered target.");
+    expect(Object.keys(connection.parameters.properties)).toEqual(["action"]);
+
+    // Read keeps the runtime's own declaration, not the host's copy.
+    const read = tools.find((tool) => tool.name === "Read");
+    expect(read.description).not.toBe("host copy of Read");
+    expect(read.description).toContain("Read a bounded window");
+
+    await runtime.dispose();
+  });
+
+  it("leaves the catalogue untouched when the host cannot list capability tools", async () => {
+    const host = { call: vi.fn().mockRejectedValue(new Error("host offline")) };
+    const runtime = createRuntime({ host });
+    await runtime.refreshHostTools();
+
+    const names = ((runtime as any).agent.state.tools as any[]).map(
+      (tool) => tool.name,
+    );
+    expect(names).toContain("Bash");
+    expect(names).not.toContain("Connection");
+
+    await runtime.dispose();
+  });
+
   it("recognizes a tool call leaked into assistant text", () => {
     expect(
       looksLikePseudoToolCall(

@@ -1614,6 +1614,24 @@ export class DesktopAgentRuntime {
   private toolCatalog = new Map<string, AgentTool>();
   /** Tools intentionally omitted from the initial provider request. */
   private deferredToolNames = new Set<string>();
+  /**
+   * Capability tools host-core declares through `tools.list` that the runtime
+   * does not declare itself — today `Computer` and `Connection`.
+   *
+   * host-core owns both the definition and the switch: `tools.list` offers
+   * `Computer` only while computer control is on and `Connection` only while
+   * outbound connections are on, and `tools.execute` refuses the same names
+   * when the switch is off. Mirroring the host's answer is what puts these
+   * capabilities in front of the model at all.
+   */
+  private hostCapabilityTools: AgentTool[] = [];
+  private hostCapabilityToolNames = new Set<string>();
+  /**
+   * The host round-trip executor built inside `buildToolDefinitions()`. Host
+   * capability tools reuse it so `Connection` rides the same progress, abort,
+   * and result-normalisation path as every other host tool (D273).
+   */
+  private hostToolExecutor: ((toolName: string) => AgentTool) | null = null;
   /** Deferred tools loaded for the current user prompt. */
   private activeDeferredToolNames = new Set<string>();
   private scratchDir?: string;
@@ -3403,6 +3421,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       tools.push("PluginScaffold", "PluginPack", "GenerateImages", ...Object.keys(scheduledToolParameters));
     }
     const builtins = tools.map(exec);
+    this.hostToolExecutor = exec;
 
     // Plugins contribute Agent tools by default. Plan/Goal modes only
     // expose plugins that declare plan-safe actions (ADR 0211); the
@@ -3487,7 +3506,65 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       ...subagentTools,
       ...contextTools,
       ...extensionTools,
+      ...this.hostCapabilityTools,
     ];
+  }
+
+  /**
+   * Mirror the host-declared capability tools into this session's catalogue.
+   *
+   * Called before every prompt, so flipping the Settings switch takes effect on
+   * the next turn rather than the next session. The host stays the single
+   * source of truth for both the definition and the gate; a host that cannot
+   * answer leaves the runtime's own catalogue exactly as it was, because this
+   * mirror is additive and must never fail a prompt.
+   */
+  async refreshHostTools(): Promise<void> {
+    // Clear the mirror first so the native name set below is built without it:
+    // a tool the runtime declares itself (Read, Bash, the scheduled tools) must
+    // never be shadowed by a host entry that happens to share its name.
+    this.hostCapabilityTools = [];
+    this.hostCapabilityToolNames = new Set<string>();
+    const native = new Set(this.buildToolDefinitions().map((tool) => tool.name));
+
+    let listed: unknown;
+    try {
+      listed = await this.host.call("tools.list", {});
+    } catch {
+      return;
+    }
+    const offered = isRecord(listed) ? listed.tools : undefined;
+    if (!Array.isArray(offered)) return;
+
+    const executor = this.hostToolExecutor;
+    if (!executor) return;
+
+    const mirror: AgentTool[] = [];
+    const seen = new Set<string>();
+    for (const entry of offered) {
+      if (!isRecord(entry)) continue;
+      const name = typeof entry.name === "string" ? entry.name.trim() : "";
+      if (!name || native.has(name) || seen.has(name)) continue;
+      seen.add(name);
+      const described =
+        typeof entry.description === "string" ? entry.description.trim() : "";
+      mirror.push({
+        name,
+        label: name,
+        description: described || `${name} host capability tool`,
+        parameters: (isRecord(entry.parameters)
+          ? entry.parameters
+          : Type.Object({})) as AgentTool["parameters"],
+        executionMode: "sequential",
+        execute: executor(name).execute,
+      });
+    }
+    if (mirror.length === 0) return;
+
+    this.hostCapabilityTools = mirror;
+    this.hostCapabilityToolNames = new Set(mirror.map((tool) => tool.name));
+    this.rebuildToolCatalog();
+    this.setAgentTools(this.activeTools());
   }
 
   /**
@@ -3547,6 +3624,10 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
   }
 
   private isToolAllowedInMode(name: string): boolean {
+    // Host capability tools execute on the host and change the world, so they
+    // follow Bash/Edit/Write into Agent mode only; Plan and Goal stay read-only
+    // contract negotiations.
+    if (this.hostCapabilityToolNames.has(name)) return this.mode === "agent";
     const kind = proposalKindForMode(this.mode);
     if (!kind) return true;
     // Contract modes are read-only: inspection tools, plan-safe plugin
@@ -3576,7 +3657,8 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       name === SUBAGENT_LIST_TOOL_NAME ||
       name === SUBAGENT_STOP_TOOL_NAME ||
       (this.mode === "agent"
-        ? AGENT_CORE_TOOL_NAMES.has(name)
+        ? AGENT_CORE_TOOL_NAMES.has(name) ||
+          this.hostCapabilityToolNames.has(name)
         : proposalKindForMode(this.mode)
           ? new Set([
               "Read",

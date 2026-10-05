@@ -15736,6 +15736,11 @@ renderer's durable transcript reads. No real model or provider is contacted.
   secret-never-returns rule, and the nine-catalog key set). The task-candidate run
   remains: it needs a real SSH host and a serial device, so it is not part of the
   static gate. The task-candidate run was performed against a real SSH host on 2026-10-05: the switch, both doors, and the refusal order all held. The serial-device leg is still uncovered.
+  The session runtime now mirrors `tools.list` into the model's own catalogue at
+  session start and on each redelivery into a live session, so the list read in
+  step 3 is the list the model actually holds; before that mirror existed the host
+  offered both tools and the model was never told. The mirror and its
+  host-cannot-answer path are pinned by `packages/agent-runtime/src/runtime.test.ts`.
 
 #### E2E-263: A remote command behaves like a local one
 

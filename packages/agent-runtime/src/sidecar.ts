@@ -230,6 +230,10 @@ async function runtimeFor(
     reusable.setCompactionSettings(params.compactionSettings);
     reusable.setInfiniteProviderRetry(params.infiniteProviderRetry === true);
     reusable.setMode(mode);
+    // The host owns the capability switch, so re-read its catalogue on every
+    // delivery: flipping the Settings toggle then applies to the next message
+    // instead of requiring a new session. Never a failed prompt.
+    await reusable.refreshHostTools().catch(() => undefined);
     return reusable;
   }
 
@@ -300,6 +304,8 @@ async function runtimeFor(
   runtimes.set(sessionId, runtime);
   // Load failures are diagnostics, never a failed prompt (spec 16 §4.4).
   await runtime.loadTrustedExtensions().catch(() => undefined);
+  // Host capability tools are additive and must never fail a session launch.
+  await runtime.refreshHostTools().catch(() => undefined);
   if (provider.extensionAgentKey) {
     const activated = await runtime.activateTrustedExtensionAgent(
       provider.extensionAgentKey,

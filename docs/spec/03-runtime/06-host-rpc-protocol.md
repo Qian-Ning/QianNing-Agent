@@ -1365,6 +1365,13 @@ next call with `COMPUTER_DISABLED`, so a model still holding an earlier turn's
 definition cannot slip past by calling it. The tool is high risk, so Ask and
 Accept Edits require normal approval; Plan and Goal deny it outright.
 
+The session runtime keeps no copy of this switch. It mirrors `tools.list` when a
+session starts and again on every redelivery into a live session, so the
+position the switch holds now — not the position it held when the session began
+— is what the model is offered. A host that cannot answer leaves the session
+with the tools the runtime declares itself; the mirror is additive and never
+fails a prompt. `Connection` reaches the model through the same mirror.
+
 One tool carries every action rather than one tool per action, because the
 actions share a single coordinate space and a single window handle — splitting
 them would only copy that context into every definition. `action` selects the
