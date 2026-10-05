@@ -5,7 +5,7 @@ description: Get from installation to a verified QianNing Agent project session 
 
 # Start here
 
-QianNing Agent (千凝) is a local-first desktop workspace for developers and power users who want an agent to work on real projects without hiding its tools, approvals, or results.
+QianNing Agent is a local-first desktop workspace for anyone who wants an agent to do real work on their own machine — writing, research, documents, data, and code — without hiding its tools, approvals, or results.
 
 This guide takes the shortest useful path: install the app, connect a model, bind a project, and complete one change that you can inspect and verify.
 

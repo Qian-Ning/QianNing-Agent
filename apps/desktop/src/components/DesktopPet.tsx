@@ -35,7 +35,7 @@ const MOOD_SAY: Record<PetMood, string> = {
 type Vec = { v: number; t: number };
 
 /**
- * The desktop companion ("千凝" pet, D664). A transparent full-body fox that
+ * The desktop companion (the "千凝狐" / QianNing Fox pet, D664). A transparent full-body fox that
  * plays a real per-state frame animation (foot-aligned WebP clips rendered from
  * the mascot state videos) mirroring the active session's agent mood from
  * `usePetMood` (read-only). The clip itself carries the character motion

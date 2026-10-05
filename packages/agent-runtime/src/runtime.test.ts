@@ -382,6 +382,7 @@ describe("session persona", () => {
     const prompt = promptOf(runtime);
 
     for (const section of [
+      "## Scope",
       "## Working agreement",
       "## Tone and formatting",
       "## Following the codebase",
@@ -392,7 +393,9 @@ describe("session persona", () => {
       expect(prompt).toContain(section);
     }
     expect(prompt.startsWith(persona)).toBe(true);
-    expect(prompt).not.toContain("official Chinese product name");
+    // Product identity rides the built-in persona, so it must not leak into the
+    // operating sections a custom persona keeps.
+    expect(prompt).not.toContain("developed and maintained by QianNing");
 
     await runtime.dispose();
   });

@@ -7931,12 +7931,13 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   storage/RPC, `SessionPromptDialog`, and the settings surface are untouched: a
   custom persona still replaces the first layer verbatim and still receives the
   appended operational sections unchanged.
-- `PRODUCT_IDENTITY_SYSTEM_PROMPT` states the official Chinese product name
-  (千凝) as a positive fact and is composed into the built-in persona only. The
-  wrong homophone is never written into a prompt. Because identity rides the
+- `PRODUCT_IDENTITY_SYSTEM_PROMPT` is composed into the built-in persona only.
+  The wrong homophone is never written into a prompt. Because identity rides the
   persona layer, a custom persona does not receive it; pinning it into the
   appended tail would change what a custom-persona session sends, which the
-  single-scope persona decision (ADR 0307) rules out.
+  single-scope persona decision (ADR 0307) rules out. (The string this paragraph
+  originally recorded as the product's Chinese name is corrected by D671: the
+  product is named QianNing Agent in every language.)
 - Two pre-existing sentences keep their exact wording because `runtime.test.ts`
   pins them: the visibility rule and the clarify-first rule. The visibility rule
   is therefore still its own part rather than folded into `## Tool use`.
@@ -7946,3 +7947,51 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   and that product identity does not leak into it; `mode-prompts.test.ts` asserts
   the identity fact and the persona-opening line. See
   `03-runtime/02-agent-runtime.md` §7.
+
+## 2026-10-06 — Naming contract recorded, and the audience widened past developers (D671)
+
+- Four names are now written down as one contract, because two of them had
+  drifted into each other's slot. **QianNing Agent** is the product, in every
+  language and locale. **千凝** is the person who develops and maintains it,
+  whose pen name is **QianNing**. **千凝狐 / QianNing Fox** is the desktop
+  companion (D664). **千凝主题** is the built-in `fox` appearance (D665). The
+  product is never named 千凝, and the agent never introduces itself by it.
+- `PRODUCT_IDENTITY_SYSTEM_PROMPT` had declared 千凝 the product's official
+  Chinese name and then used the same string for the developer. The model copied
+  the prompt and answered "I am 千凝", which is what the contract now forbids. The
+  identity paragraph states the product name for every language, places 千凝 with
+  the developer, and names the two features that share the string, so a feature
+  name cannot be mistaken for the agent's own.
+- The built-in persona drops `a coding agent` for `a general-purpose agent
+  running on the user's own computer`. The old framing produced two visible
+  defects in one sentence: the model described itself as a desktop *coding*
+  assistant, and it presented itself as doing its work inside an IDE — an
+  application this product does not need and does not run inside. The persona now
+  says the agent reads and writes files and runs commands on the machine itself,
+  lists the everyday work it takes on (writing, research, translation, planning,
+  spreadsheets and data, files, automation, system settings) alongside code, and
+  requires a substantive self-description instead of a one-line label.
+- `## Scope` is added as the first operating section for the same reason, and
+  `## Following the codebase` gains the qualifier that its rules apply when the
+  work touches a codebase. `## Verification` and the D637 self-check rule no
+  longer read as build-and-test-only. `runtime.test.ts` pins the new section and
+  the unchanged five.
+- This widens the audience recorded in `01-product/01-product-scope.md` §2, which
+  listed developers and power users as primary users. ADR 0012 and D025 are
+  historical records and are deliberately **not** rewritten; this entry supersedes
+  their audience statement. The scope document now leads with anyone who wants an
+  agent to do real work on their own machine, with code as one kind of work rather
+  than the whole of it. The `guide/index.md` positioning sentence in both
+  languages is reworded to match.
+- The zh-CN guide and specs follow the same contract: the product name replaces
+  千凝 in 18 places across 6 files, the parenthetical alias `QianNing Agent（千凝）`
+  is removed because the product has no Chinese alias, and the machine-translated
+  `Primary`/`Secondary` headings that had rendered as 「小学 / 中学」 are
+  corrected to 「主要 / 次要」. The companion label in six locales and the
+  positioning line in the product-scope pair are updated; the theme (D665) and
+  the companion's own name (D664) keep their wording.
+- Regression guards: `mode-prompts.test.ts` asserts the persona opens with the
+  general-purpose line and contains neither `coding agent` nor `IDE`;
+  `runtime.test.ts` asserts `## Scope` reaches a custom persona while product
+  identity still does not. No protocol, IPC, schema, or persisted-format change.
+  See `01-qianning-brand.md` and `01-product/01-product-scope.md`.

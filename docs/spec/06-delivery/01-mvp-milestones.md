@@ -98,7 +98,7 @@ Progress:
 - [x] substantial settings/session/UI polish on main
 - [x] signed and notarized macOS release lane with required CI secrets, DMG
   stapling, and pre-upload verification
-- [x] custom app icon (generated pi mark → `build/icon.icns`, D079)
+- [x] custom app icon (derived from the brand master → `build/icon.icns`, D079)
 - [x] isolation/logging hardening (renderer sandbox D081, NDJSON log
   channels D082, crash supervision D080, window state D083)
 - [x] packaged macOS update discovery, fixed release link, typed update state,

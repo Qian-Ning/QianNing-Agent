@@ -100,7 +100,7 @@ Goal：日常可用的包。
 - [x] 包装脚手架（电子构建器 macOS arm64 `--dir`、host/sidecar 资源）
 - [x] 对主要内容进行大量 settings/session/UI 打磨
 - [x] 代码签名和公证发布通道（所需 CI 密钥、DMG 装订和上传前验证）
-- [x] 自定义应用程序图标（生成 pi 标记 → `build/icon.icns`，D079）
+- [x] 自定义应用程序图标（由品牌母版生成 → `build/icon.icns`，D079）
 - [x] isolation/logging 强化（渲染器沙箱 D081、NDJSON 日志
   通道 D082、碰撞监控 D080、窗口状态 D083)
 - [x] 打包的 macOS 更新发现、修复的发布链接、键入的更新状态、

@@ -8,14 +8,42 @@ import {
 } from "./mode-prompts.js";
 
 describe("built-in runtime persona", () => {
-  it("states the official Chinese product name as a positive fact", () => {
+  it("keeps QianNing Agent as the product name and never trades it for 千凝", () => {
     expect(DEFAULT_RUNTIME_SYSTEM_PROMPT).toContain("QianNing Agent");
-    expect(DEFAULT_RUNTIME_SYSTEM_PROMPT).toContain("千凝");
-    expect(PRODUCT_IDENTITY_SYSTEM_PROMPT).toContain("千凝");
+    expect(PRODUCT_IDENTITY_SYSTEM_PROMPT).toContain("QianNing Agent");
+    // 千凝 belongs to the developer and to two feature names, never to the
+    // product: without this the model introduces itself by that name.
+    expect(PRODUCT_IDENTITY_SYSTEM_PROMPT).toContain(
+      "never present 千凝 as the product",
+    );
     // State the right name; never seed the model with a wrong homophone.
     for (const wrong of ["乾宁", "千宁"]) {
       expect(DEFAULT_RUNTIME_SYSTEM_PROMPT).not.toContain(wrong);
       expect(PRODUCT_IDENTITY_SYSTEM_PROMPT).not.toContain(wrong);
+    }
+  });
+
+  it("names QianNing as the developer, and forbids crediting anyone else", () => {
+    // A model asked "who are you" otherwise answers from its own priors and
+    // credits an unrelated vendor. The maker has to be stated as a fact.
+    expect(PRODUCT_IDENTITY_SYSTEM_PROMPT).toContain(
+      "developed and maintained by QianNing",
+    );
+    expect(PRODUCT_IDENTITY_SYSTEM_PROMPT).toContain(
+      "Never attribute the product to any other company, organization, vendor, or upstream project",
+    );
+    // The rule must not itself seed a vendor name.
+    for (const vendor of [
+      "Sapiens",
+      "OpenAI",
+      "Anthropic",
+      "Google",
+      "Microsoft",
+      "DeepSeek",
+      "Meta",
+    ]) {
+      expect(PRODUCT_IDENTITY_SYSTEM_PROMPT).not.toContain(vendor);
+      expect(DEFAULT_RUNTIME_SYSTEM_PROMPT).not.toContain(vendor);
     }
   });
 
@@ -24,9 +52,14 @@ describe("built-in runtime persona", () => {
     // pinned so the swap stays detectable.
     expect(
       DEFAULT_RUNTIME_SYSTEM_PROMPT.startsWith(
-        "You are QianNing Agent, a coding agent.",
+        "You are QianNing Agent, a general-purpose agent",
       ),
     ).toBe(true);
+    // The product is general-purpose and runs on the machine itself. Framing it
+    // as a code-only tool, or as something inside another application, made the
+    // model introduce itself that way.
+    expect(DEFAULT_RUNTIME_SYSTEM_PROMPT).not.toContain("coding agent");
+    expect(DEFAULT_RUNTIME_SYSTEM_PROMPT).not.toContain("IDE");
   });
 });
 

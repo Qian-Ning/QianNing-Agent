@@ -2,12 +2,12 @@
 
 ## 1. Positioning
 
-QianNing Agent is for developers and power users who want a local agent that can read/modify projects with visible control.
+QianNing Agent is a local-first desktop workspace for anyone who wants an agent to work on their own machine with visible control: the agent itself reads and writes files, runs commands, and finishes the work locally, so no other application or online service is needed in order to act. Code is one kind of work it takes on, not the whole of it.
 
 It combines:
 
 - strong desktop UX
-- pi agent capabilities
+- agent capabilities
 - Rust-backed local host operations
 - user-extensible plugins
 - standalone MCP servers, Skills, and Subagents
@@ -15,9 +15,9 @@ It combines:
 ## 2. Target users
 
 ### Primary
-- Developers using coding agents daily
+- Anyone who wants an agent to do real work on their own machine
 - Users who need local file/command execution
-- Users in the pi ecosystem
+- Users who write, research, or work with documents and data — not only developers
 
 ### Secondary
 - Teams needing custom providers/base URLs
