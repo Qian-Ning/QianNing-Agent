@@ -55,17 +55,17 @@ The full documentation lives at the docs site <https://qian-ning.github.io/QianN
 
 - [1. 🧭 What this is](#1--what-this-is)
 - [2. 🔗 Relationship to upstream](#2--relationship-to-upstream)
-- [3. 🏗️ Architecture](#3--architecture)
-- [4. 🗄️ Where your data lives](#4--where-your-data-lives)
+- [3. 🏢 Architecture](#3--architecture)
+- [4. 💾 Where your data lives](#4--where-your-data-lives)
 - [5. 🔐 Permission model](#5--permission-model)
-- [6. 🎛️ Three operating modes](#6--three-operating-modes)
+- [6. 🎯 Three operating modes](#6--three-operating-modes)
 - [7. 🧰 Built-in tools](#7--built-in-tools)
 - [8. 🧩 Extensions: plugins, skills, and MCP](#8--extensions-plugins-skills-and-mcp)
 - [9. 📦 Platforms and packages](#9--platforms-and-packages)
 - [10. 🔄 In-app updates](#10--in-app-updates)
-- [11. 🛠️ Build from source](#11--build-from-source)
+- [11. 🔧 Build from source](#11--build-from-source)
 - [12. 🧪 Verification](#12--verification)
-- [13. 🗂️ Repository layout](#13--repository-layout)
+- [13. 📁 Repository layout](#13--repository-layout)
 - [14. 📄 Contributing, security, and license](#14--contributing-security-and-license)
 
 ---
@@ -117,7 +117,7 @@ When triaging a problem, first decide whether it lives in an upstream capability
 
 ---
 
-## 3. 🏗️ Architecture
+## 3. 🏢 Architecture
 
 ### 3.1 Processes and ownership
 
@@ -189,7 +189,7 @@ The load-bearing part: **permission decisions live in host-core, and the model i
 
 ---
 
-## 4. 🗄️ Where your data lives
+## 4. 💾 Where your data lives
 
 A packaged installation keeps its data in `~/.qianning-agent`; a development build uses `~/.qianning-agent-dev`. Setting `PI_DESKTOP_DATA_DIR` replaces the root outright (used by the E2E harnesses and for side-by-side debugging).
 
@@ -247,7 +247,7 @@ Additional rules:
 
 ---
 
-## 6. 🎛️ Three operating modes
+## 6. 🎯 Three operating modes
 
 One agent, three postures. **Neither Plan nor Goal switches to another runtime** — they are the same agent negotiating a different kind of contract.
 
@@ -337,7 +337,7 @@ Settings → About → Software update checks for new versions, fed by this repo
 
 ---
 
-## 11. 🛠️ Build from source
+## 11. 🔧 Build from source
 
 ### Requirements
 
@@ -411,7 +411,7 @@ End-to-end suites are organized by surface; `package.json` lists them all under 
 
 ---
 
-## 13. 🗂️ Repository layout
+## 13. 📁 Repository layout
 
 ```text
 apps/desktop/            Electron main, preload, and the React renderer
