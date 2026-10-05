@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "0.16.2",
+    date: "2026-10-05",
+    highlights: [
+      "Destinations SSH enregistrées : pointez l'app vers un hôte, consultez sa clé d'hôte avant que quoi que ce soit ne lui soit envoyé, et laissez l'agent y exécuter des commandes — l'agent ne peut jamais créer ni élargir une connexion, et chaque commande qu'il exécute est consignée dans une piste d'audit.",
+      "Le contrôle du bureau arrive désactivé : la lecture de l'écran et le déplacement du pointeur restent indisponibles tant que vous ne les activez pas dans les Paramètres, et chacun signale son propre code d'erreur lorsque la plateforme le refuse.",
+      "La vue d'utilisation lit vos dépenses par projet, par période calendaire et selon ce qui est attendu ensuite, et le budget d'un mois peut désormais être plafonné depuis le même tableau de bord.",
+      "Les outils installés via MCP demandent désormais une approbation avant de s'exécuter, comme le font déjà les outils shell et de fichiers.",
+      "Dans l'historique du chat, une réponse diffusée en flux ne décale plus la mise en page pendant son rendu, une invite renvoyée ou modifiée se réconcilie avec celle déjà à l'écran au lieu d'apparaître deux fois, et les copies d'une session se regroupent sur une seule entrée.",
+    ],
+  },
+  {
     version: "0.15.18",
     date: "2026-10-04",
     highlights: [

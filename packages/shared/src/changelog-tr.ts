@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "0.16.2",
+    date: "2026-10-05",
+    highlights: [
+      "Kayıtlı SSH hedefleri: uygulamayı bir ana makineye yöneltin, ona herhangi bir şey gönderilmeden önce ana makine anahtarını görün ve aracının orada komut çalıştırmasına izin verin — aracı asla bir bağlantı oluşturamaz veya genişletemez ve çalıştırdığı her komut bir denetim kaydına yazılır.",
+      "Masaüstü denetimi kapalı olarak gelir: ekranı okuma ve imleci hareket ettirme, siz bunları Ayarlar'da açana kadar kullanılamaz ve platform bunları reddettiğinde her biri kendi hata kodunu bildirir.",
+      "Kullanım görünümü harcamalarınızı projeye göre, takvim dönemine göre ve sırada ne beklendiğine göre okur, ve bir ayın bütçesi artık aynı panodan sınırlandırılabilir.",
+      "MCP üzerinden yüklenen araçlar artık çalışmadan önce onay ister, tıpkı shell ve dosya araçlarının zaten yaptığı gibi.",
+      "Sohbet geçmişinde, akış halinde gelen bir yanıt artık oluşturulurken yerleşimi kaydırmaz, yeniden gönderilen veya düzenlenen bir istem iki kez görünmek yerine ekranda zaten var olanla eşleşir, ve bir oturumun kopyaları tek bir girdide birleşir.",
+    ],
+  },
+  {
     version: "0.15.18",
     date: "2026-10-04",
     highlights: [
