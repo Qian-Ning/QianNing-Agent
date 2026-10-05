@@ -136,7 +136,7 @@ README_SHOTS = {
 }
 
 # Gallery scene -> landing-page slot stem, written to docs/public/readme/ as
-# <stem>.<locale>.webp for HomeHeroVisual.vue and HomeModules.vue. Same rule as
+# <stem>.<locale>.webp for DocumentationHome.vue. Same rule as
 # the README set: generated here, never checked in by hand.
 LANDING_SHOTS = {
     "home-light": "hero",
