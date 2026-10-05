@@ -1,0 +1,682 @@
+# Release pipeline (QianNing Agent).
+#
+# Trigger: push a tag `vX.Y.Z` (must match apps/desktop/package.json version).
+# The easiest way to cut a release:
+#
+#   node scripts/release.mjs <version> --tag   # bump versions + commit + create tag v<version>
+#   git push origin main v<version>            # push → this workflow builds & publishes
+#
+# Lanes: the Windows x64 installers (NSIS setup, portable export, and the win
+# zip), the Linux x64 desktop packages (AppImage/deb/rpm plus the
+# system-Electron ASAR export), both macOS architectures (DMG + ZIP), and the
+# Linux `pi-host` remote-host bundle — then the publish job creates the GitHub
+# Release itself, so pushing the tag is the whole trigger and no artifact is
+# uploaded by hand.
+#
+# macOS signing is optional and detected, not assumed. The `macos-signing` job
+# reads the runner's signing secrets; when all of them are present the macOS
+# lane Developer ID-signs, notarizes, and staples, exactly like an upstream
+# release. When none are present it builds ad-hoc-signed artifacts instead and
+# warns, so a release without an Apple Developer account still publishes. A
+# partial configuration fails the run, because publishing unsigned artifacts to
+# users who expect signed ones is worse than not publishing. See
+# docs/spec/06-delivery/06-release-runbook.md § 4.3 for the secret list.
+#
+# The release carries each platform's `latest*.yml` electron-updater feed, which
+# packaged installs read through Settings → About → Software update (D628). The
+# feed lives in this repository's Releases, so the repository must stay publicly
+# readable for anonymous installs to fetch it.
+#
+# The Linux `pi-host` bundle is what the desktop's SSH bootstrap downloads at
+# the desktop's own version and checksum-verifies before installing on a remote
+# machine (06-delivery/07-remote-control-rollout.md §6 acceptance 4; D375 /
+# ADR 0284).
+
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+# Least privilege by default; only the publish job needs to write the release.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    # Same gate as ci.yml. A tag push does not trigger ci.yml, so without this
+    # job a broken tree could be built and published untested.
+    name: Verify (build / typecheck / lint / test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace packages
+        run: pnpm build:js
+
+      - name: Typecheck Desktop
+        run: pnpm --filter @pi-desktop/desktop typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm -r --if-present test
+
+      - name: Rust host-core test
+        run: cargo test -p host-core --locked
+
+  macos-signing:
+    # Decides the macOS lane's mode before it starts, so a run without an Apple
+    # Developer account publishes ad-hoc-signed macOS artifacts instead of
+    # failing. The values are read into the environment (the `secrets` context
+    # cannot be used in a step `if:`), then all-or-nothing is enforced.
+    name: Detect macOS signing credentials
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      signed: ${{ steps.detect.outputs.signed }}
+      identity: ${{ steps.detect.outputs.identity }}
+    steps:
+      - id: detect
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # A repository variable, not a secret: a certificate's common name is
+          # public. electron-builder rejects the "Developer ID Application:"
+          # prefix on CSC_NAME, so the prefix is stripped here and the bare name
+          # is handed to every downstream step.
+          MAC_SIGNING_IDENTITY_RAW: ${{ vars.MAC_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+
+          identity="${MAC_SIGNING_IDENTITY_RAW:-}"
+          identity="${identity#Developer ID Application: }"
+
+          # The full configuration. Adding a sixth secret means adding it here
+          # and nowhere else: the all-or-nothing check below is derived, not
+          # hard-coded.
+          credentials=(
+            CSC_LINK
+            CSC_KEY_PASSWORD
+            APPLE_ID
+            APPLE_APP_SPECIFIC_PASSWORD
+            APPLE_TEAM_ID
+          )
+          missing=()
+          for name in "${credentials[@]}"; do
+            # An unset secret arrives as an empty string, but `${!name:-}`
+            # keeps this correct under `set -u` either way.
+            [[ -n "${!name:-}" ]] || missing+=("$name")
+          done
+          [[ -n "$identity" ]] || missing+=(vars.MAC_SIGNING_IDENTITY)
+
+          if (( ${#missing[@]} == 0 )); then
+            if [[ ! "$APPLE_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]]; then
+              echo "::error::APPLE_TEAM_ID must be a ten-character Apple Developer Team ID (got: $APPLE_TEAM_ID)."
+              exit 1
+            fi
+            {
+              echo "signed=true"
+              echo "identity=$identity"
+            } >> "$GITHUB_OUTPUT"
+            echo "macOS artifacts will be Developer ID-signed, notarized, and stapled."
+            exit 0
+          fi
+
+          # All or nothing. Half-configured signing is a mistake, and silently
+          # falling back to unsigned would publish artifacts weaker than the
+          # repository claims to produce.
+          if (( ${#missing[@]} < ${#credentials[@]} + 1 )); then
+            echo "::error::Incomplete macOS signing configuration; missing: ${missing[*]}"
+            echo "::error::Set all of them, or none. See docs/spec/06-delivery/06-release-runbook.md § 4.3."
+            exit 1
+          fi
+
+          {
+            echo "signed=false"
+            echo "identity="
+          } >> "$GITHUB_OUTPUT"
+          echo "No macOS signing credentials; macOS artifacts will be ad-hoc signed and not notarized."
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: [verify, macos-signing]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS arm64
+            os: macos-15
+            arch: arm64
+            runner_arch: arm64
+            artifact: mac-arm64
+            platform: macos
+            dist: dist:mac
+          - name: macOS Intel x64
+            os: macos-15-intel
+            arch: x64
+            runner_arch: x86_64
+            artifact: mac-x64
+            platform: macos
+            dist: dist:mac
+          - name: Windows x64
+            os: windows-latest
+            arch: x64
+            artifact: windows-x64
+            platform: windows
+            dist: dist:win
+          - name: Linux x64
+            # Ubuntu 22.04 keeps host-core at glibc 2.35 so Ubuntu 22.04,
+            # Debian 12, and Fedora 36+ can load the binary. ubuntu-latest
+            # (24.04) would raise the floor to 2.39.
+            os: ubuntu-22.04
+            arch: x64
+            runner_arch: x86_64
+            artifact: linux-x64
+            platform: linux
+            dist: dist:linux
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Verify native runner architecture
+        # A mislabelled or emulated runner would wrap one architecture's
+        # Electron app around the other architecture's Rust sidecar. The
+        # Windows row carries no `runner_arch` because electron-builder
+        # cross-builds Windows from any runner.
+        if: matrix.runner_arch
+        run: |
+          set -euo pipefail
+          actual_arch="$(uname -m)"
+          expected_arch="${{ matrix.runner_arch }}"
+          if [ "$actual_arch" != "$expected_arch" ]; then
+            echo "::error::Expected $expected_arch runner, got $actual_arch."
+            exit 1
+          fi
+
+      - name: Compare tag with apps/desktop/package.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          APP_VERSION="$(node -p "require('./apps/desktop/package.json').version")"
+          if [ "$TAG_VERSION" != "$APP_VERSION" ]; then
+            echo "::error::Tag v$TAG_VERSION does not match apps/desktop/package.json version $APP_VERSION."
+            echo "Run 'node scripts/release.mjs $TAG_VERSION --tag' to bump versions before tagging."
+            exit 1
+          fi
+
+      - name: Validate bundled models.dev catalog
+        run: |
+          node --input-type=module - <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          const path = 'apps/desktop/resources/models.dev/api.json';
+          const catalog = JSON.parse(await readFile(path, 'utf8'));
+          const valid = catalog && !Array.isArray(catalog) && typeof catalog === 'object' &&
+            Object.values(catalog).some((provider) => provider && typeof provider === 'object' && provider.models);
+          if (!valid) throw new Error(`${path} contains no provider model records`);
+          console.log(`${path} is valid`);
+          NODE
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          # Match the Node that Electron 43 bundles (24.18), so the released
+          # artifacts are built against the runtime the app actually ships.
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Prepare package inputs
+        run: |
+          set -euo pipefail
+          cargo build --release --locked -p host-core &
+          host_build_pid=$!
+          trap 'kill "$host_build_pid" 2>/dev/null || true' EXIT
+
+          pnpm install --frozen-lockfile
+          pnpm --filter '@pi-desktop/desktop^...' --fail-if-no-match build
+
+          wait "$host_build_pid"
+          trap - EXIT
+
+      - name: Diagnose macOS signing environment
+        # Records the runner baseline (system, codesign, identities, keychain,
+        # Xcode tools, Apple timestamp reachability) before electron-builder
+        # imports the certificate. Informational: the Developer ID identity is
+        # absent here by design and is imported from CSC_LINK during packaging.
+        if: matrix.platform == 'macos'
+        run: scripts/macos-signing-diagnostics.sh
+
+      - name: Package installers (${{ matrix.dist }})
+        # The dist scripts pass --publish never themselves: electron-builder
+        # must not self-publish on tag builds (no token; softprops owns it).
+        #
+        # No architecture flag is appended on purpose. `pnpm run <script> --
+        # <args>` puts a literal `--` on electron-builder's command line, and
+        # everything after `--` is a positional argument to its CLI parser:
+        # `--x64` and every `-c.<path>=<value>` override placed there are
+        # silently dropped. The architecture comes from the runner instead —
+        # each matrix row's arch is pinned in package.json or asserted by the
+        # `Verify native runner architecture` step above.
+        if: matrix.platform != 'macos'
+        run: pnpm --filter @pi-desktop/desktop run ${{ matrix.dist }}
+
+      - name: Package unsigned macOS installer
+        # No Apple Developer account is configured. `dist:mac:unsigned` carries
+        # `-c.mac.identity=-`, which asks @electron/osx-sign for an ad-hoc
+        # signature (`codesign -s -`) rather than skipping signing: an arm64 app
+        # with no signature at all refuses to launch. `mac.hardenedRuntime`
+        # stays on from package.json, and the shared entitlements already carry
+        # com.apple.security.cs.disable-library-validation, which hardened
+        # runtime plus ad-hoc signing requires.
+        #
+        # The override lives inside the script on purpose: appending it here
+        # would place it after `pnpm run`'s `--`, where electron-builder's CLI
+        # parser treats it as a positional argument and drops it — the build
+        # then publishes a completely unsigned app while still reporting
+        # success.
+        if: matrix.platform == 'macos' && needs.macos-signing.outputs.signed != 'true'
+        run: |
+          set -euo pipefail
+          pnpm --filter @pi-desktop/desktop run dist:mac:unsigned
+          echo "::warning title=Unsigned macOS artifacts::No Apple Developer signing secrets are configured, so the macOS artifacts are ad-hoc signed and not notarized. Gatekeeper blocks the first launch: users must right-click the app and choose Open, or run: xattr -dr com.apple.quarantine '/Applications/QianNing Agent.app'"
+
+      - name: Assert the macOS bundle is ad-hoc signed
+        # The unsigned lane is the only place `-c.mac.identity=-` is exercised,
+        # and it failed silently once: electron-builder logged
+        # `skipped macOS application code signing` while the job still went
+        # green, so a bundle with no signature at all was published as if it
+        # were ad-hoc signed. Nothing else on the runner checks it, because
+        # verify-macos-release.sh only runs on the signed lane.
+        #
+        # `codesign -dv` prints `Signature=adhoc` for an ad-hoc bundle and no
+        # `Signature` line at all when nothing was signed, so the assertion is
+        # on that line rather than on the exit status: verifying either one
+        # succeeds. Bundle discovery mirrors verify-macos-release.sh — the app
+        # directory is the electron-builder `productName`, so it is globbed
+        # rather than named.
+        if: matrix.platform == 'macos' && needs.macos-signing.outputs.signed != 'true'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          bundles=(apps/desktop/release/mac*/*.app)
+          if [[ "${#bundles[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one .app bundle under apps/desktop/release/mac*/, found ${#bundles[@]}."
+            exit 1
+          fi
+          bundle="${bundles[0]}"
+          report="$(codesign -dv --verbose=4 "$bundle" 2>&1 || true)"
+          printf '%s\n' "$report"
+          if [[ "$report" == *"Authority="* ]]; then
+            echo "::error::$bundle carries a Developer ID authority, but the signed lane was not selected."
+            exit 1
+          fi
+          if [[ "$report" != *"Signature=adhoc"* ]]; then
+            echo "::error::$bundle is not ad-hoc signed. A missing 'Signature=adhoc' line means the bundle carries no signature at all, which is what a dropped -c.mac.identity=- looks like."
+            exit 1
+          fi
+          echo "$bundle is ad-hoc signed and carries no Developer ID authority."
+
+      - name: Package signed and notarized macOS installer
+        if: matrix.platform == 'macos' && needs.macos-signing.outputs.signed == 'true'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # electron-builder rejects the "Developer ID Application:" prefix on
+          # identity names and resolves the certificate itself, so CSC_NAME
+          # carries the bare common name only — already stripped by the
+          # macos-signing job.
+          CSC_NAME: ${{ needs.macos-signing.outputs.identity }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # electron-builder prints one "signing <product>.app" line and then
+          # goes quiet: @electron/osx-sign walks Contents and codesigns every
+          # Mach-O serially, builder-util silently retries a failing pass up to
+          # three times, and @electron/notarize zips, uploads, and waits for
+          # Apple's queue. These two namespaces expose all three phases without
+          # leaking credentials, because both render their own command lines
+          # through a password filter. `electron-builder` itself is deliberately
+          # absent: builder-util's `executing` debug line prints every spawned
+          # command with only its own stem list redacted, and that list does not
+          # cover `security set-key-partition-list -k <p12 password>`. The
+          # watchdog redacts the secret values and any --password/-k argument on
+          # top of that.
+          DEBUG: "electron-osx-sign*,electron-notarize*"
+          # 30 minutes keeps a stuck signing/notarization phase reported by the
+          # watchdog (diagnostics + summary) inside the 60-minute job budget.
+          PI_SIGNING_TIMEOUT_SECONDS: "1800"
+          PI_SIGNING_STALL_SECONDS: "300"
+        run: |
+          set -euo pipefail
+          # Artifact names are defined in apps/desktop/package.json: the mac
+          # pattern labels ZIPs, and the dmg target pattern labels DMGs.
+          # The watchdog forwards every line unchanged and keeps the child's
+          # exit code; it adds a heartbeat while the phase is silent, dumps the
+          # active codesign target and process state when it stalls, reports
+          # per-file codesign timings, and fails the step after
+          # PI_SIGNING_TIMEOUT_SECONDS instead of waiting for the job timeout.
+          node scripts/macos-signing-watchdog.mjs \
+            --label "dist:mac-${{ matrix.arch }}" \
+            -- pnpm --filter @pi-desktop/desktop run dist:mac:signed
+
+      - name: Analyze the packaged macOS app bundle
+        # Reports the file / Mach-O / framework / nested-bundle counts that
+        # determine how much work the signing phase had, on the exact bundle the
+        # release just produced. Diagnosis only: continue-on-error keeps a
+        # surprising bundle layout from failing a release.
+        if: matrix.platform == 'macos'
+        continue-on-error: true
+        run: node scripts/macos-bundle-inventory.mjs apps/desktop/release
+
+      - name: Notarize and staple the macOS DMG
+        if: matrix.platform == 'macos' && needs.macos-signing.outputs.signed == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # 20 minutes bounds the second Apple wait; the packaging phase owns
+          # the first one.
+          PI_SIGNING_TIMEOUT_SECONDS: "1200"
+          PI_SIGNING_STALL_SECONDS: "300"
+        run: |
+          set -euo pipefail
+          # notarytool submit --wait blocks until Apple answers; the watchdog
+          # keeps that wait observable and bounded.
+          node scripts/macos-signing-watchdog.mjs \
+            --label "notarize-dmg-${{ matrix.arch }}" \
+            -- scripts/notarize-and-staple-macos-release-dmg.sh apps/desktop/release
+
+      - name: Verify signed and notarized macOS installer
+        if: matrix.platform == 'macos' && needs.macos-signing.outputs.signed == 'true'
+        env:
+          MAC_SIGNING_IDENTITY: ${{ needs.macos-signing.outputs.identity }}
+        run: scripts/verify-macos-release.sh apps/desktop/release
+
+      - name: Verify Windows artifact names
+        # Guards the release against silent packaging drift: the three win
+        # targets and their artifact names come from apps/desktop/package.json
+        # (the nsis override plus the win/portable artifactName pattern), and
+        # each must land exactly once.
+        if: matrix.platform == 'windows'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          expected_setup=(apps/desktop/release/QianNing-Agent-Setup-*.exe)
+          expected_portable=(apps/desktop/release/QianNing-Agent-Portable-*.exe)
+          expected_zip=(apps/desktop/release/QianNing-Agent-Portable-*.zip)
+          expected_feed=(apps/desktop/release/latest.yml)
+          if [[ "${#expected_setup[@]}" -ne 1 ||
+                "${#expected_portable[@]}" -ne 1 ||
+                "${#expected_zip[@]}" -ne 1 ||
+                "${#expected_feed[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one NSIS setup EXE, one portable EXE, one portable ZIP, and latest.yml."
+            printf '%s\n' apps/desktop/release/* || true
+            exit 1
+          fi
+          printf 'setup:    %s\n' "${expected_setup[@]}"
+          printf 'portable: %s\n' "${expected_portable[@]}"
+          printf 'zip:      %s\n' "${expected_zip[@]}"
+
+      - name: Verify Linux host-core glibc floor
+        if: matrix.platform == 'linux'
+        run: node scripts/check-linux-host-glibc.mjs target/release/pi-desktop-host-core
+
+      - name: Export Linux ASAR release asset
+        if: matrix.platform == 'linux'
+        run: node scripts/export-linux-asar.mjs
+
+      - name: Verify macOS artifact names
+        # Same drift guard as the Windows lane: the DMG name comes from the
+        # dmg target override and the ZIP name from the mac pattern, both in
+        # apps/desktop/package.json, and each must land exactly once. A wrong
+        # or unlabelled name would collide between the two architecture lanes
+        # once the publish job merges them.
+        if: matrix.platform == 'macos'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          expected_dmg=(apps/desktop/release/QianNing-Agent-*-${{ matrix.arch }}.dmg)
+          expected_dmg_blockmap=(apps/desktop/release/QianNing-Agent-*-${{ matrix.arch }}.dmg.blockmap)
+          expected_zip=(apps/desktop/release/QianNing-Agent-*-${{ matrix.arch }}-mac.zip)
+          expected_zip_blockmap=(apps/desktop/release/QianNing-Agent-*-${{ matrix.arch }}-mac.zip.blockmap)
+          if [[ "${#expected_dmg[@]}" -ne 1 ||
+                "${#expected_dmg_blockmap[@]}" -ne 1 ||
+                "${#expected_zip[@]}" -ne 1 ||
+                "${#expected_zip_blockmap[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one ${{ matrix.arch }} DMG, DMG blockmap, ZIP, and ZIP blockmap."
+            printf '%s\n' apps/desktop/release/* || true
+            exit 1
+          fi
+          for artifact in apps/desktop/release/QianNing-Agent-*; do
+            case "$artifact" in
+              *-${{ matrix.arch }}.dmg|*-${{ matrix.arch }}.dmg.blockmap|*-${{ matrix.arch }}-mac.zip|*-${{ matrix.arch }}-mac.zip.blockmap) ;;
+              *)
+                echo "::error::Unexpected unlabelled or wrong-architecture macOS artifact: $artifact"
+                exit 1
+                ;;
+            esac
+          done
+
+      - name: Disambiguate macOS update metadata
+        # electron-updater requests one `latest-mac.yml` on every Mac, so two
+        # lanes writing that name into the shared artifact directory would leave
+        # whichever uploaded last and strand the other architecture. Each lane
+        # publishes its own feed instead, and the publish job merges them back
+        # into `latest-mac.yml` with scripts/merge-mac-update-feed.mjs.
+        if: matrix.platform == 'macos'
+        run: mv apps/desktop/release/latest-mac.yml apps/desktop/release/latest-mac-${{ matrix.arch }}.yml
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist-${{ matrix.artifact }}
+          if-no-files-found: error
+          compression-level: 0
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+            apps/desktop/release/*.rpm
+            apps/desktop/release/*.asar
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/latest*.yml
+
+  pi-host-bundle:
+    name: Bundle pi-host (Linux ${{ matrix.arch }})
+    # The desktop's SSH bootstrap downloads this asset at the desktop's own
+    # version and verifies the published checksum before installing it on a
+    # remote machine. It needs no signing secrets, so it stays in the release
+    # lane alongside the desktop builds.
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Every Linux platform the desktop release publishes. Add arm64 here
+          # in lockstep if the desktop starts publishing it.
+          - arch: x64
+            os: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Compare tag with apps/desktop/package.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          APP_VERSION="$(node -p "require('./apps/desktop/package.json').version")"
+          if [ "$TAG_VERSION" != "$APP_VERSION" ]; then
+            echo "::error::Tag v$TAG_VERSION does not match apps/desktop/package.json version $APP_VERSION."
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build inputs (host-core, workspace, sidecar bundle)
+        run: |
+          set -euo pipefail
+          # Ubuntu 22.04 keeps the host-core glibc floor at 2.35, matching the
+          # desktop Linux build so the bundled binary loads on the same distros.
+          cargo build --release --locked -p host-core &
+          host_build_pid=$!
+          trap 'kill "$host_build_pid" 2>/dev/null || true' EXIT
+
+          pnpm install --frozen-lockfile
+          pnpm build:js
+          pnpm --filter @pi-desktop/agent-runtime bundle
+          pnpm --filter @pi-desktop/pi-host build
+
+          wait "$host_build_pid"
+          trap - EXIT
+
+      - name: Verify host-core glibc floor
+        run: node scripts/check-linux-host-glibc.mjs target/release/pi-desktop-host-core
+
+      - name: Assemble pi-host bundle
+        run: node apps/pi-host/scripts/bundle.mjs --platform linux --arch ${{ matrix.arch }}
+
+      - name: Archive bundle with checksum
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./apps/pi-host/package.json').version")"
+          name="pi-host-${VERSION}-linux-${{ matrix.arch }}"
+          out="apps/pi-host/dist-bundle"
+          if [ ! -d "$out/$name" ]; then
+            echo "::error::expected bundle directory $out/$name"
+            ls -la "$out" || true
+            exit 1
+          fi
+          tar -czf "$out/${name}.tar.gz" -C "$out" "$name"
+          ( cd "$out" && sha256sum "${name}.tar.gz" > "${name}.tar.gz.sha256" )
+          cat "$out/${name}.tar.gz.sha256"
+
+      - name: Upload pi-host bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: pi-host-linux-${{ matrix.arch }}
+          if-no-files-found: error
+          compression-level: 0
+          path: |
+            apps/pi-host/dist-bundle/pi-host-*-linux-${{ matrix.arch }}.tar.gz
+            apps/pi-host/dist-bundle/pi-host-*-linux-${{ matrix.arch }}.tar.gz.sha256
+
+  publish:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, pi-host-bundle]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      # The merge step below runs a repository script, and download-artifact
+      # only materialises build outputs — without a checkout `scripts/` does not
+      # exist and the merge dies on a missing module.
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la dist/
+
+      - name: Merge the macOS update feed
+        # electron-updater builds the macOS channel name as `latest` + `-mac`
+        # and requests `latest-mac.yml` on every Mac, whatever the architecture.
+        # The two macOS lanes each renamed their feed to `latest-mac-<arch>.yml`
+        # so this merge could combine them instead of one overwriting the other;
+        # without the merge a Mac checks, gets 404, and reports a failed update
+        # while Windows and Linux keep working. The merged feed lists both
+        # architectures, and `MacUpdater.filterFilesForArch` picks the one that
+        # matches the machine.
+        run: node scripts/merge-mac-update-feed.mjs dist
+
+      # Re-publishing a tag — after a repaired commit, or after a build failed
+      # halfway — lands on the release that is already there, and
+      # `action-gh-release` merges rather than replaces: an asset the new run
+      # no longer produces would linger beside the fresh ones. Clear the slate
+      # first so the published set always matches this run exactly.
+      - name: Clear assets from an earlier run of this tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            echo "No release for $TAG yet; nothing to clear."
+            exit 0
+          fi
+          stale=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          if [ -z "$stale" ]; then
+            echo "Release for $TAG has no assets yet."
+            exit 0
+          fi
+          while IFS= read -r name; do
+            [ -n "$name" ] || continue
+            echo "Deleting stale asset: $name"
+            gh release delete-asset "$TAG" "$name" --yes
+          done <<< "$stale"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          # The Windows installers, the Linux packages and ASAR, both macOS
+          # architectures, each platform's electron-updater feed, and the Linux
+          # pi-host bundle with its checksum. `generate_release_notes` supplies
+          # the web-page body; the in-app changelog stays
+          # packages/shared/src/changelog.ts.
+          files: dist/*
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

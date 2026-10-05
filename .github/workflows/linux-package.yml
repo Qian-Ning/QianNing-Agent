@@ -1,0 +1,103 @@
+name: Linux package validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Linux x64 packages
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Prepare package inputs
+        # Mirrors release.yml: build host-core with --locked so a drifted
+        # Cargo.lock fails here instead of being silently rewritten by the
+        # desktop `build:host-release` script, which does not pass --locked.
+        run: |
+          set -euo pipefail
+          cargo build --release --locked -p host-core &
+          host_build_pid=$!
+          trap 'kill "$host_build_pid" 2>/dev/null || true' EXIT
+
+          pnpm install --frozen-lockfile
+          pnpm --filter '@pi-desktop/desktop^...' --fail-if-no-match build
+
+          wait "$host_build_pid"
+          trap - EXIT
+
+      - name: Build Linux packages
+        run: pnpm --filter @pi-desktop/desktop run dist:linux -- --x64
+
+      - name: Verify Linux host glibc floor
+        run: node scripts/check-linux-host-glibc.mjs target/release/pi-desktop-host-core
+
+      - name: Install RPM inspection tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y cpio rpm
+
+      - name: Derive the packaged Linux layout
+        # The assertions below compare the RPM against what this repository is
+        # configured to emit, so a rename in apps/desktop/package.json cannot
+        # leave a stale literal behind. scripts/linux-package-paths.mjs mirrors
+        # electron-builder's own derivation, and
+        # apps/desktop/test/linux-package-paths.test.mjs cross-checks it against
+        # electron-builder on every JS test run — which this workflow, being
+        # workflow_dispatch-only, never was.
+        run: |
+          set -euo pipefail
+          node scripts/linux-package-paths.mjs >> "$GITHUB_ENV"
+
+      - name: Verify RPM package
+        run: |
+          set -euo pipefail
+          mapfile -t packages < <(find apps/desktop/release -maxdepth 1 -type f -name '*.rpm' -print)
+          test "${#packages[@]}" -eq 1
+          rpm -qip "${packages[0]}"
+          rpm_package=$(realpath "${packages[0]}")
+          rpm_file_list=$(mktemp)
+          rpm -qpl "$rpm_package" > "$rpm_file_list"
+          if grep -E '^/usr/lib/\.build-id' "$rpm_file_list" >/dev/null; then
+            echo 'RPM must not ship global build-id links for bundled Electron binaries'
+            exit 1
+          fi
+          grep -Fx "$LINUX_APP_ASAR" "$rpm_file_list" >/dev/null
+          grep -Fx "$LINUX_SIDECAR" "$rpm_file_list" >/dev/null
+          grep -Fx "$LINUX_DESKTOP_FILE" "$rpm_file_list" >/dev/null
+          grep -Fx "$LINUX_ICON_FILE" "$rpm_file_list" >/dev/null
+
+          desktop_root=$(mktemp -d)
+          (
+            cd "$desktop_root"
+            rpm2cpio "$rpm_package" | cpio --quiet -id "$LINUX_DESKTOP_ENTRY_PATH"
+          )
+          desktop_entry="$desktop_root$LINUX_DESKTOP_FILE"
+          grep -Fx "Icon=$LINUX_ICON_KEY" "$desktop_entry" >/dev/null
+          grep -Fx "StartupWMClass=$LINUX_WM_CLASS" "$desktop_entry" >/dev/null
+
+      - name: Upload RPM package
+        uses: actions/upload-artifact@v7
+        with:
+          name: qianning-agent-linux-x64-rpm
+          if-no-files-found: error
+          retention-days: 7
+          path: apps/desktop/release/*.rpm

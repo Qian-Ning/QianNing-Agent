@@ -1,0 +1,186 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+import { loadStyles } from "./helpers/styles.mjs";
+
+const styles = await loadStyles();
+
+test("work panel uses a quiet light-theme inset surface", () => {
+  // The light inset and its raised strips are tokens, not literals pinned by a
+  // `:root[data-theme="light"]` override, so a contributed theme can move them
+  // (D418). A literal here would put the dock out of every theme's reach.
+  assert.match(styles, /--ds-bg-dock:\s*#fafafa/);
+  assert.match(styles, /--ds-bg-dock-raised:\s*#ffffff/);
+  assert.match(styles, /\.work-panel\s*\{[\s\S]*?background:\s*var\(--ds-bg-dock\)/);
+  assert.match(
+    styles,
+    /\.work-panel-header\s*\{[\s\S]*?background:\s*var\(--ds-bg-dock-raised\)/,
+  );
+  assert.doesNotMatch(styles, /:root\[data-theme="light"\]\s+\.work-panel\s*\{/);
+  assert.match(
+    styles,
+    /\.work-panel-tab-strip\s*\{[\s\S]*?display:\s*flex/,
+  );
+  assert.match(
+    styles,
+    /\.work-panel-launcher-row:hover\s*\{[\s\S]*?background:\s*var\(--ds-bg-hover\)/,
+  );
+});
+
+test("work panel interactive rows ease hover fills with motion tokens", () => {
+  for (const selector of [
+    ".file-tree-row",
+    ".review-change-card-header",
+    ".work-panel-resize",
+    ".work-browser-url input",
+  ]) {
+    const re = new RegExp(
+      `${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{[\\s\\S]*?transition:[\\s\\S]*?var\\(--motion-duration-fast\\)`,
+    );
+    assert.match(styles, re, `${selector} should transition with motion tokens`);
+  }
+});
+
+test("button press feedback eases transform instead of snapping", () => {
+  for (const selector of [
+    ".btn",
+    ".icon-btn",
+    ".title-nav-btn",
+    ".nav-item",
+    ".copy-btn",
+    ".sidebar-toolbar-button",
+    ".sidebar-session-group-add",
+  ]) {
+    const escaped = selector.replace(".", "\\.");
+    const re = new RegExp(
+      `${escaped}\\s*\\{[\\s\\S]*?transform var\\(--motion-duration-fast\\)`,
+    );
+    assert.match(styles, re, `${selector} should ease pressed feedback`);
+  }
+  assert.match(styles, /\.btn:active:not\(:disabled\)\s*\{[\s\S]*?scale\(0\.98\)/);
+  assert.match(styles, /\.send-btn:active:not\(:disabled\)[\s\S]*?scale\(0\.94\)/);
+  assert.match(styles, /\.stop-btn:active:not\(:disabled\)[\s\S]*?scale\(0\.94\)/);
+});
+
+test("settings and form controls gain light-theme surfaces", () => {
+  // D297: fields are filled wells from the shared tile tokens in both themes,
+  // with no per-theme hex override and no stroke; focus lifts them onto the
+  // raised layer behind an accent ring.
+  const field = styles.match(/\.field-input,\n\.field-select,\n\.field-textarea\s*\{[^}]*\}/)?.[0] ?? "";
+  assert.match(field, /border:\s*0/);
+  assert.match(field, /background:\s*var\(--ds-tile-hover\)/);
+  assert.doesNotMatch(styles, /:root\[data-theme="light"\]\s+\.field-input/);
+  assert.match(
+    styles,
+    /\.field-input:focus,\n\.field-select:focus,\n\.field-textarea:focus\s*\{[^}]*background:\s*var\(--ds-raised\)[^}]*box-shadow:\s*0 0 0 2px/,
+  );
+  assert.match(styles, /\.settings-toggle\.on \.settings-toggle-thumb\s*\{[^}]*background:\s*var\(--ds-switch-knob-on\)/);
+  assert.doesNotMatch(styles, /:root\[data-theme="light"\]\s+\.settings-toggle\.on\s+\.settings-toggle-thumb\s*\{[^}]*background:/);
+  // D297: the segment track and keycaps come from the shared tile/raised
+  // tokens, so they need no per-theme override and carry no stroke.
+  assert.doesNotMatch(styles, /:root\[data-theme="light"\]\s+\.settings-segment\s*\{/);
+  assert.match(styles, /\.settings-segment\s*\{[^}]*border-radius:\s*var\(--radius-full\)[^}]*background:\s*color-mix/);
+  assert.doesNotMatch(styles, /\.settings-segment\s*\{[^}]*box-shadow/);
+  assert.match(
+    styles,
+    /\.settings-segment-item\.active\s*\{[^}]*background:\s*var\(--ds-raised\)[^}]*box-shadow:\s*var\(--ds-raised-shadow\)/,
+  );
+  assert.doesNotMatch(styles, /:root\[data-theme="light"\]\s+\.shortcut-keybinding\s+kbd/);
+  assert.match(
+    styles,
+    /\.shortcut-keybinding kbd\s*\{[^}]*background:\s*var\(--ds-raised\)[^}]*box-shadow:\s*var\(--ds-raised-shadow\)/,
+  );
+  assert.doesNotMatch(styles, /\.shortcut-keybinding kbd\s*\{[^}]*border:/);
+  // The dialog scrim is a token now (issue #341). Its light value used to sit as
+  // a literal inside a `:root[data-theme="light"]` override, which raised
+  // specificity above the base rule *and* skipped the variable; the lighter
+  // light veil now lives in the light token block, so a theme can move it.
+  assert.match(
+    styles,
+    /:root\[data-theme="light"\][\s\S]*?--ds-scrim:\s*color-mix\(in oklab,\s*#1a1c1f 28%/,
+  );
+  assert.match(styles, /\.overlay\s*\{[^}]*background:\s*var\(--ds-scrim\)/);
+  assert.doesNotMatch(styles, /:root\[data-theme="light"\]\s+\.overlay\s*\{/);
+});
+
+test("switch on-track outranks the per-theme off-track", () => {
+  /*
+    A `:root[data-theme="light"] .settings-toggle` background declaration scores
+    (0,3,0) and out-specifies `.settings-toggle.on` at (0,2,0), which strands the
+    light theme on the pale off fill so only the knob slides. Off-track colours
+    therefore live in the theme token blocks, not on this selector.
+  */
+  assert.doesNotMatch(
+    styles,
+    /:root\[data-theme="(light|dark)"\]\s+\.settings-toggle\s*\{[^}]*background:/,
+  );
+  assert.match(
+    styles,
+    /\.settings-toggle\s*\{[^}]*background:\s*var\(--ds-switch-track-off\)/,
+  );
+  assert.match(
+    styles,
+    /\.settings-toggle\.on\s*\{[^}]*background:\s*var\(--ds-accent\)/,
+  );
+  // D297: the off track is a fill alone; no inset ring on either state. Focus
+  // is the only ring, and it sits outside the track.
+  assert.doesNotMatch(styles, /\.settings-toggle(\.on)?\s*\{[^}]*inset 0 0 0 1px/);
+  assert.match(
+    styles,
+    /\.settings-toggle:focus-visible,\n\.settings-toggle\.on:focus-visible\s*\{[^}]*box-shadow:\s*0 0 0 2px/,
+  );
+  // Every base theme must define the switch tokens, or one falls back to
+  // nothing. The 千凝 ("fox") appearance adds a knob-on override on top, so the
+  // guard is a floor rather than an exact count.
+  for (const token of [
+    "--ds-switch-track-off",
+    "--ds-switch-track-off-hover",
+    "--ds-switch-knob-off",
+    "--ds-switch-knob-on",
+  ]) {
+    const defs = styles.match(new RegExp(`^\\s*${token}:`, "gm")) ?? [];
+    assert.ok(defs.length >= 2, `${token} should be defined in both base themes`);
+  }
+});
+
+test("composer toolbar chips brighten on hover in both palettes", () => {
+  // The theme-qualified resting rules carry one attribute more than the base
+  // hover rules, so the light pair (which is also `!important`) and the dark
+  // icon button kept their resting ink on hover — a hover fill with frozen
+  // text. Each theme needs the state-qualified companion. `:hover` sits outside
+  // the state-shadow rule in scripts/style-surface-tokens.mjs on purpose, so
+  // `pnpm test:e2e:theme-surfaces` samples the rendered state and this pins the
+  // source shape the two have to agree on.
+  assert.match(
+    styles,
+    /:root\[data-theme="light"\] \.composer-toolbar \.icon-btn:hover:not\(:disabled\),\s*\n:root\[data-theme="light"\] \.mode-chip:hover:not\(:disabled\)\s*\{[^}]*color:\s*var\(--ds-text-primary\) !important/,
+  );
+  assert.match(
+    styles,
+    /:root\[data-theme="dark"\] \.composer-toolbar \.icon-btn:hover:not\(:disabled\),\s*\n:root\[data-theme="dark"\] \.mode-chip:hover:not\(:disabled\)\s*\{[^}]*color:\s*var\(--ds-text-primary\) !important/,
+  );
+  // D653: the non-editable chip carries `icon-btn` too, so the toolbar-icon
+  // selectors above matched it in both palettes and brightened a control that
+  // is explicitly not interactive. `:not(:disabled)` on every half — resting
+  // and hover, light and dark — is what hands it back to
+  // `.composer-permission .mode-chip:disabled`, which holds it on secondary at
+  // rest and under a hover.
+  assert.match(
+    styles,
+    /:root\[data-theme="light"\] \.composer-toolbar \.icon-btn:not\(:disabled\),\s*\n:root\[data-theme="light"\] \.mode-chip:not\(:disabled\)\s*\{[^}]*color:\s*color-mix\(in oklab, var\(--ds-text-primary\) 84%, transparent\) !important/,
+  );
+  assert.match(styles, /\.composer-permission \.mode-chip:disabled:hover\s*\{/);
+  // D651: the chip's resting ink needs its own rule, because its base rule —
+  // `.mode-chip { color: var(--ds-text-secondary) !important }` — wins against
+  // any specificity, so the dark 78% it shared with the icon button never
+  // reached it and the chip rendered at 70% beside an icon at 78%.
+  assert.match(
+    styles,
+    /:root\[data-theme="dark"\] \.mode-chip:not\(:disabled\)\s*\{[^}]*color:\s*color-mix\(in oklab, var\(--ds-text-primary\) 78%, transparent\) !important/,
+  );
+  // A bare theme-qualified `.mode-chip` restatement would win the resting ink
+  // for the non-editable chip back off `.composer-permission .mode-chip:disabled`
+  // in both palettes.
+  assert.doesNotMatch(styles, /:root\[data-theme="dark"\] \.mode-chip\s*\{/);
+  assert.doesNotMatch(styles, /:root\[data-theme="light"\] \.mode-chip\s*\{/);
+});

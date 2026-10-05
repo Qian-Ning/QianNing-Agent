@@ -1,0 +1,428 @@
+/**
+ * Provider model discovery: ask a service's own model-list endpoint what it
+ * serves, so users pick real model IDs instead of typing them.
+ *
+ * Three responsibilities, deliberately separate:
+ *
+ *  - `normalizeModelList` turns a response body into rows and is pure;
+ *  - `modelListRequest` builds the request one endpoint needs;
+ *  - `probeModelList` performs exactly one model-list request, with redirect safety;
+ *  - `probeProviderEndpoint` also recognizes Anthropic-compatible services that
+ *    intentionally do not publish a model list, such as token-plan gateways.
+ *
+ * The candidate sweep that resolves an unknown Base URL lives in
+ * `provider-endpoint-probe.ts` and drives `probeModelList`, so discovery and
+ * "Test connection" cannot drift into two different URL or auth rules.
+ */
+
+import {
+  detectEdgeBlock,
+  discoveryProbeUrl,
+  discoveryStyleForApiStyle,
+  generationProbeUrl,
+  type DiscoveryStyle,
+  type EdgeBlock,
+} from "@pi-desktop/shared";
+
+export type DiscoveredModel = {
+  modelId: string;
+  displayName: string;
+};
+
+export const DISCOVERY_TIMEOUT_MS = 10_000;
+/** Total budget for one endpoint-resolution sweep; its candidates share it. */
+export const DISCOVERY_TOTAL_BUDGET_MS = 12_000;
+const MAX_MODELS = 500;
+const MAX_REDIRECTS = 3;
+/**
+ * How much of a generation-route response is read to identify an edge block.
+ * An interstitial names itself in its `<head>`; nothing beyond this is used.
+ */
+const EDGE_BODY_SNIFF_CHARS = 8_192;
+const RESERVED_DISCOVERY_HEADERS = new Set([
+  "authorization",
+  "proxy-authorization",
+  "host",
+  "content-type",
+  "content-length",
+  "cookie",
+  "set-cookie",
+  "connection",
+  "x-api-key",
+  "api-key",
+  "chatgpt-account-id",
+]);
+
+function withCustomHeaders(
+  base: Record<string, string>,
+  extra?: Record<string, string>,
+): Record<string, string> {
+  if (!extra) return base;
+  const next = { ...base };
+  for (const [rawKey, rawValue] of Object.entries(extra)) {
+    const key = rawKey.trim();
+    const value = rawValue.trim();
+    if (!key || !value) continue;
+    if (key.includes("\r") || key.includes("\n") || value.includes("\r") || value.includes("\n")) {
+      continue;
+    }
+    const lower = key.toLowerCase();
+    if (RESERVED_DISCOVERY_HEADERS.has(lower)) continue;
+    for (const existing of Object.keys(next)) {
+      if (existing.toLowerCase() === lower) delete next[existing];
+    }
+    next[key] = value;
+  }
+  return next;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function dedupeSort(models: DiscoveredModel[]): DiscoveredModel[] {
+  const seen = new Map<string, DiscoveredModel>();
+  for (const model of models) {
+    if (model.modelId && !seen.has(model.modelId)) seen.set(model.modelId, model);
+  }
+  return [...seen.values()]
+    .sort((a, b) => a.modelId.localeCompare(b.modelId))
+    .slice(0, MAX_MODELS);
+}
+
+/**
+ * Normalize a model-list response body. Pure.
+ *
+ * `style` is either a wire API style or a discovery style; both name the same
+ * three response shapes. Two of them nest the rows under a key of their own:
+ * Google publishes `{ models: [{ name: "models/…" }] }`, and Zhipu's OpenAI
+ * Responses endpoint publishes `{ models: [{ slug }] }` — the same `models`
+ * key with a `models/` prefix that never appears there.
+ */
+export function normalizeModelList(
+  style: string | undefined,
+  body: unknown,
+): DiscoveredModel[] {
+  const record = asRecord(body);
+  if (style === "google_generative_ai" || style === "google_models") {
+    const models = Array.isArray(record?.models) ? record.models : [];
+    return dedupeSort(
+      models.flatMap((entry) => {
+        const item = asRecord(entry);
+        const rawName = typeof item?.name === "string" ? item.name : "";
+        const modelId = rawName.replace(/^models\//, "");
+        if (!modelId) return [];
+        const displayName =
+          typeof item?.displayName === "string" && item.displayName
+            ? item.displayName
+            : modelId;
+        return [{ modelId, displayName }];
+      }),
+    );
+  }
+  // OpenAI-style and Anthropic both use { data: [...] }; some gateways return
+  // the bare array, and Zhipu's Responses endpoint wraps the rows in `models`.
+  const data = Array.isArray(record?.data)
+    ? record.data
+    : Array.isArray(body)
+      ? (body as unknown[])
+      : Array.isArray(record?.models)
+        ? record.models
+        : [];
+  return dedupeSort(
+    data.flatMap((entry) => {
+      const item = asRecord(entry);
+      const modelId = listedModelId(item);
+      if (!modelId) return [];
+      const displayName =
+        typeof item?.display_name === "string" && item.display_name
+          ? item.display_name
+          : modelId;
+      return [{ modelId, displayName }];
+    }),
+  );
+}
+
+/**
+ * The id one row of a model list carries.
+ *
+ * `id` is the OpenAI and Anthropic shape. `slug` is what Zhipu's OpenAI
+ * Responses endpoint returns. The two are mutually exclusive, so either may be
+ * read without ambiguity, and the wire id stays exactly as the service spelled
+ * it.
+ */
+function listedModelId(item: Record<string, unknown> | null): string {
+  if (typeof item?.id === "string" && item.id) return item.id;
+  return typeof item?.slug === "string" ? item.slug : "";
+}
+
+/**
+ * Build the request for a provider's model-list endpoint. Pure.
+ *
+ * The URL comes from the shared `discoveryProbeUrl`, so a candidate the
+ * resolver offered and the request built for it can never disagree.
+ */
+export function modelListRequest(opts: {
+  baseUrl: string;
+  apiKey?: string;
+  apiStyle?: string;
+  discoveryStyle?: DiscoveryStyle;
+  headers?: Record<string, string>;
+}): { url: string; headers: Record<string, string> } {
+  const apiKey = opts.apiKey ?? "";
+  const discoveryStyle =
+    opts.discoveryStyle ?? discoveryStyleForApiStyle(opts.apiStyle);
+  const path = discoveryProbeUrl(opts.baseUrl, discoveryStyle);
+  const withHeaders = (headers: Record<string, string>): Record<string, string> =>
+    withCustomHeaders(headers, opts.headers);
+
+  if (discoveryStyle === "google_models") {
+    const params = new URLSearchParams({ pageSize: "1000" });
+    if (apiKey) params.set("key", apiKey);
+    return { url: `${path}?${params}`, headers: withHeaders({}) };
+  }
+  if (discoveryStyle === "anthropic_models") {
+    return {
+      url: `${path}?limit=1000`,
+      headers: withHeaders({
+        ...(apiKey ? { "x-api-key": apiKey } : {}),
+        "anthropic-version": "2023-06-01",
+      }),
+    };
+  }
+  // Chat Completions, Responses, OpenCode Go and the Codex account all expose
+  // the same authenticated OpenAI-compatible model list.
+  return {
+    url: path,
+    headers: withHeaders(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+  };
+}
+
+export type ModelListProbe = {
+  /** The URL that answered, after any same-origin redirect. */
+  url: string;
+  status: number;
+  models: DiscoveredModel[];
+};
+
+/**
+ * Probe an Anthropic-compatible message route when model discovery is absent.
+ *
+ * Some token-plan gateways expose only POST /v1/messages and deliberately do
+ * not implement GET /v1/models. OPTIONS proves that the configured route is
+ * registered without sending credentials or a billable model request.
+ */
+async function probeAnthropicMessagesEndpoint(opts: {
+  baseUrl: string;
+  allowOrigin?: string;
+  signal: AbortSignal;
+}): Promise<{ url: string; status: number }> {
+  const base = opts.baseUrl.trim().replace(/\/+$/, "");
+  const root = base.endsWith("/v1") ? base : `${base}/v1`;
+  const requestUrl = `${root}/messages`;
+  const allowOrigin = opts.allowOrigin ?? originOf(opts.baseUrl);
+  if (allowOrigin && originOf(requestUrl) !== allowOrigin) {
+    throw new Error("message endpoint request refused: it left the configured origin");
+  }
+  const response = await fetch(requestUrl, {
+    method: "OPTIONS",
+    signal: opts.signal,
+    redirect: "manual",
+  });
+  if (!response.ok) {
+    throw Object.assign(new Error(`message endpoint probe failed (${response.status})`), {
+      status: response.status,
+    });
+  }
+  return { url: requestUrl, status: response.status };
+}
+
+/**
+ * Check the configured provider endpoint for connection tests.
+ *
+ * A successful model list includes models. A successful Anthropic OPTIONS
+ * fallback proves only route reachability, so it deliberately returns an
+ * empty model list and leaves manual model entry to the settings UI.
+ */
+export async function probeProviderEndpoint(opts: Parameters<typeof probeModelList>[0]): Promise<ModelListProbe> {
+  try {
+    return await probeModelList(opts);
+  } catch (error) {
+    const status = (error as { status?: unknown }).status;
+    const discoveryStyle = opts.discoveryStyle ?? discoveryStyleForApiStyle(opts.apiStyle);
+    if (status !== 404 || discoveryStyle !== "anthropic_models") throw error;
+    const fallback = await probeAnthropicMessagesEndpoint({
+      baseUrl: opts.baseUrl,
+      allowOrigin: opts.allowOrigin,
+      signal: opts.signal ?? defaultTimeoutSignal(),
+    });
+    return { ...fallback, models: [] };
+  }
+}
+
+/** What the generation-route probe found. `edge` is set only on a block. */
+export type GenerationRouteProbe = {
+  url: string;
+  status: number;
+  edge?: EdgeBlock;
+};
+
+/**
+ * Whether the route a real turn uses is reachable through to the API.
+ *
+ * A provider can answer model discovery and still fail every turn: the edge in
+ * front of it may hold a rule against the generation path specifically. The
+ * connection test therefore probes this route too, so "test passed" and "a turn
+ * works" describe the same thing.
+ *
+ * The probe is an `OPTIONS` and carries no credentials, deliberately:
+ *
+ * - `OPTIONS` is not a billable model request, so a connection test costs
+ *   nothing and cannot consume the user's quota; and
+ * - a block rule belongs to the edge and is decided before authorization, so
+ *   the verdict is the same with or without the key — and an unnecessary
+ *   credential leaving the process is worth avoiding on principle.
+ *
+ * Only the URL and the two fields the verdict needs are inspected. Not all
+ * services answer `OPTIONS` on a route they serve (`404` is normal), and that
+ * is fine: a 404 from the API is not a block, so the probe reports "the API
+ * answered" and the test stays green as before.
+ *
+ * Returns `undefined` for a style with no fixed generation suffix (Google's
+ * route carries the model id), so the caller skips the second check rather than
+ * probing a URL it had to invent.
+ */
+export async function probeGenerationRoute(opts: {
+  baseUrl: string;
+  apiStyle?: string;
+  /**
+   * Credentials may only travel to this origin. Defaults to the configured base
+   * URL's own origin, so a caller cannot widen it by accident.
+   */
+  allowOrigin?: string;
+  signal?: AbortSignal;
+}): Promise<GenerationRouteProbe | undefined> {
+  const url = generationProbeUrl(opts.baseUrl, opts.apiStyle);
+  if (!url) return undefined;
+  const allowOrigin = opts.allowOrigin ?? originOf(opts.baseUrl);
+  if (allowOrigin && originOf(url) !== allowOrigin) {
+    throw new Error("generation route probe refused: it left the configured origin");
+  }
+
+  const response = await fetch(url, {
+    method: "OPTIONS",
+    // No headers at all, not even the configured ones: this probe reads only the
+    // status, the content type and the body, so forwarding a per-provider
+    // override would add a variable without adding information.
+    signal: opts.signal ?? defaultTimeoutSignal(),
+    // Never let fetch follow a hop to another origin on its own.
+    redirect: "manual",
+  });
+
+  const contentType = response.headers.get("content-type");
+  const server = response.headers.get("server");
+  // A block page is small and its markers sit in the head; cap the read so a
+  // chatty gateway cannot pull megabytes into the main process.
+  const body = (await response.text().catch(() => "")).slice(0, EDGE_BODY_SNIFF_CHARS);
+  const edge = detectEdgeBlock({
+    status: response.status,
+    body,
+    contentType,
+    server,
+  });
+  return { url, status: response.status, ...(edge ? { edge } : {}) };
+}
+
+function originOf(value: string): string | undefined {
+  try {
+    return new URL(value.trim()).origin;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * One model-list request.
+ *
+ * Redirects are followed manually so a cross-origin hop can be refused before
+ * the credential travels: the `Location` is compared against `allowOrigin`
+ * first. Throws on a network error, a refused redirect, or a non-2xx status —
+ * `error.status` carries the HTTP status when there was one.
+ */
+export async function probeModelList(opts: {
+  baseUrl: string;
+  apiKey?: string;
+  apiStyle?: string;
+  discoveryStyle?: DiscoveryStyle;
+  headers?: Record<string, string>;
+  /**
+   * Credentials may only travel to this origin. Defaults to the configured base
+   * URL's own origin, so a caller cannot widen it by accident.
+   */
+  allowOrigin?: string;
+  /**
+   * Caller-owned budget. The sweep shares one across its candidates and passes
+   * it here; a caller that passes nothing gets the single-request default.
+   */
+  signal?: AbortSignal;
+}): Promise<ModelListProbe> {
+  const request = modelListRequest(opts);
+  const allowOrigin = opts.allowOrigin ?? originOf(opts.baseUrl);
+  const responseSignal = opts.signal ?? defaultTimeoutSignal();
+  if (allowOrigin) {
+    const origin = originOf(request.url);
+    if (origin !== allowOrigin) {
+      throw new Error("model list request refused: it left the configured origin");
+    }
+  }
+
+  let url = request.url;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    const res = await fetch(url, {
+      headers: request.headers,
+      signal: responseSignal,
+      // Never let fetch carry the credential to another origin on its own.
+      redirect: "manual",
+    });
+    const location = res.headers.get("location");
+    if (res.status >= 300 && res.status < 400 && location) {
+      const next = new URL(location, url);
+      if (allowOrigin && next.origin !== allowOrigin) {
+        throw Object.assign(
+          new Error("model list redirect refused: it left the configured origin"),
+          { status: res.status },
+        );
+      }
+      url = next.toString();
+      continue;
+    }
+    if (!res.ok) {
+      throw Object.assign(new Error(`model list request failed (${res.status})`), {
+        status: res.status,
+      });
+    }
+    return {
+      url,
+      status: res.status,
+      models: normalizeModelList(
+        opts.discoveryStyle ?? opts.apiStyle,
+        await res.json(),
+      ),
+    };
+  }
+  throw new Error("model list request followed too many redirects");
+}
+
+/**
+ * Abort signal for a single request made without a caller budget.
+ *
+ * Resolution always passes its shared sweep budget; this keeps a direct caller
+ * (a connection test with no budget of its own) from hanging on a silent host.
+ */
+function defaultTimeoutSignal(): AbortSignal {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), DISCOVERY_TIMEOUT_MS);
+  return controller.signal;
+}

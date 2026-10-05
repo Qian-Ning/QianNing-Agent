@@ -1,0 +1,144 @@
+/*
+ * Desktop companion ("千凝" pet, D633). A floating transparent full-body fox
+ * that mirrors the agent state in the corner of the chat shell. It plays a
+ * per-state animated WebP clip (rendered from the mascot state videos); a light
+ * spring loop adds an idle float and a lean toward the cursor. The pet is
+ * deliberately blue-accented (its own palette from the mascot sheet) while the
+ * rest of the UI stays grayscale, so the few color literals here are
+ * companion-local brand color, not surface tokens. Radii/sizes use the tokens.
+ */
+
+.pet-slot {
+  position: absolute;
+  right: 24px;
+  bottom: 70px;
+  width: 140px;
+  height: 178px;
+  z-index: 45;
+  perspective: 900px;
+  perspective-origin: 50% 45%;
+  pointer-events: none;
+}
+
+/* The rig is the only interactive surface; the slot passes clicks through. */
+.pet-rig {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  width: 120px;
+  height: 135px;
+  margin-left: -60px;
+  transform-origin: 50% 100%;
+  cursor: grab;
+  pointer-events: auto;
+  will-change: transform;
+}
+
+.pet-rig:active {
+  cursor: grabbing;
+}
+
+.pet-anim {
+  display: block;
+  width: 120px;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 6px 7px rgba(0, 0, 0, 0.32));
+}
+
+/* A soft blue aura behind the body, pulsing only while the agent is working. */
+.pet-glow {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 108px;
+  height: 108px;
+  margin-left: -54px;
+  margin-top: -54px;
+  border-radius: var(--radius-round);
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.5), transparent 62%);
+  filter: blur(11px);
+  opacity: 0;
+  transition: opacity var(--motion-duration-slow) ease;
+  pointer-events: none;
+}
+
+.pet-glow.on {
+  opacity: 1;
+  animation: pet-glow-pulse 1.3s ease-in-out infinite;
+}
+
+@keyframes pet-glow-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.16);
+    opacity: 0.85;
+  }
+}
+
+.pet-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  width: 92px;
+  height: 20px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.42), transparent 68%);
+  filter: blur(4px);
+  pointer-events: none;
+}
+
+.pet-bubble {
+  position: absolute;
+  right: 118px;
+  bottom: 118px;
+  max-width: 190px;
+  width: max-content;
+  padding: 7px 11px;
+  border-radius: var(--radius-md);
+  background: var(--ds-bg-elevated-opaque);
+  border: 1px solid var(--ds-border-default);
+  color: var(--ds-text-primary);
+  font-size: var(--text-sm-plus);
+  line-height: var(--leading-normal);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  animation: pet-bubble-in var(--motion-duration-fast) ease;
+}
+
+.pet-bubble::after {
+  content: "";
+  position: absolute;
+  right: -6px;
+  bottom: 14px;
+  border: 6px solid transparent;
+  border-left-color: var(--ds-border-default);
+}
+
+@keyframes pet-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * The companion keeps stating its mode without breathing (design-system §8.5).
+ * Both rules only drop motion: `.pet-glow.on` holds `opacity: 1`, and the
+ * bubble's own appearance is its base state, so nothing is left invisible.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .pet-glow.on,
+  .pet-bubble {
+    animation: none;
+  }
+}
