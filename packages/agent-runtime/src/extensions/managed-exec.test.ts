@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, existsSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -8,12 +8,27 @@ it("cancels an owned process tree after an explicit readiness signal", async () 
   const root = mkdtempSync(join(tmpdir(), "pi-owned-exec-"));
   const ready = join(root, "ready.json");
   const owner = new AbortController();
-  const childSource = `require('node:fs').writeFileSync(${JSON.stringify(ready)}, JSON.stringify([process.ppid,process.pid])); setInterval(()=>{},1000);`;
+  const childSource = `const fs=require('node:fs');const tmp=${JSON.stringify(ready)}+'.tmp';fs.writeFileSync(tmp,JSON.stringify([process.ppid,process.pid]));fs.renameSync(tmp,${JSON.stringify(ready)});setInterval(()=>{},1000);`;
   const parentSource = `require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(childSource)}],{stdio:'inherit'}); setInterval(()=>{},1000);`;
   const pending = managedExec(process.execPath, ["-e", parentSource], root, owner.signal);
   try {
-    await expect.poll(() => existsSync(ready)).toBe(true);
-    const pids: number[] = JSON.parse(readFileSync(ready, "utf8"));
+    // Wait for a parseable payload rather than for the file to exist. Creating a
+    // file and filling it are two steps, so an existence check can win the race
+    // and read an empty or partial ready.json; the child now publishes it with a
+    // rename, and this poll additionally refuses to settle for an incomplete read.
+    let pids: number[] = [];
+    await expect.poll(() => {
+      try {
+        const parsed: unknown = JSON.parse(readFileSync(ready, "utf8"));
+        if (Array.isArray(parsed) && parsed.every((pid): pid is number => typeof pid === "number")) {
+          pids = parsed;
+          return true;
+        }
+      } catch {
+        // Not published yet — the rename has not completed.
+      }
+      return false;
+    }).toBe(true);
     owner.abort();
     expect((await pending).killed).toBe(true);
     for (const pid of pids) await expect.poll(() => {
