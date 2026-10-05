@@ -196,6 +196,19 @@ surface to distinguish "wrong password" from "wrong key" beyond what the
 transport itself reported, so the error cannot be used as an oracle for the
 stored secret's shape.
 
+**Choosing the way in.** ssh is spawned, not reimplemented, so the ways in are
+the ones the binary offers, and two stored fields select between them:
+`identityFile` set means `-i <path>` with `IdentitiesOnly=yes`, so the agent's
+other keys are not tried against this target; a credential configured means the
+askpass helper answers the prompt and the probe drops `BatchMode`, because no
+answer could otherwise arrive; neither means nothing is passed and ssh uses its
+own agent, `~/.ssh/config`, and the default keys. The identity field holds a path
+and nothing else — the key file is read by ssh at connect time, no process of
+this application opens it, and the native picker behind the field hands only the
+chosen path back to the renderer. A value carrying key material is a mistake
+rather than a mode: the form refuses to save it.
+
+
   OpenSSH runs `SSH_ASKPASS` with the prompt as its only argument, so the
   helper is identified by the `PI_CONNECTION_ASKPASS` marker in its
   environment rather than by a flag: a helper that waits for an argument of

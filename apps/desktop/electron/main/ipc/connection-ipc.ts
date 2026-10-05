@@ -1,10 +1,13 @@
 import { IPC } from "@pi-desktop/shared";
+import { dialog, type BrowserWindow, type OpenDialogOptions } from "electron";
 import type { HostProcess } from "../host-process";
 import type { IpcRegistrar } from "./types";
 
 export type ConnectionIpcDependencies = {
   registrar: IpcRegistrar;
   getHost: () => HostProcess | null;
+  /** Owns the native key-file dialog; a dialog with no owner floats loose. */
+  getMainWindow: () => BrowserWindow | null;
 };
 
 /**
@@ -25,6 +28,7 @@ export type ConnectionIpcDependencies = {
 export function registerConnectionIpc({
   registrar,
   getHost,
+  getMainWindow,
 }: ConnectionIpcDependencies): void {
   let host: HostProcess | null = null;
   const handle = (channel: string, fn: (payload?: any) => Promise<any>) => {
@@ -80,4 +84,36 @@ export function registerConnectionIpc({
     (payload: { profileId: string; limit?: number }) =>
       host!.call("connection.activity", payload ?? {}),
   );
+
+  /**
+   * The one channel here that forwards to no host method: it is a native file
+   * dialog. The picker is a path-only affordance for the identity-file field —
+   * ssh reads that file itself at connect time, so no process of ours ever
+   * reads a private key, and only the chosen path crosses back to the
+   * renderer. A second open while one is up returns `canceled` rather than
+   * stacking dialogs on the window.
+   */
+  let identityPickerActive = false;
+  registrar.handle(IPC.invoke.connectionPickIdentityFile, async () => {
+    if (identityPickerActive) return { path: null, canceled: true };
+    identityPickerActive = true;
+    try {
+      const options: OpenDialogOptions = {
+        properties: ["openFile", "showHiddenFiles"],
+        filters: [
+          { name: "SSH", extensions: ["pem", "key", "ppk", "pub"] },
+          { name: "*", extensions: ["*"] },
+        ],
+      };
+      const owner = getMainWindow();
+      const result = owner
+        ? await dialog.showOpenDialog(owner, options)
+        : await dialog.showOpenDialog(options);
+      const picked = result?.filePaths?.[0];
+      if (!result || result.canceled || !picked) return { path: null, canceled: true };
+      return { path: picked, canceled: false };
+    } finally {
+      identityPickerActive = false;
+    }
+  });
 }

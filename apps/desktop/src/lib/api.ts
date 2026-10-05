@@ -702,6 +702,10 @@ export const api = {
     invoke<ConnectionProfileView>(IPC.invoke.connectionUpdate, draft),
   deleteConnectionProfile: (profileId: string) =>
     invoke<{ deleted: boolean }>(IPC.invoke.connectionDelete, profileId),
+  pickIdentityFile: () =>
+    invoke<{ path: string | null; canceled?: boolean }>(
+      IPC.invoke.connectionPickIdentityFile,
+    ),
   setConnectionEnabled: (profileId: string, enabled: boolean) =>
     invoke<{ enabled: boolean }>(IPC.invoke.connectionSetEnabled, {
       profileId,

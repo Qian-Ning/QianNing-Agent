@@ -392,6 +392,12 @@ export const IPC = {
     connectionSetCredential: "pi-desktop/connection/setCredential",
     connectionClearCredential: "pi-desktop/connection/clearCredential",
     connectionAcceptHostKey: "pi-desktop/connection/acceptHostKey",
+    /**
+     * Native "pick a key file" dialog for the SSH form's identity-file field.
+     * Returns the chosen *path*: the file itself is read by ssh at connect
+     * time, never by this process, the renderer, or the agent.
+     */
+    connectionPickIdentityFile: "pi-desktop/connection/pickIdentityFile",
     connectionActivity: "pi-desktop/connection/activity",
   },
   event: {

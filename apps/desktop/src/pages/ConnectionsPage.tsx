@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   ConnectionActivityEntry,
@@ -56,12 +56,28 @@ const POLICY_LABEL: Record<ConnectionHostKeyPolicy, string> = {
 
 const POLICIES: ConnectionHostKeyPolicy[] = ["strict", "accept-new", "pinned"];
 
+/**
+ * Which of ssh's ways in the form is set up for. The host stores no such
+ * field: it decides from the identity path and a configured credential, and
+ * this choice is what `buildTarget` maps onto them.
+ */
+type AuthMethod = "agent" | "key" | "password";
+
+/** Host defaults, mirrored from crates/host-core/src/connection/params.rs. The
+ * host is authoritative and clamps; these are what the form opens with. */
+const DEFAULT_LIMITS = {
+  timeoutMs: 60_000,
+  outputBytes: 262_144,
+  streamBytes: 65_536,
+} as const;
+
 type Draft = {
   profileId?: string;
   label: string;
   host: string;
   port: string;
   user: string;
+  auth: AuthMethod;
   identityFile: string;
   proxyJump: string;
   hostKeyPolicy: ConnectionHostKeyPolicy;
@@ -78,14 +94,19 @@ function blankDraft(): Draft {
     host: "",
     port: "22",
     user: "",
+    auth: "agent",
     identityFile: "",
     proxyJump: "",
     hostKeyPolicy: "accept-new",
     hostKeyFingerprint: "",
     multiplex: "per-call",
-    timeoutMs: "",
-    outputBytes: "",
-    streamBytes: "",
+    // The host's own defaults (crates/host-core/src/connection/params.rs:
+    // DEFAULT_TIMEOUT_MS / DEFAULT_OUTPUT_BYTES / DEFAULT_STREAM_BYTES), prefilled
+    // so the form opens with numbers that work. The host clamps whatever is sent,
+    // and each value may only be lowered.
+    timeoutMs: String(DEFAULT_LIMITS.timeoutMs),
+    outputBytes: String(DEFAULT_LIMITS.outputBytes),
+    streamBytes: String(DEFAULT_LIMITS.streamBytes),
   };
 }
 
@@ -98,6 +119,12 @@ function draftFrom(profile: ConnectionProfileView): Draft {
     host: ssh?.host ?? "",
     port: String(ssh?.port ?? 22),
     user: ssh?.user ?? "",
+    auth:
+      ssh?.identityFile && ssh.identityFile.trim() !== ""
+        ? "key"
+        : profile.credentialConfigured
+          ? "password"
+          : "agent",
     identityFile: ssh?.identityFile ?? "",
     proxyJump: ssh?.proxyJump ?? "",
     hostKeyPolicy: profile.hostKeyPolicy,
@@ -107,6 +134,12 @@ function draftFrom(profile: ConnectionProfileView): Draft {
     outputBytes: String(profile.limits.outputBytes),
     streamBytes: String(profile.limits.streamBytes),
   };
+}
+
+/** The stored path is a local detail: the form shows the file name only. */
+function fileNameOf(value: string): string {
+  const parts = value.split(/[\/]/).filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : value;
 }
 
 /** A blank optional string means "not set"; the host validates what is left. */
@@ -128,7 +161,7 @@ function buildTarget(draft: Draft): ConnectionTarget {
     host: draft.host.trim(),
     port: numberOf(draft.port) ?? 22,
     ...(optional(draft.user) ? { user: draft.user.trim() } : {}),
-    ...(optional(draft.identityFile)
+    ...(draft.auth === "key" && optional(draft.identityFile)
       ? { identityFile: draft.identityFile.trim() }
       : {}),
     ...(optional(draft.proxyJump) ? { proxyJump: draft.proxyJump.trim() } : {}),
@@ -142,12 +175,13 @@ function buildLimits(draft: Draft): ConnectionLimits | undefined {
   if (timeoutMs === undefined && outputBytes === undefined && streamBytes === undefined) {
     return undefined;
   }
-  // The host refuses a partial set, so an untouched field falls back to the
-  // host default rather than being left out.
+  // The host rejects a partial set outright, and rejects 0 as out of range: an
+  // emptied field has to fall back to the host default, not to zero, or the save
+  // fails with a bounds error about a field the user never touched.
   return {
-    timeoutMs: timeoutMs ?? 0,
-    outputBytes: outputBytes ?? 0,
-    streamBytes: streamBytes ?? 0,
+    timeoutMs: timeoutMs && timeoutMs > 0 ? timeoutMs : DEFAULT_LIMITS.timeoutMs,
+    outputBytes: outputBytes && outputBytes > 0 ? outputBytes : DEFAULT_LIMITS.outputBytes,
+    streamBytes: streamBytes && streamBytes > 0 ? streamBytes : DEFAULT_LIMITS.streamBytes,
   };
 }
 
@@ -298,34 +332,85 @@ export function ConnectionsPage() {
       if (selectedId === profile.id) setSelectedId(null);
     }, "connections.deleteFailed");
 
+  // The draft owns the choice, so the control below writes to something and the
+  // form reacts. `blankDraft` and `draftFrom` seed it; `buildTarget` maps it back
+  // onto the two fields the host really stores.
+  const authMethod: AuthMethod = editing?.auth ?? "agent";
+  const editingProfile = editing?.profileId
+    ? (profiles ?? []).find((row) => row.id === editing.profileId)
+    : undefined;
+  const authHint =
+    authMethod === "key"
+      ? t("connections.identityFileHint")
+      : authMethod === "password"
+        ? t("connections.authPasswordHint")
+        : t("connections.authAgentHint");
+  // ssh reads the key file; we only ever keep its path. A pasted key body is the
+  // one mistake this field invites, so it is caught here rather than at connect
+  // time.
+  const identityLooksLikeKey = /-----BEGIN|PRIVATE KEY|OPENSSH PRIVATE/.test(
+    editing?.identityFile ?? "",
+  );
+
+  const chooseAuthMethod = (method: AuthMethod) => {
+    setEditing((prev) => {
+      if (!prev) return prev;
+      // Only the key method carries a path; dropping one the moment the method
+      // leaves "key" keeps a stale path from riding along invisibly.
+      return method === "key"
+        ? { ...prev, auth: method }
+        : { ...prev, auth: method, identityFile: "" };
+    });
+  };
+
+  const pickIdentityFile = async () => {
+    const result = await api.pickIdentityFile();
+    if (!result.path) return;
+    // The dialog outlives this render: merge into whatever the draft is by then.
+    setEditing((prev) => (prev ? { ...prev, identityFile: result.path! } : prev));
+  };
+
   if (loadError) {
     return (
-      <div className="route-surface-inner">
-        <Panel className="p-4">
-          <div className="text-sm text-text-secondary">{t("connections.loadFailed")}</div>
-        </Panel>
+      <div className="route-scroll">
+        <div className="page-frame">
+          <Panel className="page-card page-empty">
+            <div className="page-empty-icon">
+              <IconServer size={20} aria-hidden />
+            </div>
+            <h2>{t("connections.loadFailed")}</h2>
+          </Panel>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="route-surface-inner space-y-3">
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-sm">{t("connections.title")}</h1>
-          <p className="text-xs text-text-secondary">{t("connections.subtitle")}</p>
+    <div className="route-scroll">
+      <div className="page-frame">
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">{t("connections.title")}</h1>
+            <p className="dest-row-meta">{t("connections.subtitle")}</p>
+          </div>
+          <Button
+            variant="primary"
+            disabled={busy}
+            onClick={() => setEditing(blankDraft())}
+          >
+            <IconPlus size={14} aria-hidden />
+            {t("connections.add")}
+          </Button>
         </div>
-        <Button variant="primary" size="sm" onClick={() => setEditing(blankDraft())}>
-          <IconPlus size={14} aria-hidden />
-          {t("connections.add")}
-        </Button>
-      </header>
 
       {!switchOn ? (
-        <Panel className="space-y-2 p-3">
-          <div className="text-sm">{t("connections.switchOffTitle")}</div>
-          <p className="text-xs text-text-secondary">{t("connections.switchOffBody")}</p>
+        <Panel className="mb-4 flex items-center gap-3">
+          <span className="dest-row-meta min-w-0 flex-1">
+            <span className="font-medium">{t("connections.switchOffTitle")}</span>{" "}
+            <span className="text-text-secondary">{t("connections.switchOffBody")}</span>
+          </span>
           <Button
+            className="flex-none"
             size="sm"
             onClick={() => {
               setSettingsTab("ai");
@@ -338,219 +423,286 @@ export function ConnectionsPage() {
       ) : null}
 
       {profiles === null ? (
-        <Panel className="p-4">
-          <div className="text-sm text-text-secondary">{t("connections.loading")}</div>
-        </Panel>
+        <p className="dest-row-meta" role="status">{t("connections.loading")}</p>
       ) : profiles.length === 0 ? (
-        <Panel className="space-y-2 p-4">
-          <div className="text-sm">{t("connections.empty")}</div>
-          <p className="text-xs text-text-secondary">{t("connections.emptyBody")}</p>
-        </Panel>
+        <div className="page-card page-empty">
+          <Panel className="page-empty-icon">
+            <IconServer size={18} aria-hidden className="text-text-secondary" />
+          </Panel>
+          <h2>{t("connections.empty")}</h2>
+          <p className="dest-row-meta">{t("connections.emptyBody")}
+          </p>
+          <Button
+            className="mt-1"
+            variant="primary"
+            size="sm"
+            onClick={() => setEditing(blankDraft())}
+          >
+            <IconPlus size={14} aria-hidden />
+            {t("connections.add")}
+          </Button>
+        </div>
       ) : (
-        <div className="space-y-2">
+        <div className="dest-list">
           {profiles.map((profile) => {
             const failed =
               profile.lastProbe !== null && profile.lastProbe.ok === false;
+            const open = profile.id === selectedId && selected !== null;
             return (
-              <Panel key={profile.id} className="flex items-center gap-3 p-3">
-                <IconServer size={16} aria-hidden />
-                <button
-                  type="button"
-                  className="flex-1 text-left"
-                  data-nav={`connection-${profile.id}`}
-                  onClick={() => setSelectedId(profile.id)}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">{profile.label}</span>
-                    <Badge>{t(KIND_LABEL[profile.kind])}</Badge>
-                    {failed ? <Badge tone="warning">{t("connections.probeFailed")}</Badge> : null}
-                  </div>
-                  <div className="text-xs text-text-secondary">
-                    {summarize(profile)}
-                  </div>
-                </button>
-                <span className="text-xs text-text-secondary">
-                  {profile.lastProbe === null
-                    ? t("connections.neverProbed")
-                    : profile.lastProbe.ok
-                      ? t("connections.probeOk")
-                      : t("connections.probeFailed")}
-                </span>
-                <SettingsToggle
-                  checked={profile.enabled}
-                  disabled={busy}
-                  label={profile.label}
-                  onChange={() =>
-                    void run(
-                      () => api.setConnectionEnabled(profile.id, !profile.enabled),
-                      "connections.enableFailed",
-                    )
-                  }
-                />
-              </Panel>
+              <Fragment key={profile.id}>
+                <Panel className="dest-row">
+                  <div className="dest-row-icon"><IconServer
+                    size={16}
+                    aria-hidden
+                    className="flex-none text-text-secondary"
+                  /></div>
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 text-left"
+                    data-nav={`connection-${profile.id}`}
+                    aria-expanded={open}
+                    onClick={() =>
+                      setSelectedId(open ? null : profile.id)
+                    }
+                  >
+                    <span className="dest-row-title w-full">
+                      <span className="truncate text-sm">{profile.label}</span>
+                      <Badge>{t(KIND_LABEL[profile.kind])}</Badge>
+                      {failed ? (
+                        <Badge tone="warning">{t("connections.probeFailed")}</Badge>
+                      ) : null}
+                    </span>
+                    <span className="dest-row-meta block truncate">
+                      {summarize(profile)}
+                    </span>
+                  </button>
+                  <span className="flex-none text-xs text-text-secondary">
+                    {profile.lastProbe === null
+                      ? t("connections.neverProbed")
+                      : profile.lastProbe.ok
+                        ? t("connections.probeOk")
+                        : t("connections.probeFailed")}
+                  </span>
+                  <SettingsToggle
+                    checked={profile.enabled}
+                    disabled={busy}
+                    label={profile.label}
+                    onChange={() =>
+                      void run(
+                        () => api.setConnectionEnabled(profile.id, !profile.enabled),
+                        "connections.enableFailed",
+                      )
+                    }
+                  />
+                </Panel>
+                {open && selected ? (
+                  <Panel className="dest-create space-y-4">
+                    {selected.lastProbe !== null &&
+                    selected.lastProbe.ok === false ? (
+                      <div className="flex items-center gap-3">
+                        <Badge tone="warning" className="flex-none">
+                          {t("connections.probeFailed")}
+                        </Badge>
+                        <p className="min-w-0 flex-1 text-xs text-text-secondary">
+                          {t("connections.hostKeyWarn")}
+                        </p>
+                        <Button
+                          className="flex-none"
+                          size="sm"
+                          disabled={busy || !switchOn || !selected.enabled}
+                          title={switchOn ? undefined : t("connections.probeBlocked")}
+                          onClick={() => void acceptHostKey(selected)}
+                        >
+                          {t("connections.acceptHostKey")}
+                        </Button>
+                      </div>
+                    ) : null}
+
+                    <div className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm">
+                        {selected.label}
+                      </span>
+                      <Button
+                        className="flex-none"
+                        size="sm"
+                        disabled={busy || !switchOn || !selected.enabled}
+                        title={switchOn ? undefined : t("connections.probeBlocked")}
+                        onClick={() => void probe(selected)}
+                      >
+                        {t("connections.probe")}
+                      </Button>
+                      <Button
+                        className="flex-none"
+                        size="sm"
+                        onClick={() => setEditing(draftFrom(selected))}
+                      >
+                        {t("connections.edit")}
+                      </Button>
+                    </div>
+
+                    <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+                      <div>
+                        <dt className="text-xs text-text-secondary">
+                          {t("connections.kind")}
+                        </dt>
+                        <dd className="mt-0.5 text-xs">{t(KIND_LABEL[selected.kind])}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-text-secondary">
+                          {t("connections.host")}
+                        </dt>
+                        <dd className="mt-0.5 break-all text-xs">
+                          {summarize(selected)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-text-secondary">
+                          {t("connections.credential")}
+                        </dt>
+                        <dd className="mt-0.5 text-xs">
+                          {selected.credentialConfigured
+                            ? t("connections.credentialConfigured")
+                            : t("connections.credentialMissing")}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-text-secondary">
+                          {t("connections.hostKey")}
+                        </dt>
+                        <dd className="mt-0.5 text-xs">
+                          {t(POLICY_LABEL[selected.hostKeyPolicy])}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-text-secondary">
+                          {t("connections.fingerprint")}
+                        </dt>
+                        <dd className="mt-0.5 break-all text-xs">
+                          {selected.hostKeyFingerprint ?? "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-text-secondary">
+                          {t("connections.multiplex")}
+                        </dt>
+                        <dd className="mt-0.5 text-xs">
+                          {selected.multiplex === "multiplex"
+                            ? t("connections.multiplexMultiplex")
+                            : t("connections.multiplexPerCall")}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-text-secondary">
+                          {t("connections.lastProbe")}
+                        </dt>
+                        <dd className="mt-0.5 text-xs">
+                          {selected.lastProbe === null
+                            ? t("connections.neverProbed")
+                            : `${selected.lastProbe.ok ? t("connections.probeOk") : t("connections.probeFailed")} · ${
+                                selected.lastProbe.errorCode ?? ""
+                              }`.trim()}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    <section className="space-y-1.5">
+                      <div className="text-xs text-text-secondary">
+                        {t("connections.credential")}
+                      </div>
+                      <p className="text-xs text-text-secondary">
+                        {t("connections.credentialHint")}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <PasswordInput
+                          value={credential}
+                          showLabel={t("connections.credentialSet")}
+                          hideLabel={t("connections.cancel")}
+                          onChange={(event) => {
+                            setCredential(event.target.value);
+                            setCredentialFor(selected.id);
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          disabled={busy || credential === ""}
+                          onClick={() =>
+                            void run(async () => {
+                              await api.setConnectionCredential(selected.id, credential);
+                              setCredential("");
+                              setCredentialFor(null);
+                            }, "connections.credentialFailed")
+                          }
+                        >
+                          {t("connections.credentialSet")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={busy || !selected.credentialConfigured}
+                          onClick={() =>
+                            void run(
+                              () => api.clearConnectionCredential(selected.id),
+                              "connections.credentialFailed",
+                            )
+                          }
+                        >
+                          {t("connections.credentialClear")}
+                        </Button>
+                      </div>
+                    </section>
+
+                    <section className="space-y-1.5">
+                      <div className="text-xs text-text-secondary">
+                        {t("connections.activity")}
+                      </div>
+                      {activity.length === 0 ? (
+                        <p className="text-xs text-text-secondary">
+                          {t("connections.activityEmpty")}
+                        </p>
+                      ) : (
+                        <ul className="space-y-1 text-xs">
+                          {activity.map((row, index) => (
+                            <li
+                              key={`${row.ts}-${index}`}
+                              className="flex items-center gap-2"
+                            >
+                              <span className="flex-none text-text-secondary">
+                                {new Date(row.ts).toLocaleString()}
+                              </span>
+                              <span>{row.action}</span>
+                              <span className="text-text-secondary">{row.outcome}</span>
+                              {row.errorCode ? (
+                                <span className="text-text-secondary">
+                                  {row.errorCode}
+                                </span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </section>
+
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => setConfirmingDelete(selected.id)}
+                      >
+                        {t("connections.delete")}
+                      </Button>
+                    </div>
+                  </Panel>
+                ) : null}
+              </Fragment>
             );
           })}
         </div>
       )}
 
-      {selected ? (
-        <Panel className="space-y-3 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm">{selected.label}</span>
-            <div className="flex items-center gap-2">
-              <Button size="sm" onClick={() => setSelectedId(null)}>
-                {t("connections.back")}
-              </Button>
-              <Button size="sm" onClick={() => setEditing(draftFrom(selected))}>
-                {t("connections.edit")}
-              </Button>
-              <Button
-                size="sm"
-                disabled={busy || !switchOn || !selected.enabled}
-                title={switchOn ? undefined : t("connections.probeBlocked")}
-                onClick={() => void probe(selected)}
-              >
-                {t("connections.probe")}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => setConfirmingDelete(selected.id)}
-              >
-                {t("connections.delete")}
-              </Button>
-            </div>
-          </div>
-
-          <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
-            <div>
-              <dt className="text-text-secondary">{t("connections.kind")}</dt>
-              <dd>{t(KIND_LABEL[selected.kind])}</dd>
-            </div>
-            <div>
-              <dt className="text-text-secondary">{t("connections.host")}</dt>
-              <dd>{summarize(selected)}</dd>
-            </div>
-            <div>
-              <dt className="text-text-secondary">{t("connections.credential")}</dt>
-              <dd>
-                {selected.credentialConfigured
-                  ? t("connections.credentialConfigured")
-                  : t("connections.credentialMissing")}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-text-secondary">{t("connections.hostKey")}</dt>
-              <dd>{t(POLICY_LABEL[selected.hostKeyPolicy])}</dd>
-            </div>
-            <div>
-              <dt className="text-text-secondary">{t("connections.fingerprint")}</dt>
-              <dd>{selected.hostKeyFingerprint ?? "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-text-secondary">{t("connections.multiplex")}</dt>
-              <dd>
-                {selected.multiplex === "multiplex"
-                  ? t("connections.multiplexMultiplex")
-                  : t("connections.multiplexPerCall")}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-text-secondary">{t("connections.lastProbe")}</dt>
-              <dd>
-                {selected.lastProbe === null
-                  ? t("connections.neverProbed")
-                  : `${selected.lastProbe.ok ? t("connections.probeOk") : t("connections.probeFailed")} · ${
-                      selected.lastProbe.errorCode ?? ""
-                    }`.trim()}
-              </dd>
-            </div>
-          </dl>
-
-          {selected.lastProbe !== null && selected.lastProbe.ok === false ? (
-            <div className="space-y-2">
-              <p className="text-xs text-text-secondary">{t("connections.hostKeyWarn")}</p>
-              <Button
-                size="sm"
-                disabled={busy || !switchOn || !selected.enabled}
-                title={switchOn ? undefined : t("connections.probeBlocked")}
-                onClick={() => void acceptHostKey(selected)}
-              >
-                {t("connections.acceptHostKey")}
-              </Button>
-            </div>
-          ) : null}
-
-          <section className="space-y-1">
-            <div className="text-xs text-text-secondary">{t("connections.credential")}</div>
-            <p className="text-xs text-text-secondary">{t("connections.credentialHint")}</p>
-            <div className="flex items-center gap-2">
-              <PasswordInput
-                value={credential}
-                showLabel={t("connections.credentialSet")}
-                hideLabel={t("connections.cancel")}
-                onChange={(event) => {
-                  setCredential(event.target.value);
-                  setCredentialFor(selected.id);
-                }}
-              />
-              <Button
-                size="sm"
-                disabled={busy || credential === ""}
-                onClick={() =>
-                  void run(async () => {
-                    await api.setConnectionCredential(selected.id, credential);
-                    setCredential("");
-                    setCredentialFor(null);
-                  }, "connections.credentialFailed")
-                }
-              >
-                {t("connections.credentialSet")}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy || !selected.credentialConfigured}
-                onClick={() =>
-                  void run(
-                    () => api.clearConnectionCredential(selected.id),
-                    "connections.credentialFailed",
-                  )
-                }
-              >
-                {t("connections.credentialClear")}
-              </Button>
-            </div>
-          </section>
-
-          <section className="space-y-1">
-            <div className="text-xs text-text-secondary">{t("connections.activity")}</div>
-            {activity.length === 0 ? (
-              <p className="text-xs text-text-secondary">{t("connections.activityEmpty")}</p>
-            ) : (
-              <ul className="space-y-1 text-xs">
-                {activity.map((row, index) => (
-                  <li key={`${row.ts}-${index}`} className="flex items-center gap-2">
-                    <span className="text-text-secondary">
-                      {new Date(row.ts).toLocaleString()}
-                    </span>
-                    <span>{row.action}</span>
-                    <span className="text-text-secondary">{row.outcome}</span>
-                    {row.errorCode ? (
-                      <span className="text-text-secondary">{row.errorCode}</span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </Panel>
-      ) : null}
-
       {editing ? (
         <div className="overlay" role="dialog" aria-modal="true" aria-label={t("connections.add")}>
-          <Panel className="space-y-3 p-4">
+          <Panel className="dialog connections-editor space-y-4">
             <div className="text-sm">
               {editing.profileId ? t("connections.edit") : t("connections.add")}
             </div>
@@ -590,20 +742,91 @@ export function ConnectionsPage() {
               />
             </Field>
 
-            <Field label={t("connections.identityFile")}>
-              <Input
-                value={editing.identityFile}
-                onChange={(event) =>
-                  setEditing({ ...editing, identityFile: event.target.value })
-                }
+            <Field label={t("connections.authMethod")}>
+              <SegmentedControl
+                value={authMethod}
+                label={t("connections.authMethod")}
+                onChange={(value) => chooseAuthMethod(value as AuthMethod)}
+                options={[
+                  { value: "agent", label: t("connections.authAgent") },
+                  { value: "key", label: t("connections.authKey") },
+                  { value: "password", label: t("connections.authPassword") },
+                ]}
               />
             </Field>
+            <p className="-mt-1 text-xs text-text-secondary">{authHint}</p>
+
+            {authMethod !== "agent" ? (
+              <Field label={t("connections.credential")}>
+                <div className="space-y-1.5">
+                  <PasswordInput
+                    value={credential}
+                    showLabel={t("connections.credentialSet")}
+                    hideLabel={t("connections.cancel")}
+                    onChange={(event) => {
+                      setCredential(event.target.value);
+                      // Names the profile the secret belongs to, so the save path
+                      // hands it to this target rather than to the selected one.
+                      setCredentialFor(editing.profileId ?? null);
+                    }}
+                  />
+                  <p className="text-xs text-text-secondary">
+                    {authMethod === "key"
+                      ? t("connections.credentialKeyHint")
+                      : t("connections.credentialPasswordHint")}
+                  </p>
+                  {editing.profileId ? (
+                    <p className="text-xs text-text-secondary">
+                      {editingProfile?.credentialConfigured
+                        ? t("connections.credentialConfigured")
+                        : t("connections.credentialMissing")}
+                    </p>
+                  ) : null}
+                </div>
+              </Field>
+            ) : null}
+
+            {authMethod === "key" ? (
+              <Field
+                label={t("connections.identityFile")}
+                hint={
+                  identityLooksLikeKey
+                    ? t("connections.identityFileLooksLikeKey")
+                    : t("connections.identityFileHint")
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    {/* Read-only on purpose: the picker is the way in, and the
+                        path itself never needs to be on screen or editable. */}
+                    <Input value={fileNameOf(editing.identityFile)} readOnly />
+                  </div>
+                  <Button
+                    className="flex-none whitespace-nowrap"
+                    size="sm"
+                    onClick={() => void pickIdentityFile()}
+                  >
+                    {t("connections.pickIdentityFile")}
+                  </Button>
+                </div>
+                <p className="text-xs text-text-secondary">
+                  {t("connections.identityFileMasked")}
+                </p>
+              </Field>
+            ) : null}
 
             <Field label={t("connections.proxyJump")}>
-              <Input
-                value={editing.proxyJump}
-                onChange={(event) => setEditing({ ...editing, proxyJump: event.target.value })}
-              />
+              <div className="space-y-1.5">
+                <Input
+                  value={editing.proxyJump}
+                  onChange={(event) =>
+                    setEditing({ ...editing, proxyJump: event.target.value })
+                  }
+                />
+                <p className="text-xs text-text-secondary">
+                  {t("connections.proxyJumpHint")}
+                </p>
+              </div>
             </Field>
 
             <Field label={t("connections.hostKey")}>
@@ -651,6 +874,9 @@ export function ConnectionsPage() {
             <div className="space-y-1">
               <div className="text-xs text-text-secondary">{t("connections.limits")}</div>
               <p className="text-xs text-text-secondary">{t("connections.limitsHint")}</p>
+              <p className="text-xs text-text-secondary">
+                {t("connections.limitsDefaultsHint")}
+              </p>
               <Field label={t("connections.timeoutMs")}>
                 <Input
                   value={editing.timeoutMs}
@@ -694,7 +920,15 @@ export function ConnectionsPage() {
               <Button
                 size="sm"
                 variant="primary"
-                disabled={busy || editing.label.trim() === "" || editing.host.trim() === ""}
+                disabled={
+                  busy ||
+                  editing.label.trim() === "" ||
+                  editing.host.trim() === "" ||
+                  identityLooksLikeKey ||
+                  (authMethod === "password" &&
+                    credential.trim() === "" &&
+                    !editingProfile?.credentialConfigured)
+                }
                 onClick={() => void saveDraft()}
               >
                 {t("connections.save")}
@@ -711,7 +945,7 @@ export function ConnectionsPage() {
           aria-modal="true"
           aria-label={t("connections.deleteTitle")}
         >
-          <Panel className="space-y-3 p-4">
+          <Panel className="dialog space-y-3 p-4">
             <div className="text-sm">{t("connections.deleteTitle")}</div>
             <p className="text-xs text-text-secondary">{t("connections.deleteBody")}</p>
             <div className="flex items-center justify-end gap-2">
@@ -734,6 +968,7 @@ export function ConnectionsPage() {
           </Panel>
         </div>
       ) : null}
-    </div>
-  );
+        </div>
+      </div>
+    );
 }
