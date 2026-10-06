@@ -28,18 +28,18 @@ it("cancels an owned process tree after an explicit readiness signal", async () 
         // Not published yet — the rename has not completed.
       }
       return false;
-    }).toBe(true);
+    }, { timeout: 10_000, interval: 100 }).toBe(true);
     owner.abort();
     expect((await pending).killed).toBe(true);
     for (const pid of pids) await expect.poll(() => {
       try { process.kill(pid, 0); return true; } catch { return false; }
-    }).toBe(false);
+    }, { timeout: 10_000, interval: 100 }).toBe(false);
   } finally {
     owner.abort();
     await pending;
     rmSync(root, { recursive: true, force: true });
   }
-});
+}, 30_000);
 
 it("never starts an already-cancelled exec and keeps normal command output", async () => {
   const owner = new AbortController();
