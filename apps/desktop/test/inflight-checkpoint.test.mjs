@@ -34,7 +34,6 @@ test("first snapshot is written immediately and a burst collapses to one trailin
   }, 30);
 
   checkpointer.observe({ sessionId: "s", turnId: "t", message: assistant("a", "h") });
-  await sleep(0);
   assert.deepEqual(saved, ["h"]);
 
   checkpointer.observe({ sessionId: "s", turnId: "t", message: assistant("a", "he") });
