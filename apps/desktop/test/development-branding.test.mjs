@@ -40,6 +40,16 @@ const windowsIcon = await readFile(
   new URL("../build/icon.ico", import.meta.url),
 );
 
+test("Windows development builds use a separate app identity from installed builds", () => {
+  const appId = protocolSource.match(/APP_ID = "([^"]+)"/)?.[1];
+  assert.equal(appId, packageJson.build.appId);
+  assert.match(
+    mainIndexSource,
+    /const windowsAppId = isDevelopmentBuild \? `\$\{APP_ID\}\.dev` : APP_ID;/,
+  );
+  assert.match(mainIndexSource, /app\.setAppUserModelId\(windowsAppId\)/);
+});
+
 test("Windows runtime registers the canonical native application identity", () => {
   const appId = protocolSource.match(/APP_ID = "([^"]+)"/)?.[1];
   assert.equal(appId, packageJson.build.appId);
@@ -47,7 +57,7 @@ test("Windows runtime registers the canonical native application identity", () =
   assert.match(mainIndexSource, /app\.setName\(APP_NAME\)/);
   assert.match(
     mainIndexSource,
-    /process\.platform === "win32"[\s\S]*app\.setAppUserModelId\(APP_ID\)/,
+    /process\.platform === "win32"[\s\S]*app\.setAppUserModelId\(/,
   );
 });
 
