@@ -91,7 +91,8 @@ const isDevelopmentBuild =
 app.setName(APP_NAME);
 applyDevelopmentUserData(app, isDevelopmentBuild);
 if (process.platform === "win32") {
-  app.setAppUserModelId(APP_ID);
+  const windowsAppId = isDevelopmentBuild ? `${APP_ID}.dev` : APP_ID;
+  app.setAppUserModelId(windowsAppId);
 }
 
 // Chromium's accessibility tree serializer has a known CHECK failure in
