@@ -6683,6 +6683,38 @@ describe("DesktopAgentRuntime subagents", () => {
     await runtime.dispose();
   });
 
+  it("steers the parent to keep the main line moving instead of waiting on a delegate", async () => {
+    const runtime = createRuntime({ subagents: [explorer] });
+    const prompt = (runtime as any).agent.state.systemPrompt as string;
+
+    expect(prompt).toContain("## Delegation");
+    // Steering, not a ban: the wait stays available for a real dependency.
+    expect(prompt).toContain(
+      "Keep the main line moving after Task returns: advance whatever else the request needs while the delegate runs",
+    );
+    expect(prompt).toContain(
+      "Call TaskWait only when your next step genuinely depends on that report and nothing else in scope can progress.",
+    );
+    expect(prompt).toContain("Use TaskList for a non-blocking status check");
+    // An unwatched delegate is not an abandoned one: the turn stays open and the
+    // report arrives when it settles, which is what makes the steering safe.
+    expect(prompt).toContain(
+      "the runtime keeps the turn open and hands you its report when it finishes",
+    );
+
+    await runtime.dispose();
+  });
+
+  it("omits the delegation steering when the session has no subagent definitions", async () => {
+    const runtime = createRuntime({});
+    const prompt = (runtime as any).agent.state.systemPrompt as string;
+
+    expect(prompt).not.toContain("## Delegation");
+    expect(prompt).not.toContain("Keep the main line moving after Task returns");
+
+    await runtime.dispose();
+  });
+
   it("opts a definition with tools: inherit into the parent catalog minus the deny list", async () => {
     const inheritor: SubagentDefinition = {
       name: "worker",

@@ -1878,7 +1878,9 @@ The final response states the outcome, how it was verified, and anything left un
 Do the work yourself by default. Delegate only bounded, independent tasks with a clear benefit over direct execution.
 No recursive delegation, duplicate work, or agent debates.
 Allow at most one optional review pass unless the user requests more. Fix and retest concrete, in-scope defects without restarting broad reviews.
-Do not invent objections or turn speculative risks into blockers. Stop when the requested work is complete and relevant checks pass, or report a genuine blocker.`,
+Do not invent objections or turn speculative risks into blockers. Stop when the requested work is complete and relevant checks pass, or report a genuine blocker.
+Keep the main line moving after Task returns: advance whatever else the request needs while the delegate runs, because the runtime keeps the turn open and hands you its report when it finishes.
+Call TaskWait only when your next step genuinely depends on that report and nothing else in scope can progress. Use TaskList for a non-blocking status check, and when you do wait, wait only on the delegation you actually need.`,
             ...(this.subagentModelSummary()
               ? [this.subagentModelSummary()!]
               : []),
