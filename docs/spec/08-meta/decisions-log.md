@@ -7995,3 +7995,26 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `runtime.test.ts` asserts `## Scope` reaches a custom persona while product
   identity still does not. No protocol, IPC, schema, or persisted-format change.
   See `01-qianning-brand.md` and `01-product/01-product-scope.md`.
+
+## 2026-10-06 — Delegation brief keeps the main line moving (D672)
+
+- A session asked for a serial job and delegated one piece of it, then stalled on
+  `TaskWait` until the delegate finished. The mechanism was already non-blocking
+  (ADR 0089 / D328): `Task` starts a delegate and returns, the runtime keeps the
+  turn open for pending current-turn delegates, and the report arrives on the
+  idle resume. What was missing was steering, so the parent treated the wait as
+  the way to see the work through, and a 600-second default timeout made that
+  look like a hung session.
+- `## Delegation` now says the parent keeps advancing whatever else the request
+  needs after `Task` returns, calls `TaskWait` only when its next step genuinely
+  depends on that report and nothing else in scope can progress, uses `TaskList`
+  for a non-blocking status check, and waits on the delegation it actually needs
+  rather than every running one. Delegation is not discouraged: the wait stays
+  available for a real dependency, because the report is the only way to obtain
+  a delegate's result.
+- Prompt text only. No tool schema, IPC channel, persisted format, or delegation
+  lifecycle change, and the subagent catalog and model-override rules are
+  untouched. `runtime.test.ts` pins the new sentences and asserts the section is
+  absent when the session has no subagent definitions.
+- `03-runtime/02-agent-runtime.md` §5f records the steering and §7 lists
+  `## Delegation` among the named tail sections; the zh-CN mirror carries both.

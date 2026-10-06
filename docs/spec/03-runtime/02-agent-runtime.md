@@ -910,6 +910,19 @@ core set rather than the on-demand catalog of §7.1:
   waits for each abort to settle, then persists `status: "stopped"` with
   `completedAt` on `details.stopped[]`. Stopped delegations read as `stopped`.
 
+**When the parent waits (D672).** `TaskWait` blocks the turn, so the operating
+brief steers the parent away from using it as a watching device: after `Task`
+returns, the parent keeps advancing whatever else the request needs and calls
+`TaskWait` only when its next step genuinely depends on that report and nothing
+else in scope can progress. `TaskList` is the non-blocking status check, and a
+wait targets the delegation actually needed rather than every running one. The
+safety net is the mechanism `TaskWait` itself relies on: the runtime keeps the
+turn open for pending current-turn delegates
+(`keepTurnOpenForDelegates`) and delivers their reports on the idle resume, so an
+unwatched delegate is not an abandoned one. The steering is prompt text only — no
+tool schema, IPC, or persistence change — and `runtime.test.ts` pins it, together
+with its absence when the session has no subagent definitions.
+
 **Live settlement.** When a delegate settles, the runtime refreshes its original
 `Task` transcript row with the terminal delegation summary (`status`,
 `completedAt`, counters, and failure details when present), using the existing
@@ -1332,6 +1345,9 @@ custom persona unchanged:
 - `## Following the codebase` — read before changing, match the package's
   conventions, no drive-by refactor or unrequested documentation, and no assumed
   dependency
+- `## Delegation` — do the work yourself by default, keep the main line moving
+  after `Task` returns, and wait only on a report the next step genuinely needs
+  (see §5f)
 - `## Tool use` — tools for actions and text for communication, native tools over
   their shell equivalents, batched independent lookups, and bounded reads
 - `## Safety` — no secret in output or a commit, no destructive version-control
