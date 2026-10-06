@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
       {
+        version: "0.17.1",
+        date: "2026-10-06",
+        highlights: [
+          "Windows'ta geliştirme çalıştırması artık kurulu uygulamanın kimliği yerine kendi uygulama kimliğini kullanıyor; böylece bir kaynak kopyası kurulu `QianNing Agent` uygulamasının görev çubuğu düğmesini ve simgesini artık devralamıyor.",
+          "Bakım sürümü: çalışma alanı test çalıştırıcısı ilk hatada durmak yerine tüm paketlerin test paketlerini çalıştırıp bütün hataları bildiriyor; süreç yaşam döngüsü ve akış denetim noktası test paketleri de sabit bir süre yerine gerçek durumu bekliyor, böylece yüklü bir makine olmayan hataları bildirmiyor.",
+        ],
+      },
+      {
         version: "0.17.0",
         date: "2026-10-06",
         highlights: [

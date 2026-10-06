@@ -27,7 +27,7 @@ Windows-first · Data stays on your machine · Bring your own model · Plugin-ex
 
 </div>
 
-> Current release line: `0.17.x` (latest `0.17.0`).
+> Current release line: `0.17.x` (latest `0.17.1`).
 
 ![The QianNing workbench](docs/public/readme/hero.en.webp)
 

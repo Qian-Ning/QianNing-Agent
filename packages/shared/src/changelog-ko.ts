@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
       {
+        version: "0.17.1",
+        date: "2026-10-06",
+        highlights: [
+          "Windows에서 개발용 실행은 이제 설치된 앱의 식별자가 아니라 자체 앱 식별자를 사용합니다. 따라서 소스 체크아웃이 설치된 `QianNing Agent`의 작업 표시줄 단추와 아이콘을 가져가는 일이 없습니다.",
+          "유지보수 릴리스입니다. 워크스페이스 테스트 러너가 첫 실패에서 멈추지 않고 모든 패키지의 스위트를 실행해 실패를 모두 보고하며, 프로세스 수명 주기와 스트리밍 체크포인트 스위트는 고정된 시간 예산이 아니라 실제 상태를 기다립니다. 그래서 부하가 높은 컴퓨터에서도 없는 실패를 보고하지 않습니다.",
+        ],
+      },
+      {
         version: "0.17.0",
         date: "2026-10-06",
         highlights: [
