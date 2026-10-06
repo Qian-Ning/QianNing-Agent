@@ -30,6 +30,14 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
       {
+        version: "0.17.1",
+        date: "2026-10-06",
+        highlights: [
+          "On Windows, a development run now identifies itself with its own app id instead of the installed app's, so a source checkout can no longer take over the installed `QianNing Agent` taskbar button and icon.",
+          "Maintenance release: the workspace test runner runs every package's suite and reports all failures instead of stopping at the first one, and the process-lifecycle and streaming-checkpoint suites now wait on real state rather than a fixed time budget, so a loaded machine no longer reports failures that are not there.",
+        ],
+      },
+      {
         version: "0.17.0",
         date: "2026-10-06",
         highlights: [
@@ -984,6 +992,14 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
       {
+        version: "0.17.1",
+        date: "2026-10-06",
+        highlights: [
+          "在 Windows 上，开发运行现在使用自己的应用标识，而不再使用安装版的标识，源码检出再也不会顶掉已安装 `QianNing Agent` 的任务栏按钮和图标。",
+          "本次为维护版本：工作区测试运行器会跑完每个包的用例并汇报全部失败，而不是遇到第一个失败就停下；进程生命周期与流式检查点两组用例改为等待真实状态，不再依赖固定时间预算，因此机器繁忙时也不会报出并不存在的失败。",
+        ],
+      },
+      {
         version: "0.17.0",
         date: "2026-10-06",
         highlights: [
@@ -1937,6 +1953,14 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+      {
+        version: "0.17.1",
+        date: "2026-10-06",
+        highlights: [
+          "在 Windows 上，開發執行現在使用自己的應用程式識別碼，而不再使用安裝版的識別碼，原始碼檢出再也不會取代已安裝 `QianNing Agent` 的工作列按鈕與圖示。",
+          "本次為維護版本：工作區測試執行器會跑完每個套件的測試並回報所有失敗，而不是在第一個失敗就停下；行程生命週期與串流檢查點兩組測試改為等待真實狀態，不再依賴固定時間預算，因此機器繁忙時也不會回報並不存在的失敗。",
+        ],
+      },
       {
         version: "0.17.0",
         date: "2026-10-06",

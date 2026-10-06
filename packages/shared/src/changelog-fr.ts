@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
       {
+        version: "0.17.1",
+        date: "2026-10-06",
+        highlights: [
+          "Sous Windows, une exécution de développement s'identifie désormais par son propre identifiant d'application et non par celui de l'application installée : une copie des sources ne peut plus s'emparer du bouton et de l'icône de `QianNing Agent` dans la barre des tâches.",
+          "Version de maintenance : le lanceur de tests de l'espace de travail exécute les suites de tous les paquets et signale toutes les erreurs au lieu de s'arrêter à la première, et les suites de cycle de vie des processus et de points de contrôle en streaming attendent l'état réel plutôt qu'un budget de temps fixe — une machine chargée ne signale donc plus des échecs qui n'existent pas.",
+        ],
+      },
+      {
         version: "0.17.0",
         date: "2026-10-06",
         highlights: [

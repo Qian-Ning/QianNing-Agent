@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
       {
+        version: "0.17.1",
+        date: "2026-10-06",
+        highlights: [
+          "No Windows, uma execução de desenvolvimento agora se identifica com o próprio id de aplicativo, e não com o da versão instalada, então uma cópia do código não pode mais tomar o botão e o ícone do `QianNing Agent` na barra de tarefas.",
+          "Versão de manutenção: o executor de testes do espaço de trabalho roda as suítes de todos os pacotes e informa todas as falhas em vez de parar na primeira, e as suítes de ciclo de vida de processos e de checkpoints em streaming esperam o estado real em vez de um orçamento de tempo fixo — assim uma máquina sob carga não informa mais falhas que não existem.",
+        ],
+      },
+      {
         version: "0.17.0",
         date: "2026-10-06",
         highlights: [

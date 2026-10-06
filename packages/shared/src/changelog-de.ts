@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
       {
+        version: "0.17.1",
+        date: "2026-10-06",
+        highlights: [
+          "Unter Windows weist sich ein Entwicklungsstart jetzt mit einer eigenen App-ID aus statt mit der der installierten App: Eine Quellcode-Kopie kann der installierten `QianNing Agent` damit nicht mehr die Taskleisten-Schaltfläche und das Symbol wegnehmen.",
+          "Wartungsversion: Der Testläufer des Arbeitsbereichs führt die Suiten aller Pakete aus und meldet alle Fehler, statt beim ersten abzubrechen, und die Suiten für Prozess-Lebenszyklus und Streaming-Checkpoints warten auf tatsächlichen Zustand statt auf ein festes Zeitbudget — ein ausgelasteter Rechner meldet dadurch keine Fehler mehr, die es nicht gibt.",
+        ],
+      },
+      {
         version: "0.17.0",
         date: "2026-10-06",
         highlights: [

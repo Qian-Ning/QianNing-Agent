@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
       {
+        version: "0.17.1",
+        date: "2026-10-06",
+        highlights: [
+          "En Windows, una ejecución de desarrollo se identifica ahora con su propio id de aplicación y no con el de la app instalada, así que una copia del código ya no puede quedarse con el botón y el icono de `QianNing Agent` en la barra de tareas.",
+          "Versión de mantenimiento: el ejecutor de pruebas del espacio de trabajo recorre las suites de todos los paquetes e informa de todos los fallos en lugar de detenerse en el primero, y las suites de ciclo de vida de procesos y de puntos de control en streaming esperan el estado real y no un presupuesto de tiempo fijo, de modo que un equipo cargado ya no informa de fallos que no existen.",
+        ],
+      },
+      {
         version: "0.17.0",
         date: "2026-10-06",
         highlights: [
