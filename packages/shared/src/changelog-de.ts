@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
       {
+        version: "0.17.2",
+        date: "2026-10-07",
+        highlights: [
+          "Ein mitten im Satz aufgerufener Skill ist ein Skill. `继续/qn-novel-write` — ohne Leerzeichen vor dem Schrägstrich — sah aus wie gewöhnlicher Text, das Befehlsmenü öffnete sich nie, und der Beitrag ging als Prosa hinaus; Menü, Entwurf und die Auswertung beim Senden entschieden jeweils selbst, was als Befehl zählt. Jetzt beantwortet eine einzige Regel diese Frage überall: Ein Schrägstrich an beliebiger Stelle im Entwurf ist ein Befehl, chinesische und Vollbreite-Zeichen beenden das Wort davor, eine URL (`https://…`), ein Windows-Laufwerkspfad und ein `@path` bleiben gewöhnlicher Text, und ein längerer Skill-Name gewinnt weiterhin gegen ein kürzeres Präfix. Ein aufgerufener Skill wird im Entwurf als eigenes Token gezeichnet — lokalisiertes Abzeichen, Skill-Titel, exakt der `/name` — und nach dem Senden im Verlauf genauso gekennzeichnet.",
+          "Das Beenden der App und die Frage beim Schließen eines Fensters öffnen kein natives Meldungsfenster mehr, das nichts mit dem Produkt zu tun hat. Beide Fragen richten sich jetzt an das laufende Fenster und werden mit der eigenen Dialogfläche des Produkts gezeichnet — abgerundete Karte, Marken-Schaltfläche zum Bestätigen, Abbrechen als sichere Voreinstellung — und der native Dialog bleibt der Rückfall, wann immer kein sichtbares Fenster antworten kann: kein Fenster, zerstörter Inhalt, eine automatisierte Sonde, ein verborgenes oder minimiertes Fenster, ein fehlgeschlagener Versand oder zwanzig Sekunden Stille; danach wird die Karte in der App zurückgezogen, damit eine bereits übernommene Frage nicht durch einen leeren Klick beantwortet wird. Nur das Hauptfenster darf eine Anfrage abschließen, damit eine veraltete Antwort die App nicht beenden kann.",
+          "Eine Sitzung, die nur einen Teil einer seriellen Aufgabe delegiert hat, stellt sich nicht mehr selbst ab. Das Warten war bereits nicht blockierend, aber der Agent verhielt sich, als wäre es das: Er hielt an, bis der Delegierte Bericht erstattete, sodass ein lang laufender Subagent wie eine hängende Sitzung wirkte. Die Delegationsregeln verlangen jetzt, dass er den Rest der Anfrage weiter vorantreibt, nur dort wartet, wo sein nächster Schritt wirklich von diesem Bericht abhängt, und einen Subagenten über die Aufgabenliste prüft, statt auf ihn zu warten.",
+        ],
+      },
+      {
         version: "0.17.1",
         date: "2026-10-06",
         highlights: [

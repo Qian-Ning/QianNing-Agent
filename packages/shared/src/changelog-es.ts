@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
       {
+        version: "0.17.2",
+        date: "2026-10-07",
+        highlights: [
+          "Una skill invocada en mitad de una frase es una skill. `继续/qn-novel-write` —sin espacio antes de la barra— parecía texto normal, el menú de comandos no se abría y el turno salía como prosa, porque el menú, el borrador y el análisis al enviar decidían cada uno qué contaba como comando. Ahora una sola regla responde a esa pregunta en todas partes: una barra en cualquier punto del borrador es un comando, la puntuación china y de ancho completo cierra la palabra anterior, una URL (`https://…`), una ruta de unidad de Windows y un `@path` siguen siendo texto normal, y un nombre de skill más largo sigue ganando a un prefijo más corto. La skill invocada se dibuja en el borrador como su propio token —insignia localizada, título de la skill, el `/nombre` exacto— y se etiqueta igual en el historial una vez enviado el turno.",
+          "Salir de la aplicación y la pregunta que aparece al cerrar una ventana ya no abren un cuadro de mensaje nativo que no se parece en nada al producto. Ambas preguntas se hacen ahora a la ventana activa y se dibujan con la superficie de diálogo del propio producto —tarjeta redondeada, botón de confirmación en el color de marca, cancelar como opción segura— y el diálogo nativo se mantiene como respaldo cuando ninguna ventana visible puede responder: sin ventana, contenido destruido, una sonda automatizada, una ventana oculta o minimizada, un envío fallido o veinte segundos de silencio; entonces la tarjeta de la aplicación se retira para que una pregunta ya asumida no pueda responderse con un clic vacío. Solo la ventana principal puede resolver una solicitud, de modo que una respuesta obsoleta no puede cerrar la aplicación.",
+          "Una sesión que delegó una sola parte de un trabajo en serie ya no se detiene a sí misma. La espera ya era no bloqueante, pero el agente actuaba como si no lo fuera: se detenía hasta que el delegado informara, así que un subagente de larga duración parecía una sesión colgada. Las reglas de delegación ahora exigen que siga avanzando el resto de la solicitud, que espere solo donde su siguiente paso depende de verdad de ese informe, y que consulte a un subagente a través de la lista de tareas en lugar de bloquearse esperándolo.",
+        ],
+      },
+      {
         version: "0.17.1",
         date: "2026-10-06",
         highlights: [

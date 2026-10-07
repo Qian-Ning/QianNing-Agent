@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
       {
+        version: "0.17.2",
+        date: "2026-10-07",
+        highlights: [
+          "Uma skill invocada no meio de uma frase é uma skill. `继续/qn-novel-write` — sem espaço antes da barra — parecia texto comum, o menu de comandos não abria e o turno saía como prosa, porque o menu, o rascunho e a leitura no envio decidiam cada um o que conta como comando. Agora uma única regra responde a essa pergunta em toda parte: uma barra em qualquer ponto do rascunho é um comando, a pontuação chinesa e de largura total encerra a palavra anterior, uma URL (`https://…`), um caminho de unidade do Windows e um `@path` continuam texto comum, e um nome de skill mais longo ainda vence um prefixo mais curto. A skill invocada é desenhada no rascunho como seu próprio token — selo localizado, título da skill, o `/nome` exato — e marcada da mesma forma no histórico depois que o turno é enviado.",
+          "Sair do aplicativo, e a pergunta feita ao fechar uma janela, não abrem mais uma caixa de mensagem nativa que não tem nada a ver com o produto. As duas perguntas agora são feitas à janela ativa e desenhadas com a superfície de diálogo do próprio produto — cartão arredondado, botão de confirmação na cor da marca, cancelar como padrão seguro — e o diálogo nativo continua como reserva sempre que nenhuma janela visível puder responder: sem janela, conteúdo destruído, uma sonda automatizada, janela oculta ou minimizada, envio falho ou vinte segundos de silêncio; nesse momento o cartão do aplicativo é recolhido, para que uma pergunta já assumida não seja respondida por um clique vazio. Só a janela principal pode resolver uma solicitação, então uma resposta antiga não pode fechar o aplicativo.",
+          "Uma sessão que delegou apenas uma parte de um trabalho em série não fica mais parada esperando. A espera já era não bloqueante, mas o agente agia como se não fosse: parava até o delegado relatar, então um subagente de longa duração parecia uma sessão travada. As regras de delegação agora exigem que ele continue avançando o resto do pedido, que espere apenas onde o próximo passo depende de verdade desse relatório, e que verifique um subagente pela lista de tarefas em vez de bloquear esperando por ele.",
+        ],
+      },
+      {
         version: "0.17.1",
         date: "2026-10-06",
         highlights: [

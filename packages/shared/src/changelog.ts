@@ -30,6 +30,15 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
       {
+        version: "0.17.2",
+        date: "2026-10-07",
+        highlights: [
+          "A skill summoned in the middle of a sentence is a skill. `继续/qn-novel-write` — no space before the slash — looked like ordinary text, the command menu never opened, and the turn went out as prose, because the menu, the draft, and the send-time parse each decided for themselves what counted as a command. One rule now answers that question everywhere: a slash anywhere in the draft is a command, Chinese and full-width punctuation end the word before it, a URL (`https://…`), a Windows drive path, and an `@path` stay ordinary text, and a longer skill name still wins over a shorter prefix. A summoned skill is drawn in the draft as its own token — localized badge, skill title, the exact `/name` — and labelled the same way in the transcript once the turn is sent.",
+          "Quitting, and the question asked when a window is closed, no longer raise a native message box that looks nothing like the product. Both questions are now asked of the live window and drawn with the product's own dialog surface — rounded card, brand-coloured confirm, cancel as the safe default — and the native dialog stays as the fallback whenever no visible window can answer: no window, destroyed contents, an automated probe, a hidden or minimized window, a failed send, or twenty seconds of silence, after which the in-app prompt is withdrawn so a question already taken over cannot be answered by an empty click. Only the main window may settle a request id, so a stale answer cannot quit the app.",
+          "A session that delegated one piece of a serial job no longer parks itself. The wait was already non-blocking, but the agent behaved as if it were not: it stopped until the delegate reported back, so a long-running subagent looked like a hung session. The delegation rules now require it to keep advancing the rest of the request, to wait only where its next step genuinely depends on that report, and to check a subagent through the task list instead of blocking on it.",
+        ],
+      },
+      {
         version: "0.17.1",
         date: "2026-10-06",
         highlights: [
@@ -992,6 +1001,15 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
       {
+        version: "0.17.2",
+        date: "2026-10-07",
+        highlights: [
+          "写在句子中间调用的技能也算技能。`继续/qn-novel-write`——斜杠前面没有空格——看起来就是普通文字，命令菜单不弹，整句还会当普通文本发出去；菜单、草稿和发送解析各自判断什么叫命令。现在三处统一为同一条规则：草稿里任意位置的斜杠都算命令，中文和全角标点结束它前面的词，网址（`https://…`）、盘符路径和 `@path` 仍是普通文本，更长的技能名优先于更短的前缀。被调用的技能在草稿里绘制成自己的令牌——本地化标签、技能名、原样的 `/名称`——发送后在对话记录里同样标注。",
+          "退出应用，以及关闭窗口时的那句询问，都不再弹出与产品毫无关系的原生消息框。两个问题都改为询问当前窗口，并用产品自己的对话框绘制——圆角卡片、品牌色确认按钮、默认落在取消——原生对话框只在没有可见窗口能作答时兜底：没有窗口、内容已销毁、自动化探针、窗口隐藏或最小化、发送失败，或者沉默二十秒；此时应用内卡片会被撤掉，避免已经被接管的提问还能被空点一下。只有主窗口能为某个请求作答，过期应答无法退出应用。",
+          "只委派了串行任务中一步的会话，不再把自己停住。等待本来就不阻塞，是行为像在阻塞：它一直停到子代理回报为止，于是长时间运行的子代理看起来像会话卡死。委派规则现在要求它继续推进请求的其余部分，只在下一步确实依赖那份回报时才等待，并通过任务列表查看子代理状态，而不是阻塞等待。",
+        ],
+      },
+      {
         version: "0.17.1",
         date: "2026-10-06",
         highlights: [
@@ -1953,6 +1971,15 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+      {
+        version: "0.17.2",
+        date: "2026-10-07",
+        highlights: [
+          "寫在句子中間呼叫的技能也算技能。`继续/qn-novel-write`——斜線前面沒有空格——看起來就是普通文字，指令選單不彈，整句還會當普通文字送出；選單、草稿與送出解析各自判斷什麼叫指令。現在三處統一為同一條規則：草稿裡任意位置的斜線都算指令，中文與全形標點結束它前面的詞，網址（`https://…`）、磁碟路徑與 `@path` 仍是普通文字，較長的技能名稱優先於較短的前綴。被呼叫的技能在草稿裡繪製成自己的權杖——在地化標籤、技能名稱、原樣的 `/名稱`——送出後在對話記錄裡同樣標註。",
+          "結束應用程式，以及關閉視窗時的那句詢問，都不再彈出與產品毫無關係的原生訊息方塊。兩個問題都改為詢問目前視窗，並用產品自己的對話方塊繪製——圓角卡片、品牌色確認按鈕、預設停在取消——原生對話方塊只在沒有可見視窗能作答時作為後備：沒有視窗、內容已銷毀、自動化探針、視窗隱藏或最小化、送出失敗，或者沉默二十秒；此時應用程式內的卡片會被撤掉，避免已經被接管的提問還能被空點一下。只有主視窗能為某個請求作答，過期回應無法結束應用程式。",
+          "只委派了序列工作中一個步驟的會話，不再把自己停住。等待本來就不阻塞，是行為像在阻塞：它一直停到子代理回報為止，於是長時間執行的子代理看起來像會話卡死。委派規則現在要求它繼續推進請求的其餘部分，只在下一步確實依賴那份回報時才等待，並透過工作清單查看子代理狀態，而不是阻塞等待。",
+        ],
+      },
       {
         version: "0.17.1",
         date: "2026-10-06",

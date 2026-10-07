@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
       {
+        version: "0.17.2",
+        date: "2026-10-07",
+        highlights: [
+          "Cümlenin ortasında çağrılan bir beceri de beceridir. `继续/qn-novel-write` — eğik çizgiden önce boşluk yok — sıradan metin gibi görünüyordu, komut menüsü hiç açılmıyordu ve tur düz yazı olarak gidiyordu; çünkü menü, taslak ve gönderim anındaki çözümleme neyin komut sayıldığına kendi başına karar veriyordu. Artık bu soruyu her yerde tek bir kural yanıtlıyor: taslakta herhangi bir yerdeki eğik çizgi komuttur, Çince ve tam genişlikte noktalama önündeki sözcüğü bitirir, bir URL (`https://…`), bir Windows sürücü yolu ve bir `@path` sıradan metin olarak kalır ve daha uzun bir beceri adı daha kısa bir öneki yine yener. Çağrılan beceri taslakta kendi simgesi olarak çizilir — yerelleştirilmiş rozet, beceri başlığı, tam `/ad` — ve tur gönderildikten sonra geçmişte de aynı şekilde etiketlenir.",
+          "Uygulamadan çıkmak ve bir pencere kapatılırken sorulan soru artık ürünle hiç benzemeyen yerel bir ileti kutusu açmıyor. Her iki soru da artık açık pencereye soruluyor ve ürünün kendi iletişim yüzeyiyle çiziliyor — yuvarlak kart, marka renginde onay düğmesi, güvenli varsayılan olarak iptal — görünür bir pencere yanıt veremediğinde yerel iletişim kutusu yedek olarak kalıyor: pencere yok, içerik yok edilmiş, otomatik bir sonda, gizlenmiş veya simge durumuna küçültülmüş pencere, başarısız gönderim ya da yirmi saniyelik sessizlik; o anda uygulama içi kart geri çekiliyor, böylece devralınmış bir soru boş bir tıklamayla yanıtlanamıyor. Bir isteği yalnızca ana pencere sonuçlandırabilir, dolayısıyla eski bir yanıt uygulamayı kapatamaz.",
+          "Seri bir işin yalnızca bir parçasını devreden oturum artık kendini beklemede tutmuyor. Bekleme zaten engelleyici değildi, ama aracı engelleyiciymiş gibi davranıyordu: devredilen iş rapor verene kadar duruyordu, bu yüzden uzun süren bir alt aracı takılmış bir oturum gibi görünüyordu. Devretme kuralları artık isteğin geri kalanını ilerletmeye devam etmesini, yalnızca sonraki adımı gerçekten o rapora bağlıysa beklemesini ve bir alt aracıyı beklemek yerine görev listesinden kontrol etmesini şart koşuyor.",
+        ],
+      },
+      {
         version: "0.17.1",
         date: "2026-10-06",
         highlights: [
