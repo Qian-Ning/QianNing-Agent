@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
       {
+        version: "0.17.3",
+        date: "2026-10-07",
+        highlights: [
+          "Todos los comandos que el cuadro de mensaje puede invocar llevan etiqueta, no solo las habilidades. Al escribir `/compact`, un comando de complemento o un comando de extensión, el borrador se quedaba con texto normal y el historial con un chip sin etiqueta, así que un comando que el agente sí ejecutaría se veía igual que una frase escrita por ti. Ahora el token del borrador, el chip del historial y la fila del menú `/` llevan las mismas tres partes —una insignia de tipo localizada, el título del comando y el `/name` exacto— y cada tipo tiene su propio acento, de modo que un comando de la app, uno de complemento, uno de extensión, una habilidad y una plantilla se distinguen de un vistazo. Una única tabla de etiquetas alimenta las tres superficies, así que el mismo comando no puede etiquetarse de dos maneras.",
+          "Las habilidades incluidas llevan nuestro propio nombre: `pi-desktop/imagegen` y `pi-desktop/plugin-development` ahora son `qianning/imagegen` y `qianning/plugin-development`. El id de una habilidad es también el nombre del comando y queda guardado en los turnos ya enviados, así que ambos siguen resolviendo: el catálogo solo lista el actual y un id antiguo se mantiene como alias de búsqueda, de modo que un turno enviado antes del cambio de nombre se sigue etiquetando correctamente.",
+          "Los comandos propios se nombran en el idioma de la interfaz en lugar de con las cadenas en inglés del host: `/new`, `/compact`, `/agent-mode`, `/plan-mode` y `/goal-mode` muestran un título localizado, y su categoría se lee como el `Sesión` / `Session` localizado. Un título que solo repite el nombre del comando se imprime una vez, y el cuerpo desplegado de una plantilla, cuyo texto es contenido del prompt y no un nombre de comando, conserva su chip normal con ajuste de línea.",
+        ],
+      },
+      {
         version: "0.17.2",
         date: "2026-10-07",
         highlights: [

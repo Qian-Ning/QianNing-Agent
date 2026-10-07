@@ -30,6 +30,15 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
       {
+        version: "0.17.3",
+        date: "2026-10-07",
+        highlights: [
+          "Every command the message box can summon is labelled, not only skills. Typing `/compact`, a plugin command or an extension command left plain text in the draft and an unlabelled chip in the transcript, so a command the agent would act on read exactly like a sentence you wrote yourself. The draft token, the transcript chip and the `/` menu row now carry the same three parts — a localized kind badge, the command's own title, and the exact `/name` — and each kind takes its own accent, so an app command, a plugin command, an extension command, a skill and a template are told apart at a glance. One label table feeds all three surfaces, so the same command cannot be labelled two ways.",
+          "The bundled skills carry our own name: `pi-desktop/imagegen` and `pi-desktop/plugin-development` are now `qianning/imagegen` and `qianning/plugin-development`. A skill's id is also the slash name and is stored in the turns you have already sent, so both keep resolving — the catalog lists only the current one, and an older id stays a lookup alias, which means a turn sent before the rename still labels itself correctly.",
+          "First-party commands are named by the interface language instead of the host's English strings: `/new`, `/compact`, `/agent-mode`, `/plan-mode` and `/goal-mode` show a localized title, and their category reads as the localized `会话` / `Session`. A title that only repeats the command name is printed once, and an expanded template body, whose text is prompt copy rather than a slash name, keeps its plain wrapping chip.",
+        ],
+      },
+      {
         version: "0.17.2",
         date: "2026-10-07",
         highlights: [
@@ -1001,6 +1010,15 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
       {
+        version: "0.17.3",
+        date: "2026-10-07",
+        highlights: [
+          "消息框能召唤的每种命令都有标注，不再只有技能。输入 `/compact`、插件命令或扩展命令时，草稿里是普通文本，对话记录里是没有标注的 chip，于是智能体明明会执行的命令，看起来和你自己写的句子一模一样。现在草稿标记、对话记录 chip 和 `/` 菜单行都显示同样的三部分——本地化的类型徽标、命令标题、确切的 `/name`——而且每种类型有自己的着色，应用命令、插件命令、扩展命令、技能、模板一眼就能分辨。三个界面共用同一张标签表，同一条命令不可能有两种标注。",
+          "内置技能改用我们自己的名字：`pi-desktop/imagegen` 与 `pi-desktop/plugin-development` 现在是 `qianning/imagegen` 与 `qianning/plugin-development`。技能的 id 同时是斜杠名，还会写进你已经发出去的记录，因此新旧 id 都能解析：目录只列出当前的名字，旧 id 保留为查找别名——改名之前发出的那一轮，标注依然是对的。",
+          "第一方命令按界面语言命名，而不是宿主发来的英文：`/new`、`/compact`、`/agent-mode`、`/plan-mode`、`/goal-mode` 显示本地化标题，分类显示为本地化的 `会话` / `Session`。只重复命令名的标题只打印一次；展开后的模板正文，其文本是提示词而不是斜杠名，保持原有的普通可换行 chip。",
+        ],
+      },
+      {
         version: "0.17.2",
         date: "2026-10-07",
         highlights: [
@@ -1971,6 +1989,15 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+      {
+        version: "0.17.3",
+        date: "2026-10-07",
+        highlights: [
+          "訊息框能召喚的每種指令都有標註，不再只有技能。輸入 `/compact`、外掛指令或擴充指令時，草稿裡是普通文字，對話記錄裡是沒有標註的 chip，於是代理明明會執行的指令，看起來和你自己寫的句子一模一樣。現在草稿標記、對話記錄 chip 和 `/` 選單列都顯示同樣的三部分——在地化的類型徽標、指令標題、確切的 `/name`——而且每種類型有自己的著色，應用指令、外掛指令、擴充指令、技能、範本一眼就能分辨。三個介面共用同一張標籤表，同一條指令不可能有兩種標註。",
+          "內建技能改用我們自己的名字：`pi-desktop/imagegen` 與 `pi-desktop/plugin-development` 現在是 `qianning/imagegen` 與 `qianning/plugin-development`。技能的 id 同時是指令名，還會寫進你已經送出的記錄，因此新舊 id 都能解析：目錄只列出現在的名字，舊 id 保留為查找別名——改名之前送出的那一輪，標註依然是對的。",
+          "第一方指令按介面語言命名，而不是主機送來的英文：`/new`、`/compact`、`/agent-mode`、`/plan-mode`、`/goal-mode` 顯示在地化標題，分類顯示為在地化的 `工作階段` / `Session`。只重複指令名的標題只列印一次；展開後的範本本文，其文字是提示詞而不是指令名，保持原有的普通可換行 chip。",
+        ],
+      },
       {
         version: "0.17.2",
         date: "2026-10-07",

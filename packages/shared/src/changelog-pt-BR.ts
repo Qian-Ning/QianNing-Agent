@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
       {
+        version: "0.17.3",
+        date: "2026-10-07",
+        highlights: [
+          "Todo comando que a caixa de mensagem pode invocar recebe rótulo, não só as habilidades. Ao digitar `/compact`, um comando de plugin ou um comando de extensão, o rascunho ficava com texto comum e o histórico com um chip sem rótulo, então um comando que o agente realmente executaria parecia igual a uma frase escrita por você. Agora o token do rascunho, o chip do histórico e a linha do menu `/` mostram as mesmas três partes — um selo de tipo localizado, o título do comando e o `/name` exato — e cada tipo tem seu próprio tom, de modo que comando do app, de plugin, de extensão, habilidade e modelo se distinguem à primeira vista. Uma única tabela de rótulos alimenta as três superfícies, então o mesmo comando não pode ser rotulado de duas formas.",
+          "As habilidades incluídas passam a usar o nosso nome: `pi-desktop/imagegen` e `pi-desktop/plugin-development` agora são `qianning/imagegen` e `qianning/plugin-development`. O id de uma habilidade também é o nome do comando e fica gravado nos turnos já enviados, então os dois continuam resolvendo: o catálogo lista apenas o atual e um id antigo vira alias de busca — um turno enviado antes da renomeação continua com o rótulo correto.",
+          "Os comandos próprios são nomeados no idioma da interface em vez das strings em inglês do host: `/new`, `/compact`, `/agent-mode`, `/plan-mode` e `/goal-mode` mostram um título localizado, e sua categoria aparece como o `Sessão` / `Session` localizado. Um título que só repete o nome do comando é impresso uma vez, e o corpo expandido de um modelo, cujo texto é conteúdo de prompt e não um nome de comando, mantém o chip comum com quebra de linha.",
+        ],
+      },
+      {
         version: "0.17.2",
         date: "2026-10-07",
         highlights: [

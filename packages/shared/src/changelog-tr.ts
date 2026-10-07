@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
       {
+        version: "0.17.3",
+        date: "2026-10-07",
+        highlights: [
+          "Mesaj kutusunun çağırabildiği her komut etiketleniyor, artık yalnızca beceriler değil. `/compact`, bir eklenti komutu veya bir uzantı komutu yazdığınızda taslakta düz metin, geçmişte ise etiketsiz bir chip kalıyordu; yani aracın gerçekten çalıştıracağı bir komut, kendi yazdığınız bir cümle gibi görünüyordu. Artık taslak tokenı, geçmiş chip'i ve `/` menü satırı aynı üç parçayı taşıyor — yerelleştirilmiş tür rozeti, komutun kendi başlığı ve tam `/name` — ve her tür kendi rengini alıyor; böylece uygulama komutu, eklenti komutu, uzantı komutu, beceri ve şablon bir bakışta ayırt ediliyor. Tek bir etiket tablosu üç yüzeyi de besliyor, dolayısıyla aynı komut iki farklı şekilde etiketlenemiyor.",
+          "Yerleşik beceriler kendi adımızı taşıyor: `pi-desktop/imagegen` ve `pi-desktop/plugin-development` artık `qianning/imagegen` ve `qianning/plugin-development`. Bir becerinin id'si aynı zamanda eğik çizgi adı ve gönderilmiş turlarda saklanıyor; bu yüzden ikisi de çözülmeye devam ediyor — katalog yalnızca güncel olanı listeliyor, eski id bir arama takma adı olarak kalıyor ve yeniden adlandırmadan önce gönderilen bir tur da doğru etiketleniyor.",
+          "Birinci taraf komutlar, ana makinenin İngilizce dizeleriyle değil arayüz diliyle adlandırılıyor: `/new`, `/compact`, `/agent-mode`, `/plan-mode` ve `/goal-mode` yerelleştirilmiş bir başlık gösteriyor ve kategorileri yerelleştirilmiş `Oturum` / `Session` olarak okunuyor. Yalnızca komut adını tekrarlayan bir başlık bir kez yazılıyor ve açılmış bir şablon gövdesi — metni eğik çizgi adı değil istem içeriği olduğu için — sıradan, satır kaydıran chip'ini koruyor.",
+        ],
+      },
+      {
         version: "0.17.2",
         date: "2026-10-07",
         highlights: [

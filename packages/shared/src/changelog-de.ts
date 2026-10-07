@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
       {
+        version: "0.17.3",
+        date: "2026-10-07",
+        highlights: [
+          "Jeder Befehl, den das Eingabefeld aufrufen kann, wird gekennzeichnet — nicht mehr nur Fähigkeiten. Wer `/compact`, einen Plugin-Befehl oder einen Erweiterungsbefehl eintippte, sah im Entwurf nur gewöhnlichen Text und im Verlauf einen unbeschrifteten Chip, sodass ein Befehl, den der Agent ausführen würde, genauso aussah wie ein selbst geschriebener Satz. Entwurfs-Token, Verlaufs-Chip und die Zeile im `/`-Menü tragen jetzt dieselben drei Teile — ein lokalisiertes Typ-Abzeichen, den Titel des Befehls und das exakte `/name` — und jeder Typ hat seine eigene Farbnuance, sodass App-Befehl, Plugin-Befehl, Erweiterungsbefehl, Fähigkeit und Vorlage auf einen Blick zu unterscheiden sind. Eine einzige Beschriftungstabelle speist alle drei Oberflächen, damit derselbe Befehl nicht zwei Kennzeichnungen haben kann.",
+          "Die mitgelieferten Fähigkeiten tragen unseren eigenen Namen: `pi-desktop/imagegen` und `pi-desktop/plugin-development` heißen jetzt `qianning/imagegen` und `qianning/plugin-development`. Die id einer Fähigkeit ist zugleich der Slash-Name und steht in bereits gesendeten Turns, daher lösen beide weiterhin auf — der Katalog listet nur den aktuellen, eine ältere id bleibt ein Nachschlage-Alias, und ein vor der Umbenennung gesendeter Turn wird weiterhin korrekt gekennzeichnet.",
+          "Erstanbieter-Befehle werden in der Sprache der Oberfläche benannt, nicht mit den englischen Zeichenketten des Hosts: `/new`, `/compact`, `/agent-mode`, `/plan-mode` und `/goal-mode` zeigen einen lokalisierten Titel, und ihre Kategorie liest sich als lokalisiertes `Sitzung` / `Session`. Ein Titel, der nur den Befehlsnamen wiederholt, wird einmal gedruckt, und ein aufgeklappter Vorlagen-Text, dessen Inhalt Prompt-Text und kein Slash-Name ist, behält seinen einfachen umbrechenden Chip.",
+        ],
+      },
+      {
         version: "0.17.2",
         date: "2026-10-07",
         highlights: [
