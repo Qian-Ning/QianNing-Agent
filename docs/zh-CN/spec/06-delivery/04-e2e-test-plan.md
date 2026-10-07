@@ -815,6 +815,45 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
   后运行 `pnpm test:e2e:composer-autocomplete` 覆盖（真实 React/Chromium、生产 CSS、
   确定性命令夹具，无需提供商）。完整提供商/会话场景仍为草案；分支执行不替代合并后 E2E
 
+#### E2E-COMPOSER-skill-summons-are-labelled：被调用的技能在草稿与对话记录中都有标注
+
+- **前置条件**：工作区中至少有一个已知斜杠名的活跃技能（例如 `qn-novel-write`）；
+  中文或英文界面。
+- **步骤**：1）先输入普通中文（`继续`），紧接其后输入技能名、不加空格：
+  `继续/qn-novel-write`。2）确认技能菜单打开，接受该行以补全名称。3）确认草稿把技能
+  绘制成一个内联标记——本地化技能徽标、技能标题、确切的 `/name`——而 URL、盘符路径、
+  `@path` 和无技能匹配的名称仍是普通文本。4）发送该轮，确认技能确实被调用，再查看
+  用户气泡。
+- **预期**：菜单在 CJK 边界上、无需先打空格即可打开。标记元素的文本内容与它替换掉的
+  文本完全一致，因此发送的提示词与对话记录来源都不受样式影响。草稿里被画成标记的那个
+  斜杠，就是发送时解析器会调用的那个斜杠：整句里没有打过空格，技能同样被调用。已发送
+  的那一轮显示技能徽标、人类可读标题和弱化等宽字体的 `/name`——明显不是用户手打的文字。
+- **关联规格**：`04-ux/09-interaction-patterns.md`（§8a.1、§8a.6）、
+  `04-ux/08-component-spec.md`（§11.8）、`08-meta/decisions-log.md`（D673）
+- **验收**：C（发送/界面）、本地化、品质
+- **里程碑**：M2
+- **状态**：源码覆盖（`composer-trigger.test.ts`、`composer-skill-token.test.mjs`）；
+  交互式菜单行为由 `pnpm test:e2e:composer-autocomplete` 在 `pnpm build:js` 后覆盖。
+  分支运行不替代合并后的 E2E。
+
+#### E2E-WINDOW-quit-prompt-is-drawn-in-app：退出与关闭的询问使用应用自己的对话框
+
+- **前置条件**：Windows/Linux 构建，关闭行为未保存（`ask`）以覆盖关闭用例；存在主窗口；
+  退出用例状态不限。
+- **步骤**：1）在未保存关闭行为时点标题栏关闭按钮。2）确认问题是应用自己的对话框——
+  强调色标记、标题、正文，以及取消 / 最小化到托盘 / 退出。3）用 Escape 关闭它，确认
+  窗口仍打开。4）触发一次显式退出（应用菜单，或关闭询问中的“退出”），确认应用内确认框，
+  选择取消。5）真正退出。
+- **预期**：两个问题都由渲染层用产品自身样式和本地化文案绘制；Escape 与点击遮罩等于
+  取消；焦点默认落在取消上，因此单按 Enter 不会退出。有实时窗口可作答时不出现原生消息框，
+  回答“退出”时应用真的退出。没有窗口能作答时回退到原生对话框，而不是挂住。
+- **关联规格**：`03-runtime/01-ipc-protocol.md`（§13b）、
+  `08-meta/decisions-log.md`（D674）
+- **验收**：A（启动/生命周期）、本地化、品质
+- **里程碑**：M2
+- **状态**：源码覆盖（`close-behavior-prompt.test.mjs`）。交互运行草稿；分支运行不
+  替代合并后的 E2E。
+
 #### E2E-089：Composer 模型菜单向上打开并切换模型
 
 - **先决条件**：聊天路线激活；提供商已配置。
@@ -5424,6 +5463,8 @@ eleven-tool-round desktop paths are verified by
 | 品质（项目文件夹根） | E2E-PLUGIN-file-view-switches-folder-per-project |
 | G——插件（导入可见性） | E2E-257 |
 | 品质（导入可见性） | E2E-257 |
+| C / 品质 — 技能调用在草稿与对话记录中有标注 | E2E-COMPOSER-skill-summons-are-labelled |
+| A / 品质 — 退出与关闭询问在应用内绘制 | E2E-WINDOW-quit-prompt-is-drawn-in-app |
 | G——插件（Session Orchestrator） | E2E-PLUGIN-session-orchestrator-real-workers |
 | 安全性（Session Orchestrator） | E2E-PLUGIN-session-orchestrator-real-workers |
 | 品质（Session Orchestrator） | E2E-PLUGIN-session-orchestrator-real-workers |

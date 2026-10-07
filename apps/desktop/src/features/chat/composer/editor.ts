@@ -1,6 +1,7 @@
 import {
   fileReferenceLabel,
   formatFileInsert,
+  isComposerCommandSlash,
 } from "@pi-desktop/shared";
 import type { ComposerFileReference } from "./model";
 
@@ -264,6 +265,60 @@ export function isComposerAudioReference(reference: ComposerFileReference): bool
   return mime.startsWith("audio/") || AUDIO_FILE_PATTERN.test(reference.name);
 }
 
+/** One skill entry the draft can paint; a structural subset of the catalog. */
+export type ComposerSkillTokenTarget = { id: string; name: string; title: string };
+
+/**
+ * Wrap one typed slash command in a styled token (D673). The element holds
+ * exactly the text it replaces, so `readEditorValue`, the caret math, and the
+ * send path need no special case — only the *look* changes, so a user can see
+ * that `/qn-novel-write` was summoned rather than typed. The badge and title
+ * ride in data attributes and are rendered by CSS, never as text.
+ */
+function buildSkillTokenElement(
+  entry: ComposerSkillTokenTarget,
+  badge: string,
+): HTMLElement {
+  const token = document.createElement("span");
+  token.className = "composer-skill-token";
+  token.dataset.skillId = entry.id;
+  token.dataset.command = entry.name;
+  token.dataset.badge = badge;
+  token.dataset.skillTitle = entry.title;
+  token.title = `/${entry.name} — ${entry.title}`;
+  token.textContent = `/${entry.name}`;
+  return token;
+}
+
+/**
+ * Longest skill whose name matches the draft right after `slashIndex`, so
+ * `/qn-novel-write` wins over a shorter `/qn-novel` prefix. The match must end
+ * at whitespace or the end of the draft: anything else is a longer word the
+ * send-time resolver would not treat as a skill either.
+ */
+function skillTokenAt(
+  chars: readonly string[],
+  slashIndex: number,
+  skillsByName: ReadonlyMap<string, ComposerSkillTokenTarget>,
+  commandSlashes: ReadonlySet<number>,
+): { entry: ComposerSkillTokenTarget; length: number } | null {
+  if (chars[slashIndex] !== "/") return null;
+  // The rule itself lives in @pi-desktop/shared (D673) and is evaluated once per
+  // draft against the string form, because this loop walks code points while the
+  // rule reads indices: a styled token is therefore always one the send-time
+  // resolver invokes too, and a summon needs no space before it.
+  if (!commandSlashes.has(slashIndex)) return null;
+  let match: { entry: ComposerSkillTokenTarget; length: number } | null = null;
+  for (const [name, entry] of skillsByName) {
+    if (!name || name.length <= (match?.length ?? 0)) continue;
+    if (chars.slice(slashIndex + 1, slashIndex + 1 + name.length).join("") !== name) continue;
+    const next = chars[slashIndex + 1 + name.length];
+    if (next !== undefined && !/\s/.test(next)) continue;
+    match = { entry, length: name.length };
+  }
+  return match;
+}
+
 /** Build the atomic inline chip element for one attachment reference. */
 function buildChipElement(
   reference: ComposerFileReference,
@@ -323,7 +378,32 @@ function buildChipElement(
   return chip;
 }
 
-/** Paint the contenteditable from the draft string. */
+/**
+ * Which slashes of the draft are commands, decided once by the shared rule
+ * (D673) before the paint loop runs. The loop walks code points while the rule
+ * reads string indices, so the offset is tracked as it advances.
+ */
+function commandSlashIndices(
+  chars: readonly string[],
+  value: string,
+): Set<number> {
+  const indices = new Set<number>();
+  let offset = 0;
+  for (let index = 0; index < chars.length; index += 1) {
+    const char = chars[index]!;
+    if (char === "/" && isComposerCommandSlash(value, offset)) indices.add(index);
+    offset += char.length;
+  }
+  return indices;
+}
+
+/**
+ * Paint the contenteditable from the draft string.
+ *
+ * `skillsByName` and `skillBadge` are optional: without them the draft paints
+ * as plain text, which is what a composer whose command source has not settled
+ * yet should look like.
+ */
 export function paintEditorValue(
   el: HTMLElement,
   value: string,
@@ -331,8 +411,12 @@ export function paintEditorValue(
   removeLabelFor: (name: string) => string,
   onRemove: (token: string) => void,
   onExpandText: (token: string) => void,
+  skillsByName: ReadonlyMap<string, ComposerSkillTokenTarget> = new Map(),
+  skillBadge = "",
 ): void {
   el.replaceChildren();
+  const chars = Array.from(value);
+  const commandSlashes = commandSlashIndices(chars, value);
   let textBuffer = "";
   const flush = () => {
     if (textBuffer) {
@@ -340,7 +424,9 @@ export function paintEditorValue(
       textBuffer = "";
     }
   };
-  for (const char of Array.from(value)) {
+  let index = 0;
+  while (index < chars.length) {
+    const char = chars[index]!;
     if (isChipTokenChar(char)) {
       const reference = referenceByToken.get(char);
       if (reference) {
@@ -354,12 +440,23 @@ export function paintEditorValue(
             onExpandText,
           ),
         );
+        index += 1;
         continue;
       }
       // A private-use code point with no chip behind it is user text (for
       // example a Nerd Font glyph pasted from a terminal); keep it verbatim.
     }
+    if (char === "/" && skillsByName.size > 0) {
+      const match = skillTokenAt(chars, index, skillsByName, commandSlashes);
+      if (match) {
+        flush();
+        el.appendChild(buildSkillTokenElement(match.entry, skillBadge));
+        index += match.length + 1;
+        continue;
+      }
+    }
     textBuffer += char;
+    index += 1;
   }
   flush();
   if (el.childNodes.length === 0) {

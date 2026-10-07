@@ -49,6 +49,25 @@ const COMMAND_GROUP_ORDER = {
   skill: 4,
 } as const;
 
+/**
+ * Read the merged command + skill source, reusing the menu's TTL cache so the
+ * autocomplete, the composer's skill tokens, and the transcript's skill labels
+ * share one fetch per workspace (D673).
+ */
+export async function loadComposerCommands(): Promise<ComposerCommand[]> {
+  const key = useAppStore.getState().workspace?.path ?? "";
+  if (
+    commandsCache &&
+    commandsCache.key === key &&
+    Date.now() - commandsCache.at < SOURCE_TTL_MS
+  ) {
+    return commandsCache.commands;
+  }
+  const res = await api.composerCommands();
+  commandsCache = { key, at: Date.now(), commands: res.commands };
+  return res.commands;
+}
+
 function filterCommands(
   commands: ComposerCommand[],
   query: string,
@@ -267,7 +286,17 @@ export function useComposerAutocomplete({
   const sourceReady =
     !!trigger &&
     (trigger.mode === "slash" ? commands !== null : files !== null);
-  const open = !!trigger && !dismissed && sourceReady;
+  // The broadened slash rule (D673) must not float an empty menu over prose: a
+  // slash that is not in a command position opens only while the typed query
+  // still matches something. The "no matches" state stays where a command was
+  // unambiguously asked for, and file mode keeps its own empty states.
+  const slashNeedsMatch =
+    trigger?.mode === "slash" && trigger.commandPosition !== true;
+  const open =
+    !!trigger &&
+    !dismissed &&
+    sourceReady &&
+    (!slashNeedsMatch || items.length > 0);
 
   const close = useCallback(() => {
     if (triggerKey) setDismissedKey(triggerKey);

@@ -1481,6 +1481,17 @@ window/closeBehavior/set({ behavior: "tray" | "quit" })
 在每个平台上启动时都会创建一个，而无论存的是哪种关闭行为，最小化到托盘都
 需要它。
 
+首次关闭询问与显式退出都把问题交给渲染层来问（D674）。主进程发出
+`app/event/quitPrompt { requestId, kind }`——`kind` 为 `quit`（确认退出）或
+`close`（选择关闭行为）——并等待 `app/quitPrompt/answer { requestId, choice }`，
+`choice` 取 `cancel`、`tray` 或 `quit`。只有当前主窗口可以作答，取值是封闭集合，
+主进程已不再等待的请求 id 会被丢弃，因此过期或伪造的答案无法退出应用。两条路径在
+没有可用窗口作答时都会回退到原生 `dialog.showMessageBox`——没有窗口、webContents
+已销毁、自动化探针（`PI_DESKTOP_BOOT_PROBE`、`PI_DESKTOP_SUPERVISION_PROBE`、
+`PI_DESKTOP_CAPTURE`）、用户看不见的隐藏或最小化窗口、发送抛错、或等待超过 20 秒——
+所以问题不会丢失，退出也不会卡在无响应的渲染进程上。文案复用原生对话框使用的
+`tray.*` 与 `common.cancel` 目录。
+
 Maximize/unmaximize 变化也会发出
 `window/event/maximized`。未知的操作失败。这些仅限电子的通道
 不要跨入 host-core，也不要更改主机 RPC 协议版本。

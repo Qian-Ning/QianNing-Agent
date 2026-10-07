@@ -58,6 +58,11 @@ export type RegisterIpcDependencies = {
   activeUserSubagentDocuments: (...args: any[]) => Promise<any>;
   disabledBuiltinSubagents: () => Promise<string[]>;
   mcpOAuth?: McpOAuthManager;
+  /**
+   * Settle the in-app quit / close prompt the renderer is showing (D674).
+   * Optional so a test harness that never prompts can omit it.
+   */
+  answerQuitPrompt?: (requestId: string, choice: "cancel" | "tray" | "quit") => void;
   [name: string]: any;
 };
 
@@ -87,6 +92,7 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
     togglePluginLauncher,
     safeOpenExternal,
     updater,
+    answerQuitPrompt = () => {},
     dataDir,
     activeTurns,
     isTurnDispatchable,
@@ -231,6 +237,7 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
     togglePluginLauncher,
     safeOpenExternal,
     updater,
+    answerQuitPrompt,
   });
   registerNotificationIpc({
     registrar,

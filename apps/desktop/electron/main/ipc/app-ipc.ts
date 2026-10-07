@@ -22,7 +22,18 @@ export type AppIpcDependencies = {
   togglePluginLauncher: () => Promise<void>;
   safeOpenExternal: (url: unknown) => Promise<void>;
   updater: AppUpdaterController;
+  /**
+   * Settle the in-app quit / close prompt the renderer is showing (D674).
+   * Unknown or already-settled ids are ignored by the caller.
+   */
+  answerQuitPrompt: (requestId: string, choice: "cancel" | "tray" | "quit") => void;
 };
+
+function isQuitPromptChoice(
+  value: unknown,
+): value is "cancel" | "tray" | "quit" {
+  return value === "cancel" || value === "tray" || value === "quit";
+}
 
 /** Register app, instruction, launcher and update channels. */
 export function registerAppIpc({
@@ -32,8 +43,9 @@ export function registerAppIpc({
   togglePluginLauncher,
   safeOpenExternal,
   updater,
+  answerQuitPrompt,
 }: AppIpcDependencies): void {
-  const { handle, handleWithEvent } = registrar;
+  const { handle, handleWithEvent, assertMainWindowSender } = registrar;
 
   handle(IPC.invoke.pluginLauncherToggle, async () => {
     await togglePluginLauncher();
@@ -116,6 +128,20 @@ export function registerAppIpc({
    */
   handle(IPC.invoke.appQuit, async () => {
     app.quit();
+    return { ok: true };
+  });
+
+  /**
+   * The renderer's answer to the in-app quit / close prompt (D674). Only the
+   * main window may settle a request, and the main process drops ids it is no
+   * longer waiting on, so a stale or forged answer is inert.
+   */
+  handleWithEvent(IPC.invoke.appQuitPromptAnswer, async (event, payload: unknown) => {
+    assertMainWindowSender(event);
+    const answer = (payload ?? {}) as { requestId?: unknown; choice?: unknown };
+    if (typeof answer.requestId === "string" && isQuitPromptChoice(answer.choice)) {
+      answerQuitPrompt(answer.requestId, answer.choice);
+    }
     return { ok: true };
   });
 

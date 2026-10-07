@@ -20,6 +20,7 @@ import {
   IconTrash,
 } from "../../../components/icons";
 import { TooltipButton } from "../../../components/ui";
+import { useComposerSkillCatalog } from "../../../hooks/use-composer-skill-catalog";
 import { userMessageMenuItems } from "./menu-items";
 import { SessionMessageOrigin } from "./SessionMessageOrigin";
 import {
@@ -34,7 +35,14 @@ import {
   useTranscriptMenu,
 } from "./TranscriptMenu";
 
+/**
+ * A sent slash invocation (D123, D673). A skill mention renders as a labelled
+ * pill — badge, human title, then the exact `/name` the turn carried — so a
+ * summoned skill is never mistaken for text the user typed by hand.
+ */
 function SkillInvocationText({ message }: { message: UiMessage }) {
+  const { t } = useTranslation();
+  const { byId } = useComposerSkillCatalog();
   const command = message.command ?? "";
   const mentions = message.skillMentions ?? [];
   const parts: ReactNode[] = [];
@@ -52,10 +60,20 @@ function SkillInvocationText({ message }: { message: UiMessage }) {
     if (mention.start > cursor) {
       parts.push(<LinkifiedText key={`text-${cursor}`} text={command.slice(cursor, mention.start)} attachments={message.attachments} />);
     }
+    const name = command.slice(mention.start, mention.end);
+    const skill = byId.get(mention.id);
     parts.push(
-      <code key={`skill-${mention.start}`} className="chat-command-chip" title={mention.id}>
-        {command.slice(mention.start, mention.end)}
-      </code>,
+      <span
+        key={`skill-${mention.start}`}
+        className="chat-skill-chip"
+        title={`${name} — ${skill?.title ?? mention.id}`}
+      >
+        <span className="chat-skill-badge">{t("chat.slashGroupSkills")}</span>
+        {skill && skill.title !== name.slice(1) ? (
+          <span className="chat-skill-title">{skill.title}</span>
+        ) : null}
+        <code className="chat-skill-name">{name}</code>
+      </span>,
     );
     cursor = mention.end;
   }

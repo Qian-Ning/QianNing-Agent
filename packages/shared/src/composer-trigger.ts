@@ -1,15 +1,30 @@
 /**
  * Trigger detection and completion insertion for the composer autocomplete
- * (D123–D125). Pure string/cursor math so the exact "/"+"@" grammar is unit
- * tested away from React and IME timing.
+ * (D123–D125, D673). Pure string/cursor math so the exact "/"+"@" grammar is
+ * unit tested away from React and IME timing.
  *
- * Grammar mirrors the pi CLI editor:
- * - "/" opens all commands in the first token. Later whitespace-delimited
- *   slash tokens offer Skills only; app commands still require the first token.
+ * Grammar mirrors the pi CLI editor, with the slash rule broadened so a
+ * command can be summoned from inside running prose:
+ * - "/" opens the command menu from *any* position in the token under the
+ *   cursor — after Latin text, after CJK text, at the start of the draft, or
+ *   after whitespace. Only URL/path noise stays out: a slash directly after
+ *   "/", ":" or "\" is part of an address, never a command. A later
+ *   whitespace-delimited slash token offers Skills only; app commands still
+ *   require the first token.
+ * - "、" (U+3001) opens the same menu when a Chinese IME just delivered it as
+ *   the last character of the token, without rewriting the draft: accepting a
+ *   row replaces the mark. A draft that is *only* the mark is still rewritten
+ *   to "/" up front (D405).
  * - "@" opens file mode when the token containing the cursor starts with
  *   "@" and the character before it is start-of-input, whitespace, or one
  *   of the pi delimiters (" ' =). A `@"` prefix starts a quoted token that
  *   may contain spaces until its closing quote.
+ *
+ * A broad trigger must not turn prose into a popup: `commandPosition` marks
+ * the slashes that unambiguously ask for a command (start of the draft, or
+ * right after whitespace / the ideographic comma). The menu keeps its
+ * "no matches" state only there; elsewhere it opens while the typed query
+ * still matches something and closes itself once it cannot.
  */
 
 export type ComposerTriggerMode = "slash" | "file";
@@ -22,6 +37,13 @@ export type ComposerTrigger = {
   tokenStart: number;
   /** End of the replaced region — always the cursor position. */
   tokenEnd: number;
+  /**
+   * Slash mode only: the trigger sits where a command is unambiguously
+   * intended — start of the draft, after whitespace, or after CJK text /
+   * the ideographic comma (D673). Left unset otherwise, so a slash that only
+   * looks command-ish while the query still matches something stays quiet.
+   */
+  commandPosition?: true;
 };
 
 export const DEFAULT_LARGE_PASTE_THRESHOLD = 600;
@@ -44,6 +66,18 @@ export function normalizeLargePasteThreshold(value: unknown): number {
 const WHITESPACE = new Set([" ", "\t", "\n", "\r"]);
 /** Characters that end the token scan-back, per pi's autocomplete. */
 const DELIMITERS = new Set([" ", "\t", "\n", "\r", '"', "'", "="]);
+/**
+ * A slash directly after one of these belongs to an address (`https://`,
+ * `C:\`, `//host`), never to a command (D673).
+ */
+const SLASH_BLOCKING_PREFIX = new Set(["/", ":", "\\"]);
+
+/**
+ * Provider URL / filesystem noise: a token that already carries a drive
+ * colon, a backslash, or a "//" is an address, and its slashes are
+ * separators (D673).
+ */
+const ADDRESS_PREFIX = /[:\\]|\/\//;
 
 /** U+3001 IDEOGRAPHIC COMMA — the mark a Chinese IME gives for "/" (D405). */
 export const IDEOGRAPHIC_COMMA = "、";
@@ -66,6 +100,50 @@ function isBoundary(value: string, index: number): boolean {
   return DELIMITERS.has(value[index - 1]);
 }
 
+/**
+ * CJK script or full-width punctuation (D673). A slash or ideographic comma
+ * after one of these is a deliberate command summon — Chinese prose has no
+ * word spaces, so the whitespace boundary rule alone never fires there.
+ */
+const CJK_BOUNDARY = /[\u3000-\u303f\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef]/;
+
+function isCjkBoundary(ch: string | undefined): boolean {
+  return ch !== undefined && CJK_BOUNDARY.test(ch);
+}
+
+/**
+ * Whether a character ends a "word" for command purposes: start of input is
+ * handled by the caller, everything else is whitespace or CJK. The composer's
+ * draft painter reads the same predicate, so a token styled in the input is
+ * always a token the trigger would also open on (D673).
+ */
+export function isComposerCommandBoundary(ch: string | undefined): boolean {
+  if (ch === undefined) return true;
+  return WHITESPACE.has(ch) || isCjkBoundary(ch);
+}
+
+/**
+ * Whether the slash at `index` may open a command rather than being a path or
+ * address separator (D673). The character right before it and the token it
+ * lives in decide, so a summon typed after a sentence needs no space: Chinese
+ * prose has none, and demanding one just to style a command is friction. The
+ * menu trigger, the draft painter, and the send-time resolver all read this one
+ * rule, so a token styled in the input is always a command that would also
+ * resolve when the turn is sent.
+ */
+export function isComposerCommandSlash(value: string, index: number): boolean {
+  if (value[index] !== "/") return false;
+  const previous = index > 0 ? value[index - 1] : undefined;
+  if (previous !== undefined && SLASH_BLOCKING_PREFIX.has(previous)) return false;
+  let tokenStart = index;
+  while (tokenStart > 0 && !WHITESPACE.has(value[tokenStart - 1]!)) tokenStart -= 1;
+  const token = value.slice(tokenStart, index);
+  // An `@path` owns its slashes as separators — the same precedence the trigger
+  // gives file mode — so a directory named like a Skill is not a summon.
+  if (token.startsWith("@")) return false;
+  return !ADDRESS_PREFIX.test(token);
+}
+
 /** Detect the active autocomplete trigger for a draft + cursor, if any. */
 export function detectTrigger(
   value: string,
@@ -73,26 +151,10 @@ export function detectTrigger(
 ): ComposerTrigger | null {
   if (cursor < 0 || cursor > value.length) return null;
 
-  // Only the token under the cursor can open the menu. A later slash is a
-  // Skill reference, not a second app command.
-  let slashStart = cursor;
-  while (slashStart > 0 && !WHITESPACE.has(value[slashStart - 1])) slashStart -= 1;
-  if (value[slashStart] === "/" && cursor > slashStart) {
-    let tokenEnd = cursor;
-    if (slashStart > 0) {
-      while (tokenEnd < value.length && !WHITESPACE.has(value[tokenEnd])) tokenEnd += 1;
-    }
-    return {
-      mode: "slash",
-      query: value.slice(slashStart + 1, cursor),
-      tokenStart: slashStart,
-      tokenEnd,
-    };
-  }
-
-  // File mode, quoted form first: @"query with spaces
-  // Scan back for a `@"` whose "@" sits at a boundary with no closing
-  // quote between the opening one and the cursor.
+  // File mode comes first: an "@path" token owns its slashes as path
+  // separators, so completing a path is never mistaken for a command summon.
+  // Quoted form: @"query with spaces — scan back for a `@"` whose "@" sits at a
+  // boundary with no closing quote between the opening one and the cursor.
   for (let i = cursor - 1; i >= 0; i -= 1) {
     const ch = value[i];
     if (ch === '"') {
@@ -126,22 +188,82 @@ export function detectTrigger(
     };
   }
 
+  // Slash mode (D673). Only the token under the cursor can open the menu, and
+  // the *nearest* marker in it wins: a later slash is a Skill reference, not a
+  // second app command. The slash no longer has to start the token or follow a
+  // space — "继续/qn" summons the menu exactly like "hi /cmd" does.
+  let regionStart = cursor;
+  while (regionStart > 0 && !WHITESPACE.has(value[regionStart - 1])) regionStart -= 1;
+  const region = value.slice(regionStart, cursor);
+  const commaJustTyped =
+    region.length > 0 && region[region.length - 1] === IDEOGRAPHIC_COMMA;
+
+  let slashStart = -1;
+  const slashIndex = region.lastIndexOf("/");
+  if (slashIndex !== -1) {
+    const absolute = regionStart + slashIndex;
+    if (isComposerCommandSlash(value, absolute)) slashStart = absolute;
+  }
+  // A command-consuming IME types "、" where "/" is meant (D405). Mid-draft the
+  // mark is only a trigger while it is the last thing typed, so prose after a
+  // 顿号 is never held hostage by a menu: accepting a row replaces the mark.
+  if (slashStart === -1 && commaJustTyped) {
+    slashStart = regionStart + region.length - 1;
+  }
+
+  if (slashStart !== -1) {
+    let tokenEnd = cursor;
+    if (slashStart > 0) {
+      while (tokenEnd < value.length && !WHITESPACE.has(value[tokenEnd])) tokenEnd += 1;
+    }
+    const trigger: ComposerTrigger = {
+      mode: "slash",
+      query: value.slice(slashStart + 1, cursor),
+      tokenStart: slashStart,
+      tokenEnd,
+    };
+    const previous = slashStart > 0 ? value[slashStart - 1] : undefined;
+    if (isComposerCommandBoundary(previous)) {
+      trigger.commandPosition = true;
+    }
+    return trigger;
+  }
+
   return null;
 }
 
 export type SkillMention = { start: number; end: number; id: string };
 
-/** Resolve complete slash tokens against the active Skill catalog at send time. */
+/**
+ * Resolve complete slash tokens against the active Skill catalog at send time
+ * (D673). A summon is a slash that may open a command followed by a known Skill
+ * name, and it counts wherever it sits: forcing a space before the slash left
+ * `继续/qn-novel-write` looking right in the input while the sent turn invoked
+ * nothing at all. Names resolve longest-first so `/qn-novel-write` never
+ * answers for a longer word, and an address keeps its slashes.
+ */
 export function findSkillMentions(
   content: string,
   skillIds: ReadonlyMap<string, string>,
 ): SkillMention[] {
   const mentions: SkillMention[] = [];
-  for (const match of content.matchAll(/(^|\s)\/([^\s]+)/g)) {
-    const id = skillIds.get(match[2]);
-    if (!id) continue;
-    const start = match.index + match[1].length;
-    mentions.push({ start, end: start + match[2].length + 1, id });
+  const names = [...skillIds.keys()]
+    .filter((name) => name.length > 0)
+    .sort((left, right) => right.length - left.length);
+  let slash = content.indexOf("/");
+  while (slash !== -1) {
+    if (isComposerCommandSlash(content, slash)) {
+      const name = names.find((candidate) => {
+        if (!content.startsWith(candidate, slash + 1)) return false;
+        const next = content[slash + candidate.length + 1];
+        return next === undefined || WHITESPACE.has(next);
+      });
+      const id = name === undefined ? undefined : skillIds.get(name);
+      if (name !== undefined && id !== undefined) {
+        mentions.push({ start: slash, end: slash + name.length + 1, id });
+      }
+    }
+    slash = content.indexOf("/", slash + 1);
   }
   return mentions;
 }

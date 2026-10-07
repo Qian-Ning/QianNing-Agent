@@ -126,3 +126,49 @@
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: var(--text-sm-plus, var(--text-md));
 }
+
+/* A sent skill invocation in the transcript (D673): badge, human title, and the
+   exact `/name` the turn carried, on one accent-tinted row. */
+.chat-skill-chip {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  margin: 1px 0;
+  border: 1px solid color-mix(in oklab, var(--ds-accent) 32%, transparent);
+  border-radius: var(--radius-md);
+  padding: 2px 8px 2px 3px;
+  background: color-mix(in oklab, var(--ds-accent) 12%, transparent);
+  vertical-align: top;
+}
+
+.chat-skill-badge {
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+  padding: 0 5px;
+  background: var(--ds-accent);
+  color: var(--ds-text-on-accent, var(--ds-bg-primary));
+  font-family: var(--font-sans, inherit);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+}
+
+.chat-skill-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ds-text-primary);
+  font-size: var(--text-sm-plus, var(--text-md));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-skill-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ds-text-muted);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--text-sm-plus, var(--text-md));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

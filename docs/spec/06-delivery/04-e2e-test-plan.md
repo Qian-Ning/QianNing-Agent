@@ -1945,6 +1945,55 @@ identify the platform validation still needed.
   fixtures; no provider required). Full provider/session scenario Draft;
   branch runs do not replace post-integration E2E
 
+#### E2E-COMPOSER-skill-summons-are-labelled: A summoned skill is labelled in the draft and the transcript
+
+- **Preconditions**: A workspace with at least one active Skill whose slash
+  name is known (for example `qn-novel-write`); Chinese or English UI.
+- **Steps**: 1) Type ordinary Chinese text (`继续`) and then the skill name
+  immediately after it with no space: `继续/qn-novel-write`. 2) Confirm the
+  skill menu opens and accepting the row completes the name. 3) Confirm the
+  draft paints one inline token — a localized Skills badge, the skill title,
+  and the exact `/name` — while a URL, a drive path, an `@path` and a name no
+  skill matches stay plain text. 4) Send the turn, confirm the skill actually
+  runs, and read the user bubble.
+- **Expected**: The menu opens on the CJK boundary with no space typed. The
+  draft token holds exactly the text it replaced, so the sent prompt and the
+  transcript source are unchanged by the styling. The same slash the draft
+  styled is the slash the send-time resolver invokes, so the summoned skill runs
+  without a space having been typed anywhere. The sent turn shows a Skills
+  badge, the human title, and the muted monospace `/name` — visibly not text the
+  user typed by hand.
+- **Specs linked**: `04-ux/09-interaction-patterns.md` (§8a.1, §8a.6),
+  `04-ux/08-component-spec.md` (§11.8), `08-meta/decisions-log.md` (D673)
+- **Acceptance**: C (send/UI), Localization, Quality
+- **Milestone**: M2
+- **Status**: Source-covered (`composer-trigger.test.ts`,
+  `composer-skill-token.test.mjs`); interactive menu behavior covered by
+  `pnpm test:e2e:composer-autocomplete` after `pnpm build:js`. Branch runs do
+  not replace post-integration E2E.
+
+#### E2E-WINDOW-quit-prompt-is-drawn-in-app: Quit and close questions use the app's own dialog
+
+- **Preconditions**: Windows/Linux build with no stored close behavior (`ask`)
+  for the close case, a live main window, and any state for the quit case.
+- **Steps**: 1) Close the window from the title bar while no close behavior is
+  stored. 2) Confirm the question is the app's own dialog — accent mark, title,
+  body, and cancel / close to tray / quit. 3) Dismiss it with Escape and
+  confirm the window stays open. 4) Trigger an explicit quit (application menu,
+  or Quit in the close question) and confirm the in-app confirmation, then
+  choose Cancel. 5) Quit for real.
+- **Expected**: Both questions are drawn by the renderer in the product's own
+  styling with localized copy; Escape and a backdrop click mean Cancel; focus
+  starts on Cancel, so Enter alone cannot quit. No native message box appears
+  while a live window can answer, and an answered Quit exits the app. A prompt
+  no window can answer falls back to the native dialog instead of hanging.
+- **Specs linked**: `03-runtime/01-ipc-protocol.md` (§13b),
+  `08-meta/decisions-log.md` (D674)
+- **Acceptance**: A (startup/lifecycle), Localization, Quality
+- **Milestone**: M2
+- **Status**: Source-covered (`close-behavior-prompt.test.mjs`). Interactive
+  run Draft; branch runs do not replace post-integration E2E.
+
 #### E2E-089: Composer model menu opens upward and switches model
 
 - **Preconditions**: Chat route active; provider configured with two reasoning
@@ -8797,6 +8846,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | E — Tools & permissions (capability level move) | E2E-CAPABILITY-move-across-levels |
 | F — Persistence (capability level move) | E2E-CAPABILITY-move-across-levels |
 | Quality (capability level move) | E2E-CAPABILITY-move-across-levels |
+| C / Quality — Skill summons are labelled in draft and transcript | E2E-COMPOSER-skill-summons-are-labelled |
+| A / Quality — Quit and close prompts are drawn in-app | E2E-WINDOW-quit-prompt-is-drawn-in-app |
 
 | Milestone | Scenarios |
 |---|---|

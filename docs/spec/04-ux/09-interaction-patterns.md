@@ -1212,13 +1212,21 @@ Project drag/drop follows these patterns:
 - ArrowUp/ArrowDown on the focused title moves the project one row and
   persists the same manual order without requiring a pointer
 
-## 8a. Composer autocomplete and clipboard files (D123–D125, D197, D209, D262, D362, D397, ADR 0131, ADR 0222)
+## 8a. Composer autocomplete and clipboard files (D123–D125, D197, D209, D262, D362, D397, D673, ADR 0131, ADR 0222)
 
 ### 8a.1 Triggers
 
-- `/` opens command mode only when it is the first character of the input
-  and the cursor is still inside that first token (no whitespace typed yet).
-  A space after the command name closes the menu; arguments are free text.
+- `/` opens command mode wherever a command or skill token can start — the
+  first character of the input, or straight after prose with no space at all,
+  so `继续/qn-novel-write` summons exactly like ` /cmd` does (D673). What the
+  slash sits *inside* decides instead: an address or a path keeps its slashes
+  as separators, so `https://…`, `C:\`, `//host`, and an `@path` token that
+  contains the `/` (file mode) stay plain text. A space after the command name
+  closes the menu; arguments are free text.
+- Menu contents still follow the trigger position (the full command list for
+  the first token, active Skills only for a later one), and the menu is
+  offered only once the source it would list has resolved: a widened trigger
+  must not float an empty panel over ordinary prose (D673).
 - `@` opens file mode when the token containing the cursor starts with `@`
   and the character before `@` is start-of-input, whitespace, or one of the
   pi delimiters (`"`, `'`, `=`). The query is the text between `@` and the
@@ -1363,6 +1371,26 @@ Project drag/drop follows these patterns:
   continuation, which keeps the menu open on the deeper query).
 - Focus stays in the textarea for the menu's whole lifecycle (input-retained
   overlay); the menu is never a focus trap and never steals the caret.
+
+### 8a.6 Skill tokens in the draft and in the transcript (D673)
+
+- A skill whose exact slash name sits in the draft is painted as one inline
+  token — a localized `技能` / `Skills` badge, the skill's own title, and the
+  exact `/name` — instead of plain text. The element's text content is exactly
+  the text it replaced, so the draft value, the send-time parse, and the model
+  prompt are unchanged by the styling; badge and title are generated CSS
+  content read from data attributes.
+- The longest skill whose name matches wins (`/qn-novel-write` over a shorter
+  `/qn-novel` prefix), and the match must end at whitespace or the end of the
+  draft: anything else is a longer word the send-time resolver would not treat
+  as a skill either. Which slashes count is the trigger's own rule, evaluated
+  once per draft on the string form, so a token styled in the input is also
+  invoked when the turn is sent and a summon needs no space in front of it. A
+  catalog that has not resolved yet, and a name no skill matches, stay plain
+  text.
+- The sent turn renders the same three parts in the transcript, with the
+  `/name` in muted monospace, so a summoned skill is never mistaken for text
+  the user typed by hand.
 
 ## 9. Scroll behavior
 

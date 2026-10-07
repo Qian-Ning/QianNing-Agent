@@ -2,6 +2,7 @@ import { type CSSProperties, lazy, type ReactNode, Suspense } from "react";
 import { ChatSurface } from "../../components/ChatSurface";
 import { ConversationTopbar } from "../../components/ConversationTopbar";
 import { ExtensionPromptHost } from "../../components/ExtensionPromptDialog";
+import { ClosePromptHost } from "../../components/ClosePromptDialog";
 import {
   IconNewSession,
   IconPanel,
@@ -318,6 +319,7 @@ export function AppShell() {
         <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
         <ToastHost />
         <ExtensionPromptHost />
+        <ClosePromptHost />
         {page === "settings" ? <UpdateBanner /> : null}
       </>
     );
