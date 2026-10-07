@@ -41,7 +41,8 @@ import {
 } from "../editor";
 import type { ComposerPrefill } from "../model";
 import { useComposerImagePreview, type ComposerImagePreviewController } from "./useComposerImagePreview";
-import { useComposerSkillCatalog } from "../../../../hooks/use-composer-skill-catalog";
+import { useComposerCommandCatalog } from "../../../../hooks/use-composer-command-catalog";
+import { commandKindBadgeKey } from "../command-labels";
 
 import { detachImageTokens, isImageReference } from "../image-attachments";
 
@@ -234,9 +235,9 @@ export function useComposerDraft({
   const imagePreview = useComposerImagePreview({ references: fileReferences, value, sessionId: referenceSessionId, editorRef: ref });
   // Skills the draft paints as styled tokens (D673). An unsettled or empty
   // catalog only means plain text, never a blocked composer.
-  const skillCatalog = useComposerSkillCatalog();
-  const skillCatalogRef = useRef(skillCatalog);
-  skillCatalogRef.current = skillCatalog;
+  const commandCatalog = useComposerCommandCatalog();
+  const commandCatalogRef = useRef(commandCatalog);
+  commandCatalogRef.current = commandCatalog;
   const removeChipByTokenRef = useRef<(token: string) => void>(() => {});
   const expandTextReferenceRef = useRef<(token: string) => void>(() => {});
   const pendingEditorCaretRef = useRef<number | null>(
@@ -265,12 +266,12 @@ export function useComposerDraft({
       (name) => t("chat.removeFileReference", { name }),
       (token) => removeChipByTokenRef.current(token),
       (token) => expandTextReferenceRef.current(token),
-      skillCatalogRef.current.byName,
-      t("chat.slashGroupSkills"),
+      commandCatalogRef.current.byName,
+      (kind) => t(commandKindBadgeKey(kind)),
     );
     editorValueRef.current = nextValue;
   };
-  const paintedSkillCatalogRef = useRef(skillCatalog);
+  const paintedCommandCatalogRef = useRef(commandCatalog);
 
   useLayoutEffect(() => {
     const element = ref.current;
@@ -286,15 +287,15 @@ export function useComposerDraft({
       setFileReferences(detached.references);
       return;
     }
-    // A late-arriving skill catalog repaints an unchanged draft so existing
+    // A late-arriving command catalog repaints an unchanged draft so existing
     // `/name` tokens pick up their styling; the caret rides through it.
-    const catalogChanged = paintedSkillCatalogRef.current !== skillCatalog;
+    const catalogChanged = paintedCommandCatalogRef.current !== commandCatalog;
     if (!catalogChanged && editorValueRef.current === value) return;
     const caretBeforeRepaint =
       catalogChanged && editorValueRef.current === value
         ? editorSelectionRange(element).start
         : null;
-    paintedSkillCatalogRef.current = skillCatalog;
+    paintedCommandCatalogRef.current = commandCatalog;
     paintCurrentDraft(element, value);
     const pendingCaret = pendingEditorCaretRef.current;
     if (pendingCaret !== null) {
@@ -304,7 +305,7 @@ export function useComposerDraft({
       setEditorCaret(element, Math.min(caretBeforeRepaint, value.length));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- callback closes over refs
-  }, [value, referenceByToken, skillCatalog]);
+  }, [value, referenceByToken, commandCatalog]);
 
   useEffect(() => {
     const handler = () => {

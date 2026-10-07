@@ -111,9 +111,10 @@
   flex: 0 0 auto;
 }
 
-/* Typed slash invocation rendered as a chip in the transcript (D123).
-   Skill invocations carry the user's whole typed body, so the chip wraps
-   like .message-user-text instead of truncating. */
+/* Typed slash invocation rendered as a chip in the transcript (D123). A
+   command the catalog cannot name — an expanded template body, or a name that
+   is no longer installed — keeps the plain chip and wraps like
+   .message-user-text instead of truncating. */
 .chat-command-chip {
   display: inline-block;
   max-width: 100%;
@@ -127,33 +128,52 @@
   font-size: var(--text-sm-plus, var(--text-md));
 }
 
-/* A sent skill invocation in the transcript (D673): badge, human title, and the
-   exact `/name` the turn carried, on one accent-tinted row. */
-.chat-skill-chip {
+/* A summoned command the catalog knows (D673, D675): kind badge, human title,
+   and the exact `/name` the turn carried, on one tinted row. Each kind carries
+   its own accent, so an app command never reads like a plugin one. */
+.chat-command-chip[data-kind] {
   display: inline-flex;
   max-width: 100%;
   align-items: center;
   gap: 6px;
   margin: 1px 0;
-  border: 1px solid color-mix(in oklab, var(--ds-accent) 32%, transparent);
+  border: 1px solid color-mix(in oklab, var(--chip-accent) 32%, transparent);
   border-radius: var(--radius-md);
   padding: 2px 8px 2px 3px;
-  background: color-mix(in oklab, var(--ds-accent) 12%, transparent);
+  background: color-mix(in oklab, var(--chip-accent) 12%, transparent);
   vertical-align: top;
+  white-space: nowrap;
+  --chip-accent: var(--ds-accent);
 }
 
-.chat-skill-badge {
+.chat-command-chip[data-kind="builtin"] {
+  --chip-accent: var(--ds-success);
+}
+
+.chat-command-chip[data-kind="plugin"] {
+  --chip-accent: var(--ds-purple);
+}
+
+.chat-command-chip[data-kind="extension"] {
+  --chip-accent: var(--ds-warning);
+}
+
+.chat-command-chip[data-kind="template"] {
+  --chip-accent: var(--ds-info);
+}
+
+.chat-command-badge {
   flex: 0 0 auto;
   border-radius: var(--radius-sm);
   padding: 0 5px;
-  background: var(--ds-accent);
+  background: var(--chip-accent);
   color: var(--ds-text-on-accent, var(--ds-bg-primary));
   font-family: var(--font-sans, inherit);
   font-size: var(--text-xs);
   letter-spacing: var(--tracking-wide);
 }
 
-.chat-skill-title {
+.chat-command-title {
   min-width: 0;
   overflow: hidden;
   color: var(--ds-text-primary);
@@ -162,7 +182,7 @@
   white-space: nowrap;
 }
 
-.chat-skill-name {
+.chat-command-name {
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -171,4 +191,32 @@
   font-size: var(--text-sm-plus, var(--text-md));
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The kind badge on a "/" menu row (D675): the same short label a summoned
+   command wears in the draft and in the transcript. */
+.composer-ac-kind {
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+  padding: 0 5px;
+  background: var(--row-accent, var(--ds-accent));
+  color: var(--ds-text-on-accent, var(--ds-bg-primary));
+  font-size: var(--text-3xs, var(--text-xs));
+  letter-spacing: var(--tracking-wide);
+}
+
+.composer-ac-kind-builtin {
+  --row-accent: var(--ds-success);
+}
+
+.composer-ac-kind-plugin {
+  --row-accent: var(--ds-purple);
+}
+
+.composer-ac-kind-extension {
+  --row-accent: var(--ds-warning);
+}
+
+.composer-ac-kind-template {
+  --row-accent: var(--ds-info);
 }

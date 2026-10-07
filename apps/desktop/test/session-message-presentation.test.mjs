@@ -39,16 +39,22 @@ function loadComponent(name, extras = {}) {
     "react-i18next": { useTranslation: () => ({ t }) },
     "../../../stores/app-store": { useAppStore },
     "../../../hooks/use-preview-target": { useOpenChatFileRef: () => () => {} },
-    "../../../hooks/use-composer-skill-catalog": {
-      // A skill mention paints its badge/title from this catalog; an empty one
-      // keeps the transcript label to the exact `/name` (D673).
-      useComposerSkillCatalog: () => ({
+    "../../../hooks/use-composer-command-catalog": {
+      // A command mention paints its badge/title from this catalog; an empty one
+      // keeps the transcript label to the exact `/name` (D673, D675).
+      useComposerCommandCatalog: () => ({
         byName: new Map(),
         byId: new Map(),
         loaded: true,
       }),
     },
     "../../../lib/chat-links": { splitChatText: () => [] },
+    "../composer/command-labels": {
+      builtinCommandCategoryKey: () => null,
+      builtinCommandTitleKey: () => null,
+      commandKindBadgeKey: (kind) => `chat.kind.${kind}`,
+      commandTitleRepeatsName: (name, title) => title === name || name.endsWith(`/${title}`),
+    },
     "../../../components/Markdown": { Markdown: ({ source: text }) => text },
     "../../../components/icons": new Proxy({}, { get: () => Icon }),
     "../../../components/ui": { TooltipButton },

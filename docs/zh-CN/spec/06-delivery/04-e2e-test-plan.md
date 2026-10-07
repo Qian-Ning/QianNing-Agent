@@ -828,11 +828,14 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
   文本完全一致，因此发送的提示词与对话记录来源都不受样式影响。草稿里被画成标记的那个
   斜杠，就是发送时解析器会调用的那个斜杠：整句里没有打过空格，技能同样被调用。已发送
   的那一轮显示技能徽标、人类可读标题和弱化等宽字体的 `/name`——明显不是用户手打的文字。
+- **预期（D675）**：召唤对每种命令都成立，各自显示类型徽标与自己的着色：`/compact`
+  这类应用命令显示本地化标题与分类，插件命令与扩展命令各有自己的徽标，`/` 菜单行的
+  标注方式相同。标题只重复命令名时只打印一次，展开后的模板正文保持普通可换行 chip。
 - **关联规格**：`04-ux/09-interaction-patterns.md`（§8a.1、§8a.6）、
-  `04-ux/08-component-spec.md`（§11.8）、`08-meta/decisions-log.md`（D673）
+  `04-ux/08-component-spec.md`（§11.8）、`08-meta/decisions-log.md`（D673、D675）
 - **验收**：C（发送/界面）、本地化、品质
 - **里程碑**：M2
-- **状态**：源码覆盖（`composer-trigger.test.ts`、`composer-skill-token.test.mjs`）；
+- **状态**：源码覆盖（`composer-trigger.test.ts`、`composer-command-token.test.mjs`）；
   交互式菜单行为由 `pnpm test:e2e:composer-autocomplete` 在 `pnpm build:js` 后覆盖。
   分支运行不替代合并后的 E2E。
 
