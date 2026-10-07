@@ -31,6 +31,14 @@ export function ClosePromptHost() {
     const unsubscribe = api.onQuitPrompt((next) => {
       if (!next || typeof next.requestId !== "string") return;
       if (next.kind !== "quit" && next.kind !== "close") return;
+      if (next.dismiss) {
+        // The main process gave up waiting and the native dialog asks instead
+        // (D674): drop this card so it cannot linger over a settled question.
+        if (pendingRef.current?.requestId !== next.requestId) return;
+        pendingRef.current = null;
+        setPrompt(null);
+        return;
+      }
       pendingRef.current = next;
       setPrompt(next);
     });

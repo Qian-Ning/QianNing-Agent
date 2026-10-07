@@ -56,8 +56,33 @@ test("the prompt can never vanish when the renderer cannot answer", () => {
   // A wedged renderer resolves to the native fallback instead of hanging quit.
   assert.match(closeBehaviorSource, /const QUIT_PROMPT_TIMEOUT_MS = 20_000;/);
   assert.match(ask, /setTimeout\(\(\) => \{[\s\S]*?resolve\(null\);/);
+  // Giving up also withdraws the card it asked for: otherwise the native dialog
+  // appears over an in-app prompt whose buttons can no longer decide anything.
+  const timeout = bodyOf(ask, "const timer = setTimeout(");
+  assert.match(
+    timeout,
+    /webContents\.send\(IPC\.event\.appQuitPrompt, \{\s*\n\s*requestId,\s*\n\s*kind,\s*\n\s*dismiss: true,\s*\n\s*\}\)/,
+  );
+  assert.ok(
+    timeout.indexOf("dismiss: true") < timeout.indexOf("resolve(null)"),
+    "the dismiss signal must leave before the fallback resolves",
+  );
   // A failed send resolves too, so the promise state is the only source of truth.
   assert.match(ask, /catch \{[\s\S]*?resolve\(null\);/);
+});
+
+test("the prompt host drops a withdrawn prompt", () => {
+  // D674: a dismissed request must clear the card instead of leaving its buttons
+  // answering a settled request. The host keys the check to the same request id.
+  assert.match(
+    dialogSource,
+    /if \(next\.dismiss\) \{[\s\S]*?pendingRef\.current\?\.requestId !== next\.requestId[\s\S]*?setPrompt\(null\);/,
+  );
+  assert.match(
+    apiSource,
+    /dismiss\?: boolean/,
+    "the event payload type must carry the dismissal flag",
+  );
 });
 
 test("only a pending request id can settle a prompt", () => {

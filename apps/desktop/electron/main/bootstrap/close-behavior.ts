@@ -89,6 +89,18 @@ export function createCloseBehaviorRuntime({
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         pendingPrompts.delete(requestId);
+        // The native dialog takes the question over from here, so the card in
+        // the renderer has to go: its buttons would answer a request nobody is
+        // waiting on any more, and that reads as a dead app.
+        try {
+          window.webContents.send(IPC.event.appQuitPrompt, {
+            requestId,
+            kind,
+            dismiss: true,
+          });
+        } catch {
+          // The window died with the prompt on screen; nothing is left to clear.
+        }
         resolve(null);
       }, QUIT_PROMPT_TIMEOUT_MS);
       pendingPrompts.set(requestId, (choice) => {

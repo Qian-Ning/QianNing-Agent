@@ -1725,14 +1725,27 @@ export const api = {
   /**
    * The main process asks for a quit / close choice it wants drawn in-app
    * (D674): `kind` is `quit` for a quit confirmation, `close` for the
-   * window-close behavior. Answer through `answerQuitPrompt`.
+   * window-close behavior. Answer through `answerQuitPrompt`. A payload with
+   * `dismiss: true` withdraws a prompt the main process stopped waiting for
+   * (its timeout handed the question to the native dialog), so the host must
+   * clear it instead of leaving buttons that can no longer decide anything.
    */
   onQuitPrompt: (
-    listener: (prompt: { requestId: string; kind: "quit" | "close" }) => void,
+    listener: (prompt: {
+      requestId: string;
+      kind: "quit" | "close";
+      dismiss?: boolean;
+    }) => void,
   ) => {
     if (!window.piDesktop?.on) return () => undefined;
     return window.piDesktop.on(IPC.event.appQuitPrompt, (payload) =>
-      listener((payload ?? {}) as { requestId: string; kind: "quit" | "close" }),
+      listener(
+        (payload ?? {}) as {
+          requestId: string;
+          kind: "quit" | "close";
+          dismiss?: boolean;
+        },
+      ),
     );
   },
   onSettingsChanged: (listener: (patch: Record<string, unknown>) => void) => {

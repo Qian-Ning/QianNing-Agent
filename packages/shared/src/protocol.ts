@@ -426,6 +426,10 @@ export const IPC = {
      * Show the in-app quit / close prompt (D674): `{ requestId, kind }` with
      * kind `quit` (confirm exiting) or `close` (window close behavior). The
      * renderer renders it in the app's own dialog, not a native message box.
+     * The same channel withdraws it — `{ requestId, kind, dismiss: true }` —
+     * when the main process stops waiting (its 20-second timeout) and hands the
+     * question to the native dialog, so no card is left answering a settled
+     * request.
      */
     appQuitPrompt: "pi-desktop/app/event/quitPrompt",
     /**
