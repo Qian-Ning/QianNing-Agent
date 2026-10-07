@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
       {
+        version: "0.17.2",
+        date: "2026-10-07",
+        highlights: [
+          "Une compétence invoquée au milieu d'une phrase reste une compétence. `继续/qn-novel-write` — sans espace avant la barre oblique — ressemblait à du texte ordinaire, le menu de commandes ne s'ouvrait pas et le tour partait comme de la prose, parce que le menu, le brouillon et l'analyse à l'envoi décidaient chacun de ce qui compte comme commande. Une seule règle répond désormais à cette question partout : une barre oblique n'importe où dans le brouillon est une commande, la ponctuation chinoise et pleine largeur termine le mot précédent, une URL (`https://…`), un chemin de lecteur Windows et un `@path` restent du texte ordinaire, et un nom de compétence plus long l'emporte toujours sur un préfixe plus court. Une compétence invoquée est dessinée dans le brouillon comme son propre jeton — badge localisé, titre de la compétence, le `/nom` exact — et étiquetée de la même façon dans le fil une fois le tour envoyé.",
+          "Quitter l'application, et la question posée à la fermeture d'une fenêtre, n'ouvrent plus une boîte de dialogue native qui ne ressemble en rien au produit. Les deux questions sont désormais posées à la fenêtre active et dessinées avec la surface de dialogue du produit — carte arrondie, bouton de confirmation à la couleur de la marque, annuler par défaut — et la boîte native reste le repli dès qu'aucune fenêtre visible ne peut répondre : aucune fenêtre, contenu détruit, sonde automatisée, fenêtre masquée ou réduite, envoi en échec, ou vingt secondes de silence ; la carte intégrée est alors retirée pour qu'une question déjà prise en charge ne puisse pas être validée par un clic vide. Seule la fenêtre principale peut résoudre une requête, si bien qu'une réponse périmée ne peut pas quitter l'application.",
+          "Une session qui n'a délégué qu'une partie d'une tâche sérielle ne se met plus en attente. L'attente était déjà non bloquante, mais l'agent se comportait comme si elle ne l'était pas : il s'arrêtait jusqu'au rapport du délégué, si bien qu'un sous-agent long paraissait une session bloquée. Les règles de délégation exigent maintenant qu'il continue de faire avancer le reste de la demande, qu'il n'attende que là où son étape suivante dépend vraiment de ce rapport, et qu'il consulte un sous-agent via la liste des tâches au lieu de l'attendre.",
+        ],
+      },
+      {
         version: "0.17.1",
         date: "2026-10-06",
         highlights: [
