@@ -1,7 +1,7 @@
 import {
   fileReferenceLabel,
   formatFileInsert,
-  isComposerCommandBoundary,
+  isComposerCommandSlash,
 } from "@pi-desktop/shared";
 import type { ComposerFileReference } from "./model";
 
@@ -300,12 +300,14 @@ function skillTokenAt(
   chars: readonly string[],
   slashIndex: number,
   skillsByName: ReadonlyMap<string, ComposerSkillTokenTarget>,
+  commandSlashes: ReadonlySet<number>,
 ): { entry: ComposerSkillTokenTarget; length: number } | null {
   if (chars[slashIndex] !== "/") return null;
-  const previous = slashIndex > 0 ? chars[slashIndex - 1]! : "";
-  // Same boundary rule as the trigger detector: start of draft, whitespace, or
-  // CJK. Anything else is mid-word ("a/b") and stays plain text.
-  if (!isComposerCommandBoundary(slashIndex > 0 ? previous : undefined)) return null;
+  // The rule itself lives in @pi-desktop/shared (D673) and is evaluated once per
+  // draft against the string form, because this loop walks code points while the
+  // rule reads indices: a styled token is therefore always one the send-time
+  // resolver invokes too, and a summon needs no space before it.
+  if (!commandSlashes.has(slashIndex)) return null;
   let match: { entry: ComposerSkillTokenTarget; length: number } | null = null;
   for (const [name, entry] of skillsByName) {
     if (!name || name.length <= (match?.length ?? 0)) continue;
@@ -377,6 +379,25 @@ function buildChipElement(
 }
 
 /**
+ * Which slashes of the draft are commands, decided once by the shared rule
+ * (D673) before the paint loop runs. The loop walks code points while the rule
+ * reads string indices, so the offset is tracked as it advances.
+ */
+function commandSlashIndices(
+  chars: readonly string[],
+  value: string,
+): Set<number> {
+  const indices = new Set<number>();
+  let offset = 0;
+  for (let index = 0; index < chars.length; index += 1) {
+    const char = chars[index]!;
+    if (char === "/" && isComposerCommandSlash(value, offset)) indices.add(index);
+    offset += char.length;
+  }
+  return indices;
+}
+
+/**
  * Paint the contenteditable from the draft string.
  *
  * `skillsByName` and `skillBadge` are optional: without them the draft paints
@@ -395,6 +416,7 @@ export function paintEditorValue(
 ): void {
   el.replaceChildren();
   const chars = Array.from(value);
+  const commandSlashes = commandSlashIndices(chars, value);
   let textBuffer = "";
   const flush = () => {
     if (textBuffer) {
@@ -425,7 +447,7 @@ export function paintEditorValue(
       // example a Nerd Font glyph pasted from a terminal); keep it verbatim.
     }
     if (char === "/" && skillsByName.size > 0) {
-      const match = skillTokenAt(chars, index, skillsByName);
+      const match = skillTokenAt(chars, index, skillsByName, commandSlashes);
       if (match) {
         flush();
         el.appendChild(buildSkillTokenElement(match.entry, skillBadge));

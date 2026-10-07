@@ -1953,13 +1953,16 @@ identify the platform validation still needed.
   immediately after it with no space: `继续/qn-novel-write`. 2) Confirm the
   skill menu opens and accepting the row completes the name. 3) Confirm the
   draft paints one inline token — a localized Skills badge, the skill title,
-  and the exact `/name` — while `a/b` and a URL stay plain text. 4) Send the
-  turn and read the user bubble.
+  and the exact `/name` — while a URL, a drive path, an `@path` and a name no
+  skill matches stay plain text. 4) Send the turn, confirm the skill actually
+  runs, and read the user bubble.
 - **Expected**: The menu opens on the CJK boundary with no space typed. The
   draft token holds exactly the text it replaced, so the sent prompt and the
-  transcript source are unchanged by the styling. The sent turn shows a Skills
-  badge, the human title, and the muted monospace `/name` — visibly not text
-  the user typed by hand.
+  transcript source are unchanged by the styling. The same slash the draft
+  styled is the slash the send-time resolver invokes, so the summoned skill runs
+  without a space having been typed anywhere. The sent turn shows a Skills
+  badge, the human title, and the muted monospace `/name` — visibly not text the
+  user typed by hand.
 - **Specs linked**: `04-ux/09-interaction-patterns.md` (§8a.1, §8a.6),
   `04-ux/08-component-spec.md` (§11.8), `08-meta/decisions-log.md` (D673)
 - **Acceptance**: C (send/UI), Localization, Quality

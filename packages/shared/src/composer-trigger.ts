@@ -122,6 +122,28 @@ export function isComposerCommandBoundary(ch: string | undefined): boolean {
   return WHITESPACE.has(ch) || isCjkBoundary(ch);
 }
 
+/**
+ * Whether the slash at `index` may open a command rather than being a path or
+ * address separator (D673). The character right before it and the token it
+ * lives in decide, so a summon typed after a sentence needs no space: Chinese
+ * prose has none, and demanding one just to style a command is friction. The
+ * menu trigger, the draft painter, and the send-time resolver all read this one
+ * rule, so a token styled in the input is always a command that would also
+ * resolve when the turn is sent.
+ */
+export function isComposerCommandSlash(value: string, index: number): boolean {
+  if (value[index] !== "/") return false;
+  const previous = index > 0 ? value[index - 1] : undefined;
+  if (previous !== undefined && SLASH_BLOCKING_PREFIX.has(previous)) return false;
+  let tokenStart = index;
+  while (tokenStart > 0 && !WHITESPACE.has(value[tokenStart - 1]!)) tokenStart -= 1;
+  const token = value.slice(tokenStart, index);
+  // An `@path` owns its slashes as separators — the same precedence the trigger
+  // gives file mode — so a directory named like a Skill is not a summon.
+  if (token.startsWith("@")) return false;
+  return !ADDRESS_PREFIX.test(token);
+}
+
 /** Detect the active autocomplete trigger for a draft + cursor, if any. */
 export function detectTrigger(
   value: string,
@@ -180,14 +202,7 @@ export function detectTrigger(
   const slashIndex = region.lastIndexOf("/");
   if (slashIndex !== -1) {
     const absolute = regionStart + slashIndex;
-    const previous = absolute > 0 ? value[absolute - 1] : undefined;
-    const prefix = value.slice(regionStart, absolute);
-    if (
-      !SLASH_BLOCKING_PREFIX.has(previous ?? "") &&
-      !ADDRESS_PREFIX.test(prefix)
-    ) {
-      slashStart = absolute;
-    }
+    if (isComposerCommandSlash(value, absolute)) slashStart = absolute;
   }
   // A command-consuming IME types "、" where "/" is meant (D405). Mid-draft the
   // mark is only a trigger while it is the last thing typed, so prose after a
@@ -219,17 +234,36 @@ export function detectTrigger(
 
 export type SkillMention = { start: number; end: number; id: string };
 
-/** Resolve complete slash tokens against the active Skill catalog at send time. */
+/**
+ * Resolve complete slash tokens against the active Skill catalog at send time
+ * (D673). A summon is a slash that may open a command followed by a known Skill
+ * name, and it counts wherever it sits: forcing a space before the slash left
+ * `继续/qn-novel-write` looking right in the input while the sent turn invoked
+ * nothing at all. Names resolve longest-first so `/qn-novel-write` never
+ * answers for a longer word, and an address keeps its slashes.
+ */
 export function findSkillMentions(
   content: string,
   skillIds: ReadonlyMap<string, string>,
 ): SkillMention[] {
   const mentions: SkillMention[] = [];
-  for (const match of content.matchAll(/(^|\s)\/([^\s]+)/g)) {
-    const id = skillIds.get(match[2]);
-    if (!id) continue;
-    const start = match.index + match[1].length;
-    mentions.push({ start, end: start + match[2].length + 1, id });
+  const names = [...skillIds.keys()]
+    .filter((name) => name.length > 0)
+    .sort((left, right) => right.length - left.length);
+  let slash = content.indexOf("/");
+  while (slash !== -1) {
+    if (isComposerCommandSlash(content, slash)) {
+      const name = names.find((candidate) => {
+        if (!content.startsWith(candidate, slash + 1)) return false;
+        const next = content[slash + candidate.length + 1];
+        return next === undefined || WHITESPACE.has(next);
+      });
+      const id = name === undefined ? undefined : skillIds.get(name);
+      if (name !== undefined && id !== undefined) {
+        mentions.push({ start: slash, end: slash + name.length + 1, id });
+      }
+    }
+    slash = content.indexOf("/", slash + 1);
   }
   return mentions;
 }

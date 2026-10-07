@@ -8025,11 +8025,18 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   space, so a skill typed the way Chinese is written — `继续/qn-novel-write`,
   no space — never offered its menu, and the menu that did open for a later
   token could be invisible because the command source had not resolved yet.
-  D673 amends D123/D125/D397: the token boundary is now start-of-draft,
-  whitespace, a CJK ideograph, or full-width punctuation; an `@path` token
-  that contains the `/` keeps file mode; and the menu is offered only once the
-  source it would list has settled, so a widened trigger cannot float an empty
-  menu over prose.
+  D673 amends D123/D125/D397: a slash opens a command wherever it sits, with no
+  space and no line start required, and only what it sits inside decides — an
+  address (`https://`, `C:\`, `//host`) and an `@path` token keep their slashes
+  as separators, so `继续/qn-novel-write` summons like ` /cmd`. The menu is
+  offered only once the source it would list has settled, so a widened trigger
+  cannot float an empty panel over prose.
+- The trigger, the draft painter, and the send-time resolver read one rule
+  (`isComposerCommandSlash`). Before that they disagreed, and the disagreement
+  was the bug a real-machine pass caught: a mid-sentence `/name` opened the menu
+  and painted as a token, while the sent turn invoked nothing, because the
+  resolver still required a space or the start of the message. Styling and
+  invocation have to be the same decision.
 - A skill already named in the draft is drawn as one inline token — a
   localized `技能` / `Skills` badge, the skill's own title, and the exact
   `/name` — instead of plain text, and a sent turn shows the same three parts

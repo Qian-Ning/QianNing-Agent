@@ -1216,13 +1216,13 @@ Project drag/drop follows these patterns:
 
 ### 8a.1 Triggers
 
-- `/` opens command mode wherever a command or skill token can start: the
-  first character of the input, after whitespace or a line break, or after a
-  CJK ideograph or full-width punctuation, so `继续/qn-novel-write` opens on
-  the skill without a space first (D673). Everything else is unchanged — a `/`
-  inside a word (`a/b`), a Windows drive (`C:\`), or a URL (`https://…`) stays
-  plain text, and an `@path` token that contains the `/` keeps file mode. A
-  space after the command name closes the menu; arguments are free text.
+- `/` opens command mode wherever a command or skill token can start — the
+  first character of the input, or straight after prose with no space at all,
+  so `继续/qn-novel-write` summons exactly like ` /cmd` does (D673). What the
+  slash sits *inside* decides instead: an address or a path keeps its slashes
+  as separators, so `https://…`, `C:\`, `//host`, and an `@path` token that
+  contains the `/` (file mode) stay plain text. A space after the command name
+  closes the menu; arguments are free text.
 - Menu contents still follow the trigger position (the full command list for
   the first token, active Skills only for a later one), and the menu is
   offered only once the source it would list has resolved: a widened trigger
@@ -1383,8 +1383,11 @@ Project drag/drop follows these patterns:
 - The longest skill whose name matches wins (`/qn-novel-write` over a shorter
   `/qn-novel` prefix), and the match must end at whitespace or the end of the
   draft: anything else is a longer word the send-time resolver would not treat
-  as a skill either. A catalog that has not resolved yet, and a name no skill
-  matches, stay plain text.
+  as a skill either. Which slashes count is the trigger's own rule, evaluated
+  once per draft on the string form, so a token styled in the input is also
+  invoked when the turn is sent and a summon needs no space in front of it. A
+  catalog that has not resolved yet, and a name no skill matches, stay plain
+  text.
 - The sent turn renders the same three parts in the transcript, with the
   `/name` in muted monospace, so a summoned skill is never mistaken for text
   the user typed by hand.

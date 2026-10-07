@@ -64,8 +64,12 @@ test("a painted skill ends at the boundary the trigger detector uses", () => {
     editorSource,
     /if \(next !== undefined && !\/\\s\/\.test\(next\)\) continue;/,
   );
-  // The same boundary rule as the composer trigger: mid-word `a/b` stays text.
-  assert.match(editorSource, /isComposerCommandBoundary\(slashIndex > 0 \? previous : undefined\)/);
+  // The shared rule decides which slashes are commands (D673), evaluated once
+  // per draft: no space is needed before a summon, an address keeps its slashes,
+  // and the painter cannot drift from the send-time resolver.
+  assert.match(editorSource, /const commandSlashes = commandSlashIndices\(chars, value\);/);
+  assert.match(editorSource, /if \(!commandSlashes\.has\(slashIndex\)\) return null;/);
+  assert.match(editorSource, /isComposerCommandSlash\(value, offset\)/);
 });
 
 test("the skill badge is the localized one, never a literal", () => {

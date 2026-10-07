@@ -3,8 +3,10 @@ import {
   applyCompletion,
   detectTrigger,
   fileReferenceLabel,
+  findSkillMentions,
   formatCommandInsert,
   formatFileInsert,
+  isComposerCommandSlash,
   normalizeLargePasteThreshold,
   restoreInlineComposerFileReferenceTokens,
   rewriteIdeographicCommaTrigger,
@@ -324,5 +326,75 @@ describe("compact file references", () => {
     expect(normalizeLargePasteThreshold(0)).toBe(600);
     expect(normalizeLargePasteThreshold(1_000_001)).toBe(600);
     expect(normalizeLargePasteThreshold(601)).toBe(601);
+  });
+});
+
+describe("isComposerCommandSlash", () => {
+  it("accepts a summon with no space in front of it", () => {
+    expect(isComposerCommandSlash("/cmd", 0)).toBe(true);
+    expect(isComposerCommandSlash("hi /cmd", 3)).toBe(true);
+    expect(isComposerCommandSlash("继续/qn-novel-write", 2)).toBe(true);
+    expect(isComposerCommandSlash("写吧/qn-novel-write", 2)).toBe(true);
+    expect(isComposerCommandSlash("abc/qn-novel-write", 3)).toBe(true);
+    expect(isComposerCommandSlash("、/cmd", 1)).toBe(true);
+  });
+
+  it("never reads a slash of an address or a path as a command", () => {
+    expect(isComposerCommandSlash("https://host/x", 6)).toBe(false);
+    expect(isComposerCommandSlash("https://host/x", 5)).toBe(false);
+    expect(isComposerCommandSlash("C:/Users/x", 2)).toBe(false);
+    expect(isComposerCommandSlash("//host/x", 1)).toBe(false);
+    expect(isComposerCommandSlash("a\\b/x", 3)).toBe(false);
+    // An @reference owns its slashes: a directory named like a Skill is a path.
+    expect(isComposerCommandSlash("@src/qn-novel-write", 4)).toBe(false);
+  });
+
+  it("only answers for the index it was given", () => {
+    expect(isComposerCommandSlash("a/b", 2)).toBe(false);
+    expect(isComposerCommandSlash("a/b", 1)).toBe(true);
+  });
+});
+
+describe("findSkillMentions", () => {
+  const skills = new Map([
+    ["qn-novel-write", "skill-write"],
+    ["qn-novel", "skill-novel"],
+    ["ai", "skill-ai"],
+  ]);
+
+  it("resolves a summon typed straight after prose, with no space", () => {
+    expect(findSkillMentions("继续/qn-novel-write", skills)).toEqual([
+      { start: 2, end: 17, id: "skill-write" },
+    ]);
+    expect(findSkillMentions("写吧/qn-novel-write 第7章", skills)).toEqual([
+      { start: 2, end: 17, id: "skill-write" },
+    ]);
+  });
+
+  it("prefers the longest name and ignores unknown ones", () => {
+    expect(findSkillMentions("/qn-novel-write", skills)).toEqual([
+      { start: 0, end: 15, id: "skill-write" },
+    ]);
+    expect(findSkillMentions("/qn-novel", skills)).toEqual([
+      { start: 0, end: 9, id: "skill-novel" },
+    ]);
+    expect(findSkillMentions("/nope", skills)).toEqual([]);
+    // A longer word is not a summon, however much of a name it starts with.
+    expect(findSkillMentions("/qn-novel-writes", skills)).toEqual([]);
+    expect(findSkillMentions("/ai2", skills)).toEqual([]);
+  });
+
+  it("leaves an address, a drive path and an @reference alone", () => {
+    expect(findSkillMentions("https://host/ai", skills)).toEqual([]);
+    expect(findSkillMentions("C:/ai", skills)).toEqual([]);
+    expect(findSkillMentions("@src/ai", skills)).toEqual([]);
+  });
+
+  it("finds every summon in one message", () => {
+    const mentions = findSkillMentions("先/ai 再/qn-novel-write", skills);
+    expect(mentions.map((mention) => mention.id)).toEqual([
+      "skill-ai",
+      "skill-write",
+    ]);
   });
 });
