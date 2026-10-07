@@ -351,6 +351,51 @@
   color: var(--ds-text-primary);
 }
 
+/* A summoned skill inside the draft (D673). The element holds exactly the text
+   it replaces, so the draft string is untouched: the badge and the skill title
+   are generated content read from data attributes, and the accent fill is what
+   tells the writer this token was picked, not typed. */
+.composer-skill-token {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+  margin: 0 1px;
+  border: 1px solid color-mix(in oklab, var(--ds-accent) 34%, transparent);
+  border-radius: var(--radius-md);
+  padding: 0 6px 0 3px;
+  background: color-mix(in oklab, var(--ds-accent) 12%, transparent);
+  color: var(--ds-text-primary);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact);
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+.composer-skill-token::before {
+  content: attr(data-badge);
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+  padding: 0 4px;
+  background: var(--ds-accent);
+  color: var(--ds-text-on-accent, var(--ds-bg-primary));
+  font-family: var(--font-sans, inherit);
+  font-size: var(--text-3xs);
+  letter-spacing: var(--tracking-wide);
+}
+
+.composer-skill-token::after {
+  content: attr(data-skill-title);
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ds-text-secondary);
+  font-family: var(--font-sans, inherit);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .composer-input::placeholder {
   /* Keep the native value for assistive technology; the visible copy is the
      keyed span above so text changes can fade instead of flashing. */

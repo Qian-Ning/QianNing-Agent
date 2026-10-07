@@ -1907,6 +1907,20 @@ macOS, where there is no close behavior to configure. Setting a behavior does
 not touch the tray icon: D216 (ADR 0078) creates one at startup on every
 platform, and minimize-to-tray needs it whichever close behavior is stored.
 
+First-close prompting and explicit quit both ask their question through the
+renderer (D674). Main sends `app/event/quitPrompt { requestId, kind }` — `kind`
+is `quit` to confirm exiting or `close` to pick the close behavior — and waits
+for `app/quitPrompt/answer { requestId, choice }` with `choice` `cancel`,
+`tray`, or `quit`. Only the current main window may answer, the choice is a
+closed set, and a request id Main is no longer waiting on is dropped, so a
+stale or forged answer cannot quit the app. Both paths fall back to the native
+`dialog.showMessageBox` when no live window can answer — no window, destroyed
+web contents, an automated probe (`PI_DESKTOP_BOOT_PROBE`,
+`PI_DESKTOP_SUPERVISION_PROBE`, `PI_DESKTOP_CAPTURE`), a hidden or minimized
+window the user cannot see, a send that throws, or a 20-second wait — so the
+question is never lost and a quit never hangs on a wedged renderer. Copy reuses
+the `tray.*` and `common.cancel` catalogs the native dialog used.
+
 Maximize/unmaximize changes also emit
 `window/event/maximized`. Unknown actions fail. These Electron-only channels
 do not cross into host-core and do not change the host RPC protocol version.

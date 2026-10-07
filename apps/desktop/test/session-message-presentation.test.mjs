@@ -39,6 +39,15 @@ function loadComponent(name, extras = {}) {
     "react-i18next": { useTranslation: () => ({ t }) },
     "../../../stores/app-store": { useAppStore },
     "../../../hooks/use-preview-target": { useOpenChatFileRef: () => () => {} },
+    "../../../hooks/use-composer-skill-catalog": {
+      // A skill mention paints its badge/title from this catalog; an empty one
+      // keeps the transcript label to the exact `/name` (D673).
+      useComposerSkillCatalog: () => ({
+        byName: new Map(),
+        byId: new Map(),
+        loaded: true,
+      }),
+    },
     "../../../lib/chat-links": { splitChatText: () => [] },
     "../../../components/Markdown": { Markdown: ({ source: text }) => text },
     "../../../components/icons": new Proxy({}, { get: () => Icon }),

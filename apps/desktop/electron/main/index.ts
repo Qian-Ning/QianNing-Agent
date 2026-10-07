@@ -851,6 +851,12 @@ function registerIpc() {
     getSidecar,
     getAgentHostBridge: () => mainState.agentHostBridge,
     getBackendRouter: () => startupState.backendRouter,
+    // The in-app quit / close prompt the renderer draws answers back through
+    // this channel (D674); a null runtime drops the answer, which leaves the
+    // native fallback in charge.
+    answerQuitPrompt: (requestId, choice) => {
+      closeBehaviorRuntime?.answerQuitPrompt(requestId, choice);
+    },
     getNotificationViewingSessionId: () => mainState.notificationViewingSessionId,
     setNotificationViewingSessionId: (sessionId: string | null) => {
       mainState.notificationViewingSessionId = sessionId;

@@ -3174,7 +3174,7 @@ model picker and a reasoning-level picker (D629).
   There are no visual previews in MVP.
 - No voice input
 
-### 11.8 Slash commands, @ file references, and clipboard files (D123–D125, D197, D209, D262, D362, D397, ADR 0024, ADR 0059, ADR 0070, ADR 0131, ADR 0221, ADR 0222)
+### 11.8 Slash commands, @ file references, and clipboard files (D123–D125, D197, D209, D262, D362, D397, D673, ADR 0024, ADR 0059, ADR 0070, ADR 0131, ADR 0221, ADR 0222)
 
 The composer owns an inline autocomplete menu — one component serving two
 modes. Focus never leaves the textarea (D125).
@@ -3197,16 +3197,27 @@ Anatomy:
   surface recipe as the model menu (opaque elevated background, dialog
   shadow, subtle hairline, `--radius-lg`); max-height caps with internal
   scroll and `scrollIntoView(nearest)` keyboard follow.
-- Slash mode (`/` typed at position 0, cursor inside the first token, no
-  whitespace yet): the placeholder teaches `Type / for commands · @ for files`
+- Slash mode: the trigger is any position a command or skill token can start —
+  the first token, or after whitespace, a line break, a CJK ideograph, or
+  full-width punctuation (D673) — and the menu is offered only once the source
+  it would list has resolved, so a widened trigger never floats an empty panel
+  over prose. The placeholder teaches `Type / for commands · @ for files`
   (localized in zh-CN), and groups appear in order — prompt templates (name +
   `argument-hint` ghost text + description, project source before
   user-global), app commands (builtin slash aliases), plugin commands.
   The core aliases remain `/new`, `/compact`, `/agent-mode`, `/plan-mode`, and
   `/goal-mode`; matched characters highlight in accent.
-- A whitespace-delimited `/` later in the draft offers active Skills only.
-  Completion replaces only the token under the cursor, so several Skills and
-  ordinary text can coexist in one prompt.
+- A `/` later in the draft offers active Skills only. Completion replaces only
+  the token under the cursor, so several Skills and ordinary text can coexist
+  in one prompt. A skill named in the draft renders as one inline token — a
+  localized Skills badge (`技能`, `chat.slashGroupSkills`), the skill's title,
+  and the exact `/name` — whose text content is exactly the text it replaced,
+  so the draft value and the send-time parse are unchanged by the styling
+  (D673). A name no skill matches, or a catalog that has not resolved yet,
+  stays plain text.
+- The sent turn labels the skill the same way: a Skills badge, the human
+  title, and the muted monospace `/name`, so a summoned skill is never
+  mistaken for text the user typed by hand (D673).
 - Command descriptions use the space left after the slash name and optional
   title/argument hints. A long description truncates before it can squeeze a
   short command name to an ellipsis, including in narrow composers. Names and

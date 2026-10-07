@@ -1395,6 +1395,15 @@ export const api = {
    * menu item, so the answer may never arrive — callers must not depend on it.
    */
   quitApp: () => invoke<{ ok: boolean }>(IPC.invoke.appQuit),
+  /**
+   * Answer the in-app quit / close prompt the main process raised (D674),
+   * with the request id received on `onQuitPrompt`.
+   */
+  answerQuitPrompt: (
+    requestId: string,
+    choice: "cancel" | "tray" | "quit",
+  ) =>
+    invoke<{ ok: boolean }>(IPC.invoke.appQuitPromptAnswer, { requestId, choice }),
   /** Toggles the devtools console; rejects unless developer mode is on. */
   toggleDevTools: (open?: boolean) =>
     invoke<{ open: boolean }>(IPC.invoke.devtoolsToggle, { open }),
@@ -1711,6 +1720,19 @@ export const api = {
     if (!window.piDesktop?.on) return () => undefined;
     return window.piDesktop.on(IPC.event.pluginChanged, (payload) =>
       listener((payload ?? {}) as { reason?: string; pluginId?: string }),
+    );
+  },
+  /**
+   * The main process asks for a quit / close choice it wants drawn in-app
+   * (D674): `kind` is `quit` for a quit confirmation, `close` for the
+   * window-close behavior. Answer through `answerQuitPrompt`.
+   */
+  onQuitPrompt: (
+    listener: (prompt: { requestId: string; kind: "quit" | "close" }) => void,
+  ) => {
+    if (!window.piDesktop?.on) return () => undefined;
+    return window.piDesktop.on(IPC.event.appQuitPrompt, (payload) =>
+      listener((payload ?? {}) as { requestId: string; kind: "quit" | "close" }),
     );
   },
   onSettingsChanged: (listener: (patch: Record<string, unknown>) => void) => {

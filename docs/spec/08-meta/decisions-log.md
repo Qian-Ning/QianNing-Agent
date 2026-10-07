@@ -8018,3 +8018,50 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   absent when the session has no subagent definitions.
 - `03-runtime/02-agent-runtime.md` §5f records the steering and §7 lists
   `## Delegation` among the named tail sections; the zh-CN mirror carries both.
+
+## 2026-10-07 — A summoned skill is labelled everywhere it appears (D673)
+
+- The composer's `/` menu opened only at the start of the input or after a
+  space, so a skill typed the way Chinese is written — `继续/qn-novel-write`,
+  no space — never offered its menu, and the menu that did open for a later
+  token could be invisible because the command source had not resolved yet.
+  D673 amends D123/D125/D397: the token boundary is now start-of-draft,
+  whitespace, a CJK ideograph, or full-width punctuation; an `@path` token
+  that contains the `/` keeps file mode; and the menu is offered only once the
+  source it would list has settled, so a widened trigger cannot float an empty
+  menu over prose.
+- A skill already named in the draft is drawn as one inline token — a
+  localized `技能` / `Skills` badge, the skill's own title, and the exact
+  `/name` — instead of plain text, and a sent turn shows the same three parts
+  in the transcript, where a summoned skill previously looked identical to
+  text the user had typed by hand. The token element's text content is exactly
+  the text it replaced, so the draft value, the send-time parse, and the
+  prompt are unchanged by the styling; badge and title are generated content
+  read from data attributes, and a name no skill matches stays plain text.
+- The trigger grammar lives in `packages/shared/src/composer-trigger.ts` with
+  its own tests; the catalog, the painting, and the transcript chip are
+  renderer-side. No IPC channel, persisted format, or prompt change.
+
+## 2026-10-07 — Quit and close questions are drawn in-app (D674)
+
+- Quitting the app and choosing what the window's close button does both
+  raised a native message box, which looked like nothing else in the product.
+  Both questions now ask the live renderer first over `app/event/quitPrompt`
+  (`{ requestId, kind }`, `kind` = `quit` | `close`) and are answered over
+  `app/quitPrompt/answer`; the renderer draws them with the app's own dialog
+  surface — accent mark, title, one body line, and cancel / close-to-tray /
+  quit in the order the native dialog offered.
+- The native dialog stays as the fallback and is the only path when no live
+  window can answer: no main window, destroyed web contents, an automated
+  probe (`PI_DESKTOP_BOOT_PROBE`, `PI_DESKTOP_SUPERVISION_PROBE`,
+  `PI_DESKTOP_CAPTURE`), a window the user cannot see (hidden or minimized,
+  as after a tray quit), a send that throws, or a renderer that does not
+  answer within 20 seconds. A prompt therefore cannot vanish, and a quit
+  cannot hang on a wedged renderer or wait out a window nobody can see.
+- Only the main window may answer, the choice is a closed set (`cancel` |
+  `tray` | `quit`), and the main process settles a request id exactly once: an
+  id it is no longer waiting on is dropped, so a stale or forged answer cannot
+  quit the app. `common.cancel`, `tray.closeToTray`, `tray.confirmQuit`,
+  `tray.askTitle` / `tray.askBody`, and `tray.confirmQuitTitle` /
+  `tray.confirmQuitBody` carry the copy — the same keys the native dialog
+  used, so no locale needed a new string.

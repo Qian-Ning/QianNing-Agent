@@ -20,6 +20,7 @@ describe("detectTrigger — slash mode", () => {
       query: "",
       tokenStart: 0,
       tokenEnd: 1,
+      commandPosition: true,
     });
   });
 
@@ -48,6 +49,57 @@ describe("detectTrigger — slash mode", () => {
     expect(detectTrigger("hi /cmd", 7)).toMatchObject({ tokenStart: 3, query: "cmd" });
     expect(detectTrigger("hi\n/cmd", 7)).toMatchObject({ tokenStart: 3, query: "cmd" });
     expect(detectTrigger("https://example.com", 8)).toBeNull();
+  });
+
+  it("opens from inside a CJK sentence, with no space before the slash (D673)", () => {
+    expect(detectTrigger("继续/qn", 5)).toMatchObject({
+      mode: "slash",
+      query: "qn",
+      tokenStart: 2,
+      tokenEnd: 5,
+      commandPosition: true,
+    });
+    expect(detectTrigger("你好/", 3)).toEqual({
+      mode: "slash",
+      query: "",
+      tokenStart: 2,
+      tokenEnd: 3,
+      commandPosition: true,
+    });
+  });
+
+  it("opens after Latin text too, without claiming a command position", () => {
+    const trigger = detectTrigger("hello/qn", 8);
+    expect(trigger).toMatchObject({ mode: "slash", query: "qn", tokenStart: 5 });
+    expect(trigger?.commandPosition).toBeUndefined();
+    expect(detectTrigger("src/foo", 7)).toMatchObject({ tokenStart: 3, query: "foo" });
+  });
+
+  it("prefers the nearest slash and still replaces the whole token", () => {
+    expect(detectTrigger("a/b/c", 5)).toMatchObject({ tokenStart: 3, query: "c" });
+    expect(detectTrigger("hi /cm tail", 5)).toMatchObject({
+      tokenStart: 3,
+      tokenEnd: 6,
+      query: "c",
+    });
+  });
+
+  it("never summons a command out of an address", () => {
+    expect(detectTrigger("https://", 8)).toBeNull();
+    expect(detectTrigger("C:\\work\\", 8)).toBeNull();
+    expect(detectTrigger("//host", 6)).toBeNull();
+  });
+
+  it("opens on an ideographic comma typed mid-draft, without rewriting it", () => {
+    expect(detectTrigger("继续、", 3)).toEqual({
+      mode: "slash",
+      query: "",
+      tokenStart: 2,
+      tokenEnd: 3,
+      commandPosition: true,
+    });
+    // Prose after the mark is text again: the mark is no longer last.
+    expect(detectTrigger("继续、写第11章", 8)).toBeNull();
   });
 });
 

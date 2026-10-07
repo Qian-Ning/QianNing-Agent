@@ -61,6 +61,12 @@ export const IPC = {
      * startup must always be able to exit the app (issue #831).
      */
     appQuit: "pi-desktop/app/quit",
+    /**
+     * The renderer's answer to the in-app quit / close prompt (D674):
+     * `{ requestId, choice }` with choice `cancel` | `tray` | `quit`. The main
+     * process falls back to the native dialog when no answer arrives.
+     */
+    appQuitPromptAnswer: "pi-desktop/app/quitPrompt/answer",
     /** Installed system font families, resolved by Electron main. */
     systemFontsList: "pi-desktop/app/systemFonts",
     updatesGetState: "pi-desktop/updates/getState",
@@ -416,6 +422,12 @@ export const IPC = {
     agentQueueChanged: "pi-desktop/agent/event/queueChanged",
     hostStatus: "pi-desktop/app/event/hostStatus",
     toast: "pi-desktop/app/event/toast",
+    /**
+     * Show the in-app quit / close prompt (D674): `{ requestId, kind }` with
+     * kind `quit` (confirm exiting) or `close` (window close behavior). The
+     * renderer renders it in the app's own dialog, not a native message box.
+     */
+    appQuitPrompt: "pi-desktop/app/event/quitPrompt",
     /**
      * The first plaintext hop to an endpoint the user typed, sent once and only
      * until the shell records `networkPolicy.insecureNoticeAcknowledged`. The
