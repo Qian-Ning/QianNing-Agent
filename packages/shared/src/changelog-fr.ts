@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
       {
+        version: "0.17.3",
+        date: "2026-10-07",
+        highlights: [
+          "Chaque commande que la zone de saisie peut invoquer est étiquetée, et plus seulement les compétences. En tapant `/compact`, une commande de greffon ou une commande d'extension, le brouillon restait du texte ordinaire et le fil un chip sans étiquette : une commande que l'agent exécuterait vraiment ressemblait donc à une phrase écrite par vous. Le jeton du brouillon, le chip du fil et la ligne du menu `/` portent désormais les mêmes trois parties — un badge de type localisé, le titre de la commande et le `/name` exact — et chaque type a sa propre teinte, si bien qu'une commande de l'application, une commande de greffon, une commande d'extension, une compétence et un modèle se distinguent au premier coup d'œil. Une seule table d'étiquettes alimente les trois surfaces, donc la même commande ne peut pas être étiquetée de deux façons.",
+          "Les compétences intégrées portent notre propre nom : `pi-desktop/imagegen` et `pi-desktop/plugin-development` deviennent `qianning/imagegen` et `qianning/plugin-development`. L'id d'une compétence est aussi son nom de commande et il est enregistré dans les tours déjà envoyés : les deux continuent donc de se résoudre — le catalogue ne liste que l'actuel, un ancien id reste un alias de recherche, et un tour envoyé avant le renommage reste correctement étiqueté.",
+          "Les commandes maison sont nommées dans la langue de l'interface plutôt qu'avec les chaînes anglaises de l'hôte : `/new`, `/compact`, `/agent-mode`, `/plan-mode` et `/goal-mode` affichent un titre localisé, et leur catégorie se lit comme le `Session` localisé. Un titre qui ne fait que répéter le nom de la commande n'est imprimé qu'une fois, et le corps déplié d'un modèle, dont le texte est du contenu de prompt et non un nom de commande, garde son chip ordinaire avec retour à la ligne.",
+        ],
+      },
+      {
         version: "0.17.2",
         date: "2026-10-07",
         highlights: [
