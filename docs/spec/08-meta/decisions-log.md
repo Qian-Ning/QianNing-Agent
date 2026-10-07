@@ -8072,3 +8072,35 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `tray.askTitle` / `tray.askBody`, and `tray.confirmQuitTitle` /
   `tray.confirmQuitBody` carry the copy — the same keys the native dialog
   used, so no locale needed a new string.
+
+## 2026-10-07 — Every command kind is labelled, and the bundled skills are ours (D675)
+
+- A summoned skill was labelled; every other kind of command was not. Typing
+  `/compact`, a plugin command or an extension command left plain text in the
+  draft, an unlabelled chip in the transcript, and a menu row whose only cue
+  was the group heading. D675 extends D673 to all five kinds — app, plugin,
+  extension, skill, template — with one label table
+  (`features/chat/composer/command-labels.ts`) feeding the draft token, the
+  transcript chip and the `/` menu row, so the same command cannot be labelled
+  two ways.
+- Each kind tints its own accent from the design tokens (`--ds-success`,
+  `--ds-purple`, `--ds-warning`, `--ds-info`, and the brand accent for skills),
+  on the token, the chip and the menu row alike. Badge text is the short form
+  (`应用`/`App`, `插件`/`Plugin`, `扩展`/`Extension`, `技能`/`Skill`,
+  `模板`/`Template`); the menu keeps the longer group headings it already had.
+- First-party commands are named by the interface language. The host sends
+  English titles with the category `Session`, which reads wrong in a localized
+  app, so `/new`, `/compact`, `/agent-mode`, `/plan-mode` and `/goal-mode` map
+  their id to a localized title and category in the renderer. No host contract
+  changed: the catalog is still the only source of what exists.
+- The bundled skills carry our own namespace: `pi-desktop/imagegen` and
+  `pi-desktop/plugin-development` become `qianning/imagegen` and
+  `qianning/plugin-development`. The id doubles as the slash name and is stored
+  in sent transcripts, so both ids keep resolving — only the current one is
+  advertised, and the old one is a lookup alias, not a second skill.
+- A title that only repeats the command name is dropped, so a skill id that
+  carries its own name (`qianning/imagegen`, titled `imagegen`) prints it once.
+  An expanded template body keeps the plain, wrapping chip: its command text is
+  prompt copy, not a slash name.
+- Renderer-side, plus one constant rename in the main process. No IPC channel,
+  persisted format, or prompt change.

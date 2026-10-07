@@ -113,9 +113,14 @@ test("the default imagegen skill is discoverable and loads in an ordinary sessio
       "../electron/main/builtin-skills.ts"
     );
     const skills = builtinSkills({});
-    assert.equal(skills.find((skill) => skill.id === "pi-desktop/imagegen")?.name, "imagegen");
-    assert.ok(!skills.some((skill) => skill.id === "pi-desktop/plugin-development"));
+    // The bundled skill carries our own namespace (D675); the id it shipped under
+    // before the rename is not advertised but still resolves, because sent
+    // transcripts and the model's own earlier turns carry it.
+    assert.equal(skills.find((skill) => skill.id === "qianning/imagegen")?.name, "imagegen");
+    assert.ok(!skills.some((skill) => skill.id === "pi-desktop/imagegen"));
+    assert.ok(!skills.some((skill) => skill.id === "qianning/plugin-development"));
     const body = loadBuiltinSkillBody("pi-desktop/imagegen").body;
+    assert.equal(loadBuiltinSkillBody("qianning/imagegen").id, "qianning/imagegen");
     assert.match(body, /GenerateImages/);
     assert.match(body, /previous result path/);
     assert.match(body, /Do not retry/);

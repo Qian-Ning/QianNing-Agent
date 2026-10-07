@@ -20,7 +20,15 @@ import {
   IconTrash,
 } from "../../../components/icons";
 import { TooltipButton } from "../../../components/ui";
-import { useComposerSkillCatalog } from "../../../hooks/use-composer-skill-catalog";
+import {
+  useComposerCommandCatalog,
+  type ComposerCommandEntry,
+} from "../../../hooks/use-composer-command-catalog";
+import {
+  builtinCommandTitleKey,
+  commandKindBadgeKey,
+  commandTitleRepeatsName,
+} from "../composer/command-labels";
 import { userMessageMenuItems } from "./menu-items";
 import { SessionMessageOrigin } from "./SessionMessageOrigin";
 import {
@@ -36,13 +44,40 @@ import {
 } from "./TranscriptMenu";
 
 /**
- * A sent slash invocation (D123, D673). A skill mention renders as a labelled
- * pill — badge, human title, then the exact `/name` the turn carried — so a
- * summoned skill is never mistaken for text the user typed by hand.
+ * One summoned command, labelled by kind (D673, D675): a badge naming where the
+ * command comes from, its human title, and the exact `/name` the turn carried,
+ * so a summoned command is never mistaken for text typed by hand.
+ */
+function CommandChip({
+  name,
+  entry,
+}: {
+  name: string;
+  entry: ComposerCommandEntry;
+}) {
+  const { t } = useTranslation();
+  const titleKey = entry.kind === "builtin" ? builtinCommandTitleKey(entry.id) : null;
+  const title = titleKey ? t(titleKey) : entry.title;
+  // The turn's text is `/name`, so the title is redundant when it only repeats
+  // the last segment of the name: a skill id carries its own name.
+  const showTitle = Boolean(title) && !commandTitleRepeatsName(name.slice(1), title);
+  return (
+    <span className="chat-command-chip" data-kind={entry.kind} title={`${name} — ${title}`}>
+      <span className="chat-command-badge">{t(commandKindBadgeKey(entry.kind))}</span>
+      {showTitle ? (
+        <span className="chat-command-title">{title}</span>
+      ) : null}
+      <code className="chat-command-name">{name}</code>
+    </span>
+  );
+}
+
+/**
+ * A sent slash invocation whose turn carried skill mentions (D123, D673): the
+ * prose around each mention stays text, and each mention becomes a chip.
  */
 function SkillInvocationText({ message }: { message: UiMessage }) {
-  const { t } = useTranslation();
-  const { byId } = useComposerSkillCatalog();
+  const { byId } = useComposerCommandCatalog();
   const command = message.command ?? "";
   const mentions = message.skillMentions ?? [];
   const parts: ReactNode[] = [];
@@ -61,19 +96,16 @@ function SkillInvocationText({ message }: { message: UiMessage }) {
       parts.push(<LinkifiedText key={`text-${cursor}`} text={command.slice(cursor, mention.start)} attachments={message.attachments} />);
     }
     const name = command.slice(mention.start, mention.end);
-    const skill = byId.get(mention.id);
+    const entry = byId.get(mention.id);
     parts.push(
-      <span
-        key={`skill-${mention.start}`}
-        className="chat-skill-chip"
-        title={`${name} — ${skill?.title ?? mention.id}`}
-      >
-        <span className="chat-skill-badge">{t("chat.slashGroupSkills")}</span>
-        {skill && skill.title !== name.slice(1) ? (
-          <span className="chat-skill-title">{skill.title}</span>
-        ) : null}
-        <code className="chat-skill-name">{name}</code>
-      </span>,
+      entry ? (
+        <CommandChip key={`skill-${mention.start}`} name={name} entry={entry} />
+      ) : (
+        // A mention whose skill is no longer installed keeps its exact text.
+        <code key={`skill-${mention.start}`} className="chat-command-name">
+          {name}
+        </code>
+      ),
     );
     cursor = mention.end;
   }
@@ -81,6 +113,33 @@ function SkillInvocationText({ message }: { message: UiMessage }) {
     parts.push(<LinkifiedText key={`text-${cursor}`} text={command.slice(cursor)} attachments={message.attachments} />);
   }
   return <>{parts}</>;
+}
+
+/**
+ * The chip for a turn whose whole command is the invocation (D123, D675): a
+ * command the catalog knows is labelled by kind, while an expanded template —
+ * whose `command` is prompt text, not a slash name — keeps the plain chip.
+ */
+function WholeInvocationChip({
+  command,
+  content,
+  entry,
+}: {
+  command: string;
+  content: string;
+  entry?: ComposerCommandEntry;
+}) {
+  if (entry) return <CommandChip name={command} entry={entry} />;
+  return (
+    <code
+      className="chat-command-chip"
+      data-source-start={0}
+      data-source-end={content.length}
+      title={content}
+    >
+      {command}
+    </code>
+  );
 }
 
 export const MessageRow = memo(function MessageRow({
@@ -112,6 +171,7 @@ export const MessageRow = memo(function MessageRow({
   useEffect(() => () => editRequest.current?.abort(), []);
   const [editValue, setEditValue] = useState(editSeed);
   const [retryingEdit, setRetryingEdit] = useState(false);
+  const { byName } = useComposerCommandCatalog();
   const copyLabel = t("chat.copy");
   const editLabel = t("chat.editMessage");
   const deleteLabel = t("chat.deleteMessage");
@@ -301,15 +361,11 @@ export const MessageRow = memo(function MessageRow({
                       message.skillMentions?.length ? (
                         <SkillInvocationText message={message} />
                       ) : (
-                        // Templates retain the existing whole-invocation chip.
-                        <code
-                          className="chat-command-chip"
-                          data-source-start={0}
-                          data-source-end={message.content.length}
-                          title={String(message.content || "")}
-                        >
-                          {message.command}
-                        </code>
+                        <WholeInvocationChip
+                          command={message.command}
+                          content={String(message.content || "")}
+                          entry={byName.get(message.command.replace(/^\//, ""))}
+                        />
                       )
                     ) : (
                       <LinkifiedText text={String(message.content || "")} attachments={message.attachments} />

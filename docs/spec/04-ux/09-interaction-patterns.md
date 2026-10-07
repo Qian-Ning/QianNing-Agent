@@ -1372,25 +1372,41 @@ Project drag/drop follows these patterns:
 - Focus stays in the textarea for the menu's whole lifecycle (input-retained
   overlay); the menu is never a focus trap and never steals the caret.
 
-### 8a.6 Skill tokens in the draft and in the transcript (D673)
+### 8a.6 Summoned commands are labelled in the draft, the menu and the transcript (D673, D675)
 
-- A skill whose exact slash name sits in the draft is painted as one inline
-  token — a localized `技能` / `Skills` badge, the skill's own title, and the
-  exact `/name` — instead of plain text. The element's text content is exactly
-  the text it replaced, so the draft value, the send-time parse, and the model
-  prompt are unchanged by the styling; badge and title are generated CSS
-  content read from data attributes.
-- The longest skill whose name matches wins (`/qn-novel-write` over a shorter
+- A command whose exact slash name sits in the draft is painted as one inline
+  token — a localized kind badge, the command's own title, and the exact
+  `/name` — instead of plain text. This holds for every kind: an app command
+  (`/compact`), a plugin command, an extension command, a skill and a template.
+  The element's text content is exactly the text it replaced, so the draft
+  value, the send-time parse, and the model prompt are unchanged by the styling;
+  badge, kind and title are generated CSS content read from data attributes.
+- Each kind carries its own accent — app, plugin and extension commands, skills
+  and templates tint differently — and the same five kinds tint the token, the
+  menu row and the transcript chip, so a plugin command never reads like an app
+  one. The badge text is the short form (`应用` / `App`, `插件` / `Plugin`,
+  `扩展` / `Extension`, `技能` / `Skill`, `模板` / `Template`); the `/` menu
+  keeps its longer group headings.
+- The longest command whose name matches wins (`/qn-novel-write` over a shorter
   `/qn-novel` prefix), and the match must end at whitespace or the end of the
   draft: anything else is a longer word the send-time resolver would not treat
-  as a skill either. Which slashes count is the trigger's own rule, evaluated
+  as a command either. Which slashes count is the trigger's own rule, evaluated
   once per draft on the string form, so a token styled in the input is also
   invoked when the turn is sent and a summon needs no space in front of it. A
-  catalog that has not resolved yet, and a name no skill matches, stay plain
+  catalog that has not resolved yet, and a name no command matches, stay plain
   text.
-- The sent turn renders the same three parts in the transcript, with the
-  `/name` in muted monospace, so a summoned skill is never mistaken for text
-  the user typed by hand.
+- A title that only repeats the command name — the skill `qianning/imagegen`
+  titled `imagegen` — is dropped, so a token or chip never prints the same word
+  twice.
+- The sent turn renders the same parts in the transcript, with the `/name` in
+  muted monospace, so a summoned command is never mistaken for text the user
+  typed by hand. A turn whose whole body is one invocation (`/compact`) is
+  labelled from the same catalog; an expanded template body, whose command text
+  is prompt copy rather than a slash name, keeps the plain wrapping chip.
+- First-party commands are named by the interface language, not by the host's
+  English strings: `/new`, `/compact`, `/agent-mode`, `/plan-mode` and
+  `/goal-mode` show their localized title, and their category reads as the
+  localized `会话` / `Session`.
 
 ## 9. Scroll behavior
 

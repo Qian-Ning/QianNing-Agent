@@ -5306,3 +5306,27 @@ Markdown 源码，不是 `text/html` 负载；对禁用行内 HTML 的外部编�
   `common.cancel`、`tray.closeToTray`、`tray.confirmQuit`、`tray.askTitle` /
   `tray.askBody`、`tray.confirmQuitTitle` / `tray.confirmQuitBody` 承载——与原生
   对话框使用的键相同，因此没有任何语言需要新增字符串。
+
+## 2026-10-07 —— 所有类型的命令都有标注，内置技能改用我们自己的命名空间（D675）
+
+- 之前只有被调用的技能有标注，其他类型的命令都没有。输入 `/compact`、插件命令或
+  扩展命令时，草稿里是普通文本，对话记录里是没有标注的 chip，菜单行也只靠分组标题
+  提示。D675 把 D673 扩展到全部五种类型——应用、插件、扩展、技能、模板——由同一张
+  标签表（`features/chat/composer/command-labels.ts`）同时供草稿标记、对话记录 chip
+  和 `/` 菜单行使用，因此同一条命令不可能有两种标注。
+- 每种类型从设计 token 里取自己的着色（`--ds-success`、`--ds-purple`、
+  `--ds-warning`、`--ds-info`，技能用品牌强调色），草稿标记、chip 与菜单行一致。
+  徽标用短名（`应用`/`App`、`插件`/`Plugin`、`扩展`/`Extension`、`技能`/`Skill`、
+  `模板`/`Template`）；菜单继续使用原来的分组标题。
+- 第一方命令按界面语言命名。宿主发来的是英文标题和分类 `Session`，在本地化界面里
+  读起来不对，因此在渲染层把 `/new`、`/compact`、`/agent-mode`、`/plan-mode`、
+  `/goal-mode` 的 id 映射到本地化标题与分类。宿主契约没有变化：命令目录依然是
+  “有哪些命令”的唯一来源。
+- 内置技能改用我们自己的命名空间：`pi-desktop/imagegen` 与
+  `pi-desktop/plugin-development` 改为 `qianning/imagegen` 与
+  `qianning/plugin-development`。这个 id 同时是斜杠名，并会写进已发送的记录，因此
+  新旧 id 都能解析——只有当前 id 会被列出来，旧 id 只是查找别名，不是第二个技能。
+- 只重复命令名的标题会被丢掉，因此自带名字的技能 id（`qianning/imagegen`，标题
+  `imagegen`）只打印一次。展开后的模板正文保持普通可换行 chip：它的命令文本是提示词
+  内容，不是斜杠名。
+- 改动集中在渲染层，主进程只有一处常量改名；IPC 通道、持久化格式和提示词都没变。

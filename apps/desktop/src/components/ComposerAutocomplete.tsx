@@ -3,6 +3,13 @@ import { useTranslation } from "react-i18next";
 import type { ComposerCommand } from "@pi-desktop/shared";
 import type { AutocompleteItem, useComposerAutocomplete } from "../hooks/use-composer-autocomplete";
 import {
+  builtinCommandCategoryKey,
+  builtinCommandTitleKey,
+  commandKindBadgeKey,
+  commandKindGroupKey,
+  commandTitleRepeatsName,
+} from "../features/chat/composer/command-labels";
+import {
   IconBookOpen,
   IconFileText,
   IconFolder,
@@ -40,14 +47,6 @@ function Highlighted({
   if (at < text.length) parts.push(<span key={`t${at}`}>{text.slice(at)}</span>);
   return <>{parts}</>;
 }
-
-const GROUP_KEYS: Record<ComposerCommand["kind"], string> = {
-  template: "chat.slashGroupTemplates",
-  builtin: "chat.slashGroupApp",
-  plugin: "chat.slashGroupPlugins",
-  extension: "chat.slashGroupExtensions",
-  skill: "chat.slashGroupSkills",
-};
 
 function CommandIcon({ kind }: { kind: ComposerCommand["kind"] }) {
   if (kind === "template") return <IconSlash size={14} />;
@@ -98,22 +97,31 @@ export function ComposerAutocomplete({
       onMouseMove: () => ac.setHighlight(index),
     };
     if (item.kind === "command") {
+      const command = item.command;
+      const titleKey = command.kind === "builtin" ? builtinCommandTitleKey(command.id) : null;
+      const title = titleKey ? t(titleKey) : command.title;
+      const categoryKey =
+        command.kind === "builtin" ? builtinCommandCategoryKey(command.id) : null;
+      const description = categoryKey ? t(categoryKey) : command.description;
       return (
         <button {...commonProps}>
           <span className="composer-ac-icon">
-            <CommandIcon kind={item.command.kind} />
+            <CommandIcon kind={command.kind} />
+          </span>
+          <span className={`composer-ac-kind composer-ac-kind-${command.kind}`}>
+            {t(commandKindBadgeKey(command.kind))}
           </span>
           <span className="composer-ac-name">
-            /<Highlighted text={item.command.name} ranges={item.match.ranges} />
+            /<Highlighted text={command.name} ranges={item.match.ranges} />
           </span>
-          {item.command.kind === "skill" && item.command.title !== item.command.name ? (
-            <span className="composer-ac-hint">{item.command.title}</span>
+          {title && !commandTitleRepeatsName(command.name, title) ? (
+            <span className="composer-ac-hint">{title}</span>
           ) : null}
-          {item.command.argumentHint ? (
-            <span className="composer-ac-hint">{item.command.argumentHint}</span>
+          {command.argumentHint ? (
+            <span className="composer-ac-hint">{command.argumentHint}</span>
           ) : null}
-          {item.command.description ? (
-            <span className="composer-ac-desc">{item.command.description}</span>
+          {description ? (
+            <span className="composer-ac-desc">{description}</span>
           ) : null}
         </button>
       );
@@ -144,7 +152,7 @@ export function ComposerAutocomplete({
         lastGroup = group;
         rows.push(
           <div key={`g:${group}`} className="composer-model-group-label">
-            {t(GROUP_KEYS[group])}
+            {t(commandKindGroupKey(group))}
           </div>,
         );
       }

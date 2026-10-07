@@ -1963,12 +1963,18 @@ identify the platform validation still needed.
   without a space having been typed anywhere. The sent turn shows a Skills
   badge, the human title, and the muted monospace `/name` — visibly not text the
   user typed by hand.
+- **Expected (D675)**: The same summon works for every kind of command, each
+  wearing its own kind badge and accent: an app command such as `/compact` shows
+  the localized app title and category, a plugin and an extension command show
+  their own badge, and the `/` menu badges the row the same way. A command whose
+  title only repeats its name prints the title once, and an expanded template
+  body keeps the plain wrapping chip.
 - **Specs linked**: `04-ux/09-interaction-patterns.md` (§8a.1, §8a.6),
-  `04-ux/08-component-spec.md` (§11.8), `08-meta/decisions-log.md` (D673)
+  `04-ux/08-component-spec.md` (§11.8), `08-meta/decisions-log.md` (D673, D675)
 - **Acceptance**: C (send/UI), Localization, Quality
 - **Milestone**: M2
 - **Status**: Source-covered (`composer-trigger.test.ts`,
-  `composer-skill-token.test.mjs`); interactive menu behavior covered by
+  `composer-command-token.test.mjs`); interactive menu behavior covered by
   `pnpm test:e2e:composer-autocomplete` after `pnpm build:js`. Branch runs do
   not replace post-integration E2E.
 

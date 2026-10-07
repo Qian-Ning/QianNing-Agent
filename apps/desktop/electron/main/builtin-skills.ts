@@ -15,9 +15,25 @@ import type { LoadedSkillDocument } from "./skill-document";
 
 /** Bundled skill teaching the plugin-development loop. */
 export const PLUGIN_DEV_SKILL_FILE = "plugin-development.md";
-export const PLUGIN_DEV_SKILL_ID = "pi-desktop/plugin-development";
-export const IMAGE_GENERATION_SKILL_ID = "pi-desktop/imagegen";
+export const PLUGIN_DEV_SKILL_ID = "qianning/plugin-development";
+export const IMAGE_GENERATION_SKILL_ID = "qianning/imagegen";
 const IMAGE_GENERATION_SKILL_FILE = "image-generation.md";
+
+/**
+ * Skill ids this build shipped under before the brand rename. The id doubles as
+ * the slash name, so it is user-visible and it is stored in sent transcripts:
+ * both the old and the new id keep resolving, and only the current id is
+ * advertised in the catalog.
+ */
+export const LEGACY_BUILTIN_SKILL_IDS: Readonly<Record<string, string>> = {
+  "pi-desktop/imagegen": IMAGE_GENERATION_SKILL_ID,
+  "pi-desktop/plugin-development": PLUGIN_DEV_SKILL_ID,
+};
+
+/** The current id for a built-in skill id, whether current or legacy. */
+export function canonicalBuiltinSkillId(id: string): string {
+  return LEGACY_BUILTIN_SKILL_IDS[id] ?? id;
+}
 
 /** electron-builder copies `resources/skills` to `<resources>/skills`. */
 function resolveBuiltinSkillPath(fileName: string): string | null {
@@ -105,13 +121,14 @@ export function builtinSkills(input: BuiltinSkillInput): PluginSkillDef[] {
  * host does not ship, which is the caller's cue to try the plugin registry.
  */
 export function loadBuiltinSkillBody(id: string): LoadedSkillDocument | null {
-  if (id !== PLUGIN_DEV_SKILL_ID && id !== IMAGE_GENERATION_SKILL_ID) return null;
-  const raw = readBuiltinSkill(id === IMAGE_GENERATION_SKILL_ID ? IMAGE_GENERATION_SKILL_FILE : PLUGIN_DEV_SKILL_FILE);
+  const canonical = canonicalBuiltinSkillId(id);
+  if (canonical !== PLUGIN_DEV_SKILL_ID && canonical !== IMAGE_GENERATION_SKILL_ID) return null;
+  const raw = readBuiltinSkill(canonical === IMAGE_GENERATION_SKILL_ID ? IMAGE_GENERATION_SKILL_FILE : PLUGIN_DEV_SKILL_FILE);
   if (!raw?.raw.trim()) return null;
   const parsed = parseSkillFrontmatter(raw.raw);
   if (!parsed.body) return null;
   return {
-    id,
+    id: canonical,
     name: parsed.name ?? id,
     body: parsed.body,
     location: raw.path,

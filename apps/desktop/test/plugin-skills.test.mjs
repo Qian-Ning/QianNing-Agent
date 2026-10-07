@@ -95,7 +95,10 @@ test("the composer lists active skills last and routes slash skills to the Skill
   );
   assert.match(mainSrc, /findSkillMentions\(req\.content, activeSkills\)/);
   assert.match(mainSrc, /Call the \\`Skill\\` tool with each of these ids/);
-  assert.match(composerAutocompleteSrc, /item\.command\.kind === "skill"/);
+  // A skill row is labelled from the catalog by its kind, like every other
+  // command, instead of by a skill-only branch (D675).
+  assert.match(composerAutocompleteSrc, /t\(commandKindBadgeKey\(command\.kind\)\)/);
+  assert.match(composerAutocompleteSrc, /command\.kind === "builtin"/);
 });
 
 test("the agent runtime advertises skills and rebuilds when the catalog changes", () => {
