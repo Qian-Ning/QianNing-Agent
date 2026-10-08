@@ -8,7 +8,7 @@
  */
 import { useTranslation } from "react-i18next";
 import { MAX_VIDEO_DURATION_SECONDS, type MediaWorkbenchProgress } from "@pi-desktop/shared";
-import { Button } from "../../components/ui";
+import { Button, Input, Select, Textarea } from "../../components/ui";
 import { IconClose, IconPlus } from "../../components/icons";
 import {
   MAX_WORKBENCH_COUNT,
@@ -94,9 +94,8 @@ function ShapeField({
           <label className="workbench-label" htmlFor="workbench-ratio">
             {label}
           </label>
-          <select
+          <Select
             id="workbench-ratio"
-            className="field-select"
             value={ratio}
             onChange={(event) => {
               onRatio(event.target.value);
@@ -113,15 +112,14 @@ function ShapeField({
                 {entry.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="workbench-subfield">
           <label className="workbench-label" htmlFor="workbench-resolution">
             {resolutionLabel}
           </label>
-          <select
+          <Select
             id="workbench-resolution"
-            className="field-select"
             value={resolution}
             onChange={(event) => onResolution(event.target.value)}
           >
@@ -134,11 +132,11 @@ function ShapeField({
               </option>
             ))}
             <option value={CUSTOM_SIZE}>{customLabel}</option>
-          </select>
+          </Select>
         </div>
       </div>
       {isCustom ? (
-        <input
+        <Input
           className="workbench-input font-mono"
           value={customValue}
           placeholder={placeholder}
@@ -265,7 +263,7 @@ export function WorkbenchForm({
         <label className="workbench-label" htmlFor="workbench-prompt">
           {t("workbench.promptLabel")}
         </label>
-        <textarea
+        <Textarea
           id="workbench-prompt"
           className="workbench-textarea"
           rows={7}
@@ -286,7 +284,7 @@ export function WorkbenchForm({
           <label className="workbench-label" htmlFor="workbench-count">
             {t("workbench.count")}
           </label>
-          <input
+          <Input
             id="workbench-count"
             className="workbench-input"
             type="text"
@@ -316,9 +314,8 @@ export function WorkbenchForm({
             <label className="workbench-label" htmlFor="workbench-duration">
               {t("workbench.duration")}
             </label>
-            <select
+            <Select
               id="workbench-duration"
-              className="field-select"
               value={duration}
               onChange={(event) => onDurationChange(Number(event.target.value))}
             >
@@ -329,7 +326,7 @@ export function WorkbenchForm({
                   {`${value}s`}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         )}
       </div>
@@ -429,7 +426,7 @@ export function WorkbenchForm({
                   <label className="workbench-label" htmlFor="workbench-field-first">
                     {t("workbench.frameFieldFirst")}
                   </label>
-                  <input
+                  <Input
                     id="workbench-field-first"
                     className="workbench-input font-mono"
                     value={frameFieldFirst}
@@ -441,7 +438,7 @@ export function WorkbenchForm({
                   <label className="workbench-label" htmlFor="workbench-field-last">
                     {t("workbench.frameFieldLast")}
                   </label>
-                  <input
+                  <Input
                     id="workbench-field-last"
                     className="workbench-input font-mono"
                     value={frameFieldLast}
