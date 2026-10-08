@@ -13,8 +13,8 @@ import type {
 import {
   initialThinkingLevelForBinding,
   initialThinkingLevelForUnmatchedModel,
-  imageGenerationBindings,
-  isImageGenerationModel,
+  generationModelRefs,
+  isGenerationModel,
   normalizeLargePasteThreshold,
 } from "@pi-desktop/shared";
 import { useAppStore } from "../stores/app-store";
@@ -99,8 +99,8 @@ export function Composer({
     s.activeSessionId ? s.planningStates[s.activeSessionId] : undefined,
   );
   const settings = useAppStore((s) => s.settings);
-  const imageGenerationCandidates = useMemo(
-    () => imageGenerationBindings(settings?.imageGenerationModels, settings?.imageGeneration),
+  const generationCandidates = useMemo(
+    () => generationModelRefs(settings),
     [settings?.imageGenerationModels, settings?.imageGeneration],
   );
   const sessions = useAppStore((s) => s.sessions);
@@ -401,7 +401,7 @@ export function Composer({
     : !!provider &&
       provider.enabled &&
       !!modelId &&
-      !isImageGenerationModel(imageGenerationCandidates, provider.id, modelId) &&
+      !isGenerationModel(generationCandidates, provider.id, modelId) &&
       (provider.hasSecret || provider.authKind === "none");
   const enterToSend = settings?.enterToSend ?? true;
   const hasDraftContent = Boolean(value.trim() || activeFileReferences.length);

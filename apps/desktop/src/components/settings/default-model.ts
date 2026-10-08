@@ -7,7 +7,7 @@
  * is not configured, so these helpers keep the two notions apart: what a
  * provider itself offers, and what is safe to display for it.
  */
-import { isImageGenerationModel, modelWireIdsEqual as sameComposerModelId, type ImageGenerationBindings, type ProviderPublic } from "@pi-desktop/shared";
+import { isGenerationModel, modelWireIdsEqual as sameComposerModelId, type GenerationModelRefs, type ProviderPublic } from "@pi-desktop/shared";
 
 export type DefaultModelOption = {
   provider: ProviderPublic;
@@ -17,7 +17,7 @@ export type DefaultModelOption = {
 /** Expand runnable providers into the model choices they actually configure. */
 export function defaultModelOptions(
   providers: readonly ProviderPublic[],
-  imageGeneration?: ImageGenerationBindings | null,
+  generationRefs?: GenerationModelRefs | null,
 ): DefaultModelOption[] {
   return providers.flatMap((provider) => {
     const modelIds = (provider.models ?? [])
@@ -25,7 +25,7 @@ export function defaultModelOptions(
       .filter(Boolean);
     const ids = modelIds.length > 0 ? modelIds : [defaultModelIdOf(provider)?.trim() ?? ""];
     return [...new Set(ids)].filter((modelId) => !!modelId &&
-      !isImageGenerationModel(imageGeneration, provider.id, modelId),
+      !isGenerationModel(generationRefs, provider.id, modelId),
     ).map((modelId) => ({ provider, modelId }));
   });
 }
@@ -98,11 +98,11 @@ export function hasResolvedDefaultModel(
  */
 export function providerServesChatModels(
   provider: ProviderPublic,
-  imageGeneration?: ImageGenerationBindings | null,
+  generationRefs?: GenerationModelRefs | null,
 ): boolean {
   return provider.enabled &&
     (provider.hasSecret || !!provider.hasOauth || provider.authKind === "none") &&
-    defaultModelOptions([provider], imageGeneration).length > 0;
+    defaultModelOptions([provider], generationRefs).length > 0;
 }
 
 /**
@@ -119,10 +119,10 @@ export function keepsAppDefaultModel(
   providers: readonly ProviderPublic[],
   defaultProviderId?: string,
   defaultModelId?: string,
-  imageGeneration?: ImageGenerationBindings | null,
+  generationRefs?: GenerationModelRefs | null,
 ): boolean {
   const provider = providers.find((candidate) => candidate.id === defaultProviderId);
-  if (!provider || !providerServesChatModels(provider, imageGeneration)) return false;
+  if (!provider || !providerServesChatModels(provider, generationRefs)) return false;
   return hasResolvedDefaultModel(providers, defaultProviderId, defaultModelId);
 }
 
@@ -138,16 +138,16 @@ export function loginDefaultModel(
   providers: readonly ProviderPublic[],
   providerId: string,
   defaults: { defaultProviderId?: string; defaultModelId?: string },
-  imageGeneration?: ImageGenerationBindings | null,
+  generationRefs?: GenerationModelRefs | null,
 ): { providerId: string; modelId: string } | null {
   if (keepsAppDefaultModel(
     providers,
     defaults.defaultProviderId,
     defaults.defaultModelId,
-    imageGeneration,
+    generationRefs,
   )) return null;
   const account = providers.find((candidate) => candidate.id === providerId);
-  if (!account || !providerServesChatModels(account, imageGeneration)) return null;
-  const modelId = defaultModelOptions([account], imageGeneration)[0]?.modelId;
+  if (!account || !providerServesChatModels(account, generationRefs)) return null;
+  const modelId = defaultModelOptions([account], generationRefs)[0]?.modelId;
   return modelId ? { providerId: account.id, modelId } : null;
 }

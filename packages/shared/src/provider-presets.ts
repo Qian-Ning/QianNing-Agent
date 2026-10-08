@@ -374,6 +374,20 @@ export const NAMED_ENDPOINT_PRESETS: readonly NamedEndpointPreset[] = [
     aliases: ["lm-studio", "lm studio"],
     local: true,
   },
+  {
+    // A local generator that speaks the OpenAI shape the workbench sends:
+    // POST /v1/images/generations and POST /v1/videos. ComfyUI and SD-WebUI
+    // expose their own native APIs instead, so they need a compatible wrapper
+    // in front — the endpoint stays editable either way.
+    id: "localai",
+    vendorKey: "localai",
+    name: "LocalAI (local)",
+    baseUrl: "http://localhost:8080/v1",
+    apiStyle: "chat_completions",
+    labelKey: "settings.presetLocalAi",
+    aliases: ["local-ai", "local ai"],
+    local: true,
+  },
 ];
 
 /** Canonical form of a configured endpoint for preset matching. */

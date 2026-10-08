@@ -13,3 +13,4 @@
 | [09-interaction-patterns.md](09-interaction-patterns.md) | Interaction patterns (keyboard, streaming, abort, collapse) |
 | [10-workbuddy-benchmark-ux.md](10-workbuddy-benchmark-ux.md) | WorkBuddy benchmark walkthrough + adopt/adapt/reject proposals |
 | [11-asktool-question-card.md](11-asktool-question-card.md) | Inline multi-question card |
+| [12-media-workbench.md](12-media-workbench.md) | Media workbench (image and video generation page) |

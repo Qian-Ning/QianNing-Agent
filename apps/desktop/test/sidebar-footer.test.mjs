@@ -31,7 +31,7 @@ test("the sidebar footer is an action bar, not a fabricated identity", () => {
   }
 });
 
-test("footer exposes settings, plugins, scheduled tasks, connections, usage stats and notifications in one row", () => {
+test("footer exposes settings, plugins, scheduled tasks, connections, usage stats, notifications and the workbench in one row", () => {
   assert.match(sidebarSource, /className="footer-actions"/);
   assert.match(sidebarSource, /data-nav="settings"/);
   assert.match(sidebarSource, /data-nav="plugins"/);
@@ -39,6 +39,9 @@ test("footer exposes settings, plugins, scheduled tasks, connections, usage stat
   // The Connections destination (D661) gets its own footer action so a target
   // profile is not only reachable from Settings and global search.
   assert.match(sidebarSource, /data-nav="connections"/);
+  // The workbench (D676) is its own destination and lives in this row too, so a
+  // user with a conversation open reaches it without leaving what they were doing.
+  assert.match(sidebarSource, /data-nav="workbench"/);
   const connectionsAction = sidebarSource.match(
     /<TooltipButton[\s\S]*?data-nav="connections"[\s\S]*?<\/TooltipButton>/,
   )?.[0] ?? "";
@@ -71,7 +74,7 @@ test("footer exposes settings, plugins, scheduled tasks, connections, usage stat
   const actions = sidebarSource
     .split("<TooltipButton")
     .filter((chunk) => /className=(?:"footer-action"|\{`footer-action )/.test(chunk));
-  assert.equal(actions.length, 6);
+  assert.equal(actions.length, 7);
   for (const action of actions) {
     const attrs = action.slice(0, action.indexOf(">"));
     assert.match(attrs, /tooltip=/);

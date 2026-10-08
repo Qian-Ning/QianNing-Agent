@@ -8,6 +8,7 @@ import {
   migrateKeybindingOverrides,
   normalizeMode,
   PROTOCOL_VERSION,
+  seedGenerationModels,
 } from "@pi-desktop/shared";
 import { api } from "../lib/api";
 import { rememberProject } from "../lib/recent-projects";
@@ -300,7 +301,7 @@ export const useAppStore = create<AppState>((set, get) => {
       if (!bootstrapResult.ok) {
         throw bootstrapResult.error;
       }
-      const settings = bootstrapResult.settings;
+      let settings = bootstrapResult.settings;
       const [
         version,
         health,
@@ -312,6 +313,22 @@ export const useAppStore = create<AppState>((set, get) => {
         notifications,
         pendingPlansResult,
       ] = bootstrapResult.snapshot;
+      // A model that names an image or video family is marked the first time the
+      // app sees it, so the workbench has something to offer without the user
+      // discovering the capability checkboxes first. Only a missing list is
+      // seeded; an explicit selection, including an empty one, is left alone, and
+      // the same first-run pattern as the default-mode write above applies.
+      if (settings) {
+        const seeded = seedGenerationModels(settings, providers.providers);
+        if (seeded !== settings) {
+          try {
+            await api.setSettings(seeded);
+            settings = seeded;
+          } catch {
+            settings = seeded;
+          }
+        }
+      }
       if (version.protocolVersion !== PROTOCOL_VERSION) {
         set({
           error: `Protocol mismatch: UI ${PROTOCOL_VERSION} vs app ${version.protocolVersion}`,

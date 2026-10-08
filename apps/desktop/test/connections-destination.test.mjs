@@ -57,7 +57,7 @@ const LOCALE_QUOTES = new Set(["de", "es", "fr"]);
 test("the destination is a routed page, not a dialog", () => {
   assert.match(
     appState,
-    /page:\s*\n?\s*"chat"[\s\S]*?"connections"[\s\S]*?"settings";/,
+    /page:[\s\S]*?"chat"[\s\S]*?"connections"[\s\S]*?"workbench"[\s\S]*?"settings";/,
   );
   assert.match(
     appShell,

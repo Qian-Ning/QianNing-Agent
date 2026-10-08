@@ -189,7 +189,9 @@ export function applyVisibleModelSelection(
 
 export type ModelSelectionPanesProps = {
   imageModelIds?: string[];
+  videoModelIds?: string[];
   onImageModelChange?: (id: string, selected: boolean) => void;
+  onVideoModelChange?: (id: string, selected: boolean) => void;
   discovery: ProviderModelsState & { canReload?: boolean };
   selection: ModelSelection;
   /** Heading of the discovered list: a service's models, or an account's. */
@@ -229,8 +231,10 @@ export function ModelSelectionPanes({
   onReload,
   apiStyle,
   imageModelIds,
+  videoModelIds,
   lookupContext,
   onImageModelChange,
+  onVideoModelChange,
   customModelInputRef,
   autoPicked = false,
 }: ModelSelectionPanesProps) {
@@ -601,6 +605,9 @@ export function ModelSelectionPanes({
               const imageModelSelected = imageModelIds?.some((modelId) =>
                 modelId.toLowerCase() === binding.id.toLowerCase(),
               ) ?? false;
+              const videoModelSelected = videoModelIds?.some((modelId) =>
+                modelId.toLowerCase() === binding.id.toLowerCase(),
+              ) ?? false;
               const advancedId = `model-advanced-${binding.id}`;
               return (
                 <li
@@ -945,6 +952,30 @@ export function ModelSelectionPanes({
                                 imageModelSelected
                                   ? "settings.imageModelSelected"
                                   : "settings.setImageModel",
+                              )}
+                            </span>
+                          </label>
+                        ) : null}
+                        {onVideoModelChange ? (
+                          <label className="provider-chosen-capability">
+                            <input
+                              type="checkbox"
+                              checked={videoModelSelected}
+                              disabled={busy}
+                              aria-label={t(
+                                videoModelSelected
+                                  ? "settings.videoModelSelected"
+                                  : "settings.setVideoModel",
+                              )}
+                              onChange={(event) =>
+                                onVideoModelChange(binding.id, event.target.checked)
+                              }
+                            />
+                            <span>
+                              {t(
+                                videoModelSelected
+                                  ? "settings.videoModelSelected"
+                                  : "settings.setVideoModel",
                               )}
                             </span>
                           </label>

@@ -50,6 +50,7 @@ import type { Logger } from "../logger";
 import type { ClipboardHistory } from "../clipboard-history";
 import type { PluginRuntime } from "../plugin-runtime";
 import type { IpcRegistrar } from "./types";
+import { MEDIA_LIBRARY_DIR } from "../services/media-library";
 
 type WorkspaceRecord = { path: string; name: string };
 
@@ -829,6 +830,10 @@ export function registerWorkspaceIpc({
     const roots = [
       join(dataDir, "scratch"),
       join(dataDir, "attachments"),
+      // Renders the workbench produced. They are the user's own assets in the
+      // app's own library, so a result can be shown — and revealed — like any
+      // other image the user may open.
+      join(dataDir, MEDIA_LIBRARY_DIR),
       ...projectFolderPaths(workspaceRoot).filter((path) => path !== workspaceRoot),
     ];
     const canonical = await Promise.all(

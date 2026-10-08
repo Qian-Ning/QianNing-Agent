@@ -30,6 +30,11 @@ const SettingsPage = lazy(() =>
     default: module.SettingsPage,
   })),
 );
+const WorkbenchPage = lazy(() =>
+  import("../../pages/WorkbenchPage").then((module) => ({
+    default: module.WorkbenchPage,
+  })),
+);
 const ScheduledPage = lazy(() =>
   import("../../pages/ScheduledPage").then((module) => ({
     default: module.ScheduledPage,
@@ -253,7 +258,11 @@ export function AppShell() {
                 )}
 
                 <Suspense fallback={<RoutePending />}>
-                  {page === "scheduled" ? (
+                  {page === "workbench" ? (
+                    <div className="route-surface route-page">
+                      <WorkbenchPage />
+                    </div>
+                  ) : page === "scheduled" ? (
                     <div className="route-surface route-page">
                       <ScheduledPage />
                     </div>

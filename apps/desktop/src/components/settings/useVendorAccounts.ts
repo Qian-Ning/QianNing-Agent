@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  imageGenerationBindings,
+  generationModelRefs,
   type OAuthAccount,
   type OAuthVendor,
   type ProviderPublic,
@@ -58,7 +58,7 @@ async function claimLoginDefault(providerId: string): Promise<void> {
     providers,
     providerId,
     current,
-    imageGenerationBindings(current.imageGenerationModels, current.imageGeneration),
+    generationModelRefs(current),
   );
   if (!claim) return;
   await api.setSettings({

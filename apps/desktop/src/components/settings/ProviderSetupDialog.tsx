@@ -65,7 +65,8 @@ export type ProviderSetupDialogProps = {
   initialDraft?: ProviderCopyDraft | null;
   onClose: () => void;
   imageModelIds?: string[];
-  onSaved: (provider: ProviderPublic, models: ModelBinding[], imageModelIds?: string[]) => void | Promise<void>;
+  videoModelIds?: string[];
+  onSaved: (provider: ProviderPublic, models: ModelBinding[], imageModelIds?: string[], videoModelIds?: string[]) => void | Promise<void>;
   /** Vendors a new row can sign in to instead of pasting a key. */
   vendors?: OAuthVendor[] | null;
   /** Leaves this dialog for the vendor's browser sign-in. */
@@ -78,11 +79,13 @@ export function ProviderSetupDialog({
   onClose,
   onSaved,
   imageModelIds,
+  videoModelIds,
   vendors,
   onPickSubscription,
 }: ProviderSetupDialogProps) {
   const { t } = useTranslation();
   const [imageModelDraft, setImageModelDraft] = useState<string[] | undefined>();
+  const [videoModelDraft, setVideoModelDraft] = useState<string[] | undefined>();
   const editing = !!provider;
   const apiKeyRef = useRef<HTMLInputElement>(null);
   const [service, setService] = useState(() => initialDraft
@@ -293,6 +296,14 @@ export function ProviderSetupDialog({
       remainingImageModels?.length !== imageSelection?.length
       ? remainingImageModels
       : undefined;
+    const videoSelection = videoModelDraft ?? videoModelIds;
+    const remainingVideoModels = videoSelection?.filter((videoModelId) =>
+      persisted.some((model) => model.id.toLowerCase() === videoModelId.toLowerCase()),
+    );
+    const videoModelIdsToSave = videoModelDraft !== undefined ||
+      remainingVideoModels?.length !== videoSelection?.length
+      ? remainingVideoModels
+      : undefined;
     setSaving(true);
     setError("");
     try {
@@ -310,7 +321,7 @@ export function ProviderSetupDialog({
           headers,
           ...(apiKey ? { secretValue: apiKey } : {}),
         });
-        await onSaved(result.provider ?? provider, persisted, imageModelIdsToSave);
+        await onSaved(result.provider ?? provider, persisted, imageModelIdsToSave, videoModelIdsToSave);
       } else {
         const result = await api.createProvider({
           name: providerName,
@@ -329,7 +340,7 @@ export function ProviderSetupDialog({
           apiStyle: resolvedApiStyle,
           headers,
         });
-        await onSaved(result.provider, persisted, imageModelIdsToSave);
+        await onSaved(result.provider, persisted, imageModelIdsToSave, videoModelIdsToSave);
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -341,6 +352,17 @@ export function ProviderSetupDialog({
   const updateImageModelDraft = (id: string, selected: boolean) => {
     setImageModelDraft((current) => {
       const next = current ?? imageModelIds ?? [];
+      if (selected) {
+        return next.some((entry) => entry.toLowerCase() === id.toLowerCase()) ? next : [...next, id];
+      }
+      return next.filter((entry) => entry.toLowerCase() !== id.toLowerCase());
+    });
+  };
+
+
+  const updateVideoModelDraft = (id: string, selected: boolean) => {
+    setVideoModelDraft((current) => {
+      const next = current ?? videoModelIds ?? [];
       if (selected) {
         return next.some((entry) => entry.toLowerCase() === id.toLowerCase()) ? next : [...next, id];
       }
@@ -469,7 +491,9 @@ export function ProviderSetupDialog({
           onReload={discovery.reload}
           apiStyle={resolvedApiStyle}
           imageModelIds={imageModelDraft ?? imageModelIds}
+          videoModelIds={videoModelDraft ?? videoModelIds}
           onImageModelChange={updateImageModelDraft}
+          onVideoModelChange={updateVideoModelDraft}
           lookupContext={{
             baseUrl: requestBaseUrl,
             vendorKey: namedPreset?.vendorKey ?? provider?.vendorKey ?? "custom",

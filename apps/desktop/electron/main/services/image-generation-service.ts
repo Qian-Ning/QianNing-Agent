@@ -2,15 +2,11 @@ import { randomUUID } from "node:crypto";
 import { mkdir, realpath, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { generateImageBatch } from "@pi-desktop/agent-runtime";
-import {
-  imageGenerationPrompts,
-  parseImageGenerationBinding,
-  type AppSettings,
-  type ProviderPublic,
-} from "@pi-desktop/shared";
+import { imageGenerationPrompts } from "@pi-desktop/shared";
 import type { HostProcess } from "../host-process";
 import type { LocalToolHandler } from "../agent-sidecar";
 import { imageInputLoader } from "./image-inputs";
+import { resolveGenerationEndpoint, type GenerationModelChoice } from "./generation-endpoint";
 
 function failure(errorCode: string, content: string) {
   return {
@@ -26,43 +22,41 @@ export function createImageGenerationTool(options: {
   getHost: () => Pick<HostProcess, "call"> | null;
   fetchImpl?: typeof fetch;
   allowFakeIp?: () => boolean;
+  /** The workbench names the model; the Agent tools take the configured binding. */
+  choice?: GenerationModelChoice;
+  /** A run that belongs to the media library instead of a chat session. */
+  outputDir?: string;
+  /** One callback per output, so a long batch can be reported while it runs. */
+  onItemEvent?: (event: {
+    index: number;
+    status: "running" | "succeeded" | "failed" | "cancelled";
+    total: number;
+  }) => void;
 }): LocalToolHandler {
   return async ({ sessionId, args, signal }) => {
     imageGenerationPrompts(args);
     const host = options.getHost();
     if (!host) return failure("HOST_UNAVAILABLE", "Host unavailable.");
-    const settings = await host.call<AppSettings>("settings.get");
-    const binding = parseImageGenerationBinding(settings.imageGeneration);
-    if (!binding)
-      return failure(
-        "IMAGE_NOT_CONFIGURED",
-        "Configure an image generation model in Settings > Models > Image generation model before generating images. Do not substitute another model.",
-      );
-    const { provider } = await host.call<{ provider?: ProviderPublic }>("providers.get", {
-      id: binding.providerId,
+    const endpoint = await resolveGenerationEndpoint({
+      host,
+      kind: "image",
+      ...(options.choice ? { choice: options.choice } : {}),
     });
-    if (
-      !provider?.enabled ||
-      !provider.baseUrl ||
-      !provider.models.some((model) => model.id === binding.modelId)
-    ) {
-      return failure(
-        "IMAGE_MODEL_UNAVAILABLE",
-        "The configured image model is unavailable. Update Settings > Models > Image generation model.",
-      );
-    }
-    if (provider.authKind === "oauth")
-      return failure(
-        "IMAGE_AUTH_UNSUPPORTED",
-        "Image generation requires an API-key or no-auth service.",
-      );
-    const { value } = await host.call<{ value?: string }>("providers.getSecret", {
-      id: provider.id,
-    });
-    if (provider.authKind !== "none" && !value)
-      return failure("IMAGE_AUTH_FAILED", "The image provider needs an API key.");
-    const { path } = await host.call<{ path: string }>("session.getScratchPath", { sessionId });
-    const root = resolve(options.dataDir, "scratch");
+    if ("errorCode" in endpoint) return failure(endpoint.errorCode, endpoint.message);
+    const { providerId, modelId, baseUrl, headers, apiKey } = endpoint;
+    // A workbench run writes into the app's own media library and needs no chat
+    // session; the Agent tools keep writing into the session scratch. The session
+    // scratch stays an input root whenever the run does have a session, so a
+    // library run can still use a reference the user made in a chat.
+    const library = options.outputDir ? resolve(options.dataDir, "generated") : null;
+    const root = library ?? resolve(options.dataDir, "scratch");
+    const scratchCall = host.call<{ path: string }>("session.getScratchPath", { sessionId });
+    const sessionScratch = library
+      ? await scratchCall
+          .then((result) => (typeof result?.path === "string" ? result.path : null))
+          .catch(() => null)
+      : (await scratchCall).path;
+    const path = options.outputDir ?? sessionScratch;
     const within = (base: string, target: string) => {
       const rel = relative(base, target);
       return !!rel && !rel.startsWith("..") && !isAbsolute(rel);
@@ -75,17 +69,33 @@ export function createImageGenerationTool(options: {
     if (!within(realRoot, realDir))
       return failure("INVALID_ARGUMENT", "Invalid image output directory.");
     signal.throwIfAborted();
-    const { session } = await host.call<{ session?: { projectPath?: string } }>("session.get", {
-      id: sessionId,
-    });
-    if (!session) return failure("SESSION_NOT_FOUND", "The image session no longer exists.");
+    // Only a library run gets the library as an input root; a session run keeps
+    // exactly the roots it had, so the Agent tools cannot read more than before.
+    const inputRoots: string[] = [];
+    if (library) {
+      inputRoots.push(realRoot);
+      if (sessionScratch) {
+        try {
+          inputRoots.push(await realpath(sessionScratch));
+        } catch {
+          // A session directory that no longer exists is simply not a root.
+        }
+      }
+    }
+    const session = options.outputDir
+      ? undefined
+      : (await host.call<{ session?: { projectPath?: string } }>("session.get", { id: sessionId }))
+          .session;
+    // Only the session-backed path can lose its session; a library run never had one.
+    if (!options.outputDir && !session)
+      return failure("SESSION_NOT_FOUND", "The image session no longer exists.");
     const results = await generateImageBatch({
       input: args,
       endpoint: {
-        baseUrl: provider.baseUrl,
-        modelId: binding.modelId,
-        apiKey: value,
-        headers: provider.headers,
+        baseUrl,
+        modelId,
+        ...(apiKey ? { apiKey } : {}),
+        headers,
       },
       signal,
       fetchImpl: options.fetchImpl,
@@ -93,8 +103,10 @@ export function createImageGenerationTool(options: {
       loadImages: imageInputLoader({
         dataDir: options.dataDir,
         scratchPath: realDir,
+        extraRoots: inputRoots,
         projectPath: session?.projectPath,
       }),
+      onItemEvent: options.onItemEvent,
       save: async (image) => {
         const target = join(realDir, `generated-${randomUUID()}.${image.extension}`);
         await writeFile(target, image.bytes, { flag: "wx" });
@@ -107,8 +119,8 @@ export function createImageGenerationTool(options: {
       isError: !ok,
       content: {
         kind: "generated-images",
-        providerId: binding.providerId,
-        modelId: binding.modelId,
+        providerId,
+        modelId,
         results,
       },
     };

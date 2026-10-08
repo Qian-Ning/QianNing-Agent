@@ -18,6 +18,18 @@ export const PLUGIN_DEV_SKILL_FILE = "plugin-development.md";
 export const PLUGIN_DEV_SKILL_ID = "qianning/plugin-development";
 export const IMAGE_GENERATION_SKILL_ID = "qianning/imagegen";
 const IMAGE_GENERATION_SKILL_FILE = "image-generation.md";
+export const VIDEO_GENERATION_SKILL_ID = "qianning/videogen";
+const VIDEO_GENERATION_SKILL_FILE = "video-generation.md";
+
+/**
+ * One table for id-to-file, so a new bundled capability cannot be added to the
+ * catalog while `loadBuiltinSkillBody` quietly stops resolving it.
+ */
+const BUILTIN_SKILL_FILES: Readonly<Record<string, string>> = {
+  [IMAGE_GENERATION_SKILL_ID]: IMAGE_GENERATION_SKILL_FILE,
+  [VIDEO_GENERATION_SKILL_ID]: VIDEO_GENERATION_SKILL_FILE,
+  [PLUGIN_DEV_SKILL_ID]: PLUGIN_DEV_SKILL_FILE,
+};
 
 /**
  * Skill ids this build shipped under before the brand rename. The id doubles as
@@ -105,11 +117,10 @@ export type BuiltinSkillInput = {
  * fresh so a packaged update takes effect without a restart.
  */
 export function builtinSkills(input: BuiltinSkillInput): PluginSkillDef[] {
-  const ids = [IMAGE_GENERATION_SKILL_ID];
+  const ids = [IMAGE_GENERATION_SKILL_ID, VIDEO_GENERATION_SKILL_ID];
   if (isPluginWorkspace(input.workspacePath, input.pluginPaths)) ids.push(PLUGIN_DEV_SKILL_ID);
   return ids.flatMap((id) => {
-    const file = id === IMAGE_GENERATION_SKILL_ID ? IMAGE_GENERATION_SKILL_FILE : PLUGIN_DEV_SKILL_FILE;
-    const raw = readBuiltinSkill(file);
+    const raw = readBuiltinSkill(BUILTIN_SKILL_FILES[id]);
     if (!raw?.raw.trim()) return [];
     const parsed = parseSkillFrontmatter(raw.raw);
     return parsed.body ? [{ id, name: parsed.name ?? id, description: parsed.description }] : [];
@@ -122,8 +133,9 @@ export function builtinSkills(input: BuiltinSkillInput): PluginSkillDef[] {
  */
 export function loadBuiltinSkillBody(id: string): LoadedSkillDocument | null {
   const canonical = canonicalBuiltinSkillId(id);
-  if (canonical !== PLUGIN_DEV_SKILL_ID && canonical !== IMAGE_GENERATION_SKILL_ID) return null;
-  const raw = readBuiltinSkill(canonical === IMAGE_GENERATION_SKILL_ID ? IMAGE_GENERATION_SKILL_FILE : PLUGIN_DEV_SKILL_FILE);
+  const file = BUILTIN_SKILL_FILES[canonical];
+  if (!file) return null;
+  const raw = readBuiltinSkill(file);
   if (!raw?.raw.trim()) return null;
   const parsed = parseSkillFrontmatter(raw.raw);
   if (!parsed.body) return null;
