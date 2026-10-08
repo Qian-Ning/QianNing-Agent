@@ -44,6 +44,7 @@ QianNing Agent 目前尚未接入操作系统钥匙串。能够以同一系统�
 | 了解存储、权限、密钥与插件边界 | [数据、隐私与安全](/zh-CN/guide/data-and-security) |
 | 运行周期任务 | [定时任务](/zh-CN/guide/automations) |
 | 添加 MCP 目录 | [MCP 市场](/zh-CN/guide/mcp-market) |
+| 生图与生视频 | [媒体工作台](/zh-CN/guide/media-workbench) |
 | 浏览应用界面 | [界面图库](/zh-CN/guide/screenshots) |
 | 开发扩展 | [插件开发](/zh-CN/plugin-development) |
 | 理解进程职责 | [架构规格](/zh-CN/spec/02-architecture/01-architecture) |
