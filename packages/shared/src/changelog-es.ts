@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "0.18.1",
+    date: "2026-10-08",
+    highlights: [
+    "La página del banco de medios se dividió en la página y las vistas parciales que compone, para mantenerse dentro del presupuesto de módulos del repositorio. Su aspecto y su comportamiento no cambian.",
+    "Las especificaciones de generación de vídeo y del banco de medios ya tienen su versión en chino y figuran en el índice de especificaciones, así que la comprobación de documentación vuelve a pasar.",
+    "Es un parche sobre 0.18.0, que salió con una comprobación de documentación fallida y una página por encima del presupuesto. Los instaladores se generan a partir de esta versión.",
+    ],
+  },
+  {
     version: "0.18.0",
     date: "2026-10-08",
     highlights: [
