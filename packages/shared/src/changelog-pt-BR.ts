@@ -1,6 +1,16 @@
 import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
+  {
+    version: "0.18.0",
+    date: "2026-10-08",
+    highlights: [
+      "A bancada de mídia gera imagens e vídeos em uma única página, sem abrir uma conversa: escolha o modelo, peça até quatro resultados e execute.",
+      "A resolução oferece uma opção inteligente que não envia tamanho algum, então o provedor não pode cobrar uma faixa maior do que a escolhida. Proporção e resolução são independentes, e cada uma pode voltar ao padrão do provedor.",
+      "Cada resultado concluído é salvo na biblioteca de mídia do aplicativo: o histórico sobrevive a um reinício e o arquivo é seu — visualize, Salvar como…, ou mostre na pasta.",
+      "Um servidor local compatível com OpenAI é marcado como local, e seus modelos aparecem para imagem e vídeo. O vídeo aceita um primeiro e um último quadro, até quatro clipes, até 15 segundos e resoluções de até 4K.",
+    ],
+  },
       {
         version: "0.17.3",
         date: "2026-10-07",

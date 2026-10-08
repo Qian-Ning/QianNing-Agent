@@ -1,6 +1,16 @@
 import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
+  {
+    version: "0.18.0",
+    date: "2026-10-08",
+    highlights: [
+      "Die Medien-Werkbank erzeugt Bilder und Videos auf einer Seite, ohne dass ein Gespräch begonnen werden muss: Modell wählen, bis zu vier Ergebnisse anfordern, starten.",
+      "Die Auflösung bietet eine intelligente Wahl, die gar keine Größe sendet — ein Anbieter kann also keine größere Stufe abrechnen als die gewählte. Seitenverhältnis und Auflösung sind unabhängig, beide können auf die Vorgabe des Anbieters zurückfallen.",
+      "Jedes fertige Ergebnis landet in der Medienbibliothek der App: Der Verlauf übersteht einen Neustart, und das Material gehört Ihnen — in den Ergebnissen ansehen, Speichern unter…, oder im Ordner zeigen.",
+      "Ein lokaler, OpenAI-kompatibler Server wird als lokal gekennzeichnet, und seine Modelle stehen für Bild und Video bereit. Video nimmt ein erstes und ein letztes Bild, bis zu vier Clips, bis zu 15 Sekunden und Auflösungen bis 4K.",
+    ],
+  },
       {
         version: "0.17.3",
         date: "2026-10-07",
