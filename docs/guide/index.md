@@ -44,6 +44,7 @@ QianNing Agent does not currently use an OS keychain backend. A process running 
 | Understand storage, permissions, secrets, and plugins | [Data, privacy, and security](/guide/data-and-security) |
 | Run recurring prompts | [Scheduled tasks](/guide/automations) |
 | Add an MCP catalog | [MCP market](/guide/mcp-market) |
+| Generate images and videos | [Media workbench](/guide/media-workbench) |
 | See the application surfaces | [Interface gallery](/guide/screenshots) |
 | Build an extension | [Plugin development](/plugin-development) |
 | Understand process ownership | [Architecture specification](/spec/02-architecture/01-architecture) |

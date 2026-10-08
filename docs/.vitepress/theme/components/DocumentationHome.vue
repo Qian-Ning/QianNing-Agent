@@ -68,6 +68,7 @@ const copy = computed(() =>
         exploreTitle: '按你的任务继续读',
         explore: [
           ['使用指南', '安装、第一次会话、自动化、MCP 与界面说明。', u('/zh-CN/guide/')],
+          ['生图与生视频', '在工作台直接生成：参数怎么选、成本怎么看、产物落在哪里。', u('/zh-CN/guide/media-workbench')],
           ['产品规格', '产品范围、运行时协议、存储、安全和交付契约。', u('/zh-CN/spec/README')],
           ['插件开发', '从 manifest 到设置页、工具、面板、服务与打包。', u('/zh-CN/plugin-development')],
           ['架构决策', '查看重要取舍、边界为什么存在，以及后续如何演进。', u('/zh-CN/adr/')],
@@ -124,6 +125,7 @@ const copy = computed(() =>
         exploreTitle: 'Continue by the job you need to do',
         explore: [
           ['User guide', 'Installation, first session, automations, MCP, and interface orientation.', u('/guide/')],
+          ['Images and video', 'Generate from the workbench: choosing the parameters, reading the cost, and finding what you made.', u('/guide/media-workbench')],
           ['Product specification', 'Scope, runtime protocols, storage, security, and delivery contracts.', u('/spec/README')],
           ['Plugin development', 'From manifest to settings, tools, panels, services, and packaging.', u('/plugin-development')],
           ['Architecture decisions', 'Read the trade-offs, why boundaries exist, and how they may evolve.', u('/adr/README')],

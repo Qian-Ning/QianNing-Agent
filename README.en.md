@@ -37,8 +37,9 @@ Windows-first · Data stays on your machine · Bring your own model · Plugin-ex
 - **Built for long work** -- projects are persistent and so are sessions; search them, export them, or reopen any historical branch.
 - **Capability is gated** -- the model decides what it wants to do; the host decides whether it may. File writes, command execution and out-of-workspace access all pass through policy.
 - **Bring your own model** -- OpenAI, Anthropic, compatible gateways, self-hosted services and local models share one set of sessions and workflows.
+- **Images and video** -- the workbench lets you do it yourself: pick the capability, the model, the aspect ratio and the resolution, ask for up to four renders, and run it. Results land in the app's own media library, so the history survives a restart, and generating needs no conversation first.
 - **Extensible** -- plugins, skills and MCP all have stable contracts, with permissions granted item by item.
-- **Documented** -- specifications, decision records and operating guides ship with the repository: 534 pages, with specifications paired in English and Chinese.
+- **Documented** -- specifications, decision records and operating guides ship with the repository: 539 pages, with specifications paired in English and Chinese.
 
 ## 🚀 Quick start
 
@@ -100,6 +101,17 @@ Every frame below comes out of the repository's own capture rig: the app runs wi
 | ![Home and Composer](docs/image/readme/home.en.webp) | ![A conversation with the minimap rail](docs/image/readme/conversation.en.webp) |
 | ![Model and reasoning switching](docs/image/readme/models.en.webp) | ![The plugin marketplace](docs/image/readme/marketplace.en.webp) |
 | ![The review panel](docs/image/readme/review.en.webp) | ![Scheduled tasks](docs/image/readme/scheduled.en.webp) |
+
+### Images and video
+
+The **workbench** in the sidebar footer is where images and video are generated. It and Settings divide the work: Settings decides which models are eligible, the workbench owns a single run.
+
+- **No conversation first.** Open the workbench and generate. Renders are written to `<data directory>/generated/`, with an index beside them recording the capability, prompt, model, size and outcome of every run, so the history survives a restart.
+- **Yours to set.** The count is validated rather than clamped (1-4); aspect ratio and resolution are two independent axes; resolution offers **Smart**, which sends no size at all, so a provider cannot bill a larger tier than the one you picked. Video adds a first and a last frame, 2-15 seconds, and tiers from 480p to 4K.
+- **Cost in view.** Video is billed per second, so the submit row states `clips x duration = total seconds` before anything is sent; cancelling cannot promise the provider stopped billing.
+- **Local servers too.** A local or LAN OpenAI-compatible server is marked as local and its models are offered for both capabilities. Note that the native ComfyUI and SD WebUI APIs are not OpenAI-shaped and need a wrapper or proxy.
+
+The full walkthrough is in [Images and video](docs/guide/media-workbench.md). Both capabilities are also exposed to the model as the Agent tools `GenerateImages` and `GenerateVideos`.
 
 ---
 
@@ -285,6 +297,8 @@ Scheduled and other unattended runs are **not allowed** to use Plan or Goal — 
 | `Write` | high | Create or overwrite files; returns the post-write `tag` |
 | `Edit` | high | Line-anchored edits against a verified `tag` |
 | `Bash` | high | Execute commands (non-interactive, streamed output, using the shell selected from the host catalog) |
+| `GenerateImages` | high | Generate images from a prompt, optionally with reference images; returns local paths |
+| `GenerateVideos` | high | Generate video from a prompt, optionally with a first and a last frame, a duration and a size; returns local paths |
 | `Computer` | high | Move the mouse and type on this machine; **off by default**, offered only while its switch is on, and Windows-only |
 | `Connection` | high | Work on the targets you add on the Connections page; **off by default**, each target carrying its own switch above the master one |
 | `new_context` | low | Start a new context window at the next turn boundary; changes no environment state |
