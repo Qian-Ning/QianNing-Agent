@@ -50,6 +50,7 @@
 - [21-image-generation.md](/zh-CN/spec/03-runtime/21-image-generation)
 - [22-config-sync.md](/zh-CN/spec/03-runtime/22-config-sync)
 - [23-connections-protocol.md](/zh-CN/spec/03-runtime/23-connections-protocol)
+- [24-video-generation.md](/zh-CN/spec/03-runtime/24-video-generation)
 - [svg-attachment-input.md](/zh-CN/spec/03-runtime/svg-attachment-input)
 
 ## 4. 用户体验
@@ -65,6 +66,7 @@
 - [09-interaction-patterns.md](/zh-CN/spec/04-ux/09-interaction-patterns)
 - [10-workbuddy-benchmark-ux.md](/zh-CN/spec/04-ux/10-workbuddy-benchmark-ux)
 - [11-asktool-question-card.md](/zh-CN/spec/04-ux/11-asktool-question-card)
+- [12-media-workbench.md](/zh-CN/spec/04-ux/12-media-workbench)
 
 ## 5. 安全性
 - [README.md](/zh-CN/spec/05-security/README)
