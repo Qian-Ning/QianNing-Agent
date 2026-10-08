@@ -30,6 +30,15 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
       {
+        version: "0.18.1",
+        date: "2026-10-08",
+        highlights: [
+        "The media workbench page was split into the page and the sub-views it composes, so it stays inside the repository's module budget. Nothing about how it looks or behaves changed.",
+        "The video-generation and media-workbench specifications now have their Chinese mirrors and are listed in the specification index, so the documentation check is green again.",
+        "This is a patch on top of 0.18.0, which shipped with a failing documentation check and an over-budget page. Installers are produced from this release.",
+        ],
+      },
+      {
         version: "0.18.0",
         date: "2026-10-08",
         highlights: [
@@ -1020,6 +1029,15 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
       {
+        version: "0.18.1",
+        date: "2026-10-08",
+        highlights: [
+        "媒体工作台页面被拆成页面本体与它组合的各个子视图，从而落回仓库的模块体量预算之内。外观与行为没有任何改变。",
+        "生视频与媒体工作台两份规格补上了中文镜像，并列入规格索引，文档检查重新变绿。",
+        "这是 0.18.0 之上的补丁版：上一版带着一个失败的文档检查和一页超预算的文件出门。安装包从本版开始产出。",
+        ],
+      },
+      {
         version: "0.18.0",
         date: "2026-10-08",
         highlights: [
@@ -2009,6 +2027,15 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+      {
+        version: "0.18.1",
+        date: "2026-10-08",
+        highlights: [
+        "媒體工作台頁面被拆成頁面本體與它組合的各個子視圖，從而落回倉庫的模組體量預算之內。外觀與行為沒有任何改變。",
+        "生影片與媒體工作台兩份規格補上了中文鏡像，並列入規格索引，文件檢查重新變綠。",
+        "這是 0.18.0 之上的補丁版：上一版帶著一個失敗的文件檢查和一頁超預算的檔案出門。安裝包從本版開始產出。",
+        ],
+      },
       {
         version: "0.18.0",
         date: "2026-10-08",

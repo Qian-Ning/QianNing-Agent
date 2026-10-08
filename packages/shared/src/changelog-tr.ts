@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "0.18.1",
+    date: "2026-10-08",
+    highlights: [
+    "Medya çalışma tezgâhı sayfası, depo modül bütçesi içinde kalması için sayfa ve oluşturduğu alt görünümlere bölündü. Görünüşünde ve davranışında değişiklik yok.",
+    "Video üretimi ve medya çalışma tezgâhı şartnameleri artık Çince karşılıklarına sahip ve şartname dizininde listeleniyor; belge denetimi yeniden geçiyor.",
+    "0.18.0 üzerine bir yama: önceki sürüm başarısız bir belge denetimi ve bütçeyi aşan bir sayfayla çıkmıştı. Kurulum dosyaları bu sürümden itibaren üretiliyor.",
+    ],
+  },
+  {
     version: "0.18.0",
     date: "2026-10-08",
     highlights: [

@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "0.18.1",
+    date: "2026-10-08",
+    highlights: [
+    "Die Seite der Medien-Werkbank wurde in die Seite selbst und die Teilansichten, die sie zusammensetzt, aufgeteilt, damit sie im Modulbudget des Repositorys bleibt. Aussehen und Verhalten sind unverändert.",
+    "Die Spezifikationen für Videogenerierung und Medien-Werkbank haben jetzt ihre chinesischen Fassungen und stehen im Spezifikationsindex, der Dokumentations-Check ist damit wieder grün.",
+    "Dies ist ein Patch auf 0.18.0, das mit einem fehlschlagenden Dokumentations-Check und einer über dem Budget liegenden Seite ausgeliefert wurde. Installer entstehen ab dieser Version.",
+    ],
+  },
+  {
     version: "0.18.0",
     date: "2026-10-08",
     highlights: [

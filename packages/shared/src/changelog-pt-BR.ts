@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "0.18.1",
+    date: "2026-10-08",
+    highlights: [
+    "A página do ambiente de mídia foi dividida entre a página e as subvisões que ela compõe, para voltar ao orçamento de módulos do repositório. A aparência e o comportamento não mudam.",
+    "As especificações de geração de vídeo e do ambiente de mídia agora têm sua versão em chinês e constam no índice de especificações, então a verificação de documentação volta a passar.",
+    "É um patch sobre a 0.18.0, que saiu com uma verificação de documentação falhando e uma página acima do orçamento. Os instaladores passam a ser gerados a partir desta versão.",
+    ],
+  },
+  {
     version: "0.18.0",
     date: "2026-10-08",
     highlights: [

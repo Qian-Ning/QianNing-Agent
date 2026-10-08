@@ -47,6 +47,7 @@
 - [21-image-generation.md](03-runtime/21-image-generation.md)
 - [22-config-sync.md](03-runtime/22-config-sync.md)
 - [23-connections-protocol.md](03-runtime/23-connections-protocol.md)
+- [24-video-generation.md](03-runtime/24-video-generation.md)
 - [svg-attachment-input.md](03-runtime/svg-attachment-input.md)
 
 ## 4. UX
@@ -62,6 +63,7 @@
 - [09-interaction-patterns.md](04-ux/09-interaction-patterns.md)
 - [10-workbuddy-benchmark-ux.md](04-ux/10-workbuddy-benchmark-ux.md)
 - [11-asktool-question-card.md](04-ux/11-asktool-question-card.md)
+- [12-media-workbench.md](04-ux/12-media-workbench.md)
 
 ## 5. Security
 - [README.md](05-security/README.md)

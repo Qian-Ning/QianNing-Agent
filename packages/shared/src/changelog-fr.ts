@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "0.18.1",
+    date: "2026-10-08",
+    highlights: [
+    "La page de l'atelier multimédia a été scindée entre la page elle-même et les sous-vues qu'elle compose, afin de rester dans le budget de modules du dépôt. Son apparence et son comportement ne changent pas.",
+    "Les spécifications de génération vidéo et de l'atelier multimédia disposent désormais de leur version chinoise et figurent dans l'index des spécifications ; le contrôle de documentation repasse au vert.",
+    "Il s'agit d'un correctif au-dessus de 0.18.0, livré avec un contrôle de documentation en échec et une page hors budget. Les installeurs sont produits à partir de cette version.",
+    ],
+  },
+  {
     version: "0.18.0",
     date: "2026-10-08",
     highlights: [

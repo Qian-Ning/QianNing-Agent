@@ -29,7 +29,7 @@ Parameters are bounded by the same constants the contract validates, imported fr
 | Reference images | up to 4, edited via the multipart edits endpoint | — |
 | Frames | — | first frame, last frame (last requires first) |
 
-Shape and resolution are two controls, not one: a 16:9 frame at 720p and the same frame at 1080p are different requests. They are chosen separately and composed into the single `WIDTHxHEIGHT` the provider receives, and the composed value is shown under the pair before anything is sent. A resolution only means something together with a ratio, so the resolution control stays disabled until a ratio is chosen, and clearing the ratio clears the tier with it. Image resolutions name the long side (`3:2` + `1536` is `1536x1024`); video tiers name the short side the way `720p` does (`16:9` + `720` is `1280x720`, `9:16` + `720` is `720x1280`), so a portrait clip and a landscape clip of one tier carry the same amount of picture. Both sides are snapped to multiples of 8, which is what image models with a VAE accept without a silent rescale. **Provider default** for the ratio means no size is sent at all and the model decides. An invalid custom size is reported inline under the field and blocks submit rather than being sent; a valid one is passed through exactly as typed.
+Shape and resolution are two controls, not one: a 16:9 frame at 720p and the same frame at 1080p are different requests. They are chosen separately and composed into the single `WIDTHxHEIGHT` the provider receives, and the composed value is shown under the pair before anything is sent. Ratio and resolution are independent axes: the resolution control is always available, **Smart** is always first and always selectable, and a tier chosen with no ratio composes against that capability's first ratio (1:1 for images, 16:9 for video), which the option text states as the size that will actually be sent. Image resolutions name the long side (`3:2` + `1536` is `1536x1024`); video tiers name the short side the way `720p` does (`16:9` + `720` is `1280x720`, `9:16` + `720` is `720x1280`), so a portrait clip and a landscape clip of one tier carry the same amount of picture. Both sides are snapped to multiples of 8, which is what image models with a VAE accept without a silent rescale. **Provider default** for the ratio means no size is sent at all and the model decides. An invalid custom size is reported inline under the field and blocks submit rather than being sent; a valid one is passed through exactly as typed.
 
 **Smart is the default resolution, and it sends no `size` at all.** Providers accept different sets, and a provider can bill by the nearest tier it does support, so a size the model does not offer can be charged as a larger one — picking 480p and paying for 720p. Smart leaves the choice to the model's own default, which is always accepted and never rounds a price up. The explicit tiers stay available for providers whose sets are known, and both the aspect ratio and the resolution keep a provider-default entry.
 
@@ -66,11 +66,11 @@ Every finished render carries **Save as…** and **Show in folder**, for images 
 | State | Surface |
 |---|---|
 | No model configured | model menu restricted to **Open settings**, submit disabled |
-| No session open | submit disabled; the page states a session is required first |
+| No session open | nothing special: a run needs no session at all, and its render still lands in the library |
 | Empty prompt / invalid size / last frame without first | submit disabled with the reason on the relevant row |
 | Running | status row with elapsed time and Cancel, item cards advancing |
 | Partial success | summary reads `ok/total`, failed cards carry their error code and a per-item retry |
 | Call-level failure | error banner above the grid, no item cards |
-| History | last 24 runs of this session; previous runs are not persisted across restarts |
+| History | the library's recorded runs for this capability, newest first and bounded, plus the runs made in this session; it survives a restart |
 
 All copy is translated in the nine shipped locales and the page uses design-system tokens only; hover styles are gated behind `(hover: hover) and (pointer: fine)` like the rest of the renderer.
