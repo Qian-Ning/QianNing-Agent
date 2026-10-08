@@ -157,7 +157,7 @@ test("native prompt only dispatches sidecar and cannot create a host queue entry
 
 test("native model readiness never depends on a Desktop provider but read-only fails closed", () => {
   const expression = composer.match(/const modelReady = ([\s\S]*?);/)[1];
-  const evaluateReady = new Function("isImageGenerationModel", "imageGenerationCandidates", "settings", "nativeSession", "activeSessionSummary", "provider", "modelId", `return ${expression}`);
+  const evaluateReady = new Function("isGenerationModel", "generationCandidates", "settings", "nativeSession", "activeSessionSummary", "provider", "modelId", `return ${expression}`);
   const ready = (nativeSession, activeSessionSummary, provider, modelId, settings) =>
     evaluateReady(isImageGenerationModel, imageGenerationBindings(settings?.imageGenerationModels, settings?.imageGeneration), settings, nativeSession, activeSessionSummary, provider, modelId);
   assert.equal(ready(true, { capabilities: { canPrompt: true } }, undefined, undefined), true);

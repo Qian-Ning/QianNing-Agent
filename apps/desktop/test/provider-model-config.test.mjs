@@ -341,8 +341,8 @@ test("adding a service only claims the app default while none resolves", () => {
   // default provider to be runnable (enabled, credentialed, a chat model
   // configured), so a keyless default row cannot block the new provider.
   // Provider readiness and default selection use the same exact chat choices.
-  assert.match(pageSource, /chatModelOptions\(\[currentProvider\], imageGenerationCandidates\)/);
-  assert.match(pageSource, /providerServesChatModels\(provider, imageGenerationCandidates\)/);
+  assert.match(pageSource, /chatModelOptions\(\[currentProvider\], generationCandidates\)/);
+  assert.match(pageSource, /providerServesChatModels\(provider, generationCandidates\)/);
 });
 
 test("a saved image selection never takes the app's image default", () => {
@@ -371,7 +371,7 @@ test("settings match complete case-normalized wire ids, not proxy suffixes", () 
   const sameWireId = new Function("left", "right", `return ${identity[1]}`);
   assert.equal(sameWireId("PROXY/model", "proxy/MODEL"), true);
   assert.equal(sameWireId("proxy/model", "model"), false);
-  assert.match(pageSource, /isImageCandidate\(imageModels, provider\.id, id\)/);
+  assert.match(pageSource, /isGenerationModel\(candidates\.flat\(\), providerId, modelId\)/);
   assert.match(pageSource, /sameWireId\(settings\.defaultModelId \?\? "", modelId\)/);
   assert.match(pageSource, /!models\.some\(\(model\) => sameWireId\(model\.id, settings\.defaultModelId/);
   assert.doesNotMatch(pageSource, /modelIdsMatch|isImageGenerationModel/);
@@ -393,7 +393,7 @@ test("new chat default skips an image-only first model", () => {
 });
 
 test("stale image-valued chat default remains visible but is not marked ready", () => {
-  assert.match(pageSource, /const defaultProviderReady = defaultProvider !== null && providerReady\(defaultProvider\) &&[\s\S]*?chatModelOptions\(\[defaultProvider\], imageGenerationCandidates\)\.some/);
+  assert.match(pageSource, /const defaultProviderReady = defaultProvider !== null && providerReady\(defaultProvider\) &&[\s\S]*?chatModelOptions\(\[defaultProvider\], generationCandidates\)\.some/);
   assert.match(pageSource, /const effectiveDefaultModelId = settings\.defaultModelId\?\.trim\(\) \|\|\s*defaultProvider\?\.models\?\.\[0\]\?\.id \|\| defaultProvider\?\.defaultModelId/);
   assert.match(pageSource, /sameWireId\(modelId, effectiveDefaultModelId \?\? ""\)/);
   assert.match(pageSource, /return selected\?\.trim\(\) \|\| configured\[0\]/);

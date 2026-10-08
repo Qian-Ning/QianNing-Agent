@@ -45,6 +45,8 @@ pub(crate) const PORTABLE_APPLICATION_FIELDS: &[&str] = &[
     "promptEnhancementThinkingLevel",
     "imageGeneration",
     "imageGenerationModels",
+    "videoGeneration",
+    "videoGenerationModels",
     "speech",
 ];
 

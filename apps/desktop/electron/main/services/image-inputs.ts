@@ -7,6 +7,8 @@ export function imageInputLoader(options: {
   projectPath?: string;
   scratchPath: string;
   dataDir: string;
+  /** Further host-owned roots, e.g. the media library a workbench run reads from. */
+  extraRoots?: string[];
 }) {
   let loadedBytes = 0;
   const cache = new Map<
@@ -23,7 +25,12 @@ export function imageInputLoader(options: {
           : resolve(options.scratchPath, ref);
     const path = await realpath(candidate);
     const roots = await Promise.all(
-      [options.projectPath, options.scratchPath, resolve(options.dataDir, "attachments")]
+      [
+        options.projectPath,
+        options.scratchPath,
+        ...(options.extraRoots ?? []),
+        resolve(options.dataDir, "attachments"),
+      ]
         .filter((root): root is string => !!root)
         .map((root) =>
           realpath(root).catch((error: NodeJS.ErrnoException) => {

@@ -1,6 +1,16 @@
 import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
+  {
+    version: "0.18.0",
+    date: "2026-10-08",
+    highlights: [
+      "Medya tezgâhı, bir sohbet açmadan tek sayfadan görsel ve video üretir: modeli seçin, en fazla dört sonuç isteyin ve çalıştırın.",
+      "Çözünürlükte, hiç boyut göndermeyen akıllı bir seçenek var; böylece sağlayıcı seçtiğinizden büyük bir kademeyi faturalandıramaz. En-boy oranı ile çözünürlük birbirinden bağımsızdır ve her biri sağlayıcının varsayılanına dönebilir.",
+      "Tamamlanan her sonuç uygulamanın medya kitaplığına kaydedilir: geçmiş yeniden başlatmaya dayanır ve dosya size aittir — sonuçlarda önizleyin, Farklı kaydet… veya klasörde göster.",
+      "Yerel, OpenAI uyumlu bir sunucu yerel olarak işaretlenir ve modelleri hem görsel hem video için sunulur. Video bir ilk ve bir son kare alır, en fazla dört klip, 15 saniye ve 4K'ya kadar çözünürlük.",
+    ],
+  },
       {
         version: "0.17.3",
         date: "2026-10-07",

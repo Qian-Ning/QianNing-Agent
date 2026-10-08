@@ -29,6 +29,10 @@ export type AppSettings = {
   imageGeneration?: import("../image-generation.js").ImageGenerationBinding | null;
   /** All models marked for image generation; absent falls back to imageGeneration. */
   imageGenerationModels?: import("../image-generation.js").ImageGenerationBinding[] | null;
+  /** Current default video-generation binding; absent means none. */
+  videoGeneration?: import("../video-generation.js").VideoGenerationBinding | null;
+  /** All models marked for video generation; absent falls back to videoGeneration. */
+  videoGenerationModels?: import("../video-generation.js").VideoGenerationBinding[] | null;
   defaultProviderId?: string;
   defaultModelId?: string;
   /** Per-install update behavior; absent uses the package's safe default. */

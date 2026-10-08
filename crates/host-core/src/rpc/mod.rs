@@ -733,11 +733,16 @@ fn merge_settings_value(stored: Option<Value>, incoming: Value) -> Value {
     Value::Object(merged)
 }
 
-/// Drop image-generation bindings whose provider row is gone.
+/// Setting keys that hold a generation binding plus its candidate list.
+const IMAGE_GENERATION_SETTING_KEYS: [&str; 2] = ["imageGeneration", "imageGenerationModels"];
+const VIDEO_GENERATION_SETTING_KEYS: [&str; 2] = ["videoGeneration", "videoGenerationModels"];
+
+/// Drop generation bindings whose provider row is gone.
 ///
 /// `settings.set` merges into the stored object and the shell writes whole
 /// snapshots back, so deleting a provider row used to leave `imageGeneration`
-/// naming an id that no longer resolves. Every `GenerateImages` call then
+/// (and now `videoGeneration`) naming an id that no longer resolves. Every
+/// `GenerateImages` and `GenerateVideos` call then
 /// answered `IMAGE_MODEL_UNAVAILABLE`, and once the candidate list was empty
 /// the settings row that owns the default hid itself, so the binding could
 /// neither run nor be repaired from the UI. A binding that cannot resolve is
@@ -750,13 +755,15 @@ fn merge_settings_value(stored: Option<Value>, incoming: Value) -> Value {
 /// The same rule config sync already enforces when it applies a bundle
 /// (`validate_application_references`), applied to the local settings channel
 /// so a stale id cannot be written into or read out of the store.
-fn prune_unresolvable_image_bindings(
+fn prune_unresolvable_generation_bindings(
     db: &crate::db::Database,
     settings: &mut Value,
+    keys: [&str; 2],
 ) -> Result<bool> {
     let Some(object) = settings.as_object_mut() else {
         return Ok(false);
     };
+    let [active_key, list_key] = keys;
     let resolves = |binding: &Value| -> Result<bool> {
         match binding.get("providerId").and_then(Value::as_str) {
             Some(provider_id) => providers::provider_exists(db, provider_id),
@@ -764,15 +771,15 @@ fn prune_unresolvable_image_bindings(
         }
     };
     let mut changed = false;
-    let active_is_stale = match object.get("imageGeneration") {
+    let active_is_stale = match object.get(active_key) {
         Some(binding) if !binding.is_null() => !resolves(binding)?,
         _ => false,
     };
     if active_is_stale {
-        object.insert("imageGeneration".into(), Value::Null);
+        object.insert(active_key.into(), Value::Null);
         changed = true;
     }
-    if let Some(Value::Array(candidates)) = object.get("imageGenerationModels").cloned() {
+    if let Some(Value::Array(candidates)) = object.get(list_key).cloned() {
         let mut kept = Vec::with_capacity(candidates.len());
         let mut dropped = false;
         for candidate in candidates {
@@ -783,11 +790,58 @@ fn prune_unresolvable_image_bindings(
             }
         }
         if dropped {
-            object.insert("imageGenerationModels".into(), Value::Array(kept));
+            object.insert(list_key.into(), Value::Array(kept));
             changed = true;
         }
     }
     Ok(changed)
+}
+
+/// Bounds and shape a generation binding plus its candidate list.
+///
+/// One rule for every generation capability: the key names and the model caps
+/// differ, the acceptance test does not, so a new kind cannot be validated one
+/// way in one branch and another way somewhere else.
+fn validate_generation_bindings(
+    object: &serde_json::Map<String, Value>,
+    keys: [&str; 2],
+    label: &str,
+    max_models: usize,
+) -> Result<(), JsonRpcError> {
+    let [active_key, list_key] = keys;
+    let fields_valid = |binding: &Value| {
+        [("providerId", 128usize), ("modelId", 256usize)]
+            .iter()
+            .all(|(key, max)| {
+                binding
+                    .get(*key)
+                    .and_then(Value::as_str)
+                    .is_some_and(|s| !s.trim().is_empty() && s.len() <= *max)
+            })
+    };
+    if let Some(binding) = object.get(active_key).filter(|v| !v.is_null()) {
+        if !fields_valid(binding) {
+            let message = format!("invalid {label} binding");
+            return Err(rpc_err(1002, &message, "INVALID_PARAMS"));
+        }
+    }
+    if let Some(candidates) = object.get(list_key).filter(|v| !v.is_null()) {
+        let Some(candidates) = candidates.as_array() else {
+            let message = format!("{list_key} must be an array");
+            return Err(rpc_err(1002, &message, "INVALID_PARAMS"));
+        };
+        if candidates.len() > max_models {
+            let message = format!("{list_key} contains too many models");
+            return Err(rpc_err(1002, &message, "INVALID_PARAMS"));
+        }
+        for binding in candidates {
+            if !fields_valid(binding) {
+                let message = format!("invalid {label} candidate");
+                return Err(rpc_err(1002, &message, "INVALID_PARAMS"));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn effective_command_shell_id(settings: Option<&Value>) -> Option<String> {
@@ -832,52 +886,18 @@ fn validate_settings_value(value: &Value) -> Result<(), JsonRpcError> {
             ));
         }
     }
-    if let Some(binding) = object.get("imageGeneration").filter(|v| !v.is_null()) {
-        for (key, max) in [("providerId", 128), ("modelId", 256)] {
-            if !binding
-                .get(key)
-                .and_then(Value::as_str)
-                .is_some_and(|s| !s.trim().is_empty() && s.len() <= max)
-            {
-                return Err(rpc_err(
-                    1002,
-                    "invalid image generation binding",
-                    "INVALID_PARAMS",
-                ));
-            }
-        }
-    }
-    if let Some(candidates) = object.get("imageGenerationModels").filter(|v| !v.is_null()) {
-        let Some(candidates) = candidates.as_array() else {
-            return Err(rpc_err(
-                1002,
-                "imageGenerationModels must be an array",
-                "INVALID_PARAMS",
-            ));
-        };
-        if candidates.len() > 128 {
-            return Err(rpc_err(
-                1002,
-                "imageGenerationModels contains too many models",
-                "INVALID_PARAMS",
-            ));
-        }
-        for binding in candidates {
-            for (key, max) in [("providerId", 128), ("modelId", 256)] {
-                if !binding
-                    .get(key)
-                    .and_then(Value::as_str)
-                    .is_some_and(|s| !s.trim().is_empty() && s.len() <= max)
-                {
-                    return Err(rpc_err(
-                        1002,
-                        "invalid image generation candidate",
-                        "INVALID_PARAMS",
-                    ));
-                }
-            }
-        }
-    }
+    validate_generation_bindings(
+        object,
+        IMAGE_GENERATION_SETTING_KEYS,
+        "image generation",
+        128,
+    )?;
+    validate_generation_bindings(
+        object,
+        VIDEO_GENERATION_SETTING_KEYS,
+        "video generation",
+        64,
+    )?;
     if let Some(preference) = object.get("updatePreference") {
         if !matches!(preference.as_str(), Some("automatic") | Some("manual")) {
             return Err(rpc_err(
@@ -1334,7 +1354,10 @@ fn bash_cancellation_requested(receiver: &Option<tokio::sync::watch::Receiver<bo
 }
 
 async fn clear_bash_cancellation(state: &Arc<Mutex<AppState>>, p: &ToolsExecuteParams) {
-    if !matches!(p.tool_name.as_str(), "Bash" | "GenerateImages") {
+    if !matches!(
+        p.tool_name.as_str(),
+        "Bash" | "GenerateImages" | "GenerateVideos"
+    ) {
         return;
     }
     let mut st = state.lock().await;
@@ -2027,9 +2050,19 @@ async fn handle_request(
             // deleted by a build that did not prune, an uninstalled plugin, or
             // synced bundle — is dropped here and the store is corrected, so
             // the shell never presents a default the runtime must reject.
-            if prune_unresolvable_image_bindings(&st.db, &mut settings)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?
-            {
+            let pruned_images = prune_unresolvable_generation_bindings(
+                &st.db,
+                &mut settings,
+                IMAGE_GENERATION_SETTING_KEYS,
+            )
+            .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
+            let pruned_videos = prune_unresolvable_generation_bindings(
+                &st.db,
+                &mut settings,
+                VIDEO_GENERATION_SETTING_KEYS,
+            )
+            .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
+            if pruned_images || pruned_videos {
                 st.db
                     .set_setting("app", &settings)
                     .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
@@ -2050,8 +2083,10 @@ async fn handle_request(
                 gate_default_command_shell_setting(&st)?;
             }
             let mut settings = normalize_settings_value(merge_settings_value(stored, params));
-            prune_unresolvable_image_bindings(&st.db, &mut settings)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
+            for keys in [IMAGE_GENERATION_SETTING_KEYS, VIDEO_GENERATION_SETTING_KEYS] {
+                prune_unresolvable_generation_bindings(&st.db, &mut settings, keys)
+                    .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
+            }
             st.db
                 .set_setting("app", &settings)
                 .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
@@ -3547,8 +3582,10 @@ async fn handle_request(
 
             // Register before permission evaluation so tools.abort can cancel
             // an approval wait as well as an already-spawned process.
-            let cancellation_receiver = if matches!(p.tool_name.as_str(), "Bash" | "GenerateImages")
-            {
+            let cancellation_receiver = if matches!(
+                p.tool_name.as_str(),
+                "Bash" | "GenerateImages" | "GenerateVideos"
+            ) {
                 let mut st = state.lock().await;
                 match st.register_bash_cancellation(&p.session_id, &p.tool_call_id) {
                     Ok(receiver) => Some(receiver),

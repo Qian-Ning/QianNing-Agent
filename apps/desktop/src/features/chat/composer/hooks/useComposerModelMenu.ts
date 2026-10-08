@@ -4,10 +4,10 @@ import type {
   SessionThinkingLevel,
 } from "@pi-desktop/shared";
 import {
-  imageGenerationBindings,
+  generationModelRefs,
   initialThinkingLevelForBinding,
   initialThinkingLevelForUnmatchedModel,
-  isImageGenerationModel,
+  isGenerationModel,
 } from "@pi-desktop/shared";
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -60,12 +60,8 @@ export function useComposerModelMenu({
   configureActiveSession,
 }: UseComposerModelMenuOptions) {
   const providers = useAppStore((s) => s.providers);
-  const imageGeneration = useAppStore((s) => s.settings?.imageGeneration);
-  const imageGenerationModels = useAppStore((s) => s.settings?.imageGenerationModels);
-  const imageGenerationCandidates = useMemo(
-    () => imageGenerationBindings(imageGenerationModels, imageGeneration),
-    [imageGenerationModels, imageGeneration],
-  );
+  const settings = useAppStore((s) => s.settings);
+  const generationCandidates = useMemo(() => generationModelRefs(settings), [settings]);
   const providerModels = useAppStore((s) => s.providerModels);
   const loadProviderModels = useAppStore((s) => s.loadProviderModels);
   const showToast = useAppStore((s) => s.showToast);
@@ -141,7 +137,7 @@ export function useComposerModelMenu({
           const models = composerModelsForProvider(
             candidate,
             providerModels[candidate.id],
-            imageGenerationCandidates,
+            generationCandidates,
           );
           return {
             provider: candidate,
@@ -151,7 +147,7 @@ export function useComposerModelMenu({
           };
         })
         .filter((group) => group.models.length > 0),
-    [providers, providerModels, imageGenerationCandidates],
+    [providers, providerModels, generationCandidates],
   );
   // Favorites, recents, capability filters and the active rail source live in a
   // dedicated hook; the pane it derives IS the flat, keyboard-navigable list.
@@ -260,11 +256,8 @@ export function useComposerModelMenu({
   const selectModel = async (candidate: ProviderPublic, nextModelId: string) => {
     thinkingQueueRef.current?.invalidate();
     await thinkingQueueRef.current?.idle();
-    if (isImageGenerationModel(
-      imageGenerationBindings(
-        useAppStore.getState().settings?.imageGenerationModels,
-        useAppStore.getState().settings?.imageGeneration,
-      ),
+    if (isGenerationModel(
+      generationModelRefs(useAppStore.getState().settings),
       candidate.id,
       nextModelId,
     )) return;

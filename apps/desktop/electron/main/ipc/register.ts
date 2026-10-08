@@ -32,6 +32,8 @@ import { registerWindowIpc } from "./window-ipc";
 import { createComposerTemplateLoader, registerWorkspaceIpc } from "./workspace-ipc";
 import { registerComposerIpc } from "./composer-ipc";
 import { registerSpeechIpc } from "./speech-ipc";
+import { relaxedNetworkPolicyEnabled } from "../endpoint-policy";
+import { registerWorkbenchIpc } from "./workbench-ipc";
 import { registerVoiceIpc } from "./voice-ipc";
 import type { IpcRegistrar } from "./types";
 import type { createTraySessions } from "../tray-sessions";
@@ -472,6 +474,14 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
   });
 
   registerSpeechIpc({ registrar, speech });
+
+  registerWorkbenchIpc({
+    registrar,
+    getMainWindow,
+    getHost,
+    dataDir,
+    allowFakeIp: () => relaxedNetworkPolicyEnabled(),
+  });
 
   if (voiceService) {
     registerVoiceIpc({ registrar, voiceService });

@@ -1,6 +1,16 @@
 import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
+  {
+    version: "0.18.0",
+    date: "2026-10-08",
+    highlights: [
+      "L'atelier média génère images et vidéos depuis une seule page, sans ouvrir de conversation : choisissez le modèle, demandez jusqu'à quatre rendus, lancez.",
+      "La résolution propose un choix intelligent qui n'envoie aucune taille : le fournisseur ne peut donc pas facturer un palier supérieur à celui choisi. Le format et la résolution sont indépendants, chacun pouvant revenir au défaut du fournisseur.",
+      "Chaque rendu terminé est enregistré dans la médiathèque de l'application : l'historique survit à un redémarrage et le fichier vous appartient — prévisualisez-le, Enregistrer sous…, ou affichez-le dans le dossier.",
+      "Un serveur local compatible OpenAI est signalé comme local, et ses modèles sont proposés en image comme en vidéo. La vidéo accepte une première et une dernière image, jusqu'à quatre clips, 15 secondes et des résolutions jusqu'à la 4K.",
+    ],
+  },
       {
         version: "0.17.3",
         date: "2026-10-07",

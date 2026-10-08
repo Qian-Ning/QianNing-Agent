@@ -15,6 +15,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   type ImageGenerationBinding,
+  type GenerationModelRefs,
+  type VideoGenerationBinding,
+  generationModelRefs,
+  isGenerationModel,
+  isVideoGenerationModel,
+  videoGenerationBindings,
   type ModelBinding,
   type ProviderPublic,
 } from "@pi-desktop/shared";
@@ -33,8 +39,10 @@ import {
 import { AnchoredMenu } from "./AnchoredMenu";
 import { providerServesChatModels } from "./default-model";
 import { planImageGenerationDefaults } from "./image-generation-default";
+import { planVideoGenerationDefaults } from "./video-generation-default";
 import { copyProviderConfiguration, type ProviderCopyDraft } from "./provider-copy";
 import { ImageGenerationModelRow } from "./ImageGenerationModelRow";
+import { VideoGenerationModelRow } from "./VideoGenerationModelRow";
 import { OAuthLoginDialog } from "./OAuthLoginDialog";
 import { ProviderSetupDialog } from "./ProviderSetupDialog";
 import {
@@ -76,16 +84,16 @@ function imageCandidates(
   return result;
 }
 
-function isImageCandidate(candidates: readonly ImageGenerationBinding[], providerId: string, modelId: string) {
-  return candidates.some((entry) => entry.providerId === providerId && sameWireId(entry.modelId, modelId));
+function isGenerationCandidate(candidates: readonly GenerationModelRefs[], providerId: string, modelId: string) {
+  return isGenerationModel(candidates.flat(), providerId, modelId);
 }
 
-function chatModelOptions(providers: readonly ProviderPublic[], imageModels: readonly ImageGenerationBinding[]) {
+function chatModelOptions(providers: readonly ProviderPublic[], generationModels: readonly GenerationModelRefs[]) {
   return providers.flatMap((provider) => {
     const ids = provider.models?.length
       ? provider.models.map((model) => model.id)
       : [provider.defaultModelId ?? ""];
-    return ids.filter((id) => !!id.trim() && !isImageCandidate(imageModels, provider.id, id))
+    return ids.filter((id) => !!id.trim() && !isGenerationCandidate(generationModels, provider.id, id))
       .map((modelId) => ({ provider, modelId }));
   });
 }
@@ -144,15 +152,12 @@ export function ModelConfigPage() {
     })();
   }, []);
 
-  const imageGenerationCandidates = useMemo(
-    () => imageCandidates(settings?.imageGenerationModels, settings?.imageGeneration),
-    [settings?.imageGenerationModels, settings?.imageGeneration],
-  );
+  const generationCandidates = useMemo(() => generationModelRefs(settings), [settings]);
   const providerReady = (provider: ProviderPublic) =>
-    providerServesChatModels(provider, imageGenerationCandidates);
+    providerServesChatModels(provider, generationCandidates);
 
   const readyProviders = providers.filter(providerReady);
-  const defaultModelOptionsList = chatModelOptions(readyProviders, imageGenerationCandidates);
+  const defaultModelOptionsList = chatModelOptions(readyProviders, generationCandidates);
   const visibleDefaultModelOptions = useMemo(() => {
     const query = defaultModelQuery.trim().toLowerCase();
     if (!query) return defaultModelOptionsList;
@@ -174,13 +179,13 @@ export function ModelConfigPage() {
   const effectiveDefaultModelId = settings.defaultModelId?.trim() ||
     defaultProvider?.models?.[0]?.id || defaultProvider?.defaultModelId;
   const defaultProviderReady = defaultProvider !== null && providerReady(defaultProvider) &&
-    chatModelOptions([defaultProvider], imageGenerationCandidates).some(
+    chatModelOptions([defaultProvider], generationCandidates).some(
       ({ modelId }) => sameWireId(modelId, effectiveDefaultModelId ?? ""),
     );
 
 
   const setDefaultModel = async (provider: ProviderPublic, modelId: string) => {
-    if (isImageCandidate(
+    if (isGenerationCandidate(
       imageCandidates(
         useAppStore.getState().settings?.imageGenerationModels,
         useAppStore.getState().settings?.imageGeneration,
@@ -216,8 +221,9 @@ export function ModelConfigPage() {
     saved: ProviderPublic,
     models: ModelBinding[],
     imageModelIds?: string[],
+    videoModelIds?: string[],
   ) => {
-    const selectedImageIds = imageModelIds ?? imageGenerationCandidates
+    const selectedImageIds = imageModelIds ?? generationCandidates
       .filter((entry) => entry.providerId === saved.id)
       .map((entry) => entry.modelId);
     const firstModelId = models.find((model) =>
@@ -230,6 +236,30 @@ export function ModelConfigPage() {
         ? firstModelId
         : undefined;
     try {
+      // Video candidates are planned by their own rule and written before the
+      // image plan: both read the stored settings first, so neither write
+      // overwrites the other's list.
+      if (videoModelIds !== undefined) {
+        const current = await api.getSettings();
+        const videoPlan = planVideoGenerationDefaults(
+          current,
+          saved.id,
+          videoModelIds,
+          [...providers.filter((provider) => provider.id !== saved.id), saved],
+          current.videoGeneration?.providerId === saved.id &&
+            (!videoModelIds.some((id) => sameWireId(id, current.videoGeneration?.modelId ?? "")) ||
+              !models.some((model) => sameWireId(model.id, current.videoGeneration?.modelId ?? ""))),
+        );
+        const nextSettings = { ...current, ...videoPlan };
+        await api.setSettings(nextSettings);
+        useAppStore.setState({ settings: nextSettings });
+        if (imageModelIds === undefined) {
+          showToast(t(editingProvider ? "settings.providerUpdated" : "settings.providerSaved"), {
+            variant: "success",
+          });
+        }
+      }
+
       if (imageModelIds !== undefined) {
         const current = await api.getSettings();
         const plan = planImageGenerationDefaults(
@@ -259,7 +289,7 @@ export function ModelConfigPage() {
         // provider is still runnable — until they change it themselves.
         const currentProvider = providers.find((provider) => provider.id === settings.defaultProviderId);
         const keepsCurrentDefault = !!currentProvider && providerReady(currentProvider) &&
-          chatModelOptions([currentProvider], imageGenerationCandidates).some(
+          chatModelOptions([currentProvider], generationCandidates).some(
             ({ modelId }) => sameWireId(modelId, settings.defaultModelId ?? ""),
           );
         if (!keepsCurrentDefault && firstModelId) {
@@ -294,7 +324,7 @@ export function ModelConfigPage() {
         current.imageGenerationModels,
         current.imageGeneration,
       );
-      if (!isImageCandidate(candidates, binding.providerId, binding.modelId)) return;
+      if (!isGenerationCandidate(candidates, binding.providerId, binding.modelId)) return;
       const nextSettings = { ...current, imageGeneration: binding };
       await api.setSettings(nextSettings);
       useAppStore.setState({ settings: nextSettings });
@@ -305,6 +335,25 @@ export function ModelConfigPage() {
       });
     } finally {
       setChangingImageModel(false);
+    }
+  };
+
+  const setVideoGenerationDefault = async (binding: VideoGenerationBinding) => {
+    try {
+      const current = await api.getSettings();
+      const candidates = videoGenerationBindings(
+        current.videoGenerationModels,
+        current.videoGeneration,
+      );
+      if (!isVideoGenerationModel(candidates, binding.providerId, binding.modelId)) return;
+      const nextSettings = { ...current, videoGeneration: binding };
+      await api.setSettings(nextSettings);
+      useAppStore.setState({ settings: nextSettings });
+      showToast(t("settings.videoModelSelected"), { variant: "success" });
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error), {
+        variant: "error",
+      });
     }
   };
 
@@ -437,7 +486,7 @@ export function ModelConfigPage() {
                     ·
                   </span>
                   <span className="model-default-model font-mono">
-                    {displayedChatModelId(defaultProvider, effectiveDefaultModelId, imageGenerationCandidates) ||
+                    {displayedChatModelId(defaultProvider, effectiveDefaultModelId, generationCandidates) ||
                       t("settings.noModel")}
                   </span>
                 </div>
@@ -541,12 +590,22 @@ export function ModelConfigPage() {
               </div>
             </AnchoredMenu>
           </div>
-          {imageGenerationCandidates.length > 0 ? (
+          {generationCandidates.length > 0 ? (
             <ImageGenerationModelRow
               settings={settings}
               providers={providers}
               busy={changingImageModel}
               onChange={setImageGenerationDefault}
+            />
+          ) : null}
+
+          {/* The video default sits with the other defaults, not after the
+              provider list: same card, same shape as the image row. */}
+          {settings.videoGenerationModels ? (
+            <VideoGenerationModelRow
+              settings={settings}
+              providers={providers}
+              onChange={setVideoGenerationDefault}
             />
           ) : null}
         </div>
@@ -614,7 +673,7 @@ export function ModelConfigPage() {
               onMakeDefault={(provider) =>
                 void setDefaultModel(
                   provider,
-                  chatModelOptions([provider], imageGenerationCandidates)[0]?.modelId ?? "",
+                  chatModelOptions([provider], generationCandidates)[0]?.modelId ?? "",
                 )
               }
               onTest={(provider) => void testProvider(provider)}
@@ -676,7 +735,7 @@ export function ModelConfigPage() {
           initialDraft={copyDraft}
           onClose={() => { setSetupFor(null); setCopyDraft(null); }}
           imageModelIds={editingProvider
-            ? imageGenerationCandidates
+            ? generationCandidates
                 .filter((binding) => binding.providerId === editingProvider.id)
                 .map((binding) => binding.modelId)
             : undefined}

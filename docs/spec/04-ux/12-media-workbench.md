@@ -1,0 +1,76 @@
+# Media workbench
+
+The media workbench is where the person, not the model, writes the prompt, sets the parameters and watches the output land. It is a first-class page in the sidebar footer (`workbench`, icon `IconImage`), not a settings panel: Settings owns which models are eligible, the workbench owns a single generation. Both routes run the same implementation — the Agent tools `GenerateImages` / `GenerateVideos` and the workbench call the same shared request builders — so a workbench run cannot drift from what the tools produce.
+
+## Information architecture
+
+The page is two columns: **compose** on the left (fixed width, scrollable) and **results** on the right.
+
+Compose, top to bottom: **Model**, **Prompt**, then the parameters that apply to the active capability, optionally **Frames** (video, never required), an **Advanced** disclosure (video), an estimate line, and the submit row. The Image / Video switch is the first decision the page asks for, so it sits in its own row directly under the page title rather than in the title bar: there it read as part of the window controls and was easy to miss. The compose column is the only place a run is configured; switching tabs clears the previous run's results and the frames, because a first frame is not a parameter of an image request and a stale slot would silently attach to the next one.
+
+Results, top to bottom: a status row (elapsed timer, `ok/total` summary, Cancel while running), the error banner when the call itself failed, the output grid, the saved-path list, then **History** for this session.
+
+## Model selection
+
+`Model` opens the same anchored menu the rest of the app uses, with rows grouped by provider, a search field, and a first row meaning **follow the default from Settings**. A row exists only for an enabled, non-OAuth provider that carries a credential or needs none, and models already marked for that capability are badged, so the menu shows what can actually render rather than every model in the catalog. The menu is also scoped to the active capability: the image tab offers models that render images and the video tab models that render video, because a mixed list is how a video model ends up in an image request. A model the user marked is trusted as-is; anything else has to declare the capability in its own name, the same detection the automatic marking uses. Choosing a model sets it for the current run only; it is never written back to Settings, which keeps "the model I use" and "the model I am trying right now" separate decisions. With no candidates configured the menu degrades to a single **Open settings** action and the submit row stays disabled. The line under the control names the model that will actually run — provider and model id — so the two decisions above are never ambiguous on screen.
+
+Candidates come from Settings, and a model that names an image or video family is marked automatically the first time the app sees it (`packages/shared/src/generation-capability.ts`), because a user who has just added a provider should not have to find the capability checkboxes before the workbench can offer anything. Only a capability whose stored list has never been written is seeded; an existing list, including an empty one the user cleared, is left exactly as it is, so the automatic pass can never overrule a decision. Disabled providers and OAuth accounts are skipped, since neither can render.
+
+## Parameters
+
+Parameters are bounded by the same constants the contract validates, imported from `@pi-desktop/shared`, so the UI can never offer a value the runtime refuses.
+
+| Parameter | Image | Video |
+|---|---|---|
+| Count | 1–4, typed as digits and validated | 1–4, typed as digits and validated |
+| Aspect ratio | 1:1 · 4:3 · 3:4 · 3:2 · 2:3 · 16:9 · 9:16 · 21:9 · 9:21, plus **Provider default** | 16:9 · 9:16 · 1:1 · 4:3 · 3:4 · 21:9, plus **Provider default** |
+| Resolution | **Smart** (no size sent) · long side 512 · 768 · 1024 · 1280 · 1536 · 1792 · 2048 · 2560 · 4096 (up to 4K), plus a custom `WIDTHxHEIGHT` field | **Smart** (no size sent) · 480p · 720p · 1080p · 2K · 4K, plus a custom `WIDTHxHEIGHT` field |
+| Duration | — | preset chips 2–15s, 1–`MAX_VIDEO_DURATION_SECONDS` |
+| Reference images | up to 4, edited via the multipart edits endpoint | — |
+| Frames | — | first frame, last frame (last requires first) |
+
+Shape and resolution are two controls, not one: a 16:9 frame at 720p and the same frame at 1080p are different requests. They are chosen separately and composed into the single `WIDTHxHEIGHT` the provider receives, and the composed value is shown under the pair before anything is sent. A resolution only means something together with a ratio, so the resolution control stays disabled until a ratio is chosen, and clearing the ratio clears the tier with it. Image resolutions name the long side (`3:2` + `1536` is `1536x1024`); video tiers name the short side the way `720p` does (`16:9` + `720` is `1280x720`, `9:16` + `720` is `720x1280`), so a portrait clip and a landscape clip of one tier carry the same amount of picture. Both sides are snapped to multiples of 8, which is what image models with a VAE accept without a silent rescale. **Provider default** for the ratio means no size is sent at all and the model decides. An invalid custom size is reported inline under the field and blocks submit rather than being sent; a valid one is passed through exactly as typed.
+
+**Smart is the default resolution, and it sends no `size` at all.** Providers accept different sets, and a provider can bill by the nearest tier it does support, so a size the model does not offer can be charged as a larger one — picking 480p and paying for 720p. Smart leaves the choice to the model's own default, which is always accepted and never rounds a price up. The explicit tiers stay available for providers whose sets are known, and both the aspect ratio and the resolution keep a provider-default entry.
+
+The count is validated rather than clamped while typing: digits only, and 1 to 4 inclusive. Anything else — zero, five, a decimal, letters, an empty field — is reported inline under the field and blocks submit instead of being silently rewritten into a different request; leaving the field settles it to the nearest allowed value so the box cannot stay wrong. The workbench cap is its own constant and stays inside the runtime's batch caps, so the same request is still valid when the Agent tools issue it.
+
+## Frames (video)
+
+The frames row carries two slots, first and last, each opening the file picker and accepting one image; picking either returns the file through the attachment store first, so a frame is always a contained path. The last frame stays disabled until a first frame exists, with the reason stated on the row. **Advanced** exposes the multipart field names for the two parts, defaulting to the adapter's `input_reference` / `last_frame`; they exist because gateways in front of the compatible API disagree about the names, and an unusable name falls back rather than being sent.
+
+## Cost visibility
+
+Video is billed per second, so a video run states `clips × duration = total seconds` next to the submit button before anything is sent, and the same figure is echoed in the run header. The image estimate states the request count. Neither is an estimate of money — the app has no price table — and neither claims to be.
+
+## Progress and cancellation
+
+The main process reports one event per state change, carrying the generation id, phase (`submitting` / `running` / `done`), the completed count and, when an item changed, that item's index, status and prompt. The renderer adopts the id from the first event and ignores events for another session or another generation, so a background Agent run cannot repaint the workbench. Each requested output gets a card from the moment the run starts — queued, rendering, then its result — in request order, because a batch of eight clips finishes out of order and the user asked for eight specific things. **Cancel** aborts the run through the same runtime cancellation the tools use; the page states that a clip already sent to the provider may still finish and still be billed.
+
+## Results, preview and reuse
+
+An image result renders a thumbnail from the file itself and opens a lightbox on click (previous / next through the batch, Escape to close). A video result is a file card naming the container and the duration; the workbench does not embed a video player, so playback beyond the card belongs to the operating system.
+
+## Where a render is written
+
+A workbench run owns its output: images land in `<data directory>/generated/image`, video in `<data directory>/generated/video`. The run needs no chat session to exist, so opening the workbench and generating is one step, and a render is never filed away inside a conversation the user has to keep. The page reads the index once when it opens, so a restart does not erase what the user paid for; a render recorded earlier opens in the results panel like any run that just finished, and saving or revealing it needs no session either.
+
+Each finished run is recorded once, in `index.json` beside the renders: capability, path, outcome, prompt, model, size, error code and time. The record is bounded (the oldest entries fall off; the files never do), written atomically, and read defensively — an entry whose file is gone, or that points outside the library, is dropped rather than handed to the renderer. Recording is best effort: a run that finished is never reported as an error because its index entry could not be written.
+
+Both roots are validated with the same containment rule the generation path has always applied, so naming a different directory cannot escape the data directory. The Agent tools keep writing into the session scratch, and a run that does have a session keeps that scratch as an input root, so a render from a conversation can still be used as a reference.
+
+Every finished render carries **Save as…** and **Show in folder**, for images and video alike, because a file that only exists inside the session's scratch directory is not a file the user owns yet. Save as opens the OS save dialog with the render's own name, then copies; the result is reported on the card that asked for it, and a dismissed dialog reports nothing. Both channels take a session id and a path, and the main process resolves the file with the same containment rule the generation path applies to its output directory — a path outside the data directory's library root or the session's scratch root, or a path that is not a regular file, is refused — so neither channel can be turned into a general file copier. Every saved path is also listed under the grid, and any image result can be pushed into the reference row to iterate on it.
+
+## States
+
+| State | Surface |
+|---|---|
+| No model configured | model menu restricted to **Open settings**, submit disabled |
+| No session open | submit disabled; the page states a session is required first |
+| Empty prompt / invalid size / last frame without first | submit disabled with the reason on the relevant row |
+| Running | status row with elapsed time and Cancel, item cards advancing |
+| Partial success | summary reads `ok/total`, failed cards carry their error code and a per-item retry |
+| Call-level failure | error banner above the grid, no item cards |
+| History | last 24 runs of this session; previous runs are not persisted across restarts |
+
+All copy is translated in the nine shipped locales and the page uses design-system tokens only; hover styles are gated behind `(hover: hover) and (pointer: fine)` like the rest of the renderer.

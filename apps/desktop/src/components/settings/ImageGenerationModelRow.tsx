@@ -82,7 +82,10 @@ export function ImageGenerationModelRow({
           )}
         </div>
       </div>
-      {onChange && (options.filter((option) => !option.disabled).length > 1 || !checkedId) ? (
+      {/* Always shown while there is anything to run: a hidden picker reads as
+          "cannot be changed", and a single candidate still needs to say which
+          one is the default. */}
+      {onChange && options.length > 0 ? (
         <SettingsMenuSelect
           className="model-image-selector"
           label={t("settings.imageModel")}

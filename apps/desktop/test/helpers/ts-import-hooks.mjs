@@ -11,6 +11,15 @@
  *   register(pathToFileURL(join(here, "helpers/ts-import-hooks.mjs")));
  */
 export async function resolve(specifier, context, next) {
+  // `node --test` has no Electron: main-process modules that import it at module
+  // scope get the stub, so a handler can be exercised without a browser window.
+  if (specifier === "electron") {
+    return {
+      url: new URL("./electron-stub.mjs", import.meta.url).href,
+      shortCircuit: true,
+      format: "module",
+    };
+  }
   if (!specifier.startsWith("./") && !specifier.startsWith("../")) {
     return next(specifier, context);
   }

@@ -12,6 +12,12 @@ import type {
   MessageRevisionSummary,
   AgentPromptResponse,
 
+  MediaWorkbenchFileRequest,
+  MediaLibraryResult,
+  MediaWorkbenchFileResult,
+  MediaWorkbenchResult,
+  MediaWorkbenchProgressEvent,
+  MediaWorkbenchRequest,
   SpeechStatus,
   SpeechSynthesizeRequest,
   SpeechSynthesizeResult,
@@ -1010,6 +1016,22 @@ export const api = {
     invoke<{ text: string }>(IPC.invoke.speechTranscribe, req),
   speechSynthesize: (req: SpeechSynthesizeRequest) =>
     invoke<SpeechSynthesizeResult>(IPC.invoke.speechSynthesize, req),
+  /** The media workbench runs the same generation the Agent tools run. */
+  workbenchGenerate: (req: MediaWorkbenchRequest) =>
+    invoke<MediaWorkbenchResult & { generationId: string }>(IPC.invoke.workbenchGenerate, req),
+  workbenchCancel: (generationId: string) =>
+    invoke<{ cancelled: boolean }>(IPC.invoke.workbenchCancel, { generationId }),
+  /** Save a finished render where the user asks, or reveal it in the file browser. */
+  workbenchSaveAs: (req: MediaWorkbenchFileRequest) =>
+    invoke<MediaWorkbenchFileResult>(IPC.invoke.workbenchSaveAs, req),
+  workbenchReveal: (req: MediaWorkbenchFileRequest) =>
+    invoke<MediaWorkbenchFileResult>(IPC.invoke.workbenchReveal, req),
+  /** Renders this app has produced before, newest last. */
+  workbenchLibrary: () => invoke<MediaLibraryResult>(IPC.invoke.workbenchLibrary, {}),
+  onWorkbenchProgress: (listener: (progress: MediaWorkbenchProgressEvent) => void) =>
+    window.piDesktop?.on(IPC.event.workbenchProgress, (payload) =>
+      listener(payload as MediaWorkbenchProgressEvent),
+    ) ?? (() => {}),
   compact: (req: AgentCompactRequest) =>
     invoke<AgentCompactResponse>(IPC.invoke.agentCompact, req),
   abort: (sessionId: string) =>

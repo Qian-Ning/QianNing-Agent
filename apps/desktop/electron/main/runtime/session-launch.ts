@@ -5,6 +5,8 @@ import {
   isCommandShellCatalog,
   imageGenerationBindings,
   isImageGenerationModel,
+  videoGenerationBindings,
+  isVideoGenerationModel,
   normalizeMode,
   resolveBindingLimits,
   trustedExtensionAgentKeyFromProviderId,
@@ -326,6 +328,15 @@ export function createSessionLaunchRuntime({
       modelId,
     )) {
       throw Object.assign(new Error("The image model cannot be used for conversation; select a chat model"), {
+        errorCode: ErrorCodes.MODEL_NOT_CONFIGURED,
+      });
+    }
+    if (isVideoGenerationModel(
+      videoGenerationBindings(settings.videoGenerationModels, settings.videoGeneration),
+      provider.id,
+      modelId,
+    )) {
+      throw Object.assign(new Error("The video model cannot be used for conversation; select a chat model"), {
         errorCode: ErrorCodes.MODEL_NOT_CONFIGURED,
       });
     }

@@ -127,7 +127,8 @@ impl PermissionManager {
     pub fn tool_risk_with_declared(tool_name: &str, declared: Option<&str>) -> Risk {
         match tool_name {
             "Read" | "Glob" | "Grep" | "ScheduledTaskList" => Risk::Low,
-            "Write" | "Edit" | "Bash" | "GenerateImages" | "Computer" | "Connection" => Risk::High,
+            "Write" | "Edit" | "Bash" | "GenerateImages" | "GenerateVideos" | "Computer"
+            | "Connection" => Risk::High,
             name if name.starts_with("plugin_") => match declared {
                 Some("low") => Risk::Low,
                 Some("high") => Risk::High,
@@ -831,41 +832,35 @@ mod tests {
 }
 
 #[cfg(test)]
-mod image_generation_tests {
+mod generation_tool_tests {
     use super::*;
 
+    /// Both generation tools are high risk, never auto-approved in the ordinary
+    /// modes, and hard-denied in the contract modes.
     #[test]
-    fn image_generation_requires_approval_and_is_not_plan_safe() {
-        assert!(matches!(
-            PermissionManager::tool_risk_with_declared("GenerateImages", None),
-            Risk::High
-        ));
+    fn generation_tools_require_approval_and_are_not_plan_safe() {
         let manager = PermissionManager::default();
         let grants = HashMap::new();
-        for mode in ["ask", "accept-edits"] {
-            assert!(manager
-                .evaluate_auto_with_permission_mode("s", "GenerateImages", "agent", mode, &grants)
-                .is_none());
+        for tool in ["GenerateImages", "GenerateVideos"] {
+            assert!(matches!(
+                PermissionManager::tool_risk_with_declared(tool, None),
+                Risk::High
+            ));
+            for mode in ["ask", "accept-edits"] {
+                assert!(
+                    manager
+                        .evaluate_auto_with_permission_mode("s", tool, "agent", mode, &grants)
+                        .is_none(),
+                    "{tool} must need approval in {mode}"
+                );
+            }
+            for mode in ["plan", "goal"] {
+                assert_eq!(
+                    manager.evaluate_auto_with_permission_mode("s", tool, mode, "auto", &grants),
+                    Some(PermissionDecision::Deny),
+                    "{tool} must be denied in {mode}"
+                );
+            }
         }
-        assert_eq!(
-            manager.evaluate_auto_with_permission_mode(
-                "s",
-                "GenerateImages",
-                "plan",
-                "auto",
-                &grants
-            ),
-            Some(PermissionDecision::Deny)
-        );
-        assert_eq!(
-            manager.evaluate_auto_with_permission_mode(
-                "s",
-                "GenerateImages",
-                "goal",
-                "auto",
-                &grants
-            ),
-            Some(PermissionDecision::Deny)
-        );
     }
 }

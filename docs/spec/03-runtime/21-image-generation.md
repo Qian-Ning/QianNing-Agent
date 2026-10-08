@@ -26,12 +26,16 @@ contains its selected chat model; otherwise the chat default is preserved.
 
 ## Agent contract
 
-`GenerateImages({items: [{prompt, count?, images?}]})` is an Agent-mode tool.
+`GenerateImages({items: [{prompt, count?, images?, size?}]})` is an Agent-mode tool.
 `count` defaults to 1. Both distinct prompts and same-prompt variants are supported,
-with 1–10 output images total. An optional `images` array supplies 1–4 local source
-files per item for editing; a previous generated path supports iterative edits.
-Prompt length is bounded at 32,000 characters. Unsupported or excessive input is
-rejected rather than truncated. Plan and Goal cannot execute the tool.
+with 1–20 output images total. An optional `images` array supplies 1–4 local source
+files per item for editing; a previous generated path supports iterative edits. An
+optional `size` sets one pixel size for that item, written `WIDTHxHEIGHT` with two to
+five digits per side and bounded by `IMAGE_MIN_SIDE`/`IMAGE_MAX_SIDE`; it is sent only
+when present, so the model's own default applies otherwise, and two items in one call
+may ask for different sizes. Prompt length is bounded at 32,000 characters.
+Unsupported or excessive input is rejected rather than truncated. Plan and Goal cannot
+execute the tool.
 
 The bundled `qianning/imagegen` skill is discoverable in ordinary sessions and
 loads through the existing Skill tool. It teaches prompting, batches, reference

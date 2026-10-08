@@ -1,6 +1,16 @@
 import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
+  {
+    version: "0.18.0",
+    date: "2026-10-08",
+    highlights: [
+      "El banco de medios genera imágenes y vídeo desde una sola página sin abrir una conversación: elige el modelo, pide hasta cuatro resultados y listo.",
+      "La resolución ofrece una opción inteligente que no envía tamaño alguno, así que el proveedor no puede cobrar una escala mayor que la elegida. La proporción y la resolución son independientes, y cada una puede volver al valor del proveedor.",
+      "Cada resultado terminado se guarda en la biblioteca de la aplicación: el historial sobrevive a un reinicio y el material es tuyo — previsualízalo, guárdalo como… o muéstralo en la carpeta.",
+      "Un servidor local compatible con OpenAI se marca como local y sus modelos se ofrecen para imagen y vídeo. El vídeo admite un primer y un último fotograma, hasta cuatro clips, hasta 15 segundos y resoluciones de hasta 4K.",
+    ],
+  },
       {
         version: "0.17.3",
         date: "2026-10-07",

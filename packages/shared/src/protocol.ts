@@ -2,7 +2,7 @@ export const PROTOCOL_VERSION = 11 as const;
 export const SCHEMA_VERSION = 16 as const;
 export const APP_ID = "com.qianning.agent";
 export const APP_NAME = "QianNing Agent";
-export const APP_VERSION = "0.17.3";
+export const APP_VERSION = "0.18.0";
 
 export const APP_MENU_COMMANDS = [
   "newTask",
@@ -86,6 +86,15 @@ export const IPC = {
     speechTranscribe: "pi-desktop/speech/transcribe",
     speechSynthesize: "pi-desktop/speech/synthesize",
     speechGetStatus: "pi-desktop/speech/getStatus",
+    /** The media workbench runs a user-authored generation request. */
+    workbenchGenerate: "pi-desktop/workbench/generate",
+    workbenchCancel: "pi-desktop/workbench/cancel",
+    /** Save a finished render to a location the user picks. */
+    workbenchSaveAs: "pi-desktop/workbench/saveAs",
+    /** Reveal a finished render in the OS file browser. */
+    workbenchReveal: "pi-desktop/workbench/reveal",
+    /** What the app has rendered before, so history survives a restart. */
+    workbenchLibrary: "pi-desktop/workbench/library",
     voiceStart: "pi-desktop/voice/start",
     voiceStop: "pi-desktop/voice/stop",
     voiceCancel: "pi-desktop/voice/cancel",
@@ -415,6 +424,8 @@ export const IPC = {
     configSyncChanged: "pi-desktop/configSync/event/changed",
     /** What a running sync is doing, while it is still running. */
     configSyncProgress: "pi-desktop/configSync/event/progress",
+    /** Progress of a media workbench generation, while it is still running. */
+    workbenchProgress: "pi-desktop/workbench/event/progress",
     extensionsUiPrompt: "pi-desktop/extensions/event/uiPrompt",
     extensionsStatus: "pi-desktop/extensions/event/status",
     pluginLauncherShown: "pi-desktop/pluginLauncher/event/shown",

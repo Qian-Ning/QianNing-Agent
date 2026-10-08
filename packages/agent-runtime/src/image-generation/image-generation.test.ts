@@ -6,7 +6,12 @@ import {
   boundedBytes,
   downloadGeneratedImage,
 } from "./download.js";
-import { imageGenerationPrompts, parseImageGenerationBinding } from "@pi-desktop/shared";
+import {
+  imageGenerationItems,
+  imageGenerationPrompts,
+  imageSizeValid,
+  parseImageGenerationBinding,
+} from "@pi-desktop/shared";
 
 const png =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9mQAAAAASUVORK5CYII=";
@@ -36,17 +41,40 @@ describe("image generation", () => {
     expect(imageGenerationPrompts({ items: [{ prompt: "a", count: 2 }, { prompt: "b" }] })).toEqual(
       ["a", "a", "b"],
     );
-    for (const count of [0, 1.5, 11, "2"])
+    for (const count of [0, 1.5, 21, "2"])
       expect(() => imageGenerationPrompts({ items: [{ prompt: "a", count }] })).toThrow();
     expect(() =>
       imageGenerationPrompts({
         items: [
-          { prompt: "a", count: 6 },
-          { prompt: "b", count: 5 },
+          { prompt: "a", count: 12 },
+          { prompt: "b", count: 9 },
         ],
       }),
     ).toThrow();
   });
+  it("carries a requested pixel size and refuses impossible ones", () => {
+    expect(imageGenerationItems({ items: [{ prompt: "a", size: " 1536x1024 " }] })).toEqual([
+      { prompt: "a", size: "1536x1024" },
+    ]);
+    expect(imageGenerationItems({ items: [{ prompt: "a" }] })).toEqual([{ prompt: "a" }]);
+    expect(imageSizeValid("1024x1024")).toBe(true);
+    expect(imageSizeValid("8192x8192")).toBe(true);
+    for (const size of ["1024", "1024x", "10x10", "99999x99999", "1024*1024"])
+      expect(() => imageGenerationItems({ items: [{ prompt: "a", size }] })).toThrow();
+    // A size is per prompt, so two variants may differ.
+    expect(
+      imageGenerationItems({
+        items: [
+          { prompt: "a", size: "1024x1024" },
+          { prompt: "b", size: "1280x720" },
+        ],
+      }),
+    ).toEqual([
+      { prompt: "a", size: "1024x1024" },
+      { prompt: "b", size: "1280x720" },
+    ]);
+  });
+
   it("uses the configured model, key and headers without chat protocol fields", async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response());
     const image = await generateOneImage(

@@ -30,6 +30,16 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
       {
+        version: "0.18.0",
+        date: "2026-10-08",
+        highlights: [
+          "The media workbench generates images and video from one page without starting a conversation: pick the model, ask for up to four renders, and run it.",
+          "Resolution offers a Smart choice that sends no size at all, so a provider cannot bill a larger tier than the one you picked. Aspect ratio and resolution are independent, and each one can fall back to the provider's own default.",
+          "Every finished render is saved to the app's media library, so history survives a restart and the asset belongs to you: preview it in the results, Save as…, or reveal it in the folder.",
+          "A local, OpenAI-compatible server is marked as local, and its models are offered for both image and video. Video runs take a first and a last frame, up to four clips, up to 15 seconds, and resolutions up to 4K.",
+        ],
+      },
+      {
         version: "0.17.3",
         date: "2026-10-07",
         highlights: [
@@ -1010,6 +1020,16 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
       {
+        version: "0.18.0",
+        date: "2026-10-08",
+        highlights: [
+          "媒体工作台一件事做完：不用先开对话，直接选模型、一次最多四条，按下就跑。",
+          "分辨率有「智能」档，选中时请求里根本不带尺寸，服务商无法按更大的档位计费；比例与分辨率各自独立，都能回落到服务商自己的默认值。",
+          "每次跑完的渲染都存进应用媒体库，重启后历史还在，素材归你自己：在结果里直接预览、「保存到…」，或在文件夹中显示。",
+          "本机的 OpenAI 兼容服务会被标为「本机」，其模型在生图和生视频里都提供；视频支持首帧与尾帧、一次最多四条、最长 15 秒、最高 4K。",
+        ],
+      },
+      {
         version: "0.17.3",
         date: "2026-10-07",
         highlights: [
@@ -1989,6 +2009,16 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+      {
+        version: "0.18.0",
+        date: "2026-10-08",
+        highlights: [
+          "媒體工作台一件事做完：不用先開對話，直接選模型、一次最多四條，按下就跑。",
+          "解析度有「智慧」檔，選中時請求裡根本不帶尺寸，服務商無法按更大的檔位計費；比例與解析度各自獨立，都能回落到服務商自己的預設值。",
+          "每次跑完的渲染都存進應用媒體庫，重啟後歷史還在，素材歸你自己：在結果裡直接預覽、「另存新檔…」，或是在資料夾中顯示。",
+          "本機的 OpenAI 相容服務會被標為「本機」，其模型在生圖和生影片裡都提供；影片支援首幀與尾幀、一次最多四條、最長 15 秒、最高 4K。",
+        ],
+      },
       {
         version: "0.17.3",
         date: "2026-10-07",

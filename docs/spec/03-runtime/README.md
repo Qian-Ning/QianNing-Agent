@@ -25,3 +25,4 @@
 
 - [Image generation and editing](21-image-generation.md)
 - [Portable configuration sync](22-config-sync.md)
+- [Video generation](24-video-generation.md)

@@ -98,6 +98,17 @@ pub(crate) fn validate_application_references(st: &AppState, payload: &Value) ->
             require_provider_reference(st, binding, "imageGenerationModels")?;
         }
     }
+    if let Some(binding) = payload.get("videoGeneration") {
+        require_provider_reference(st, binding, "videoGeneration")?;
+    }
+    if let Some(bindings) = payload
+        .get("videoGenerationModels")
+        .and_then(Value::as_array)
+    {
+        for binding in bindings {
+            require_provider_reference(st, binding, "videoGenerationModels")?;
+        }
+    }
     if let Some(speech) = payload.get("speech").and_then(Value::as_object) {
         for (role, binding) in speech {
             require_provider_reference(st, binding, &format!("speech.{role}"))?;

@@ -44,6 +44,8 @@ export async function generateOneImage(
   fetchImpl: typeof fetch = fetch,
   images: ImageEditInput[] = [],
   downloadOptions: ImageDownloadOptions = {},
+  /** `WIDTHxHEIGHT`; absent asks the provider for its own default. */
+  size?: string,
 ) {
   const headers = new Headers(endpoint.headers);
   headers.set("Content-Type", "application/json");
@@ -52,6 +54,7 @@ export async function generateOneImage(
   let body: BodyInit = JSON.stringify({
     model: endpoint.modelId, prompt, n: 1,
     ...(responseFormat ? { response_format: responseFormat } : {}),
+    ...(size ? { size } : {}),
   });
   if (images.length) {
     const form = new FormData();
@@ -59,6 +62,7 @@ export async function generateOneImage(
     form.set("prompt", prompt);
     form.set("n", "1");
     if (responseFormat) form.set("response_format", responseFormat);
+    if (size) form.set("size", size);
     images.forEach((image, index) =>
       form.append(
         images.length === 1 ? "image" : "image[]",
@@ -120,6 +124,8 @@ export async function generateImageBatch(options: {
   fetchImpl?: typeof fetch;
   downloadOptions?: ImageDownloadOptions;
   loadImages?: (paths: string[]) => Promise<ImageEditInput[]>;
+  /** One callback per item, so a long batch can be reported while it runs. */
+  onItemEvent?: (event: { index: number; status: "running" | GeneratedImageResult["status"]; total: number }) => void;
 }): Promise<GeneratedImageResult[]> {
   const prompts = imageGenerationItems(options.input);
   const results: GeneratedImageResult[] = new Array(prompts.length);
@@ -134,8 +140,10 @@ export async function generateImageBatch(options: {
           status: "cancelled",
           errorCode: authFailed ? "IMAGE_AUTH_FAILED" : "IMAGE_CANCELLED",
         };
+        options.onItemEvent?.({ index, status: "cancelled", total: prompts.length });
         continue;
       }
+      options.onItemEvent?.({ index, status: "running", total: prompts.length });
       const controller = new AbortController();
       const signal = AbortSignal.any([options.signal, controller.signal]);
       const timer = setTimeout(() => controller.abort(), IMAGE_GENERATION_TIMEOUT_MS);
@@ -151,9 +159,11 @@ export async function generateImageBatch(options: {
           options.fetchImpl,
           images,
           options.downloadOptions,
+          item.size,
         );
         const path = await options.save(image, index);
         results[index] = { index, status: "succeeded", path, mimeType: image.mimeType };
+        options.onItemEvent?.({ index, status: "succeeded", total: prompts.length });
       } catch (error) {
         const code = options.signal.aborted
           ? "IMAGE_CANCELLED"
@@ -171,6 +181,11 @@ export async function generateImageBatch(options: {
           status: options.signal.aborted ? "cancelled" : "failed",
           errorCode: code,
         };
+        options.onItemEvent?.({
+          index,
+          status: options.signal.aborted ? "cancelled" : "failed",
+          total: prompts.length,
+        });
       } finally {
         clearTimeout(timer);
       }

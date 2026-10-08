@@ -22,6 +22,10 @@ test("in-chat image display has a contained renderer-to-main bridge", () => {
   assert.match(main, /readOpenableImage\(/);
   assert.match(panel, /export async function readOpenableImage\(/);
   assert.match(panel, /isAttachmentBlobRef/);
+  // The media library the workbench writes into is an allowed read root, or a
+  // finished render shows as a filename instead of the image itself.
+  assert.match(main, /join\(dataDir, MEDIA_LIBRARY_DIR\)/);
+  assert.match(main, /MEDIA_LIBRARY_DIR/);
   assert.match(panel, /ALLOWED_IMAGE_MIME/);
   assert.match(panel, /MAX_IMAGE_BYTES/);
   assert.doesNotMatch(panel, /info\.isFile\(\) \? trimmed : null/);

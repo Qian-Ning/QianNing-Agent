@@ -37,6 +37,7 @@
 @import "./service-setup.css";
 @import "./chat-links.css";
 @import "./composer-autocomplete.css";
+@import "./workbench.css";
 @import "./plugins.css";
 @import "./extensions.css";
 @import "./plugin-launcher.css";

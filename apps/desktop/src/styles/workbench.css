@@ -1,0 +1,785 @@
+/*
+ * The media workbench.
+ *
+ * A hand-run studio: what you are asking for on the left, what came back on the
+ * right. Colours resolve through the `--ds-*` surface tokens the rest of the
+ * renderer uses, so the page follows the active theme instead of pinning its own
+ * palette. One scroll container for the whole page — nested scrollers are what
+ * made the panels feel clipped — and every size comes from a token.
+ */
+
+.workbench {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  height: 100%;
+  min-height: 0;
+  padding: 22px 26px 28px;
+  overflow-y: auto;
+  color: var(--ds-text-primary);
+}
+
+/* ── Head ─────────────────────────────────────────────────────────────── */
+
+.workbench-head {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--ds-border-subtle);
+}
+
+.workbench-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workbench-title h1 {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-heading);
+  letter-spacing: var(--tracking-tight);
+}
+
+.workbench-subtitle {
+  margin: 0;
+  max-width: 64ch;
+  color: var(--ds-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+/* The capability switch owns a row of its own: inside the title bar it read as
+   part of the window controls, and it is the first decision the page asks for. */
+.workbench-tabs {
+  display: inline-flex;
+  align-self: flex-start;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--ds-bg-inset);
+}
+
+.workbench-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-compact);
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--motion-ease);
+}
+
+.workbench-tab.is-active {
+  background: var(--ds-raised);
+  color: var(--ds-text-primary);
+  box-shadow: var(--ds-raised-shadow);
+}
+
+.workbench-tab:focus-visible {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: 2px;
+}
+
+/* ── Layout ───────────────────────────────────────────────────────────── */
+
+.workbench-body {
+  display: grid;
+  grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
+  align-items: start;
+  flex: 0 0 auto;
+  gap: 18px;
+  min-height: 0;
+}
+
+.workbench-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-xl);
+  background: var(--ds-bg-secondary);
+}
+
+.workbench-compose {
+  gap: 16px;
+}
+
+.workbench-results {
+  gap: 14px;
+}
+
+/* ── Form ─────────────────────────────────────────────────────────────── */
+
+.workbench-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.workbench-label {
+  color: var(--ds-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-compact);
+}
+
+.workbench-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+.workbench-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.workbench-subfield {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.workbench-textarea {
+  width: 100%;
+  min-height: 128px;
+  padding: 11px 12px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--ds-field-inset-bg);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  resize: vertical;
+}
+
+.workbench-textarea::placeholder {
+  color: var(--ds-text-faint);
+}
+
+.workbench-textarea:focus-visible {
+  outline: 0;
+  border-color: var(--ds-accent);
+  background: var(--ds-field-inset-focus-bg);
+}
+
+.workbench-input,
+.workbench-compose select {
+  width: 100%;
+  min-height: var(--ds-field-height);
+  padding: 8px 11px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--ds-field-inset-bg);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-compact);
+}
+
+.workbench-input::placeholder {
+  color: var(--ds-text-faint);
+}
+
+.workbench-input:focus-visible,
+.workbench-compose select:focus-visible {
+  outline: 0;
+  border-color: var(--ds-accent);
+  background: var(--ds-field-inset-focus-bg);
+}
+
+.workbench-input[aria-invalid="true"] {
+  border-color: var(--ds-error);
+}
+
+.workbench-hint {
+  margin: 0;
+  color: var(--ds-text-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-normal);
+  overflow-wrap: anywhere;
+}
+
+.workbench-hint.is-error {
+  color: var(--ds-error);
+}
+
+.workbench-link {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ds-accent);
+  font-family: inherit;
+  font-size: var(--text-2xs);
+  cursor: pointer;
+}
+
+.workbench-link:focus-visible {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-2xs);
+}
+
+/* ── Chips, slots, frames ─────────────────────────────────────────────── */
+
+.workbench-frames {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.workbench-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--ds-bg-chip);
+  color: var(--ds-text-primary);
+  font-size: var(--text-2xs);
+  overflow-wrap: anywhere;
+}
+
+.workbench-chip button {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ds-text-muted);
+  cursor: pointer;
+}
+
+.workbench-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: 100%;
+  padding: 9px 11px;
+  border: 1px dashed var(--ds-border-default);
+  border-radius: var(--radius-md);
+  background: var(--ds-bg-inset);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--text-2xs);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--motion-fast) var(--motion-ease);
+}
+
+.workbench-slot.is-set {
+  border-style: solid;
+  border-color: var(--ds-accent);
+  background: var(--ds-bg-chip);
+}
+
+.workbench-slot:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.workbench-slot-title {
+  color: var(--ds-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.workbench-slot-value {
+  max-width: 100%;
+  color: var(--ds-text-primary);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+/* ── Advanced ─────────────────────────────────────────────────────────── */
+
+.workbench-disclosure {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ds-text-secondary);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.workbench-disclosure svg {
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+
+.workbench-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.workbench-advanced-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--ds-bg-inset);
+}
+
+/* ── Estimate + actions ───────────────────────────────────────────────── */
+
+.workbench-estimate {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--ds-bg-inset);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-normal);
+}
+
+/* The submit row stays reachable while the prompt grows. */
+.workbench-actions {
+  position: sticky;
+  bottom: -18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 -18px -18px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--ds-border-subtle);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  background: var(--ds-bg-secondary);
+}
+
+.workbench-elapsed {
+  color: var(--ds-text-muted);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Results ──────────────────────────────────────────────────────────── */
+
+.workbench-results-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 26px;
+}
+
+.workbench-summary {
+  color: var(--ds-text-secondary);
+  font-size: var(--text-xs);
+}
+
+.workbench-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--ds-error) 12%, transparent);
+  color: var(--ds-error);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  overflow-wrap: anywhere;
+}
+
+.workbench-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 240px;
+  margin: 0;
+  padding: 28px;
+  border: 1px dashed var(--ds-border-subtle);
+  border-radius: var(--radius-lg);
+  color: var(--ds-text-faint);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+.workbench-outputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.workbench-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--ds-bg-elevated);
+  transition: border-color var(--motion-fast) var(--motion-ease);
+}
+
+.workbench-card-media {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border: 0;
+  background: var(--ds-bg-inset);
+  color: var(--ds-text-muted);
+  cursor: default;
+}
+
+/* A generated frame is shown whole: cropping a 16:9 render to a square hides
+   the part of the picture the prompt was written for. */
+.workbench-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.workbench-card-file {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-2xs);
+  text-align: center;
+}
+
+.workbench-card-kind {
+  color: var(--ds-text-faint);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.workbench-card-pending {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ds-text-faint);
+  font-size: var(--text-2xs);
+}
+
+.workbench-card-pending.is-failed {
+  color: var(--ds-error);
+}
+
+.workbench-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--ds-border-default);
+  border-top-color: var(--ds-accent);
+  border-radius: var(--radius-round);
+  animation: workbench-spin 800ms linear infinite;
+}
+
+@keyframes workbench-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.workbench-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border-top: 1px solid var(--ds-border-subtle);
+}
+
+/* Card actions are icons: a 180px card cannot hold three word buttons without
+   cramping, and the label still reaches the user through the tooltip. */
+.workbench-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.workbench-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ds-text-muted);
+  cursor: pointer;
+}
+
+.workbench-icon-button:focus-visible {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: 1px;
+}
+
+.workbench-card-foot .workbench-hint {
+  flex: 1 0 100%;
+}
+
+.workbench-card-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: var(--radius-round);
+  background: var(--ds-bg-chip);
+  color: var(--ds-text-muted);
+  font-size: var(--text-3xs, var(--text-2xs));
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Lightbox ─────────────────────────────────────────────────────────── */
+
+.workbench-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: var(--ds-scrim);
+}
+
+.workbench-lightbox-body {
+  display: flex;
+  flex-direction: column;
+  max-width: min(92vw, 1100px);
+  max-height: 88vh;
+  border-radius: var(--radius-lg);
+  background: var(--ds-bg-elevated);
+  box-shadow: var(--ds-shadow-dialog);
+  overflow: hidden;
+}
+
+.workbench-lightbox-body img {
+  display: block;
+  max-width: 100%;
+  min-height: 0;
+  max-height: 82vh;
+  object-fit: contain;
+}
+
+.workbench-lightbox-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--ds-border-subtle);
+}
+
+.workbench-lightbox-path {
+  color: var(--ds-text-muted);
+  font-size: var(--text-2xs);
+  overflow-wrap: anywhere;
+}
+
+/* ── History ──────────────────────────────────────────────────────────── */
+
+.workbench-history h2 {
+  margin: 0 0 8px;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+/* A list reset: the default bullets and indent are most of why this block read
+   as unfinished. */
+.workbench-history-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workbench-history-group {
+  margin: 8px 0 4px;
+  color: var(--ds-text-faint);
+  font-size: var(--text-3xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.workbench-history {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ds-border-subtle);
+}
+
+.workbench-history button {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.workbench-history-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-round);
+  background: var(--ds-text-faint);
+}
+
+.workbench-history-dot.is-ok {
+  background: var(--ds-accent);
+}
+
+.workbench-history-dot.is-bad {
+  background: var(--ds-error);
+}
+
+.workbench-history-prompt {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workbench-history-meta {
+  flex: 1 0 100%;
+  margin-left: 14px;
+  color: var(--ds-text-muted);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Model picker row + mono values ───────────────────────────────────── */
+
+/* The picker is shared chrome, so the marker defends itself: it never shrinks
+   and never breaks, which is what turned three characters into a vertical stack
+   inside a 44px row. */
+.workbench-model-badge {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--ds-bg-chip);
+  color: var(--ds-text-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-compact);
+  white-space: nowrap;
+}
+
+.workbench .font-mono,
+.workbench-hint.font-mono,
+.workbench-input.font-mono,
+.workbench-lightbox-path {
+  font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace);
+}
+
+/* ── Pointer and motion preferences ───────────────────────────────────── */
+
+@media (hover: hover) and (pointer: fine) {
+  .workbench-tab:hover:not(.is-active) {
+    color: var(--ds-text-primary);
+  }
+
+  .workbench-chip button:hover {
+    color: var(--ds-error);
+  }
+
+  .workbench-slot:hover:not(:disabled) {
+    border-color: var(--ds-accent);
+  }
+
+  .workbench-card:hover {
+    border-color: var(--ds-border-default);
+  }
+
+  .workbench-card-image:hover {
+    opacity: 0.94;
+  }
+
+  .workbench-icon-button:hover {
+    background: var(--ds-bg-hover);
+    color: var(--ds-text-primary);
+  }
+
+  .workbench-history button:hover {
+    background: var(--ds-bg-hover);
+  }
+
+  .workbench-link:hover {
+    color: var(--ds-accent-hover);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workbench-spinner {
+    animation: none;
+  }
+
+  .workbench-tab,
+  .workbench-slot,
+  .workbench-card,
+  .workbench-disclosure svg {
+    transition: none;
+  }
+}
+
+/* ── Narrow windows ───────────────────────────────────────────────────── */
+
+@media (max-width: 1080px) {
+  .workbench-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workbench-actions {
+    position: static;
+    margin: 0;
+    padding: 14px 0 0;
+    border-radius: 0;
+    background: transparent;
+  }
+}
