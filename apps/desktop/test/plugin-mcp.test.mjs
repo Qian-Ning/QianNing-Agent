@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { spawn as nodeSpawn } from "node:child_process";
 import { createServer } from "node:http";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -246,28 +247,32 @@ test("a stdio server that cannot start fails the handshake, not the process", as
 
 test("a slow server times out instead of hanging the load", async () => {
   const dir = stdioPlugin();
-  const pidFile = join(dir, "pid");
-  writeFileSync(
-    join(dir, "server.mjs"),
-    'import { writeFileSync } from "node:fs";\nwriteFileSync(process.env.STUB_PID_FILE, String(process.pid));\nsetInterval(() => {}, 1000);\n',
-  );
+  // The stub starts and then never answers the handshake. Its pid is captured
+  // from the spawn itself rather than from a file the child writes, so the
+  // reaping check cannot race the child's own cold start.
+  writeFileSync(join(dir, "server.mjs"), "setInterval(() => {}, 1000);\n");
+  let child;
   const client = new McpServerClient({
     pluginId: "com.example.mcp",
     rootPath: dir,
     server: { id: "stub", transport: "stdio", command: "node", args: ["./server.mjs"] },
-    values: { STUB_PID_FILE: pidFile },
-    // Generous on purpose: the stub has to cold-start and write its pid before
-    // the budget expires, and Windows process start stretches under parallel
-    // load. The assertion is that the timeout fires and the child is reaped —
-    // not how quickly the budget elapses.
-    connectTimeoutMs: 2000,
+    values: {},
+    // The assertion is that the handshake budget fires and the child is reaped —
+    // not how quickly the budget elapses. A stub that never replies rejects with
+    // TIMEOUT however slowly the process cold-starts under load.
+    connectTimeoutMs: 1000,
+    spawnImpl: (command, args, options) => {
+      child = nodeSpawn(command, args, options);
+      return child;
+    },
   });
   await assert.rejects(client.connect(), (error) => {
     assert.equal(error.code, "TIMEOUT");
     return true;
   });
-  const pid = Number(readFileSync(pidFile, "utf8"));
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+  assert.ok(child && child.pid, "the stdio server was spawned");
+  const pid = child.pid;
+  for (let attempt = 0; attempt < 100; attempt += 1) {
     try {
       process.kill(pid, 0);
     } catch {
