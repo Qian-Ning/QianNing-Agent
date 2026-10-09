@@ -25,7 +25,7 @@ The desktop shell targets a 1:1 visual match with the local Codex desktop client
 |---|---|
 | **Clarity over decoration** | No ornamental borders, gradients, or hero images. Every visual element carries information. |
 | **Developer density** | Compact spacing, small-but-readable type, minimal marketing whitespace. Information-rich, not sparse. |
-| **Dark-base defaults** | Dark theme is the primary theme for a coding agent. Light must be fully supported but is secondary. |
+| **Dark-base defaults** | Dark is the primary palette and the shell is designed around it, but a fresh install starts on **System** so a light desktop does not open dark. Light must be fully supported but is secondary. |
 | **Restraint** | One accent color family. No rainbow status colors — use semantic token names (success, warning, error). |
 | **Motion as feedback** | Animations convey state change (streaming, loading, expand/collapse). Never decorative. |
 | **Keyboard-first** | Focus rings, tab order, and shortcut labels are primary UX, not afterthoughts. |

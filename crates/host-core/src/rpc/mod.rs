@@ -2032,11 +2032,16 @@ async fn handle_request(
                 .db
                 .get_setting("app")
                 .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
+            // A brand-new install follows the OS theme. Dark is still the
+            // palette the shell is designed around, but a fresh install on a
+            // light desktop must not open dark: "system" resolves against the
+            // OS at paint time (useAppShellRuntime), so the first launch
+            // matches the machine it was installed on.
             let mut settings = normalize_settings_value(stored.unwrap_or_else(|| {
                 json!({
                     "defaultMode": "agent",
                     "defaultCommandShell": tools::shell::default_shell_id(),
-                    "theme": "dark",
+                    "theme": "system",
                     "enterToSend": true,
                     "largePasteThreshold": DEFAULT_LARGE_PASTE_THRESHOLD,
                     "contextCompaction": {
@@ -6753,6 +6758,23 @@ mod tests {
 
         let stored = state.lock().await.db.get_setting("app").unwrap().unwrap();
         assert_eq!(stored["imageGenerationModels"].as_array().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn settings_get_starts_a_fresh_install_on_the_system_theme() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let mut app_state = AppState::open(data_dir.path()).unwrap();
+        app_state.handshook = true;
+        let state = Arc::new(Mutex::new(app_state));
+        let (tx, _rx) = mpsc::unbounded_channel();
+
+        // Nothing is stored yet, so this is what a brand-new install reads. It
+        // must ask for the OS preference rather than assume the dark palette:
+        // a light desktop that opens dark is the first thing anyone notices.
+        let settings = handle_request(state.clone(), "settings.get", json!({}), tx.clone())
+            .await
+            .unwrap();
+        assert_eq!(settings["theme"], json!("system"));
     }
 
     #[tokio::test]
