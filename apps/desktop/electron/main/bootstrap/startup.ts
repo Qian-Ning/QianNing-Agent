@@ -19,6 +19,10 @@ import {
   installSkinAssetProtocol,
   registerSkinAssetScheme,
 } from "../skin-asset-protocol";
+import {
+  installMediaAssetProtocol,
+  registerMediaAssetScheme,
+} from "../media-asset-protocol";
 import { applyNetworkProxyFromAppSettings } from "../network-proxy";
 import { readCloseBehavior } from "../window-preferences";
 import { createAgentHostBridge, type AgentHostBridge } from "../agent-host-bridge";
@@ -128,6 +132,9 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
   registerPluginAssetScheme();
   // Reserve the skin-center background scheme in the same pre-ready window.
   registerSkinAssetScheme();
+  // Reserve the media-library scheme in the same pre-ready window (ADR 0322): it
+  // maps the library root into the renderer so a finished clip can play in place.
+  registerMediaAssetScheme();
   // Crashpad ships with Electron, so the reporter needs no native dependency.
   // Dumps stay local (`uploadToServer: false`) under the installation data
   // directory so a `PI_DESKTOP_DATA_DIR` profile does not share them. Started
@@ -200,6 +207,9 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
     // Serve skin-center background media over its own confined scheme, reserved
     // alongside the plugin asset scheme in `registerApplicationStartup`.
     installSkinAssetProtocol(dataDir);
+    // Serve the media library over its confined scheme so the workbench can play
+    // a finished clip; reserved in `registerApplicationStartup` (ADR 0322).
+    installMediaAssetProtocol(dataDir);
     // Load the close-behavior preference before the first window exists: the
     // close handler reads `closeBehavior` synchronously, and a window created
     // while it still held the "ask" default would prompt a user who already

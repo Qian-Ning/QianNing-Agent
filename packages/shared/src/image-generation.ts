@@ -79,6 +79,13 @@ export type GeneratedImageResult = {
   index: number;
   status: "succeeded" | "failed" | "cancelled";
   path?: string;
+  /**
+   * A URL the renderer may load the finished file from, set by the main process
+   * only when `path` names a file inside the media library (ADR 0322). It is the
+   * library-relative `image/…` path, never an absolute one, and is absent for a
+   * failed or cancelled item, which produced no file.
+   */
+  url?: string;
   mimeType?: string;
   errorCode?: string;
 };

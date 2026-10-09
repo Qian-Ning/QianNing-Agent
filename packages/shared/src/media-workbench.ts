@@ -68,6 +68,14 @@ export type MediaLibraryEntry = {
    * is nothing to point at.
    */
   path?: string;
+  /**
+   * A URL the renderer may load the file from, e.g.
+   * `media-asset://library/video/<name>` (ADR 0322). Set by the main process
+   * only for an entry whose `path` names a file inside the library root; it
+   * carries the library-relative path, never an absolute one, so a failed or
+   * cancelled entry (which has no `path`) carries no URL either.
+   */
+  url?: string;
   status: "succeeded" | "failed" | "cancelled";
   prompt?: string;
   modelId?: string;

@@ -92,6 +92,7 @@ export const de = {
     "copied": "Kopiert",
     "useAsReference": "Als Referenz nutzen",
     "retry": "Erneut versuchen",
+    "videoUnsupported": "Dieses Video kann hier nicht abgespielt werden. Verwenden Sie „Speichern unter…“ oder „Im Ordner anzeigen“.",
   },
 
   "app": {

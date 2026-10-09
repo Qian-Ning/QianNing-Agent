@@ -14,6 +14,7 @@ import type { UserMcpRuntime } from "../user-mcp";
 import type { McpControlServer } from "../mcp-control";
 import type { McpOAuthManager } from "../mcp-oauth";
 import { getActiveRemoteHostsBoot, setActiveRemoteHostsBoot } from "./remote-hosts";
+import { uninstallMediaAssetProtocol } from "../media-asset-protocol";
 
 const QUIT_TURN_SETTLE_BUDGET_MS = 2_000;
 
@@ -118,6 +119,10 @@ export function registerShutdownHandlers({
     }
 
     state.quitting = true;
+    // Release the media-library request handler with the other resource
+    // disposals; the scheme itself was reserved before ready and cannot be
+    // un-reserved (ADR 0322).
+    uninstallMediaAssetProtocol();
     disposePowerSaveBlockers();
     state.tray?.destroy();
     state.tray = null;
