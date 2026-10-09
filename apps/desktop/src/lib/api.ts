@@ -14,6 +14,8 @@ import type {
 
   MediaWorkbenchFileRequest,
   MediaLibraryResult,
+  MediaLibraryRemoveRequest,
+  MediaLibraryClearResult,
   MediaWorkbenchFileResult,
   MediaWorkbenchResult,
   MediaWorkbenchProgressEvent,
@@ -1028,6 +1030,15 @@ export const api = {
     invoke<MediaWorkbenchFileResult>(IPC.invoke.workbenchReveal, req),
   /** Renders this app has produced before, newest last. */
   workbenchLibrary: () => invoke<MediaLibraryResult>(IPC.invoke.workbenchLibrary, {}),
+  /** Forget the named entries; their files are sent to the OS trash. */
+  workbenchLibraryRemove: (req: MediaLibraryRemoveRequest) =>
+    invoke<MediaLibraryResult>(IPC.invoke.workbenchLibraryRemove, req),
+  /** Forget the whole library; every file is sent to the OS trash. */
+  workbenchLibraryClear: () =>
+    invoke<MediaLibraryClearResult>(IPC.invoke.workbenchLibraryClear, {}),
+  /** Open the library directory itself in the OS file browser. */
+  workbenchLibraryReveal: () =>
+    invoke<MediaWorkbenchFileResult>(IPC.invoke.workbenchLibraryReveal, {}),
   onWorkbenchProgress: (listener: (progress: MediaWorkbenchProgressEvent) => void) =>
     window.piDesktop?.on(IPC.event.workbenchProgress, (payload) =>
       listener(payload as MediaWorkbenchProgressEvent),

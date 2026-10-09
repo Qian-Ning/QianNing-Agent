@@ -1,4 +1,4 @@
-import { copyFile } from "node:fs/promises";
+import { copyFile, mkdir } from "node:fs/promises";
 import { basename } from "node:path";
 import { dialog, shell, type BrowserWindow } from "electron";
 import {
@@ -14,7 +14,14 @@ import {
 } from "@pi-desktop/shared";
 import type { HostProcess } from "../host-process";
 import { createMediaWorkbenchService, resolveGeneratedFile } from "../services/media-workbench-service";
-import { migrateScratchRenders, readMediaLibrary } from "../services/media-library";
+import {
+  clearLibrary,
+  mediaLibraryDir,
+  migrateScratchRenders,
+  readMediaLibrary,
+  removeLibraryEntries,
+  type MediaLibraryEntry,
+} from "../services/media-library";
 import type { IpcRegistrar } from "./types";
 
 function recordOf(value: unknown): Record<string, unknown> | null {
@@ -162,6 +169,56 @@ export function registerWorkbenchIpc({
     }
     return { entries: await readMediaLibrary(dataDir) };
   });
+
+  /**
+   * Reclaim the file a removed entry owned.
+   *
+   * Only a succeeded run has a file, and trashing is best effort by design: a
+   * file that is already gone, or an OS that refuses to recycle, must never block
+   * the removal the user asked for.
+   */
+  const trashEntryFile = (entry: MediaLibraryEntry): Promise<void> =>
+    entry.status === "succeeded" && typeof entry.path === "string"
+      ? shell.trashItem(entry.path).catch(() => undefined)
+      : Promise.resolve();
+
+  /**
+   * Forget the named entries, sending each file to the OS trash rather than
+   * deleting it — a render cost money, so a mistaken removal must be recoverable
+   * from the recycle bin.
+   */
+  handle(
+    IPC.invoke.workbenchLibraryRemove,
+    async (input: Record<string, unknown> = {}): Promise<MediaLibraryResult> => {
+      const ids = Array.isArray(input.ids)
+        ? input.ids.filter((id): id is string => typeof id === "string" && id.length > 0)
+        : [];
+      const removed = await removeLibraryEntries(dataDir, ids);
+      await Promise.all(removed.map(trashEntryFile));
+      return { entries: await readMediaLibrary(dataDir) };
+    },
+  );
+
+  /** Forget the whole library, sending every render to the OS trash. */
+  handle(
+    IPC.invoke.workbenchLibraryClear,
+    async (): Promise<MediaLibraryResult> => {
+      const removed = await clearLibrary(dataDir);
+      await Promise.all(removed.map(trashEntryFile));
+      return { entries: [] };
+    },
+  );
+
+  /** Open the library directory itself, creating it first if it is not there. */
+  handle(
+    IPC.invoke.workbenchLibraryReveal,
+    async (): Promise<MediaWorkbenchFileResult> => {
+      const dir = mediaLibraryDir(dataDir);
+      await mkdir(dir, { recursive: true }).catch(() => undefined);
+      const error = await shell.openPath(dir);
+      return error ? { ok: false } : { ok: true, path: dir };
+    },
+  );
 
   handle(
     IPC.invoke.workbenchReveal,

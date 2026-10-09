@@ -1,7 +1,11 @@
 import { copyFile, mkdir, readdir, readFile, realpath, rename, stat, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { MediaLibraryCapability, MediaLibraryEntry } from "@pi-desktop/shared";
+import {
+  MAX_LIBRARY_ENTRIES,
+  type MediaLibraryCapability,
+  type MediaLibraryEntry,
+} from "@pi-desktop/shared";
 
 // The shape lives in shared so the renderer and the main process cannot drift.
 export type { MediaLibraryCapability, MediaLibraryEntry };
@@ -18,8 +22,11 @@ export type { MediaLibraryCapability, MediaLibraryEntry };
  * once per finished run. Nothing here polls, watches, or scans in the background.
  */
 export const MEDIA_LIBRARY_DIR = "generated";
-/** Oldest entries are dropped past this; the files themselves stay on disk. */
-export const MAX_LIBRARY_ENTRIES = 500;
+/**
+ * Oldest entries are dropped past this; the files themselves stay on disk. The
+ * bound lives in shared so the workbench and the main process agree on it.
+ */
+export { MAX_LIBRARY_ENTRIES };
 /** A one-time migration reads at most this many stray renders. */
 const MIGRATION_LIMIT = 200;
 
@@ -56,22 +63,28 @@ async function realWithin(base: string, candidate: string): Promise<boolean> {
 function isEntry(value: unknown): value is MediaLibraryEntry {
   if (!value || typeof value !== "object") return false;
   const entry = value as Record<string, unknown>;
-  return (
-    typeof entry.id === "string" &&
-    (entry.capability === "image" || entry.capability === "video") &&
-    typeof entry.path === "string" &&
-    (entry.status === "succeeded" || entry.status === "failed" || entry.status === "cancelled") &&
-    typeof entry.createdAt === "string"
-  );
+  if (
+    typeof entry.id !== "string" ||
+    (entry.capability !== "image" && entry.capability !== "video") ||
+    (entry.status !== "succeeded" && entry.status !== "failed" && entry.status !== "cancelled") ||
+    typeof entry.createdAt !== "string"
+  ) {
+    return false;
+  }
+  // A path is optional — a failed or cancelled run produced no file — but when
+  // present it must be a string, and a succeeded run must carry one.
+  if (entry.path !== undefined && typeof entry.path !== "string") return false;
+  return entry.status !== "succeeded" || typeof entry.path === "string";
 }
 
 /**
  * Every entry the workbench may show.
  *
  * A damaged or hand-edited index yields what can still be trusted rather than an
- * exception: unreadable JSON reads as empty, and an entry whose path no longer
- * resolves inside the library root is dropped instead of being handed to the
- * renderer as a file it may save.
+ * exception: unreadable JSON reads as empty, and an entry that *names a file*
+ * whose path no longer resolves inside the library root is dropped instead of
+ * being handed to the renderer as a file it may save. A failed or cancelled
+ * entry has no file to hand out, so it is kept as recorded.
  */
 export async function readMediaLibrary(dataDir: string): Promise<MediaLibraryEntry[]> {
   let raw: string;
@@ -88,30 +101,37 @@ export async function readMediaLibrary(dataDir: string): Promise<MediaLibraryEnt
   }
   if (!Array.isArray(parsed)) return [];
   const entries = parsed.filter(isEntry);
+  const libraryRoot = mediaLibraryDir(dataDir);
   const checked = await Promise.all(
-    entries.map(async (entry) =>
-      (await realWithin(mediaLibraryDir(dataDir), entry.path)) ? entry : null,
-    ),
+    entries.map(async (entry) => {
+      // Only an entry that names a file is bounded by the library root; this is
+      // the invariant that keeps "show in folder" from becoming a file reader.
+      if (entry.path === undefined) return entry;
+      return (await realWithin(libraryRoot, entry.path)) ? entry : null;
+    }),
   );
   return checked.filter((entry): entry is MediaLibraryEntry => entry !== null);
 }
 
 /**
- * Record finished renders. One read, one write, and the oldest entries past the
- * cap fall off the end — the files stay, only the memory of them is bounded.
+ * Serialize one read-modify-write of the index per data directory: two runs must
+ * not interleave, and a crash mid-write must not leave a half index. The
+ * callback sees the entries as they read back (already filtered) and returns the
+ * next index plus whatever the caller needs handed back.
  */
-export async function appendMediaLibrary(
+async function mutateLibrary<T>(
   dataDir: string,
-  entries: MediaLibraryEntry[],
-): Promise<MediaLibraryEntry[]> {
-  if (entries.length === 0) return [];
+  mutate: (current: MediaLibraryEntry[]) => { next: MediaLibraryEntry[]; result: T },
+): Promise<T> {
   const key = resolve(dataDir);
   const previous = writes.get(key) ?? Promise.resolve();
+  let outcome: T = undefined as T;
   const next = previous
     .catch(() => undefined)
     .then(async () => {
       const current = await readMediaLibrary(dataDir);
-      const merged = pruneLibrary([...current, ...entries]);
+      const { next: merged, result } = mutate(current);
+      outcome = result;
       const dir = mediaLibraryDir(dataDir);
       await mkdir(dir, { recursive: true });
       // Temp file plus rename: a crash mid-write cannot leave a half index.
@@ -125,13 +145,58 @@ export async function appendMediaLibrary(
   } finally {
     if (writes.get(key) === next) writes.delete(key);
   }
+  return outcome;
+}
+
+/**
+ * Record finished renders. One read, one write, and the oldest entries past the
+ * cap fall off the end — the files stay, only the memory of them is bounded.
+ *
+ * Successes and failures alike are recorded: a run that failed or was cancelled
+ * is written too, with no path of its own.
+ */
+export async function appendMediaLibrary(
+  dataDir: string,
+  entries: MediaLibraryEntry[],
+): Promise<MediaLibraryEntry[]> {
+  if (entries.length === 0) return [];
+  await mutateLibrary(dataDir, (current) => ({
+    next: pruneLibrary([...current, ...entries]),
+    result: undefined,
+  }));
   return entries;
+}
+
+/**
+ * Forget the entries with the given ids. Returns exactly the entries that were
+ * removed, so the caller can reclaim their files — this service never touches a
+ * file itself, which is what keeps it free of Electron.
+ */
+export async function removeLibraryEntries(
+  dataDir: string,
+  ids: string[],
+): Promise<MediaLibraryEntry[]> {
+  if (ids.length === 0) return [];
+  const wanted = new Set(ids);
+  return mutateLibrary(dataDir, (current) => ({
+    next: current.filter((entry) => !wanted.has(entry.id)),
+    result: current.filter((entry) => wanted.has(entry.id)),
+  }));
+}
+
+/**
+ * Forget everything. Returns the entries that were in the index so the caller
+ * can reclaim their files; the index is written as an empty list.
+ */
+export async function clearLibrary(dataDir: string): Promise<MediaLibraryEntry[]> {
+  return mutateLibrary(dataDir, (current) => ({ next: [], result: current }));
 }
 
 /** Builds the entry for one finished render of a workbench run. */
 export function libraryEntryFrom(input: {
   capability: MediaLibraryCapability;
-  path: string;
+  /** Absent for a failed or cancelled run: there is no file to record. */
+  path?: string;
   status: MediaLibraryEntry["status"];
   prompt?: string;
   modelId?: string;
@@ -142,7 +207,7 @@ export function libraryEntryFrom(input: {
   return {
     id: randomUUID(),
     capability: input.capability,
-    path: input.path,
+    ...(input.path ? { path: input.path } : {}),
     status: input.status,
     ...(input.prompt ? { prompt: input.prompt } : {}),
     ...(input.modelId ? { modelId: input.modelId } : {}),

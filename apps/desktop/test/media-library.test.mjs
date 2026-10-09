@@ -15,11 +15,13 @@ import test from "node:test";
 const {
   MAX_LIBRARY_ENTRIES,
   appendMediaLibrary,
+  clearLibrary,
   libraryEntryFrom,
   mediaLibraryDir,
   migrateScratchRenders,
   pruneLibrary,
   readMediaLibrary,
+  removeLibraryEntries,
 } = await import("../electron/main/services/media-library.ts");
 
 const png = Buffer.from(
@@ -149,4 +151,109 @@ test("library: renders stranded in session scratch are imported once", async (t)
     assert.equal((await readFile(entry.path)).length, png.length, "the asset itself is copied");
   }
   assert.deepEqual(await migrateScratchRenders(dataDir), [], "the import never runs twice");
+});
+
+test("library: a failed entry with no file is written and survives a read", async (t) => {
+  const dataDir = await makeDataDir(t);
+
+  await appendMediaLibrary(dataDir, [
+    libraryEntryFrom({
+      capability: "video",
+      status: "failed",
+      prompt: "a paper lantern",
+      modelId: "video-one",
+      errorCode: "VIDEO_TIMEOUT",
+    }),
+  ]);
+
+  const entries = await readMediaLibrary(dataDir);
+  assert.equal(entries.length, 1, "a failure with no file is remembered, not dropped");
+  assert.equal(entries[0].status, "failed");
+  assert.equal(entries[0].errorCode, "VIDEO_TIMEOUT");
+  assert.equal(entries[0].prompt, "a paper lantern");
+  assert.equal(entries[0].path, undefined, "a failed run has no file to point at");
+});
+
+test("library: a cancelled entry with no file is written and survives a read", async (t) => {
+  const dataDir = await makeDataDir(t);
+
+  await appendMediaLibrary(dataDir, [
+    libraryEntryFrom({ capability: "image", status: "cancelled", errorCode: "IMAGE_CANCELLED" }),
+  ]);
+
+  const entries = await readMediaLibrary(dataDir);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].status, "cancelled");
+  assert.equal(entries[0].path, undefined);
+});
+
+test("library: containment still drops a failed entry that names a file outside the root", async (t) => {
+  const dataDir = await makeDataDir(t);
+  const outsider = join(dataDir, "settings.json");
+  await writeFile(outsider, "{}", "utf8");
+
+  await appendMediaLibrary(dataDir, [
+    libraryEntryFrom({ capability: "image", status: "failed", errorCode: "BOOM", path: outsider }),
+    libraryEntryFrom({ capability: "image", status: "failed", errorCode: "NOOP" }),
+  ]);
+
+  const entries = await readMediaLibrary(dataDir);
+  assert.deepEqual(
+    entries.map((entry) => entry.errorCode),
+    ["NOOP"],
+    "a path that escapes the library is dropped even on a failure; no path is fine",
+  );
+});
+
+test("library: a succeeded entry without a path is refused by the reader", async (t) => {
+  const dataDir = await makeDataDir(t);
+  const dir = mediaLibraryDir(dataDir);
+  await mkdir(dir, { recursive: true });
+  await writeFile(
+    join(dir, "index.json"),
+    `${JSON.stringify([
+      { id: "one", capability: "image", status: "succeeded", createdAt: new Date().toISOString() },
+    ])}\n`,
+    "utf8",
+  );
+
+  assert.deepEqual(
+    await readMediaLibrary(dataDir),
+    [],
+    "a succeeded entry must carry a path to be trusted",
+  );
+});
+
+test("library: removing entries drops only the named ids and returns them", async (t) => {
+  const dataDir = await makeDataDir(t);
+  const first = await makeRender(dataDir, "image", "generated-aaaaaaa1-1111-1111-1111-111111111111.png");
+  const second = await makeRender(dataDir, "image", "generated-aaaaaaa2-2222-2222-2222-222222222222.png");
+  const keep = libraryEntryFrom({ capability: "image", path: first, status: "succeeded" });
+  const drop = libraryEntryFrom({ capability: "image", path: second, status: "succeeded" });
+  const failed = libraryEntryFrom({ capability: "video", status: "failed", errorCode: "VIDEO_TIMEOUT" });
+  await appendMediaLibrary(dataDir, [keep, drop, failed]);
+
+  const removed = await removeLibraryEntries(dataDir, [drop.id, "not-there"]);
+
+  assert.deepEqual(removed.map((entry) => entry.id), [drop.id], "only real ids are returned");
+  const entries = await readMediaLibrary(dataDir);
+  assert.deepEqual(
+    entries.map((entry) => entry.id).sort(),
+    [keep.id, failed.id].sort(),
+    "the other entries are untouched, including a failure with no file",
+  );
+  assert.deepEqual(await removeLibraryEntries(dataDir, []), [], "an empty request does nothing");
+});
+
+test("library: clearing empties the index and returns everything it held", async (t) => {
+  const dataDir = await makeDataDir(t);
+  const path = await makeRender(dataDir, "image", "generated-bbbbbbb1-1111-1111-1111-111111111111.png");
+  await appendMediaLibrary(dataDir, [
+    libraryEntryFrom({ capability: "image", path, status: "succeeded" }),
+    libraryEntryFrom({ capability: "video", status: "cancelled", errorCode: "VIDEO_CANCELLED" }),
+  ]);
+
+  const cleared = await clearLibrary(dataDir);
+  assert.equal(cleared.length, 2, "every entry is handed back so its file can be reclaimed");
+  assert.deepEqual(await readMediaLibrary(dataDir), [], "the index is empty afterwards");
 });

@@ -153,6 +153,35 @@ export function useWorkbenchRuns({
     return () => window.clearInterval(timer);
   }, [running]);
 
+  // Re-read the app's library. The main process owns the index, so the list the
+  // user manages must be its list, with its ids — never a second, locally minted
+  // copy whose ids the removal and clear channels would not recognise.
+  const reloadLibrary = useCallback(async () => {
+    const result = await api.workbenchLibrary();
+    setLibrary(result.entries.map(runFromEntry));
+  }, []);
+
+  // Removing and clearing answer with the surviving entries, so the list is
+  // replaced by what the main process returns rather than edited by guesswork.
+  const removeLibraryEntries = useCallback(async (ids: string[]) => {
+    const result = await api.workbenchLibraryRemove({ ids });
+    setLibrary(result.entries.map(runFromEntry));
+    // A run that only ever lived in this window (its channel call failed before
+    // the library saw it) still leaves the list when its row is removed.
+    setHistory((current) => current.filter((entry) => !ids.includes(entry.id)));
+  }, []);
+
+  const clearLibraryHistory = useCallback(async () => {
+    const result = await api.workbenchLibraryClear();
+    setLibrary(result.entries.map(runFromEntry));
+    setHistory([]);
+  }, []);
+
+  /** Open the library directory itself, where every kept render lives. */
+  const revealLibrary = useCallback(async () => {
+    await api.workbenchLibraryReveal();
+  }, []);
+
   // The main process reports progress under the id it assigned, which the renderer
   // only learns from the first event; adopting it here keeps later events matching.
   useEffect(
@@ -253,7 +282,15 @@ export function useWorkbenchRuns({
         ...(result.message ? { message: result.message } : {}),
       };
       setRun(finished);
-      setHistory((current) => [finished, ...current].slice(0, 24));
+      // The run is already in the app's library — the service records it before
+      // it answers — so re-read that list instead of pushing a second copy with
+      // a different id. Falling back to a window-only row keeps the run visible
+      // if the read fails.
+      try {
+        await reloadLibrary();
+      } catch {
+        setHistory((current) => [finished, ...current].slice(0, 24));
+      }
     } catch (error) {
       setRun((current) =>
         current
@@ -287,6 +324,7 @@ export function useWorkbenchRuns({
     running,
     size,
     sizeOk,
+    reloadLibrary,
   ]);
 
   const cancel = async () => {
@@ -332,6 +370,11 @@ export function useWorkbenchRuns({
     scopedHistory,
     succeededHistory,
     failedHistory,
+    /** Total entries the library holds, across both capabilities. */
+    libraryCount: library.length,
+    removeLibraryEntries,
+    clearLibraryHistory,
+    revealLibrary,
     submit,
     cancel,
   };

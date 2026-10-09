@@ -48,6 +48,13 @@ export type MediaWorkbenchItemResult = GeneratedImageResult | GeneratedVideoResu
 export type MediaLibraryCapability = "image" | "video";
 
 /**
+ * How many remembered renders the index keeps; the oldest fall off the end. The
+ * files themselves are never removed by the cap. Shared so the main process and
+ * the renderer bound the history with the same number.
+ */
+export const MAX_LIBRARY_ENTRIES = 500;
+
+/**
  * One render the app remembers. The file itself lives under the data
  * directory's library root; this is the record of what it is, so the workbench
  * can list its history after a restart without scanning directories.
@@ -55,8 +62,12 @@ export type MediaLibraryCapability = "image" | "video";
 export type MediaLibraryEntry = {
   id: string;
   capability: MediaLibraryCapability;
-  /** Absolute path of the render, always inside the library root. */
-  path: string;
+  /**
+   * Absolute path of the render, always inside the library root. Present only
+   * for a `succeeded` run: a failed or cancelled run produced no file, so there
+   * is nothing to point at.
+   */
+  path?: string;
   status: "succeeded" | "failed" | "cancelled";
   prompt?: string;
   modelId?: string;
@@ -71,6 +82,15 @@ export type MediaLibraryEntry = {
  * point outside the library, are already filtered out by the main process.
  */
 export type MediaLibraryResult = { entries: MediaLibraryEntry[] };
+
+/** Forget the named entries; their files are sent to the OS trash. */
+export type MediaLibraryRemoveRequest = { ids: string[] };
+
+/**
+ * The library after a remove or a clear: the survivors for a remove, an empty
+ * list for a clear.
+ */
+export type MediaLibraryClearResult = MediaLibraryResult;
 
 export type MediaWorkbenchResult = {
   /** True when at least one item succeeded; a partial batch stays usable. */

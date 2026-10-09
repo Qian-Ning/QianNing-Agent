@@ -95,6 +95,12 @@ export const IPC = {
     workbenchReveal: "pi-desktop/workbench/reveal",
     /** What the app has rendered before, so history survives a restart. */
     workbenchLibrary: "pi-desktop/workbench/library",
+    /** Forget the named library entries; their files go to the OS trash. */
+    workbenchLibraryRemove: "pi-desktop/workbench/library/remove",
+    /** Forget the whole library; every file goes to the OS trash. */
+    workbenchLibraryClear: "pi-desktop/workbench/library/clear",
+    /** Open the library directory in the OS file browser. */
+    workbenchLibraryReveal: "pi-desktop/workbench/library/reveal",
     voiceStart: "pi-desktop/voice/start",
     voiceStop: "pi-desktop/voice/stop",
     voiceCancel: "pi-desktop/voice/cancel",
