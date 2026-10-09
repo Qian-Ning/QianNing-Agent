@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "0.19.0",
+    date: "2026-10-09",
+    highlights: [
+    "Um prompt de conversa pode ser salvo uma vez e reutilizado em qualquer lugar. Reescrever a mesma persona em cada conversa nova era o atrito, então o editor de prompts agora traz uma prateleira de prompts salvos: dê um nome ao texto que está sendo editado e depois escolha um da prateleira para preencher o editor, na conversa atual ou em uma nova. A prateleira não é, de propósito, um segundo escopo de persona: ela guarda o texto de origem no armazenamento chave-valor que o host já tem, aplicar um item preenche apenas o rascunho da caixa de diálogo, que depois é salvo como o prompt daquela conversa, e nada é aplicado sozinho a uma conversa.",
+    "Uma instalação nova segue o tema do sistema em vez de abrir no escuro sobre uma área de trabalho clara. Sem preferência salva, a interface já seguia o sistema operacional, mas o objeto de configurações padrão do host entregava “dark”, então o fallback nunca era executado e o escuro era o que uma instalação nova obedecia. Agora o padrão pede “system”, e o primeiro quadro lê a preferência do próprio sistema em vez de fixar o escuro, de modo que uma área de trabalho clara não pisca mais o painel escuro antes de qualquer coisa ser salva. O escuro continua sendo a paleta sobre a qual a interface é desenhada; uma instalação que já salvou um tema fica intacta, que é o que um padrão significa.",
+    "A biblioteca de mídia pode ser gerenciada, e um render que falha agora diz por quê. Cada linha do histórico carrega seu próprio controle de remoção, o cabeçalho da lista carrega limpar e abrir pasta, além de quantas entradas são mantidas em relação ao limite, e toda remoção é confirmada duas vezes e vai para a lixeira do sistema operacional em vez de apagar algo que foi pago. Uma execução que falhou ou foi cancelada registra seu código de erro e é lida como uma frase em vez de uma linha em branco, as linhas de imagem começam com uma miniatura de 32 px do primeiro resultado bem-sucedido, e nenhuma linha aponta mais uma prévia para um arquivo que nunca foi escrito.",
+    "O rascunho de composição sobrevive a uma troca de página e a um reinício. O prompt e os parâmetros são trabalho do usuário, e descrever a mesma cena uma segunda vez porque uma troca de página a descartou era uma perda que o aplicativo escolheu aceitar: o estado agora vive no armazenamento local, junto do resto do estado puramente de interface, um registro bloqueado ou corrompido é lido como nenhum rascunho em vez de impedir a página de abrir, e as duas capacidades mantêm rascunhos separados, então trocar de aba nunca leva o prompt de um lado para o outro.",
+    "Um vídeo concluído é reproduzido na página em que foi criado. A interface não consegue ler um caminho de arquivo, então a biblioteca é servida a ela por um esquema de recursos confinado: apenas um caminho relativo à raiz da biblioteca cruza a fronteira, cada requisição é resolvida segmento por segmento recusando `.` e `..` antes da junção, o caminho real é conferido de novo depois de encontrado para que um link colocado dentro da biblioteca não possa apontar de volta para fora, e faixas de bytes são respondidas para que a busca funcione. Os recursos de skin e de plugins mantêm seus próprios esquemas.",
+    ],
+  },
+  {
     version: "0.18.1",
     date: "2026-10-08",
     highlights: [

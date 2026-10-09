@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "0.19.0",
+    date: "2026-10-09",
+    highlights: [
+    "Bir konuşma istemi bir kez kaydedilip her yerde yeniden kullanılabilir. Her yeni konuşmada aynı persona'yı yeniden yazmak sürtünmeydi; bu yüzden istem düzenleyicisi artık kayıtlı istem rafı taşıyor: düzenlenen metne bir ad verip sonra raftan birini seçerek düzenleyiciyi doldurun — bulunduğunuz konuşmada ya da yeni bir konuşmada. Raf bilinçli olarak ikinci bir persona kapsamı değil: kaynak metni ana makinenin zaten kullandığı anahtar-değer deposunda tutar, bir kaydı uygulamak yalnızca iletişim kutusunun taslağını doldurur ve o taslağı sonra o konuşmanın kendi istemi olarak kaydedersiniz; hiçbir şey bir konuşmaya kendiliğinden uygulanmaz.",
+    "Yeni bir kurulum, aydınlık bir masaüstünde karanlık açılmak yerine sistem temasını izler. Kayıtlı tercih yokken arayüz zaten işletim sistemini izliyordu, ancak ana makinenin varsayılan ayarlar nesnesi “dark” değerini veriyordu; bu yüzden geri dönüş hiç çalışmadı ve yeni kurulumun uyduğu şey karanlık oldu. Artık varsayılan “system” istiyor ve ilk kare karanlığı sabitlemek yerine sistemin kendi tercihini okuyor; böylece aydınlık bir masaüstü, hiçbir şey kaydedilmeden önce karanlık zemini bir an bile göstermiyor. Karanlık, arayüzün üzerine tasarlandığı palet olmayı sürdürüyor; temasını zaten kaydetmiş bir kurulum etkilenmiyor — varsayılanın anlamı budur.",
+    "Medya kitaplığı yönetilebiliyor ve başarısız bir render artık nedenini söylüyor. Her geçmiş satırı kendi kaldırma denetimini taşıyor, liste başlığı temizle ve klasörü aç ile sınırın karşısında kaç kayıt tutulduğunu gösteriyor, her kaldırma iki kez onaylanıyor ve parası ödenmiş bir şeyi silmek yerine işletim sisteminin geri dönüşüm kutusuna gidiyor. Başarısız ya da iptal edilmiş bir çalıştırma hata kodunu kaydediyor ve boş satır yerine bir cümle olarak okunuyor, görsel satırları ilk başarılı çıktısının 32 piksel küçük resmiyle başlıyor ve hiçbir satır artık hiç yazılmamış bir dosyaya önizleme göstermiyor.",
+    "Oluşturma taslağı sayfa değişimini ve yeniden başlatmayı atlatıyor. İstem ve parametreler kullanıcının emeğidir ve bir sayfa değişimi onları düşürdüğü için aynı sahneyi ikinci kez anlatmak uygulamanın seçtiği bir kayıptı: durum artık diğer saf arayüz durumlarının yanında yerel depoda tutuluyor, engellenmiş ya da bozulmuş bir kayıt sayfanın açılmasını engellemek yerine hiç taslak yokmuş gibi okunuyor ve iki yetenek ayrı taslaklar tutuyor; böylece sekme değiştirmek bir tarafın istemini diğerine taşımıyor.",
+    "Tamamlanmış bir video, oluşturulduğu sayfada oynatılıyor. Arayüz bir dosya yolu okuyamaz; bu yüzden kitaplık ona sınırlandırılmış bir varlık şemasıyla sunuluyor: yalnızca kitaplık köküne göreli bir yol sınırı geçiyor, her istek parça parça çözülüyor ve birleştirmeden önce `.` ile `..` reddediliyor, dosya bulunduktan sonra gerçek yol yeniden denetleniyor; böylece kitaplık içine konan bir bağlantı dışarıyı işaret edemiyor ve ileri geri sarma çalışsın diye bayt aralıkları yanıtlanıyor. Tema ve eklenti varlıkları kendi şemalarını koruyor.",
+    ],
+  },
+  {
     version: "0.18.1",
     date: "2026-10-08",
     highlights: [

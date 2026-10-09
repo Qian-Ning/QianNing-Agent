@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "0.19.0",
+    date: "2026-10-09",
+    highlights: [
+    "Un prompt de conversación puede guardarse una vez y reutilizarse en cualquier parte. Reescribir la misma persona en cada conversación nueva era la fricción, así que el editor de prompts ahora incorpora un estante de prompts guardados: se nombra el texto que se está editando y después se elige uno del estante para rellenar el editor, en la conversación actual o en una nueva. El estante no es a propósito un segundo ámbito de persona: guarda el texto de origen en el almacén clave-valor que el host ya tiene, aplicar uno solo rellena el borrador del diálogo, que luego se guarda como prompt de esa conversación, y nunca se aplica nada por su cuenta a una conversación.",
+    "Una instalación nueva sigue el tema del sistema en lugar de abrirse en oscuro sobre un escritorio claro. Sin preferencia guardada la interfaz ya seguía al sistema operativo, pero el objeto de ajustes predeterminados del host le entregaba “dark”, así que el respaldo nunca se ejecutaba y lo que una instalación nueva obedecía era el oscuro. Ahora el valor por defecto pide “system”, y el primer fotograma lee la preferencia del propio sistema en vez de fijar el oscuro, de modo que un escritorio claro ya no muestra un destello oscuro antes de que se haya guardado nada. El oscuro sigue siendo la paleta sobre la que está diseñada la interfaz; una instalación que ya guardó un tema queda intacta, que es lo que significa un valor por defecto.",
+    "La biblioteca de medios se puede gestionar, y un render que falla ahora dice por qué. Cada fila del historial lleva su propio control de eliminación, la cabecera de la lista lleva vaciar y abrir carpeta, además de cuántas entradas se conservan frente al límite, y cada eliminación se confirma dos veces y acaba en la papelera del sistema operativo en lugar de borrar algo que se pagó. Una ejecución fallida o cancelada registra su código de error y se lee como una frase en vez de una línea en blanco, las filas de imagen empiezan con una miniatura de 32 px de su primer resultado correcto, y ninguna fila apunta ya una vista previa a un archivo que nunca se escribió.",
+    "El borrador de composición sobrevive a un cambio de página y a un reinicio. El prompt y los parámetros son trabajo del usuario, y describir la misma escena por segunda vez porque un cambio de página la descartó era una pérdida que la propia aplicación eligió aceptar: el estado vive ahora en el almacenamiento local junto al resto del estado puro de la interfaz, un registro bloqueado o corrupto se lee como ningún borrador en vez de impedir que la página se abra, y las dos capacidades mantienen borradores separados, así que cambiar de pestaña nunca lleva el prompt de un lado al otro.",
+    "Un vídeo terminado se reproduce en la página donde se creó. La interfaz no puede leer una ruta de archivo, así que la biblioteca se le sirve mediante un esquema de recursos confinado: solo una ruta relativa a la raíz de la biblioteca cruza la frontera, cada petición se resuelve segmento a segmento rechazando `.` y `..` antes de unir, la ruta real se comprueba de nuevo tras encontrarla para que un enlace colocado dentro de la biblioteca no pueda apuntar de vuelta fuera, y se responden rangos de bytes para que buscar funcione. Los recursos de skin y de plugins conservan sus propios esquemas.",
+    ],
+  },
+  {
     version: "0.18.1",
     date: "2026-10-08",
     highlights: [

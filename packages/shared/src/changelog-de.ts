@@ -2,6 +2,17 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "0.19.0",
+    date: "2026-10-09",
+    highlights: [
+    "Ein Gesprächs-Prompt lässt sich einmal speichern und danach überall wiederverwenden. Jedes neue Gespräch mit derselben Persona neu zu tippen war die Reibung, deshalb trägt der Prompt-Editor jetzt ein Regal gespeicherter Prompts: den bearbeiteten Text benennen und später aus dem Regal auswählen, um den Editor zu füllen — im laufenden oder in einem neuen Gespräch. Das Regal ist bewusst kein zweiter Persona-Geltungsbereich: es legt Quelltext im vorhandenen Schlüssel-Wert-Speicher des Hosts ab, ein ausgewählter Eintrag füllt nur den Entwurf des Dialogs, der dann als Prompt dieses Gesprächs gespeichert wird, und nichts wird je von selbst auf ein Gespräch angewendet.",
+    "Eine Neuinstallation folgt dem Systemthema, statt auf einem hellen Desktop dunkel zu öffnen. Ohne gespeicherte Vorgabe folgte die Oberfläche bereits dem Betriebssystem, doch das Standardeinstellungsobjekt des Hosts übergab „dark“, sodass der Rückfall nie griff und eine neue Installation dem Dunkel folgte. Die Vorgabe verlangt jetzt „system“, und das erste Bild liest die Vorgabe des Systems, statt Dunkel fest zu verdrahten; ein heller Desktop blitzt daher nicht mehr die dunkle Fläche auf, bevor etwas gespeichert wurde. Dunkel bleibt die Palette, um die herum die Oberfläche entworfen ist; eine Installation mit bereits gespeichertem Thema bleibt unberührt, was ein Standard eben bedeutet.",
+    "Die Mediathek lässt sich verwalten, und ein fehlgeschlagener Render nennt jetzt den Grund. Jede Verlaufszeile trägt ein eigenes Entfernen-Element, der Kopf der Liste trägt Leeren und Ordner öffnen samt der Zahl der Einträge gegen die Obergrenze, und jedes Entfernen wird zweifach bestätigt und landet im Papierkorb des Betriebssystems, statt etwas zu löschen, wofür bezahlt wurde. Ein fehlgeschlagener oder abgebrochener Lauf hält seinen Fehlercode fest und liest sich als Satz statt als leere Zeile, Bildzeilen beginnen mit einem 32-Pixel-Vorschaubild ihres ersten gelungenen Ergebnisses, und keine Zeile verweist mehr auf eine Datei, die nie geschrieben wurde.",
+    "Der Entwurf zum Erzeugen übersteht einen Seitenwechsel und einen Neustart. Prompt und Parameter sind die eigene Arbeit, und dieselbe Szene ein zweites Mal zu beschreiben, weil ein Seitenwechsel sie verworfen hat, war ein Verlust, den die App selbst gewählt hatte: der Zustand liegt jetzt im lokalen Speicher neben den übrigen reinen Oberflächenzuständen, ein blockierter oder beschädigter Eintrag liest sich als gar kein Entwurf, statt die Seite am Öffnen zu hindern, und die beiden Fähigkeiten halten getrennte Entwürfe, sodass ein Tab-Wechsel nie den Prompt der einen Seite in die andere trägt.",
+    "Ein fertiges Video spielt auf der Seite, auf der es entstanden ist. Die Oberfläche kann keinen Dateipfad lesen, deshalb wird ihr die Mediathek über ein eingeschränktes Asset-Schema ausgeliefert: nur ein Pfad relativ zur Bibliothekswurzel überquert die Grenze, jede Anfrage wird Segment für Segment aufgelöst, wobei `.` und `..` vor dem Zusammenfügen abgelehnt werden, der echte Pfad wird nach dem Auffinden erneut geprüft, damit eine in der Bibliothek platzierte Verknüpfung nicht wieder hinauszeigt, und Byte-Bereiche werden beantwortet, damit Springen funktioniert. Skin- und Plugin-Assets behalten ihre eigenen Schemata.",
+    ],
+  },
+  {
     version: "0.18.1",
     date: "2026-10-08",
     highlights: [
