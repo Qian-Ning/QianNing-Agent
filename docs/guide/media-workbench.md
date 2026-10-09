@@ -91,7 +91,7 @@ The history header shows how much room is left — *N of 500 kept* — with the 
 The workbench talks to providers in the OpenAI-compatible shape: images through `POST /v1/images/generations`, video through `POST /v1/videos` and polled by job id. A root base URL gains `/v1`; an explicit path prefix is kept.
 
 - A **local** provider — a loopback address or a private one such as `192.168.*`, `10.*` or `172.16–31.*` — is marked **Local** in the model menu and is exempt from the name-based capability check, because its model names are file names and would otherwise be hidden. Built-in presets include **Ollama**, **LM Studio** and **LocalAI** on their default local addresses.
-- **ComfyUI** and **Stable Diffusion WebUI** expose their own native APIs, which are not the OpenAI shape. They need a compatible wrapper or proxy in front; the workbench cannot call them by address alone.
+- **ComfyUI** and **Stable Diffusion WebUI** expose their own native APIs, which are not the OpenAI shape. They need a compatible wrapper or proxy in front; the workbench cannot call them by address alone. See [Local generation bridge](/guide/local-generation-bridge).
 
 The same request builders back the agent tools `GenerateImages` and `GenerateVideos`, so a workbench run and a tool run produce the same kind of request.
 

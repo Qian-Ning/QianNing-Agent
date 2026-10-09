@@ -1672,6 +1672,7 @@ export const ptBR = {
     presetOllama: "Ollama (local)",
     presetLmStudio: "LM Studio (local)",
     presetLocalAi: "LocalAI (local, compatível com OpenAI)",
+    localBridgeHint: "Um gerador auto-hospedado precisa falar esta forma da OpenAI. ComfyUI e Stable Diffusion WebUI não falam — execute a ponte de geração local na frente deles (veja o guia).",
     apiStyleResponses: "OpenAI Responses",
     apiStyleAnthropic: "Anthropic Messages",
     apiStyleGoogle: "Google Generative AI",

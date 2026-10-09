@@ -91,7 +91,7 @@ description: 无需先建对话即可生图、生视频 —— 自己选模型�
 工作台以 OpenAI 兼容形状与服务商通信：图像走 `POST /v1/images/generations`，视频走 `POST /v1/videos` 并按 job id 轮询。根 base URL 会补上 `/v1`；显式路径前缀会保留。
 
 - **本机**服务商 —— 环回地址，或诸如 `192.168.*`、`10.*`、`172.16–31.*` 的私有地址 —— 会在模型菜单里标记为**本机**，并豁免按名判断能力的检查，因为它的模型名就是文件名，否则会被隐藏。内置预设包含位于各自默认本机地址上的 **Ollama**、**LM Studio** 与 **LocalAI**。
-- **ComfyUI** 与 **Stable Diffusion WebUI** 暴露的是自己的原生 API，不是 OpenAI 形状。它们需要前面加一层兼容包装或代理；工作台无法只凭地址直接调用它们。
+- **ComfyUI** 与 **Stable Diffusion WebUI** 暴露的是自己的原生 API，不是 OpenAI 形状。它们需要前面加一层兼容包装或代理；工作台无法只凭地址直接调用它们。见[本机生成桥](/zh-CN/guide/local-generation-bridge)。
 
 Agent 工具 `GenerateImages` 与 `GenerateVideos` 由同一批请求构造器支撑，因此工作台的一次运行与工具的一次运行会产生同类请求。
 

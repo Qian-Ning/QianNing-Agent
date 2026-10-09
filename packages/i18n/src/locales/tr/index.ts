@@ -1710,6 +1710,7 @@ sklm: {
     presetOllama: "Ollama (yerel)",
     presetLmStudio: "LM Studio (yerel)",
     presetLocalAi: "LocalAI (yerel, OpenAI uyumlu)",
+    localBridgeHint: "Kendi barındırdığınız bir üretici bu OpenAI biçimini konuşmalıdır. ComfyUI ve Stable Diffusion WebUI konuşmaz — önlerinde yerel üretim köprüsünü çalıştırın (belgelere bakın).",
     apiStyleResponses: "OpenAI Responses",
     apiStyleAnthropic: "Anthropic Messages",
     apiStyleGoogle: "Google Generative AI",
