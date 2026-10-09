@@ -200,6 +200,10 @@ export function WorkbenchPage() {
     scopedHistory,
     succeededHistory,
     failedHistory,
+    libraryCount,
+    removeLibraryEntries,
+    clearLibraryHistory,
+    revealLibrary,
     submit,
     cancel,
   } = useWorkbenchRuns({
@@ -366,7 +370,18 @@ export function WorkbenchPage() {
             scopedHistory={scopedHistory}
             succeededHistory={succeededHistory}
             failedHistory={failedHistory}
+            libraryCount={libraryCount}
             onPick={setRun}
+            onRemove={(entry) => {
+              // A render cost money, so removal is a second-confirmed move to the
+              // recycle bin, never a silent delete.
+              if (window.confirm(t("workbench.historyRemoveConfirm")))
+                void removeLibraryEntries([entry.id]);
+            }}
+            onClear={() => {
+              if (window.confirm(t("workbench.historyClearConfirm"))) void clearLibraryHistory();
+            }}
+            onReveal={() => void revealLibrary()}
           />
         </section>
       </div>
