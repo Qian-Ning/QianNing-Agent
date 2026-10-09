@@ -43,6 +43,33 @@ function outputCount(input: unknown): number {
   return total > 0 ? total : 1;
 }
 
+/**
+ * Prompts and sizes expanded by each item's `count`, in the order the batch
+ * yields its outputs, so a recorded entry can name the prompt (and size) that
+ * produced — or failed to produce — a given item.
+ */
+function inputExpansion(input: unknown): { prompts: string[]; sizes: (string | undefined)[] } {
+  const prompts: string[] = [];
+  const sizes: (string | undefined)[] = [];
+  const items = asRecord(input)?.items;
+  if (Array.isArray(items)) {
+    for (const item of items) {
+      const record = item as { prompt?: unknown; count?: unknown; size?: unknown };
+      const prompt = typeof record.prompt === "string" ? record.prompt : "";
+      const count =
+        typeof record.count === "number" && Number.isInteger(record.count) && record.count > 0
+          ? record.count
+          : 1;
+      const size = typeof record.size === "string" ? record.size : undefined;
+      for (let copy = 0; copy < count; copy += 1) {
+        prompts.push(prompt);
+        sizes.push(size);
+      }
+    }
+  }
+  return { prompts, sizes };
+}
+
 export type MediaWorkbenchAction = MediaWorkbenchResult & { generationId: string };
 
 export type MediaWorkbenchService = {
@@ -82,6 +109,7 @@ export function createMediaWorkbenchService(options: {
       const generationId = randomUUID();
       const controller = new AbortController();
       const total = outputCount(request.input);
+      const { prompts, sizes } = inputExpansion(request.input);
       let completed = 0;
       running.set(generationId, controller);
       const report = (phase: MediaWorkbenchProgressEvent["phase"], item?: ToolItemEvent) =>
@@ -134,48 +162,44 @@ export function createMediaWorkbenchService(options: {
         report("done");
         if (kind !== "generated-images" && kind !== "generated-videos") {
           // A refusal from the tool: not configured, model gone, bad credentials.
+          // A run that never produced a file is still remembered, as a failure
+          // carrying its error code — the batch produced no item to record one
+          // per item, so this is the single entry for the run.
+          const errorCode = typeof content?.errorCode === "string"
+            ? content.errorCode
+            : "MEDIA_FAILED";
+          await appendMediaLibrary(options.dataDir, [
+            libraryEntryFrom({
+              capability: request.capability,
+              status: "failed",
+              ...(prompts[0] ? { prompt: prompts[0] } : {}),
+              ...(sizes[0] ? { size: sizes[0] } : {}),
+              errorCode,
+            }),
+          ]).catch(() => undefined);
           return {
             generationId,
             ok: false,
             capability: request.capability,
             results,
-            errorCode: typeof content?.errorCode === "string"
-              ? content.errorCode
-              : "MEDIA_FAILED",
+            errorCode,
             message: typeof content?.message === "string"
               ? content.message
               : "The request could not be completed.",
           };
         }
-        // The library remembers the run once, after it finished. Failures with no
-        // file are not assets, so only results that produced a path are recorded.
-        const prompts: string[] = [];
-        const sizes: (string | undefined)[] = [];
-        const items = (request.input as { items?: unknown }).items;
-        if (Array.isArray(items)) {
-          for (const item of items) {
-            const record = item as { prompt?: unknown; count?: unknown; size?: unknown };
-            const prompt = typeof record.prompt === "string" ? record.prompt : "";
-            const count =
-              typeof record.count === "number" && Number.isInteger(record.count) && record.count > 0
-                ? record.count
-                : 1;
-            const size = typeof record.size === "string" ? record.size : undefined;
-            for (let copy = 0; copy < count; copy += 1) {
-              prompts.push(prompt);
-              sizes.push(size);
-            }
-          }
-        }
+        // The library remembers every item of the run once, after it finished:
+        // successes carry their file path, failures and cancellations carry their
+        // error code instead. One result maps to exactly one entry, so a run can
+        // never be recorded as both a success and a failure.
         const libraryEntries: MediaLibraryEntry[] = [];
         for (const result of results) {
-          if (typeof result.path !== "string") continue;
           const prompt = prompts[result.index];
           const size = sizes[result.index];
           libraryEntries.push(
             libraryEntryFrom({
               capability: request.capability,
-              path: result.path,
+              ...(typeof result.path === "string" ? { path: result.path } : {}),
               status: result.status,
               ...(prompt ? { prompt } : {}),
               ...(size ? { size } : {}),
@@ -199,13 +223,24 @@ export function createMediaWorkbenchService(options: {
         };
       } catch (error) {
         const code = asRecord(error)?.errorCode;
+        const errorCode = typeof code === "string" ? code : "MEDIA_FAILED";
         report("done");
+        // A thrown run is a failed run: remember it with no file, once.
+        await appendMediaLibrary(options.dataDir, [
+          libraryEntryFrom({
+            capability: request.capability,
+            status: "failed",
+            ...(prompts[0] ? { prompt: prompts[0] } : {}),
+            ...(sizes[0] ? { size: sizes[0] } : {}),
+            errorCode,
+          }),
+        ]).catch(() => undefined);
         return {
           generationId,
           ok: false,
           capability: request.capability,
           results: [],
-          errorCode: typeof code === "string" ? code : "MEDIA_FAILED",
+          errorCode,
           message: error instanceof Error ? error.message : String(error),
         };
       } finally {

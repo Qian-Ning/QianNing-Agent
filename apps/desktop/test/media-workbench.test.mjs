@@ -21,6 +21,9 @@ const { MAX_WORKBENCH_COUNT, clampCount, normalizeCount } = await import(
 const { createMediaWorkbenchService, resolveGeneratedFile } = await import(
   "../electron/main/services/media-workbench-service.ts"
 );
+const { appendMediaLibrary, libraryEntryFrom, readMediaLibrary } = await import(
+  "../electron/main/services/media-library.ts"
+);
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9mQAAAAASUVORK5CYII=",
@@ -461,4 +464,106 @@ test("library: a render in the library can be handed out, and nothing outside it
     null,
     "traversal back out of the library is refused",
   );
+});
+
+test("library: a cancelled run is remembered, with no file", async (t) => {
+  const env = await makeEnv(t, { models: ["video-one"] });
+
+  env.fixture.holdCreates();
+  const pending = env.service.generate({
+    capability: "video",
+    sessionId: "session",
+    model: { providerId: env.providerId, modelId: "video-one" },
+    input: { items: [{ prompt: "hold", count: 4 }] },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  const id = env.events.at(-1)?.generationId ?? "";
+  assert.ok(id, "the run reports progress under its id");
+  assert.equal(env.service.cancel(id), true);
+  env.fixture.release();
+  await pending;
+
+  const entries = await readMediaLibrary(env.dataDir);
+  assert.equal(entries.length, 4, "each cancelled clip is remembered, not dropped");
+  for (const entry of entries) {
+    assert.equal(entry.status, "cancelled");
+    assert.equal(entry.errorCode, "VIDEO_CANCELLED");
+    assert.equal(entry.path, undefined, "a cancelled run produced no file to point at");
+  }
+});
+
+test("library: a refused run is remembered as one failure", async (t) => {
+  const env = await makeEnv(t, { models: ["video-one"] });
+
+  const result = await env.service.generate({
+    capability: "video",
+    sessionId: "session",
+    model: { providerId: env.providerId, modelId: "ghost-model" },
+    input: { items: [{ prompt: "never runs" }] },
+  });
+  assert.equal(result.ok, false);
+
+  const entries = await readMediaLibrary(env.dataDir);
+  assert.equal(entries.length, 1, "one entry for the run, not one per missing item");
+  assert.equal(entries[0].status, "failed");
+  assert.equal(entries[0].errorCode, "VIDEO_MODEL_UNAVAILABLE");
+  assert.equal(entries[0].prompt, "never runs");
+  assert.equal(entries[0].path, undefined);
+});
+
+test("library ipc: entries can be removed, cleared and revealed through the real handlers", async (t) => {
+  const env = await makeEnv(t, { models: ["img-one"] });
+  const { registerWorkbenchIpc } = await import("../electron/main/ipc/workbench-ipc.ts");
+  const { IPC } = await import("@pi-desktop/shared/protocol");
+  // The same module the `electron` specifier is redirected to, so the spies see
+  // exactly what the handlers call.
+  const stub = await import("./helpers/electron-stub.mjs");
+  stub.trashed.length = 0;
+  stub.opened.length = 0;
+
+  const handlers = new Map();
+  registerWorkbenchIpc({
+    registrar: { handle: (channel, fn) => handlers.set(channel, fn) },
+    getMainWindow: () => null,
+    getHost: () => env.host,
+    dataDir: env.dataDir,
+  });
+
+  const library = join(env.dataDir, "generated", "image");
+  await mkdir(library, { recursive: true });
+  const a = join(library, "generated-ccccccc1-1111-1111-1111-111111111111.png");
+  const b = join(library, "generated-ccccccc2-2222-2222-2222-222222222222.png");
+  await writeFile(a, png);
+  await writeFile(b, png);
+  const entryA = libraryEntryFrom({ capability: "image", path: a, status: "succeeded" });
+  const entryB = libraryEntryFrom({ capability: "image", path: b, status: "succeeded" });
+  const failed = libraryEntryFrom({ capability: "video", status: "failed", errorCode: "VIDEO_TIMEOUT" });
+  await appendMediaLibrary(env.dataDir, [entryA, entryB, failed]);
+
+  const remove = handlers.get(IPC.invoke.workbenchLibraryRemove);
+  const afterRemove = await remove({ ids: [entryA.id, failed.id] });
+  assert.deepEqual(
+    afterRemove.entries.map((entry) => entry.id),
+    [entryB.id],
+    "only the named ids are gone",
+  );
+  assert.deepEqual(
+    stub.trashed,
+    [a],
+    "the succeeded file went to the trash; the failure had no file to reclaim",
+  );
+
+  const clear = handlers.get(IPC.invoke.workbenchLibraryClear);
+  const emptied = await clear({});
+  assert.deepEqual(emptied.entries, [], "clearing hands back an empty list");
+  assert.deepEqual(
+    stub.trashed.slice().sort(),
+    [a, b].sort(),
+    "the remaining file was sent to the trash too",
+  );
+
+  const reveal = handlers.get(IPC.invoke.workbenchLibraryReveal);
+  const opened = await reveal({});
+  assert.equal(opened.ok, true);
+  assert.equal(stub.opened.at(-1), join(env.dataDir, "generated"), "the library root is what opens");
 });
