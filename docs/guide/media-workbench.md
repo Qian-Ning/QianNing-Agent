@@ -71,9 +71,20 @@ Every finished result carries **Save as…** and **Show in folder**, for images 
 
 A workbench run owns its output: images land in `<data directory>/generated/image`, video in `<data directory>/generated/video`. A packaged installation uses `~/.qianning-agent` as its data directory by default.
 
-Each run is recorded once in an `index.json` beside the files — capability, path, outcome, prompt, model, size, error code and time — so the library survives a restart and a render made earlier opens in the results panel like one that just finished. The record list is bounded; the files are not.
+Each output is recorded once in an `index.json` beside the files — capability, path, outcome, prompt, model, size, error code and time — so the library survives a restart and a render made earlier opens in the results panel like one that just finished. A run that succeeded records the file it wrote; a run that failed or was cancelled records no file but records why, so an empty result still has a row instead of a blank. The record list is bounded; the files are not.
 
 **History** under the results lists this capability's recorded runs, newest first, plus the runs made in the current session.
+
+## Cleaning up and recovering
+
+**History** rows carry their own remove control, and the list can be cleared or opened on disk.
+
+- **Removing** one row asks first: *Remove this entry from the history? Its file is moved to the system recycle bin, so you can still recover it.*
+- **Clearing** asks: *Clear all history? Every entry is forgotten and its file is moved to the system recycle bin. This cannot be undone from the app.*
+- Both move files to the system **recycle bin** rather than deleting them, so a mistaken removal can be recovered from there; if the recycle bin refuses a file, the removal still goes through.
+- The **folder** button opens the library directory itself.
+
+The history header shows how much room is left — *N of 500 kept* — with the note *Only the 500 most recent renders are kept here; older entries drop off the list. Their files stay on disk.*
 
 ## Model compatibility
 
