@@ -105,7 +105,9 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
     mascot; a built-in token override on the dark base, not a plugin theme) at
     the top, then lists plugin themes after a divider with a "Provided by …"
     hint. Search matches labels, descriptions, ids, and plugin ids. Selection
-    updates `settings.theme`. The theme sets only the light/dark base tone; a
+    updates `settings.theme`. A fresh install starts on System, so the first
+    launch matches the OS it was installed on instead of assuming the dark
+    palette. The theme sets only the light/dark base tone; a
     whole-look **skin** (colours + optional image/video wallpaper) is a separate
     feature reached from the sidebar footer Skins entry, not this picker (D635).
   - **Language**: a searchable picker row (not a card grid). The closed trigger
