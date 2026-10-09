@@ -71,6 +71,16 @@ Opening the library directory resolves the library root, creates it when it is n
 
 The history header states the bound the way the record does: `N of 500 kept`, with the note *Only the 500 most recent renders are kept here; older entries drop off the list. Their files stay on disk.* `MAX_LIBRARY_ENTRIES = 500` lives in `packages/shared`, so the main process and the renderer bound the history with the same number: past it the oldest entries drop off the list while their files stay on disk.
 
+## Draft persistence
+
+The prompt and the parameters are the work the user did, and they must survive leaving the page or restarting the app rather than being described a second time. The compose state is written to the renderer's own `localStorage` preference record (`pi.desktop.workbenchDrafts`), under the same `pi.desktop.*` namespace the sidebar preferences and the composer model favourites use, debounced so typing does not write on every keystroke. It is pure UI state, so it never touches the host database. The page reads it once when it opens and restores the draft; switching to the other capability restores that capability's own draft, and neither tab's fields bleed into the other.
+
+The draft is exactly what the compose panel holds: prompt, model, count, aspect ratio and resolution (including the custom `WIDTHxHEIGHT` field), duration, and the two multipart frame *field names*. Frame and reference-image slots are **not** stored — they are file paths the attachment store owns for one session, and a path read back after a restart would point at nothing — so only the string field names, which mean the same thing on any machine, are persisted. Nothing sensitive is stored: no credential, token, or provider key is ever written to any persistent store.
+
+Every restored field is validated against the same tables the controls use. A record from an older build, a hand-edited store, or a half-written value degrades per field to that field's default instead of reaching a control that would reject it, so a missing, unreadable or corrupt store can never block the page or disable submit on its own.
+
+A successful run **keeps** the draft: the workbench is an iterative surface and the compose panel never clears itself, so retaining the prompt and parameters changes no existing behaviour and leaves the user their prompt to re-roll, while the run itself is already recorded durably in the media library. A failed or cancelled run keeps the draft for the same reason.
+
 ## States
 
 | State | Surface |
@@ -82,5 +92,6 @@ The history header states the bound the way the record does: `N of 500 kept`, wi
 | Partial success | summary reads `ok/total`, failed cards carry their error code and a per-item retry |
 | Call-level failure | error banner above the grid, no item cards |
 | History | the library's recorded runs for this capability, newest first and bounded, each removable and clearable, plus the runs made in this session; it survives a restart |
+| Draft restored | on open, the last prompt and parameters for each capability are back in place, silently |
 
 All copy is translated in the nine shipped locales and the page uses design-system tokens only; hover styles are gated behind `(hover: hover) and (pointer: fine)` like the rest of the renderer.
