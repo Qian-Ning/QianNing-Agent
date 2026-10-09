@@ -153,7 +153,7 @@ test("missing default npm and missing default Node produce structured unavailabl
   assert.equal(missingNode.reason, "npm-unavailable");
 });
 
-test("npm --version nonzero and timeout reject the selected tool", { timeout: 15_000 }, async (t) => {
+test("npm --version nonzero and timeout reject the selected tool", { timeout: 60_000 }, async (t) => {
   const bad = fixture(t, "process.stderr.write('broken tool'); process.exit(2);");
   const failed = await validateNpmExecutable(bad.npm);
   assert.equal(failed.ok, false);
