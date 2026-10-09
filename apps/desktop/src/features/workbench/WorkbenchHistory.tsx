@@ -12,12 +12,38 @@
  * the removal and clear channels act on, and its length is what the visible cap
  * counts.
  */
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MAX_LIBRARY_ENTRIES } from "@pi-desktop/shared";
 import { IconFolderOpen, IconTrash } from "../../components/icons";
 import { Button, TooltipButton } from "../../components/ui";
+import { pickRowThumbnail } from "./history-thumbnail";
 import { describeLibraryError } from "./library-errors";
 import type { Run } from "./useWorkbenchRuns";
+
+/**
+ * The picture a row leads with: the first image its run produced.
+ *
+ * It is decoration, not a control, so it carries no label and no interaction —
+ * the row's own pick button already opens the run. A load that fails (the file
+ * was moved, the scheme refused it) hides the element rather than showing a
+ * broken-image icon or a placeholder, so a row without a working picture looks
+ * exactly like it did before thumbnails existed.
+ */
+function HistoryThumb({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <img
+      className="workbench-history-thumb"
+      src={url}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 /**
  * One past run. Kept beside the type it renders so the two history groups can
@@ -35,8 +61,10 @@ function HistoryRow({
   const { t } = useTranslation();
   const succeeded = entry.results?.filter((item) => item.status === "succeeded").length ?? 0;
   const failed = entry.ok === false;
+  const thumbnail = pickRowThumbnail(entry);
   return (
     <li className="workbench-history-row">
+      {thumbnail ? <HistoryThumb url={thumbnail} /> : null}
       <button
         type="button"
         className="workbench-history-pick"
