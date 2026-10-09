@@ -150,6 +150,38 @@ async function makeEnv(t, options = {}) {
   };
 }
 
+/**
+ * Wait for an observable fact, and fail loudly if it never arrives.
+ *
+ * A fixed sleep cannot prove the run has reached the state a test needs: on a
+ * machine running the whole suite in parallel the sleep can elapse first, so the
+ * test cancels a run that had not yet put a clip in flight and then asserts
+ * against a state the run never reached. Polling for the fact itself makes the
+ * precondition deterministic, and the deadline turns "the run never got there"
+ * into a named failure instead of a silent race.
+ */
+async function waitFor(predicate, description, { timeoutMs = 15_000, intervalMs = 5 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (predicate()) return;
+    if (Date.now() >= deadline) {
+      throw new Error(`timed out after ${timeoutMs}ms waiting for ${description}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
+
+/** How many create requests the fixture has actually received and is holding. */
+function heldCreates(fixture) {
+  return fixture.requests.filter((entry) => entry.url === "/v1/videos").length;
+}
+
+/** Two clips are truly in flight once two workers reported running AND parked at the gate. */
+function twoClipsInFlight(env) {
+  const running = env.events.filter((event) => event.item?.status === "running").length;
+  return heldCreates(env.fixture) >= 2 && running >= 2 && env.events.every((event) => event.total === 4);
+}
+
 test("image: the chosen model and size reach the provider, and items report progress", async (t) => {
   const env = await makeEnv(t, { models: ["img-two"] });
 
@@ -313,9 +345,11 @@ test("video: cancelling a run stops the clips it has not started", async (t) => 
     model: { providerId: env.providerId, modelId: "video-one" },
     input: { items: [{ prompt: "hold", count: 4 }] },
   });
-  // Wait until the run has told us its id, then stop it while two clips are in
-  // flight and two have not started.
-  await new Promise((resolve) => setTimeout(resolve, 60));
+  // The gate parks each create call, so once the fixture holds both creates and
+  // both workers have reported running, two clips are truly in flight and two
+  // have not started — wait for that fact instead of sleeping, which a loaded
+  // parallel run can outrun before either worker has reached the gate.
+  await waitFor(() => twoClipsInFlight(env), "two clips in flight and the plan expanded to four");
   const id = env.events.at(-1)?.generationId ?? "";
   assert.ok(id, "the run reports progress under its id");
   assert.equal(env.service.cancel(id), true);
@@ -476,7 +510,10 @@ test("library: a cancelled run is remembered, with no file", async (t) => {
     model: { providerId: env.providerId, modelId: "video-one" },
     input: { items: [{ prompt: "hold", count: 4 }] },
   });
-  await new Promise((resolve) => setTimeout(resolve, 60));
+  // Same precondition as the test above: stop the run only once both clips are
+  // truly in flight, so what gets cancelled is a real two-in-flight run rather
+  // than whatever a fixed sleep happened to reach under load.
+  await waitFor(() => twoClipsInFlight(env), "two clips in flight and the plan expanded to four");
   const id = env.events.at(-1)?.generationId ?? "";
   assert.ok(id, "the run reports progress under its id");
   assert.equal(env.service.cancel(id), true);
