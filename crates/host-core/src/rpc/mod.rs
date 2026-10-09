@@ -7607,11 +7607,15 @@ mod tests {
             .await
         });
         wait_for_bash_registration(&state, &session.id, "abort-during-execution").await;
-        for _ in 0..100 {
-            if started_marker.exists() {
-                break;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        // The Bash process must reach its "started" state before we abort;
+        // otherwise the abort races an unspawned process and the test proves
+        // nothing. PowerShell bootstrap plus Start-Process routinely costs
+        // well over a second on a loaded Windows host, so poll for the
+        // definite state with a generous deadline instead of a short fixed
+        // budget (a 1s window flaked at ~1.7s here).
+        let start_deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+        while !started_marker.exists() && std::time::Instant::now() < start_deadline {
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
         }
         assert!(
             started_marker.exists(),
@@ -7636,7 +7640,18 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(result["errorCode"], "TOOL_ABORTED");
-        tokio::time::sleep(std::time::Duration::from_millis(1_500)).await;
+        // The spawned descendant would write `late` ~1s after it starts (i.e.
+        // shortly after `started`), so wait past that deadline and confirm it
+        // never appears. Poll (rather than a single fixed sleep) so a genuine
+        // leak fails promptly instead of relying on a timing coincidence.
+        let late_deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+        while std::time::Instant::now() < late_deadline {
+            assert!(
+                !late_marker.exists(),
+                "aborted descendants must not write later"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
         assert!(
             !late_marker.exists(),
             "aborted descendants must not write later"

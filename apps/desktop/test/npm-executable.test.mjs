@@ -272,10 +272,25 @@ test("Node validation requires the leading v", { skip: windows }, async (t) => {
 
 test("short install budgets cap validation and include its time in both install stages", async (t) => {
   const slow = fixture(t, "if (args[0] === '--version') setInterval(() => {}, 60_000);");
-  const started = Date.now();
   const result = await installExtensionDependencies(slow.plugin, { npmPath: slow.npm, timeoutMs: 150 });
   assert.equal(result.reason, "npm-unavailable");
-  assert.ok(Date.now() - started < 2_000, "validation does not consume its default five seconds");
+  // The stub hangs forever on `--version`, so validation can only fail on the
+  // caller's 150ms budget. Both shapes that produces are budget-driven — a probe
+  // killed on the short budget, or the budget already spent before the next
+  // probe starts — and neither reports the default validation budget, so this
+  // stays deterministic under load instead of racing a wall-clock bound.
+  assert.match(
+    result.error,
+    /exceeded (?:its time budget|\d+ms)/,
+    `validation is bounded by the caller's short budget: ${result.error}`,
+  );
+  const exceededMs = /exceeded (\d+)ms/.exec(result.error);
+  if (exceededMs) {
+    assert.ok(
+      Number(exceededMs[1]) <= 150,
+      `a probe timeout never exceeds the caller's 150ms budget, let alone the default: ${result.error}`,
+    );
+  }
   const f = fixture(t, "if (args[0] === '--version') Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 300);");
   const budgets = [];
   // Validation spawns two real processes, so these short budgets only prove the
