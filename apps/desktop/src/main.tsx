@@ -12,7 +12,15 @@ import "./styles/globals.css";
 
 const rendererSurface = new URLSearchParams(window.location.search).get("surface");
 if (rendererSurface) document.documentElement.dataset.surface = rendererSurface;
-document.documentElement.dataset.theme = "dark";
+// First paint follows the OS: a fresh install on a light desktop must not
+// flash the dark palette before the shell resolves the stored preference.
+// The shell overwrites this attribute once settings load; this only decides
+// what the very first frame looks like.
+document.documentElement.dataset.theme = window.matchMedia(
+  "(prefers-color-scheme: light)",
+).matches
+  ? "light"
+  : "dark";
 // Window-chrome layout differs per OS (traffic lights left on macOS,
 // controls overlay right on Windows/Linux); set before first paint.
 document.documentElement.dataset.platform =
