@@ -276,6 +276,7 @@ CREATE TABLE kv (
 | `cache` | model-refresh stamps, recent model refs (spec 13 §3) |
 | `plugin:<id>` | per-plugin settings; uninstall = `DELETE WHERE ns = ?` |
 | `projectMemory` | durable user-authored context keyed by canonical project path; structured values contain `format: "entries-v1"`, visual `entries`, derived `content`, and `updatedAt` |
+| `prompt_presets` | the saved-prompt shelf: one key `items` holding a JSON array of `{ id, name, text, createdAtMs }`. Reusable prompt *source text* only; it is not a persona scope and holds no session state (ADR 0310) |
 
 The app settings JSON optionally stores `thinkingDisplayMode` (`detailed` or
 `compact`). Missing values retain detailed presentation. This additive display

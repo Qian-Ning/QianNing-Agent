@@ -213,6 +213,7 @@ CREATE TABLE kv (
 | `cache` | 模型刷新标记，最近的模型参考（规范 13 §3） |
 | `plugin:<id>` | 每个插件的设置；卸载=`DELETE WHERE ns = ?` |
 | `projectMemory` | 按规范项目路径键控的持久用户创作上下文；结构化值包含 `format: "entries-v1"`、视觉 `entries`、派生 `content` 与 `updatedAt` |
+| `prompt_presets` | 已保存的提示词架：单个键 `items` 保存 `{ id, name, text, createdAtMs }` 的 JSON 数组。只存可复用的提示词*源文本*；它不是人格作用域，也不保存任何会话状态（ADR 0310） |
 
 新的配置域（例如 MCP 服务器）作为命名空间启动；他们毕业到
 仅当表需要关系或索引时才使用它们。

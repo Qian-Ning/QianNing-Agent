@@ -1310,6 +1310,14 @@ the user never edited — exactly the confusion a single explicit per-conversati
 scope removes. Native-pi sessions are untouched and keep the upstream loader's
 resolution.
 
+The conversation editor also carries a saved-prompt shelf: it stores prompt
+*source text* under a name so the user can reuse a prompt they would otherwise
+retype. It is not a second scope — applying a saved prompt only fills one
+conversation's editor draft, nothing is ever auto-applied to another
+conversation or to a new one, and saving a prompt edits no session row. The
+persona the model receives is still that conversation's own prompt, and only
+once the editor is saved.
+
 The base prompt states collaboration rules explicitly, because omitting them
 is what produced silent sessions: "prefer concise, actionable answers" was the
 only relevant line, and a reasoning model executed it as saying nothing at all.

@@ -651,6 +651,13 @@ system while preserving their different data ownership:
 - The editor opens on the value in force, states whether this conversation has
   its own prompt or is using the built-in persona, and clears the prompt when
   emptied; a whitespace-only value is not a prompt.
+- The editor also carries a saved-prompt shelf: the user can save the text they
+  are editing under a name and later apply a saved prompt to fill the editor
+  draft in this or any other conversation. Applying a saved prompt changes only
+  the draft — it never overwrites another conversation, and nothing is
+  auto-applied to a new one. The shelf stores source text; the persona the model
+  receives is still only this conversation's own prompt, and only once the user
+  saves the editor.
 
 ### Import
 - Scan supported local agent stores for **sessions**, **model configuration**,
