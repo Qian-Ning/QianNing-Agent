@@ -19,15 +19,15 @@
  * (`WorkbenchForm`, `WorkbenchHistory`, `useWorkbenchRuns`); what is left here is
  * the draft state they share and the page layout.
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { type ProviderPublic, detectGenerationCapability } from "@pi-desktop/shared";
 import { useAppStore } from "../stores/app-store";
 import { api } from "../lib/api";
+import { type WorkbenchDraft, loadWorkbenchDrafts } from "../lib/workbench-draft";
 import { IconImage, IconVideo } from "../components/icons";
 import {
   composeFor,
-  DEFAULT_VIDEO_DURATION,
   isLocalEndpoint,
   normalizeCount,
   ratioById,
@@ -41,6 +41,7 @@ import { WorkbenchForm } from "../features/workbench/WorkbenchForm";
 import { WorkbenchHistory } from "../features/workbench/WorkbenchHistory";
 import { WorkbenchResults } from "../features/workbench/WorkbenchResults";
 import { type Capability, useWorkbenchRuns } from "../features/workbench/useWorkbenchRuns";
+import { useWorkbenchDraftPersistence } from "../features/workbench/useWorkbenchDraft";
 
 const CUSTOM_SIZE = "__custom__";
 
@@ -109,33 +110,119 @@ export function WorkbenchPage() {
   const activeSessionId = useAppStore((state) => state.activeSessionId);
   const setPage = useAppStore((state) => state.setPage);
 
+  // What the page last composed, read once on open, so leaving the page or
+  // restarting the app restores the prompt and parameters the user had set. The
+  // mechanism is the renderer's own `localStorage` preference record, the same
+  // one the sidebar and the composer model picker use; it is pure UI state and
+  // never touches the host database.
+  const [initialDrafts] = useState(loadWorkbenchDrafts);
   const [capability, setCapability] = useState<Capability>("image");
   // Image and video keep separate drafts: they are different pieces of work, and
   // one box shared between the tabs threw the other prompt away.
-  const [prompts, setPrompts] = useState<Record<Capability, string>>({ image: "", video: "" });
+  const [prompts, setPrompts] = useState<Record<Capability, string>>({
+    image: initialDrafts.image.prompt,
+    video: initialDrafts.video.prompt,
+  });
   const prompt = prompts[capability];
   const setPrompt = (value: string) =>
     setPrompts((current) => ({ ...current, [capability]: value }));
   // The count is kept as typed text so a wrong entry is visible and blocking
   // rather than silently rewritten while the user is still typing it.
-  const [countDraft, setCountDraft] = useState("1");
+  const [countDrafts, setCountDrafts] = useState<Record<Capability, string>>({
+    image: initialDrafts.image.countDraft,
+    video: initialDrafts.video.countDraft,
+  });
+  const countDraft = countDrafts[capability];
+  const setCountDraft = (value: string) =>
+    setCountDrafts((current) => ({ ...current, [capability]: value }));
   const countValue = normalizeCount(countDraft);
   const count = countValue ?? 1;
   const countInvalid = countValue === null;
-  const [ratio, setRatio] = useState("");
-  const [resolution, setResolution] = useState("");
-  const [customValue, setCustomValue] = useState("");
-  const [duration, setDuration] = useState(DEFAULT_VIDEO_DURATION);
+  const [ratios, setRatios] = useState<Record<Capability, string>>({
+    image: initialDrafts.image.ratio,
+    video: initialDrafts.video.ratio,
+  });
+  const ratio = ratios[capability];
+  const setRatio = (value: string) =>
+    setRatios((current) => ({ ...current, [capability]: value }));
+  const [resolutions, setResolutions] = useState<Record<Capability, string>>({
+    image: initialDrafts.image.resolution,
+    video: initialDrafts.video.resolution,
+  });
+  const resolution = resolutions[capability];
+  const setResolution = (value: string) =>
+    setResolutions((current) => ({ ...current, [capability]: value }));
+  const [customValues, setCustomValues] = useState<Record<Capability, string>>({
+    image: initialDrafts.image.customValue,
+    video: initialDrafts.video.customValue,
+  });
+  const customValue = customValues[capability];
+  const setCustomValue = (value: string) =>
+    setCustomValues((current) => ({ ...current, [capability]: value }));
+  const [durations, setDurations] = useState<Record<Capability, number>>({
+    image: initialDrafts.image.duration,
+    video: initialDrafts.video.duration,
+  });
+  const duration = durations[capability];
+  const setDuration = (value: number) =>
+    setDurations((current) => ({ ...current, [capability]: value }));
+  // Frame and reference-image slots are not persisted: a file path the attachment
+  // store owns for one session would rot when read back later.
   const [imageReferences, setImageReferences] = useState<string[]>([]);
   const [firstFrame, setFirstFrame] = useState("");
   const [lastFrame, setLastFrame] = useState("");
-  const [frameFieldFirst, setFrameFieldFirst] = useState("");
-  const [frameFieldLast, setFrameFieldLast] = useState("");
+  const [frameFieldsFirst, setFrameFieldsFirst] = useState<Record<Capability, string>>({
+    image: initialDrafts.image.frameFieldFirst,
+    video: initialDrafts.video.frameFieldFirst,
+  });
+  const frameFieldFirst = frameFieldsFirst[capability];
+  const setFrameFieldFirst = (value: string) =>
+    setFrameFieldsFirst((current) => ({ ...current, [capability]: value }));
+  const [frameFieldsLast, setFrameFieldsLast] = useState<Record<Capability, string>>({
+    image: initialDrafts.image.frameFieldLast,
+    video: initialDrafts.video.frameFieldLast,
+  });
+  const frameFieldLast = frameFieldsLast[capability];
+  const setFrameFieldLast = (value: string) =>
+    setFrameFieldsLast((current) => ({ ...current, [capability]: value }));
   const [advanced, setAdvanced] = useState(false);
   const [choices, setChoices] = useState<Record<Capability, WorkbenchModelChoice | null>>({
-    image: null,
-    video: null,
+    image: initialDrafts.image.model,
+    video: initialDrafts.video.model,
   });
+
+  // Persist both capabilities together, debounced, so typing a prompt does not
+  // write on every keystroke and the pair stays consistent in one record. A
+  // successful run keeps the draft: the workbench is an iterative surface, the
+  // compose panel never clears itself, and the run is already durably recorded in
+  // the media library, so retaining the draft changes no existing behaviour while
+  // leaving the user their prompt to re-roll.
+  const persistDrafts = useWorkbenchDraftPersistence();
+  useEffect(() => {
+    const snapshotFor = (value: Capability): WorkbenchDraft => ({
+      prompt: prompts[value],
+      model: choices[value],
+      countDraft: countDrafts[value],
+      ratio: ratios[value],
+      resolution: resolutions[value],
+      customValue: customValues[value],
+      duration: durations[value],
+      frameFieldFirst: frameFieldsFirst[value],
+      frameFieldLast: frameFieldsLast[value],
+    });
+    persistDrafts({ image: snapshotFor("image"), video: snapshotFor("video") });
+  }, [
+    persistDrafts,
+    prompts,
+    choices,
+    countDrafts,
+    ratios,
+    resolutions,
+    customValues,
+    durations,
+    frameFieldsFirst,
+    frameFieldsLast,
+  ]);
 
   const isImage = capability === "image";
 
