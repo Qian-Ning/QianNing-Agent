@@ -249,6 +249,9 @@ export function ProviderConnectionFields({
               />
             </Field>
           </div>
+          <p className="provider-setup-field-row text-xs-plus text-text-muted">
+            {t("settings.localBridgeHint")}
+          </p>
           {status}
         </>
       ) : null}

@@ -1720,6 +1720,7 @@ sklm: {
     presetOllama: "Ollama (로컬)",
     presetLmStudio: "LM Studio (로컬)",
     presetLocalAi: "LocalAI (로컬, OpenAI 호환)",
+    localBridgeHint: "자체 호스팅 생성기는 이 OpenAI 형식을 따라야 합니다. ComfyUI와 Stable Diffusion WebUI는 그렇지 않습니다. 그들 앞에서 로컬 생성 브리지를 실행하세요(문서 가이드 참고).",
     apiStyleResponses: "OpenAI Responses",
     apiStyleAnthropic: "Anthropic Messages",
     apiStyleGoogle: "Google Generative AI",

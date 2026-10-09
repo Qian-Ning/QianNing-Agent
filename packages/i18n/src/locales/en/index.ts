@@ -1723,6 +1723,7 @@ sklm: {
     presetOllama: "Ollama (local)",
     presetLmStudio: "LM Studio (local)",
     presetLocalAi: "LocalAI (local, OpenAI-compatible)",
+    localBridgeHint: "A self-hosted generator has to speak this OpenAI shape. ComfyUI and Stable Diffusion WebUI do not — run the local generation bridge in front of them (see the docs guide).",
     apiStyleResponses: "OpenAI Responses",
     apiStyleAnthropic: "Anthropic Messages",
     apiStyleGoogle: "Google Generative AI",

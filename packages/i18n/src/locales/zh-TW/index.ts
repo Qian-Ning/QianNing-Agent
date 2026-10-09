@@ -1696,6 +1696,7 @@ sklm: {
     presetOllama: "Ollama（本機）",
     presetLmStudio: "LM Studio（本機）",
     presetLocalAi: "LocalAI（本機，OpenAI 相容）",
+    localBridgeHint: "自建生成器必須說這種 OpenAI 形狀。ComfyUI 與 Stable Diffusion WebUI 不是 —— 在它們前面執行本機生成橋（見文件指南）。",
     apiStyleResponses: "OpenAI Responses",
     apiStyleAnthropic: "Anthropic Messages",
     apiStyleGoogle: "Google Generative AI",

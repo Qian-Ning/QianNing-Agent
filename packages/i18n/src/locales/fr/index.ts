@@ -1707,6 +1707,7 @@ sklm: {
     "presetOllama": "Ollama (local)",
     "presetLmStudio": "LM Studio (local)",
     "presetLocalAi": "LocalAI (local, compat. OpenAI)",
+    "localBridgeHint": "Un générateur auto-hébergé doit parler cette forme OpenAI. ComfyUI et Stable Diffusion WebUI ne le font pas — lancez le pont de génération local devant eux (voir le guide).",
     "apiStyleResponses": "Réponses OpenAI",
     "apiStyleAnthropic": "Messages anthropiques",
     "apiStyleGoogle": "Google Generative AI",
