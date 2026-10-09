@@ -306,6 +306,7 @@ ADR 记录那些不应被静默改变的架构选择。中文入口与英文索�
 | 0308 | [移除拉取请求页面与列表工具](/adr/0308-remove-pull-requests-destination) | 已接受 |
 | 0309 | [移除 macOS 首次启动辅助文件](/adr/0309-remove-macos-first-launch-artifacts) | 已接受（D634；修订 D457 / ADR 0296） |
 | 0321 | [媒体库记住没能渲染的东西，且移除可恢复](/adr/0321-media-library-failures-and-recoverable-removal) | 已接受 |
+| 0322 | [以受限 scheme 把媒体库提供给渲染层](/adr/0322-media-library-asset-scheme) | 已接受 |
 | registry-header-variable-spelling | [Remote header variables accept the registry's `{name}` spelling](/adr/registry-header-variable-spelling) | Proposed |
 
 ## 什么时候看 ADR
