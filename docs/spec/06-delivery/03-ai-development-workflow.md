@@ -318,6 +318,13 @@ Every change follows this sequence. Steps may be iterated if the implementation 
   protocol contracts, data migrations, build configuration, or widely shared
   behavior, normally require the smallest targeted non-E2E validation that can
   address that risk. A full local suite is not the default.
+- When the full desktop suite is run, `@pi-desktop/desktop`'s `test` script caps
+  the runner at four concurrent test files (`--test-concurrency=4`). Those files
+  are subprocess- and connection-heavy, so the default (one file per core)
+  oversubscribes a many-core host and the first thing to break is a timing
+  budget inside a test that is otherwise correct — measured on a 16-core host as
+  about a third more wall-clock against a suite that no longer reports failures
+  the tests do not have. Do not raise the cap back without that measurement.
 - E2E scenario documentation and E2E execution are separate concerns. R3 still
   requires scenario updates for user-visible or protocol-visible behavior.
 - Every code-bearing change must run at least one relevant E2E suite on a
