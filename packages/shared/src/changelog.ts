@@ -30,6 +30,17 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
       {
+        version: "0.19.0",
+        date: "2026-10-09",
+        highlights: [
+        "A conversation prompt can be saved once and reused anywhere. Retyping the same persona for every new conversation was the friction, so the prompt editor now carries a saved-prompt shelf: name the text you are editing, and later pick it from the shelf to fill the editor — in the conversation you are in or a new one. The shelf is deliberately not a second persona scope: it keeps source text in the host's existing key-value store, applying one only fills the dialog's draft, which you then save as that conversation's own prompt, and nothing is ever applied to a conversation on its own.",
+        "A brand-new install follows the system theme instead of opening dark on a light desktop. The shell already followed the operating system when no preference was stored, but the host's default settings object handed it \"dark\", so the fallback never ran and dark was what a new install obeyed. The default now asks for \"system\", and the first paint reads the system's own preference instead of hard-coding dark, so a light desktop no longer flashes the dark plate before anything has been stored. Dark stays the palette the shell is designed around; an install that has already stored a theme is untouched, which is what a default means.",
+        "The media library can be managed, and a render that fails now says why. Each history row carries its own remove control, the list header carries clear and open-folder plus how many entries are kept against the cap, and every removal is second-confirmed and lands in the operating system's recycle bin rather than deleting something you paid for. A failed or cancelled run records its error code and reads as a sentence instead of a blank line, image rows lead with a 32px thumbnail of their first succeeded output, and a row no longer points a preview at a file that was never written.",
+        "The compose draft survives a page change and a restart. The prompt and the parameters are your work, and describing the same render a second time because a page change dropped it was a loss the app chose to take: the state now lives in local storage beside the other pure interface state, a blocked or corrupt record reads as no draft at all rather than preventing the page from opening, and the two capabilities keep separate drafts, so switching tabs never carries one side's prompt into the other.",
+        "A finished video plays in the page it was made on. The interface cannot read a file path, so the library is served to it over a confined asset scheme: only a path relative to the library root crosses the boundary, every request is resolved segment by segment with `.` and `..` refused before the join, the real path is checked again after the file is found so a link planted inside the library cannot point back out of it, and byte ranges are answered so seeking works. Skin and plugin assets keep their own schemes.",
+        ],
+      },
+      {
         version: "0.18.1",
         date: "2026-10-08",
         highlights: [
@@ -1029,6 +1040,17 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
       {
+        version: "0.19.0",
+        date: "2026-10-09",
+        highlights: [
+        "对话提示词可以只保存一次，然后在任何对话里复用。每开一个新对话都要重打同一段人格设定，这个摩擦就是它存在的理由：提示词编辑器现在带一个已保存提示词架，把正在编辑的文本命名存下，之后从架子里挑一条填回编辑器——当前对话或新对话都行。这个架子刻意不是第二个人格作用域：它把源文本存在宿主已有的键值存储里，套用一条只会填入对话框的草稿，再由你把它保存为那条对话自己的提示词，绝不会自动作用于任何对话。",
+        "全新安装跟随系统主题，不再在亮色桌面上以深色打开。没存过偏好时，外壳本来就会跟随操作系统，但宿主的默认设置对象把 “dark” 递了进去，回退分支因此永不生效，深色才是新安装实际听从的值。现在默认值要的是 “system”，首帧也改为读取系统自身的偏好，而不是硬涂深色，所以亮色桌面不会再在什么都没存之前闪一下深色底板。深色仍是外壳设计所依据的主调色板；已经存过主题的安装不受影响——这正是“默认值”的意思。",
+        "媒体库可以管理了，渲染失败也会说明原因。每条历史行都有自己的移除控件，列表头部有清空与打开文件夹，以及当前条目数与该上限；每次移除都要二次确认，并且进入操作系统的回收站，而不是删掉你付过费的东西。失败或取消的运行会记下错误码，并以句子呈现，而不是留一行空白；图片行以其首个成功结果的 32px 缩略图开头；一行也不会再把预览指向一个从未写出的文件。",
+        "撰写草稿在切换页面和重启之后都还在。提示词和参数是你的劳动，因为切一次页面就要把同一场渲染再描述一遍，是应用主动选择接受的损失；现在这份状态与其他纯界面状态一起放在本地存储里，被拦截或损坏的记录等同于没有草稿，而不会让页面打不开；两种能力各自保留草稿，所以切换标签页不会把一边的提示词带到另一边。",
+        "渲染完成的视频就在生成它的页面里播放。界面读不了文件路径，所以媒体库通过一套受限的资源协议提供给它：只有相对于库根的路径能越过边界，每个请求都按段解析、在拼接前就拒绝 `.` 与 `..`，找到文件后还会再核一次真实路径，因此库内埋下的链接无法把请求指回库外；并且响应字节范围，拖动进度可用。皮肤与插件资源各自保留原有协议。",
+        ],
+      },
+      {
         version: "0.18.1",
         date: "2026-10-08",
         highlights: [
@@ -2027,6 +2049,17 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+      {
+        version: "0.19.0",
+        date: "2026-10-09",
+        highlights: [
+        "對話提示詞可以只儲存一次，然後在任何對話裡重複使用。每開一個新對話都要重打同一段人格設定，這個摩擦就是它存在的理由：提示詞編輯器現在帶一個已儲存提示詞架，把正在編輯的文字命名存下，之後從架上挑一條填回編輯器——當前對話或新對話都行。這個架子刻意不是第二個人格作用域：它把來源文字存在宿主既有的鍵值儲存裡，套用一條只會填入對話框的草稿，再由你把它儲存為那條對話自己的提示詞，絕不會自動作用於任何對話。",
+        "全新安裝跟隨系統主題，不再在亮色桌面上以深色開啟。沒存過偏好時，外殼本來就會跟隨作業系統，但宿主的預設設定物件把 “dark” 遞了進去，回退分支因此永不生效，深色才是新安裝實際聽從的值。現在預設值要的是 “system”，首幀也改為讀取系統自身的偏好，而不是硬塗深色，所以亮色桌面不會再在什麼都還沒存之前閃一下深色底板。深色仍是外殼設計所依據的主調色盤；已經存過主題的安裝不受影響——這正是「預設值」的意思。",
+        "媒體庫可以管理了，算圖失敗也會說明原因。每條歷史列都有自己的移除控制項，清單標頭有清空與開啟資料夾，以及目前項目數與該上限；每次移除都要二次確認，並且進入作業系統的資源回收筒，而不是刪掉你付過費的東西。失敗或取消的執行會記下錯誤碼並以句子呈現，而不是留一行空白；圖片列以其首個成功結果的 32px 縮圖開頭；一列也不會再把預覽指向一個從未寫出的檔案。",
+        "撰寫草稿在切換頁面和重啟之後都還在。提示詞和參數是你的勞動，因為切一次頁面就要把同一場算圖再描述一遍，是應用程式主動選擇接受的損失；現在這份狀態與其他純介面狀態一起放在本機儲存裡，被封鎖或損壞的記錄等同於沒有草稿，而不會讓頁面打不開；兩種能力各自保留草稿，所以切換分頁不會把一邊的提示詞帶到另一邊。",
+        "算圖完成的影片就在產生它的頁面裡播放。介面讀不了檔案路徑，所以媒體庫透過一套受限的資源協定提供給它：只有相對於庫根的路徑能越過邊界，每個請求都按段解析、在拼接前就拒絕 `.` 與 `..`，找到檔案後還會再核一次真實路徑，因此庫內埋下的連結無法把請求指回庫外；並且回應位元組範圍，拖曳進度可用。面板與外掛資源各自保留原有協定。",
+        ],
+      },
       {
         version: "0.18.1",
         date: "2026-10-08",
