@@ -113,3 +113,20 @@ per-path injection makes an answer's prompt depend on tool history.
 Rejected. It would silently adopt text the user may never have intended as this
 conversation's persona, from a file or a global setting that could hold
 unrelated content.
+
+## Amendment: the saved-prompt shelf is not a second scope
+
+A reusable prompt shelf was added so a user can save the text they are editing
+under a name and later apply a saved prompt to fill a conversation's editor
+draft — in this conversation or a new one. It does not weaken decision 1:
+
+- The shelf stores prompt *source text* only, in the existing key-value store
+  (namespace `prompt_presets`, key `items`); it adds no table and no scope.
+- Applying a saved prompt copies its text into one conversation's editor draft.
+  Nothing is auto-applied to another conversation or to a new one, and saving a
+  prompt writes no session row.
+- The persona the model receives is still exactly one editable scope: the
+  conversation's own `sessions.system_prompt`, and only once the user saves the
+  editor. The shelf is a convenience library of text, not a persona layer below
+  or above the conversation.
+

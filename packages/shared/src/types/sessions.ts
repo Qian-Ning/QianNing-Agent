@@ -56,6 +56,22 @@ export type SessionSummary = {
   createdAt: string;
 };
 
+/**
+ * One saved prompt on the shelf.
+ *
+ * Source text only: the shelf is a library of reusable prompt text, not a
+ * persona scope (ADR 0310). Applying a saved prompt copies `text` into a
+ * conversation's editor draft; it never reaches a session row until the user
+ * saves the editor.
+ */
+export type PromptPreset = {
+  id: string;
+  name: string;
+  text: string;
+  /** Creation time in epoch milliseconds; the shelf lists newest first. */
+  createdAtMs: number;
+};
+
 export type SessionDetail = SessionSummary & {
   messages: UiMessage[];
   /** Owning Task for a nested search target; context only, outside page cursors. */

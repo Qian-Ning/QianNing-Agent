@@ -5993,6 +5993,33 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `boot_archives_and_drops_storage_removed_by_the_single_scope_persona_model`);
   full UI journey Draft
 
+#### E2E-AGENTS-003: A saved prompt is reusable across conversations
+
+- **Preconditions**: A provider is configured; two conversations exist (A and
+  B), and a third conversation uses the built-in persona. The prompt editor is
+  available from the conversation topbar.
+- **Steps**:
+  1. Open conversation A's prompt editor, type a distinctive prompt, and save it
+     to the shelf under a name.
+  2. Open a NEW conversation B, open its prompt editor, apply the saved prompt,
+     save the editor, and submit a prompt.
+  3. Reopen conversation A without saving, and open the third conversation that
+     never applied anything.
+- **Expected**: In B the applied prompt fills the editor draft only; it reaches
+  the model for B once the editor is saved. Conversation A is unchanged by the
+  apply, and the third conversation still answers with the built-in persona —
+  nothing is auto-applied to a new or other conversation. Deleting a saved
+  prompt removes it from the shelf and changes no conversation. A duplicate
+  name is refused, naming the clash, and an over-long prompt is refused with
+  the limit.
+- **Specs linked**: `03-runtime/02-agent-runtime.md`,
+  `04-ux/06-settings-ia.md`, ADR 0310
+- **Acceptance**: C (chat/stream), F (persistence)
+- **Milestone**: M5
+- **Status**: Unit-covered (`prompt-presets.test.mjs`,
+  `session-system-prompt.test.mjs`, host-core `prompt_presets` unit tests); full
+  provider/UI journey Draft
+
 #### E2E-085: Expanded sidebar typography keeps list content compact
 
 - **Preconditions**: The expanded sidebar contains at least one standalone

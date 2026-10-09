@@ -86,6 +86,7 @@ import type {
   ProviderPublic,
   ProviderReorderInput,
   ProviderUpdateInput,
+  PromptPreset,
   Result,
   SessionDetail,
   SessionSearchPage,
@@ -647,6 +648,12 @@ export const api = {
       id,
       systemPrompt,
     ).then((result) => ({ ...result, session: normalizeSession(result.session) })),
+  listPromptPresets: () =>
+    invoke<{ presets: PromptPreset[] }>(IPC.invoke.promptPresetList),
+  savePromptPreset: (name: string, text: string) =>
+    invoke<{ preset: PromptPreset }>(IPC.invoke.promptPresetSave, name, text),
+  deletePromptPreset: (id: string) =>
+    invoke<{ ok: boolean }>(IPC.invoke.promptPresetDelete, id),
   moveSessionProject: (sessionId: string, projectPath: string) =>
     invoke<{ session: SessionSummary }>(IPC.invoke.sessionMoveProject, {
       sessionId,

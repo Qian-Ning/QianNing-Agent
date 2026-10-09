@@ -135,6 +135,16 @@ export const IPC = {
     sessionRename: "pi-desktop/session/rename",
     /** Set or clear a conversation's own system prompt (schema v20). */
     sessionSetSystemPrompt: "pi-desktop/session/setSystemPrompt",
+    /**
+     * Saved prompt shelf (ADR 0310). A reusable library of prompt *source
+     * text*: `promptPreset.list` returns the shelf, `promptPreset.save` adds
+     * one, `promptPreset.delete` removes one. It is not a persona scope — a
+     * saved prompt only ever fills a conversation's editor draft, which the
+     * user then saves as that conversation's own prompt.
+     */
+    promptPresetList: "pi-desktop/promptPreset/list",
+    promptPresetSave: "pi-desktop/promptPreset/save",
+    promptPresetDelete: "pi-desktop/promptPreset/delete",
     sessionSummarizeTitle: "pi-desktop/session/summarizeTitle",
     /** Condense a transcript into a carry-forward brief for a fresh session. */
     sessionSummarizeContext: "pi-desktop/session/summarizeContext",

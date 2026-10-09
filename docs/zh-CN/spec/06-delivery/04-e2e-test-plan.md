@@ -3642,40 +3642,59 @@ IPC 请求无法关闭。
   `context-compaction.test.mjs`、`assistant-turns.test.mjs`、host-core
   transcript/session 单元测试）；完整的 provider/UI 旅程草稿
 
-#### E2E-AGENTS-001：两个人格作用域都能到达智能体
+#### E2E-AGENTS-001：对话提示词是唯一可编辑的人格
 
 - **先决条件**：已配置 provider；有一个已打开的对话。
 - **步骤**：
-  1. 在未设置全局提示词的情况下启动 Agent 模式对话并提交一条提示，确认由内置人格作答。
-  2. 打开 设置 → 提示词，保存一条全局提示词，再在另一个对话中提交一条提示。
-  3. 在某个对话的顶栏编辑器中保存该对话的提示词，并分别在该对话和第三个对话中提交提示。
-  4. 清空该对话编辑器后再次提交。
-  5. 创建一个包含 `.pi/SYSTEM.md` 与 `AGENTS.md` 的工作区，并在其中启动对话。
-- **预期**：全局提示词到达每一个未单独设置提示词的对话；对话提示词仅在该对话内优先于它，
-  清空后恢复的是全局作用域而不是空人格：任一作用域中空值或仅空白都不构成覆盖。存储值会裁剪
-  首尾空白。`.pi/SYSTEM.md` 与 `AGENTS.md` 都不改变人格，也不改变 sidecar 启动参数；两个作用域
-  都未设置时由内置人格作答。对话编辑器会说明当前哪一层人格生效，且对导入的 native-pi 对话不可用。
-- **链接规格**：`03-runtime/02-agent-runtime.md`、`04-ux/06-settings-ia.md`、ADR 0307
+  1. 启动一个没有设置自身提示词的 Agent 模式对话并提交一条提示，确认由内置人格作答。
+  2. 在某个对话的顶栏编辑器中保存该对话的提示词，并分别在该对话和另一个未设置提示词的对话中提交提示。
+  3. 清空该对话编辑器后再次提交。
+  4. 创建一个包含 `.pi/SYSTEM.md` 与 `AGENTS.md` 的工作区，并在其中启动对话。
+- **预期**：该对话自己的提示词只在该对话中到达模型；其他每个对话都用内置人格作答，
+  因为不存在可继承的应用级作用域。清空编辑器恢复的是内置人格而不是空人格：
+  空值或仅空白都不构成提示。存储值会裁剪首尾空白。`.pi/SYSTEM.md` 与 `AGENTS.md`
+  都不改变人格，也不改变 sidecar 启动参数。对话编辑器会说明当前该对话是否拥有自己的
+  提示词或正在使用内置人格，且对导入的 native-pi 对话不可用。
+- **链接规格**：`03-runtime/02-agent-runtime.md`、`04-ux/06-settings-ia.md`、ADR 0308
 - **接受**：C (chat/stream)、F (持久化)
 - **里程碑**：M5
 - **状态**：单元覆盖（`session-system-prompt.test.mjs`、`custom-system-prompt-launch.test.mjs`、
   host-core 会话单元测试）；完整 provider/UI 旅程为草案
 
-#### E2E-AGENTS-002：设置管理全局人格
+#### E2E-AGENTS-002：不再保留应用范围的提示词界面
 
 - **先决条件**：QianNing Agent 正在运行；有一个已打开的对话。
 - **步骤**：
-  1. 打开 设置 → 提示词并保存一条全局提示词。
-  2. 在一个新对话中提交一条提示。
-  3. 清空该字段并保存，再次提交。
-- **预期**：该目的地的标签为 提示词 / Prompts，图标为 Lucide `TextSelect`，编辑的是一个设置字段
-  而不是文件：不显示任何指令文件路径，也不存在专门的指令 IPC。保存的值会到达每个未单独设置提示词
-  的对话的下一条提示；清空该值会恢复内置人格，而不会持久化空字符串。
-- **链接规格**：`04-ux/06-settings-ia.md`、ADR 0307
+  1. 打开 设置 并查看导航栏与搜索。
+  2. 检查一份由旧版本写入、带有 `globalSystemPrompt` 值的应用设置 blob，然后用它启动应用。
+- **预期**：设置不暴露 提示词 / Prompts 目的地，也没有应用范围的系统提示词字段；唯一的人格
+  编辑器是对话顶栏编辑器。旧版本写入的 `globalSystemPrompt` 会被归档到
+  `<data-dir>/removed-prompt-storage.json`，并在启动时从设置 blob 中移除（先归档，
+  归档失败则保留该值），它永远不会到达任何提示词。
+- **链接规格**：`04-ux/06-settings-ia.md`、`03-runtime/04-data-storage.md`、ADR 0308
+- **接受**：F (持久化)
+- **里程碑**：M5
+- **状态**：单元覆盖（`settings-general.test.mjs`、`session-system-prompt.test.mjs`、
+  `prompt-enhancement.test.mjs`、host-core
+  `boot_archives_and_drops_storage_removed_by_the_single_scope_persona_model`）；完整 UI 旅程为草案
+
+#### E2E-AGENTS-003：已保存的提示词可跨对话复用
+
+- **先决条件**：已配置 provider；存在两个对话（A 和 B），以及第三个使用内置人格的对话。
+  提示词编辑器可从对话顶栏打开。
+- **步骤**：
+  1. 打开对话 A 的提示词编辑器，输入一段独特的提示词，并按名称保存到保存架。
+  2. 打开一个全新的对话 B，打开其提示词编辑器，应用该已保存的提示词，保存编辑器并提交提示。
+  3. 在不保存的情况下重新打开对话 A，并打开那个从未应用过任何内容的第三个对话。
+- **预期**：在 B 中，应用的提示词只填充编辑器草稿；只有保存编辑器后它才会为 B 到达模型。
+  应用不会改动对话 A，第三个对话仍然用内置人格作答——不会有任何内容被自动应用到新对话
+  或其他对话。删除一条已保存的提示词会把它从保存架移除，且不改变任何对话。重名会被拒绝
+  并指出冲突名称，过长的提示词会连同上限一起被拒绝。
+- **链接规格**：`03-runtime/02-agent-runtime.md`、`04-ux/06-settings-ia.md`、ADR 0310
 - **接受**：C (chat/stream)、F (持久化)
 - **里程碑**：M5
-- **状态**：单元覆盖（`settings-general.test.mjs`、`session-system-prompt.test.mjs`）；
-  完整 UI 旅程为草案
+- **状态**：单元覆盖（`prompt-presets.test.mjs`、`session-system-prompt.test.mjs`、
+  host-core `prompt_presets` 单元测试）；完整 provider/UI 旅程为草案
 
 #### E2E-085：扩展的侧边栏排版使列表内容保持紧凑
 
