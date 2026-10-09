@@ -25,6 +25,7 @@ use crate::permissions::{PermissionDecision, PermissionEvaluationParams, Permiss
 use crate::plans;
 use crate::plugin_sessions;
 use crate::plugin_usage;
+use crate::prompt_presets;
 use crate::providers::{self, DiscoveredModelInput, ProviderCreateInput, ProviderUpdateInput};
 use crate::review;
 use crate::scratch;
@@ -2523,6 +2524,36 @@ async fn handle_request(
                 return Err(rpc_err(1007, "session not found", "NOT_FOUND"));
             };
             Ok(json!({ "session": session }))
+        }
+        "promptPreset.list" => {
+            let st = state.lock().await;
+            let presets = prompt_presets::list(&st.db)
+                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
+            Ok(json!({ "presets": presets }))
+        }
+        "promptPreset.save" => {
+            let name = params
+                .get("name")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| rpc_err(1002, "name required", "INVALID_PARAMS"))?;
+            let text = params
+                .get("text")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| rpc_err(1002, "text required", "INVALID_PARAMS"))?;
+            let st = state.lock().await;
+            let preset = prompt_presets::save(&st.db, name, text)
+                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
+            Ok(json!({ "preset": preset }))
+        }
+        "promptPreset.delete" => {
+            let id = params
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
+            let st = state.lock().await;
+            let deleted = prompt_presets::delete(&st.db, id)
+                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
+            Ok(json!({ "ok": deleted }))
         }
         "session.appendMessage" => {
             let session_id = params

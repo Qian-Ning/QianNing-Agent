@@ -365,6 +365,34 @@ export function registerSessionIpc({
       return { ...result, session: enrichSession(result.session, providers, defaults) };
     },
   );
+  // Saved prompt shelf (ADR 0310). The shelf is a reusable library of prompt
+  // source text, not a persona scope, so these handlers never touch a session
+  // row or the launch path — they only read/write the host's kv store.
+  handle(IPC.invoke.promptPresetList, async () => {
+    if (!host) throw new Error("host unavailable");
+    return host.call("promptPreset.list");
+  });
+  handle(
+    IPC.invoke.promptPresetSave,
+    async (name: string, text: string) => {
+      if (!host) throw new Error("host unavailable");
+      if (typeof name !== "string" || typeof text !== "string") {
+        throw Object.assign(new Error("name and text must be strings"), {
+          errorCode: ErrorCodes.INVALID_ARGUMENT,
+        });
+      }
+      return host.call("promptPreset.save", { name, text });
+    },
+  );
+  handle(IPC.invoke.promptPresetDelete, async (id: string) => {
+    if (!host) throw new Error("host unavailable");
+    if (typeof id !== "string") {
+      throw Object.assign(new Error("id must be a string"), {
+        errorCode: ErrorCodes.INVALID_ARGUMENT,
+      });
+    }
+    return host.call("promptPreset.delete", { id });
+  });
   handle(
     IPC.invoke.sessionMoveProject,
     async (input: { sessionId?: string; projectPath?: string } = {}) => {

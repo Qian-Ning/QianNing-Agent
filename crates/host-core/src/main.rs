@@ -17,6 +17,7 @@ mod plugin_sessions;
 mod plugin_usage;
 mod plugins;
 mod pricing;
+mod prompt_presets;
 mod providers;
 mod review;
 mod rpc;

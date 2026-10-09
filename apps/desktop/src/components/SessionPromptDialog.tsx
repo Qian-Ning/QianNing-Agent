@@ -1,20 +1,35 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import type { SessionSummary } from "@pi-desktop/shared";
+import type { PromptPreset, SessionSummary } from "@pi-desktop/shared";
+import { api } from "../lib/api";
 import { useBlockingOverlay } from "../lib/blocking-overlay";
-import { Button, Textarea, TooltipButton } from "./ui";
-import { IconBot, IconClose } from "./icons";
+import { Button, Input, Textarea, TooltipButton } from "./ui";
+import { IconBot, IconClose, IconPlus, IconTrash } from "./icons";
 
 /**
- * The per-conversation persona editor.
+ * The per-conversation persona editor plus the saved-prompt shelf.
  *
- * This is the only editable persona scope: the value belongs to ONE session
- * row (`sessions.system_prompt`) and leaves every other conversation on the
- * built-in default. Clearing the field (or typing only whitespace) removes the
- * prompt rather than storing an empty string, so the conversation returns to
- * the built-in persona.
+ * The editor is the only editable persona scope: the value belongs to ONE
+ * session row (`sessions.system_prompt`) and leaves every other conversation on
+ * the built-in default. Clearing the field (or typing only whitespace) removes
+ * the prompt rather than storing an empty string, so the conversation returns
+ * to the built-in persona.
+ *
+ * The shelf is NOT a second scope. It stores prompt *source text* under a name;
+ * applying one only fills this editor's draft, and nothing is auto-applied to
+ * any other conversation or to a new one (ADR 0310).
  */
+
+/** Mirror of host-core `MAX_SESSION_SYSTEM_PROMPT_CHARS`, for a client-side hint. */
+const PROMPT_PRESET_MAX_CHARS = 200_000;
+/** How much of a saved prompt to show in a shelf row. */
+const PRESET_PREVIEW_CHARS = 80;
+
+function errorMessage(caught: unknown): string {
+  return caught instanceof Error ? caught.message : String(caught);
+}
+
 export function SessionPromptDialog({
   session,
   onClose,
@@ -33,6 +48,16 @@ export function SessionPromptDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Shelf state.
+  const [presets, setPresets] = useState<PromptPreset[]>([]);
+  const [presetBusy, setPresetBusy] = useState(false);
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  // An apply that would overwrite a non-empty, different draft waits here for
+  // the user's inline confirmation.
+  const [pendingApply, setPendingApply] = useState<PromptPreset | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<PromptPreset | null>(null);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !saving) onClose();
@@ -40,6 +65,22 @@ export function SessionPromptDialog({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose, saving]);
+
+  // Load the shelf once, when the dialog opens.
+  useEffect(() => {
+    let live = true;
+    api
+      .listPromptPresets()
+      .then((result) => {
+        if (live) setPresets(result.presets);
+      })
+      .catch((caught) => {
+        if (live) setError(errorMessage(caught));
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const dirty = draft !== stored;
   const commit = async (value: string | null) => {
@@ -49,7 +90,7 @@ export function SessionPromptDialog({
       await onSave(value);
       onClose();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught));
     } finally {
       setSaving(false);
     }
@@ -63,6 +104,83 @@ export function SessionPromptDialog({
   // One-click "stop using this prompt": drop the override without making the
   // user hand-delete the text first. Only offered when a prompt is stored.
   const clearOverride = () => void commit(null);
+
+  // ---- shelf actions ------------------------------------------------------
+
+  const applyPreset = (preset: PromptPreset) => {
+    const current = draft.trim();
+    if (current && current !== preset.text.trim()) {
+      // Ask inline before discarding what the user typed.
+      setPendingApply(preset);
+      return;
+    }
+    setDraft(preset.text);
+    setPendingApply(null);
+    setError(null);
+  };
+  const confirmApply = () => {
+    if (pendingApply) setDraft(pendingApply.text);
+    setPendingApply(null);
+    setError(null);
+  };
+
+  const savePreset = async () => {
+    const name = presetName.trim();
+    const text = draft.trim();
+    if (!name || presetBusy) return;
+    if (!text) {
+      setError(t("chat.promptPresetNeedsText"));
+      return;
+    }
+    // Mirror the host's case-insensitive duplicate refusal so the message names
+    // the clash without a round trip.
+    const clash = presets.find(
+      (preset) => preset.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (clash) {
+      setError(t("chat.promptPresetDuplicateName", { name: clash.name }));
+      return;
+    }
+    if (text.length > PROMPT_PRESET_MAX_CHARS) {
+      setError(t("chat.promptPresetTooLong", { limit: PROMPT_PRESET_MAX_CHARS }));
+      return;
+    }
+    setPresetBusy(true);
+    setError(null);
+    try {
+      const { preset } = await api.savePromptPreset(name, text);
+      setPresets((prev) => [preset, ...prev]);
+      setPresetName("");
+      setSaveAsOpen(false);
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setPresetBusy(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    const target = pendingDelete;
+    setPresetBusy(true);
+    setError(null);
+    try {
+      await api.deletePromptPreset(target.id);
+      setPresets((prev) => prev.filter((preset) => preset.id !== target.id));
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setPresetBusy(false);
+      setPendingDelete(null);
+    }
+  };
+
+  const preview = (text: string) => {
+    const oneLine = text.replace(/\s+/g, " ").trim();
+    return oneLine.length > PRESET_PREVIEW_CHARS
+      ? `${oneLine.slice(0, PRESET_PREVIEW_CHARS)}…`
+      : oneLine;
+  };
 
   const dialog = (
     <div
@@ -127,6 +245,151 @@ export function SessionPromptDialog({
             </span>
           )}
         </div>
+
+        {/* ---- Saved-prompt shelf -------------------------------------- */}
+        <section
+          className="session-prompt-shelf"
+          aria-label={t("chat.promptPresetShelfTitle")}
+        >
+          <div className="session-prompt-shelf-head">
+            <span className="session-prompt-shelf-title">
+              {t("chat.promptPresetShelfTitle")}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="session-prompt-shelf-save-as"
+              disabled={saving || presetBusy || !draft.trim()}
+              onClick={() => setSaveAsOpen((open) => !open)}
+            >
+              <IconPlus size={14} />
+              {t("chat.promptPresetSaveAsButton")}
+            </Button>
+          </div>
+
+          {saveAsOpen ? (
+            <div className="session-prompt-shelf-save">
+              <Input
+                className="session-prompt-shelf-name-input"
+                value={presetName}
+                placeholder={t("chat.promptPresetNamePlaceholder")}
+                aria-label={t("chat.promptPresetNamePlaceholder")}
+                disabled={saving || presetBusy}
+                maxLength={80}
+                onChange={(event) => setPresetName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void savePreset();
+                  }
+                }}
+              />
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={saving || presetBusy || !presetName.trim()}
+                onClick={() => void savePreset()}
+              >
+                {t("chat.promptPresetSaveAsButton")}
+              </Button>
+            </div>
+          ) : null}
+
+          {presets.length === 0 ? (
+            <p className="session-prompt-shelf-empty">
+              {t("chat.promptPresetEmpty")}
+            </p>
+          ) : (
+            <ul className="session-prompt-shelf-list">
+              {presets.map((preset) => (
+                <li className="session-prompt-shelf-item" key={preset.id}>
+                  <div className="session-prompt-shelf-item-main">
+                    <span className="session-prompt-shelf-item-name">
+                      {preset.name}
+                    </span>
+                    <span className="session-prompt-shelf-item-preview">
+                      {preview(preset.text)}
+                    </span>
+                  </div>
+                  <div className="session-prompt-shelf-item-actions">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="session-prompt-shelf-apply"
+                      disabled={saving || presetBusy}
+                      onClick={() => applyPreset(preset)}
+                    >
+                      {t("chat.promptPresetApplyButton")}
+                    </Button>
+                    <TooltipButton
+                      type="button"
+                      className="session-prompt-shelf-delete"
+                      tooltip={t("chat.promptPresetDeleteButton")}
+                      ariaLabel={t("chat.promptPresetDeleteButton")}
+                      disabled={saving || presetBusy}
+                      onClick={() => setPendingDelete(preset)}
+                    >
+                      <IconTrash size={14} />
+                    </TooltipButton>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {pendingApply ? (
+            <div className="session-prompt-shelf-confirm" role="alertdialog">
+              <span>
+                {t("chat.promptPresetReplaceConfirm", {
+                  name: pendingApply.name,
+                })}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={presetBusy}
+                onClick={() => setPendingApply(null)}
+              >
+                {t("settings.cancel")}
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={presetBusy}
+                onClick={confirmApply}
+              >
+                {t("chat.promptPresetApplyButton")}
+              </Button>
+            </div>
+          ) : null}
+
+          {pendingDelete ? (
+            <div className="session-prompt-shelf-confirm" role="alertdialog">
+              <span>
+                {t("chat.promptPresetDeleteConfirm", {
+                  name: pendingDelete.name,
+                })}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={presetBusy}
+                onClick={() => setPendingDelete(null)}
+              >
+                {t("settings.cancel")}
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={presetBusy}
+                onClick={() => void confirmDelete()}
+              >
+                {t("chat.promptPresetDeleteButton")}
+              </Button>
+            </div>
+          ) : null}
+        </section>
+
         {error ? (
           <div className="project-memory-dialog-hint" role="status">
             {error}
