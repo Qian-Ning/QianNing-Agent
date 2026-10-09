@@ -112,7 +112,7 @@ function specSidebar(locale: Locale): DefaultTheme.SidebarItem[] {
 }
 
 const enSidebar: DefaultTheme.Sidebar = {
-  '/guide/': [{ text: 'Guide', items: [{ text: 'Start here', link: '/guide/' }, { text: 'Install and update', link: '/guide/install' }, { text: 'First project session', link: '/guide/first-session' }, { text: 'Data and security', link: '/guide/data-and-security' }, { text: 'Screens', link: '/guide/screenshots' }, { text: 'MCP market', link: '/guide/mcp-market' }, { text: 'Images and video', link: '/guide/media-workbench' }] }],
+  '/guide/': [{ text: 'Guide', items: [{ text: 'Start here', link: '/guide/' }, { text: 'Install and update', link: '/guide/install' }, { text: 'First project session', link: '/guide/first-session' }, { text: 'Data and security', link: '/guide/data-and-security' }, { text: 'Screens', link: '/guide/screenshots' }, { text: 'MCP market', link: '/guide/mcp-market' }, { text: 'Images and video', link: '/guide/media-workbench' }, { text: 'Local generation bridge', link: '/guide/local-generation-bridge' }] }],
   '/plugin-development': [{ text: 'Plugin authoring', items: [{ text: 'Zero to one', link: '/plugin-development' }, ...specItems('07-plugins', 'en')] }],
   '/project/': [{ text: 'Project records', items: projectItems() }],
   '/spec/': specSidebar('en'),
@@ -130,7 +130,7 @@ const enSidebar: DefaultTheme.Sidebar = {
 }
 
 const zhSidebar: DefaultTheme.Sidebar = {
-  '/zh-CN/guide/': [{ text: '指南', items: [{ text: '快速开始', link: '/zh-CN/guide/' }, { text: '安装与升级', link: '/zh-CN/guide/install' }, { text: '第一个项目会话', link: '/zh-CN/guide/first-session' }, { text: '数据与安全', link: '/zh-CN/guide/data-and-security' }, { text: '界面截图', link: '/zh-CN/guide/screenshots' }, { text: 'MCP 市场', link: '/zh-CN/guide/mcp-market' }, { text: '生图与生视频', link: '/zh-CN/guide/media-workbench' }] }],
+  '/zh-CN/guide/': [{ text: '指南', items: [{ text: '快速开始', link: '/zh-CN/guide/' }, { text: '安装与升级', link: '/zh-CN/guide/install' }, { text: '第一个项目会话', link: '/zh-CN/guide/first-session' }, { text: '数据与安全', link: '/zh-CN/guide/data-and-security' }, { text: '界面截图', link: '/zh-CN/guide/screenshots' }, { text: 'MCP 市场', link: '/zh-CN/guide/mcp-market' }, { text: '生图与生视频', link: '/zh-CN/guide/media-workbench' }, { text: '本机生成桥', link: '/zh-CN/guide/local-generation-bridge' }] }],
   '/zh-CN/plugin-development': [{ text: '插件开发', items: [{ text: '从零到一', link: '/zh-CN/plugin-development' }, ...specItems('07-plugins', 'zh-CN')] }],
   '/zh-CN/spec/': specSidebar('zh-CN'),
   '/zh-CN/adr/': [

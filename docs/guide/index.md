@@ -45,6 +45,7 @@ QianNing Agent does not currently use an OS keychain backend. A process running 
 | Run recurring prompts | [Scheduled tasks](/guide/automations) |
 | Add an MCP catalog | [MCP market](/guide/mcp-market) |
 | Generate images and videos | [Media workbench](/guide/media-workbench) |
+| Reach ComfyUI or SD WebUI by address | [Local generation bridge](/guide/local-generation-bridge) |
 | See the application surfaces | [Interface gallery](/guide/screenshots) |
 | Build an extension | [Plugin development](/plugin-development) |
 | Understand process ownership | [Architecture specification](/spec/02-architecture/01-architecture) |
