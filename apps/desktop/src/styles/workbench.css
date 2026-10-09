@@ -684,6 +684,20 @@
   list-style: none;
 }
 
+/* The row's leading picture: the first image a run produced. A fixed box means
+   a wide render crops to cover instead of stretching the row, and the row reads
+   the same whether the picture loaded or not (a failed load drops the element
+   entirely, so no empty gap is left behind). */
+.workbench-history-thumb {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-2xs);
+  background: var(--ds-bg-inset);
+  object-fit: cover;
+}
+
 .workbench-history-group {
   margin: 8px 0 4px;
   color: var(--ds-text-faint);
