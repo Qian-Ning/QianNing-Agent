@@ -134,8 +134,10 @@ test("a relay's list reads the shipped publisher's record for a known id", async
   const known = byId.get("claude-sonnet-4-5");
   assert.equal(known.catalogSource, "models.dev", "several publishers state this id");
   // Anthropic's published window, not a median dragged down by resellers that
-  // state a smaller deployment of the same id.
-  assert.equal(known.contextWindow, 1_000_000);
+  // state a smaller deployment of the same id. models.dev moved this window
+  // from 1M to 200k in the 0.19.0 catalog refresh, and the resellers still
+  // state 1,000,000 — so this value is what proves the official record won.
+  assert.equal(known.contextWindow, 200_000);
   assert.equal(known.maxTokens, 64_000);
   assert.ok(known.capabilities.includes("tools"));
   // An id no publisher states still lands on the generic seed.
@@ -197,10 +199,11 @@ test("a relay enriches unique/official leaves and leaves ambiguous or marker lea
   assert.ok(tts.capabilities.includes("audio"));
   assert.equal(tts.contextWindow, 8_192);
 
-  // Official Anthropic disambiguation still enriches Claude leaves.
+  // Official Anthropic disambiguation still enriches Claude leaves, and the
+  // window follows the shipped record (200k since the 0.19.0 refresh).
   const claude = byId.get("claude-sonnet-4-5");
   assert.equal(claude.catalogSource, "models.dev");
-  assert.equal(claude.contextWindow, 1_000_000);
+  assert.equal(claude.contextWindow, 200_000);
 
   // Marker leaf is not stripped to gemini-2.5-pro.
   assert.equal(byId.get("gemini-2.5-pro-1m").catalogSource, undefined);
