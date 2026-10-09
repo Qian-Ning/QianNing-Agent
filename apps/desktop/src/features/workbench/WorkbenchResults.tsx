@@ -7,16 +7,18 @@
  * second for all of it — so every item has to be individually accountable rather
  * than summarized by a single spinner.
  *
- * Images render from the file the generation wrote; a video is not loaded into
- * the renderer at all (a clip can be hundreds of megabytes), so its card names
- * the file and offers the path instead of pretending to play it.
+ * An image renders from the file the generation wrote; a video plays in place
+ * over the media-library scheme (`media-asset://`), so seeking and pausing do not
+ * depend on an external player (ADR 0322). When the clip cannot be loaded the
+ * card falls back to the file name and an explanatory line rather than a broken
+ * element.
  */
 import { useEffect, useState } from "react";
-import { IconDownload, IconFolderOpen, IconImage } from "../../components/icons";
-import { api } from "../../lib/api";
 import { useTranslation } from "react-i18next";
 import type { MediaWorkbenchItemResult } from "@pi-desktop/shared";
 import { Button } from "../../components/ui";
+import { IconDownload, IconFolderOpen, IconImage } from "../../components/icons";
+import { api } from "../../lib/api";
 import { IconChevronLeft, IconChevronRight, IconClose, IconCopy } from "../../components/icons";
 import { useReferencedImageDataUrl } from "../../lib/use-referenced-image-data-url";
 
@@ -101,6 +103,30 @@ function Lightbox({
   );
 }
 
+/** In-place player for a finished clip, with a text fallback on load error. */
+function VideoPreview({ url, name }: { url: string; name: string }) {
+  const { t } = useTranslation();
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className="workbench-card-file is-unplayable">
+        <span className="workbench-card-kind">{t("workbench.videoUnsupported")}</span>
+        <code>{name}</code>
+      </div>
+    );
+  }
+  return (
+    <video
+      className="workbench-card-video"
+      controls
+      preload="metadata"
+      src={url}
+      aria-label={name}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 function OutputCard({
   output,
   capability,
@@ -142,13 +168,17 @@ function OutputCard({
             <img src={dataUrl} alt={fileName(path)} />
           </button>
         ) : output.state === "succeeded" ? (
-          <div className="workbench-card-file">
-            <span className="workbench-card-kind">{result?.mimeType ?? "video"}</span>
-            <code>{fileName(path)}</code>
-            {result && "durationSeconds" in result && result.durationSeconds ? (
-              <span>{`${result.durationSeconds}s`}</span>
-            ) : null}
-          </div>
+          !isImage && result?.url ? (
+            <VideoPreview url={result.url} name={fileName(path)} />
+          ) : (
+            <div className="workbench-card-file">
+              <span className="workbench-card-kind">{result?.mimeType ?? "video"}</span>
+              <code>{fileName(path)}</code>
+              {result && "durationSeconds" in result && result.durationSeconds ? (
+                <span>{`${result.durationSeconds}s`}</span>
+              ) : null}
+            </div>
+          )
         ) : output.state === "running" ? (
           <div className="workbench-card-pending">
             <span className="workbench-spinner" aria-hidden />

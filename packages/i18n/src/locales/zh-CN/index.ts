@@ -93,6 +93,7 @@ export const zhCN = {
     "copied": "已复制",
     "useAsReference": "用作参考图",
     "retry": "重试",
+    "videoUnsupported": "无法在此页内播放该视频。请使用“另存为…”或“在文件夹中显示”。",
   },
 
   app: {

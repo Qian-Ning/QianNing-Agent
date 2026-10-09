@@ -13,6 +13,7 @@ import {
   type VideoFrameFields,
 } from "@pi-desktop/shared";
 import type { HostProcess } from "../host-process";
+import { mediaAssetUrlForFile } from "../media-asset";
 import { createMediaWorkbenchService, resolveGeneratedFile } from "../services/media-workbench-service";
 import {
   clearLibrary,
@@ -87,6 +88,18 @@ export function registerWorkbenchIpc({
   });
   const { handle } = registrar;
 
+  // Attach the renderer-facing URL to every payload that names a library file.
+  // The mapping lives here, in the one place that owns the asset scheme (ADR
+  // 0322), and only ever produces a library-relative URL — an absolute path never
+  // crosses the wire. A failed or cancelled item carries no `path`, so it carries
+  // no URL either.
+  const libraryRoot = mediaLibraryDir(dataDir);
+  const withAssetUrls = <T extends { path?: string }>(items: T[]): T[] =>
+    items.map((item) => {
+      const url = mediaAssetUrlForFile(libraryRoot, item.path);
+      return url ? { ...item, url } : item;
+    });
+
   handle(IPC.invoke.workbenchGenerate, async (input: Record<string, unknown> = {}) => {
     const capability = capabilityOf(input.capability);
     // A workbench render belongs to the app's library, not to a conversation, so
@@ -94,13 +107,14 @@ export function registerWorkbenchIpc({
     const sessionId = typeof input.sessionId === "string" ? input.sessionId : "";
     const model = choiceOf(input.model);
     const frames = frameFieldsOf(input.frames);
-    return service.generate({
+    const result = await service.generate({
       capability,
       sessionId,
       ...(model ? { model } : {}),
       ...(frames ? { frames } : {}),
       input: (input.input ?? {}) as MediaWorkbenchRequest["input"],
     });
+    return { ...result, results: withAssetUrls(result.results) };
   });
 
   handle(IPC.invoke.workbenchCancel, async (input: Record<string, unknown> = {}) => ({
@@ -167,7 +181,7 @@ export function registerWorkbenchIpc({
       imported = true;
       await migrateScratchRenders(dataDir).catch(() => undefined);
     }
-    return { entries: await readMediaLibrary(dataDir) };
+    return { entries: withAssetUrls(await readMediaLibrary(dataDir)) };
   });
 
   /**
@@ -195,7 +209,7 @@ export function registerWorkbenchIpc({
         : [];
       const removed = await removeLibraryEntries(dataDir, ids);
       await Promise.all(removed.map(trashEntryFile));
-      return { entries: await readMediaLibrary(dataDir) };
+      return { entries: withAssetUrls(await readMediaLibrary(dataDir)) };
     },
   );
 

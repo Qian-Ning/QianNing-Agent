@@ -92,6 +92,7 @@ export const fr = {
     "copied": "Copié",
     "useAsReference": "Utiliser comme référence",
     "retry": "Réessayer",
+    "videoUnsupported": "Cette vidéo ne peut pas être lue ici. Utilisez « Enregistrer sous… » ou « Afficher dans le dossier ».",
   },
 
   "app": {

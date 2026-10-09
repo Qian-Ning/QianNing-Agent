@@ -93,6 +93,7 @@ export const zhTW = {
     "copied": "已複製",
     "useAsReference": "用作參考圖",
     "retry": "重試",
+    "videoUnsupported": "無法在此頁面播放此影片。請使用「另存新檔…」或「在資料夾中顯示」。",
   },
 
   app: {

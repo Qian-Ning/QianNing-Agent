@@ -91,6 +91,7 @@ export const en = {
     "copied": "Copied",
     "useAsReference": "Use as reference",
     "retry": "Retry",
+    "videoUnsupported": "This video can't be played here. Use Save as… or Show in folder.",
   },
 
   app: {

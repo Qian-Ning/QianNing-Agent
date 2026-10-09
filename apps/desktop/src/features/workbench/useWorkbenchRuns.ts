@@ -62,6 +62,7 @@ export function runFromEntry(entry: MediaLibraryEntry): Run {
         index: 0,
         status: entry.status,
         ...(entry.status === "succeeded" ? { path: entry.path } : {}),
+        ...(entry.url ? { url: entry.url } : {}),
         ...(entry.errorCode ? { errorCode: entry.errorCode } : {}),
       },
     ],

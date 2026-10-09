@@ -92,6 +92,7 @@ export const ko = {
     "copied": "복사됨",
     "useAsReference": "참조로 사용",
     "retry": "다시 시도",
+    "videoUnsupported": "이 동영상은 여기에서 재생할 수 없습니다. '다른 이름으로 저장…' 또는 '폴더에서 보기'를 사용하세요.",
   },
 
   app: {

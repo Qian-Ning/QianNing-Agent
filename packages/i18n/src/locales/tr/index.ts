@@ -92,6 +92,7 @@ export const tr = {
     "copied": "Kopyalandı",
     "useAsReference": "Referans olarak kullan",
     "retry": "Yeniden dene",
+    "videoUnsupported": "Bu video burada oynatılamaz. „Farklı Kaydet…“ veya „Klasörde göster“ seçeneğini kullanın.",
   },
 
   app: {

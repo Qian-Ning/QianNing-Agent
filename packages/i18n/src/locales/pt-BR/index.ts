@@ -92,6 +92,7 @@ export const ptBR = {
     "copied": "Copiado",
     "useAsReference": "Usar como referência",
     "retry": "Tentar de novo",
+    "videoUnsupported": "Não é possível reproduzir este vídeo aqui. Use “Salvar como…” ou “Mostrar na pasta”.",
   },
 
   app: {
