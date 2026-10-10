@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "0.20.0",
+    date: "2026-10-10",
+    highlights: [
+    "Ein Mediathek-Eintrag nennt jetzt den Anbieter, der ein Bild erzeugt hat, und nicht mehr nur das Modell. Denselben Modellnamen können mehrere Anbieter bedienen, deshalb konnte eine Zeile, die nur „gpt-image-1“ sagte, nicht verraten, aus welchem Abonnement das Bild vor Ihnen stammte, und ein erneuter Lauf war ein Ratespiel. Der Anbieter wird in dem Moment festgehalten, in dem die Anfrage angenommen wird — genau dann ist er tatsächlich bekannt: eine abgelehnte oder fehlgeschlagene Anfrage hält keinen Anbieter fest, weil zu diesem Zeitpunkt keiner aufgelöst wurde. Ältere Zeilen bleiben unberührt und zeigen weiterhin nur das Modell, genau wie zuvor.",
+    "Bildzeilen beginnen jetzt mit einer kleinen Kopie des Bildes, statt die Datei in voller Größe zu dekodieren. Diese Kopie in dem Moment zu schreiben, in dem das Bild eintrifft, hält den Verlauf günstig: die Zeile lädt ein 64 Pixel kleines Bild statt eines mehreren Megabyte großen, und die Mediathek zu öffnen heißt nicht länger, jedes Bild in voller Größe zu dekodieren. Die Kopie schreibt derselbe Prozess, der das Bild schreibt, sie landet daneben innerhalb der Mediathek, wird mit ihm entfernt und ist reine Zierde — eine Zeile ohne Kopie fällt einfach auf das Bild selbst zurück.",
+    "Eine Clip-Zeile zeigt jetzt ein Bild, und zwar eines aus dem Clip selbst. Ein fertiger Clip hatte gar keines, weil nichts ein Einzelbild auf die Platte legte — obwohl die App eines dekodieren kann, um ihn abzuspielen. Das Einzelbild wird jetzt aufgenommen, wenn der Lauf endet, und neben dem Clip innerhalb der Mediathek aufbewahrt; so verrät ein Blick in den Verlauf ohne Öffnen, welcher Clip welcher ist. Ein Clip ohne Einzelbild behält die schlichte Zeile, die er immer hatte — kein kaputtes Bild, kein Platzhalter.",
+    ],
+  },
+  {
     version: "0.19.0",
     date: "2026-10-09",
     highlights: [
