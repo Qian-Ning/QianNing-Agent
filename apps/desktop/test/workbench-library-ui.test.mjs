@@ -5,8 +5,10 @@
  * The removal, clear, and reveal channels belong to the main process and are
  * already exercised by `media-library.test.mjs`; what is new on the renderer
  * side is turning a recorded error code into a sentence, with a fallback that
- * keeps an unknown code from rendering as a blank row. That rule is pure, so it
- * is tested directly rather than through a rendered component.
+ * keeps an unknown code from rendering as a blank row, and naming the binding a
+ * row ran — provider and model — where a recorded entry may carry only one of
+ * the two. Both rules are pure, so they are tested directly rather than through
+ * a rendered component.
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -14,6 +16,7 @@ import test from "node:test";
 const { LIBRARY_ERROR_KEYS, describeLibraryError } = await import(
   "../src/features/workbench/library-errors.ts"
 );
+const { historyModelLabel } = await import("../src/features/workbench/history-meta.ts");
 // The English catalog is the type source; importing it here proves the keys the
 // table points at actually exist, so a typo cannot ship and render as the key.
 const { en } = await import("../../../packages/i18n/src/locales/en/index.ts");
@@ -74,4 +77,17 @@ test("every media error key names a real English catalog entry", () => {
     assert.notEqual(english[key].length, 0, `${key} is empty`);
   }
   assert.equal(typeof english["workbench.libraryErrorGeneric"], "string");
+});
+
+test("a history row names the provider and the model it ran", () => {
+  assert.equal(
+    historyModelLabel({ providerId: "openrouter", modelId: "flux-1.1-pro" }),
+    "openrouter/flux-1.1-pro",
+    "one model id is served by several providers, so the platform is part of the name",
+  );
+  // An entry an earlier build wrote records no provider, and a run that failed
+  // before one was resolved records none either: the row names the model alone
+  // rather than an empty prefix or another provider's name.
+  assert.equal(historyModelLabel({ providerId: "", modelId: "flux-1.1-pro" }), "flux-1.1-pro");
+  assert.equal(historyModelLabel(null), undefined, "no recorded model adds no field");
 });

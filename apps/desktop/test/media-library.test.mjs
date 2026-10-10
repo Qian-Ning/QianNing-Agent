@@ -68,6 +68,67 @@ test("library: a render is recorded and read back in the order it finished", asy
   assert.ok(Date.parse(entries[0].createdAt) > 0, "createdAt is a real timestamp");
 });
 
+test("library: the provider that ran is recorded beside the model", async (t) => {
+  const dataDir = await makeDataDir(t);
+  const path = await makeRender(
+    dataDir,
+    "image",
+    "generated-44444444-4444-4444-4444-444444444444.png",
+  );
+
+  await appendMediaLibrary(dataDir, [
+    libraryEntryFrom({
+      capability: "image",
+      path,
+      status: "succeeded",
+      providerId: "openrouter",
+      modelId: "black-forest-labs/flux-1.1-pro",
+    }),
+  ]);
+
+  const [entry] = await readMediaLibrary(dataDir);
+  // One model id is served by several providers, so the row that names only the
+  // model is ambiguous; the producer is what makes a restored history honest.
+  assert.equal(entry.providerId, "openrouter", "the producer survives the round trip");
+  assert.equal(entry.modelId, "black-forest-labs/flux-1.1-pro");
+});
+
+test("library: an index from a build that recorded no provider still reads", async (t) => {
+  const dataDir = await makeDataDir(t);
+  const path = await makeRender(
+    dataDir,
+    "image",
+    "generated-55555555-5555-5555-5555-555555555555.png",
+  );
+  // Exactly what the previous build wrote: a model, no provider. Adding the
+  // field is not a migration — an old index keeps working as it stands.
+  await writeFile(
+    join(mediaLibraryDir(dataDir), "index.json"),
+    `${JSON.stringify(
+      [
+        {
+          id: "11111111-aaaa-4aaa-8aaa-111111111111",
+          capability: "image",
+          path,
+          status: "succeeded",
+          prompt: "a lantern",
+          modelId: "flux-1.1-pro",
+          createdAt: "2026-10-01T00:00:00.000Z",
+        },
+      ],
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+
+  const entries = await readMediaLibrary(dataDir);
+  assert.equal(entries.length, 1, "an entry without the new field is still an entry");
+  assert.equal(entries[0].prompt, "a lantern");
+  assert.equal(entries[0].modelId, "flux-1.1-pro");
+  assert.equal(entries[0].providerId, undefined, "no recorded provider reads as unknown");
+});
+
 test("library: the index is bounded, oldest first", () => {
   const entries = Array.from({ length: MAX_LIBRARY_ENTRIES + 25 }, (_, index) => index);
   const pruned = pruneLibrary(entries);

@@ -168,6 +168,8 @@ export function createMediaWorkbenchService(options: {
           const errorCode = typeof content?.errorCode === "string"
             ? content.errorCode
             : "MEDIA_FAILED";
+          // No provider is recorded here: a refusal happens before a binding is
+          // resolved, so this entry carries the reason and no producer.
           await appendMediaLibrary(options.dataDir, [
             libraryEntryFrom({
               capability: request.capability,
@@ -203,6 +205,9 @@ export function createMediaWorkbenchService(options: {
               status: result.status,
               ...(prompt ? { prompt } : {}),
               ...(size ? { size } : {}),
+              // The binding that ran is recorded with the file, so a row read
+              // back after a restart names the same provider the run did.
+              ...(typeof content?.providerId === "string" ? { providerId: content.providerId } : {}),
               ...(typeof content?.modelId === "string" ? { modelId: content.modelId } : {}),
               ...(result.errorCode ? { errorCode: result.errorCode } : {}),
             }),
@@ -225,7 +230,8 @@ export function createMediaWorkbenchService(options: {
         const code = asRecord(error)?.errorCode;
         const errorCode = typeof code === "string" ? code : "MEDIA_FAILED";
         report("done");
-        // A thrown run is a failed run: remember it with no file, once.
+        // A thrown run is a failed run: remember it with no file, once — and no
+        // provider either, for the same reason the refusal above carries none.
         await appendMediaLibrary(options.dataDir, [
           libraryEntryFrom({
             capability: request.capability,
