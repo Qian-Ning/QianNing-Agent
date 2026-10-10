@@ -202,6 +202,10 @@
 - `.github/workflows/ci.yml` 中的 `theme-surfaces` 作业会在每个 pull request 上对
   构建后的渲染层运行 `pnpm test:e2e:theme-surfaces`，因此「主题覆盖压过交互状态」
   这类回归会在 CI 失败，而不是无人察觉地发布出去。
+- 同一个 workflow 中的 `media-poster-frame` 作业会在每个 pull request 上对构建后的
+  应用运行 `pnpm test:e2e:media-poster-frame`，因此「片段的海报帧再也取不出来」这类
+  回归 —— 媒体 scheme 不再提供片段、解码坏掉、或保存通道开始接受它必须拒绝的东西 ——
+  会在 CI 失败，而不是留下一张永远不出现的封面。
 
 ### 市场/更新诊断门
 

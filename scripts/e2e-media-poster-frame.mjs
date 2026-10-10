@@ -106,10 +106,20 @@ try {
   };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.PI_DESKTOP_HOST_BIN;
+  // Its own process group on POSIX. Electron leaves helpers behind -- a crashpad
+  // handler is the usual one -- and a surviving helper holds the X connection the
+  // display is waiting on, so `xvfb-run` never returns and the CI step hangs
+  // after the probe has already printed every PASS. Killing the group is what
+  // lets the display exit with the probe.
   child = spawn(
     electronBinary,
     [`--remote-debugging-port=${port}`, `--user-data-dir=${join(temp, "profile")}`, "."],
-    { cwd: appDir, env, stdio: ["ignore", "pipe", "pipe"] },
+    {
+      cwd: appDir,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: process.platform !== "win32",
+    },
   );
   child.stdout.on("data", (data) => {
     output = (output + data).slice(-4000);
@@ -263,7 +273,20 @@ try {
   if (child && child.exitCode === null) {
     const exited = once(child, "exit");
     child.kill();
-    await exited;
+    if (process.platform === "win32") {
+      await exited;
+    } else {
+      // Bounded. A helper that ignores the signal must not be able to hold the
+      // step open, and the group kill below is what takes the strays with it.
+      await Promise.race([exited, delay(5000)]);
+    }
+  }
+  if (child && process.platform !== "win32" && child.pid) {
+    try {
+      process.kill(-child.pid, "SIGKILL");
+    } catch {
+      // The group is already gone, which is the normal case.
+    }
   }
   await rm(temp, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 }

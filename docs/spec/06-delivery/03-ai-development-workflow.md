@@ -355,6 +355,11 @@ Every change follows this sequence. Steps may be iterated if the implementation 
   `pnpm test:e2e:theme-surfaces` against the built renderer on every pull
   request, so a theme override that outranks an interaction state fails CI
   instead of shipping unnoticed.
+- The `media-poster-frame` job in the same workflow runs
+  `pnpm test:e2e:media-poster-frame` against the built application on every pull
+  request, so a clip whose poster frame can no longer be taken — the media scheme
+  stops serving, the decode breaks, or the save channel begins accepting what it
+  must refuse — fails CI instead of leaving a cover that never appears.
 
 ### Marketplace/update diagnosis gate
 

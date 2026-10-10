@@ -67,14 +67,18 @@ they cover are specified in
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs two jobs on pushes to `main`, on pull requests,
-and on manual dispatch, skipping both when a change touches only `docs/**` or
-`**/*.md`:
+`.github/workflows/ci.yml` runs four jobs on pushes to `main`, on pull requests,
+and on manual dispatch, skipping all of them when a change touches only `docs/**`
+or `**/*.md`:
 
 - **JS build / typecheck / lint / test** — `pnpm install --frozen-lockfile`,
   `pnpm build:js`, `pnpm --filter @pi-desktop/desktop typecheck`, `pnpm lint`,
   `pnpm -r --if-present test`
 - **Rust host-core test** — `cargo test -p host-core --locked`
+- **Theme surface cascade E2E** — builds the renderer, installs the Electron
+  binary, then runs `pnpm test:e2e:theme-surfaces` under `xvfb-run`
+- **Media poster frame E2E** — builds the app, installs the Electron binary, then
+  runs `pnpm test:e2e:media-poster-frame` under `xvfb-run`
 
 `.github/workflows/docs-check.yml` covers the paths `ci.yml` ignores: it runs
 `pnpm docs:check` (the docs locale pair check) when `docs/**`, the READMEs, the
