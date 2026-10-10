@@ -116,6 +116,35 @@
   use `PI_IMAGE_CHAT_EVIDENCE_DIR`. The images are deterministic raster fixtures,
   not evidence of real-model quality or provider compatibility.
 
+### E2E-MEDIA-clip-poster-frame
+
+- **Preconditions:** Isolated desktop profile and data directory, a built desktop
+  application, and a 320x240 H.264 clip placed in the media library. No provider,
+  no credentials, and no host core.
+- **Steps:** Boot the built application and wait for the preload bridge. Load the
+  clip over `media-asset://library/video/<name>` as an anonymous cross-origin
+  resource, seek, draw a 64px-wide frame to a canvas, and encode it as a PNG.
+  Hand that frame to `pi-desktop/workbench/saveThumbnail` three times: for the
+  render inside the library, for a path outside it, and with a payload that is
+  not a PNG.
+- **Expected:** The scheme serves the clip and the canvas is not tainted, so
+  `toDataURL` returns a PNG and the drawn pixels hold more than one colour. The
+  copy lands in that capability's own `thumbs` directory beside the render,
+  decodes as a PNG of 64x48, and both refusals answer `ok: false` in the
+  handler's payload while the invocation itself succeeds — a refusal must not be
+  reachable through a broken channel, so the envelope is asserted too.
+- **Status:** Automated in `pnpm test:e2e:media-poster-frame`. Requires a built
+  desktop application; the host core is deliberately not started, because the
+  scheme, the preload bridge, and the channel under test all live in the main
+  process and the window opens without it. The product path that triggers a
+  capture — a run finishing, the frame being handed over — is covered by the
+  renderer's own tests; what this scenario owns is the half only a real Chromium
+  can answer. It is **not** a guard on the scheme's `Access-Control-Allow-Origin`
+  header: removing that header does not make this scenario fail, measured under a
+  `file://` renderer and an `http://` one alike (the scheme is registered
+  `standard`, `secure`, `corsEnabled` and `stream`, and its handler answers
+  through `protocol.handle`).
+
 ### E2E-SCHEDULED-desktop-automation-lifecycle
 
 - **Additional coverage:** Shared model/reasoning root menu, searchable model submenu,
