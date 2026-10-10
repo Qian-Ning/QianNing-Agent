@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "0.20.0",
+    date: "2026-10-10",
+    highlights: [
+    "El registro de la biblioteca ahora indica qué proveedor produjo una imagen, y no solo qué modelo. Varios proveedores pueden servir el mismo nombre de modelo, así que una fila que solo decía «gpt-image-1» no podía decirle de qué suscripción salió la imagen que estaba mirando, y volver a ejecutarla era adivinar. El proveedor se registra en el momento en que se acepta la solicitud, que es cuando de verdad se conoce: una solicitud rechazada o fallida no registra proveedor, porque en ese punto no se resolvió ninguno. Las filas antiguas quedan intactas y siguen mostrando solo el modelo, exactamente como antes.",
+    "Las filas de imagen ahora empiezan con una copia pequeña de la imagen en lugar de decodificar el archivo a tamaño completo. Escribir esa copia en el momento en que la imagen llega mantiene barato el historial: la fila carga una imagen de 64 píxeles y no una de varios megabytes, y abrir la biblioteca ya no significa decodificar cada imagen a tamaño completo. La copia la escribe el mismo proceso que escribe la imagen, queda junto a ella dentro de la biblioteca, se elimina con ella y es solo decoración: una fila sin copia recurre simplemente a la imagen misma.",
+    "Las filas de clip ahora muestran una imagen, tomada del propio clip. Un clip terminado no tenía ninguna, porque nada ponía un fotograma en el disco, aunque la aplicación pueda decodificar uno para reproducirlo: el fotograma se toma ahora al terminar la ejecución y se guarda junto al clip dentro de la biblioteca, de modo que recorrer el historial le dice cuál es cuál sin abrir ninguno. Un clip sin fotograma conserva la fila sencilla que siempre tuvo: sin imagen rota y sin marcador de posición.",
+    ],
+  },
+  {
     version: "0.19.0",
     date: "2026-10-09",
     highlights: [

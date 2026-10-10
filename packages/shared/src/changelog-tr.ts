@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "0.20.0",
+    date: "2026-10-10",
+    highlights: [
+    "Medya kitaplığı kaydı artık bir görselin hangi sağlayıcıdan çıktığını da yazıyor; yalnızca model adını değil. Aynı model adını birden fazla sağlayıcı sunabildiği için, yalnızca \"gpt-image-1\" yazan bir satır baktığınız görselin hangi abonelikten geldiğini söyleyemiyordu ve yeniden çalıştırmak tahmine kalıyordu. Sağlayıcı, isteğin kabul edildiği anda kaydediliyor — gerçekten bilindiği an da odur: reddedilen veya başarısız olan istek sağlayıcı kaydetmez, çünkü o noktada hiçbir sağlayıcı çözümlenmemiştir. Eski satırlar olduğu gibi kalır ve model adını tek başına gösterir, tıpkı eskiden olduğu gibi.",
+    "Görsel satırları artık tam boy dosyayı çözmek yerine görselin küçük bir kopyasıyla başlıyor. Bu kopyanın görsel indiği anda yazılması geçmişi gezinmeyi ucuz tutuyor: satır birkaç megabaytlık bir dosya yerine 64 piksellik bir resim yüklüyor ve kitaplığı açmak artık her görseli tam boyutta çözmek anlamına gelmiyor. Kopyayı görseli yazan süreç yazıyor, kitaplık içinde onun yanına iniyor, onunla birlikte kaldırılıyor ve yalnızca süs: kopyası olmayan satır doğrudan görselin kendisine düşüyor.",
+    "Klip satırları artık bir resim gösteriyor; o da klibin kendisinden alınıyor. Bitmiş bir klibin hiç resmi yoktu çünkü hiçbir şey diske bir kare koymuyordu — oysa uygulama onu oynatmak için çözebiliyor. Kare artık görsel tamamlandığında alınıyor ve kitaplık içinde klibin yanında saklanıyor; böylece geçmişe bakmak hiçbirini açmadan hangi klibin hangisi olduğunu söylüyor. Karesi olmayan klip, her zaman olduğu sade satırını korur — kırık görsel yok, yer tutucu yok.",
+    ],
+  },
+  {
     version: "0.19.0",
     date: "2026-10-09",
     highlights: [

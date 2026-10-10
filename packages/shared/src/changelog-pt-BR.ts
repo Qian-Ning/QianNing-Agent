@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "0.20.0",
+    date: "2026-10-10",
+    highlights: [
+    "O registro da biblioteca agora informa qual provedor produziu uma imagem, e não apenas qual modelo. Vários provedores podem atender o mesmo nome de modelo, então uma linha que dizia apenas \"gpt-image-1\" não podia dizer de qual assinatura veio a imagem que você estava vendo, e executá-la de novo era adivinhar. O provedor é registrado no momento em que a solicitação é aceita, que é quando ele realmente se conhece: uma solicitação recusada ou que falhou não registra provedor, porque nenhum foi resolvido naquele ponto. As linhas antigas permanecem intactas e mostram apenas o modelo, exatamente como antes.",
+    "As linhas de imagem agora começam com uma cópia pequena da imagem, em vez de decodificar o arquivo em tamanho original. Escrever essa cópia no momento em que a imagem chega mantém o histórico leve: a linha carrega uma imagem de 64 pixels em vez de uma de vários megabytes, e abrir a biblioteca já não significa decodificar cada imagem em tamanho original. A cópia é escrita pelo mesmo processo que escreve a imagem, fica ao lado dela dentro da biblioteca, é removida junto com ela e é apenas decoração — uma linha sem cópia simplesmente recorre à própria imagem.",
+    "As linhas de clipe agora mostram uma imagem, tirada do próprio clipe. Um clipe pronto não tinha nenhuma, porque nada colocava um quadro no disco — ainda que o aplicativo saiba decodificar um para reproduzi-lo. O quadro agora é capturado quando a renderização termina e guardado ao lado do clipe dentro da biblioteca, então percorrer o histórico diz qual é qual sem abrir nenhum deles. Um clipe sem quadro mantém a linha simples que sempre teve — sem imagem quebrada e sem espaço reservado.",
+    ],
+  },
+  {
     version: "0.19.0",
     date: "2026-10-09",
     highlights: [

@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "0.20.0",
+    date: "2026-10-10",
+    highlights: [
+    "Une fiche de la médiathèque indique désormais quel fournisseur a produit une image, et plus seulement quel modèle. Plusieurs fournisseurs peuvent servir un même nom de modèle : une ligne qui ne disait que « gpt-image-1 » ne pouvait donc pas vous dire de quel abonnement venait l'image que vous regardiez, et la relancer revenait à deviner. Le fournisseur est consigné au moment où la requête est acceptée, c'est-à-dire au moment où il est réellement connu : une requête refusée ou échouée ne consigne aucun fournisseur, parce qu'aucun n'a été résolu à cet instant. Les anciennes lignes restent intactes et n'affichent que le modèle, exactement comme avant.",
+    "Les lignes d'image commencent désormais par une petite copie de l'image au lieu de décoder le fichier en pleine taille. Écrire cette copie au moment où l'image arrive garde l'historique léger : la ligne charge une image de 64 pixels et non un fichier de plusieurs mégaoctets, et ouvrir la médiathèque ne signifie plus décoder chaque image en pleine taille. La copie est écrite par le même processus que l'image, se pose à côté d'elle dans la médiathèque, est supprimée avec elle et n'est que décorative : une ligne sans copie se rabat simplement sur l'image elle-même.",
+    "Une ligne de clip affiche désormais une image, prise dans le clip lui-même. Un clip terminé n'en avait aucune, parce que rien ne déposait une image sur le disque — alors que l'application sait en décoder une pour le lire. L'image est maintenant capturée à la fin du rendu et conservée à côté du clip dans la médiathèque ; parcourir l'historique vous dit donc lequel est lequel sans en ouvrir aucun. Un clip sans image garde la ligne sobre qu'il a toujours eue : pas d'image cassée, pas de remplacement.",
+    ],
+  },
+  {
     version: "0.19.0",
     date: "2026-10-09",
     highlights: [

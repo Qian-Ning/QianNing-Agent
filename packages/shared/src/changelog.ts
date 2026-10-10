@@ -30,6 +30,15 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
       {
+        version: "0.20.0",
+        date: "2026-10-10",
+        highlights: [
+        "A library record now names which provider produced a render, not only which model. Two providers can serve the same model name, so a row that said only \"gpt-image-1\" could not tell you which subscription had made the picture you were looking at, and re-running it meant guessing. The provider is recorded at the moment the render is accepted, which is when it is actually known: a request that was refused or failed records no provider, because none was ever resolved. Older rows are untouched and show the model alone, exactly as they did before.",
+        "An image row leads with a small copy of the render instead of decoding the full-size file. Writing that copy at the moment the render lands keeps the history cheap to browse: the row loads a 64-pixel picture rather than a multi-megabyte one, and opening the library no longer means decoding every render at full size. The copy is written by the same process that writes the render, lands beside it inside the library, is removed with it, and is decoration only — a row with no copy simply falls back to the render itself.",
+        "A clip row now shows a picture, taken from the clip itself. A finished clip had no picture at all because nothing put one on disk, even though the app can decode one to play it: the frame is now taken when the render finishes and kept beside the clip inside the library, so browsing the history tells you which clip is which without opening any of them. A clip with no frame keeps the plain row it always had — no broken image, no placeholder.",
+        ],
+      },
+      {
         version: "0.19.0",
         date: "2026-10-09",
         highlights: [
@@ -1040,6 +1049,15 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
       {
+        version: "0.20.0",
+        date: "2026-10-10",
+        highlights: [
+        "媒体库的条目现在会记下这次渲染是哪个服务商产出的，而不只是模型名。同一个模型名可能由不止一家提供，所以一条只写「gpt-image-1」的记录，没办法告诉你眼前这张图出自哪份订阅，想重跑一次只能靠猜。服务商在渲染被接受的那一刻就记下来 —— 那也正是它真正被确定的时刻：被拒绝或失败的请求不记服务商，因为那时根本还没有解析出任何一家。旧条目原样不动，依旧只显示模型名，与从前完全一致。",
+        "图片条目改用渲染的小副本开头，不再去解码整张原图。在渲染落地那一刻就把副本写好，历史列表才是廉价的：每一行加载的是一张 64 像素的小图，而不是几兆的原件，打开媒体库也不再等于把每张渲染按原尺寸解一遍。副本由写出渲染的同一个进程写入、落在库里渲染文件的旁边、随渲染一起被移除，而且纯属装饰 —— 没有副本的条目直接回退到渲染本身。",
+        "片段条目现在也有图了，取自片段自己。刚跑完的片段此前完全没有封面，因为没有任何一处把封面写到磁盘上 —— 尽管应用明明能解码它来播放。现在渲染结束时就把那一帧取下来，保存在库里片段的旁边，于是翻历史时不用打开任何一条，就能认出哪个片段是哪个。没有取到帧的片段保持它一贯的朴素行 —— 没有破图，也没有占位符。",
+        ],
+      },
+      {
         version: "0.19.0",
         date: "2026-10-09",
         highlights: [
@@ -2049,6 +2067,15 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+      {
+        version: "0.20.0",
+        date: "2026-10-10",
+        highlights: [
+        "媒體庫的條目現在會記下這次算圖是哪一家服務商產出的，而不只是模型名稱。同一個模型名稱可能由不只一家提供，因此一條只寫「gpt-image-1」的紀錄，沒辦法告訴你眼前這張圖出自哪份訂閱，想重跑一次只能靠猜。服務商在算圖被接受的那一刻就記下來 —— 那也正是它真正被確定的時刻：被拒絕或失敗的請求不記服務商，因為那時根本還沒解析出任何一家。舊條目原樣不動，依舊只顯示模型名稱，與從前完全一致。",
+        "圖片條目改用算圖的小副本開頭，不再去解碼整張原圖。在算圖落地那一刻就把副本寫好，歷史列表才是廉價的：每一列載入的是一張 64 像素的小圖，而不是好幾 MB 的原件，開啟媒體庫也不再等於把每張算圖按原尺寸解一遍。副本由寫出算圖的同一個行程寫入、落在庫裡算圖檔的旁邊、隨算圖一起被移除，而且純屬裝飾 —— 沒有副本的條目直接回退到算圖本身。",
+        "片段條目現在也有圖了，取自片段自己。剛跑完的片段先前完全沒有封面，因為沒有任何一處把封面寫到磁碟上 —— 儘管應用明明能解碼它來播放。現在算圖結束時就把那一格取下來，保存在庫裡片段的旁邊，於是翻歷史時不用開啟任何一條，就能認出哪個片段是哪個。沒有取到格的片段保持它一貫的樸素列 —— 沒有破圖，也沒有佔位符。",
+        ],
+      },
       {
         version: "0.19.0",
         date: "2026-10-09",

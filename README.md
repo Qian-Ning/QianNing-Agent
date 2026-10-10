@@ -27,7 +27,7 @@ Windows 优先 · 数据留在本机 · 模型自选 · 插件可扩展 · 语�
 
 </div>
 
-> 当前发布线：`0.19.x`（最新 `0.19.0`）。
+> 当前发布线：`0.20.x`（最新 `0.20.0`）。
 
 ![QianNing Agent 工作台](docs/public/readme/hero.zh.webp)
 
