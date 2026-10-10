@@ -503,6 +503,63 @@ test("ipc: a finished render gets a small copy, and a row points at that", async
   );
 });
 
+test("ipc: a clip's poster frame is kept beside it, and only when it is one", async (t) => {
+  const env = await makeEnv(t);
+  const { registerWorkbenchIpc } = await import("../electron/main/ipc/workbench-ipc.ts");
+  const { IPC } = await import("@pi-desktop/shared/protocol");
+
+  const handlers = new Map();
+  registerWorkbenchIpc({
+    registrar: { handle: (channel, fn) => handlers.set(channel, fn) },
+    getMainWindow: () => null,
+    getHost: () => env.host,
+    dataDir: env.dataDir,
+  });
+
+  const videoDir = join(env.dataDir, "generated", "video");
+  await mkdir(videoDir, { recursive: true });
+  const clip = join(videoDir, "generated-ddddddd1-1111-1111-1111-111111111111.mp4");
+  await writeFile(clip, mp4);
+  await appendMediaLibrary(env.dataDir, [
+    libraryEntryFrom({ capability: "video", path: clip, status: "succeeded" }),
+  ]);
+
+  const saveThumbnail = handlers.get(IPC.invoke.workbenchSaveThumbnail);
+  const pngDataUrl = `data:image/png;base64,${png.toString("base64")}`;
+  const saved = await saveThumbnail({ capability: "video", path: clip, dataUrl: pngDataUrl });
+  assert.equal(saved.ok, true);
+  const copy = thumbPathFor(env.dataDir, "video", clip);
+  assert.deepEqual(await readFile(copy), png, "the frame landed as a PNG beside the clip");
+
+  // The library hands the row that poster, by the same mapping images use.
+  const { entries } = await handlers.get(IPC.invoke.workbenchLibrary)({});
+  const entry = entries.find((item) => item.path === clip);
+  assert.equal(
+    entry.thumbUrl,
+    `media-asset://library/video/thumbs/${basename(copy)}`,
+    "the clip's row names its poster",
+  );
+
+  // A path this app did not put in the library is refused, so the channel is not
+  // a general file writer.
+  const outside = join(env.dataDir, "outside.mp4");
+  await writeFile(outside, mp4);
+  const refused = await saveThumbnail({ capability: "video", path: outside, dataUrl: pngDataUrl });
+  assert.equal(refused.ok, false, "a file outside the library is refused");
+
+  // Bytes that are not what they claim are refused too, and nothing is written.
+  const notPng = await saveThumbnail({
+    capability: "video",
+    path: clip,
+    dataUrl: `data:image/png;base64,${Buffer.from("not a png at all").toString("base64")}`,
+  });
+  assert.equal(notPng.ok, false, "only a real PNG is kept");
+  assert.deepEqual(await readFile(copy), png, "the refused write left the kept frame alone");
+
+  const empty = await saveThumbnail({ capability: "video", path: clip, dataUrl: "" });
+  assert.equal(empty.ok, false, "a frame with no bytes is refused");
+});
+
 test("library: a workbench render lands in the app library, not in a session scratch", async (t) => {
   const env = await makeEnv(t, { models: ["img-one"] });
 

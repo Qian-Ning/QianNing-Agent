@@ -57,6 +57,23 @@ test("the derived small copy is preferred over the full-size file", () => {
   assert.equal(pickRowThumbnail(entry), "media-asset://library/image/thumbs/a.png");
 });
 
+test("a clip row leads with its poster frame when it has one", () => {
+  const entry = run({
+    capability: "video",
+    results: [
+      {
+        index: 0,
+        status: "succeeded",
+        url: "media-asset://library/video/clip.mp4",
+        thumbUrl: "media-asset://library/video/thumbs/clip.png",
+      },
+    ],
+  });
+  // A poster is the only picture a clip row can have: the clip itself would
+  // decode to nothing inside an <img>.
+  assert.equal(pickRowThumbnail(entry), "media-asset://library/video/thumbs/clip.png");
+});
+
 test("a result whose copy was never written falls back to the full-size file", () => {
   const entry = run({
     results: [
