@@ -62,6 +62,7 @@ they cover are specified in
 | `e2e-config-sync-multidevice.mjs` | `pnpm test:e2e:config-sync` | Two isolated host-core devices against an ephemeral local WebDAV fixture; covers encrypted sync, new-device approval, cross-device edits, conditional requests, and ciphertext-only remote storage |
 | `e2e-supervision.mjs` | `pnpm test:e2e:supervision` | Process supervision and restart behavior |
 | `e2e-subagents.mjs` | `pnpm test:e2e:subagents` | Subagent registry over RPC, then through the real loader (D202) |
+| `e2e-media-poster-frame.mjs` | `pnpm test:e2e:media-poster-frame` | A finished clip's poster frame end to end: a clip served over the real `media-asset://` scheme, a real decode and canvas capture, the channel that keeps a 64x48 PNG beside the render, and both of its refusals. Requires a built desktop application; starts no host core. Not a guard on the scheme's CORS header — see the script's header |
 | `e2e-agent-live.mjs` | `node scripts/e2e-agent-live.mjs` | Live streaming chat through agent-runtime + host-core. Requires `PI_DESKTOP_TEST_API_KEY`, `PI_DESKTOP_TEST_BASE_URL`, and `PI_DESKTOP_TEST_MODEL` (no defaults), so it has no `pnpm` alias |
 
 ## Continuous integration

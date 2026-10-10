@@ -40,6 +40,13 @@
 - **预期：** 取消编辑保留原绑定；保存清除候选和默认生图绑定。重新打开后摘要行隐藏、复选框未勾选，模型恢复为可选对话模型。
 - **覆盖：** `scripts/e2e-image-generation-ui.mjs` 使用 API 边界 fixture 验证英文与中文交互；不代表真实服务商测试。
 
+### E2E-MEDIA-clip-poster-frame
+
+- **前提：** 隔离的桌面配置与数据目录、已构建的桌面应用，以及放进媒体库的一段 320x240 H.264 片段。不接服务商、不需要凭据、不启动 host core。
+- **步骤：** 启动已构建的应用，等 preload 桥就绪；以匿名跨源资源通过 `media-asset://library/video/<名>` 载入片段，seek 之后把 64px 宽的一帧画到 canvas 上并编码为 PNG。把这一帧交给 `pi-desktop/workbench/saveThumbnail` 三次：一次是库内的渲染，一次是库外路径，一次是并非 PNG 的载荷。
+- **预期：** 该 scheme 能送出片段且 canvas 不被污染，因此 `toDataURL` 返回 PNG，画出的像素也不止一种颜色。副本落在该能力自己的 `thumbs` 目录里、紧挨着渲染文件，按 PNG 解出来是 64x48；两次拒绝都是在**处理函数的载荷**里回 `ok: false`，而调用本身成功 —— 拒绝不能经由一条坏掉的通道也能成立，所以信封层同样断言。
+- **状态：** `pnpm test:e2e:media-poster-frame` 自动覆盖。需要先构建桌面应用；这里刻意不启动 host core，因为被测的 scheme、preload 桥与通道都住在主进程，窗口在没有它时照常打开。触发取帧的产品路径（一次生成跑完、把帧交出去）由渲染层自己的测试覆盖；本场景负责的是只有真 Chromium 才能回答的那一半。它**不是**对该 scheme `Access-Control-Allow-Origin` 头的守卫：把头拿掉，本场景并不会失败 —— 在 `file://` 与 `http://` 两种渲染层下都实测过（该 scheme 以 `standard`、`secure`、`corsEnabled`、`stream` 注册，其处理函数经 `protocol.handle` 作答）。
+
 ## 1. 目标
 
 - 记录 MVP 必须验证的每个用户可见和协议可见的行为。
