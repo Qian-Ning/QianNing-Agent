@@ -1,5 +1,5 @@
-import { copyFile, mkdir, stat } from "node:fs/promises";
-import { basename } from "node:path";
+import { copyFile, mkdir, stat, writeFile } from "node:fs/promises";
+import { basename, dirname } from "node:path";
 import { dialog, shell, type BrowserWindow } from "electron";
 import {
   IPC,
@@ -13,7 +13,7 @@ import {
   type VideoFrameFields,
 } from "@pi-desktop/shared";
 import type { HostProcess } from "../host-process";
-import { mediaAssetUrlForFile } from "../media-asset";
+import { decodeThumbnailDataUrl, libraryRelativePath, mediaAssetUrlForFile } from "../media-asset";
 import { writeRenderThumbnail } from "../media-thumbnail";
 import { createMediaWorkbenchService, resolveGeneratedFile } from "../services/media-workbench-service";
 import {
@@ -200,6 +200,37 @@ export function registerWorkbenchIpc({
         return { ok: false };
       }
       return { ok: true, path: picked.filePath };
+    },
+  );
+
+  /**
+   * Keep a poster frame the renderer decoded from a finished clip.
+   *
+   * A `<video>` element is the only clip decoder the app has, and it lives in the
+   * renderer; the bytes arrive here because the library belongs to the main
+   * process. The write is confined like every other library path — the render must
+   * already be inside the library, and the copy lands in that capability's own
+   * thumbs directory, where `media-asset://` serves it — and a frame that cannot
+   * be kept never touches the render that produced it.
+   */
+  handle(
+    IPC.invoke.workbenchSaveThumbnail,
+    async (input: Record<string, unknown> = {}): Promise<MediaWorkbenchFileResult> => {
+      const raw = typeof input.path === "string" ? input.path : "";
+      const dataUrl = typeof input.dataUrl === "string" ? input.dataUrl : "";
+      if (!raw || !dataUrl) return { ok: false };
+      if (!libraryRelativePath(libraryRoot, raw)) return { ok: false };
+      const capability = capabilityOf(input.capability);
+      const bytes = decodeThumbnailDataUrl(dataUrl);
+      const target = thumbPathFor(dataDir, capability, raw);
+      if (!bytes || !target) return { ok: false };
+      try {
+        await mkdir(dirname(target), { recursive: true });
+        await writeFile(target, bytes);
+      } catch {
+        return { ok: false };
+      }
+      return { ok: true, path: target };
     },
   );
 

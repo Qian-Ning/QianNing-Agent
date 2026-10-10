@@ -13,8 +13,10 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  MAX_THUMBNAIL_BYTES,
   MEDIA_ASSET_SCHEME,
   contentRangeHeader,
+  decodeThumbnailDataUrl,
   fullResponseHeaders,
   isInside,
   libraryRelativePath,
@@ -144,6 +146,43 @@ test("206 and 200 responses carry the headers a video element needs", () => {
   assert.equal(full["content-length"], "4096");
   assert.equal(full["accept-ranges"], "bytes");
   assert.equal(full["content-type"], "video/mp4");
+
+  // A poster frame is taken by decoding a clip onto a canvas, and a cross-origin
+  // element taints one unless the response allows it, so both response shapes have
+  // to carry the pair — without it the frame is never drawable.
+  for (const headers of [partial, full]) {
+    assert.equal(
+      headers["access-control-allow-origin"],
+      "*",
+      "the renderer may draw what it may display",
+    );
+    assert.match(headers["access-control-expose-headers"] ?? "", /content-range/);
+  }
+});
+
+test("a poster frame is accepted only as a PNG inside the size cap", () => {
+  const onePixelPng =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9mQAAAAASUVORK5CYII=";
+  const accepted = decodeThumbnailDataUrl(`data:image/png;base64,${onePixelPng}`);
+  assert.ok(accepted, "a canvas PNG is kept");
+  assert.equal(accepted.subarray(0, 8).toString("hex"), "89504e470d0a1a0a", "it lands as a PNG");
+
+  assert.equal(decodeThumbnailDataUrl("data:image/jpeg;base64,AAAA"), null, "only PNG");
+  assert.equal(decodeThumbnailDataUrl("data:image/png;base64,"), null, "no bytes is no frame");
+  assert.equal(decodeThumbnailDataUrl(onePixelPng), null, "a bare base64 string is not a data URL");
+  assert.equal(
+    decodeThumbnailDataUrl(
+      `data:image/png;base64,${Buffer.from("definitely not a png").toString("base64")}`,
+    ),
+    null,
+    "the magic number decides, not the label",
+  );
+  const oversized = Buffer.alloc(MAX_THUMBNAIL_BYTES + 1, 0x41);
+  assert.equal(
+    decodeThumbnailDataUrl(`data:image/png;base64,${oversized.toString("base64")}`),
+    null,
+    "an oversized frame is refused rather than written",
+  );
 });
 
 test("the scheme is wired from startup to shutdown and allowed by the CSP", () => {

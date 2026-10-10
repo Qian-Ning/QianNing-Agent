@@ -15,6 +15,7 @@ import {
   type VideoGenerationInput,
 } from "@pi-desktop/shared";
 import { api } from "../../lib/api";
+import { savePosterFrames } from "./poster-frame";
 import type { WorkbenchModelChoice } from "./WorkbenchModelPicker";
 import type { ItemState, WorkbenchOutput } from "./WorkbenchResults";
 
@@ -290,6 +291,10 @@ export function useWorkbenchRuns({
         ...(result.message ? { message: result.message } : {}),
       };
       setRun(finished);
+      // A clip's poster is taken here, before the library is re-read: the video
+      // decoder lives on this side of the app, and the re-read is what puts the
+      // picture on the row. Failing to take one leaves the row as it was.
+      await savePosterFrames(capability, finished.results);
       // The run is already in the app's library — the service records it before
       // it answers — so re-read that list instead of pushing a second copy with
       // a different id. Falling back to a window-only row keeps the run visible

@@ -13,6 +13,7 @@ import type {
   AgentPromptResponse,
 
   MediaWorkbenchFileRequest,
+  MediaWorkbenchThumbnailRequest,
   MediaLibraryResult,
   MediaLibraryRemoveRequest,
   MediaLibraryClearResult,
@@ -1035,6 +1036,9 @@ export const api = {
     invoke<MediaWorkbenchFileResult>(IPC.invoke.workbenchSaveAs, req),
   workbenchReveal: (req: MediaWorkbenchFileRequest) =>
     invoke<MediaWorkbenchFileResult>(IPC.invoke.workbenchReveal, req),
+  /** Keep a poster frame the renderer took from a finished clip. */
+  workbenchSaveThumbnail: (req: MediaWorkbenchThumbnailRequest) =>
+    invoke<MediaWorkbenchFileResult>(IPC.invoke.workbenchSaveThumbnail, req),
   /** Renders this app has produced before, newest last. */
   workbenchLibrary: () => invoke<MediaLibraryResult>(IPC.invoke.workbenchLibrary, {}),
   /** Forget the named entries; their files are sent to the OS trash. */

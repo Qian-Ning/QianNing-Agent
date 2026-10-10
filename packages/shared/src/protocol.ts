@@ -101,6 +101,8 @@ export const IPC = {
     workbenchLibraryClear: "pi-desktop/workbench/library/clear",
     /** Open the library directory in the OS file browser. */
     workbenchLibraryReveal: "pi-desktop/workbench/library/reveal",
+    /** Keep a poster frame the renderer decoded from a finished clip. */
+    workbenchSaveThumbnail: "pi-desktop/workbench/saveThumbnail",
     voiceStart: "pi-desktop/voice/start",
     voiceStop: "pi-desktop/voice/stop",
     voiceCancel: "pi-desktop/voice/cancel",
