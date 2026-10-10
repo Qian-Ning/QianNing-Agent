@@ -9,15 +9,22 @@
  * between outputs. Kept out of the component and pure so the choice is a fact a
  * test pins, not a line of JSX re-derived on each render.
  *
- * Only the image capability gets a thumbnail. A video row's output is a clip,
- * and a still frame for it is a different problem entirely (there is no frame
- * extractor here), so this stays silent for video and returns `undefined`.
+ * The small copy the main process writes beside a render (`thumbUrl`) is what a
+ * row wants: the element decodes whatever it points at, so pointing it at the
+ * full file means decoding a full-size image into a 32px box. An item recorded
+ * before copies existed carries no `thumbUrl`, and that row falls back to the full
+ * file — the same picture, just bigger to decode, exactly as before.
+ *
+ * Only the image capability gets a thumbnail. A video row's output is a clip, and
+ * a still frame for it is a different problem entirely (nothing writes one yet),
+ * so this stays silent for video and returns `undefined`.
  */
 import type { Run } from "./useWorkbenchRuns";
 
 /**
- * The `url` of the first succeeded image result that carries one, or
- * `undefined` when the row has no such output.
+ * The URL of the first succeeded image result that carries one, or `undefined`
+ * when the row has no such output. Prefers the derived small copy when the item
+ * has one.
  *
  * A missing `results` array, an empty array, a run whose only outputs failed or
  * were cancelled, or a non-image row all answer `undefined` — the row then
@@ -28,5 +35,9 @@ export function pickRowThumbnail(run: Run): string | undefined {
   const first = run.results?.find(
     (item) => item.status === "succeeded" && typeof item.url === "string" && item.url.length > 0,
   );
-  return first?.url;
+  if (!first) return undefined;
+  // The results are a union with video, and only an image result can carry the
+  // copy, so the field is read only when the value actually has one.
+  const copy = "thumbUrl" in first && typeof first.thumbUrl === "string" ? first.thumbUrl : "";
+  return copy.length > 0 ? copy : first.url;
 }

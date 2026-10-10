@@ -76,6 +76,15 @@ export type MediaLibraryEntry = {
    * cancelled entry (which has no `path`) carries no URL either.
    */
   url?: string;
+  /**
+   * The URL of the derived small copy a history row leads with, written beside
+   * the render when it lands (`<capability>/thumbs/…`, served by the same scheme
+   * and the same containment as `url`). Set only when that copy exists, so a row
+   * that has one loads it instead of the full-size file; an entry recorded before
+   * thumbnails existed carries none and the row falls back to `url`. Images only
+   * for now: a clip's poster frame is a separate item.
+   */
+  thumbUrl?: string;
   status: "succeeded" | "failed" | "cancelled";
   prompt?: string;
   /**

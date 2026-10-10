@@ -41,6 +41,31 @@ test("returns the url of the first succeeded result", () => {
   assert.equal(pickRowThumbnail(entry), "media-asset://library/image/a.png");
 });
 
+test("the derived small copy is preferred over the full-size file", () => {
+  const entry = run({
+    results: [
+      {
+        index: 0,
+        status: "succeeded",
+        url: "media-asset://library/image/a.png",
+        thumbUrl: "media-asset://library/image/thumbs/a.png",
+      },
+    ],
+  });
+  // A row decodes whatever it points at, so the copy is what keeps a 32px box
+  // from decoding a full-size render on every paint.
+  assert.equal(pickRowThumbnail(entry), "media-asset://library/image/thumbs/a.png");
+});
+
+test("a result whose copy was never written falls back to the full-size file", () => {
+  const entry = run({
+    results: [
+      { index: 0, status: "succeeded", url: "media-asset://library/image/old.png", thumbUrl: "" },
+    ],
+  });
+  assert.equal(pickRowThumbnail(entry), "media-asset://library/image/old.png");
+});
+
 test("a succeeded result without a url yields undefined", () => {
   const entry = run({ results: [{ index: 0, status: "succeeded" }] });
   assert.equal(pickRowThumbnail(entry), undefined);
