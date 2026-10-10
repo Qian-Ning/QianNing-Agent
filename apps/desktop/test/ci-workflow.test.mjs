@@ -80,6 +80,34 @@ test("CI does not typecheck workspace dependencies twice", () => {
   assert.doesNotMatch(ciWorkflowSource, /run: pnpm typecheck/);
 });
 
+test("the poster-frame E2E job boots the built app with a display", () => {
+  const start = ciWorkflowSource.indexOf("  media-poster-frame:");
+  assert.notEqual(start, -1, "the media-poster-frame job is missing");
+  const next = ciWorkflowSource.indexOf("\n  rust:", start);
+  assert.notEqual(next, -1, "the rust job should follow the poster-frame job");
+  const block = ciWorkflowSource.slice(start, next);
+  // The scenario boots the built application with an empty
+  // `ELECTRON_RENDERER_URL`, so both build outputs have to exist first; and it is
+  // only ever green on a runner where the Electron binary is actually on disk,
+  // which `pnpm install` alone does not guarantee.
+  assert.match(block, /run: pnpm build:js/, "the job builds the app before probing");
+  assert.match(
+    block,
+    /run: node apps\/desktop\/node_modules\/electron\/install\.js/,
+    "the job installs the Electron binary before probing",
+  );
+  assert.match(
+    block,
+    /xvfb-run --auto-servernum pnpm test:e2e:media-poster-frame/,
+    "the job runs the scenario under a virtual display",
+  );
+  assert.match(
+    block,
+    /ELECTRON_DISABLE_SANDBOX/,
+    "the job disables the sandbox on a hosted runner",
+  );
+});
+
 test("release runners validate tags without a separate job barrier", () => {
   assert.doesNotMatch(releaseWorkflowSource, /^  validate:/m);
   assert.doesNotMatch(releaseWorkflowSource, /^    needs: validate$/m);

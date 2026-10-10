@@ -92,6 +92,44 @@ jobs:
           ELECTRON_DISABLE_SANDBOX: "1"
         run: xvfb-run --auto-servernum pnpm test:e2e:theme-surfaces
 
+  media-poster-frame:
+    name: Media poster frame E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the app
+        # The scenario boots the built application with `ELECTRON_RENDERER_URL`
+        # empty, so the main bundle and `out/renderer` both have to exist.
+        run: pnpm build:js
+
+      - name: Install the Electron binary
+        # `pnpm install` restores Electron from the cached pnpm store without
+        # re-running its download script, so `node_modules/electron/dist` can be
+        # absent even though the package is present. install.js is idempotent:
+        # it exits as soon as a matching dist is on disk.
+        run: node apps/desktop/node_modules/electron/install.js
+
+      - name: Run the poster-frame scenario
+        # A real BrowserWindow needs a display, and the downloaded Electron's
+        # setuid sandbox helper cannot be root-owned on a hosted runner. The
+        # scenario decodes a real clip, so this lane also depends on the Electron
+        # build carrying the codecs its fixture uses.
+        env:
+          ELECTRON_DISABLE_SANDBOX: "1"
+        run: xvfb-run --auto-servernum pnpm test:e2e:media-poster-frame
+
   rust:
     name: Rust host-core format / lint / test
     runs-on: ubuntu-latest
