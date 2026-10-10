@@ -2,11 +2,11 @@
  * The workbench's history list.
  *
  * Runs are grouped by outcome — a run that failed is a different thing from a
- * run that worked — and each row names when, which model, what size and, when
- * it failed, why. Picking a row reveals that run in the results panel. Each row
- * also carries its own remove control, and the list as a whole can be cleared or
- * revealed on disk; every removal is a second-confirmed trip to the recycle bin,
- * so a render that cost money is recoverable.
+ * run that worked — and each row names when, which provider and model, what
+ * size and, when it failed, why. Picking a row reveals that run in the results
+ * panel. Each row also carries its own remove control, and the list as a whole
+ * can be cleared or revealed on disk; every removal is a second-confirmed trip
+ * to the recycle bin, so a render that cost money is recoverable.
  *
  * The list is the app's library, not a window-local record: its ids are the ones
  * the removal and clear channels act on, and its length is what the visible cap
@@ -17,6 +17,7 @@ import { useTranslation } from "react-i18next";
 import { MAX_LIBRARY_ENTRIES } from "@pi-desktop/shared";
 import { IconFolderOpen, IconTrash } from "../../components/icons";
 import { Button, TooltipButton } from "../../components/ui";
+import { historyModelLabel } from "./history-meta";
 import { pickRowThumbnail } from "./history-thumbnail";
 import { describeLibraryError } from "./library-errors";
 import type { Run } from "./useWorkbenchRuns";
@@ -82,7 +83,7 @@ function HistoryRow({
               hour: "2-digit",
               minute: "2-digit",
             }),
-            entry.model?.modelId,
+            historyModelLabel(entry.model),
             entry.size,
             // A failed or cancelled row names why it is there; a succeeded one
             // counts what it produced. The reason comes from the recorded code,

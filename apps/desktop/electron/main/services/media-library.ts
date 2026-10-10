@@ -199,6 +199,8 @@ export function libraryEntryFrom(input: {
   path?: string;
   status: MediaLibraryEntry["status"];
   prompt?: string;
+  /** The provider the run resolved, when it got that far. */
+  providerId?: string;
   modelId?: string;
   size?: string;
   errorCode?: string;
@@ -210,6 +212,7 @@ export function libraryEntryFrom(input: {
     ...(input.path ? { path: input.path } : {}),
     status: input.status,
     ...(input.prompt ? { prompt: input.prompt } : {}),
+    ...(input.providerId ? { providerId: input.providerId } : {}),
     ...(input.modelId ? { modelId: input.modelId } : {}),
     ...(input.size ? { size: input.size } : {}),
     ...(input.errorCode ? { errorCode: input.errorCode } : {}),

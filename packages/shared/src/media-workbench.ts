@@ -78,6 +78,15 @@ export type MediaLibraryEntry = {
   url?: string;
   status: "succeeded" | "failed" | "cancelled";
   prompt?: string;
+  /**
+   * The provider that actually ran the request, recorded beside the model
+   * because a model id alone is ambiguous — several providers serve the same
+   * id. A history row restored after a restart therefore names the same binding
+   * the run did. Absent on an entry an earlier build wrote, and on a run that
+   * failed before a provider was resolved: both read as unknown, never as some
+   * other provider's name.
+   */
+  providerId?: string;
   modelId?: string;
   size?: string;
   errorCode?: string;

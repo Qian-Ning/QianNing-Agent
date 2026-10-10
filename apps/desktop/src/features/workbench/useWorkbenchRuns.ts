@@ -54,7 +54,12 @@ export function runFromEntry(entry: MediaLibraryEntry): Run {
     capability: entry.capability,
     sessionId: "",
     prompt: entry.prompt ?? "",
-    model: entry.modelId ? { providerId: "", modelId: entry.modelId } : null,
+    // The provider is recorded with the entry now, so a row restored after a
+    // restart names the same binding the run did. An entry an earlier build
+    // wrote carries none, which stays unknown instead of becoming a wrong name.
+    model: entry.modelId
+      ? { providerId: entry.providerId ?? "", modelId: entry.modelId }
+      : null,
     startedAt,
     finishedAt: startedAt,
     results: [
