@@ -128,7 +128,10 @@ jobs:
         # build carrying the codecs its fixture uses.
         env:
           ELECTRON_DISABLE_SANDBOX: "1"
-        run: xvfb-run --auto-servernum pnpm test:e2e:media-poster-frame
+        # The bound is a guard rail, not a target: the probe prints every PASS in
+        # about ten seconds. It exists because a stray X client once held the
+        # display open and the step sat here until the job's own limit killed it.
+        run: timeout 600 xvfb-run --auto-servernum pnpm test:e2e:media-poster-frame
 
   rust:
     name: Rust host-core format / lint / test
