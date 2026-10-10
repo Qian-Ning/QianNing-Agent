@@ -12,7 +12,7 @@ import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promi
 import { createServer } from "node:http";
 import { register } from "node:module";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import test from "node:test";
 register(new URL("./helpers/ts-import-hooks.mjs", import.meta.url));
 const { MAX_WORKBENCH_COUNT, clampCount, normalizeCount } = await import(
@@ -21,7 +21,7 @@ const { MAX_WORKBENCH_COUNT, clampCount, normalizeCount } = await import(
 const { createMediaWorkbenchService, resolveGeneratedFile } = await import(
   "../electron/main/services/media-workbench-service.ts"
 );
-const { appendMediaLibrary, libraryEntryFrom, readMediaLibrary } = await import(
+const { appendMediaLibrary, libraryEntryFrom, readMediaLibrary, thumbPathFor } = await import(
   "../electron/main/services/media-library.ts"
 );
 
@@ -442,6 +442,64 @@ test("ipc: generating with no session is accepted, because the render is the app
     env.fixture.requests.filter((entry) => entry.url === "/v1/images/generations").length,
     1,
     "the request reached the provider",
+  );
+});
+
+test("ipc: a finished render gets a small copy, and a row points at that", async (t) => {
+  const env = await makeEnv(t, { models: ["img-one"] });
+  const { registerWorkbenchIpc } = await import("../electron/main/ipc/workbench-ipc.ts");
+  const { IPC } = await import("@pi-desktop/shared/protocol");
+  const stub = await import("./helpers/electron-stub.mjs");
+  stub.trashed.length = 0;
+
+  const handlers = new Map();
+  registerWorkbenchIpc({
+    registrar: { handle: (channel, fn) => handlers.set(channel, fn) },
+    getMainWindow: () => null,
+    getHost: () => env.host,
+    dataDir: env.dataDir,
+  });
+
+  const generate = handlers.get(IPC.invoke.workbenchGenerate);
+  const result = await generate({
+    capability: "image",
+    sessionId: "",
+    model: { providerId: env.providerId, modelId: "img-one" },
+    input: { items: [{ prompt: "a paper lantern", size: "1024x1024" }] },
+  });
+  assert.equal(result.ok, true);
+
+  // The copy lands beside the render, under the capability's own thumbs
+  // directory: `media-asset://` serves nothing outside `image/` and `video/`, so
+  // a derived tree of its own could not be handed to the renderer at all.
+  const render = result.results[0].path;
+  const copy = thumbPathFor(env.dataDir, "image", render);
+  assert.equal(
+    result.results[0].thumbUrl,
+    `media-asset://library/image/thumbs/${basename(copy)}`,
+    "the run answers with the copy's URL, not the render's",
+  );
+  assert.deepEqual(
+    await readFile(copy),
+    png,
+    "a readable picture was written when the render landed",
+  );
+
+  // A row restored from the library leads with the copy rather than the render,
+  // which is the point of the exercise: a 32px box decodes a 64px file.
+  const { entries } = await handlers.get(IPC.invoke.workbenchLibrary)({});
+  assert.equal(
+    entries[0].thumbUrl,
+    `media-asset://library/image/thumbs/${basename(copy)}`,
+    "the recorded entry names the copy too",
+  );
+
+  // Removal reclaims both, so a removed row leaves nothing behind.
+  await handlers.get(IPC.invoke.workbenchLibraryRemove)({ ids: [entries[0].id] });
+  assert.deepEqual(
+    stub.trashed.slice().sort(),
+    [render, copy].sort(),
+    "the render and its copy both go to the trash",
   );
 });
 

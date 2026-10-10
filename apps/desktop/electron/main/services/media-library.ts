@@ -1,5 +1,5 @@
 import { copyFile, mkdir, readdir, readFile, realpath, rename, stat, writeFile } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import {
   MAX_LIBRARY_ENTRIES,
@@ -42,6 +42,37 @@ export function mediaLibraryDir(dataDir: string, capability?: MediaLibraryCapabi
   return capability
     ? resolve(dataDir, MEDIA_LIBRARY_DIR, capability)
     : resolve(dataDir, MEDIA_LIBRARY_DIR);
+}
+
+/**
+ * Where a capability's derived thumbnails live: a `thumbs` directory inside the
+ * capability directory, because the asset scheme serves only `image/` and
+ * `video/` paths (ADR 0322) — a copy anywhere else could not be handed to the
+ * renderer at all.
+ */
+export function mediaLibraryThumbDir(
+  dataDir: string,
+  capability: MediaLibraryCapability,
+): string {
+  return resolve(mediaLibraryDir(dataDir, capability), "thumbs");
+}
+
+/**
+ * The thumbnail path for one render file: the same name, `.png`, inside the
+ * capability's `thumbs` directory. Pure path arithmetic — it never asks whether
+ * the file exists, because both callers want the answer for a render they are
+ * already holding: one writes the copy, the other asks whether one is there.
+ * Undefined when there is no render to derive from.
+ */
+export function thumbPathFor(
+  dataDir: string,
+  capability: MediaLibraryCapability,
+  file: string | undefined,
+): string | undefined {
+  if (typeof file !== "string" || file.length === 0) return undefined;
+  const name = basename(file).replace(/\.[^./\\]+$/, "");
+  if (!name) return undefined;
+  return resolve(mediaLibraryThumbDir(dataDir, capability), `${name}.png`);
 }
 
 function indexPath(dataDir: string): string {

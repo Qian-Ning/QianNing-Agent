@@ -1,4 +1,4 @@
-import { copyFile, mkdir } from "node:fs/promises";
+import { copyFile, mkdir, stat } from "node:fs/promises";
 import { basename } from "node:path";
 import { dialog, shell, type BrowserWindow } from "electron";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@pi-desktop/shared";
 import type { HostProcess } from "../host-process";
 import { mediaAssetUrlForFile } from "../media-asset";
+import { writeRenderThumbnail } from "../media-thumbnail";
 import { createMediaWorkbenchService, resolveGeneratedFile } from "../services/media-workbench-service";
 import {
   clearLibrary,
@@ -21,6 +22,7 @@ import {
   migrateScratchRenders,
   readMediaLibrary,
   removeLibraryEntries,
+  thumbPathFor,
   type MediaLibraryEntry,
 } from "../services/media-library";
 import type { IpcRegistrar } from "./types";
@@ -58,6 +60,15 @@ function capabilityOf(value: unknown): MediaWorkbenchCapability {
     : "image";
 }
 
+/** Whether a derived file is actually on disk; a stat that fails is a no. */
+async function isFile(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isFile();
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The media workbench channels.
  *
@@ -88,17 +99,31 @@ export function registerWorkbenchIpc({
   });
   const { handle } = registrar;
 
-  // Attach the renderer-facing URL to every payload that names a library file.
-  // The mapping lives here, in the one place that owns the asset scheme (ADR
-  // 0322), and only ever produces a library-relative URL — an absolute path never
-  // crosses the wire. A failed or cancelled item carries no `path`, so it carries
-  // no URL either.
+  // Attach the renderer-facing URL to every payload that names a library file,
+  // plus the URL of the derived small copy a history row leads with when one lies
+  // beside the render. The mapping lives here, in the one place that owns the
+  // asset scheme (ADR 0322), and only ever produces a library-relative URL — an
+  // absolute path never crosses the wire. A failed or cancelled item carries no
+  // `path`, so it carries no URL either, and a copy that was never written leaves
+  // the row on the full-size render exactly as before.
   const libraryRoot = mediaLibraryDir(dataDir);
-  const withAssetUrls = <T extends { path?: string }>(items: T[]): T[] =>
-    items.map((item) => {
-      const url = mediaAssetUrlForFile(libraryRoot, item.path);
-      return url ? { ...item, url } : item;
-    });
+  const withAssetUrls = async <T extends { path?: string }>(
+    items: T[],
+    capability: (item: T) => MediaWorkbenchCapability,
+  ): Promise<T[]> =>
+    Promise.all(
+      items.map(async (item) => {
+        const url = mediaAssetUrlForFile(libraryRoot, item.path);
+        const copy = thumbPathFor(dataDir, capability(item), item.path);
+        const thumbUrl =
+          copy && (await isFile(copy)) ? mediaAssetUrlForFile(libraryRoot, copy) : undefined;
+        return {
+          ...item,
+          ...(url ? { url } : {}),
+          ...(thumbUrl ? { thumbUrl } : {}),
+        };
+      }),
+    );
 
   handle(IPC.invoke.workbenchGenerate, async (input: Record<string, unknown> = {}) => {
     const capability = capabilityOf(input.capability);
@@ -114,7 +139,17 @@ export function registerWorkbenchIpc({
       ...(frames ? { frames } : {}),
       input: (input.input ?? {}) as MediaWorkbenchRequest["input"],
     });
-    return { ...result, results: withAssetUrls(result.results) };
+    // Write the derived copies before answering, so the row that appears right
+    // after this call already leads with the small picture. Best effort per file:
+    // a copy that cannot be written is a bigger thumbnail, never a failed render.
+    await Promise.all(
+      result.results.map((item) =>
+        item.status === "succeeded"
+          ? writeRenderThumbnail(dataDir, capability, item.path).catch(() => undefined)
+          : Promise.resolve(),
+      ),
+    );
+    return { ...result, results: await withAssetUrls(result.results, () => capability) };
   });
 
   handle(IPC.invoke.workbenchCancel, async (input: Record<string, unknown> = {}) => ({
@@ -181,20 +216,26 @@ export function registerWorkbenchIpc({
       imported = true;
       await migrateScratchRenders(dataDir).catch(() => undefined);
     }
-    return { entries: withAssetUrls(await readMediaLibrary(dataDir)) };
+    return {
+      entries: await withAssetUrls(await readMediaLibrary(dataDir), (entry) => entry.capability),
+    };
   });
 
   /**
-   * Reclaim the file a removed entry owned.
+   * Reclaim the files a removed entry owned.
    *
    * Only a succeeded run has a file, and trashing is best effort by design: a
    * file that is already gone, or an OS that refuses to recycle, must never block
-   * the removal the user asked for.
+   * the removal the user asked for. The derived small copy goes with the render
+   * when the library actually has one — it is not an asset of its own, and leaving
+   * it behind would quietly fill the library directory with orphans.
    */
-  const trashEntryFile = (entry: MediaLibraryEntry): Promise<void> =>
-    entry.status === "succeeded" && typeof entry.path === "string"
-      ? shell.trashItem(entry.path).catch(() => undefined)
-      : Promise.resolve();
+  const trashEntryFile = async (entry: MediaLibraryEntry): Promise<void> => {
+    if (entry.status !== "succeeded" || typeof entry.path !== "string") return;
+    const copy = thumbPathFor(dataDir, entry.capability, entry.path);
+    const targets = copy && (await isFile(copy)) ? [entry.path, copy] : [entry.path];
+    await Promise.all(targets.map((target) => shell.trashItem(target).catch(() => undefined)));
+  };
 
   /**
    * Forget the named entries, sending each file to the OS trash rather than
@@ -209,7 +250,9 @@ export function registerWorkbenchIpc({
         : [];
       const removed = await removeLibraryEntries(dataDir, ids);
       await Promise.all(removed.map(trashEntryFile));
-      return { entries: withAssetUrls(await readMediaLibrary(dataDir)) };
+      return {
+        entries: await withAssetUrls(await readMediaLibrary(dataDir), (entry) => entry.capability),
+      };
     },
   );
 

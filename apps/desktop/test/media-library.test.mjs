@@ -18,10 +18,12 @@ const {
   clearLibrary,
   libraryEntryFrom,
   mediaLibraryDir,
+  mediaLibraryThumbDir,
   migrateScratchRenders,
   pruneLibrary,
   readMediaLibrary,
   removeLibraryEntries,
+  thumbPathFor,
 } = await import("../electron/main/services/media-library.ts");
 
 const png = Buffer.from(
@@ -317,4 +319,34 @@ test("library: clearing empties the index and returns everything it held", async
   const cleared = await clearLibrary(dataDir);
   assert.equal(cleared.length, 2, "every entry is handed back so its file can be reclaimed");
   assert.deepEqual(await readMediaLibrary(dataDir), [], "the index is empty afterwards");
+});
+
+test("library: a render's derived copy is named for it, under thumbs, inside the capability", () => {
+  const dataDir = join(tmpdir(), "library-paths");
+  const image = join(
+    mediaLibraryDir(dataDir, "image"),
+    "generated-ccccccc1-1111-1111-1111-111111111111.png",
+  );
+
+  // The copy has to live under `image/` or `video/` to be handed to the renderer
+  // at all (ADR 0322), so it lives inside the capability directory rather than in
+  // a tree of its own — and it keeps the render's name, as a PNG.
+  assert.equal(
+    thumbPathFor(dataDir, "image", image),
+    join(
+      mediaLibraryThumbDir(dataDir, "image"),
+      "generated-ccccccc1-1111-1111-1111-111111111111.png",
+    ),
+    "the copy is named for the render it was made from",
+  );
+  assert.equal(
+    thumbPathFor(dataDir, "video", join(mediaLibraryDir(dataDir, "video"), "clip.mp4")),
+    join(mediaLibraryThumbDir(dataDir, "video"), "clip.png"),
+    "a clip's copy would drop the clip's extension for the picture's",
+  );
+});
+
+test("library: nothing is asked of a derived copy when there is no render to derive it from", () => {
+  assert.equal(thumbPathFor("C:/data", "image", undefined), undefined);
+  assert.equal(thumbPathFor("C:/data", "image", ""), undefined);
 });

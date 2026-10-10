@@ -86,6 +86,15 @@ export type GeneratedImageResult = {
    * failed or cancelled item, which produced no file.
    */
   url?: string;
+  /**
+   * The URL of the derived small copy a history row leads with. The main process
+   * writes it beside the render when the render lands (`image/thumbs/…`, served
+   * by the same scheme and the same containment as `url`) and sets this only when
+   * that copy exists, so a row that has one loads it instead of the full-size
+   * file. An item recorded before thumbnails existed, or one whose copy could not
+   * be written, carries none and the row falls back to `url`.
+   */
+  thumbUrl?: string;
   mimeType?: string;
   errorCode?: string;
 };

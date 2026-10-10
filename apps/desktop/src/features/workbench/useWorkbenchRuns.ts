@@ -68,6 +68,8 @@ export function runFromEntry(entry: MediaLibraryEntry): Run {
         status: entry.status,
         ...(entry.status === "succeeded" ? { path: entry.path } : {}),
         ...(entry.url ? { url: entry.url } : {}),
+        // The derived small copy the row leads with, when the library has one.
+        ...(entry.thumbUrl ? { thumbUrl: entry.thumbUrl } : {}),
         ...(entry.errorCode ? { errorCode: entry.errorCode } : {}),
       },
     ],
