@@ -64,6 +64,20 @@ QianNing-Agent/
 └── README.md · README.zh-CN.md
 ```
 
+## 拆分域门面
+
+大型入口保持为兼容门面，实现由领域模块拥有。Electron main 接线 `ipc/`、`runtime/`、
+`bootstrap/`、`services/`；渲染器页面入口委派给 `features/app`、`features/plugins`、
+`features/settings`；host-core 门面委派给 `plugins/`、`db/`、`providers/`、`plans/`
+子模块。共享的 `types.ts` 入口转出 `shared/src/types/` 下的领域文件。
+
+门面路径保留既有导入与公共契约。新逻辑属于拥有其状态或进程边界的领域模块。
+
+源码预算由 [`scripts/check-architecture.mjs`](../../../architecture/README.md) 报告并强制。
+其白名单只记录带有理由的既有抽取债务；每条记录同时记下被豁免时的文件规模，门面路径也各有
+一条记录在案的上限。被豁免文件或门面一旦超过自己的上限即检查失败，直到在同一次改动里显式
+抬高该上限（ADR 0324）。
+
 ## 2. 包职责
 
 ### `apps/desktop`

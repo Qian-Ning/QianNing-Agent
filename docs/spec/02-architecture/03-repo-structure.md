@@ -79,6 +79,11 @@ Source budgets are reported and enforced by
 [`scripts/check-architecture.mjs`](../../architecture/README.md). Its
 allowlist records only existing extraction debt with a reason.
 
+Every allowlist entry also records the file size it was exempted at, and the
+facade paths above carry a recorded ceiling. An exempted file, or a facade, that
+grows past its ceiling fails the check until the ceiling is raised deliberately
+in the same change (ADR 0324).
+
 ## 2. Package responsibilities
 
 ### `apps/desktop`

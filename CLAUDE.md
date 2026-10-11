@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Policy-Sync: 2026-10-04.1
+Policy-Sync: 2026-10-11.1
 
 Instructions for Claude Code CLI and Claude Cowork on PI-Desktop.
 
@@ -166,7 +166,7 @@ crates/host-core/src/providers.rs
 crates/host-core/src/plans.rs
 ```
 
-New logic belongs in the domain module that owns the state or process boundary. Facades stay for compatibility only.
+New logic belongs in the domain module that owns the state or process boundary. Facades stay for compatibility only. `scripts/check-architecture.mjs` enforces a recorded ceiling on each path above and on every allowlisted exemption, so growth fails the check until a ceiling is raised deliberately in the same change (ADR 0324).
 
 Size guidance:
 

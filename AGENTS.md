@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Policy-Sync: 2026-10-04.1
+Policy-Sync: 2026-10-11.1
 
 Mandatory rules for AI coding agents working in PI-Desktop.
 
@@ -445,6 +445,12 @@ crates/host-core/src/db.rs
 crates/host-core/src/providers.rs
 crates/host-core/src/plans.rs
 ```
+
+These paths are the compatibility facades described in ADR 0235: they may wire
+or re-export their domain modules but must not become a second implementation.
+`scripts/check-architecture.mjs` enforces a recorded ceiling for each one, so a
+facade that grows fails the check until the ceiling is raised deliberately in
+the same change (ADR 0324).
 
 Do not use a historical God Module as the default place for new
 functionality, and do not solve one God Module by creating another.
