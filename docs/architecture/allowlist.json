@@ -19,8 +19,8 @@
       "max": 4201
     },
     "crates/host-core/src/rpc/mod.rs": {
-      "reason": "Legacy RPC dispatch module. Its integration tests moved to rpc/tests.rs in this change, which is why the recorded ceiling dropped from 9260 to 5049; the remaining handle_request dispatch split is a follow-up with its own risk, so the debt stays bounded rather than open.",
-      "max": 5049
+      "reason": "Legacy RPC dispatch module, shrinking in stages. Tests moved to rpc/tests.rs and the providers.* family moved to rpc/providers_rpc.rs; the ceiling tracks each stage, so the remaining handle_request families stay bounded until they are extracted too.",
+      "max": 4929
     },
     "crates/host-core/src/sessions.rs": {
       "reason": "Legacy session service module; its extraction is outside this refactor scope.",

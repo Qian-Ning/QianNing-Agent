@@ -3,6 +3,7 @@ mod computer_tool;
 mod config_sync_rpc;
 mod connection_rpc;
 mod connection_tool;
+mod providers_rpc;
 mod scheduled_rpc;
 mod scheduled_tools;
 
@@ -26,7 +27,7 @@ use crate::plans;
 use crate::plugin_sessions;
 use crate::plugin_usage;
 use crate::prompt_presets;
-use crate::providers::{self, DiscoveredModelInput, ProviderCreateInput, ProviderUpdateInput};
+use crate::providers;
 use crate::review;
 use crate::scratch;
 use crate::sessions::{self, UiMessage};
@@ -66,13 +67,6 @@ struct JsonRpcNotification {
     jsonrpc: &'static str,
     method: String,
     params: Value,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct CacheModelsParams {
-    provider_id: String,
-    models: Vec<DiscoveredModelInput>,
 }
 
 #[derive(Debug)]
@@ -2170,122 +2164,8 @@ async fn handle_request(
             Ok(json!({ "value": value }))
         }
 
-        "providers.list" => {
-            let include_disabled = params
-                .get("includeDisabled")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(true);
-            let st = state.lock().await;
-            let list = providers::list_providers(&st.db, &st.secrets, include_disabled)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "providers": list }))
-        }
-        "providers.reorder" => {
-            let input: providers::ProviderReorderInput = serde_json::from_value(params)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let moved = providers::reorder_providers(&st.db, &st.secrets, input)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            if !moved {
-                return Err(rpc_err(
-                    1002,
-                    "provider or reorder target not found",
-                    "INVALID_PARAMS",
-                ));
-            }
-            Ok(json!({ "ok": true }))
-        }
-        "providers.create" => {
-            let input: ProviderCreateInput = serde_json::from_value(params)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let provider =
-                providers::create_provider(&st.db, &st.secrets, input).map_err(provider_rpc_err)?;
-            Ok(json!({ "provider": provider }))
-        }
-        "providers.update" => {
-            let input: ProviderUpdateInput = serde_json::from_value(params)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let provider =
-                providers::update_provider(&st.db, &st.secrets, input).map_err(provider_rpc_err)?;
-            Ok(json!({ "provider": provider }))
-        }
-        "providers.delete" => {
-            let id = params
-                .get("id")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let ok = providers::delete_provider(&st.db, &st.secrets, id)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "ok": ok }))
-        }
-        "providers.get" => {
-            let id = params
-                .get("id")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let provider = providers::get_provider(&st.db, &st.secrets, id)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "provider": provider }))
-        }
-        "providers.getSecret" => {
-            let id = params
-                .get("id")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let value = providers::get_secret_for_provider(&st.db, &st.secrets, id)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "value": value }))
-        }
-        // The credential of a plugin-declared provider. `providers.update`
-        // refuses that row, so this is the one path that writes the key the
-        // declaration asks for without touching the declaration's own fields.
-        "providers.setSecret" => {
-            let id = params
-                .get("id")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
-            let secret_value = params.get("secretValue").and_then(|v| v.as_str());
-            let st = state.lock().await;
-            let provider = providers::set_provider_secret(&st.db, &st.secrets, id, secret_value)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "provider": provider }))
-        }
-        "providers.listModels" => {
-            let provider_id = params.get("providerId").and_then(|v| v.as_str());
-            let st = state.lock().await;
-            let models = providers::list_models(&st.db, provider_id)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "models": models }))
-        }
-        "providers.cacheModels" => {
-            let input: CacheModelsParams = serde_json::from_value(params)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let cached =
-                providers::cache_discovered_models(&st.db, &input.provider_id, &input.models)
-                    .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            let models = providers::list_models(&st.db, Some(&input.provider_id))
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "cached": cached, "models": models }))
-        }
-        "providers.testConnection" => {
-            let id = params
-                .get("id")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let provider = providers::get_provider(&st.db, &st.secrets, id)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?
-                .ok_or_else(|| rpc_err(1007, "provider not found", "NOT_FOUND"))?;
-            Ok(json!({
-                "ok": provider.has_secret || provider.auth_kind == "none",
-                "provider": provider
-            }))
+        method if method.starts_with("providers.") => {
+            providers_rpc::handle(&state, method, params).await
         }
 
         "session.list" => {
