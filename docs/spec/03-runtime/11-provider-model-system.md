@@ -102,7 +102,12 @@ wires retain per-request auth resolution and the account-specific `baseUrl`.
 
 Zhipu / GLM and Z.AI are named OpenAI-compatible endpoint presets among a
 short models.dev-backed Service list of first-party vendors (including
-Xiaomi). The add-provider Service picker persists the matching models.dev
+Xiaomi). One named preset — HappyCoding — is a community relay rather than a
+published vendor, so it carries no models.dev record; it is listed with the
+others in `12-provider-config-schema.md` §3.2 and behaves as a plain
+OpenAI-compatible row with endpoint-owned model discovery.
+
+The add-provider Service picker persists the matching models.dev
 `vendorKey` and uses the published endpoint without
 showing Name, Base URL, or API format on the named-service path. Chat turns
 still use the selected pi-ai adapter (`chat_completions`, `responses`,

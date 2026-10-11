@@ -1719,6 +1719,7 @@ sklm: {
     presetHuggingface: "Hugging Face",
     presetNvidia: "NVIDIA",
     presetOpenCodeZen: "OpenCode Zen",
+    presetHappycoding: "HappyCoding",
     presetMeta: "Meta",
     presetMinimaxIntl: "MiniMax (국제)",
     presetMoonshotIntl: "Moonshot AI (국제)",

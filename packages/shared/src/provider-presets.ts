@@ -355,6 +355,19 @@ export const NAMED_ENDPOINT_PRESETS: readonly NamedEndpointPreset[] = [
     labelKey: "settings.presetXiaomiTokenPlanSgp",
   },
   {
+    // A community relay. It speaks the OpenAI shape -- `/v1/models` answers
+    // 401 JSON rather than 404 -- but it is not a models.dev vendor, so its
+    // models come from the endpoint's own discovery and keep generic
+    // metadata. `vendorKey` is the host, which is what row identity and the
+    // DeepSeek-family reasoning-replay check match on.
+    id: "happycoding",
+    vendorKey: "happycoding",
+    name: "HappyCoding",
+    baseUrl: "https://happycoding.xyz/v1",
+    apiStyle: "chat_completions",
+    labelKey: "settings.presetHappycoding",
+  },
+  {
     id: "ollama",
     vendorKey: "ollama",
     name: "Ollama (local)",

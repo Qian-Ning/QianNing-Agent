@@ -98,7 +98,10 @@ OpenAI 风格的 Copilot 线路 API 仍将令牌作为请求密钥签名；所�
 逐请求认证解析与账户专属的 `baseUrl`。
 
 智谱 / GLM 与 Z.AI 是命名的 OpenAI 兼容端点预设，收录在一份由 models.dev
-支撑的、简短的第一方厂商服务列表中（含小米）。添加提供商时的「服务」选择器
+支撑的、简短的第一方厂商服务列表中（含小米）。命名预设里有一个例外 ——
+HappyCoding —— 它是社区中转而非已发布的厂商，因此没有 models.dev 记录；它与其他
+预设并列在 `12-provider-config-schema.md` §3.2，行为上就是一行普通的
+OpenAI 兼容记录，模型由端点自己发现。添加提供商时的「服务」选择器
 会持久化匹配的 models.dev `vendorKey`，并使用已发布的端点，在命名服务这条
 路径上不显示名称、Base URL 或 API 格式。对话回合仍然使用选定的 pi-ai 适配器
 （`chat_completions`、`responses`、`anthropic_messages`、

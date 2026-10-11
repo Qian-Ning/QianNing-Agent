@@ -12,6 +12,37 @@ import {
   zhipuRequestCompat,
 } from "./provider-presets.js";
 
+describe("HappyCoding relay preset", () => {
+  it("matches the published endpoint and stays a plain Completions row", () => {
+    const preset = matchNamedPreset({ baseUrl: "https://happycoding.xyz/v1/" });
+    expect(preset?.id).toBe("happycoding");
+    expect(preset?.apiStyle).toBe("chat_completions");
+    expect(preset?.vendorKey).toBe("happycoding");
+    // It is a relay, not a Zhipu host: no thinking/tool-stream overrides leak in.
+    expect(isZhipuEndpoint({ baseUrl: "https://happycoding.xyz/v1" })).toBe(false);
+  });
+
+  it("selects the non-empty DeepSeek replay for a relay by model id (ADR 0256 / #296)", () => {
+    // The preset is not a models.dev vendor, so the family has to be recognised
+    // from the model id the relay publishes; otherwise a DeepSeek id served
+    // through it would replay empty reasoning and be rejected after compaction.
+    expect(
+      deepseekRequestCompat({
+        baseUrl: "https://happycoding.xyz/v1",
+        modelId: "deepseek-v4.1-flash",
+      }),
+    ).toEqual({
+      requiresReasoningContentOnAssistantMessages: true,
+      requiresNonEmptyReasoningReplay: true,
+    });
+    expect(isOfficialDeepSeekEndpoint({ baseUrl: "https://happycoding.xyz/v1" })).toBe(false);
+  });
+
+  it("does not claim the endpoint on an unrelated host", () => {
+    expect(matchNamedPreset({ baseUrl: "https://example.invalid/v1" })).toBeUndefined();
+  });
+});
+
 describe("Zhipu endpoint presets", () => {
   it("distinguishes China API from Coding Plan by path", () => {
     expect(

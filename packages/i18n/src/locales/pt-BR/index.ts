@@ -1671,6 +1671,7 @@ export const ptBR = {
     presetHuggingface: "Hugging Face",
     presetNvidia: "NVIDIA",
     presetOpenCodeZen: "OpenCode Zen",
+    presetHappycoding: "HappyCoding",
     presetMeta: "Meta",
     presetMinimaxIntl: "MiniMax (Internacional)",
     presetMoonshotIntl: "Moonshot AI (Internacional)",

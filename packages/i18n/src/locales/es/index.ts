@@ -1677,6 +1677,7 @@ sklm: {
     "modelReasoningTag": "Razonamiento",
     "modelsAutoPicked": "Elegidos entre los modelos recomendados. Ajústelos en Gestionar modelos.",
     "presetOpenai": "OpenAI",
+    "presetHappycoding": "HappyCoding",
     "presetAnthropic": "Antrópico",
     "presetGoogle": "Google Gemini",
     "presetOpenrouter": "OpenRouter",
