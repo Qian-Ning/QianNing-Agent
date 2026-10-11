@@ -19,3 +19,31 @@ The Rust entries currently document legacy modules that were outside the
 follow-up split scope. New Rust domain files are expected to remain below the
 limit. An allowlist entry records an explicit debt boundary; it does not raise
 the general limit for future files.
+
+## Debt ceilings
+
+An allowlist entry is a bounded exemption, not a permanent one. Each entry
+records the size it was exempted at:
+
+```json
+{
+  "crates/host-core/src/rpc/mod.rs": {
+    "reason": "Legacy RPC dispatch module; its extraction is outside this refactor scope.",
+    "max": 9260
+  }
+}
+```
+
+`max` is the permitted ceiling in physical lines. The checker fails when an
+exempted file grows past its recorded ceiling, and when an entry has a reason
+but no `max`. Raising a ceiling is allowed, but it is a deliberate, reviewable
+edit in the same change that needs the room — that is what keeps the exemption
+visible instead of letting the debt grow silently.
+
+## Facade ceilings
+
+AGENTS.md section 7 names the facade modules that must stay thin over their
+domain implementations (ADR 0235). `main/index.ts` and `app-store.ts` carry
+standing limits; the remaining facades are recorded in the checker with their
+measured size. A facade that grows fails the check: move the logic to the
+domain module that owns it rather than widening the facade.
