@@ -256,6 +256,13 @@ MiniMax（`anthropic_messages`，`https://api.minimaxi.com/anthropic/v1`）、
 MiniMax (OpenAI)（`chat_completions`，`https://api.minimaxi.com/v1`，别名
 `minimax-openai` / `minimax-compatible`）、Kimi 编程。
 
+社区中转：HappyCoding（`happycoding`，`https://happycoding.xyz/v1`，
+`chat_completions`）。它是命名预设里唯一**不是** models.dev 厂商的那个，因此
+`vendorKey` 背后没有目录记录：模型来自端点自己的 `/models` 发现，其上下文、
+模态与思考选项保持通用形状。除此之外这行就是普通的 `openai_compatible`
+行 —— 自定义 header 与自定义认证方案依然可用 —— 任何中转上属于 DeepSeek 系的
+模型 ID 仍会得到该中转要求的非空推理回放（ADR 0256 / #296）。
+
 智谱 / Z.AI 的 Completions 请求仍使用 `thinkingFormat: "zai"` 与
 `zaiToolStream: true`。DeepSeek 系 Completions 在 vendor key、URL、模型 ID 或
 目录 family 能识别为 DeepSeek 时设置

@@ -409,6 +409,15 @@ Zen (`opencode` at `https://opencode.ai/zen/v1`, alias `opencode-zen`), Vercel
 AI Gateway (`vercel` at `https://ai-gateway.vercel.sh/v1`, alias
 `vercel-ai-gateway`).
 
+Community relays: HappyCoding (`happycoding` at `https://happycoding.xyz/v1`,
+`chat_completions`). It is the one named preset that is **not** a models.dev
+vendor, so it has no catalog record behind its `vendorKey`: models come from the
+endpoint's own `/models` discovery, and their limits, modalities, and thinking
+options stay generic. The row is otherwise an ordinary `openai_compatible` row —
+custom headers and a custom auth scheme stay available — and a DeepSeek-family
+model id on any relay still receives the non-empty reasoning replay that relay
+requires (ADR 0256 / #296).
+
 `builtinProviders()` from pi-ai is the source for this list: every built-in
 provider is either reachable through one of the presets above or is an
 intentional exception with a recorded reason — Amazon Bedrock, Azure OpenAI,
