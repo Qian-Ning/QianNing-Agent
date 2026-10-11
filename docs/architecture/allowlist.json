@@ -14,9 +14,13 @@
     }
   },
   "rust": {
+    "crates/host-core/src/rpc/tests.rs": {
+      "reason": "Integration tests for the RPC dispatch surface, moved out of rpc/mod.rs unchanged in this change. They drive the whole dispatch contract end to end, so the file is one cohesive suite rather than separable modules; the ceiling records the size it was moved at.",
+      "max": 4201
+    },
     "crates/host-core/src/rpc/mod.rs": {
-      "reason": "Legacy RPC dispatch module; its extraction is outside this refactor scope.",
-      "max": 9260
+      "reason": "Legacy RPC dispatch module. Its integration tests moved to rpc/tests.rs in this change, which is why the recorded ceiling dropped from 9260 to 5049; the remaining handle_request dispatch split is a follow-up with its own risk, so the debt stays bounded rather than open.",
+      "max": 5049
     },
     "crates/host-core/src/sessions.rs": {
       "reason": "Legacy session service module; its extraction is outside this refactor scope.",
