@@ -26,7 +26,9 @@ const [
   mainSource,
   hostMainSource,
   presetSource,
-  rpcSource,
+  // The promptPreset.* arms moved out of the dispatcher into their own module;
+  // rpc/mod.rs keeps the guarded delegation arm that routes to it.
+  presetRpcSource,
 ] = await Promise.all([
   read("../src/components/SessionPromptDialog.tsx"),
   read("../../../packages/shared/src/protocol.ts"),
@@ -35,7 +37,7 @@ const [
   read("../electron/main/ipc/session-ipc.ts"),
   read("../../../crates/host-core/src/main.rs"),
   read("../../../crates/host-core/src/prompt_presets.rs"),
-  read("../../../crates/host-core/src/rpc/mod.rs"),
+  read("../../../crates/host-core/src/rpc/prompt_preset_rpc.rs"),
 ]);
 
 test("the dialog carries a saved-prompt shelf that fills the editor draft", () => {
@@ -91,14 +93,15 @@ test("the host stores the shelf in the existing kv store, not a new table", () =
   assert.match(presetSource, /pub fn list\(db: &Database\) -> Result<Vec<PromptPreset>>/);
   assert.match(presetSource, /pub fn save\(db: &Database, name: &str, text: &str\) -> Result<PromptPreset>/);
   assert.match(presetSource, /pub fn delete\(db: &Database, id: &str\) -> Result<bool>/);
-  assert.match(rpcSource, /"promptPreset\.list" => \{/);
-  assert.match(rpcSource, /"promptPreset\.save" => \{/);
-  assert.match(rpcSource, /"promptPreset\.delete" => \{/);
+  assert.match(presetRpcSource, /"promptPreset\.list" => \{/);
+  assert.match(presetRpcSource, /"promptPreset\.save" => \{/);
+  assert.match(presetRpcSource, /"promptPreset\.delete" => \{/);
 });
 
 test("the shelf is not a second persona scope and never auto-applies", () => {
-  // No app-wide or default persona field anywhere on the shelf path.
-  for (const source of [dialogSource, apiSource, presetSource, rpcSource, protocolSource]) {
+  // No app-wide or default persona field anywhere on the shelf path. The RPC
+  // layer's preset code lives in its own module now, so it must be listed here.
+  for (const source of [dialogSource, apiSource, presetSource, presetRpcSource, protocolSource]) {
     assert.doesNotMatch(source, /globalSystemPrompt/);
     assert.doesNotMatch(source, /app-wide|appWideDefault|defaultSystemPrompt/i);
   }

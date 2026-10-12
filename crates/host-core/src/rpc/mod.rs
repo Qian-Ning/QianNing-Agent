@@ -1,9 +1,13 @@
+mod artifacts_rpc;
+mod command_shells_rpc;
 mod computer_rpc;
 mod computer_tool;
 mod config_sync_rpc;
 mod connection_rpc;
 mod connection_tool;
+mod keyboard_rpc;
 mod market_rpc;
+mod prompt_preset_rpc;
 mod providers_rpc;
 mod scheduled_rpc;
 mod scheduled_tools;
@@ -28,7 +32,6 @@ use crate::permissions::{PermissionDecision, PermissionEvaluationParams, Permiss
 use crate::plans;
 use crate::plugin_sessions;
 use crate::plugin_usage;
-use crate::prompt_presets;
 use crate::providers;
 use crate::review;
 use crate::scratch;
@@ -1627,15 +1630,10 @@ async fn handle_request(
                 }
             }))
         }
-        "keyboard.setGlobalShortcut" => {
-            let binding = params
-                .get("binding")
-                .and_then(|value| value.as_str())
-                .unwrap_or_default();
-            let enabled = crate::keyboard::uses_windows_fallback(binding);
-            crate::keyboard::set_enabled(enabled);
-            Ok(json!({ "enabled": enabled }))
+        method if method.starts_with("keyboard.") => {
+            return keyboard_rpc::handle(&state, method, params).await;
         }
+
         "app.getVersion" => Ok(json!({
             "name": "pi-desktop-host-core",
             "version": HOST_VERSION,
@@ -2041,10 +2039,8 @@ async fn handle_request(
             Ok(json!({ "ok": true }))
         }
 
-        "commandShells.list" => {
-            let st = state.lock().await;
-            let catalog = command_shell_catalog(&st)?;
-            serde_json::to_value(catalog).map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))
+        method if method.starts_with("commandShells.") => {
+            return command_shells_rpc::handle(&state, method, params).await;
         }
 
         "secrets.set" => {
@@ -2341,36 +2337,10 @@ async fn handle_request(
             };
             Ok(json!({ "session": session }))
         }
-        "promptPreset.list" => {
-            let st = state.lock().await;
-            let presets = prompt_presets::list(&st.db)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "presets": presets }))
+        method if method.starts_with("promptPreset.") => {
+            return prompt_preset_rpc::handle(&state, method, params).await;
         }
-        "promptPreset.save" => {
-            let name = params
-                .get("name")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "name required", "INVALID_PARAMS"))?;
-            let text = params
-                .get("text")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "text required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let preset = prompt_presets::save(&st.db, name, text)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            Ok(json!({ "preset": preset }))
-        }
-        "promptPreset.delete" => {
-            let id = params
-                .get("id")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let deleted = prompt_presets::delete(&st.db, id)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "ok": deleted }))
-        }
+
         "session.appendMessage" => {
             let session_id = params
                 .get("sessionId")
@@ -3004,13 +2974,8 @@ async fn handle_request(
             Ok(pricing)
         }
 
-        "artifacts.list" => {
-            let session_id = params.get("sessionId").and_then(|v| v.as_str());
-            let limit = params.get("limit").and_then(|v| v.as_i64()).unwrap_or(200);
-            let st = state.lock().await;
-            let artifacts = artifacts::list(&st.db, session_id, limit)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "artifacts": artifacts }))
+        method if method.starts_with("artifacts.") => {
+            return artifacts_rpc::handle(&state, method, params).await;
         }
 
         "plans.pending" => {
