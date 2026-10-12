@@ -15,7 +15,14 @@ const [dialog, page, api, protocol, main, runtime, sidecar, db, groups, rpc] = a
   read("../../../packages/agent-runtime/src/sidecar.ts"),
   read("../../../crates/host-core/src/db/repositories.rs"),
   read("../../../crates/host-core/src/db/project_groups.rs"),
-  read("../../../crates/host-core/src/rpc/mod.rs"),
+  Promise.all([
+    read("../../../crates/host-core/src/rpc/mod.rs"),
+    read("../../../crates/host-core/src/rpc/workspace_rpc.rs"),
+    read("../../../crates/host-core/src/rpc/projects_rpc.rs"),
+    read("../../../crates/host-core/src/rpc/project_rpc.rs"),
+    read("../../../crates/host-core/src/rpc/project_group_rpc.rs"),
+    read("../../../crates/host-core/src/rpc/project_memory_rpc.rs"),
+  ]).then((parts) => parts.join("\n")),
 ]);
 
 test("project memory has a host-backed editor and project menu entry", () => {
