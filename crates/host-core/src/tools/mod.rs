@@ -2863,6 +2863,19 @@ mod tests {
         hashline::strip_write_markup(content)
     }
 
+    /// Budget for tests whose subject is command fidelity rather than scheduling.
+    ///
+    /// These tests spawn a real shell and then assert what it printed, which
+    /// directory it ran in, and which exit code the host reported. The budget is
+    /// scaffolding, so it must not be able to race the machine: PowerShell cold
+    /// start on Windows spikes past five seconds (first run after a build, or
+    /// while Defender scans the fresh binary) and this test spawns it four times.
+    /// Recorded failures at the old 5s budget were both this: one spawn killed
+    /// with `{"code":"TOOL_TIMEOUT","error":"bash timed out"}`, another
+    /// reporting `exitCode: null` after the same kill. The product default keeps
+    /// the guard against a genuinely hung process without racing anything.
+    const SHELL_FIDELITY_TIMEOUT_MS: u64 = DEFAULT_BASH_TIMEOUT_MS;
+
     #[test]
     fn desktop_dispatch_outlasts_every_electron_budget_it_wraps() {
         // Copies of the Electron budgets, bound to their sources by
@@ -2996,7 +3009,7 @@ mod tests {
             None,
             "Bash",
             &serde_json::json!({ "command": command }),
-            15_000,
+            SHELL_FIDELITY_TIMEOUT_MS,
         )
         .await;
         assert!(result.ok, "bash tool failed: {:?}", result.content);
@@ -3017,7 +3030,7 @@ mod tests {
             None,
             "Bash",
             &serde_json::json!({ "command": command }),
-            15_000,
+            SHELL_FIDELITY_TIMEOUT_MS,
         )
         .await;
 
@@ -4181,7 +4194,7 @@ mod tests {
             None,
             "Bash",
             &serde_json::json!({ "command": "printf %s \"$PATH\"" }),
-            15_000,
+            SHELL_FIDELITY_TIMEOUT_MS,
         )
         .await;
         assert!(result.ok, "bash failed: {:?}", result.content);
@@ -4212,7 +4225,7 @@ mod tests {
             Some(&scratch),
             "Bash",
             &serde_json::json!({ "command": "printf %s \"$PI_SCRATCH_DIR\"" }),
-            15_000,
+            SHELL_FIDELITY_TIMEOUT_MS,
         )
         .await;
         assert!(result.ok, "bash failed: {:?}", result.content);
@@ -4239,12 +4252,12 @@ mod tests {
             None,
             "Bash",
             &serde_json::json!({ "command": command }),
-            Some(15_000),
+            Some(SHELL_FIDELITY_TIMEOUT_MS),
             Some(BashExecutionOptions {
                 session_id: "bounded-session".into(),
                 tool_call_id: "bounded-call".into(),
                 command_shell_id: shell_id,
-                timeout_ms: Some(15_000),
+                timeout_ms: Some(SHELL_FIDELITY_TIMEOUT_MS),
                 cancellation: None,
                 output_tx: None,
             }),
@@ -4338,7 +4351,7 @@ mod tests {
             session_id: "powershell-session".into(),
             tool_call_id: "powershell-call".into(),
             command_shell_id: shell::WINDOWS_POWERSHELL_ID.into(),
-            timeout_ms: Some(5_000),
+            timeout_ms: Some(SHELL_FIDELITY_TIMEOUT_MS),
             cancellation: None,
             output_tx: None,
         };
@@ -4350,7 +4363,7 @@ mod tests {
             &serde_json::json!({
                 "command": "[Console]::Out.Write('stdout π \"quoted\" & <meta>'); [Console]::Error.Write('stderr π \"quoted\" & <meta>')"
             }),
-            Some(5_000),
+            Some(SHELL_FIDELITY_TIMEOUT_MS),
             Some(options()),
         )
         .await;
@@ -4373,7 +4386,7 @@ mod tests {
             None,
             "Bash",
             &serde_json::json!({ "command": "[Console]::Out.Write((Get-Location).Path)" }),
-            Some(5_000),
+            Some(SHELL_FIDELITY_TIMEOUT_MS),
             Some(options()),
         )
         .await;
@@ -4394,10 +4407,19 @@ mod tests {
             &serde_json::json!({
                 "command": "Get-Item -LiteralPath 'missing file for pi desktop'"
             }),
-            Some(5_000),
+            Some(SHELL_FIDELITY_TIMEOUT_MS),
             Some(options()),
         )
         .await;
+        // A non-zero exit is the subject of this call, so `ok` is false by
+        // design. Guard on the timeout instead: a spawn killed on the budget
+        // comes back with no `exitCode`, which is how this test used to fail
+        // with nothing but `left: Null` to go on.
+        assert!(
+            error.content["exitCode"].is_number(),
+            "PowerShell error call reported no exit code: {:?}",
+            error.content
+        );
         assert_eq!(error.content["exitCode"], 1);
         let stderr = error.content["stderr"].as_str().unwrap_or_default();
         assert!(
@@ -4412,10 +4434,16 @@ mod tests {
             None,
             "Bash",
             &serde_json::json!({ "command": "cmd /c exit 7" }),
-            Some(5_000),
+            Some(SHELL_FIDELITY_TIMEOUT_MS),
             Some(options()),
         )
         .await;
+        // Same as above: exit 7 is the point, so `ok` is false by design.
+        assert!(
+            native.content["exitCode"].is_number(),
+            "cmd reported no exit code: {:?}",
+            native.content
+        );
         assert_eq!(native.content["exitCode"], 7);
     }
     #[tokio::test]
