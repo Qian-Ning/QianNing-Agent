@@ -1,4 +1,5 @@
 mod agents_rpc;
+mod app_rpc;
 mod artifacts_rpc;
 mod audit_rpc;
 mod command_shells_rpc;
@@ -50,7 +51,7 @@ use crate::providers;
 use crate::review;
 use crate::scratch;
 use crate::sessions;
-use crate::state::{AppState, HOST_VERSION, PROTOCOL_VERSION};
+use crate::state::AppState;
 use crate::tools::{self, ToolsExecuteParams};
 use crate::workspace;
 
@@ -1587,70 +1588,13 @@ async fn handle_request(
             crate::session_collaboration::handle(&st.db, method, &params)
                 .map_err(session_collaboration_rpc_err)
         }
-        "app.handshake" => {
-            let client_version = params
-                .get("protocolVersion")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as u32;
-            if client_version != PROTOCOL_VERSION {
-                return Err(rpc_err(
-                    1011,
-                    format!("protocol mismatch: client={client_version} host={PROTOCOL_VERSION}"),
-                    "PROTOCOL_MISMATCH",
-                ));
-            }
-            let mut st = state.lock().await;
-            st.handshook = true;
-            // Restore the current workspace from kv → projects.
-            if let Ok(Some(pid)) = st.db.kv_get("app", "currentProjectId") {
-                let pid = pid
-                    .as_i64()
-                    .or_else(|| pid.as_str().and_then(|s| s.parse::<i64>().ok()));
-                if let Some(pid) = pid {
-                    if let Ok(Some(path)) = st.db.project_path(pid) {
-                        if !path.is_empty() {
-                            st.workspace.set(PathBuf::from(path));
-                        }
-                    }
-                }
-            }
-            Ok(json!({
-                "protocolVersion": PROTOCOL_VERSION,
-                "version": HOST_VERSION,
-                "capabilities": [
-                    "tools", "sessions", "providers", "secrets", "plugins", "permissions",
-                    "scheduled", "artifacts", "plans", "search", "turns", "notifications"
-                ]
-            }))
+        method if method.starts_with("app.") => {
+            return app_rpc::handle(&state, method, params).await;
         }
-        "app.health" => {
-            let st = state.lock().await;
-            let budget = st.tool_budget.snapshot();
-            Ok(json!({
-                "ok": true,
-                "protocolVersion": PROTOCOL_VERSION,
-                "version": HOST_VERSION,
-                "uptimeMs": st.uptime_ms(),
-                "toolBudget": {
-                    "active": budget.active,
-                    "queued": budget.queued,
-                    "total": budget.total,
-                    "shell": budget.shell,
-                    "reads": budget.reads,
-                    "mutations": budget.mutations,
-                    "plugins": budget.plugins
-                }
-            }))
-        }
+
         method if method.starts_with("keyboard.") => {
             return keyboard_rpc::handle(&state, method, params).await;
         }
-
-        "app.getVersion" => Ok(json!({
-            "name": "pi-desktop-host-core",
-            "version": HOST_VERSION,
-            "protocolVersion": PROTOCOL_VERSION
-        })),
 
         method if method.starts_with("project.memory.") => {
             return project_memory_rpc::handle(&state, method, params).await;
@@ -1757,39 +1701,6 @@ async fn handle_request(
 
         method if method.starts_with("market.") => {
             return market_rpc::handle(&state, method, params, tx.clone()).await;
-        }
-
-        "app.getOnboarding" => {
-            let st = state.lock().await;
-            let settings = st
-                .db
-                .get_setting("app")
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?
-                .unwrap_or_else(|| json!({}));
-            let dismissed = settings
-                .get("onboardingDismissed")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-            let providers = providers::list_providers(&st.db, &st.secrets, true)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            let has_provider = !providers.is_empty();
-            let has_secret = providers.iter().any(|p| p.has_secret);
-            let has_project = st.workspace.get().is_some();
-            let session_count = sessions::session_count(&st.db)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            let has_session = session_count > 0;
-            let steps = vec![
-                json!({"id":"provider","title":"Add a model provider","done": has_provider, "action":"settings.providers"}),
-                json!({"id":"secret","title":"Save your API key","done": has_secret, "action":"settings.providers"}),
-                json!({"id":"project","title":"Open a project folder","done": has_project, "action":"project.open"}),
-                json!({"id":"prompt","title":"Send your first prompt","done": has_session, "action":"chat.focus"}),
-                json!({"id":"plugin","title":"Load a development plugin (optional)","done": !st.plugins.list().is_empty(), "action":"plugins.open"}),
-            ];
-            let critical_incomplete = !has_provider || !has_secret || !has_session;
-            Ok(json!({
-                "showChecklist": critical_incomplete && !dismissed,
-                "steps": steps
-            }))
         }
 
         method if method.starts_with("audit.") => {
