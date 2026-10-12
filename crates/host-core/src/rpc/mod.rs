@@ -11,6 +11,8 @@ mod keyboard_rpc;
 mod market_rpc;
 mod mcp_rpc;
 mod notification_rpc;
+mod permissions_rpc;
+mod plugin_rpc;
 mod prompt_preset_rpc;
 mod providers_rpc;
 mod review_rpc;
@@ -38,8 +40,6 @@ use crate::artifacts;
 use crate::audit;
 use crate::permissions::{PermissionDecision, PermissionEvaluationParams, PermissionManager};
 use crate::plans;
-use crate::plugin_sessions;
-use crate::plugin_usage;
 use crate::providers;
 use crate::review;
 use crate::scratch;
@@ -2422,101 +2422,8 @@ async fn handle_request(
         // Plugin sessions are a separate host-owned domain. Electron main is
         // the only caller that can supply pluginId; the plugin process never
         // receives a generic host RPC handle or SQLite access.
-        "plugin.session.import" => {
-            let plugin_id = params
-                .get("pluginId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "pluginId required", "INVALID_PARAMS"))?;
-            let mut st = state.lock().await;
-            if !st.allow_plugin_import(plugin_id, false) {
-                return Err(rpc_err(1006, "plugin import rate exceeded", "RATE_LIMITED"));
-            }
-            let result = plugin_sessions::import(&st.db, plugin_id, &params)
-                .map_err(plugin_session_rpc_err)?;
-            Ok(result)
-        }
-        "plugin.session.importBatch" => {
-            let plugin_id = params
-                .get("pluginId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "pluginId required", "INVALID_PARAMS"))?;
-            let mut st = state.lock().await;
-            if !st.allow_plugin_import(plugin_id, true) {
-                return Err(rpc_err(
-                    1006,
-                    "plugin batch import rate exceeded",
-                    "RATE_LIMITED",
-                ));
-            }
-            let result = plugin_sessions::import_batch(&st.db, plugin_id, &params)
-                .map_err(plugin_session_rpc_err)?;
-            Ok(result)
-        }
-        "plugin.session.list" => {
-            let plugin_id = params
-                .get("pluginId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "pluginId required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            plugin_sessions::list(&st.db, plugin_id, &params).map_err(plugin_session_rpc_err)
-        }
-        "plugin.session.get" => {
-            let plugin_id = params
-                .get("pluginId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "pluginId required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            plugin_sessions::get(&st.db, plugin_id, &params).map_err(plugin_session_rpc_err)
-        }
-        "plugin.session.listMessages" => {
-            let plugin_id = params
-                .get("pluginId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "pluginId required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            plugin_sessions::list_messages(&st.db, plugin_id, &params)
-                .map_err(plugin_session_rpc_err)
-        }
-        "plugin.session.rename" => {
-            let plugin_id = params
-                .get("pluginId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "pluginId required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            plugin_sessions::rename(&st.db, plugin_id, &params).map_err(plugin_session_rpc_err)
-        }
-        "plugin.session.delete" => {
-            let plugin_id = params
-                .get("pluginId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "pluginId required", "INVALID_PARAMS"))?;
-            let mut st = state.lock().await;
-            if !st.allow_plugin_delete(plugin_id) {
-                return Err(rpc_err(1006, "plugin delete rate exceeded", "RATE_LIMITED"));
-            }
-            plugin_sessions::delete(&st.db, plugin_id, &params).map_err(plugin_session_rpc_err)
-        }
-
-        // Plugin usage is a read-only facts domain: a keyset page of completed
-        // turns from non-deleted sessions, served to plugins that hold
-        // `usage.read` (checked in Electron main before dispatch). The payload
-        // carries counters and titles — never a message body — and Electron
-        // main remains the only caller that can supply pluginId.
-        "plugin.usage.listTurns" => {
-            let plugin_id = params
-                .get("pluginId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "pluginId required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let page =
-                plugin_usage::list_turns_page(&st.db, &params).map_err(plugin_session_rpc_err)?;
-            tracing::debug!(
-                method = "plugin.usage.listTurns",
-                plugin_id,
-                count = page["turns"].as_array().map(Vec::len).unwrap_or(0),
-                "plugin usage rpc served"
-            );
-            Ok(page)
+        method if method.starts_with("plugin.") => {
+            return plugin_rpc::handle(&state, method, params).await;
         }
 
         "session.beginTurn" => {
@@ -3653,127 +3560,8 @@ async fn handle_request(
             }))
         }
 
-        "permissions.evaluate" => {
-            let session_id = params
-                .get("sessionId")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let tool_name = params
-                .get("toolName")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let declared_risk = params.get("declaredRisk").and_then(|v| v.as_str());
-            let plan_safe_actions: Option<Vec<String>> = params
-                .get("planSafeActions")
-                .and_then(|v| v.as_array())
-                .map(|items| {
-                    items
-                        .iter()
-                        .filter_map(|item| item.as_str().map(str::to_string))
-                        .collect()
-                })
-                .filter(|items: &Vec<String>| !items.is_empty());
-            let st = state.lock().await;
-            let Some(mode) = sessions::session_mode(&st.db, session_id)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?
-            else {
-                return Err(rpc_err(1007, "session not found", "SESSION_NOT_FOUND"));
-            };
-            let session_pm = sessions::session_permission_mode(&st.db, session_id)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?
-                .filter(|value| value != "inherit");
-            let effective_pm = session_pm
-                .or_else(|| {
-                    st.db
-                        .get_setting("app")
-                        .ok()
-                        .flatten()
-                        .and_then(|settings| {
-                            settings
-                                .get("defaultPermissionMode")
-                                .and_then(|value| value.as_str())
-                                .filter(|value| {
-                                    sessions::is_valid_permission_mode(value) && *value != "inherit"
-                                })
-                                .map(str::to_string)
-                        })
-                })
-                .unwrap_or_else(|| "ask".into());
-            let args = params.get("args").cloned().unwrap_or_else(|| json!({}));
-            let workspace_path = resolve_tool_workspace_for_call(&st, session_id, &args)?;
-            let scratch_path = scratch::session_dir(&st.data_dir, session_id);
-            let external_path_permission = requires_external_path_permission(
-                workspace_path.as_deref(),
-                scratch_path.as_deref(),
-                tool_name,
-                &args,
-            );
-            let decision = st
-                .permissions
-                .evaluate_auto_with_permission_mode_and_risk_and_path(PermissionEvaluationParams {
-                    session_id,
-                    tool_name,
-                    mode: &mode,
-                    permission_mode: &effective_pm,
-                    session_grants: &st.session_grants,
-                    declared_risk,
-                    requires_external_path_permission: external_path_permission,
-                    plan_safe_actions: plan_safe_actions.as_deref(),
-                });
-            Ok(json!({
-                "decision": decision,
-                "risk": PermissionManager::tool_risk_with_declared(tool_name, declared_risk),
-                "externalPathPermission": external_path_permission
-            }))
-        }
-        "permissions.resolve" => {
-            let request_id = params
-                .get("requestId")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "requestId required", "INVALID_PARAMS"))?;
-            let decision_raw = params
-                .get("decision")
-                .and_then(|v| v.as_str())
-                .unwrap_or("deny");
-            let decision = match decision_raw {
-                "allow-once" => PermissionDecision::AllowOnce,
-                "allow-session" => PermissionDecision::AllowSession,
-                _ => PermissionDecision::Deny,
-            };
-            let mut st = state.lock().await;
-            st.resolve_permission(request_id, decision)
-                .map_err(|code| {
-                    let c = if code == "NOT_FOUND" { 1007 } else { 1000 };
-                    rpc_err(c, code.clone(), &code)
-                })?;
-            Ok(json!({ "ok": true }))
-        }
-        "permissions.listSessionGrants" => {
-            let session_id = params
-                .get("sessionId")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let st = state.lock().await;
-            Ok(json!({
-                "grants": st.session_grants.get(session_id).cloned().unwrap_or_default()
-            }))
-        }
-        "permissions.clearSessionGrants" => {
-            let session_id = params
-                .get("sessionId")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let mut st = state.lock().await;
-            st.session_grants.remove(session_id);
-            Ok(json!({ "ok": true }))
-        }
-        "permissions.pending" => {
-            // Pending requests are Host state (D374/D375): a client that
-            // attaches after `permissions.request` was emitted reads the open
-            // set here and answers through the unchanged `permissions.resolve`.
-            let session_id = params.get("sessionId").and_then(|v| v.as_str());
-            let st = state.lock().await;
-            Ok(json!({ "requests": st.permissions.pending_requests(session_id) }))
+        method if method.starts_with("permissions.") => {
+            return permissions_rpc::handle(&state, method, params).await;
         }
 
         "plugins.setLocale" => {
