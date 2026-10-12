@@ -15,6 +15,10 @@ mod permissions_rpc;
 mod plans_rpc;
 mod plugin_rpc;
 mod plugins_rpc;
+mod project_group_rpc;
+mod project_memory_rpc;
+mod project_rpc;
+mod projects_rpc;
 mod prompt_preset_rpc;
 mod providers_rpc;
 mod review_rpc;
@@ -27,6 +31,7 @@ mod settings_rpc;
 mod skills_rpc;
 mod stats_rpc;
 mod tools_rpc;
+mod workspace_rpc;
 
 use std::io::{self, BufRead, BufReader as StdBufReader, Read, Write};
 use std::path::{Path, PathBuf};
@@ -1647,276 +1652,22 @@ async fn handle_request(
             "protocolVersion": PROTOCOL_VERSION
         })),
 
-        "workspace.get" => {
-            let st = state.lock().await;
-            Ok(json!({ "workspace": st.workspace.get() }))
+        method if method.starts_with("project.memory.") => {
+            return project_memory_rpc::handle(&state, method, params).await;
         }
-        "projects.list" => {
-            let st = state.lock().await;
-            let projects = st
-                .db
-                .list_projects()
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "projects": projects }))
+        method if method.starts_with("project.group.") => {
+            return project_group_rpc::handle(&state, method, params).await;
         }
-        "project.groups.list" => {
-            let st = state.lock().await;
-            let groups = st
-                .db
-                .list_project_groups()
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "groups": groups }))
+        method if method.starts_with("workspace.") => {
+            return workspace_rpc::handle(&state, method, params).await;
         }
-        "project.group.create" => {
-            let name = params
-                .get("name")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "name required", "INVALID_PARAMS"))?;
-            let folders = params
-                .get("folders")
-                .and_then(Value::as_array)
-                .ok_or_else(|| rpc_err(1002, "folders required", "INVALID_PARAMS"))?
-                .iter()
-                .filter_map(Value::as_str)
-                .map(str::to_string)
-                .collect::<Vec<_>>();
-            let st = state.lock().await;
-            let group = st
-                .db
-                .create_project_group(name, &folders)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            Ok(json!({ "group": group }))
+        method if method.starts_with("projects.") => {
+            return projects_rpc::handle(&state, method, params).await;
         }
-        "project.group.update" => {
-            let group_id = params
-                .get("groupId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "groupId required", "INVALID_PARAMS"))?;
-            let name = params
-                .get("name")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "name required", "INVALID_PARAMS"))?;
-            let folders = params
-                .get("folders")
-                .and_then(Value::as_array)
-                .ok_or_else(|| rpc_err(1002, "folders required", "INVALID_PARAMS"))?
-                .iter()
-                .filter_map(Value::as_str)
-                .map(str::to_string)
-                .collect::<Vec<_>>();
-            let st = state.lock().await;
-            let group = st
-                .db
-                .update_project_group(group_id, name, &folders)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            Ok(json!({ "group": group }))
-        }
-        "project.group.rename" => {
-            let id = params
-                .get("groupId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "groupId required", "INVALID_PARAMS"))?;
-            let name = params
-                .get("name")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "name required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let group = st
-                .db
-                .rename_project_group(id, name)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            Ok(json!({ "group": group }))
-        }
-        "project.group.memory.get" => {
-            let id = params
-                .get("groupId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "groupId required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let memory = st
-                .db
-                .get_project_group_memory(id)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            Ok(json!({ "memory": memory }))
-        }
-        "project.group.memory.set" => {
-            let id = params
-                .get("groupId")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "groupId required", "INVALID_PARAMS"))?;
-            let entries = params
-                .get("entries")
-                .ok_or_else(|| rpc_err(1002, "entries required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let memory = st
-                .db
-                .set_project_group_memory(id, entries)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            Ok(json!({ "memory": memory }))
-        }
-        "project.group.context" => {
-            let path = params
-                .get("path")
-                .and_then(Value::as_str)
-                .ok_or_else(|| rpc_err(1002, "path required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let context = st
-                .db
-                .project_group_context_for_path(path)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            Ok(json!({ "context": context }))
-        }
-        "projects.create" => {
-            let path = params
-                .get("path")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "path required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let id = st
-                .db
-                .ensure_project(path, false)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            let project = st
-                .db
-                .get_project(id)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?
-                .ok_or_else(|| rpc_err(1000, "project disappeared after creation", "INTERNAL"))?;
-            Ok(json!({ "project": project }))
+        method if method.starts_with("project.") => {
+            return project_rpc::handle(&state, method, params).await;
         }
 
-        "projects.remove" => {
-            let path = params
-                .get("path")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "path required", "INVALID_PARAMS"))?;
-            let path = crate::db::canonical_project_path(path)
-                .ok_or_else(|| rpc_err(1002, "path required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            if crate::scheduled::project::has_running_tasks(&st.db, &path)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?
-            {
-                return Err(rpc_err(
-                    1008,
-                    "project has running scheduled tasks",
-                    "CONFLICT",
-                ));
-            }
-            // A path that belongs to a multi-folder project group must stay put:
-            // deleting one root would orphan the rest of the group, so callers
-            // remove the folder from the group first. A single-folder stored
-            // group is just a wrapper around one project, so removing that
-            // project also removes the now-empty group record.
-            if let Some(group) = st
-                .db
-                .stored_project_group_for_path(&path)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?
-            {
-                if group.roots.len() > 1 {
-                    return Err(rpc_err(
-                        1002,
-                        "project belongs to a multi-folder project group; remove the folder from the group first",
-                        "INVALID_PARAMS",
-                    ));
-                }
-                st.db
-                    .delete_project_group_record(&group.id)
-                    .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            }
-            let session_ids = st
-                .db
-                .project_session_ids(&path)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            // A running turn still owns its session's tools and working
-            // directory and is still writing to that session's transcript, so
-            // the bulk delete waits until every attached session is idle.
-            for id in &session_ids {
-                if sessions::session_has_running_turn(&st.db, id)
-                    .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?
-                {
-                    return Err(rpc_err(1008, "project has running sessions", "CONFLICT"));
-                }
-            }
-            crate::scheduled::project::pause(&st.db, &path)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            let mut sessions_removed = 0;
-            for id in &session_ids {
-                if sessions::delete_session(&st.db, id)
-                    .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?
-                {
-                    drop_session_side_data(&st, id);
-                    sessions_removed += 1;
-                }
-            }
-            let removed = st
-                .db
-                .delete_project(&path)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            st.db
-                .delete_project_memory(&path)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "removed": removed, "sessionsRemoved": sessions_removed }))
-        }
-        "project.memory.get" => {
-            let path = params
-                .get("path")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "path required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let memory = st
-                .db
-                .get_project_memory(path)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            Ok(json!({ "memory": memory }))
-        }
-        "project.memory.set" => {
-            let path = params
-                .get("path")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "path required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            if let Some(entries) = params.get("entries") {
-                let memory = st
-                    .db
-                    .set_project_memory_entries(path, entries)
-                    .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-                return Ok(json!({ "memory": memory }));
-            }
-            let content = params
-                .get("content")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "content required", "INVALID_PARAMS"))?;
-            let memory = st
-                .db
-                .set_project_memory(path, content)
-                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            Ok(json!({ "memory": memory }))
-        }
-        "workspace.set" => {
-            let path = params
-                .get("path")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "path required", "INVALID_PARAMS"))?;
-            let mut st = state.lock().await;
-            st.hashline.drop_all();
-            let ws = st.workspace.set(PathBuf::from(path));
-            let pid = st
-                .db
-                .ensure_project(&ws.path, true)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            st.db
-                .kv_set("app", "currentProjectId", &json!(pid))
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "workspace": ws }))
-        }
-        "workspace.clear" => {
-            let mut st = state.lock().await;
-            st.hashline.drop_all();
-            st.workspace.clear();
-            st.db
-                .kv_delete("app", "currentProjectId")
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "ok": true }))
-        }
         method if method.starts_with("review.") => {
             return review_rpc::handle(&state, method, params).await;
         }
