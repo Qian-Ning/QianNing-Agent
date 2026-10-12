@@ -206,6 +206,11 @@
   应用运行 `pnpm test:e2e:media-poster-frame`，因此「片段的海报帧再也取不出来」这类
   回归 —— 媒体 scheme 不再提供片段、解码坏掉、或保存通道开始接受它必须拒绝的东西 ——
   会在 CI 失败，而不是留下一张永远不出现的封面。
+- 同一个 workflow 中的 `rust-windows` 作业会在 Windows runner 上运行
+  `cargo test -p host-core --locked`。`#[cfg(windows)]` 测试模块在 Linux runner
+  上会在编译前就被移除，因此某个平台专属测试即使在编译期或运行期失败，
+  流水线里也没有任何作业能观察到它；该作业让 Windows 专属回归在 CI 失败，
+  而不是到达用户手里。
 
 ### 市场/更新诊断门
 
