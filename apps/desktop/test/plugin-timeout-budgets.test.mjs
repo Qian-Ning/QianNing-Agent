@@ -23,7 +23,8 @@ const sharedTimeouts = source("packages/shared/src/rpc-timeouts.ts");
 const hostTools = source("crates/host-core/src/tools/mod.rs");
 const hostPermissions = source("crates/host-core/src/permissions.rs");
 const hostToolBudget = source("crates/host-core/src/tool_budget.rs");
-const hostRpc = source("crates/host-core/src/rpc/mod.rs");
+// tools.* moved out of the dispatcher; the desktop-dispatch call site lives here now.
+const toolsRpc = source("crates/host-core/src/rpc/tools_rpc.rs");
 
 test("plugin completion and MCP calls fit inside the plugin tool budget", () => {
   const tool = constMs(pluginRuntime, "PLUGIN_TOOL_TIMEOUT_MS");
@@ -49,7 +50,7 @@ test("host-core dispatches through the shared dispatch deadline", () => {
   // a hard-coded 60s lived, and reverting that one line would leave every other
   // assertion in this file green.
   assert.match(
-    hostRpc,
+    toolsRpc,
     /is_desktop_dispatched\(&p\.tool_name\)[\s\S]{0,400}?desktop_dispatch_timeout_ms\(p\.timeout_ms\)/,
     "tools.execute must dispatch desktop tools through desktop_dispatch_timeout_ms",
   );
