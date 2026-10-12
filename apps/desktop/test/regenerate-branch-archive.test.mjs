@@ -38,7 +38,7 @@ test("the outbox is drained before a branch is archived", () => {
 
 test("the host owns the branch root search and the pager stamp", () => {
   const host = read("../../../crates/host-core/src/sessions.rs");
-  const rpc = read("../../../crates/host-core/src/rpc/mod.rs");
+  const rpc = read("../../../crates/host-core/src/rpc/session_rpc.rs");
   const transcripts = read("../../../crates/host-core/src/transcripts.rs");
 
   assert.match(rpc, /"session\.saveActiveRevision" => \{/);

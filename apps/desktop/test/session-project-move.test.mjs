@@ -7,7 +7,7 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 const protocol = read("../../../packages/shared/src/protocol.ts");
 const sessions = read("../../../crates/host-core/src/sessions.rs");
-const rpc = read("../../../crates/host-core/src/rpc/mod.rs");
+const rpc = read("../../../crates/host-core/src/rpc/session_rpc.rs");
 const main = readMainSourceSync();
 const mcpControl = read("../electron/main/mcp-control.ts");
 const api = read("../src/lib/api.ts");

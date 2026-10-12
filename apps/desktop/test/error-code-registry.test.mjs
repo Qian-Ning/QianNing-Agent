@@ -23,10 +23,12 @@ const documented = new Set(
 function hostEmittedCodes() {
   const codes = new Set();
   const rpc = read("crates/host-core/src/rpc/mod.rs");
-  for (const m of rpc.matchAll(/rpc_err\(\s*-?\d+,\s*[^;]*?"([A-Z][A-Z0-9_]+)"\s*,?\s*\)/gs)) {
+  // session.* moved out of the dispatcher; its error codes live here now.
+  const sessionRpc = read("crates/host-core/src/rpc/session_rpc.rs");
+  for (const src of [rpc, sessionRpc]) for (const m of src.matchAll(/rpc_err\(\s*-?\d+,\s*[^;]*?"([A-Z][A-Z0-9_]+)"\s*,?\s*\)/gs)) {
     codes.add(m[1]);
   }
-  for (const m of rpc.matchAll(/plan_rpc_err\("([A-Z][A-Z0-9_]+)/g)) codes.add(m[1]);
+  for (const src of [rpc, sessionRpc]) for (const m of src.matchAll(/plan_rpc_err\("([A-Z][A-Z0-9_]+)/g)) codes.add(m[1]);
   const tools = read("crates/host-core/src/tools/mod.rs");
   for (const m of tools.matchAll(/\(\s*"([A-Z][A-Z0-9_]+)"\.into\(\)\s*,/g)) codes.add(m[1]);
   for (const m of tools.matchAll(/ToolError::new\(\s*"([A-Z][A-Z0-9_]+)"/g)) codes.add(m[1]);

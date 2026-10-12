@@ -24,7 +24,7 @@ const [
   readStoreSource(),
   read("../src/lib/api.ts"),
   read("../../../crates/host-core/src/sessions.rs"),
-  read("../../../crates/host-core/src/rpc/mod.rs"),
+  read("../../../crates/host-core/src/rpc/session_rpc.rs"),
   loadStyles(),
 ]);
 

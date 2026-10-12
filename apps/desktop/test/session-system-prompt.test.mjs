@@ -52,7 +52,7 @@ const [
   read("../../../packages/shared/src/types/sessions.ts"),
   read("../../../packages/shared/src/types/settings.ts"),
   read("../../../crates/host-core/src/sessions.rs"),
-  read("../../../crates/host-core/src/rpc/mod.rs"),
+  read("../../../crates/host-core/src/rpc/session_rpc.rs"),
   read("../../../crates/host-core/src/db/migrations.rs"),
   read("../../../crates/host-core/src/db/tests.rs"),
   read("../../../crates/host-core/src/db/schema.rs"),

@@ -35,6 +35,7 @@ const [
   contextBudget,
   delegationHistory,
   compactionTail,
+  hostSessionRpc,
 ] = await Promise.all([
   read("../../../packages/shared/src/protocol.ts"),
   readSharedTypesSource(),
@@ -58,6 +59,8 @@ const [
   read("../../../packages/agent-runtime/src/context-budget.ts"),
   read("../../../packages/agent-runtime/src/delegation-history.ts"),
   read("../../../packages/agent-runtime/src/compaction-tail.ts"),
+  // session.* moved out of the dispatcher into its own module.
+  read("../../../crates/host-core/src/rpc/session_rpc.rs"),
 ]);
 
 test("context compaction is wired through protocol v11 and the manual IPC path", () => {
@@ -75,7 +78,7 @@ test("context compaction is wired through protocol v11 and the manual IPC path",
   assert.match(main, /sidecar\.call\("agent\.compact"/);
   assert.match(api, /compact:\s*\(req: AgentCompactRequest\)/);
   assert.match(commands, /slash:\s*"compact"/);
-  assert.match(hostRpc, /"session\.appendCompaction"/);
+  assert.match(hostSessionRpc, /"session\.appendCompaction"/);
 });
 
 test("turn_end remains a per-tool-turn boundary rather than a terminal run state", () => {
