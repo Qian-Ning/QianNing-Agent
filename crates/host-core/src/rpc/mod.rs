@@ -1,4 +1,6 @@
+mod agents_rpc;
 mod artifacts_rpc;
+mod audit_rpc;
 mod command_shells_rpc;
 mod computer_rpc;
 mod computer_tool;
@@ -7,6 +9,7 @@ mod connection_rpc;
 mod connection_tool;
 mod keyboard_rpc;
 mod market_rpc;
+mod mcp_rpc;
 mod notification_rpc;
 mod prompt_preset_rpc;
 mod providers_rpc;
@@ -15,6 +18,7 @@ mod scheduled_rpc;
 mod scheduled_tools;
 mod search_rpc;
 mod secrets_rpc;
+mod settings_rpc;
 mod skills_rpc;
 mod stats_rpc;
 
@@ -1918,94 +1922,8 @@ async fn handle_request(
             return review_rpc::handle(&state, method, params).await;
         }
 
-        "settings.get" => {
-            let st = state.lock().await;
-            let stored = st
-                .db
-                .get_setting("app")
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            // A brand-new install follows the OS theme. Dark is still the
-            // palette the shell is designed around, but a fresh install on a
-            // light desktop must not open dark: "system" resolves against the
-            // OS at paint time (useAppShellRuntime), so the first launch
-            // matches the machine it was installed on.
-            let mut settings = normalize_settings_value(stored.unwrap_or_else(|| {
-                json!({
-                    "defaultMode": "agent",
-                    "defaultCommandShell": tools::shell::default_shell_id(),
-                    "theme": "system",
-                    "enterToSend": true,
-                    "largePasteThreshold": DEFAULT_LARGE_PASTE_THRESHOLD,
-                    "contextCompaction": {
-                        "enabled": true,
-                        "reserveTokens": 16384,
-                        "keepRecentTokens": 20000
-                    },
-                    "onboardingDismissed": false
-                })
-            }));
-            // Repair on read: a binding whose provider row is already gone —
-            // deleted by a build that did not prune, an uninstalled plugin, or
-            // synced bundle — is dropped here and the store is corrected, so
-            // the shell never presents a default the runtime must reject.
-            let pruned_images = prune_unresolvable_generation_bindings(
-                &st.db,
-                &mut settings,
-                IMAGE_GENERATION_SETTING_KEYS,
-            )
-            .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            let pruned_videos = prune_unresolvable_generation_bindings(
-                &st.db,
-                &mut settings,
-                VIDEO_GENERATION_SETTING_KEYS,
-            )
-            .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            if pruned_images || pruned_videos {
-                st.db
-                    .set_setting("app", &settings)
-                    .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            }
-            Ok(settings)
-        }
-        "settings.set" => {
-            validate_settings_value(&params)?;
-            let mut st = state.lock().await;
-            let stored = st
-                .db
-                .get_setting("app")
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            let incoming_shell = params.get("defaultCommandShell").and_then(Value::as_str);
-            let current_effective_shell = effective_command_shell_id(stored.as_ref());
-            if incoming_shell.is_some_and(|shell| current_effective_shell.as_deref() != Some(shell))
-            {
-                gate_default_command_shell_setting(&st)?;
-            }
-            let mut settings = normalize_settings_value(merge_settings_value(stored, params));
-            for keys in [IMAGE_GENERATION_SETTING_KEYS, VIDEO_GENERATION_SETTING_KEYS] {
-                prune_unresolvable_generation_bindings(&st.db, &mut settings, keys)
-                    .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            }
-            st.db
-                .set_setting("app", &settings)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            // Re-pin the marketplace channel in memory. Fetching here would hold
-            // the state lock behind a remote timeout, so the renderer triggers
-            // `market.refresh` after switching channels.
-            let (channel, custom_url) =
-                crate::plugins::market_channel_from_settings(Some(&settings));
-            st.plugins.set_market_channel(channel, custom_url);
-            // A concrete app language pins the plugin display locale here, so a
-            // shell that only writes settings still gets localized plugin rows.
-            // `auto` is resolved by the shell and pushed through
-            // `plugins.setLocale`.
-            if let Some(language) = settings.get("language").and_then(Value::as_str) {
-                if language != "auto" {
-                    st.plugins.set_locale(language);
-                }
-            }
-            crate::network_proxy::apply_from_settings(Some(&settings));
-            crate::network_policy::apply_from_settings(Some(&settings));
-            Ok(json!({ "ok": true }))
+        method if method.starts_with("settings.") => {
+            return settings_rpc::handle(&state, method, params).await;
         }
 
         method if method.starts_with("commandShells.") => {
@@ -4114,151 +4032,14 @@ async fn handle_request(
             Ok(json!({ "plugin": plugin }))
         }
 
-        "mcp.list" => {
-            let (level, project_path) = parse_capability_query(&params)?;
-            let mut st = state.lock().await;
-            let servers = st
-                .mcp_servers
-                .list(level, project_path.as_deref())
-                .map_err(scope_err)?;
-            Ok(json!({ "servers": servers, "statuses": [] }))
-        }
-        "mcp.active" => {
-            let project_path = params.get("projectPath").and_then(Value::as_str);
-            let mut st = state.lock().await;
-            let servers = st.mcp_servers.active_for(project_path).map_err(scope_err)?;
-            Ok(json!({ "servers": servers, "statuses": [] }))
-        }
-        "mcp.upsert" => {
-            let input: crate::mcp_servers::McpServerInput =
-                serde_json::from_value(params.get("server").cloned().unwrap_or(params.clone()))
-                    .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
-            let mut st = state.lock().await;
-            let server = st.mcp_servers.upsert(input).map_err(scope_err)?;
-            Ok(json!({ "server": server }))
-        }
-        "mcp.remove" => {
-            let id = require_id(&params)?;
-            let (level, project_path) = parse_capability_query(&params)?;
-            let mut st = state.lock().await;
-            let ok = st
-                .mcp_servers
-                .remove(&id, Some(level), project_path.as_deref())
-                .map_err(scope_err)?;
-            Ok(json!({ "ok": ok }))
-        }
-        "mcp.setEnabled" => {
-            let id = require_id(&params)?;
-            let enabled = params
-                .get("enabled")
-                .and_then(Value::as_bool)
-                .unwrap_or(false);
-            let (level, project_path) = parse_capability_query(&params)?;
-            let mut st = state.lock().await;
-            let server = st
-                .mcp_servers
-                .set_enabled(&id, enabled, Some(level), project_path.as_deref())
-                .map_err(scope_err)?;
-            Ok(json!({ "server": server }))
-        }
-        "mcp.setScope" => {
-            let id = require_id(&params)?;
-            let scope = parse_scope(&params)?;
-            let mut st = state.lock().await;
-            let server = st.mcp_servers.set_scope(&id, scope).map_err(scope_err)?;
-            Ok(json!({ "server": server }))
-        }
-        "mcp.transfer" => {
-            let id = require_id(&params)?;
-            let from = parse_capability_target(&params, "from")?;
-            let to = parse_capability_target(&params, "to")?;
-            let mut st = state.lock().await;
-            let server = st
-                .mcp_servers
-                .transfer(&id, &from, &to)
-                .map_err(scope_err)?;
-            Ok(json!({ "server": server }))
+        method if method.starts_with("mcp.") => {
+            return mcp_rpc::handle(&state, method, params).await;
         }
 
         method if method.starts_with("skills.") => skills_rpc::handle(&state, method, params).await,
 
-        "agents.list" => {
-            let mut st = state.lock().await;
-            Ok(json!({ "subagents": st.user_subagents.list().map_err(subagent_err)? }))
-        }
-        "agents.active" => {
-            let project_path = params.get("projectPath").and_then(Value::as_str);
-            let mut st = state.lock().await;
-            Ok(
-                json!({ "subagents": st.user_subagents.active_for(project_path).map_err(subagent_err)? }),
-            )
-        }
-        "agents.create" => {
-            let input = parse_subagent_input(&params)?;
-            let mut st = state.lock().await;
-            let subagent = st.user_subagents.create(input).map_err(subagent_err)?;
-            Ok(json!({ "subagent": subagent }))
-        }
-        "agents.update" => {
-            let id = require_id(&params)?;
-            let input = parse_subagent_input(&params)?;
-            let mut st = state.lock().await;
-            let subagent = st.user_subagents.update(&id, input).map_err(subagent_err)?;
-            Ok(json!({ "subagent": subagent }))
-        }
-        "agents.read" => {
-            let id = require_id(&params)?;
-            let mut st = state.lock().await;
-            match st.user_subagents.read(&id).map_err(subagent_err)? {
-                Some((subagent, body)) => Ok(json!({ "subagent": subagent, "body": body })),
-                None => Ok(json!({ "subagent": null, "body": null })),
-            }
-        }
-        "agents.remove" => {
-            let id = require_id(&params)?;
-            let mut st = state.lock().await;
-            let ok = st.user_subagents.remove(&id).map_err(subagent_err)?;
-            Ok(json!({ "ok": ok }))
-        }
-        "agents.setEnabled" => {
-            let id = require_id(&params)?;
-            let enabled = params
-                .get("enabled")
-                .and_then(Value::as_bool)
-                .unwrap_or(false);
-            let mut st = state.lock().await;
-            let subagent = st
-                .user_subagents
-                .set_enabled(&id, enabled)
-                .map_err(subagent_err)?;
-            Ok(json!({ "subagent": subagent }))
-        }
-        "agents.setScope" => {
-            let id = require_id(&params)?;
-            let scope = parse_scope(&params)?;
-            let mut st = state.lock().await;
-            let subagent = st
-                .user_subagents
-                .set_scope(&id, scope)
-                .map_err(subagent_err)?;
-            Ok(json!({ "subagent": subagent }))
-        }
-        "agents.disabledBuiltins" => {
-            let st = state.lock().await;
-            Ok(json!({ "disabled": st.user_subagents.disabled_builtins() }))
-        }
-        "agents.setBuiltinEnabled" => {
-            let id = require_id(&params)?;
-            let enabled = params
-                .get("enabled")
-                .and_then(Value::as_bool)
-                .unwrap_or(false);
-            let mut st = state.lock().await;
-            let id = st
-                .user_subagents
-                .set_builtin_enabled(&id, enabled)
-                .map_err(subagent_err)?;
-            Ok(json!({ "id": id, "enabled": enabled }))
+        method if method.starts_with("agents.") => {
+            return agents_rpc::handle(&state, method, params).await;
         }
 
         method if method.starts_with("market.") => {
@@ -4298,19 +4079,9 @@ async fn handle_request(
             }))
         }
 
-        "audit.append" => {
-            let kind = params
-                .get("kind")
-                .and_then(|v| v.as_str())
-                .unwrap_or("custom");
-            let session_id = params.get("sessionId").and_then(|v| v.as_str());
-            let payload = params.get("payload").cloned().unwrap_or(json!({}));
-            let st = state.lock().await;
-            audit::append(&st.db, kind, session_id, payload)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "ok": true }))
+        method if method.starts_with("audit.") => {
+            return audit_rpc::handle(&state, method, params).await;
         }
-
         _ => Err(rpc_err(
             -32601,
             format!("method not found: {method}"),
