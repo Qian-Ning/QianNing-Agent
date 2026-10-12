@@ -108,6 +108,23 @@ test("the poster-frame E2E job boots the built app with a display", () => {
   );
 });
 
+test("CI compiles and runs the host-core tests on Windows", () => {
+  // `#[cfg(windows)]` test modules are removed before compilation on the Linux
+  // runner, so nothing under them had ever been built for the platform it
+  // targets: a test that fails to compile, or that races a native child
+  // process, stayed invisible until the suite was run on Windows by hand.
+  const start = ciWorkflowSource.indexOf("  rust-windows:");
+  assert.notEqual(start, -1, "the rust-windows job is missing");
+  const block = ciWorkflowSource.slice(start);
+  assert.match(block, /^    runs-on: windows-latest$/m);
+  // `cargo test` builds the platform-specific dependencies and every test
+  // target, then runs them; the crate declares no optional features, so no
+  // feature flag is needed to reach all of them.
+  assert.match(block, /^        run: cargo test -p host-core --locked$/m);
+  // Formatting and linting stay on the Linux leg.
+  assert.doesNotMatch(block, /cargo (?:fmt|clippy)/);
+});
+
 test("release runners validate tags without a separate job barrier", () => {
   assert.doesNotMatch(releaseWorkflowSource, /^  validate:/m);
   assert.doesNotMatch(releaseWorkflowSource, /^    needs: validate$/m);

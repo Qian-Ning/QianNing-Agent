@@ -360,6 +360,12 @@ Every change follows this sequence. Steps may be iterated if the implementation 
   request, so a clip whose poster frame can no longer be taken — the media scheme
   stops serving, the decode breaks, or the save channel begins accepting what it
   must refuse — fails CI instead of leaving a cover that never appears.
+- The `rust-windows` job in the same workflow runs
+  `cargo test -p host-core --locked` on a Windows runner. `#[cfg(windows)]`
+  test modules are removed before compilation on the Linux runner, so a
+  platform-specific test that fails to compile — or that fails at runtime — had
+  no job in the pipeline observing it; the job makes a Windows-only regression
+  fail CI instead of reaching a user.
 
 ### Marketplace/update diagnosis gate
 
