@@ -7,11 +7,16 @@ mod connection_rpc;
 mod connection_tool;
 mod keyboard_rpc;
 mod market_rpc;
+mod notification_rpc;
 mod prompt_preset_rpc;
 mod providers_rpc;
+mod review_rpc;
 mod scheduled_rpc;
 mod scheduled_tools;
+mod search_rpc;
+mod secrets_rpc;
 mod skills_rpc;
+mod stats_rpc;
 
 use std::io::{self, BufRead, BufReader as StdBufReader, Read, Write};
 use std::path::{Path, PathBuf};
@@ -27,7 +32,6 @@ use tokio::sync::{mpsc, oneshot, Mutex, Semaphore};
 use crate::agent_capabilities::CapabilityLevel;
 use crate::artifacts;
 use crate::audit;
-use crate::notifications;
 use crate::permissions::{PermissionDecision, PermissionEvaluationParams, PermissionManager};
 use crate::plans;
 use crate::plugin_sessions;
@@ -1910,43 +1914,8 @@ async fn handle_request(
                 .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
             Ok(json!({ "ok": true }))
         }
-        "review.rollback" => {
-            let session_id = params
-                .get("sessionId")
-                .and_then(|value| value.as_str())
-                .ok_or_else(|| rpc_err(1002, "sessionId required", "INVALID_PARAMS"))?;
-            let snapshot_id = params
-                .get("snapshotId")
-                .and_then(|value| value.as_str())
-                .ok_or_else(|| rpc_err(1002, "snapshotId required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let workspace_root = resolve_tool_workspace(&st, session_id)?;
-            let outcome = review::rollback_change(
-                &st.data_dir,
-                session_id,
-                snapshot_id,
-                workspace_root.as_deref().map(std::path::Path::new),
-            )
-            .map_err(|error| rpc_err(1000, error.to_string(), "INTERNAL"))?;
-            if matches!(outcome.status, "rolledBack" | "alreadyRolledBack") {
-                if let Some(root) = workspace_root.as_deref() {
-                    let resolved = std::path::Path::new(root).join(&outcome.path);
-                    st.hashline.invalidate_path(
-                        session_id,
-                        &crate::tools::hashline::canonical_key(&resolved),
-                    );
-                }
-                sessions::update_tool_review_state(
-                    &st.db,
-                    session_id,
-                    &outcome.message_id,
-                    snapshot_id,
-                    "rolledBack",
-                )
-                .map_err(|error| rpc_err(1000, error.to_string(), "INTERNAL"))?;
-            }
-            Ok(serde_json::to_value(outcome)
-                .map_err(|error| rpc_err(1000, error.to_string(), "INTERNAL"))?)
+        method if method.starts_with("review.") => {
+            return review_rpc::handle(&state, method, params).await;
         }
 
         "settings.get" => {
@@ -2043,52 +2012,8 @@ async fn handle_request(
             return command_shells_rpc::handle(&state, method, params).await;
         }
 
-        "secrets.set" => {
-            let secret_ref = params
-                .get("secretRef")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "secretRef required", "INVALID_PARAMS"))?;
-            let value = params
-                .get("value")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "value required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let backend = st
-                .secrets
-                .set(secret_ref, value)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "ok": true, "backend": backend }))
-        }
-        "secrets.delete" => {
-            let secret_ref = params
-                .get("secretRef")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "secretRef required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            st.secrets
-                .delete(secret_ref)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "ok": true }))
-        }
-        "secrets.has" => {
-            let secret_ref = params
-                .get("secretRef")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "secretRef required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            Ok(json!({ "has": st.secrets.has(secret_ref) }))
-        }
-        "secrets.getForRuntime" => {
-            let secret_ref = params
-                .get("secretRef")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1002, "secretRef required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let value = st
-                .secrets
-                .get(secret_ref)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "value": value }))
+        method if method.starts_with("secrets.") => {
+            return secrets_rpc::handle(&state, method, params).await;
         }
 
         method if method.starts_with("providers.") => {
@@ -2811,167 +2736,16 @@ async fn handle_request(
             Ok(json!({ "moved": moved }))
         }
 
-        "notification.list" => {
-            let unread_only = params
-                .get("unreadOnly")
-                .and_then(|value| value.as_bool())
-                .unwrap_or(false);
-            let limit = params
-                .get("limit")
-                .and_then(|value| value.as_i64())
-                .unwrap_or(crate::db::NOTIFICATION_KEEP);
-            let st = state.lock().await;
-            let (notifications, unread_count) = notifications::list(&st.db, unread_only, limit)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({
-                "notifications": notifications,
-                "unreadCount": unread_count
-            }))
-        }
-        "notification.markRead" => {
-            let id = params
-                .get("id")
-                .and_then(|value| value.as_str())
-                .filter(|id| !id.trim().is_empty())
-                .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
-            let st = state.lock().await;
-            let ok = notifications::mark_read(&st.db, id)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "ok": ok }))
-        }
-        "notification.markAllRead" => {
-            let st = state.lock().await;
-            notifications::mark_all_read(&st.db)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "ok": true }))
-        }
-        "notification.clear" => {
-            let st = state.lock().await;
-            notifications::clear(&st.db).map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "ok": true }))
+        method if method.starts_with("notification.") => {
+            return notification_rpc::handle(&state, method, params).await;
         }
 
-        "search.sessions" => {
-            let query = params.get("query").and_then(|v| v.as_str()).unwrap_or("");
-            if query.chars().count() > 500 {
-                return Err(rpc_err(
-                    1001,
-                    "query exceeds 500 characters",
-                    "INVALID_ARGUMENT",
-                ));
-            }
-            let offset = params.get("offset").and_then(|v| v.as_i64()).unwrap_or(0);
-            let st = state.lock().await;
-            let page = crate::session_search::search(&st.db, query, offset)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!(page))
-        }
-        "search.context" => {
-            let session_id = params
-                .get("sessionId")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let message_id = params
-                .get("messageId")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let query = params.get("query").and_then(|v| v.as_str()).unwrap_or("");
-            let direction = params
-                .get("direction")
-                .and_then(|v| v.as_str())
-                .unwrap_or("around");
-            if session_id.is_empty()
-                || message_id.is_empty()
-                || query.chars().count() > 500
-                || !matches!(direction, "around" | "before" | "after")
-            {
-                return Err(rpc_err(1001, "invalid search context", "INVALID_ARGUMENT"));
-            }
-            let st = state.lock().await;
-            let context =
-                crate::session_search::context(&st.db, session_id, message_id, direction, query)
-                    .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?
-                    .ok_or_else(|| rpc_err(1007, "message not found", "NOT_FOUND"))?;
-            Ok(json!(context))
+        method if method.starts_with("search.") => {
+            return search_rpc::handle(&state, method, params).await;
         }
 
-        "search.query" => {
-            let query = params
-                .get("query")
-                .or_else(|| params.get("q"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let limit = params.get("limit").and_then(|v| v.as_i64()).unwrap_or(20);
-            let st = state.lock().await;
-            let hits = sessions::search_messages(&st.db, query, limit)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(json!({ "hits": hits }))
-        }
-
-        "stats.getTokenUsageHistory" => {
-            let bucket = params
-                .get("bucket")
-                .and_then(|v| v.as_str())
-                .unwrap_or("day");
-
-            let st = state.lock().await;
-            let history = sessions::get_token_usage_history(
-                &st.db,
-                params.get("startDate").and_then(|v| v.as_i64()),
-                params.get("endDate").and_then(|v| v.as_i64()),
-                bucket,
-            )
-            .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(history)
-        }
-
-        "stats.getUsageBreakdown" => {
-            let st = state.lock().await;
-            let breakdown = sessions::get_usage_breakdown(
-                &st.db,
-                params.get("startDate").and_then(|v| v.as_i64()),
-                params.get("endDate").and_then(|v| v.as_i64()),
-                params.get("providerId").and_then(|v| v.as_str()),
-                params.get("modelId").and_then(|v| v.as_str()),
-                params
-                    .get("recentLimit")
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or(100),
-            )
-            .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(breakdown)
-        }
-
-        "stats.getModelPricing" => {
-            let st = state.lock().await;
-            let pricing = crate::pricing::list_pricing(st.db.conn())
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(pricing)
-        }
-
-        "stats.updateModelPricing" => {
-            let st = state.lock().await;
-            let pricing = crate::pricing::upsert_pricing(st.db.conn(), &params)
-                .map_err(|e| rpc_err(1001, e.to_string(), "INVALID_ARGUMENT"))?;
-            Ok(pricing)
-        }
-
-        "stats.deleteModelPricing" => {
-            let model_id = params
-                .get("modelId")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| rpc_err(1001, "modelId is required", "INVALID_ARGUMENT"))?;
-            let st = state.lock().await;
-            let pricing = crate::pricing::delete_pricing(st.db.conn(), model_id)
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(pricing)
-        }
-
-        "stats.resetModelPricing" => {
-            let st = state.lock().await;
-            let pricing = crate::pricing::reset_defaults(st.db.conn())
-                .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            Ok(pricing)
+        method if method.starts_with("stats.") => {
+            return stats_rpc::handle(&state, method, params).await;
         }
 
         method if method.starts_with("artifacts.") => {

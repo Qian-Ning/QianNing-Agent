@@ -19,8 +19,8 @@
       "max": 4201
     },
     "crates/host-core/src/rpc/mod.rs": {
-      "reason": "Legacy RPC dispatch module, shrinking in stages. Tests moved to rpc/tests.rs and the providers.*, skills.*, market.*, commandShells.*, keyboard.*, artifacts.* and promptPreset.* families moved to their own rpc/<domain>_rpc.rs modules; the ceiling tracks each stage, so the remaining handle_request families stay bounded until they are extracted too.",
-      "max": 4610
+      "reason": "Legacy RPC dispatch module, shrinking in stages. Tests moved to rpc/tests.rs and the providers.*, skills.*, market.*, commandShells.*, keyboard.*, artifacts.*, promptPreset.*, review.*, notification.*, secrets.*, search.* and stats.* families moved to their own rpc/<domain>_rpc.rs modules; the ceiling tracks each stage, so the remaining handle_request families stay bounded until they are extracted too.",
+      "max": 4384
     },
     "crates/host-core/src/sessions.rs": {
       "reason": "Legacy session service module; its extraction is outside this refactor scope.",
