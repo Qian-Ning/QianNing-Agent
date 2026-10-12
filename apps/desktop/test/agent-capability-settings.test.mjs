@@ -387,9 +387,10 @@ test("a capability can be moved between the global and a project level", () => {
   const sharedTypes = read("../../../packages/shared/src/types/capabilities.ts");
   const mcpIpc = readMainModuleSync("ipc/mcp-ipc.ts");
   const rpc = read("../../../crates/host-core/src/rpc/mod.rs");
-  // skills.* moved out of the dispatcher into its own family module; mcp.* has
-  // not, so the two together still prove both transfer methods are routed.
+  // skills.* and mcp.* have both moved out of the dispatcher into their own
+  // family modules; mod.rs keeps the guarded delegation arms that route to them.
   const skillsRpc = read("../../../crates/host-core/src/rpc/skills_rpc.rs");
+  const mcpRpc = read("../../../crates/host-core/src/rpc/mcp_rpc.rs");
   const capabilities = read("../../../crates/host-core/src/agent_capabilities.rs");
   const mcpRegistry = read("../../../crates/host-core/src/mcp_servers.rs");
   const skillRegistry = read("../../../crates/host-core/src/user_skills.rs");
@@ -409,7 +410,7 @@ test("a capability can be moved between the global and a project level", () => {
     skillImport,
     /host\.call<\{ skill: UserSkillRecord \}>\("skills\.transfer", payload\)/,
   );
-  assert.match(rpc, /"mcp\.transfer" =>/);
+  assert.match(mcpRpc, /"mcp\.transfer" =>/);
   assert.match(skillsRpc, /"skills\.transfer" =>/);
 
   // The host moves the document instead of copying it, so the source level
