@@ -22,7 +22,7 @@
 | D007 | `~/.pi` 兼容性 | **MVP 中没有自动导入** | 在 `~/.qianning-agent` 中保持配置所有权干净 |
 | D008 | Node 运行时打包 | **开发人员使用系统 Node；版本通过 `ELECTRON_RUN_AS_NODE=1` 在 Electron 二进制文件上运行捆绑的 sidecar（未提供单独的 Node）** | 疏通M1–M4；在 M5 处解决，请参阅 03-runtime/07-process-model §6 |
 | D009 | 插件运行时隔离 | **目标=单独的进程； M4 可以使用主机管理的沙盒运行时** | 在不削弱 API 网关的情况下实用地发布插件基础 |
-| D010 | 首个发布平台 | **仅限 macOS arm64** | 重点验收及包装 |
+| D010 | 首个发布平台 | **仅限 macOS arm64** | 重点验收与打包 |
 | D373 | 远程 Agent 控制的 Host 边界 | *(由 D374 与 D375 修订)* **远程控制（MVP 之后）经由一个逻辑 Agent Host 运行，它拥有 Sessions、Turns、事件游标、审批、附件、工作区策略与崩溃恢复；生产 Gateway 拥有身份、路由、限流、吊销与审计，Agent Host 向外连接。现有 Electron IPC、`host.proxy` 与 host-core stdio 边界永不暴露。** | 远程表面需要自己的边界，而不是通往本地 IPC 或 host-core stdio 契约的隧道（ADR 0205，E2E-221 至 E2E-230） |
 | D374 | 远程 Agent 控制 v1 目标修订 | **修订 D373 / ADR 0205：`RACP-WS` 是 v1 唯一规范绑定（`RACP-HTTP` 为浏览器 profile，`RACP-GRPC` 保留）；`packages/shared` 中的 typebox 是唯一契约来源；无头的 `packages/agent-host` 模块是首个交付物，桌面 IPC、本地 MCP 与 RACP 共同调用；游标为 `{ epoch, sequence }` 且增量为临时数据；回合队列移入 Host；host-core 暴露 `permissions.pending`；远程审批携带完整本地决策词汇并默认 `ask` 上限；浏览器客户端使用 cookie profile；首个部署为单租户。** | 对照已交付桌面审查 D373 草案发现远程审批词汇比本地契约窄、待处理请求被当作连接状态、逐 token 增量会耗尽重放窗口、绑定数量超过 v1 承载能力（ADR 0205） |
 | D447 | 无头运行时边界 | **修订 ADR 0205 里程碑 R2 的前置条件（ADR 0284）：Agent Host 模块之下与 Electron 无关的运行时层放入 `packages/host-runtime` —— host-core 与 sidecar 的 stdio 传输、重启监督器（进程模型 §4 的策略）、持久回合生命周期（`RuntimeService` 作为模块的 `RuntimePort`：`session.beginTurn` → 用户行 → prompt → `session.endTurn`、中止锁、过期终态事件守卫、单飞终结）、带 D299 检查点的转录持久化、基于 host-core 自身注册表的无头启动解析器、已批准 Plan/Goal 的派发（D189），以及 `SessionPort` / `QueueStore` / `permissions.pending` 的 host-core 适配器。Electron main 只保留薄适配层（二进制与资源位置、`ELECTRON_RUN_AS_NODE`、脱敏 stderr、schema/glibc 诊断、渲染层状态推送）以及自己的本地 prompt 路径。`TurnStartRequest` 新增可选 `userMessageId`。不改 IPC、sidecar、host-core、插件 SDK、默认值或持久化数据。** | `pi-host` 必须在没有 Electron 的情况下运行与桌面相同的生命周期不变量；第二份中止锁、过期终态事件与持久落库后释放队列的实现会与桌面已修好的那份漂移 |
@@ -398,7 +398,7 @@
 | D359 | 用宿主一次性补全总结首轮会话标题 | **首轮提示回退保持同步。`agent_end` 后渲染器调用白名单 `session/summarizeTitle`。Electron 解析会话模型并跑关闭思考的一次性补全；有效结果经 `session.rename` 持久化。自动替换拒绝已持久的 `manualTitle`。见 ADR 0186 与 E2E-021a。** | 截断的首轮提示当侧栏标签很差，但标题生成不能挡住回合或把凭据暴露给渲染器。 |
 | D361 | 内联图片传输使用 10 MB 应用侧上限 | **修订 ADR 0101 / D197：`MAX_INLINE_IMAGE_BYTES` 为 10,000,000。具备视觉能力的模型把不超过该十进制 10 MB 上限的图片作为瞬时 base64 接收；更大的图片和非视觉模型保留 `@path` 回退。Electron main 和 sidecar 共用该常量。不改协议或 schema。** | MiniMax 的 OpenAI 兼容端点单张图上限是 10 MB；更高的应用上限会在 Composer 已经内联字节后被提供商拒绝。 |
 | D316 | 可搜索主题选择器 | **修订 ADR 0160：设置 → 常规的主题是可搜索选择行（与语言相同的锚定菜单），不再是三张预览卡。系统 / 浅色 / 深色钉在顶部；插件主题在分隔线之后。`AppSettings.theme` 与插件主题回退不变。见 ADR 0161 与 E2E-091。** | 插件主题会撑破三列卡片网格，而语言选择器已经解决了可增长列表的控件问题。 |
-| D121 | 品牌macOS开发主机 | **macOS 上的 `pnpm dev` 通过 `.cache/electron-dev/` 下已安装的 Electron 主机包的指纹、临时签名的 QianNing Agent 副本启动 electro-vite。生成的捆绑包仅更改开发主机元数据、可执行文件名称、捆绑包标识符和 ICNS 资源；它永远不会改变 `node_modules`。 Windows/Linux 保持库存开发可执行，而打包通道仍归电子制造商所有。** | AppKit 会忽略顶级应用程序身份的运行时 app-name/menu 覆盖，并从主机包中获取本机菜单名称和“关于”图标；需要品牌开发主机才能与打包的 QianNing Agent 保持一致。 |
+| D121 | 品牌macOS开发主机 | **macOS 上的 `pnpm dev` 通过 `.cache/electron-dev/` 下已安装的 Electron 主机包的指纹、临时签名的 QianNing Agent 副本启动 electro-vite。生成的捆绑包仅更改开发主机元数据、可执行文件名称、捆绑包标识符和 ICNS 资源；它永远不会改变 `node_modules`。 Windows/Linux 保持库存开发可执行，而打包通道仍归 electron-builder 所有。** | AppKit 会忽略顶级应用程序身份的运行时 app-name/menu 覆盖，并从主机包中获取本机菜单名称和“关于”图标；需要品牌开发主机才能与打包的 QianNing Agent 保持一致。 |
 | D129 | 无菜单 Windows/Linux 窗口镀铬 | **应用程序菜单仅为 macOS 系统菜单表面。 Windows/Linux 保留共享的无框架 46px 标题栏和渲染器绘制的 minimize/maximize-or-restore/close 控件，但在窗口内不渲染 File/Edit/View/Window/Help 菜单，并且不保留左侧标题栏空间。通过 renderer/native Web 内容处理，现有应用程序、编辑、缩放、全屏和关闭快捷方式仍然可用；仍然可以通过“设置”->“信息”访问更新检查。这仅取代 D118 和 ADR 0021 的 Windows/Linux 渲染器菜单部分。** | 窗口内桌面菜单会重复 macOS 特定的系统菜单镶边、占用导航空间，并且不属于 QianNing Agent 的无框 Windows/Linux 标题栏。 |
 | D130 | 侧边栏页脚通知条目 | **持久通知铃声从主标题栏移动到扩展侧边栏页脚右侧单独的 `32px` 操作，取代了 D113 的“帮助”快捷方式。其未读徽章和完整的 D117 收件箱行为保持不变；弹出窗口在页脚的上方和右侧打开，并且主标题栏中没有重复的贝尔。这仅取代 D113 和 D117 的条目位置条款。** | 通知历史记录属于持久的本地配置文件控件，页脚位置使主标题栏保持安静，同时保留紧凑、熟悉的状态条目。 |
 | D141 | 规范 Windows 本机应用程序身份 | *（由 D443 修订）* **Electron Main 在准备就绪之前设置产品名称，并在创建任何窗口之前将 `com.pi-desktop.app` 注册为 Windows 进程 AppUserModelID。该 ID 是现有的 electron-builder/NSIS 应用程序 ID； Windows 打包显式保留 `QianNing Agent` 作为可执行文件和“开始”菜单快捷方式。本机通知属性、通知设置、任务栏分组、安装的快捷方式和打包的可执行标识必须公开 `QianNing Agent`，而不是库存 Electron 主机。 D121 保持不变：Windows 开发可以使用库存 Electron 可执行文件，而其面向操作系统的运行时标识使用规范的 AUMID。** | `app.setName` 更改 Electron 的内部名称，但不更改通知和 shell 集成使用的 Windows 标识。跨运行时和打包的一个稳定 ID 可防止观察到的通知源泄漏和相邻 shell 品牌漂移，而无需更改已发布的 NSIS 升级身份。 |
@@ -1484,7 +1484,7 @@ D193 和 D194。
   增量范围触发，删除三个空闲调用点；
   当上下文与 `hardLimit` 或模型交叉时，`prepareNextTurn()` 会进行压缩
   称为 `new_context`，与 Codex 的 `should_roll_over` 匹配。
-- 检查点携带摘要以及最近的用户消息，仅此而已。圆周率
+- 检查点携带摘要以及最近的用户消息，仅此而已。pi
   切割点仍然标记边界，但其分叉前缀和最近的尾部
   被折叠回摘要输入中，因此没有消息离开模型上下文
   未被发现——仅过滤尾部就会导致数据丢失的错误。

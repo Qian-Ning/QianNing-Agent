@@ -21,10 +21,10 @@
 
 > 当前引脚为 **1.1.0**。ChatGPT / Copilot OAuth 可用性来自锁定版本的
 > pi-ai 目录；桌面端动态枚举这些条目，不维护独立的供应商列表。
-| Node 运行时 | Node.js | `>= 22.19` | 圆周率要求 |
+| Node 运行时 | Node.js | `>= 22.19` | pi 要求 |
 | 数据库 | SQLite | Rust host-core 通过 `rusqlite` | sessions/settings |
-| 包装 | 电子制造商 | 稳定 | macOS arm64、Intel x64、Windows x64 和 Linux x64 释放通道 |
-| 包管理器 | PNPM | 11.18.x | JS 单一仓库 |
+| 打包 | electron-builder | 稳定 | macOS arm64、Intel x64、Windows x64 和 Linux x64 发布通道 |
+| 包管理器 | pnpm | 11.18.x | JS 单仓 |
 | Lint/test | 样式令牌检查器（`scripts/check-style-tokens.mjs`）+ vitest + 货物测试；一般 JS linter 仍然打开（biome vs oxlint） | 稳定 | 双堆栈质量 |
 | 架构 (TS) | 打字机 | 冷冻（D011） | 共享合约 |
 | 国际化 | i18next + 反应-i18next | 冷冻 (D012) | 英语源语言环境 |
