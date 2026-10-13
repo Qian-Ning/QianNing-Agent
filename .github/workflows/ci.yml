@@ -53,8 +53,21 @@ jobs:
           ARCHITECTURE_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
         run: node scripts/check-architecture.mjs
 
+      - name: Install the Electron binary
+        # `pnpm install` restores Electron from the cached pnpm store without
+        # re-running its download script, so `node_modules/electron/dist` can be
+        # absent even though the package is present. install.js is idempotent:
+        # it exits as soon as a matching dist is on disk.
+        run: node apps/desktop/node_modules/electron/install.js
+
       - name: Unit tests
-        run: pnpm -r --if-present test
+        # One Desktop suite boots a real Electron window, so the suite needs a
+        # display: without one that test reports itself skipped and the step still
+        # exits 0, which reads as coverage that does not exist. The downloaded
+        # Electron's setuid sandbox helper cannot be root-owned on a hosted runner.
+        env:
+          ELECTRON_DISABLE_SANDBOX: "1"
+        run: xvfb-run --auto-servernum pnpm -r --if-present test
 
       - name: Upstream sync audit
         run: node --test scripts/upstream-sync-audit.test.mjs
