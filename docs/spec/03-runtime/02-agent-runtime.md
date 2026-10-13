@@ -41,6 +41,16 @@ crates/host-core (tool execution + permissions)
 - executes builtin/plugin tools
 - returns normalized tool results
 
+The Node runtime normalizes text and image content from host tool results,
+including MCP `content` blocks and bare plugin content-block arrays. Well-formed
+image blocks are passed to vision-capable models and retained when tool history
+is restored; malformed image entries are ignored without failing the tool call.
+Embedded MCP text resources contribute their `resource.text`, and MCP resource
+links contribute a one-line `[resource link]` reference, to the model-visible
+text alongside sibling text blocks; binary resources are not inlined. When no
+text block is available, the JSON fallback likewise keeps image `data` and
+resource `blob` bytes out of the model-visible text.
+
 ## 4. Runtime API (package-level)
 
 ```ts

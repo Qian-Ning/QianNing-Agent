@@ -1428,6 +1428,58 @@ function selectRetainedUserMessages(
   return selected.reverse();
 }
 
+/**
+ * Model-visible text for one host tool content block. Besides plain `text`
+ * blocks, MCP servers return file bodies as embedded text resources and large
+ * payloads as resource links (github-mcp-server `get_file_contents` sends a
+ * status line plus one of these), so dropping them next to a sibling text
+ * block hides the actual result from the model. Binary resources and other
+ * block kinds have no text to show and stay out of the text channel.
+ */
+function hostContentBlockText(block: unknown): string | undefined {
+  if (!isRecord(block)) return undefined;
+  if (block.type === "text" && typeof block.text === "string") return block.text;
+  if (
+    block.type === "resource" &&
+    isRecord(block.resource) &&
+    typeof block.resource.text === "string"
+  ) {
+    return block.resource.text;
+  }
+  if (block.type === "resource_link" && typeof block.uri === "string") {
+    const name = typeof block.name === "string" && block.name.trim()
+      ? `${block.name.trim()}: `
+      : "";
+    return `[resource link] ${name}${block.uri}`;
+  }
+  return undefined;
+}
+
+/**
+ * JSON text fallback for a host result that produced no text blocks. Image
+ * `data` and resource `blob` bytes stay off the text channel; type, mimeType,
+ * and uri remain so the model still sees what was attached.
+ */
+function withoutInlineBinary(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((entry) => withoutInlineBinary(entry));
+  if (!isRecord(value)) return value;
+  const next: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (key === "data" && value.type === "image") continue;
+    if (key === "resource" && value.type === "resource" && isRecord(entry)) {
+      const resource: Record<string, unknown> = {};
+      for (const [resourceKey, resourceValue] of Object.entries(entry)) {
+        if (resourceKey === "blob") continue;
+        resource[resourceKey] = withoutInlineBinary(resourceValue);
+      }
+      next.resource = resource;
+      continue;
+    }
+    next[key] = withoutInlineBinary(entry);
+  }
+  return next;
+}
+
 /** Rebuild a pi-ai tool result from a persisted tool row. Rows that never
  * finished (app quit / abort mid-tool) restore as errored results so the
  * model knows the call produced nothing. */
@@ -1445,6 +1497,21 @@ function toolResultFromUi(
     isRecord(raw) && Array.isArray(raw.content) ? raw.content : undefined;
   if (rawBlocks) {
     for (const b of rawBlocks) {
+      if (!isRecord(b)) continue;
+      if (b.type === "text" && typeof b.text === "string") {
+        blocks.push({ type: "text", text: b.text });
+      } else if (
+        b.type === "image" &&
+        typeof b.data === "string" &&
+        typeof b.mimeType === "string"
+      ) {
+        blocks.push({ type: "image", data: b.data, mimeType: b.mimeType });
+      }
+    }
+  } else if (Array.isArray(raw)) {
+    // Plugin tools may return a bare content-block array; restore its text
+    // and image blocks so a restart does not flatten them into JSON (#1360).
+    for (const b of raw) {
       if (!isRecord(b)) continue;
       if (b.type === "text" && typeof b.text === "string") {
         blocks.push({ type: "text", text: b.text });
@@ -3342,8 +3409,56 @@ Call TaskWait only when your next step genuinely depends on that report and noth
         const imageBlocks: Array<{ type: "image"; data: string; mimeType: string }> = [];
         let text: string;
         let details: unknown = rawContent;
+        const vision = visionFromModelConfig(this.provider.modelConfig);
+        // Collect image blocks from a content-block array; only well-formed
+        // image entries ({ type, data, mimeType }) are accepted.
+        const collectImageBlocks = (blocks: unknown[]): void => {
+          for (const block of blocks) {
+            if (
+              isRecord(block) &&
+              block.type === "image" &&
+              typeof block.data === "string" &&
+              typeof block.mimeType === "string"
+            ) {
+              if (vision) {
+                imageBlocks.push({
+                  type: "image",
+                  data: block.data,
+                  mimeType: block.mimeType,
+                });
+              }
+            }
+          }
+        };
         if (typeof rawContent === "string") {
           text = rawContent;
+        } else if (Array.isArray(rawContent)) {
+          // Plugin tools may return a bare content-block array
+          // ([{ type: "text" }, { type: "image" }]); render the text blocks
+          // and hand images to the model instead of stringifying (#1360).
+          const textParts: string[] = [];
+          for (const block of rawContent) {
+            const blockText = hostContentBlockText(block);
+            if (blockText !== undefined) textParts.push(blockText);
+          }
+          collectImageBlocks(rawContent);
+          text =
+            textParts.join("\n") ||
+            JSON.stringify(withoutInlineBinary(rawContent), null, 2);
+          details = { blocks: rawContent, imageCount: imageBlocks.length };
+        } else if (isRecord(rawContent) && Array.isArray(rawContent.content)) {
+          // MCP tools return `content: [{ type: "image" | "text", ... }]`.
+          const contentBlocks = rawContent.content;
+          const textParts: string[] = [];
+          for (const block of contentBlocks) {
+            const blockText = hostContentBlockText(block);
+            if (blockText !== undefined) textParts.push(blockText);
+          }
+          collectImageBlocks(contentBlocks);
+          text =
+            textParts.join("\n") ||
+            JSON.stringify(withoutInlineBinary(rawContent), null, 2);
+          details = { ...rawContent, imageCount: imageBlocks.length };
         } else if (isRecord(rawContent) && Array.isArray(rawContent.images)) {
           text =
             typeof rawContent.text === "string"
@@ -3353,7 +3468,6 @@ Call TaskWait only when your next step genuinely depends on that report and noth
                   null,
                   2,
                 );
-          const vision = visionFromModelConfig(this.provider.modelConfig);
           for (const image of rawContent.images) {
             if (
               !isRecord(image) ||
@@ -3377,7 +3491,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
             imageCount: imageBlocks.length,
           };
         } else {
-          text = JSON.stringify(rawContent, null, 2);
+          text = JSON.stringify(withoutInlineBinary(rawContent), null, 2);
         }
         if (!result.ok) this.failedHostToolCalls.add(toolCallId);
         return {

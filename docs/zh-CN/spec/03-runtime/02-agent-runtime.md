@@ -44,6 +44,13 @@ crates/host-core (tool execution + permissions)
 - 执行 builtin/plugin 工具
 - 返回标准化的工具结果
 
+Node 运行时会对宿主工具结果中的文本与图像内容做标准化，覆盖 MCP `content`
+块与插件裸内容块数组。格式正确的图像块会交给支持视觉的模型，并在还原工具
+历史时予以保留；格式错误的图像项会被忽略，不影响该次工具调用。内嵌的 MCP
+文本资源贡献其 `resource.text`，MCP 资源链接贡献一行 `[resource link]` 引用，
+与同级文本块一并进入模型可见文本；二进制资源不做内联。在没有可用文本块时，
+JSON 回退同样不会把图像 `data` 与资源 `blob` 字节放进模型可见文本。
+
 ## 4. 运行时 API（包级）
 
 ```ts
