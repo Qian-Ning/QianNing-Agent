@@ -9965,7 +9965,11 @@ This test plan spec is accepted when:
   fixture contains enough options to overflow, only that list scrolls and the
   question header, custom-answer input, and Skip / Next / Submit actions remain
   reachable. Scrolling the list does not move the conversation page or hide the
-  action row. The tool output is ordered as
+  action row. A long question prompt is bounded the same way: the question body
+  scrolls inside the card (`min(208px, 24dvh)`, with a `24vh` fallback) and the
+  header actions stay outside that scroller. The question body is keyboard
+  focusable with a visible focus ring. Next, Skip, and the step indicators open
+  each question at the top of that body. The tool output is ordered as
   `question：answer`, uses `、` between multiple answers and `\n---\n`
   between questions, and
   keeps `question：` for the skipped question. Markdown renders as rich text
@@ -9980,7 +9984,11 @@ This test plan spec is accepted when:
   `04-ux/11-asktool-question-card.md`, ADR 0077
 - **Acceptance**: E (interactive tool output), C (inline card)
 - **Milestone**: M5
-- **Status**: Draft (runtime/unit coverage active; desktop journey pending)
+- **Automated coverage**: `pnpm test:e2e:asktool-card` mounts the production
+  component in Electron and covers long-prompt scrolling, keyboard reachability,
+  visible header actions, and scroll reset on Next.
+- **Status**: Partially automated (component paths and long-prompt behavior are
+  covered; full application journey pending)
 
 - **Request transition regression**: Keep a one-question request pending in chat
   B. In chat A, advance a two-question request to question two, then select B.

@@ -6386,7 +6386,9 @@ eleven-tool-round desktop paths are verified by
 - **预期**：一次可见一个问题；小指标显示
   输入框批准区域中已回答、当前和跳过的状态
   Plan 和 Goal 批准使用的停靠位置相同。请求没有
-  倒计时。工具输出排序为 `question：answer`，使用 `、`
+  倒计时。过长的问题正文在卡片内滚动（`min(208px, 24dvh)`，并有 `24vh` 回退），标题栏上的
+  Decline、Skip 和 Next/Submit 留在该滚动区域之外。该正文可通过键盘聚焦，并显示可见焦点环；
+  Next、Skip 和步骤指示器切换问题时，正文从滚动区域顶部开始。工具输出排序为 `question：answer`，使用 `、`
   多个答案之间和问题之间的 `\n---\n` 之间，并保持
   `question：` 用于跳过的问题。拒绝所有产生空
   每个问题的占位符，仍然完成工具调用。
@@ -6394,7 +6396,9 @@ eleven-tool-round desktop paths are verified by
   `04-ux/11-asktool-question-card.md`、ADR 0077
 - **验收**：E（交互式工具输出）、C（内联卡）
 - **里程碑**：M5
-- **状态**：草案（单位覆盖范围有效；桌面旅程待定）
+- **状态**：部分自动化（`pnpm test:e2e:asktool-card` 在 Electron 中挂载生产组件，
+  覆盖过长提示滚动、键盘可达性、可见的标题栏操作与点击 Next 后的滚动重置；
+  完整应用旅程待定）
 
 - **请求切换回归**：在聊天 B 留下一个单题请求。在聊天 A 将双题请求推进到第二题，
   再切换到 B。B 应显示自己的第一题、空白答案和可用输入框，不应出现应用错误页。
