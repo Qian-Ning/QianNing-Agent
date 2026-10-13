@@ -2265,7 +2265,22 @@ generic operations and the named session-delete, session-configure, and
 plan-resolution tools require `confirm: true`. That flag is an agent
 acknowledgement, not a desktop user prompt. All calls still pass through the
 existing IPC handler validation, host permissions, workspace boundaries, and
-error model. Both the text payload and `structuredContent` are size-bounded.
+error model. Both the text payload and `structuredContent` are size-bounded to
+512 KiB (`MAX_RESULT_CHARS`). A larger answer is not returned verbatim: it is
+replaced by `{truncated: true, reason: "MCP_RESULT_LIMIT", preview: "<the first
+512 KiB of the JSON>"}`, so an external caller can never receive a silently
+shortened payload. If an oversized answer comes from `session/get`
+(`pi_session_get`) and carries a `compaction` record or a `compactions` history,
+Main projects each record to the compact identity (`createdAt` and
+`details.generation`) and checks the size again before returning the truncation
+envelope. This lets a long session's transcript survive when its unbounded
+`ContextCompactionRecord` (`summary` / `retainedTail` / `details.modifiedFiles`)
+alone caused the overflow — including the case where the newest `compaction` is
+already compact but the unbounded `compactions` history alone still exceeds the
+limit, which no `messageLimit` / `contentLimit` reduction can fix because the
+overflow is independent of the transcript page. Results already under the limit
+retain their full compaction details, and the desktop's own session detail is
+unchanged.
 
 The six `session/collaboration/*` operations are first-party-plugin-only: they
 require an authenticated plugin tool invocation context, so they appear in
