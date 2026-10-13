@@ -7284,10 +7284,10 @@ eleven-tool-round desktop paths are verified by
 - **步骤**：
   1. 打开设置 → 常规。确认网络卡提供系统 / 直连 / 自定义。从未配置过代理的配置文件默认是系统。
   2. 选择自定义。确认代理 URL、默认绕过列表和测试。输入 `not-a-proxy` 并失焦。确认内联错误且未保存。
-  3. 输入 `socks5://127.0.0.1:1080` 或 `http://127.0.0.1:7890` 并失焦。确认 `settings.get` 中 `networkProxy.mode` 为 `custom`。
+  3. 输入 `socks5://127.0.0.1:1080` 或 `http://127.0.0.1:7890` 后，立即选择“系统”，中间不要点击其他位置。确认 `settings.get` 中 `mode` 为 `system`，且 URL 与绕过列表仍保留。再选回“自定义”，确认两个值恢复到输入框，且 `mode` 为 `custom`。
   4. 对正在监听的代理点测试，确认已连接；对关闭的端口点测试，确认失败且不改已保存 URL。对需要认证的 HTTP / SOCKS5 代理填入 `user:pass@` 后再测，确认是已连接而不是 `net::ERR_NO_SUPPORTED_PROXIES`（issue #490）。
   5. 保存自定义代理后，通过已配置供应商发送一条简短提示。确认供应商请求和响应经过代理；即使 SOCKS5 代理将完整 bind 响应合并在一个 TCP 数据块中，请求仍能完成。再确认扩展市场刷新和 models.dev 刷新走代理；绕过列表中的回环地址不走代理。
-  6. 切到直连再切回系统。确认无需重启应用即可生效。
+  6. 切到直连再切回系统。确认无需重启应用即可生效。再选回自定义，确认第 3 步的 URL 与绕过列表原样回来（系统/直连期间它们保留在 `AppSettings.networkProxy` 里）。
 - **预期**：自定义覆盖模型请求、市场、更新、插件 `net.fetch` 和内置浏览器。工作区 Bash 的 `env` 看不到该设置写入的 `HTTP_PROXY` / `ALL_PROXY`。OAuth 仍走系统浏览器。`file:` / `ftp:`、SOCKS4 以及百分号编码错误的认证信息均被拒绝。带账号密码的 HTTP / SOCKS5 测试与应用不再报 `net::ERR_NO_SUPPORTED_PROXIES`（issue #490）。无协议/存储版本升级。
 - **链接规格**：`04-ux/06-settings-ia.md`、`03-runtime/07-process-model.md`、ADR 0177、D340
 - **验收**：B（设置）、F（供应商）、安全

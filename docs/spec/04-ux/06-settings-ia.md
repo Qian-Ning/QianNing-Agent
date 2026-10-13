@@ -169,6 +169,10 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   - The selection persists as optional `AppSettings.networkProxy`
     (`mode` / `url` / `bypass`). Absent means System. No host protocol or
     storage schema version bump (D340 / ADR 0177).
+  - System and Direct keep the `url` and `bypass` the user configured: `mode`
+    decides what applies, and the values come back with Custom instead of the
+    built-in `socks5://127.0.0.1:1080` (issue #1541). Nothing applies them
+    while another mode is selected.
   - **Relaxed network mode**: one switch persisting as
     `AppSettings.networkPolicy.mode` (`relaxed` | `strict`), **on by default**.
     When it is on, an endpoint the user typed themselves — a model base URL, an
