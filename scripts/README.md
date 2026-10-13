@@ -18,6 +18,17 @@ disagrees, so a green `check:release-docs` is a precondition, not a substitute.
 | `check-marketplace-catalog.mjs` | `pnpm check:marketplace -- --url <url> --plugin <id>` | Marketplace catalog preflight; rejects a version record missing a checksum, package URL, size, or permissions, and a catalog `author` that is not a string |
 | `check-style-tokens.mjs` | run by the desktop `lint` script | Fail renderer styles that hardcode values instead of design-system tokens |
 
+## Upstream synchronization
+
+This repository is a distribution of [PI-Desktop](https://github.com/vastsa/PI-Desktop).
+The two histories share no ancestor, so sync state is measured by comparing
+trees, never by version numbers. The current numbers are recorded in
+[the upstream sync assessment](../docs/project/upstream-sync-assessment.md).
+
+| Script | Alias | Purpose |
+|---|---|---|
+| `upstream-sync-audit.mjs` | `pnpm check:upstream-sync` | Hold the brand identity substitutions as a rule set instead of hand edits: `--apply` brands an upstream file on stdin, `--verify <ref>` reports how many shared files the rules reproduce byte for byte, and `--inventory <base-ref> [--out <dir>]` attributes every path to whichever side changed it since that base. The rule set refuses to emit a file that lost a compatibility identifier (`@pi-desktop/`, the `pi-desktop/` IPC channel prefix, `PI_DESKTOP_`), and `--self-test` runs its fixtures |
+
 ## Packaging
 
 | Script | Alias | Purpose |
