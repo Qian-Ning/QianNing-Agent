@@ -2619,6 +2619,10 @@ importConfirm: "Imported extensions run inside the agent process with the same a
       errorUrl: "A URL is required.",
       errorUrlShape: "That isn't a valid URL.",
       errorUrlScheme: "Use an http or https URL.",
+      timeout: "Connection timeout",
+      timeoutHint: "Timeout in seconds for connecting and discovering tools (default: 10s, max: 600s).",
+      timeoutPlaceholder: "10",
+      errorTimeoutRange: "Timeout must be between 1 and 600 seconds.",
     },
     skills: {
       add: "New skill",

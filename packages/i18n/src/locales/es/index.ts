@@ -2579,7 +2579,11 @@ sklm: {
       "errorCommandDots": "El comando no puede contener '..'.",
       "errorUrl": "Se requiere una URL.",
       "errorUrlShape": "Esa no es una URL válida.",
-      "errorUrlScheme": "Utilice una URL http o https."
+      "errorUrlScheme": "Utilice una URL http o https.",
+      "timeout": "Tiempo de espera de conexión",
+      "timeoutHint": "Tiempo de espera en segundos para conectar y descubrir herramientas (predeterminado: 10s, máx: 600s).",
+      "timeoutPlaceholder": "10",
+      "errorTimeoutRange": "El tiempo de espera debe estar entre 1 y 600 segundos."
     },
     "skills": {
       "add": "Nueva habilidad",

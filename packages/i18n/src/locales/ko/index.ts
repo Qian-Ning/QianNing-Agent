@@ -2615,6 +2615,10 @@ importConfirm: "가져온 확장은 에이전트 프로세스 안에서 에이�
       errorUrl: "URL을 입력하세요.",
       errorUrlShape: "올바른 URL이 아닙니다.",
       errorUrlScheme: "http 또는 https URL을 사용하세요.",
+      timeout: "연결 타임아웃",
+      timeoutHint: "연결 및 도구 검색 제한 시간(초 단위, 기본값: 10초, 최대: 600초).",
+      timeoutPlaceholder: "10",
+      errorTimeoutRange: "타임아웃은 1초에서 600초 사이여야 합니다.",
     },
     skills: {
       add: "새 스킬",

@@ -2605,6 +2605,10 @@ importConfirm: "İçe aktarılan uzantılar ajan sürecinde, ajanın kendi araç
       errorUrl: "Bir URL gerekli.",
       errorUrlShape: "Bu geçerli bir URL değil.",
       errorUrlScheme: "http veya https URL kullanın.",
+      timeout: "Bağlantı zaman aşımı",
+      timeoutHint: "Bağlantı ve araç keşfi için saniye cinsinden zaman aşımı (varsayılan: 10s, maks: 600s).",
+      timeoutPlaceholder: "10",
+      errorTimeoutRange: "Zaman aşımı 1 ile 600 saniye arasında olmalıdır.",
     },
     skills: {
       add: "Yeni beceri",

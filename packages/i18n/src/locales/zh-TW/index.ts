@@ -2570,6 +2570,10 @@ sklm: {
       errorUrl: "地址不能為空。",
       errorUrlShape: "這不是一個有效的 URL。",
       errorUrlScheme: "請使用 http 或 https 地址。",
+      timeout: "連線逾時",
+      timeoutHint: "連線與發現工具的逾時時間（秒，預設 10 秒，最大 600 秒）。",
+      timeoutPlaceholder: "10",
+      errorTimeoutRange: "逾時時間必須在 1 到 600 秒之間。",
     },
     skills: {
       add: "新建技能",
