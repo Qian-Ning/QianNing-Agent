@@ -57,6 +57,7 @@
     "check:pr-base": "node scripts/check-pr-base-main.mjs",
     "check:pi-dependencies": "node scripts/check-pi-dependencies.mjs",
     "check:pi-patches": "node scripts/check-pi-patches.mjs",
+    "check:upstream-sync": "node scripts/upstream-sync-audit.mjs --self-test",
     "docs:dev": "pnpm --filter @pi-desktop/docs dev",
     "docs:build": "pnpm --filter @pi-desktop/docs build",
     "docs:preview": "pnpm --filter @pi-desktop/docs preview",

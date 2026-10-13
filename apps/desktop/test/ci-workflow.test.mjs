@@ -125,6 +125,23 @@ test("CI compiles and runs the host-core tests on Windows", () => {
   assert.doesNotMatch(block, /cargo (?:fmt|clippy)/);
 });
 
+test("CI runs the upstream sync audit after the unit tests", () => {
+  // The audit's own `node --test scripts/*.test.mjs` file is not reached by
+  // `pnpm -r --if-present test` (that only runs each workspace package's test
+  // script), so the job has to invoke it explicitly or it would never run.
+  const start = ciWorkflowSource.indexOf("  js:");
+  assert.notEqual(start, -1, "the js job is missing");
+  const end = ciWorkflowSource.indexOf("\n  theme-surfaces:");
+  assert.notEqual(end, -1, "the theme-surfaces job is missing");
+  const block = ciWorkflowSource.slice(start, end);
+  assert.match(block, /^        run: node --test scripts\/upstream-sync-audit\.test\.mjs$/m);
+  assert.ok(
+    block.indexOf("pnpm -r --if-present test") <
+      block.indexOf("node --test scripts/upstream-sync-audit.test.mjs"),
+    "the audit runs after the workspace unit tests",
+  );
+});
+
 test("release runners validate tags without a separate job barrier", () => {
   assert.doesNotMatch(releaseWorkflowSource, /^  validate:/m);
   assert.doesNotMatch(releaseWorkflowSource, /^    needs: validate$/m);
