@@ -15980,3 +15980,83 @@ renderer's durable transcript reads. No real model or provider is contacted.
   payload-beside-slug rule, and the audit-row shape are unit-covered. The byte-stream
   transports and the `Console` tool are R4; the task-candidate run remains.
  The refusal was confirmed against a real host on 2026-10-05: a byte-stream profile answers `CONNECTION_NO_EXEC` before any connection is attempted.
+
+- Scope: pi-ai and pi-agent-core; coding-agent design review is reference-only.
+- Offline provider/catalog flows preserve same-vendor account isolation, live
+  entitlement, unavailable-account errors, relay matching and explicit overrides.
+- Native Pi image operation contract tests cover generations/edits, cancellation,
+  downloads, multiple artifacts, text/response IDs and physical usage provenance.
+- Shared/Main/Host tests replay parent, delegate and image records, including late
+  old-turn usage, and assert one ledger entry per physical operation.
+- Production sidecar hosted-search E2E covers seven scenarios with offline
+  providers, delegation and persisted restore. Standalone OAuth tests execute
+  actual login modules outside the repository with mocked external I/O.
+- Installed Electron, real account/paid API and cross-version rollback are
+  separate release qualification. No MCP, Codemode or virtual-router migration
+  is included. See `docs/project/pi-0991-adoption.md` for candidate evidence.
+
+### E2E-SYSTEM-TRANSCRIPT: Ordered model state survives restart and compaction
+
+- Fixture: isolated Host data directory, production AgentSidecar transport and
+  separate Node runtime/Pi process, local SSE provider; no real provider
+  credentials or user's Desktop process. The harness persists completed
+  messages; it does not exercise Electron's UI or persistence outbox.
+- Send a prompt, activate BrowserPreview through ToolSearch, and verify the next
+  request includes the schema. Confirm the baseline and delta are acknowledged
+  by Host and survive stopping/restarting both processes without duplicate rows.
+- Resume the session, update a skill catalog on the same runtime, and confirm the
+  next request uses the new catalog while keeping a second unchanged entry.
+  Runtime/adapter tests verify the native delta contains only the modified entry,
+  and fallback models receive the complete current catalog with removals applied.
+  Invoke Skill through the actual sidecar
+  bridge with a fixture body supplied by the embedding host. Compact, restart
+  the sidecar, and verify current skills and active tools survive without
+  replaying old tool results. Remove the final skill and verify its catalog and
+  executable schema disappear without recreating the runtime.
+- Automated: `node scripts/e2e-system-transcript.mjs` with
+  `PI_DESKTOP_HOST_BIN` pointing to the candidate Host binary. Requires built
+  shared/host-runtime/agent-runtime packages. Renderer projection tests ensure
+  model-state records stay hidden while ordinary system notices remain visible.
+- Adapter contract tests cover exact model/API/endpoint capability binding,
+  partial support, unverified relay fallback, removals/redefinitions and model
+  switching without canonical-history mutation. Real cache-hit improvement is
+  a separately authorized provider experiment, not an offline-test claim.
+
+- Flash regression: load the pinned Pi `deepseek-flash` model, serialize its
+  Desktop projection, and pass skill updates/removals through the real adapter.
+  The official binding preserves the earlier wire prefix; changed bindings
+  retain the folded fallback. Covered by `flash-transcript.test.ts`.
+- Authorized live Flash acceptance: use isolated development sessions with
+  short and long contexts. Alternate unchanged turns and single-skill updates,
+  confirm current Skill bodies execute, and compare actual outgoing prefixes
+  plus reported usage. After restart, verify no duplicate system updates and
+  same-model assistant reasoning remains separate from visible content. Adapter
+  regressions also cover legacy identities and genuine account/model changes. Cache
+  percentages are observations, not deterministic pass thresholds.
+
+### E2E-FIXED-TOOL-DECLARATIONS: Stable Flash schemas with independent activation
+
+- Fixture: production AgentSidecar and isolated Host, official Pi Flash binding,
+  and a child-process fetch boundary redirected to local HTTP/SSE. Credentials
+  are dummy values and synthetic tools have no external side effects.
+- Prompt, search Alpha, execute Alpha, search Beta and execute Beta. HTTP payload
+  tests assert identical ordered `tools` and unchanged prior message prefixes.
+  Directly calling a declared but inactive tool must fail before the Host.
+- Restart both processes, then compact and restart again: Alpha stays activated,
+  Beta remains inactive despite its declaration. Activate Beta, then remove it
+  from the catalog and verify it cannot execute. New schema/route epochs must
+  not restore old grants. Host rejection and Plan guards remain effective.
+- Runtime contracts additionally cover legacy migration, interrupted activation,
+  malformed metadata, temporary prompt replacement, deterministic catalog order,
+  the 128-tool boundary and insufficient-context fallback.
+- Automated: `node scripts/e2e-fixed-tool-declarations.mjs` with built
+  shared/host-runtime/agent-runtime and `PI_DESKTOP_HOST_BIN` set to the candidate
+  Host binary; `fixed-tool-runtime.test.ts` and `fixed-tool-declarations.test.ts`
+  cover HTTP payload and policy contracts. Electron UI/outbox is outside this
+  fixture's scope.
+- Separately authorized official Flash experiments compare several independent
+  on-demand/fixed sessions with the same synthetic catalog and call sequence.
+  Record cold requests, both activations, follow-up cache hits/misses and
+  cumulative input cost. Report the larger first request and possible short-chat
+  cost increase, alongside any longer-conversation benefit. Offline test success
+  alone is not evidence of provider cache behavior.

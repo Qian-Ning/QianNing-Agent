@@ -12,6 +12,9 @@ use std::sync::{Mutex, OnceLock};
 use crate::transcripts::{self, CompactionRecord, MessageRecord, RevisionRecord};
 
 mod fork_files;
+mod model_system;
+mod usage;
+pub use usage::record_usage;
 
 pub const MODES: [&str; 3] = ["plan", "goal", "agent"];
 
@@ -224,6 +227,9 @@ pub struct UiMessage {
     /// as an additive `hostedSearch` transcript block; no SQL migration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hosted_search: Option<Value>,
+    /// Internal model-context state, preserved outside visible message text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_system: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -303,6 +309,9 @@ fn is_default_title(title: &str) -> bool {
 /// the search index row (None for tool rows, matching the FTS triggers).
 pub(crate) fn ui_to_record(message: &UiMessage) -> (MessageRecord, Option<String>) {
     let mut meta_obj = serde_json::Map::new();
+    if let Some(system) = &message.model_system {
+        meta_obj.insert("modelSystem".into(), system.clone());
+    }
     if let Some(command) = &message.command {
         meta_obj.insert("command".into(), json!(command));
     }
@@ -456,6 +465,7 @@ pub(crate) fn record_to_ui(record: MessageRecord) -> UiMessage {
         _ => Vec::new(),
     };
     let meta = record.meta.unwrap_or(Value::Null);
+    let model_system = meta.get("modelSystem").cloned();
     let command = meta
         .get("command")
         .and_then(Value::as_str)
@@ -602,6 +612,7 @@ pub(crate) fn record_to_ui(record: MessageRecord) -> UiMessage {
             parent_tool_call_id,
             agent_name,
             hosted_search: hosted_search.clone(),
+            model_system: None,
         }
     } else {
         let content = blocks
@@ -644,6 +655,7 @@ pub(crate) fn record_to_ui(record: MessageRecord) -> UiMessage {
             parent_tool_call_id,
             agent_name,
             hosted_search,
+            model_system,
         }
     }
 }
@@ -863,6 +875,19 @@ fn clone_records_for_fork(
                 .cloned()
                 .unwrap_or_else(|| Uuid::new_v4().to_string());
             if let Some(meta) = record.meta.as_mut().and_then(Value::as_object_mut) {
+                if let Some(system) = meta.get_mut("modelSystem").and_then(Value::as_object_mut) {
+                    for key in ["beforeMessageId", "afterMessageId"] {
+                        if let Some(new_id) = system
+                            .get(key)
+                            .and_then(Value::as_str)
+                            .and_then(|id| message_ids.get(id))
+                        {
+                            system.insert(key.into(), json!(new_id));
+                        } else {
+                            system.remove(key);
+                        }
+                    }
+                }
                 meta.remove("revisionRootId");
                 meta.remove("revisionCount");
                 meta.remove("activeRevision");
@@ -1907,6 +1932,7 @@ pub fn append_message(
     message: &UiMessage,
     turn_id: Option<&str>,
 ) -> Result<()> {
+    model_system::validate(message)?;
     let message = crate::session_collaboration::prepare_append(db, session_id, message, turn_id)?;
     let session_created = ensure_session_for_append(db, session_id)?;
     let (mut record, text) = ui_to_record(&message);
@@ -3500,6 +3526,21 @@ pub fn end_turn_settling(
         "completed" | "aborted" | "error" => status,
         _ => "completed",
     };
+    let existing_usage: Option<String> = db
+        .conn()
+        .query_row(
+            "SELECT usage_json FROM turns WHERE id = ?1",
+            params![turn_id],
+            |row| row.get(0),
+        )
+        .optional()?
+        .flatten();
+    let existing_usage = existing_usage
+        .as_deref()
+        .map(serde_json::from_str::<Value>)
+        .transpose()?;
+    let merged_usage = usage.map(|next| usage::merge_usage(existing_usage.as_ref(), next));
+    let usage = merged_usage.as_ref().or(existing_usage.as_ref());
     let input_tokens = usage
         .and_then(|u| u.get("inputTokens"))
         .and_then(|v| v.as_i64());
@@ -3529,6 +3570,19 @@ pub fn end_turn_settling(
             usage.map(|u| u.to_string()),
             turn_id,
         ])?;
+    // A replay after startup recovery may complete accounting for a terminal
+    // turn, but must never change its settled status or emit another notification.
+    if n == 0 && usage.is_some_and(|value| value.get("operations").is_some()) {
+        tx.execute(
+            "UPDATE turns SET input_tokens = ?1, output_tokens = ?2, usage_json = ?3 WHERE id = ?4",
+            params![
+                input_tokens,
+                output_tokens,
+                usage.map(Value::to_string),
+                turn_id
+            ],
+        )?;
+    }
     let notification = if n > 0 && create_notification {
         notifications::insert_for_terminal_turn(&tx, turn_id, status, error_code)?
     } else {
@@ -4437,6 +4491,7 @@ mod tests {
             parent_tool_call_id: None,
             agent_name: None,
             hosted_search: None,
+            model_system: None,
             session_message: None,
         }
     }
@@ -5085,6 +5140,7 @@ mod tests {
             parent_tool_call_id: None,
             agent_name: None,
             hosted_search: None,
+            model_system: None,
             session_message: None,
         };
         append_message(&db, &session.id, &tool, None).unwrap();
@@ -5523,6 +5579,7 @@ mod tests {
             parent_tool_call_id: None,
             agent_name: None,
             hosted_search: None,
+            model_system: None,
             session_message: None,
         };
         append_message(&db, &session.id, &assistant, None).unwrap();
@@ -5600,6 +5657,7 @@ mod tests {
             is_error: None,
             parent_tool_call_id: None,
             agent_name: None,
+            model_system: None,
             hosted_search: Some(json!({
                 "status": "completed",
                 "rounds": [

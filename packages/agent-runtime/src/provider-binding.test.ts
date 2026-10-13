@@ -153,6 +153,67 @@ describe("Anthropic runtime endpoint", () => {
     expect(request?.headers.get("Authorization")).toBeNull();
   });
 
+  it("does not send the mid-conversation tool-change beta for a models.dev Claude gateway", async () => {
+    const provider: RuntimeProviderConfig = {
+      ...keyedProvider,
+      id: "sub2api-anthropic-gateway",
+      vendorKey: "custom",
+      name: "sub2api",
+      baseUrl: "https://relay.example/v1",
+      modelId: "claude-opus-5-5",
+      apiStyle: "anthropic_messages",
+      supportsReasoning: true,
+      supportedThinkingLevels: ["off", "medium"],
+      modelConfig: {
+        source: "models.dev",
+        name: "Claude Opus 5.5",
+        baseUrl: "https://relay.example/v1",
+        reasoning: true,
+        reasoningOptions: [{ type: "effort", values: ["low", "medium", "high"] }],
+        thinkingProtocol: "adaptive",
+        input: ["text"],
+        contextWindow: 200_000,
+        maxTokens: 16_000,
+      },
+    };
+    const model = buildProviderModel(provider);
+    let request: Request | undefined;
+    const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      request = new Request(input, init);
+      return new Response(
+        JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "test response" } }),
+        { status: 400, headers: { "content-type": "application/json" } },
+      );
+    });
+    const readTool = {
+      name: "Read",
+      description: "Read a file",
+      parameters: { type: "object", properties: { path: { type: "string" } } },
+    };
+
+    const result = await createProviderModels(provider, model)
+      .streamSimple(
+        model,
+        {
+          messages: [
+            { role: "system", content: "system", toolsAdded: [readTool], timestamp: 1 },
+            { role: "user", content: "hello", timestamp: 2 },
+          ],
+          tools: [],
+        },
+        { fetch, maxRetries: 0 },
+      )
+      .result();
+
+    expect(result.stopReason).toBe("error");
+    expect(model.compat).toMatchObject({
+      supportsMidConvoSystemMessages: false, supportsMidConvoToolChanges: false,
+    });
+    expect(request?.headers.get("anthropic-beta") ?? "").not.toMatch(
+      /mid-conversation-tool-changes|inline-tools/,
+    );
+  });
+
   it("uses adaptive thinking for models explicitly marked adaptive", async () => {
     const provider: RuntimeProviderConfig = {
       ...keyedProvider,

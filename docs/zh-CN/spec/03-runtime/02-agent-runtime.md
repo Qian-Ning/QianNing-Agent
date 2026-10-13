@@ -1013,15 +1013,21 @@ sidecar 最多激活四个匹配项，并将名称写入 canonical
 模式。具有本机延迟工具搜索的提供商可在该负载点接收定义；其他
 提供商通常会收到活动定义。
 
-每个新用户提示前都会清除延迟激活集，再从有效上下文重建。成功的
-`ToolSearch` 结果读取 canonical `details.addedToolNames`；为兼容历史
-数据，也接受 `details.activated` 和顶层 `addedToolNames`。成功的延迟
-工具结果会贡献其工具名。仅恢复当前模式延迟目录中仍存在的名称；失败、
-中断、缺少结果的占位行以及助手/用户文本不会激活工具。工具注册表、主机
-权限路径、工具超时和工作区包含规则保持不变。`ToolSearch` 是 sidecar 的
-本地工具，不跨越主机 RPC 边界。激活标记保留在持久化工具结果中，因此
-只要证据仍在有效上下文，运行时重启或新提示都可以复用能力；证据被压缩
-或消失后仍需重新搜索。
+Deferred activation remains sticky within a live runtime. Restoration uses
+successful activation evidence and the current catalog; old declarations do not
+re-grant tools revoked from the live activation set. For official bound Flash,
+full declarations and execution activation are independent: versioned
+`tool_activation` sections carry the account/model/API/endpoint/catalog identity
+and active names through restart and compaction. Only matching, valid state and
+newer successful ToolSearch results restore activation; malformed or changed
+epochs fail closed. Inactive declared tools are blocked before extension/Host
+execution, and activation never bypasses mode or approval checks. The full
+catalog is deterministic from the first request. More than 128 tools or an
+insufficient context budget falls back to on-demand declarations with a
+diagnostic, without truncation. Other bindings retain their existing projection.
+Fixed declarations may increase total cost for short conversations. See the
+English section 7.1 and the chronological-system-transcript ADR for the complete
+contract.
 
 对于用户可见的 HTML 可交付成果，默认系统提示要求代理
 创建页面或创建第一个页面后激活 `BrowserPreview` 一次

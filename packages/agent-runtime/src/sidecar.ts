@@ -227,6 +227,7 @@ async function runtimeFor(
     runtimes.delete(sessionId);
   }
   if (reusable) {
+    reusable.setPluginSkills(pluginSkills);
     reusable.setCompactionSettings(params.compactionSettings);
     reusable.setInfiniteProviderRetry(params.infiniteProviderRetry === true);
     reusable.setMode(mode);
@@ -250,10 +251,9 @@ async function runtimeFor(
     // The current prompt is sent separately below. Exclude its persisted row
     // before attachment hydration so it cannot consume the history byte budget.
     if (currentPrompt !== undefined && params.userMessageId) {
-      const last = restoredMessages.at(-1);
-      if (last?.role === "user" && last.id === params.userMessageId) {
-        restoredMessages = restoredMessages.slice(0, -1);
-      }
+      restoredMessages = restoredMessages.filter((message) =>
+        message.role !== "user" || message.id !== params.userMessageId,
+      );
     }
     const supportsVision = visionFromModelConfig(params.provider.modelConfig);
     history = await hydrateAttachmentHistory(restoredMessages, {

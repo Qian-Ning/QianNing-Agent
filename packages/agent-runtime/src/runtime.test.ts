@@ -299,10 +299,10 @@ describe("system transcript reconstruction", () => {
       { id: "old-assistant", role: "assistant", content: "Earlier answer", createdAt: new Date(before - 1_000).toISOString(), status: "complete" },
     ] });
     const internals = runtime as any;
-    const prefix = internals.agent.state.messages[0];
+    const prefix = internals.agent.state.messages.at(-1);
     expect(prefix.timestamp).toBeGreaterThanOrEqual(before);
     const rebuilt = internals.rebuiltAgentContext();
-    expect(rebuilt.messages[0]).toBe(prefix);
+    expect(rebuilt.messages.at(-1)).toBe(prefix);
     expect(getCurrentTools(rebuilt.messages)).toEqual(rebuilt.tools.map(toToolDeclaration));
     await runtime.dispose();
   });
@@ -324,7 +324,7 @@ describe("system transcript reconstruction", () => {
     vi.spyOn(agent, "continue").mockImplementation(async () => {
       expect(agent.state.systemPrompt).toContain(marker);
       expect(agent.state.systemPrompt.split("SECTION_MARKER")).toHaveLength(2);
-      expect(getCurrentSystemMessage(agent.state.messages)?.sections).toEqual({ rules: "SECTION_MARKER" });
+      expect(getCurrentSystemMessage(agent.state.messages)?.sections).toMatchObject({ rules: "SECTION_MARKER" });
       expect(getCurrentTools(agent.state.messages)).toEqual(tools);
       response.timestamp = agent.state.messages[0]!.timestamp + 10;
       agent.state.messages.push(response as any);
@@ -335,9 +335,9 @@ describe("system transcript reconstruction", () => {
 
     expect(agent.continue).toHaveBeenCalledOnce();
     expect(agent.state.systemPrompt).toBe(before);
-    expect(getCurrentSystemMessage(agent.state.messages)?.sections).toEqual({ rules: "SECTION_MARKER" });
+    expect(getCurrentSystemMessage(agent.state.messages)?.sections).toMatchObject({ rules: "SECTION_MARKER" });
     expect(getCurrentTools(agent.state.messages)).toEqual(tools);
-    expect(estimateTranscriptTokens(agent.state.messages as any).usageTokens).toBe(0);
+    expect(agent.state.messages.at(-1)?.timestamp).toBeGreaterThan(response.timestamp);
     await runtime.dispose();
   });
 });
@@ -1996,15 +1996,14 @@ describe("DesktopAgentRuntime deferred tool catalog", () => {
     expect(next.context.tools.some((tool: any) => tool.name === "BrowserPreview")).toBe(
       true,
     );
-    // Tool deltas append new declarations; catalog order is not semantic.
-    expect([...getCurrentTools(next.context.messages)].sort((a, b) => a.name.localeCompare(b.name))).toEqual(
-      next.context.tools.map(toToolDeclaration).sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name)),
-    );
+    // The Pi loop declares changes immediately before conversion; preparation
+    // only changes the executable tool catalog.
+    expect(getCurrentTools(next.context.messages).some((tool) => tool.name === "BrowserPreview")).toBe(false);
 
     await runtime.dispose();
   });
 
-  it("resets deferred capabilities at the beginning of a new prompt", async () => {
+  it("keeps deferred capabilities sticky at the beginning of a new prompt (#1225)", async () => {
     const runtime = createRuntime();
     const agent = (runtime as any).agent;
     const search = agent.state.tools.find(
@@ -2023,9 +2022,12 @@ describe("DesktopAgentRuntime deferred tool catalog", () => {
 
     (runtime as any).resetDeferredToolsForPrompt();
     expect(agent.state.tools.some((tool: any) => tool.name === "BrowserPreview")).toBe(
-      false,
+      true,
     );
-    expect(getCurrentTools(agent.state.messages)).toEqual(agent.state.tools.map(toToolDeclaration));
+    // Reset retains executability; Pi declares it at the next dispatch, not
+    // while this test calls preparation helpers outside the agent loop.
+    expect(getCurrentTools(agent.state.messages).some((tool) => tool.name === "BrowserPreview")).toBe(false);
+    await runtime.dispose();
   });
 });
 
@@ -2665,7 +2667,7 @@ describe("DesktopAgentRuntime plan transitions", () => {
         // The progress assistant is visible in the reused bubble but must be
         // removed before continue() rebuilds the model context.
         expect(agent.state.messages.filter((message: any) => message.role !== "system")).toHaveLength(1);
-        expect(agent.state.messages.at(-1)?.role).toBe("user");
+        expect(agent.state.messages.filter((message: AgentMessage) => message.role !== "system").at(-1)?.role).toBe("user");
         expect(agent.state.systemPrompt).toContain("<progress_only_recovery>");
       }
       await handleAgentEvent({ type: "agent_start" });
@@ -2754,7 +2756,7 @@ describe("DesktopAgentRuntime plan transitions", () => {
         ];
       } else {
         expect(agent.state.messages.filter((message: any) => message.role !== "system")).toHaveLength(1);
-        expect(agent.state.messages.at(-1)?.role).toBe("user");
+        expect(agent.state.messages.filter((message: AgentMessage) => message.role !== "system").at(-1)?.role).toBe("user");
         expect(agent.state.systemPrompt).toContain(
           attempts === 2 ? "<progress_only_recovery>" : "<no_output_recovery>",
         );
@@ -5315,7 +5317,7 @@ describe("DesktopAgentRuntime per-turn context protection", () => {
     const events = onEvent.mock.calls.map(([envelope]) => (envelope as any).event);
     const endEvent = events.find((e) => e.type === "message_end");
     expect(endEvent).toBeDefined();
-    expect(endEvent.message.usage).toEqual({
+    expect(endEvent.message.usage).toMatchObject({
       inputTokens: 200,
       outputTokens: 80,
       totalTokens: 280,
@@ -6495,17 +6497,18 @@ describe("DesktopAgentRuntime inline context compaction", () => {
     );
     const generateCompaction = vi.spyOn(runtime as any, "generateCompaction");
     const agent = (runtime as any).agent as Agent;
-    const prefix = { ...agent.state.messages[0], sections: { rules: "Keep checkpoint rules" } };
-    agent.state.messages[0] = prefix as any;
+    const index = agent.state.messages.findIndex((message) => message.role === "system");
+    const prefix = { ...agent.state.messages[index], sections: { rules: "Keep checkpoint rules" } };
+    agent.state.messages[index] = prefix as any;
 
     await (runtime as any).prepareNextTurn(nextTurn);
 
     // The point of this family: the window is bought back without paying for a
     // summary, so no provider request is made at all.
-    expect(agent.state.messages[0]).toBe(prefix);
+    expect(agent.state.messages[0]).toEqual(prefix);
     expect(getCurrentTools(agent.state.messages)).toEqual(agent.state.tools.map(toToolDeclaration));
     expect(getCurrentSystemMessage(agent.state.messages)?.sections).toEqual({ rules: "Keep checkpoint rules" });
-    expect((runtime as any).rebuiltAgentContext().messages[0]).toBe(prefix);
+    expect((runtime as any).rebuiltAgentContext().messages[0]).toEqual(prefix);
     expect(generateCompaction).not.toHaveBeenCalled();
     const compaction = host.call.mock.calls.find(
       ([method]) => method === "session.appendCompaction",
@@ -6522,7 +6525,7 @@ describe("DesktopAgentRuntime inline context compaction", () => {
       buildSessionContext((runtime as any).entriesWithCompaction()).messages.map(
         (message: any) => message.role,
       ),
-    ).toEqual(["compactionSummary"]);
+    ).toEqual(["system", "compactionSummary"]);
     const events = onEvent.mock.calls.map(([envelope]) => (envelope as any).event);
     expect(events).toContainEqual(
       expect.objectContaining({
@@ -6601,23 +6604,23 @@ describe("DesktopAgentRuntime plugin skills (D174)", () => {
     await runtime.dispose();
   });
 
-  it("does not reuse a runtime whose skill catalog changed", async () => {
+  it("reuses an idle runtime when the skill catalog changes", async () => {
     const runtime = createRuntime({ pluginSkills });
 
     expect(runtimeMatches(runtime, { pluginSkills })).toBe(true);
     // Revoking agent.prompt.inject empties the catalog.
-    expect(runtimeMatches(runtime, { pluginSkills: [] })).toBe(false);
+    expect(runtimeMatches(runtime, { pluginSkills: [] })).toBe(true);
     expect(
       runtimeMatches(runtime, {
         pluginSkills: [...pluginSkills, { id: "demo.hello/other", name: "Other" }],
       }),
-    ).toBe(false);
+    ).toBe(true);
     // A renamed skill rewrites the catalog line the model reads.
     expect(
       runtimeMatches(runtime, {
         pluginSkills: [{ ...pluginSkills[0], name: "Renamed" }],
       }),
-    ).toBe(false);
+    ).toBe(true);
 
     await runtime.dispose();
   });
@@ -8656,6 +8659,12 @@ describe("DesktopAgentRuntime subagents", () => {
   });
 });
 
+/** True when the runtime currently declares the named tool to the provider. */
+function declaresTool(runtime: unknown, name: string): boolean {
+  const tools = ((runtime as { agent?: { state?: { tools?: Array<{ name: string }> } } }).agent?.state?.tools) ?? [];
+  return tools.some((tool) => tool.name === name);
+}
+
 describe("DesktopAgentRuntime deferred tool restore (#225)", () => {
   const now = () => new Date().toISOString();
   const searchRow = (overrides: Partial<UiMessage> = {}): UiMessage => ({
@@ -8692,6 +8701,36 @@ describe("DesktopAgentRuntime deferred tool restore (#225)", () => {
     (runtime as any).resetDeferredToolsForPrompt();
 
     expect(hasTool(runtime, "BrowserPreview")).toBe(true);
+    await runtime.dispose();
+  });
+
+  it("keeps an activated tool sticky across prompts after its activation rows leave the context (#1225)", async () => {
+    // The tool was activated and used earlier in the session, but those rows
+    // have since fallen out of the visible context (compaction, long turns).
+    // The prompt-time restore finds nothing to reactivate, so sticky
+    // activation is what keeps the tool in the schema and prevents the
+    // intermittent "Tool BrowserPreview not found" 0 ms rejection.
+    const runtime = createRuntime({ history: [] });
+    (runtime as any).activeDeferredToolNames.add("BrowserPreview");
+
+    (runtime as any).resetDeferredToolsForPrompt();
+
+    expect(declaresTool(runtime, "BrowserPreview")).toBe(true);
+    await runtime.dispose();
+  });
+
+  it("does not resurrect a sticky activation after the catalog prunes the tool", async () => {
+    // rebuildToolCatalog prunes both sets when a tool leaves the catalog
+    // (mode switch, extension reload); the prompt-time restore must not
+    // re-add a name the catalog no longer holds.
+    const runtime = createRuntime({ history: [] });
+    (runtime as any).activeDeferredToolNames.add("BrowserPreview");
+    (runtime as any).deferredToolNames.delete("BrowserPreview");
+    (runtime as any).activeDeferredToolNames.delete("BrowserPreview");
+
+    (runtime as any).resetDeferredToolsForPrompt();
+
+    expect(declaresTool(runtime, "BrowserPreview")).toBe(false);
     await runtime.dispose();
   });
 
@@ -10312,4 +10351,14 @@ describe("DesktopAgentRuntime response duration", () => {
       await runtime.dispose();
     },
   );
+});
+
+it("does not reuse stale plugin declarations when schema or permission metadata changes", async () => {
+  const plugin: PluginToolDef = { name: "plugin_fixture", description: "Inspect", parameters: { type: "object", properties: { path: { type: "string" } } } };
+  const runtime = createRuntime({ pluginTools: [plugin] });
+  try {
+    expect(runtimeMatches(runtime, { pluginTools: [{ ...plugin }] })).toBe(true);
+    expect(runtimeMatches(runtime, { pluginTools: [{ ...plugin, parameters: { type: "object", properties: { file: { type: "string" } } } }] })).toBe(false);
+    expect(runtimeMatches(runtime, { pluginTools: [{ ...plugin, planSafeActions: ["inspect"] }] })).toBe(false);
+  } finally { await runtime.dispose(); }
 });

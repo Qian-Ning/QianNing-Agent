@@ -1,3 +1,4 @@
+import { clampThinkingLevel as clampPiThinkingLevel, type Api, type Model, type SimpleStreamOptions } from "@earendil-works/pi-ai";
 import type {
   ModelCost,
   ModelExperimentalMetadata,
@@ -22,7 +23,12 @@ export type ThinkingCapabilitySet = {
  * not provide model names, limits, modalities, thinking levels, or prices.
  */
 export type ModelConfig = {
-  source: "models.dev" | "generic";
+  source: "pi" | "models.dev" | "generic";
+  /** Published identity before account endpoint or wire-model overrides. */
+  transcriptBinding?: { modelId: string; api: string; baseUrl: string };
+  inputLimits?: Model<Api>["inputLimits"];
+  promptCache?: Model<Api>["promptCache"];
+  samplingParams?: Model<Api>["samplingParams"];
   name: string;
   baseUrl: string;
   description?: string;
@@ -42,6 +48,8 @@ export type ModelConfig = {
   modalities?: ModelModalities;
   openWeights?: boolean;
   limit?: ModelLimit;
+  /** Native provider rates before any desktop-side pricing correction. */
+  nativeCost?: Model<Api>["cost"];
   cost?: ModelCost & {
     input: number;
     output: number;

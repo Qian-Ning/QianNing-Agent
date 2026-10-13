@@ -23,16 +23,16 @@
       "max": 1784
     },
     "crates/host-core/src/sessions.rs": {
-      "reason": "Legacy session service module; its extraction is outside this refactor scope.",
-      "max": 8165
+      "reason": "Legacy session service module; its extraction is outside this refactor scope. The ceiling moved off 8165 for the chronological-system-transcript work: the module declares the model_system and usage submodules, re-exports record_usage, and end_turn_settling now merges the settled usage with the ledger and completes accounting for a terminal turn after recovery. The session service has to reach all of that from this facade.",
+      "max": 8223
     },
     "crates/host-core/src/tools/mod.rs": {
       "reason": "Legacy builtin tool dispatch module; its extraction is outside this refactor scope. The ceiling moved off 4522 when the shell-fidelity test budget and its exit-code guards landed in the test module — test-only growth, no production code added.",
       "max": 4550
     },
     "crates/host-core/src/plugin_sessions.rs": {
-      "reason": "Legacy plugin session lifecycle module; its extraction is outside this refactor scope.",
-      "max": 1461
+      "reason": "Legacy plugin session lifecycle module; its extraction is outside this refactor scope. The ceiling moved off 1461 by the one line the chronological-system-transcript work adds when recording the model-system journal against the plugin-owned session.",
+      "max": 1462
     },
     "crates/host-core/src/transcripts.rs": {
       "reason": "Legacy transcript persistence module; its extraction is outside this refactor scope.",
