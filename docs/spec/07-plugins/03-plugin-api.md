@@ -628,6 +628,7 @@ hrefs (D330 / ADR 0168). Other schemes fail with `INVALID_ARGUMENT`.
 
 ### browser (requires `browser.cdp`)
 ```ts
+pi.browser.reveal(): Promise<void>
 pi.browser.navigate(input: { url?: string; path?: string }): Promise<BrowserState | null>
 pi.browser.action(input: { action: "back" | "forward" | "reload" | "stop" }): Promise<void>
 pi.browser.setBounds(hole: { x: number; y: number; width: number; height: number }): Promise<unknown>
@@ -666,6 +667,13 @@ the guest cannot cover chat/composer. `cdp` is deny-by-default; cookie,
 storage, target, and network-interception methods fail with
 `PERMISSION_DENIED`. Session identity for agent calls comes from the in-flight
 `plugins.execute` `sessionId`, not from plugin arguments (D333 / ADR 0170).
+Page operations (`navigate`, `action`, `openExternal`, `getState`, snapshot,
+screenshot, and CDP calls) are available only while the Browser view is
+visible. `reveal()` asks the host to activate the Browser tab for the calling
+session and resolves only after that session's view is visible. A background
+session never takes focus; if it cannot become visible, `reveal()` fails with
+`UNAVAILABLE`. The bundled Browser agent tool calls `reveal()` before each
+operation. `BrowserPreview` remains the live-reloading workspace-file preview.
 
 A click or fill reports the page rather than the call. `effect` is `confirmed`
 only when a value was read back from the page and matched, and `verified` is
