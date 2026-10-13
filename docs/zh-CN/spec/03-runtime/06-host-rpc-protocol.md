@@ -7,7 +7,7 @@
 
 定义以下之间的本地协议：
 
-- Electron 主要（协调器）
+- Electron 主进程（协调器）
 - Rust host-core（特权后端）
 - Node pi 代理 sidecar（通过主机的工具请求者/事件源使用者）
 
@@ -17,7 +17,7 @@ MVP 传输决策 (**D001**)：
 
 ## 2. 交通
 
-- 流程：Electron 主要生成 Rust host-core sidecar
+- 流程：Electron 主进程生成 Rust host-core sidecar
 - 通道：子进程 stdin/stdout
 - 成帧：每行一个以 LF 分隔的 JSON 对象（NDJSON）；接受 CRLF。
   JSON 字符串内的 U+2028 与 U+2029 属于载荷，不是帧分隔符。

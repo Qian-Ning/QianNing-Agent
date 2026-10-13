@@ -19,7 +19,7 @@ QianNing Agent.app
 
 | 工艺流程 | 拥有 |
 |---|---|
-| Electron 主要 | 窗口生命周期、跨平台托盘集成、IPC fan-in/out、子进程监控、固定源应用程序更新生命周期 |
+| Electron 主进程 | 窗口生命周期、跨平台托盘集成、IPC fan-in/out、子进程监控、固定源应用程序更新生命周期 |
 | Renderer | 仅用户界面 |
 | Rust host-core | DB、工具、权限、不可变 Plan/Goal artifacts/Electron 执行字段、shell 目录、插件主机服务、机密适配器 |
 | Node pi sidecar | pi 代理循环、提供商流、工具调用规划 |
@@ -80,7 +80,7 @@ queued/running `plan_approvals` 执行状态已中断并中止它们
 | Renderer 崩溃 | 重新加载窗口，保留 host/agent 进程；同一主机重新加载仅恢复实时待处理的 Plan/Goal 批准及其截止日期，而不是终端卡 |
 | Rust 主机崩溃 | 将应用程序标记为降级、中断 pending/queued/running 审批工作、将待处理会话保留在其合同模式（Plan 或 Goal）中并将已批准的会话保留在 Agent 中、尝试重新启动主机并关闭活动会话失败 |
 | Node 代理崩溃 | 中止活动轮次和实时批准 waiters/queue 条目，在合同模式下保留待处理会话，在 Rust 中保留已批准的 Agent 模式，重新启动 sidecar，并且从不重播执行；sidecar 退出时对其 stderr 尾部做分类——V8 堆耗尽横幅使所属回合以 `AGENT_SIDECAR_OOM` 收尾，其他意外退出以 `AGENT_SIDECAR_CRASHED` 收尾（issue #1077） |
-| Electron 主要崩溃 | 完整的应用程序退出 |
+| Electron 主进程崩溃 | 完整的应用程序退出 |
 
 Crashpad 在 `ready` 之前以本地模式启动（`uploadToServer: false`），转储放在
 `<data_dir>/crash-dumps`（D602），因此 `PI_DESKTOP_DATA_DIR` profile 不会与
@@ -219,7 +219,7 @@ sidecar/host 关闭序列在更新程序替换应用程序之前运行。
   已发货（解决 **D008**）
 - `Resources/agent-runtime/sidecar.js` 是 sidecar 唯一独立的
   释放条目。 ASAR 不携带第二个完整的
-  `@pi-desktop/agent-runtime` 包树； Electron 主要可能内联
+  `@pi-desktop/agent-runtime` 包树； Electron 主进程可能内联
   它调用的纯 JS 助手无需更改进程或协议所有权
 - 渲染器依赖项通过 Vite 输出传送，而不是重复原始数据
   包树；桌面包不再携带交互式 PTY 原生模块

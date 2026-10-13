@@ -22,6 +22,34 @@ export function noticeRoute(relativePath) {
   return `/spec/${relativePath.split(path.sep).join('/').replace(/\.md$/, '')}`
 }
 
+/**
+ * Mistranslations that are decidable rather than stylistic: the English source
+ * says one thing and the Chinese says another, so a hit is always a defect.
+ * The correct term for each is in `docs/zh-CN/GLOSSARY.md`. Keep this list
+ * narrow — a rule that can match a legitimate sentence makes the gate noise.
+ */
+export const forbiddenTerminology = [
+  {
+    pattern: /Electron 主要(?!进程)/,
+    hint: 'the English source reads "Electron main" (the main process) — write Electron 主进程',
+  },
+]
+
+export function verifyTerminology() {
+  const violations = []
+
+  for (const relativePath of markdownFiles(chineseRoot)) {
+    const source = fs.readFileSync(path.join(chineseRoot, relativePath), 'utf8')
+    source.split('\n').forEach((line, index) => {
+      for (const { pattern, hint } of forbiddenTerminology) {
+        if (pattern.test(line)) violations.push(`${relativePath}:${index + 1} — ${hint}`)
+      }
+    })
+  }
+
+  return violations
+}
+
 function tableShape(source) {
   return source.split('\n')
     .map((line) => line.trim())
@@ -63,13 +91,16 @@ export function verifyLocalePairs() {
 
 function main() {
   const { englishFiles, missing, invalid } = verifyLocalePairs()
+  const terminology = verifyTerminology()
 
-  if (missing.length || invalid.length) {
+  if (missing.length || invalid.length || terminology.length) {
     if (missing.length) console.error(`Missing Chinese specifications:\n${missing.join('\n')}`)
     if (invalid.length) console.error(`Invalid Chinese source notices:\n${invalid.join('\n')}`)
+    if (terminology.length) console.error(`Invalid Chinese terminology:\n${terminology.join('\n')}`)
     process.exitCode = 1
   } else {
     console.log(`Verified ${englishFiles.length} English/Chinese specification pairs.`)
+    console.log(`Verified ${forbiddenTerminology.length} Chinese terminology rule(s).`)
   }
 }
 

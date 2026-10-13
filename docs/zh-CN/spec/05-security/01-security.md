@@ -150,7 +150,7 @@ MCP 市场只接受无凭据的公网 HTTPS 源和目录端点。Main 在每一�
 
 ## 7. 应用程序更新安全性（D120）
 
-- Electron 主要拥有 `electron-updater`；渲染器 IPC 无法提供或
+- Electron 主进程拥有 `electron-updater`；渲染器 IPC 无法提供或
   覆盖修复的 HTTPS GitHub owner/repository 或发布 URL。
 - 更新程序强制使用 `allowPrerelease = false`，因此发现始终使用
   GitHub 的最新稳定版本而不是同通道预发布 pin。
