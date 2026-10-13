@@ -8104,3 +8104,27 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   prompt copy, not a slash name.
 - Renderer-side, plus one constant rename in the main process. No IPC channel,
   persisted format, or prompt change.
+
+## 2026-10-11 — Quarantine appends the host keeps refusing (D676)
+
+- D676 amends ADR 0041, D318, D444, and D597: the outbox retries an
+  unclassifiable host failure on a bounded backoff (5s, doubling to a 60s cap)
+  and, after five consecutive failures on the same head, quarantines that
+  append into an application-owned dead-letter file and keeps draining the
+  later entries. Previously any error outside the three known drains ended the
+  flush, so the head was retried forever, the 1024-entry cap stayed full, and
+  every session's writes failed until restart.
+- The backoff applies within one Host generation: the gate compares the Host
+  instance that failed the head, so a restarted Host retries the paused head at
+  once instead of waiting the remaining window.
+- A quarantined append keeps its payload, session id, quarantine timestamp,
+  and host error in `session-message-outbox.dead-letter.json`. It is never
+  replayed automatically, `session.delete` drops that session's quarantined
+  appends with its queued ones, and only the newest 256 are retained — a
+  discarded one is logged with its key, session, and the file path. The queued
+  outbox format, storage schema, and host protocol are unchanged.
+- Covered by `apps/desktop/test/persistence-outbox.test.mjs` (bounded retry and
+  backoff, quarantine and continued drain, dead-letter persistence across a
+  restart, dead-letter cap, session delete) and
+  E2E-SESSION-outbox-unclassifiable-failure-does-not-stall-the-queue. See ADR
+  0041, `03-runtime/04-data-storage.md`, and `03-runtime/06-host-rpc-protocol.md`.
