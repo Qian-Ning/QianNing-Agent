@@ -7304,7 +7304,9 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   5. Ask again in each project.
   6. In the already-open `~/personal/site` session — assembled while the server
      was global — ask the agent to call one of the server's tools by name.
-  7. Edit the server's `env` and save; ask in `~/work/api` again.
+  7. Edit the server's `env`, set a 45-second connection timeout, and save.
+     Reopen it to confirm the value persisted, then clear the timeout and save.
+     Ask in `~/work/api` again.
   8. Rename the server and re-scope it; ask once more.
   9. Point the server's command at a binary that does not exist, save, and open
      a new session.
@@ -7339,6 +7341,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   - The `env` edit drops the connection: the next assembly or call re-handshakes, and
      the tool's behaviour reflects the new value. The rename in step 8 does not
      reconnect anything.
+  - The editor restores a saved timeout when reopened. Clearing it removes the
+    override so the next connection uses the default handshake timeout.
   - The broken command records `failed` with a message, contributes no tools,
      and is not re-dialled on the following session assembly; pressing Test
      retries it.

@@ -1195,6 +1195,7 @@ type PluginSummary = {
 - `mcp.list({ level, projectPath? })` → `{ servers: McpServerRecord[]; statuses: McpServerStatus[] }`
 - `mcp.active({ projectPath? })` → 当前项目的有效运行时列表
 - `mcp.upsert(server)` — 在请求的级别创建或替换文件
+- `McpServerInput.timeoutSeconds` 接受 1 到 600 之间的整数。编辑时省略该字段会保留当前值；发送 `null` 会清除覆盖并恢复运行时默认值。
 - `mcp.remove({ id, level, projectPath? })`
 - `mcp.setEnabled({ id, enabled, level, projectPath? })`
 - `mcp.setScope` 保留为兼容形状；设置页改用显式能力级别和本地状态
