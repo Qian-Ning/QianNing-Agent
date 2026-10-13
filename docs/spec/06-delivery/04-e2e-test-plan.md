@@ -10787,6 +10787,23 @@ This test plan spec is accepted when:
      confirm the sheet saves with the pin `<display name>/<modelId>` and the
      save button enabled. The picker and the draft check must never disagree
      about what is saveable.
+  4b. Configure two providers with the same display name and vendor key, so
+     their pins use distinct stored provider ids. Add one as a fallback model,
+     save and reopen the sheet. Confirm the ordered row and its move/remove
+     accessible names use the provider display name and model ID, not the id,
+     while the saved pin still identifies the chosen provider. Add the second
+     provider with the same model ID and confirm both rows and their accessible
+     names include their provider IDs to distinguish them. Disable one provider
+     and confirm its row and move/remove accessible names retain the configured
+     provider name and model ID, with a localized disabled status; the row must
+     not revert to a raw UUID label. Confirm the disabled provider is absent
+     from the add menu, while its saved row remains movable and removable.
+     Save and reopen, then re-enable the provider: its name remains visible,
+     the disabled status clears, and its stored pin is unchanged. A genuinely
+     missing or ambiguous provider binding keeps its raw pin with an unavailable
+     status rather than borrowing another provider's name. Reorder or remove
+     that row, save and reopen, and confirm all remaining pins and their order
+     are preserved exactly.
   5. Confirm the picker offers no **Custom (provider/model)…** entry and the
      field renders no free-text input, so a model id can only come from the
      configured catalog. Switch the picker to **Inherit session model**, save,
