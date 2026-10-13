@@ -3535,31 +3535,39 @@ uid.
 #### E2E-048b: Edit a logical project name and folder roots
 
 - **Preconditions**: One retained logical project is visible in the sidebar and
-  in Settings → Project archive; it has a primary folder and one additional
-  folder.
+  in Settings → Project archive; it has a primary folder, one additional folder
+  promoted to primary during the scenario, and one other additional folder
+  without chats.
 - **Steps**: 1) Open the project's overflow menu in the sidebar and choose
-  Edit project. 2) Change the name, remove the additional folder, and add it
-  again with the native folder picker. 3) Confirm the Primary row cannot be
-  removed. 4) Save and inspect the sidebar row, Project archive roots, and
-  active workspace. 5) Restart the app and inspect the group again.
+  Edit project. 2) Change the name, use the extra folder's Set as Primary
+  action, and confirm that row moves to the top with the Primary tag while the
+  former primary becomes an ordinary row. 3) Remove the other additional folder
+  and add it again with the native folder picker. 4) Confirm the Primary row
+  cannot be removed. 5) Save and inspect the sidebar row, Project archive
+  roots, and active workspace. 6) Restart the app and inspect the group again.
 - **Background-update regression**: Open Edit project from Settings, change the
-  name and remove the additional folder, then complete a background task before
-  saving. Both draft edits must remain visible and save together. The isolated
-  rendered test is `node scripts/e2e-project-edit.mjs`; it uses real page/store
-  wiring with a controlled host IPC boundary and does not prove disk persistence.
+  name, promote another folder to primary, and remove the additional folder,
+  then complete a background task before saving. Every draft edit must remain
+  visible and save together. The isolated rendered test is
+  `node scripts/e2e-project-edit.mjs`; it uses real page/store wiring with a
+  controlled host IPC boundary and does not prove disk persistence.
 - **Expected**: Both project menus offer Edit project. The editor keeps focus
-  contained, trims the name, limits it to 80 Unicode characters, preserves the
+  contained, trims the name, limits it to 80 Unicode characters, keeps the
   Primary folder as the first row, and updates the root count without removing
-  another row. Saving persists one logical group with the adjusted roots; the
-  name survives restart, while normalized paths, workspace identity, sessions,
-  and on-disk folders remain unchanged. A root with existing chats is rejected
-  instead of orphaning those chats.
+  another row. Promoting a member folder makes it the first row and the stored
+  primary root, so the project opens there afterwards; a folder outside the
+  saved roots is never accepted as primary, and a remote project keeps its
+  host-owned binding unchanged. Saving persists one logical group with the
+  adjusted roots; the name and the promoted primary folder survive restart,
+  while the group's sessions, transcripts, and on-disk folders remain
+  unchanged.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/08-component-spec.md`,
   `04-ux/09-interaction-patterns.md`
 - **Acceptance**: D (workspace identity), F (local presentation persistence)
 - **Milestone**: M5
 - **Status**: Unit-covered (`project-edit.test.mjs`,
-  `sidebar-preferences.test.mjs`); rendered scenario Draft
+  `sidebar-preferences.test.mjs`); rendered scenario Draft, with primary
+  promotion covered by `node scripts/e2e-project-edit.mjs`
 
 #### E2E-048A: Project session lists fold after the ten most recent rows
 

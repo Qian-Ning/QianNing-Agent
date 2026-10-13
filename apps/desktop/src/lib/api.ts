@@ -905,11 +905,19 @@ export const api = {
     invoke<{ group: ProjectGroupRecord }>(IPC.invoke.projectGroupCreate, { name, folders }),
   renameProjectGroup: (groupId: string, name: string) =>
     invoke<{ group: ProjectGroupRecord }>(IPC.invoke.projectGroupRename, { groupId, name }),
-  updateProjectGroup: (groupId: string, name: string, folders: string[]) =>
+  // `primary` names the folder that becomes the group's primary root; the host
+  // keeps the stored one when it is omitted.
+  updateProjectGroup: (
+    groupId: string,
+    name: string,
+    folders: string[],
+    primary?: string,
+  ) =>
     invoke<{ group: ProjectGroupRecord }>(IPC.invoke.projectGroupUpdate, {
       groupId,
       name,
       folders,
+      ...(primary ? { primary } : {}),
     }),
   getProjectGroupMemory: (groupId: string) =>
     invoke<{ memory: ProjectMemory }>(IPC.invoke.projectGroupMemoryGet, { groupId }),

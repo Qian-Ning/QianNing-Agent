@@ -47,10 +47,11 @@ pub(super) async fn handle(
                 .filter_map(Value::as_str)
                 .map(str::to_string)
                 .collect::<Vec<_>>();
+            let primary = params.get("primary").and_then(Value::as_str);
             let st = state.lock().await;
             let group = st
                 .db
-                .update_project_group(group_id, name, &folders)
+                .update_project_group(group_id, name, &folders, primary)
                 .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
             Ok(json!({ "group": group }))
         }

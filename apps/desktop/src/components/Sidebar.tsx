@@ -2599,7 +2599,17 @@ export function Sidebar({
         <ProjectEditDialog
           project={editProjectFor}
           onClose={() => setEditProjectFor(null)}
-          onSaved={(group) => editProjectEntry(editProjectFor, group.name)}
+          onSaved={(group) => {
+            editProjectEntry(editProjectFor, group.name);
+            // A promoted primary owns the group name from now on, so the entry
+            // that opens there later already carries it.
+            if (
+              normalizeProjectPath(editProjectFor.path) !==
+              normalizeProjectPath(group.primaryPath)
+            ) {
+              renameProject(group.primaryPath, group.name);
+            }
+          }}
           onError={reportError}
         />
       ) : null}

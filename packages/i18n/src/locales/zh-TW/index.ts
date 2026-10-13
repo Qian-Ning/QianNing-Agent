@@ -1942,6 +1942,7 @@ sklm: {
     editSaving: "儲存中…",
     editCancel: "取消",
     editPrimaryLocked: "主要資料夾不能移除",
+    editSetPrimary: "設為主要資料夾",
     editMemory: "專案記憶",
     memorySaved: "專案記憶已儲存",
     memoryDescription: "保存會在專案聊天之間持續使用的上下文。",

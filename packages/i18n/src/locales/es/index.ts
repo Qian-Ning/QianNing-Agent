@@ -1952,6 +1952,7 @@ sklm: {
     "editAction": "Guardar cambios",
     "editSaving": "Guardando…",
     "editCancel": "Cancelar",
+    "editSetPrimary": "Establecer como carpeta principal",
     "editPrimaryLocked": "La carpeta principal no se puede eliminar",
     "editMemory": "Memoria del proyecto",
     "memorySaved": "Memoria del proyecto guardada",

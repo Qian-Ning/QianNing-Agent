@@ -267,13 +267,19 @@ export function registerWorkspaceIpc({
   );
   handle(
     IPC.invoke.projectGroupUpdate,
-    async (input: { groupId?: unknown; name?: unknown; folders?: unknown } = {}) => {
+    async (input: {
+      groupId?: unknown;
+      name?: unknown;
+      folders?: unknown;
+      primary?: unknown;
+    } = {}) => {
       if (!host) throw new Error("host unavailable");
       const groupId = typeof input.groupId === "string" ? input.groupId.trim() : "";
       const name = typeof input.name === "string" ? input.name.trim() : "";
       const folders = Array.isArray(input.folders)
         ? input.folders.filter((path): path is string => typeof path === "string")
         : [];
+      const primary = typeof input.primary === "string" ? input.primary.trim() : "";
       if (!groupId || !name || folders.length === 0) {
         throw Object.assign(new Error("project group id, name and folders required"), {
           errorCode: ErrorCodes.INVALID_ARGUMENT,
@@ -292,10 +298,18 @@ export function registerWorkspaceIpc({
           errorCode: ErrorCodes.INVALID_ARGUMENT,
         });
       }
+      // The promoted primary must be one of the folders this call keeps.
+      const safePrimary = primary ? resolve(primary) : "";
+      if (safePrimary && !safeFolders.includes(safePrimary)) {
+        throw Object.assign(new Error("project group primary must be one of its folders"), {
+          errorCode: ErrorCodes.INVALID_ARGUMENT,
+        });
+      }
       const updated = await host.call("project.group.update", {
         groupId,
         name,
         folders: safeFolders,
+        ...(safePrimary ? { primary: safePrimary } : {}),
       });
       void refreshProjectGroups(host);
       return updated;

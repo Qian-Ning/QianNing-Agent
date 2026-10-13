@@ -1972,6 +1972,7 @@ sklm: {
     editSaving: "Saving…",
     editCancel: "Cancel",
     editPrimaryLocked: "The Primary folder cannot be removed",
+    editSetPrimary: "Set as Primary folder",
     editMemory: "Project memory",
     memorySaved: "Project memory saved",
     memoryDescription: "Keep durable context for this project across chats.",

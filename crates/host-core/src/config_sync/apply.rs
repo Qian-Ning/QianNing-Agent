@@ -433,7 +433,7 @@ fn apply_entity(
                 .to_string();
             match st.db.project_group_for_path(&paths[0])? {
                 Some(group) if !group.legacy => {
-                    st.db.update_project_group(&group.id, &name, &paths)?;
+                    st.db.update_project_group(&group.id, &name, &paths, None)?;
                 }
                 _ => {
                     st.db.create_project_group(&name, &paths)?;
