@@ -11,6 +11,7 @@ mod connection_tool;
 mod keyboard_rpc;
 mod market_rpc;
 mod mcp_rpc;
+mod network_rpc;
 mod notification_rpc;
 mod permissions_rpc;
 mod plans_rpc;
@@ -1618,6 +1619,10 @@ async fn handle_request(
 
         method if method.starts_with("settings.") => {
             return settings_rpc::handle(&state, method, params).await;
+        }
+
+        method if method.starts_with("network.") => {
+            return network_rpc::handle(&state, method, params).await;
         }
 
         method if method.starts_with("commandShells.") => {

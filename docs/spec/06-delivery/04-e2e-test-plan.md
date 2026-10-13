@@ -2810,21 +2810,30 @@ identify the platform validation still needed.
 - **Acceptance**: G (remote marketplace source)
 - **Status**: Documented / host-core unit covered
 
-#### E2E-024Z: Windows localized curl diagnostics stay readable
+#### E2E-024Z: Windows curl handles offline revocation checks and localized errors
 
-- **Preconditions**: Windows x64 host. The official catalog request is forced
-  to fail with a localized, non-UTF-8 curl/Schannel diagnostic (a deterministic
-  fake curl in the test PATH may emit GBK stderr and exit 35).
-- **Steps**: 1) Select Extensions → Marketplace with GitHub (official) as the
-  source. 2) Refresh the marketplace. 3) Inspect the error toast. 4) Switch to
-  the CNB mirror and refresh again.
-- **Expected**: The failed request remains a `PLUGIN_NETWORK` failure and
-  retains the readable localized diagnostic without Unicode replacement
-  characters; switching to the mirror can refresh the catalog normally.
+- **Preconditions**: Windows x64 host with curl built against Schannel. For the
+  offline-revocation case, use a proxy route that can reach the HTTPS fixture
+  while its certificate revocation distribution point is unavailable. For the
+  diagnostic case, force the catalog request to fail with localized, non-UTF-8
+  curl output (a deterministic fake curl may emit GBK stderr and exit 35).
+- **Steps**: 1) Select Extensions → Marketplace with Official as the source.
+  2) Refresh the catalog and install a package through the system proxy while
+  the revocation distribution point is offline. 3) Confirm the installed curl
+  advertises `--ssl-revoke-best-effort` and inspect the verified package. 4)
+  Force a localized curl/Schannel failure, refresh again, and inspect the error
+  toast. 5) Switch to the CNB backup and refresh.
+- **Expected**: When the installed Schannel curl supports the option, catalog
+  and package requests tolerate an unavailable revocation distribution point
+  without disabling certificate verification; package size and SHA-256 checks
+  still gate installation. A real network/TLS failure remains
+  `PLUGIN_NETWORK`, with localized diagnostics readable and no Unicode
+  replacement characters; switching to a reachable backup can refresh the
+  catalog normally.
 - **Specs linked**: `07-plugins/07-plugin-marketplace.md`,
-  `03-runtime/07-process-model.md`
+  `03-runtime/07-process-model.md`, ADR 0177
 - **Acceptance**: G (remote marketplace source)
-- **Status**: Documented / host-core unit covered; Windows rendered validation pending
+- **Status**: Documented; host-core unit covered; Windows proxy/TLS validation pending
 
 #### E2E-024B: Marketplace install with permission review
 
@@ -12281,7 +12290,9 @@ are withdrawn with ADR 0165.
 
 - **Preconditions**: A reachable local HTTP or SOCKS5 proxy, or a known-bad
   port for the failure path. A configured provider/model whose endpoint is
-  reachable through the proxy is available for the model-request step.
+  reachable through the proxy is available for the model-request step. For
+  System mode, the OS has a local system proxy or PAC fixture with a capture
+  endpoint and a direct fallback route.
 - **Steps**:
   1. Open Settings → General. Confirm a Network card with Proxy modes
      System, Direct, and Custom. System is selected on a profile that never
@@ -12305,12 +12316,18 @@ are withdrawn with ADR 0165.
      TCP chunk. Confirm a subsequent marketplace refresh and a models.dev
      catalog refresh use the proxy (host-core curl `--proxy`, Electron
      `net.fetch`), and confirm a loopback URL in Bypass is not proxied.
-  6. Switch to Direct, then System. Confirm Chromium returns to
-     `mode: "direct"` then `mode: "system"`, and the sidecar is reconfigured
-     without an app restart.
+  6. Switch to Direct. Confirm Chromium returns to `mode: "direct"`, provider
+     and marketplace traffic bypass the System relay, and workspace Bash does
+     not inherit proxy variables from the setting.
+  7. Switch to System. Confirm Chromium returns to `mode: "system"` and send a
+     provider request and marketplace refresh. Confirm both follow the OS/PAC
+     route selected for each destination, including ordered proxy-to-direct
+     fallback, without restarting the app.
 - **Expected**: Custom covers model calls, marketplace, updates, plugin
-  `net.fetch`, and the in-app browser. Workspace Bash `env` does not show
-  `HTTP_PROXY` / `ALL_PROXY` from the setting. OAuth still opens the system
+  `net.fetch`, and the in-app browser. System covers provider and marketplace
+  requests through Electron's OS/PAC resolver. Workspace Bash `env` does not
+  show `HTTP_PROXY` / `ALL_PROXY` from the setting. TLS verification remains
+  enabled on all routes. OAuth still opens the system
   browser. Invalid schemes (`file:`, `ftp:`, and SOCKS4) and malformed
   percent-encoded credentials are rejected. Authenticated HTTP and SOCKS5
   URLs Test and apply without `net::ERR_NO_SUPPORTED_PROXIES` (issue #490).
@@ -12319,11 +12336,14 @@ are withdrawn with ADR 0165.
   `03-runtime/07-process-model.md`, ADR 0177, D340
 - **Acceptance**: B (settings), F (providers), Security
 - **Milestone**: M5
-- **Status**: Unit-covered (`network-proxy.test.ts`, `node-proxy.test.ts`,
-  `authenticated-proxy-relay.test.ts`, `settings-general.test.mjs`,
-  host-core `network_proxy` tests); malformed credentials and unsupported
-  SOCKS4 schemes are covered by the shared parser tests; full UI journey
-  Draft (run only in a capable environment when this surface changes)
+- **Status**: Custom-path unit coverage exists (`network-proxy.test.ts`,
+  `node-proxy.test.ts`, `authenticated-proxy-relay.test.ts`,
+  `settings-general.test.mjs`, host-core `network_proxy` tests); malformed
+  credentials and unsupported SOCKS4 schemes are covered by shared parser
+  tests. `system-proxy-relay.test.ts` covers authenticated provider traffic,
+  PAC proxy fallback, HTTP proxy forwarding, and scheme detection on
+  non-default ports. Full UI journey Draft (run only in a capable environment
+  when this surface changes).
 
 #### E2E-191: Newly emitted AppError codes stay registered
 

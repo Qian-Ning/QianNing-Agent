@@ -13,6 +13,10 @@
     "./sidecar": {
       "types": "./dist/sidecar.d.ts",
       "import": "./dist/sidecar.js"
+    },
+    "./system-proxy-relay": {
+      "types": "./dist/system-proxy-relay.d.ts",
+      "import": "./dist/system-proxy-relay.js"
     }
   },
   "scripts": {
