@@ -4141,6 +4141,32 @@ uid.
   `chat-context-menu-items.test.mjs`, `chat-context-menu-surface.test.mjs`);
   full UI scenario Draft
 
+### E2E-CHAT-delete-turn-preserves-other-live-outputs
+
+- **Preconditions**: A session has three completed turns. The renderer has
+  assistant and tool outputs for all three turns, while persistence is missing
+  at least one output because its outbox append is still pending.
+- **Steps**: Delete the middle user turn, then reload the session after the
+  transcript replacement completes.
+- **Expected**: The deleted user turn and its outputs remain absent. The first
+  and third turns retain their user, assistant, and tool messages before and
+  after reload. A pending append cannot run after transcript replacement and
+  restore the deleted turn.
+- **Specs linked**: `03-runtime/04-data-storage.md`,
+  `03-runtime/06-host-rpc-protocol.md`, ADR 0060
+- **Acceptance**: C (chat stream), F (persistence), Quality
+- **Milestone**: M6+
+- **Status**: Unit-covered (`delete-message-preserves-transcript.test.mjs`,
+  `persistence-outbox.test.mjs`); complete desktop journey remains Draft
+
+- **Full-history regression**: Open a 140-message session without scrolling
+  back and choose Copy conversation. The clipboard must contain messages
+  1–140, not only the loaded tail. Repeat from a search context window and
+  with a truncated long message. Preserve visible in-flight text; a failed
+  history read must report an error and leave the clipboard unchanged.
+  Copy must not load history until selected or change the reading position.
+  Run `node scripts/e2e-copy-conversation.mjs`.
+
 - **Full-history regression**: Open a 140-message session without scrolling
   back and choose Copy conversation. The clipboard must contain messages
   1–140, not only the loaded tail. Repeat from a search context window and

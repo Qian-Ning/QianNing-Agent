@@ -463,6 +463,9 @@ export function registerSessionIpc({
       const sessionId = String(input?.sessionId || "");
       if (!sessionId) throw new Error("sessionId required");
       rejectNativeMutation(sessionId, "transcript replacement");
+      // Drain appends already in flight, then drop the rest: a queued write
+      // that landed after the truncation would put the discarded messages back.
+      await persistenceOutbox.prepareSessionReplacement(sessionId, () => host);
       // Drop the live pi-agent so the next prompt reseeds from the truncated
       // transcript instead of replaying the discarded branch in memory.
       if (sidecar) {
