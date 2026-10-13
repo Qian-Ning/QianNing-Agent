@@ -353,3 +353,4 @@ Each ADR includes:
 | 0322 | [Serve the media library to the renderer over a confined asset scheme](0322-media-library-asset-scheme.md) | Accepted |
 | 0323 | [Add HappyCoding as a named endpoint preset](0323-happycoding-endpoint-preset.md) | Accepted |
 | 0324 | [Bound the architecture budget exemptions](0324-bound-architecture-budget-exemptions.md) | Accepted (amends 0235) |
+| chronological-system-transcript | [Preserve chronological model system state](chronological-system-transcript.md) | Accepted |

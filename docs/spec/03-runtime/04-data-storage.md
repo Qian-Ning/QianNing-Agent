@@ -126,6 +126,24 @@ per message; `seq` is implied by line order:
 {"type":"compaction","id":"cp1","summary":"…","firstKeptMessageId":"m2","throughMessageId":"m3","tokensBefore":917000,"retainedTail":[…],"providerId":"…","modelId":"…","createdAt":"…"}
 ```
 
+Internal system-state rows use role `system`, empty visible content, and optional
+`meta.modelSystem = { version: 1, messageJson, beforeMessageId?, afterMessageId? }`.
+`messageJson` is validated JSON text of a Pi system message with sections and tool
+schema deltas; executable functions are excluded. JSON text preserves section and schema key
+order across Rust storage; parsing for validation never reserializes it. Stable row IDs make retries
+idempotent. The anchors restore logical model order when a user row was already
+persisted before its preceding declaration; a surviving following anchor takes
+precedence, then a preceding anchor, then the record's continuation position.
+Forks remap surviving anchor IDs. Normal system notices remain visible; internal
+model-state rows do not produce transcript bubbles or search text.
+
+Compaction details may include one `systemMessageJson` checkpoint. It replaces old
+system updates in the retained tail and is restored before the summary. These
+optional metadata fields use the existing JSONL/SQLite index and require no
+schema migration. Old sessions remain readable; their first continuation records
+a new baseline. Older app versions ignore the metadata and reconstruct their
+usual current prompt, so downgrade does not promise the same cache prefix.
+
 `sessions/<sessionId>.inflight.json` — the assistant reply currently
 streaming in the session, as one `{ schema, sessionId, turnId, savedAt,
 message }` object that host-core replaces atomically (temp + rename) on every

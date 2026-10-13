@@ -1,3 +1,4 @@
+import { getSupportedThinkingLevels, type Api, type Model } from "@earendil-works/pi-ai";
 import {
   effectiveContextWindow,
   THINKING_LEVELS,
@@ -6,6 +7,7 @@ import {
   type ModelModality,
 } from "@pi-desktop/shared";
 import type { ModelConfig, ThinkingCapabilitySet } from "./thinking-level.js";
+export { transcriptConfigFromPi } from "./transcript-compat.js";
 
 export {
   agentThinkingLevel,
@@ -15,6 +17,23 @@ export {
   type ThinkingCapabilitySet,
 } from "./thinking-level.js";
 
+/** Read-only, credential-free projection of a resolved Pi chat model. */
+export function modelConfigFromPi(model: Model<Api>): ModelConfig {
+  const { id: _id, provider: _provider, cost, compat, ...metadata } = model;
+  return {
+    ...metadata,
+    ...(compat ? { compat: { ...compat } } : {}),
+    source: "pi",
+    transcriptBinding: { modelId: model.id, api: model.api, baseUrl: model.baseUrl },
+    nativeCost: cost,
+    // Desktop's historical tier schema differs; do not invent a translation.
+    cost: { input: cost.input, output: cost.output, cacheRead: cost.cacheRead, cacheWrite: cost.cacheWrite },
+    modalities: { input: [...model.input], output: ["text"] },
+    limit: { context: model.contextWindow, output: model.maxTokens },
+    catalogContextWindow: model.contextWindow,
+    supportedThinkingLevels: getSupportedThinkingLevels(model),
+  };
+}
 export type ModelCapabilities = ThinkingCapabilitySet;
 /** Compatibility name used by Electron main and existing runtime callers. */
 export type ThinkingCapabilities = ModelCapabilities;

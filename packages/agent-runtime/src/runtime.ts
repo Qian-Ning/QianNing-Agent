@@ -1,3 +1,7 @@
+import { TOOL_ACTIVATION_SECTION, toolDeclarationPolicy, toolActivationSection, restoredToolActivation, syncToolActivation, type ToolDeclarationPolicy } from "./fixed-tool-declarations.js";
+import { orderSystemRows, SystemTranscriptJournal } from "./system-transcript-journal.js";
+import { accountModelStream } from "./request-usage.js";
+import { modeToolDenial, retainModeToolDeclaration, withModeExecutionGuard } from "./mode-tool-access.js";
 import { restoreHostedSearchReplay } from "./hosted-search-replay.js";
 import { requestExtensionUi } from "./extensions/ui-request.js";
 import { readLocalRequestErrorDetails } from "./local-request-errors.js";
@@ -21,6 +25,7 @@ import { convertToLlm } from "./pi-runtime-messages.js";
 import type { CompactionPreparation, CompactionEntry, CompactionSettings, Entry, MessageEntry } from "./pi-runtime-types.js";
 import {
   isContextOverflow,
+  getCurrentTools,
   Type,
   type Api,
   type AssistantMessage,
@@ -117,9 +122,12 @@ import { withExplicitRequired } from "./tool-schema.js";
 import { buildSessionContext } from "./session-context.js";
 import {
   initialSystemTranscript,
+  CONTEXT_BUDGET_SECTION,
+  syncSystemSections,
+  systemTranscriptCheckpoint,
+  removeTrailingAssistantMessages,
   rebuildSystemTranscript,
   replaceSystemPrompt,
-  syncSystemTools,
   systemPromptContent,
 } from "./system-transcript.js";
 import {
@@ -183,6 +191,7 @@ import { genericModelConfig, visionFromModelConfig } from "./model-capabilities.
 import { projectMemoryPrompt } from "./project-memory-prompt.js";
 import {
   pluginSkillsPrompt,
+  pluginSkillsPromptSections,
   SKILL_TOOL_NAME,
   type PluginSkillDef,
 } from "./plugin-skills-prompt.js";
@@ -1636,8 +1645,11 @@ export class DesktopAgentRuntime {
    * and result-normalisation path as every other host tool (D273).
    */
   private hostToolExecutor: ((toolName: string) => AgentTool) | null = null;
-  /** Deferred tools loaded for the current user prompt. */
+  /** Deferred tools activated for this runtime and declaration epoch. */
   private activeDeferredToolNames = new Set<string>();
+  private declarationPolicy?: ToolDeclarationPolicy;
+  private trackToolActivation = false;
+  private activationHydrated = false;
   private scratchDir?: string;
   private projectPath?: string;
   private commandShell: CommandShellOption;
@@ -1749,6 +1761,8 @@ export class DesktopAgentRuntime {
   };
   private terminatingToolCalls = new Set<string>();
   private fullEntries: MessageEntry[];
+  private readonly systemJournal = new SystemTranscriptJournal();
+  private composedSections: Record<string, string> = {};
   private activeCompaction?: ContextCompactionRecord;
   private compactionEnabled: boolean;
   private readonly compactionStrategy: CompactionStrategy;
@@ -1793,7 +1807,7 @@ export class DesktopAgentRuntime {
     this.streamSink = createStreamCoalescer(opts.onEvent);
     this.onEvent = (envelope) => this.streamSink.push(envelope);
     this.pluginTools = opts.pluginTools ?? [];
-    this.pluginSkills = opts.pluginSkills ?? [];
+    this.pluginSkills = [...(opts.pluginSkills ?? [])].sort((left, right) => left.id.localeCompare(right.id));
     this.trustedExtensionSpecs = opts.trustedExtensions ?? [];
     this.subagents = opts.subagents ?? [];
     this.subagentProviders = opts.subagentProviders ?? {};
@@ -1817,7 +1831,6 @@ export class DesktopAgentRuntime {
     this.rebuildToolCatalog();
     const model = buildProviderModel(this.provider);
     this.model = model;
-    const tools = this.activeTools();
     const models = createProviderModels(this.provider, model);
     this.models = models;
     const runtimeApiKey = providerRequestKey(this.provider);
@@ -1828,7 +1841,6 @@ export class DesktopAgentRuntime {
     this.delegationChains.hydrate(
       rebuildChainsFromTranscript(this.transcriptHistory),
     );
-    const skillsPrompt = pluginSkillsPrompt(this.pluginSkills);
     // Parts: [0] is the product persona; [1:] are operational rules a custom
     // SYSTEM.md must not remove (tool guidance, delegation, scratch, skills).
     const defaultSystemPromptParts = [
@@ -1900,8 +1912,6 @@ Call TaskWait only when your next step genuinely depends on that report and noth
             `Your scratch directory for this session is \`${formatScratchDirForShell(this.commandShell, this.scratchDir)}\` (in Bash: ${shellScratchVariable(this.commandShell)}). Store ad-hoc temporary and intermediate files there using absolute paths. Workspace writes must be task-related project files or required toolchain outputs. Scratch persists across turns and is deleted with the session.`,
           ]
         : []),
-      // Plugin skills (D174).
-      ...(skillsPrompt ? [skillsPrompt] : []),
     ];
     // The persona is exactly what the session or the app-wide setting chose;
     // with neither, the built-in default stands. The operational rules in the
@@ -1911,6 +1921,9 @@ Call TaskWait only when your next step genuinely depends on that report and noth
       (opts.systemPrompt ?? DEFAULT_RUNTIME_SYSTEM_PROMPT).trim(),
       ...defaultSystemPromptParts.slice(1),
     ].join("\n\n");
+    this.refreshToolDeclarationPolicy();
+    this.restoreDeferredToolsFromContext();
+    const tools = this.declaredTools();
     this.agent = new Agent({
       streamFn: (m, context, options) => {
         this.setAgentActivity({ phase: "waiting-model", since: Date.now() });
@@ -2044,19 +2057,24 @@ Call TaskWait only when your next step genuinely depends on that report and noth
       // The provider's rule that a tool-call id is unique is enforced here, on
       // the last view before the wire: the request is the only place it can be
       // guaranteed for both a rebuilt context and one that grew in this process.
-      convertToLlm: (messages) =>
-        alignRetainedReasoningIdentity(
-          convertToLlm(this.dropDuplicateToolCalls(messages)),
-          this.reasoningReplayIdentity(),
-        ),
+      convertToLlm: async (messages) => {
+        await this.systemJournal.persist(messages, this.fullEntries, async (message) => {
+          await this.host.call("session.appendMessage", {
+            sessionId: this.sessionId, turnId: this.turnId, message,
+          });
+        });
+        return alignRetainedReasoningIdentity(
+          convertToLlm(this.dropDuplicateToolCalls(messages)), this.reasoningReplayIdentity(),
+        );
+      },
       prepareNextTurnWithContext: (context, signal) =>
         this.prepareNextTurn(context, signal),
       afterToolCall: async (context) => this.afterToolCall(context),
       initialState: {
         model,
-        tools,
+        tools: [],
         thinkingLevel: agentThinkingLevel(this.thinkingLevel),
-        messages: initialSystemTranscript(this.composeSystemPrompt(), tools, this.liveSessionContext().messages),
+        messages: initialSystemTranscript(this.composeSystemPrompt(), tools, this.liveSessionContext().messages, this.composedSections),
       },
       // Plan transitions must be the only tool call in an assistant batch.
       // Sequential execution also makes the host-confirmed mode change visible
@@ -2079,6 +2097,9 @@ Call TaskWait only when your next step genuinely depends on that report and noth
         return { action: "end" };
       },
     });
+
+    // Avoid Pi inserting a tool-only baseline ahead of restored legacy rows.
+    this.setAgentTools(tools);
 
     // pi awaits every listener, so a throw here would reject the run in
     // progress and, with nothing awaiting that rejection, could take the whole
@@ -2105,6 +2126,18 @@ Call TaskWait only when your next step genuinely depends on that report and noth
   setInfiniteProviderRetry(enabled: boolean): void {
     if (this.disposed) throw new Error("runtime disposed");
     this.infiniteProviderRetry = enabled;
+  }
+
+  /** Refresh catalog instructions without changing the running session owner. */
+  setPluginSkills(skills: PluginSkillDef[]): void {
+    if (this.disposed) throw new Error("runtime disposed");
+    if (this.getStatus().isRunning) throw new Error("cannot update skills during an active turn");
+    const sorted = [...skills].sort((left, right) => left.id.localeCompare(right.id));
+    if (pluginSkillsDigest(this.pluginSkills) === pluginSkillsDigest(sorted)) return;
+    this.pluginSkills = sorted;
+    this.rebuildToolCatalog();
+    this.setAgentTools(this.activeTools());
+    this.setAgentSystemPrompt(this.composeSystemPrompt());
   }
 
   /** Switch the planning state on this Agent without creating another Agent. */
@@ -2147,7 +2180,9 @@ Call TaskWait only when your next step genuinely depends on that report and noth
       (this.agent.state as unknown as { systemPrompt: string }).systemPrompt = prompt;
       return;
     }
-    this.agent.state.messages = replaceSystemPrompt(this.agent.state.messages, prompt);
+    this.agent.state.messages = prompt === this.composedSystemPrompt
+      ? syncSystemSections(this.agent.state.messages, this.composedSections)
+      : replaceSystemPrompt(this.agent.state.messages, prompt);
   }
 
   private setAgentMessages(messages: AgentMessage[]): void {
@@ -2155,16 +2190,18 @@ Call TaskWait only when your next step genuinely depends on that report and noth
       this.agent.state.messages = messages;
       return;
     }
-    this.agent.state.messages = syncSystemTools(
-      rebuildSystemTranscript(this.agent.state.messages, messages),
-      this.agent.state.tools,
+    this.agent.state.messages = rebuildSystemTranscript(
+      this.agent.state.messages.filter((message) => message.role !== "system" || !this.systemJournal.isPersisted(message)), messages,
     );
   }
 
   private setAgentTools(tools: AgentTool[]): void {
-    this.agent.state.tools = tools;
-    if (this.agentUsesTranscriptSystemMessages()) {
-      this.agent.state.messages = syncSystemTools(this.agent.state.messages, tools);
+    this.agent.state.tools = this.declarationPolicy?.tools ?? tools;
+    if (this.trackToolActivation && this.declarationPolicy) {
+      const section = toolActivationSection(this.declarationPolicy.key, this.activeDeferredToolNames);
+      this.composedSections = { ...this.composedSections, [TOOL_ACTIVATION_SECTION]: section };
+      this.composedSystemPrompt = Object.values(this.composedSections).filter(Boolean).join("\n\n");
+      this.agent.state.messages = syncToolActivation(this.agent.state.messages, section);
     }
   }
 
@@ -2184,16 +2221,20 @@ Call TaskWait only when your next step genuinely depends on that report and noth
             runningDelegationIds: this.runningDelegationIds(),
           })
         : "";
-    const composed = composeModeSystemPrompt(
-      this.mode,
-      [
-        this.baseSystemPrompt,
+    this.composedSections = {
+      runtime: this.baseSystemPrompt,
+      ...(this.trackToolActivation && this.declarationPolicy ? {
+        [TOOL_ACTIVATION_SECTION]: toolActivationSection(this.declarationPolicy.key, this.activeDeferredToolNames),
+      } : {}),
+      ...pluginSkillsPromptSections(this.pluginSkills),
+      context: composeModeSystemPrompt(this.mode, [
         ...(optionalToolsPrompt ? [optionalToolsPrompt] : []),
         ...(rootsPrompt ? [rootsPrompt] : []),
         ...(memoryPrompt ? [memoryPrompt] : []),
         ...(resumablePrompt ? [resumablePrompt] : []),
-      ].join("\n\n"),
-    );
+      ].join("\n\n")),
+    };
+    const composed = Object.values(this.composedSections).filter(Boolean).join("\n\n");
     this.composedSystemPrompt = composed;
     return composed;
   }
@@ -2344,6 +2385,9 @@ Call TaskWait only when your next step genuinely depends on that report and noth
   private async beforeToolCall(
     context: BeforeToolCallContext,
   ): Promise<BeforeToolCallResult | undefined> {
+    if (this.deferredToolNames.has(context.toolCall.name) && !this.activeDeferredToolNames.has(context.toolCall.name)) {
+      return { block: true, reason: `Call ${TOOL_SEARCH_NAME} to activate ${context.toolCall.name} before using it. A tool declaration does not grant execution permission.` };
+    }
     const toolCalls = (context.assistantMessage.content as Array<{ type?: string }>).filter(
       (block) => block.type === "toolCall",
     );
@@ -2401,9 +2445,8 @@ Call TaskWait only when your next step genuinely depends on that report and noth
   /** True when this runtime can be reused for a prompt with the given config. */
   matches(config: RuntimeMatchConfig): boolean {
     const requestedPluginTools = config.pluginTools ?? [];
-    const requestedPluginSkills = config.pluginSkills ?? [];
-    const current = this.pluginTools.map((t) => t.name).sort().join(",");
-    const next = requestedPluginTools.map((t) => t.name).sort().join(",");
+    const current = safeJson([...this.pluginTools].sort((a, b) => a.name.localeCompare(b.name)));
+    const next = safeJson([...requestedPluginTools].sort((a, b) => a.name.localeCompare(b.name)));
     const currentThinkingLevels = [
       ...(this.provider.supportedThinkingLevels ?? ["off"]),
     ]
@@ -2442,10 +2485,6 @@ Call TaskWait only when your next step genuinely depends on that report and noth
       (this.systemPersona ?? "") === (config.systemPrompt?.trim() ?? "") &&
       (this.workspaceRootsGuide ?? "") === (config.workspaceRootsGuide?.trim() ?? "") &&
       (this.projectPath ?? "") === (config.projectPath?.trim() ?? "") &&
-      // Enabling a plugin, revoking agent.prompt.inject or renaming a skill
-      // changes the catalog digest, which retires the runtime and its stale
-      // prompt. Bodies are excluded: the Skill tool always reads them fresh.
-      pluginSkillsDigest(this.pluginSkills) === pluginSkillsDigest(requestedPluginSkills) &&
       // Editing `~/.agents/subagents/*.md` must reach the next prompt. Definition
       // bodies are part of the `Task` tool's behavior, so unlike skills they
       // are compared in full.
@@ -2733,14 +2772,17 @@ Call TaskWait only when your next step genuinely depends on that report and noth
     // (the nearest one above), keeping each call adjacent to its result as
     // the provider APIs require.
     let toolCarrier: AssistantMessage | undefined;
-    for (const m of history) {
+    for (const m of orderSystemRows(history)) {
       // Subagent rows belong to the transcript and to review, never to the
       // parent's model context (ADR 0062): the parent only ever saw the `Task`
       // report, and replaying a delegate's messages would both contradict that
       // and reintroduce the context cost delegation exists to avoid.
       if (m.parentToolCallId) continue;
       const timestamp = Date.parse(m.createdAt) || Date.now();
-      if (m.role === "user") {
+      if (m.role === "system" && m.modelSystem) {
+        toolCarrier = undefined;
+        append(m.id, this.systemJournal.restore(m));
+      } else if (m.role === "user") {
         toolCarrier = undefined;
         const attachments = (m.attachments ?? []).map((attachment) =>
           runtimeAttachmentFromMessage(
@@ -2787,8 +2829,13 @@ Call TaskWait only when your next step genuinely depends on that report and noth
           role: "assistant",
           content,
           api,
-          provider: this.provider.id,
-          model: this.provider.modelId,
+          // Persisted providerId identifies a local account; Pi compares its
+          // vendor identity to decide whether native thinking can be replayed.
+          // Keep known account/model switches distinct; legacy rows have no
+          // source identity and retain the existing current-model fallback.
+          provider: !m.providerId || m.providerId === this.provider.id
+            ? this.model.provider : m.providerId,
+          model: m.modelId || this.model.id,
           usage: usageToPi(m.usage),
           stopReason: "stop",
           timestamp,
@@ -2804,8 +2851,8 @@ Call TaskWait only when your next step genuinely depends on that report and noth
             role: "assistant",
             content: [],
             api,
-            provider: this.provider.id,
-            model: this.provider.modelId,
+            provider: this.model.provider,
+            model: this.model.id,
             usage: usageToPi(undefined),
             stopReason: "toolUse",
             timestamp,
@@ -2856,6 +2903,9 @@ Call TaskWait only when your next step genuinely depends on that report and noth
   ): Entry[] {
     const entries: Entry[] = [...this.fullEntries];
     if (!checkpoint) return entries;
+    if (isRecord(checkpoint.details) && checkpoint.details.systemMessageJson) {
+      this.systemJournal.rememberCheckpoint(checkpoint.details.systemMessageJson);
+    }
     const throughIndex = entries.findIndex(
       (entry) => entry.id === checkpoint.throughMessageId,
     );
@@ -3579,9 +3629,9 @@ Call TaskWait only when your next step genuinely depends on that report and noth
   }
 
   /**
-   * Build the complete registry once, then expose only the core subset to the
-   * first provider request. This mirrors pi's active-tool model while keeping
-   * the host tool implementation and permission path unchanged.
+   * Build the complete registry before selecting fixed or on-demand
+   * declarations. Execution activation and Host permissions remain separate
+   * from the provider-visible schemas.
    */
   private rebuildToolCatalog(): void {
     const catalog = new Map<string, AgentTool>();
@@ -3623,6 +3673,25 @@ Call TaskWait only when your next step genuinely depends on that report and noth
         }),
       );
     }
+    if (this.model) this.refreshToolDeclarationPolicy();
+  }
+
+  private refreshToolDeclarationPolicy(): void {
+    const previous = this.declarationPolicy;
+    const policy = toolDeclarationPolicy(this.model, [...this.toolCatalog.values()], this.deferredToolNames, this.composeSystemPrompt(), this.provider.id);
+    if (previous && previous.key !== policy.key && this.trackToolActivation) {
+      this.activeDeferredToolNames.clear();
+      this.activationHydrated = true;
+    }
+    this.declarationPolicy = policy;
+    this.trackToolActivation ||= Boolean(policy.tools || policy.fallback);
+    if (policy.fallback && (previous?.key !== policy.key || previous.fallback !== policy.fallback)) {
+      process.stderr.write(`[agent-runtime] fixed tool declarations unavailable (${policy.fallback}); using on-demand declarations; ToolSearch cache stability is not guaranteed.\n`);
+    }
+  }
+
+  private declaredTools(): AgentTool[] {
+    return this.declarationPolicy?.tools ?? this.activeTools();
   }
 
   private isPlanSafePluginTool(name: string): boolean {
@@ -3715,7 +3784,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
     }
     return [
       "# On-demand tools",
-      `The following capabilities are available on demand. Call ${TOOL_SEARCH_NAME} with an exact tool name or a short capability description before using one that is not in the current tool list.`,
+      `The following capabilities are available on demand. Call ${TOOL_SEARCH_NAME} with an exact tool name or a short capability description before using an on-demand tool that has not been activated. A visible schema is not activation; the tool_activation section, when present, records active names.`,
       ...lines,
     ].join("\n");
   }
@@ -3745,7 +3814,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
       name: TOOL_SEARCH_NAME,
       label: "Tool Search",
       description:
-        "Find and activate an on-demand tool by exact name or capability. Use this before calling any tool listed under On-demand tools that is not already in the current tool list.",
+        "Find and activate an on-demand tool by exact name or capability. Use this before calling an inactive tool listed under On-demand tools, even when its schema is already visible. Activation does not bypass approval or mode restrictions.",
       parameters: Type.Object({
         query: Type.String({
           description:
@@ -5276,7 +5345,14 @@ Call TaskWait only when your next step genuinely depends on that report and noth
   }
 
   private resetDeferredToolsForPrompt(): void {
-    this.activeDeferredToolNames.clear();
+    // Sticky activation (#1225): on-demand tools stay active for the whole
+    // session instead of being reset at every prompt. A context-only restore
+    // drops the activation whenever the announcing rows fall out of the window
+    // (compaction, long turns), and the next direct call then fails with
+    // "Tool <name> not found" at name resolution — the intermittent 0 ms
+    // rejection on Windows. `rebuildToolCatalog` still prunes names that left
+    // the catalog (mode switches, extension reloads), so the set cannot
+    // outlive the tools it names.
     this.restoreDeferredToolsFromContext();
     this.setAgentTools(this.activeTools());
   }
@@ -5292,8 +5368,26 @@ Call TaskWait only when your next step genuinely depends on that report and noth
    */
   private restoreDeferredToolsFromContext(): void {
     if (this.deferredToolNames.size === 0) return;
+    if (this.trackToolActivation && this.activationHydrated) return;
     const { messages } = this.liveSessionContext();
-    for (const message of messages) {
+    const restored = this.declarationPolicy && restoredToolActivation(messages, this.declarationPolicy.key);
+    if (restored !== undefined) {
+      this.trackToolActivation = true;
+      for (const name of restored.active) {
+        if (this.deferredToolNames.has(name)) this.activeDeferredToolNames.add(name);
+      }
+    }
+    this.activationHydrated = true;
+    const lastSystem = restored ? restored.replayFrom - 1 : messages.map((message) => message.role).lastIndexOf("system");
+    if (!restored && lastSystem >= 0) {
+      for (const tool of getCurrentTools(messages)) {
+        if (this.deferredToolNames.has(tool.name)) this.activeDeferredToolNames.add(tool.name);
+      }
+    }
+    // Legacy histories lack declarations. For current histories, only results
+    // after the last declaration can represent an activation not yet declared.
+    for (const message of messages.slice(lastSystem + 1)) {
+      if (restored && (message.role !== "toolResult" || message.toolName !== TOOL_SEARCH_NAME)) continue;
       if (message.role !== "toolResult" || message.isError) continue;
       if (isMissingToolResultPlaceholder(message.content)) continue;
       const names =
@@ -5862,8 +5956,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
 
     // agentLoopContinue refuses a transcript ending in an assistant message,
     // and this one carries nothing worth resending anyway.
-    const messages = [...this.agent.state.messages];
-    while (messages.at(-1)?.role === "assistant") messages.pop();
+    const messages = removeTrailingAssistantMessages(this.agent.state.messages);
     this.setAgentMessages(messages);
 
     const promptBefore = this.agentSystemPromptContent();
@@ -5913,8 +6006,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
         this.pendingOverflow = false;
         this.suppressOverflowRunEnd = false;
         this.overflowRecoveryAttempted = true;
-        const messages = [...this.agent.state.messages];
-        while (messages.at(-1)?.role === "assistant") messages.pop();
+        const messages = removeTrailingAssistantMessages(this.agent.state.messages);
         this.setAgentMessages(messages);
         const compacted = await this.runCompaction(
           "overflow",
@@ -5970,8 +6062,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
     // pi-agent-core refuses `continue()` when the transcript ends in an
     // assistant message. The progress text is already visible in the reused
     // bubble, so it must not be sent back as model context.
-    const messages = [...this.agent.state.messages];
-    while (messages.at(-1)?.role === "assistant") messages.pop();
+    const messages = removeTrailingAssistantMessages(this.agent.state.messages);
     this.setAgentMessages(messages);
 
     const promptBefore = this.agentSystemPromptContent();
@@ -6026,7 +6117,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
         ...(typeof this.agent.state.systemPrompt === "string"
           ? { systemPrompt: this.agent.state.systemPrompt }
           : {}),
-        tools: this.activeTools(),
+        tools: this.declaredTools(),
       },
       this.model,
     );
@@ -6199,11 +6290,10 @@ Call TaskWait only when your next step genuinely depends on that report and noth
 
   private rebuiltAgentContext(): AgentContext {
     const messages = this.liveSessionContext().messages;
-    const tools = this.activeTools();
+    const tools = this.declaredTools();
     this.setAgentMessages(messages);
     this.setAgentTools(tools);
     return {
-      // The loop owns its context array. pi appends every streamed assistant
       // message and every tool result to the context it was handed, and its own
       // `message_end` listener appends the same message object to
       // `state.messages`; handing over the live array makes both land in one
@@ -6297,12 +6387,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
     return { context };
   }
 
-  /**
-   * Codex's two-tier `maybe_record`, as a system-prompt append for this turn
-   * only. Codex writes its reminders into conversation history; we have no
-   * channel for a synthetic message that stays out of the transcript, and the
-   * append is equivalent without persisting anything.
-   */
+  /** A replaceable reminder section expires when compaction opens a new window. */
   private withContextBudgetReminder(
     context: AgentContext,
     budget: ContextBudget,
@@ -6320,7 +6405,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
       ...(systemPrompt ? { systemPrompt } : {}),
       messages: [
         ...context.messages,
-        { role: "system", content: reminder, timestamp: Date.now() },
+        { role: "system", content: "", sections: { [CONTEXT_BUDGET_SECTION]: reminder }, timestamp: Date.now() },
       ],
     } as AgentContext;
   }
@@ -6718,6 +6803,11 @@ Call TaskWait only when your next step genuinely depends on that report and noth
     mustFitSafeBudget: boolean,
     fallback?: ContextCompactionFallback,
   ): Promise<CheckpointPersistResult> {
+    const systemMessage = systemTranscriptCheckpoint(this.agent.state.messages);
+    checkpoint = {
+      ...checkpoint,
+      details: { ...(isRecord(checkpoint.details) ? checkpoint.details : {}), ...(systemMessage ? { systemMessageJson: JSON.stringify(systemMessage) } : {}) },
+    };
     const compactedBudget = this.contextBudget(
       this.liveSessionContext(checkpoint).messages,
     );
@@ -6743,7 +6833,10 @@ Call TaskWait only when your next step genuinely depends on that report and noth
     // resetting its `claim_*` flags when the context window turns over.
     this.contextReminderClaimed = false;
     this.contextFallbackReminderClaimed = false;
-    this.setAgentMessages(this.liveSessionContext().messages);
+    this.agent.state.messages = this.liveSessionContext().messages;
+    for (const message of this.agent.state.messages) {
+      if (message.role === "system") this.systemJournal.remember(message, checkpoint.id);
+    }
     this.emit({
       type: "compaction_end",
       reason,

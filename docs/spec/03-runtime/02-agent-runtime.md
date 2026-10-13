@@ -550,8 +550,8 @@ converts token budgets with the same ratio. Desktop-only rows keep the existing
 character heuristic. With no usage
 anchor, the budget also computes the output-cap estimator
 over non-system conversation messages plus the current system prompt and active
-tool schemas. System-transcript rows are metadata snapshots of that same prompt
-and are excluded from this component, so the request estimate counts the prompt
+tool schemas. System-transcript rows are chronological updates, already covered by that
+folded prompt/tool floor, and are excluded from this component, so the request estimate counts the prompt
 and schemas exactly once. The budget uses the larger of this full-request
 estimate and the calibrated message estimate. This is a hard floor before the
 first calibration sample and prevents counting overhead twice after an
@@ -1293,6 +1293,58 @@ same gateway backend as the conversation it summarizes.
 + [tool instructions]
 ```
 
+### 7.0.0 Chronological system state (issue #1285)
+
+The Pi agent loop owns `toolsAdded` / `toolsRemoved` declarations, including
+same-name schema replacement. Desktop never moves an update ahead of the user
+or ToolSearch result that preceded it. Instruction composition uses independent
+`runtime`, `skills` (loading instructions), `skill:<exact-id>` (one catalog
+entry each), and `context` sections. Refreshing an idle skill catalog appends only
+changed entries, uses null to revoke removed entries, and updates the executable
+catalog. Unchanged entries and loading instructions are not repeated. Restoring
+an older aggregate `skills` section upgrades it once at the continuation
+boundary; checkpoints retain the effective per-entry state. Bodies remain
+on-demand and permission-checked. Different plugin tool schemas/permissions
+invalidate idle reuse even when their names are unchanged.
+
+Before model dispatch, Desktop acknowledges new system records through Host's
+existing transcript writer. Restart replays these provider-neutral records in
+order. An old history without records receives the current declaration at its
+continuation boundary; Desktop does not invent historical instructions. Explicit
+compaction saves the effective system state once before summary and retained
+tail; it does not replay old tool deltas or preserve removed tools.
+
+Mid-conversation instructions, tool additions and full tool changes are separate
+capabilities. Desktop accepts catalog opt-ins only for the same published model,
+wire API and effective endpoint (including path and port). Unknown models,
+changed bindings and unverified relays use Pi's conservative request projection.
+Partial support keeps instruction updates but folds tools as required; removals
+and redefinitions use the adapter's supported fallback. Model switching never
+rewrites the canonical journal. Cache savings depend on the actual provider;
+unsupported routes may still rebuild the request prefix.
+
+Published model limits, prices and modalities remain owned by models.dev. Its
+runtime projection separately carries Pi's exact published transcript capability
+flags and original binding. An enriched metadata source does not grant native
+support by itself, and account overrides never replace that original binding.
+
+The pinned Pi patch declares mid-conversation system support for
+`deepseek-flash` on its published `openai-completions` binding at
+`https://api.deepseek.com`. Skill changes on this binding append system updates
+without rewriting the previous request prefix. This does not enable native tool
+additions or changes, and does not apply to unverified gateways, aliases or APIs.
+The declaration comes from the patched Pi catalog, not provider settings or a
+second Desktop model catalog.
+
+When restoring assistant history, map the current local account ID to the Pi
+model's provider identity and retain recorded model IDs. A different recorded
+account or model remains distinct. Legacy rows without identity retain the
+current-model fallback. Same-model Completions reasoning stays in its native
+reasoning field, never appended to visible answer text because of an account
+UUID/vendor-name mismatch.
+
+### 7.0.1 User custom system prompt files (issue #542)
+
 ### 7.0.1 Persona scopes
 
 The persona the model receives has exactly one editable scope: the
@@ -1401,10 +1453,10 @@ grammar and validated against another fails every call.
 
 ### 7.1 Active tool context and on-demand loading (D185, ADR 0048)
 
-The sidecar builds one complete tool registry, but it does not serialize every
-registered schema into every provider request. Each new user prompt starts with
-the mode's core set plus any deferred tools that can be restored from successful
-activation evidence still present in the effective session context:
+The sidecar builds one complete tool registry. By default, each provider request
+declares the mode's core set plus activated deferred tools. The verified Flash
+binding uses the fixed-declaration policy below, while preserving the same
+execution activation rules:
 
 - Agent: `Read`, `Bash`, `Edit`, and `Write` (matching pi's coding-agent core)
 - Agent: `Skill` whenever the skill catalog is non-empty (D404, ADR 0230) — the
@@ -1432,20 +1484,42 @@ The sidecar activates up to four matches, records their names in the canonical
 schemas. Providers with native deferred-tool search receive the definitions at
 that load point; other providers receive the active definitions normally.
 
-At the start of each new user prompt, the sidecar clears the in-memory deferred
-activation set and rebuilds it from the effective context. Successful
-`ToolSearch` results contribute their canonical `details.addedToolNames`.
-For compatibility, historical `details.activated` and top-level
-`addedToolNames` markers are also accepted. Successful results from deferred
-tools contribute that tool's name. Only names still present in the current
-mode's deferred catalog are restored. Failed rows, interrupted or
-missing-result placeholders, and assistant/user prose never activate a tool.
-The tool registry, host permission path, tool timeout, and workspace containment
-rules remain unchanged. `ToolSearch` is local to the sidecar and does not cross
-the host RPC boundary. Its activation marker is retained in the persisted tool
-result, so a runtime restart or a new prompt can reuse an eligible capability
-while that evidence remains in the effective context; a fresh search is still
-required after the evidence is compacted away or otherwise absent.
+Deferred activation is sticky for the live runtime. At restoration, recorded
+system messages (including a compaction checkpoint) define the active baseline
+for ordinary on-demand histories. Only successful results after the latest
+system record can add activation; older results must not resurrect removed
+tools. Legacy histories without system records use successful results throughout
+their effective context. ToolSearch accepts canonical `details.addedToolNames`
+and historical `details.activated` / top-level `addedToolNames`; successful
+results from deferred tools also restore their names. Failed results,
+missing-result placeholders and assistant/user prose never activate tools.
+Only names in the current mode's deferred catalog are eligible.
+
+For the exact official `deepseek-flash` Chat Completions binding with verified
+mid-conversation system support, the runtime instead declares the complete
+catalog in deterministic name order on the first request. ToolSearch changes
+activation without changing the declared schemas. A visible schema does not
+permit execution: inactive deferred calls are rejected before extension hooks
+and the Host; activated calls still require the existing mode and Host checks.
+ToolSearch remains local and never grants approval or bypasses permissions.
+
+Fixed declarations persist separately from activation. A version-1
+`tool_activation` section records active names and a fingerprint of the account,
+model, API, endpoint, schema catalog and deferred set. Activation changes append
+at the continuation boundary, and the existing system journal/checkpoint saves
+both declarations and activation. Restore only validated activation for a
+matching fingerprint, plus successful ToolSearch results newer than that state;
+never activate tools merely because the full snapshot declared them. Malformed,
+unknown-version and mismatched activation state fail closed. A catalog/schema,
+mode, account, model or route change creates a new epoch and requires new
+activation. Removal immediately removes the tool from executable registration.
+
+If the full catalog exceeds 128 functions or its prompt/schema estimate cannot
+leave the normal retained-tail budget below the compaction threshold, retain
+on-demand declarations and emit a diagnostic explaining that ToolSearch cache
+stability is not guaranteed. Do not truncate tools. Other models and unverified
+routes retain the existing Pi projection. First-request schema overhead increases;
+cache stability does not imply that short conversations become cheaper.
 
 For user-visible HTML deliverables, the default system prompt asks the agent to
 activate `BrowserPreview` once after creating the page or making its first
