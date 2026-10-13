@@ -4797,7 +4797,8 @@ eleven-tool-round desktop paths are verified by
   2.确认导入，然后打开导入的stdio服务器并按Test
      连接。
   3. 将服务器留在**Everywhere**，并要求每个项目中的代理
-列出其可用的工具。
+列出其可用的工具。让 stdio 测试夹具报告它的工作目录与进程 id；
+     并在 `~/work/api` 中再开一个会话。
   4. 将服务器设置为**这些项目**，仅选择 `~/work/api`。
   5. 在每个项目中再次询问。
   6. 在已经打开的 `~/personal/site` 会话中 — 在服务器时组装
@@ -4823,6 +4824,9 @@ eleven-tool-round desktop paths are verified by
   - 与其找到的工具名称以及行的字形相关的测试报告
      从连接状态变为就绪状态。
   - 虽然是全局的，但两个会话都会看到 `mcp_<serverId>_<tool>` 名称。
+  - stdio 测试夹具从各会话的项目目录运行。`~/work/api` 中的会话共用
+    一个进程，而 `~/personal/site` 使用单独的进程。无项目的会话使用
+    用户主目录。
   - 缩小范围后，只有 `~/work/api` 会话才能看到它们；总结芯片
      读取“1 个项目”并为其命名。
   - 第 6 步中的过时调用失败，并显示 `TOOL_NOT_FOUND` 和“not active for

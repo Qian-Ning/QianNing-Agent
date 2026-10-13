@@ -2579,7 +2579,11 @@ sklm: {
       "errorCommandDots": "La commande ne peut pas contenir '..'.",
       "errorUrl": "Une URL est requise.",
       "errorUrlShape": "Ce n'est pas une URL valide.",
-      "errorUrlScheme": "Utilisez une URL http ou https."
+      "errorUrlScheme": "Utilisez une URL http ou https.",
+      "timeout": "Délai de connexion",
+      "timeoutHint": "Délai en secondes pour la connexion et la détection des outils (défaut : 10s, max : 600s).",
+      "timeoutPlaceholder": "10",
+      "errorTimeoutRange": "Le délai doit être compris entre 1 et 600 secondes."
     },
     "skills": {
       "add": "Nouvelle compétence",

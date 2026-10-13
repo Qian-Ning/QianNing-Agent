@@ -2571,6 +2571,10 @@ sklm: {
       errorUrl: "地址不能为空。",
       errorUrlShape: "这不是一个有效的 URL。",
       errorUrlScheme: "请使用 http 或 https 地址。",
+      timeout: "连接超时",
+      timeoutHint: "连接与发现工具的超时时间（秒，默认 10 秒，最大 600 秒）。",
+      timeoutPlaceholder: "10",
+      errorTimeoutRange: "超时时间必须在 1 到 600 秒之间。",
     },
     skills: {
       add: "新建技能",

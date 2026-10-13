@@ -2579,7 +2579,11 @@ sklm: {
       "errorCommandDots": "Der Befehl darf „..“ nicht enthalten.",
       "errorUrl": "Eine URL ist erforderlich.",
       "errorUrlShape": "Das ist keine gültige URL.",
-      "errorUrlScheme": "Verwenden Sie eine http- oder https-URL."
+      "errorUrlScheme": "Verwenden Sie eine http- oder https-URL.",
+      "timeout": "Verbindungs-Timeout",
+      "timeoutHint": "Timeout in Sekunden für Verbindung und Tool-Erkennung (Standard: 10s, max: 600s).",
+      "timeoutPlaceholder": "10",
+      "errorTimeoutRange": "Das Timeout muss zwischen 1 und 600 Sekunden liegen."
     },
     "skills": {
       "add": "Neue Fertigkeit",

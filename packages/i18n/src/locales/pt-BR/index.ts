@@ -2536,7 +2536,11 @@ export const ptBR = {
       errorCommandDots: "O comando não pode conter '..'.",
       errorUrl: "Uma URL é obrigatória.",
       errorUrlShape: "Esta não é uma URL válida.",
-      errorUrlScheme: "Use uma URL http ou https."
+      errorUrlScheme: "Use uma URL http ou https.",
+      timeout: "Tempo limite de conexão",
+      timeoutHint: "Tempo limite em segundos para conectar e listar ferramentas (padrão: 10s, máx: 600s).",
+      timeoutPlaceholder: "10",
+      errorTimeoutRange: "O tempo limite deve estar entre 1 e 600 segundos."
     },
     skills: {
       add: "Nova habilidade",
