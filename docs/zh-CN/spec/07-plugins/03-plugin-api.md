@@ -540,6 +540,8 @@ type BrowserActionResult = {
 `UNAVAILABLE` 失败。内置 Browser 智能体工具在每次操作前调用 `reveal()`。
 `BrowserPreview` 仍是带热重载的工作区文件预览。
 
+截图采集（包括原生的 `Page.captureScreenshot` CDP 调用）有 30 秒的宿主侧死线。超过死线会以 `TIMEOUT` 失败；宿主会断开卡住的 CDP 会话并释放该页面的采集队列，使后续采集可以重连并继续。其他 CDP 方法保持原有超时行为。
+
 click 与 fill 报告的是页面本身，而不是调用是否返回。只有从页面读回的值与请求一致时
 `effect` 才是 `confirmed`，且 `verified` 只在读回时为真；`suspected_noop` 表示页面什么
 都没留下，`unverifiable` 表示调用落地但页面的响应没有被读回。`refused` 表示根本没有
