@@ -265,15 +265,15 @@ may be retained while exactly one workspace supplies the visible shell context.
 - **Archive** is non-destructive. Archived rows are hidden by default,
   available through Show archived, and restorable. Archiving does not cancel
   a turn or delete a transcript.
-- **Delete** removes a session or a project permanently and takes two clicks:
-  the first arms the overflow item and relabels it (`nav.deleteTaskConfirm` /
-  `project.deleteMenuConfirm`), and only the second click removes the row. The
-  arm expires on its own, so a row never stays one stray click away from a
-  permanent delete, and the folder on disk is never touched. A project whose
-  turn is still live still opens the confirmation dialog that names those
-  sessions and stops them first; an idle project is removed on that second
-  click. Sidebar overflow menus stay inside the window; a tall menu scrolls
-  within the available viewport so its last action remains reachable.
+- **Delete** removes a session or project permanently. Session deletion takes two
+  clicks: the first arms the overflow item and relabels it, and only the second
+  click removes the row. Project deletion opens a confirmation dialog as soon as
+  Delete is chosen from its menu. Only the dialog's explicit Delete button
+  removes the project; X, Cancel, Escape, or clicking the backdrop dismisses it
+  without changing anything. The dialog names the project and session count,
+  leaves the folder on disk untouched, and names/stops live sessions only after
+  the user confirms. Sidebar overflow menus stay inside the window; a tall menu
+  scrolls within the available viewport so its last action remains reachable.
 - **Create branch** snapshots an idle conversation's complete active
   transcript into an independent session in the same project/Temporary scope.
   The command is disabled while the source runs. Success selects the child and

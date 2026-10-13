@@ -9664,32 +9664,31 @@ This test plan spec is accepted when:
 - **Preconditions**: three durable projects A, B, and C, each with at least one
   session that has a transcript; A archived and retained as a sidebar tab; B the
   active workspace; C a root of a stored two-folder project group.
-- **Steps**: open Settings → Project archive, open A's row menu, choose Delete
-  project, and confirm in the dialog. Then repeat the same action from the
-  sidebar project menu for B while B is the active workspace: the item arms on
-  the first click and only the second click removes B. Then attempt the same
-  action for C, then for a path the host no longer knows, and finally for a
-  fourth project D while one of D's tasks is still running.
-- **Expected**: the dialog names the project, states that the project and its
-  sessions with their transcripts are removed permanently, and states that the
-  folder on disk is not deleted; nothing is removed before the confirmation, and
-  an armed item that is left alone disarms itself and removes nothing.
-  After confirming, the durable project row, that project's sessions, their
-  transcripts, scratch and review files, and its durable project memory are
-  gone, while the folder on disk is untouched. The deleted project disappears
-  from Settings → Project archive and from the sidebar immediately and again
-  after a reload: no retained tab, no recent-project entry, no session-derived
-  row, and no stale pin, archive, or order preference. Sessions and transcripts
-  of every other project are untouched. When the deleted project was the active
-  workspace, the workspace falls back to another open project or to Temporary,
-  and the next launch does not reopen the deleted path. A project whose folder
-  was moved or deleted on disk is still removable. Deleting C is refused with a
-  message and the group is unchanged; a path the host has no durable row for is
-  removed from the archive and the sidebar anyway, without a missing-project
-  error. Deleting D while its task runs opens the confirmation dialog instead
-  of a warning that disappears with its toast; the dialog names the running
-  sessions and its confirm button reads as stopping them, cancelling removes
-  nothing, and confirming stops exactly those turns and then deletes D (see
+- **Steps**: open Settings → Project archive, choose Delete project for A, and
+  verify the confirmation dialog appears before anything is removed. Press X
+  and verify A remains. Reopen the dialog and explicitly confirm. From the
+  sidebar project menu, repeat for active project B: choose Delete project,
+  cancel, verify B remains, then reopen and confirm. Then attempt the same
+  action for C, a path the host no longer knows, and a fourth project D while
+  one of D's tasks is still running.
+- **Expected**: choosing Delete immediately opens the dialog for idle projects
+  on both surfaces. X, Cancel, Escape, and backdrop clicks dismiss it without
+  removing the project, sessions, or transcripts. The dialog names the project,
+  states that its sessions and transcripts are removed permanently, and says
+  the folder on disk is untouched. After explicit confirmation, the durable
+  project row, owned sessions, transcripts, scratch and review files, and
+  project memory are gone. The project disappears from Settings → Project
+  archive and the sidebar immediately and after reload, with no retained tab,
+  recent-project entry, session-derived row, or stale pin/archive/order
+  preference. Other projects' sessions and transcripts are untouched. If the
+  deleted project was active, the workspace falls back to another open project
+  or Temporary, and the next launch does not reopen its path. A project whose
+  folder was moved or deleted on disk is still removable. Deleting C is refused
+  with a message and leaves the group unchanged; an unknown host path is removed
+  from the archive and sidebar without a missing-project error. Deleting D
+  while its task runs opens the same dialog with the running sessions named and
+  a stop-and-delete confirm label; cancelling leaves it and its task untouched,
+  while confirming stops exactly those turns before deleting D (see
   E2E-PROJECT-delete-running-sessions-are-named-and-stopped).
 - **Specs linked**: `03-runtime/06-host-rpc-protocol.md` §Projects,
   `03-runtime/04-data-storage.md`, `04-ux/08-component-spec.md` §3.9, ADR 0251
@@ -9729,35 +9728,30 @@ This test plan spec is accepted when:
 - **Acceptance criterion**: D (workspace), Quality
 - **Milestone**: M6+
 - **Status**: Partially automated — `apps/desktop/test/project-delete.test.mjs`
-  pins both menus reaching the dialog with the project's live running session
-  ids, the dialog's running-session line and stop-and-delete label, the abort
-  loop running before `deleteProject`, the `CONFLICT` fallback, and the new
-  copy in every shipped catalog; the end-to-end journey remains Draft
+  checks that both menu handlers always open the confirmation dialog without
+  deleting, and that X/Cancel only dismiss while the confirm handler owns the
+  delete call; the rendered Settings/sidebar journey remains Draft
 
 ### E2E-SESSION-two-click-delete-arms-first
 
-- **Preconditions**: a project with one idle session and one running session,
-  both reachable from the sidebar session menu, the sidebar project menu, and
-  the Projects index.
-- **Steps**: open the session menu of the idle session, press Delete once, and
-  leave the item armed until the arm expires before pressing it again to confirm
-  the removal. Repeat for a project row from the sidebar menu and from the
-  Projects index.
+- **Preconditions**: a project with one idle and one running session, both
+  reachable from the sidebar session menu.
+- **Steps**: open the idle session menu and press Delete once. Verify it arms,
+  then cancel with Escape or wait for expiry and verify the session remains.
+  Reopen the menu, press Delete twice, and verify the session is removed. Repeat
+  the arm/cancel/confirm sequence for the running session after it becomes idle.
 - **Expected**: the first press removes nothing and relabels the item to
-  `nav.deleteTaskConfirm` / `project.deleteMenuConfirm` ("Delete?" / "确认删除？")
-  with `data-armed="true"`; the menu stays open, and an outside press, Escape, or
-  the expiry clears the arm without removing anything. Only the second press
-  removes the session with its transcript and its row, and only the second press
-  on a project row removes an idle project. A session and a project never share
-  an arm. Deleting a project whose turn is live still opens the dialog that names
-  those sessions and stops them (see
-  E2E-PROJECT-delete-running-sessions-are-named-and-stopped).
-- **Specs linked**: `04-ux/09-interaction-patterns.md` §1.6, D421, D431, D441
+  `nav.deleteTaskConfirm` ("Delete?" / "确认删除？") with `data-armed="true"`;
+  the menu stays open, and an outside press, Escape, or expiry clears the arm
+  without removing anything. Only the second press removes a session and its
+  transcript. Project deletion instead requires its explicit confirmation
+  dialog (see E2E-PROJECT-delete-removes-project-and-owned-sessions).
+- **Specs linked**: `04-ux/09-interaction-patterns.md` §1.6, D421, D431
 - **Acceptance criterion**: Quality
 - **Milestone**: M6+
 - **Status**: Partially automated — `apps/desktop/test/two-step-delete.test.mjs`
-  pins the shared arm and its expiry, both labels in every shipped catalog, and
-  that the first press only arms; the end-to-end journey remains Draft
+  pins the session arm and expiry plus localized labels; the end-to-end journey
+  remains Draft
 ### US-UI-59 Session-rooted background tools
 - Start a visible turn in project A, switch to project B while it runs, and
   inspect both sidebar status indicators.
