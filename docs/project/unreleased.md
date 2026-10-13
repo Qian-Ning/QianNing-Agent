@@ -1,5 +1,17 @@
 # Unreleased changes
 
+- A paired remote host is no longer wiped when the host registry cannot be read.
+  A transient read error — antivirus or a backup holding the file — or a
+  `remote-hosts.json` written by a newer version previously degraded to an empty
+  list, and the next pairing wrote that empty list back, silently dropping every
+  paired host together with its device tokens. Reads stay permissive, but a write
+  now refuses with `REMOTE_REGISTRY_UNWRITABLE` or
+  `REMOTE_REGISTRY_VERSION_UNSUPPORTED` rather than writing back a list it could
+  not verify, a corrupt file is quarantined as
+  `remote-hosts.json.corrupt-<timestamp>` with its bytes preserved before pairing
+  continues, and concurrent pairings are serialized so they cannot race that
+  quarantine.
+
 - Claude models on a GitHub Copilot account no longer fail with "missing
   required Authorization header". Their Anthropic Messages requests now
   authenticate with `Authorization: Bearer` instead of sending the Copilot
