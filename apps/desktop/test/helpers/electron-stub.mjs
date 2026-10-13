@@ -1,8 +1,9 @@
 /**
  * A stand-in for the `electron` module in `node --test`.
  *
- * The main-process modules under test import `dialog`, `shell` and `nativeImage`
- * at module scope. Node has no Electron, so the bare specifier is redirected
+ * The main-process modules under test import `dialog`, `shell`, `nativeImage`
+ * and the outbound-proxy surfaces (`app`, `net`, `session`) at module scope.
+ * Node has no Electron, so the bare specifier is redirected
  * here. A channel that would open a dialog or reveal a file still fails loudly
  * instead of passing quietly — but the library removal channels are exercised for
  * real, so `trashItem` and `openPath` record what they were handed in the
@@ -33,6 +34,31 @@ const onePixelPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9mQAAAAASUVORK5CYII=",
   "base64",
 );
+
+/**
+ * The outbound-proxy module's Electron surfaces.
+ *
+ * `app.on`, `net.fetch` and the `session` accessors are only reached while a
+ * proxy is applied or tested, and every test that cares about a proxy replaces
+ * the relay (or the whole apply call) with its own stand-in. Anything that does
+ * arrive here therefore fails loudly rather than answering with a guess — the
+ * same rule the dialog and reveal channels below follow.
+ */
+export const app = {
+  on: notInNode("app.on"),
+};
+
+export const net = {
+  fetch: notInNode("net.fetch"),
+};
+
+export const session = {
+  defaultSession: {
+    resolveProxy: notInNode("session.defaultSession.resolveProxy"),
+    setProxy: notInNode("session.defaultSession.setProxy"),
+  },
+  fromPartition: notInNode("session.fromPartition"),
+};
 
 export const dialog = {
   showSaveDialog: notInNode("dialog.showSaveDialog"),

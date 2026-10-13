@@ -48,6 +48,7 @@ export type ShutdownDependencies = {
   logger: Pick<Logger, "app">;
   confirmQuitDialog: () => Promise<boolean>;
   disposePowerSaveBlockers: () => void;
+  disposeSystemProxyRelay?: () => Promise<void>;
 };
 
 /** Register the last-window and before-quit resource lifecycle handlers. */
@@ -70,6 +71,7 @@ export function registerShutdownHandlers({
   logger,
   confirmQuitDialog,
   disposePowerSaveBlockers,
+  disposeSystemProxyRelay,
 }: ShutdownDependencies): void {
   app.on("window-all-closed", () => {
     // The D216 tray is resident on every platform, so its presence says nothing
@@ -189,6 +191,9 @@ export function registerShutdownHandlers({
         mcpShutdown,
         remoteHostsShutdown,
       ]);
+      // The relay is loopback-only and disposable; closing it here keeps a quit
+      // from leaving its listening socket behind.
+      await disposeSystemProxyRelay?.();
     })();
 
     const releaseQuit = () => {
