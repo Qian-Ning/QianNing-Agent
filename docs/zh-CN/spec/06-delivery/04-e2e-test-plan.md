@@ -9247,3 +9247,11 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **状态：** 部分实现。先拒绝后连接规则、附加字段与 slug 并列规则、审计行形状
   均有单元覆盖。字节流传输与 `Console` 工具属于 R4；任务候选验证仍待完成。
  该拒绝已于 2026-10-05 在真实主机上确认：字节流配置在任何连接尝试之前就回答 `CONNECTION_NO_EXEC`。
+
+#### E2E-265：聊天 path:line 引用打开文件并滚动到目标行
+
+- **前提：** 隔离 Electron/Chromium、活动工作区和会话、可用的随应用打包文件管理器视图，以及确定性的文件系统 IPC fixture。
+- **步骤：** 渲染真实聊天中的 `path:line:column` 引用并在末尾加句末标点；点击已验证的文件芯片，等待宿主文件查看器加载。
+- **预期：** 即使文件管理器视图可用，带位置的引用仍打开宿主只读文件选项卡。文件请求保留行列号，查看器滚动到视口中间的目标行；打开路径和文件内容与引用目标一致。
+- **规格：** `04-ux/08` §11.8；ADR 0262。
+- **状态：** `node scripts/e2e-file-ref-line-scroll.mjs` 在隔离 Electron 中挂载生产 `LinkifiedText` 与 `FilesTab`，并通过文件系统 IPC fixture 提供文件内容；不访问真实项目文件或模型服务。
