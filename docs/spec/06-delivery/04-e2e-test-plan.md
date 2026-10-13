@@ -3050,6 +3050,7 @@ identify the platform validation still needed.
 - **Acceptance**: G (MCP bridge) + E (tools & permissions) + Security
 - **Status**: Unit-covered (`plugin-mcp.test.mjs` stdio + HTTP stubs); agent-facing scenario Draft
 
+
 #### E2E-MCP-CANCEL: Stop interrupts only the calling session's MCP request
 
 - **Preconditions**: Two Agent sessions share one user or plugin MCP server;
@@ -8106,6 +8107,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   - Stopped throughput is present before and after reload. It uses exact output
     usage when the provider supplied it; otherwise the UI labels the persisted
     four-code-point estimate as approximate.
+  - Completed-response throughput uses pi-ai 1.1.0's monotonic request duration;
+    stopped partial responses retain the sidecar duration fallback.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`,
   `03-runtime/02-agent-runtime.md` §5b/§9,
   `04-ux/07-ui-design-system.md` §8.2–8.3,

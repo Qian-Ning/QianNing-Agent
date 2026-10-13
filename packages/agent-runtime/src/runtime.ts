@@ -12,7 +12,11 @@ import {
 import { Agent, type AgentContext, type AgentEvent, type AgentLoopTurnUpdate, type AgentMessage, type AgentTool, type AgentToolResult, type AfterToolCallContext, type AfterToolCallResult, type BeforeToolCallContext, type BeforeToolCallResult, type PrepareNextTurnContext } from "@earendil-works/pi-agent-core";
 import { prepareCompaction } from "./pi-runtime-compaction-plan.js";
 import { compact } from "./pi-runtime-compaction-summary.js";
-import { estimateContextTokens, estimateTokens } from "./pi-runtime-estimates.js";
+import {
+  ESTIMATED_TEXT_CHARS_PER_TOKEN,
+  estimateContextTokens,
+  estimateTokens,
+} from "./pi-runtime-estimates.js";
 import { convertToLlm } from "./pi-runtime-messages.js";
 import type { CompactionPreparation, CompactionEntry, CompactionSettings, Entry, MessageEntry } from "./pi-runtime-types.js";
 import {
@@ -1384,7 +1388,7 @@ function truncateUserMessageForCheckpoint(
     ...message,
     content: truncateTextForCheckpoint(
       userMessageTextForCheckpoint(message),
-      Math.max(1, tokenBudget) * 4,
+      Math.max(1, Math.floor(tokenBudget * ESTIMATED_TEXT_CHARS_PER_TOKEN)),
     ),
   };
 }
@@ -7572,10 +7576,17 @@ Call TaskWait only when your next step genuinely depends on that report and noth
             this.streamStartedAt = undefined;
             break;
           }
+          // Pi 1.1.0 measures from request start with a monotonic clock. Keep the
+          // sidecar stopwatch for stopped and older streams that have no final message.
+          const piDurationMs = event.message.durationMs;
           const responseDurationMs =
-            this.streamStartedAt !== undefined
-              ? Math.max(0, endedAt - this.streamStartedAt)
-              : undefined;
+            typeof piDurationMs === "number" &&
+            Number.isFinite(piDurationMs) &&
+            piDurationMs > 0
+              ? piDurationMs
+              : this.streamStartedAt !== undefined
+                ? Math.max(0, endedAt - this.streamStartedAt)
+                : undefined;
           const responseOutputTokens =
             aborted && (!usage || usage.outputTokens <= 0)
               ? estimateVisibleResponseOutputTokens({
