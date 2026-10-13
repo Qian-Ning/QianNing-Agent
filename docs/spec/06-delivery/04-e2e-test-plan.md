@@ -12411,9 +12411,10 @@ are withdrawn with ADR 0165.
      localhost / 127.0.0.1 / ::1 / `<local>`, and Test. Enter
      `not-a-proxy` and blur. Confirm an inline invalid-URL error and that
      settings are not saved.
-  3. Enter `socks5://127.0.0.1:1080` or `http://127.0.0.1:7890` and blur.
-     Confirm `AppSettings.networkProxy.mode` is `custom` after
-     `settings.get`.
+  3. Enter `socks5://127.0.0.1:1080` or `http://127.0.0.1:7890`, then select
+     System immediately without clicking elsewhere. Confirm `settings.get`
+     retains the URL and Bypass while `mode` is `system`. Select Custom again
+     and confirm both values return to the fields and `mode` is `custom`.
   4. Click Test against a listening proxy. Confirm a Connected status. Click
      Test against a closed port. Confirm a failure status without changing
      the saved URL. Enter `http://user:pass@127.0.0.1:<auth-port>` and
@@ -12432,7 +12433,9 @@ are withdrawn with ADR 0165.
   7. Switch to System. Confirm Chromium returns to `mode: "system"` and send a
      provider request and marketplace refresh. Confirm both follow the OS/PAC
      route selected for each destination, including ordered proxy-to-direct
-     fallback, without restarting the app.
+     fallback, without restarting the app. Select Custom again. Confirm the URL
+     and Bypass entered in step 3 come back from `AppSettings.networkProxy`,
+     which kept them while System was selected.
 - **Expected**: Custom covers model calls, marketplace, updates, plugin
   `net.fetch`, and the in-app browser. System covers provider and marketplace
   requests through Electron's OS/PAC resolver. Workspace Bash `env` does not
