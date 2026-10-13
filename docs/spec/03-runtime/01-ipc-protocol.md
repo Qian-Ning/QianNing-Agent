@@ -1471,6 +1471,9 @@ application-local `<data>/agent-capabilities/mcp.json` state file.
 - `mcp.list({ level, projectPath? })` → `{ servers: McpServerRecord[]; statuses: McpServerStatus[] }`
 - `mcp.active({ projectPath? })` → the effective runtime list
 - `mcp.upsert(server)` — creates or replaces the file at the requested level
+- `McpServerInput.timeoutSeconds` accepts an integer from 1 through 600.
+  Omitting it preserves the current value during an edit; sending `null` clears
+  the override and restores the runtime default.
 - `mcp.remove({ id, level, projectPath? })`
 - `mcp.setEnabled({ id, enabled, level, projectPath? })`
 - `mcp.setScope` remains a compatibility-shaped call; the Settings page uses

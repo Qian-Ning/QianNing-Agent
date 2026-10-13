@@ -562,6 +562,9 @@ system while preserving their different data ownership:
   Move to Global. With no project selected the Move into <project> item is not
   offered and the project group asks for a project selection instead, so a
   capability is never sent to an unnamed project.
+- The MCP editor's optional connection timeout accepts 1–600 seconds. A blank
+  value clears the server override and restores the default; saving a changed
+  timeout refreshes that server's live connection.
 - Skeleton rows appear on first paint only. A later refresh keeps the rows it
   already has and dims the list instead, announcing the refresh to assistive
   technology, so toggling a switch never replaces the list with skeletons.

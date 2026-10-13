@@ -138,15 +138,18 @@ export function draftToInput(
   const parsedTimeout = draft.timeoutSeconds.trim()
     ? Number.parseInt(draft.timeoutSeconds.trim(), 10)
     : undefined;
+  const timeoutInput: { timeoutSeconds?: number | null } = {};
+  if (!draft.timeoutSeconds.trim()) timeoutInput.timeoutSeconds = null;
+  else if (typeof parsedTimeout === "number" && !Number.isNaN(parsedTimeout)) {
+    timeoutInput.timeoutSeconds = parsedTimeout;
+  }
   const base = {
     id: draft.id.trim(),
     ...(context?.level ? { level: context.level } : {}),
     ...(context?.projectPath ? { projectPath: context.projectPath } : {}),
     label: draft.label.trim() || draft.id.trim(),
     description: draft.description.trim() || undefined,
-    ...(typeof parsedTimeout === "number" && !Number.isNaN(parsedTimeout)
-      ? { timeoutSeconds: parsedTimeout }
-      : {}),
+    ...timeoutInput,
     enabled: draft.enabled,
     scope: draft.scope,
   };
