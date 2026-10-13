@@ -390,14 +390,17 @@ test("a remote mcp server negotiates over http and keeps its session", async (t)
 test("a remote MCP tool can run longer than the connection timeout", async (t) => {
   // The budgets keep their relationship — connect well under the tool delay,
   // call timeout well over it — but every one of them is wide enough for a
-  // loopback round trip on a loaded Windows host.
-  const { url } = await startHttpServer(t, { slowToolDelayMs: 600 });
+  // loopback round trip on a loaded Windows host. The assertion is that the
+  // tool call outlives the connect budget and still returns its result, not
+  // how fast any budget elapses: at 150ms the initialize round trip lost that
+  // race outright under a saturated host.
+  const { url } = await startHttpServer(t, { slowToolDelayMs: 1500 });
   const client = new McpServerClient({
     rootPath: mkdtempSync(join(tmpdir(), "pi-mcp-http-")),
     server: { id: "remote", transport: "http", url },
     values: {},
-    connectTimeoutMs: 150,
-    callTimeoutMs: 2000,
+    connectTimeoutMs: 1000,
+    callTimeoutMs: 6000,
   });
   t.after(() => client.close());
 
