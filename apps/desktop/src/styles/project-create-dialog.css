@@ -310,6 +310,28 @@
 }
 
 .project-create-folder-row,
+/* Promotes one member folder to the group's primary root. */
+.project-create-folder-primary {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--ds-text-muted);
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .project-create-folder-primary:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--ds-accent) 13%, transparent);
+    color: var(--ds-accent);
+  }
+}
+
 .project-create-add-folder {
   display: flex;
   min-width: 0;
@@ -526,6 +548,7 @@
   .project-create-dialog-location,
   .project-create-folder-row,
   .project-create-folder-remove,
+  .project-create-folder-primary,
   .project-create-add-folder {
     transition: none;
   }

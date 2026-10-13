@@ -248,11 +248,16 @@ may be retained while exactly one workspace supplies the visible shell context.
 - **Edit project** — the project overflow menu in the sidebar and Project
   archive opens the same editor for the selected logical project. The editor
   trims and persists a 1–80 Unicode-code-point group name and lists every
-  registered folder. The Primary folder stays first and cannot be removed;
-  additional folders can be added through the native multi-selection picker or
-  removed individually. Saving updates the host-owned group while preserving
-  the normalized paths, workspace identity, sessions, transcripts, and on-disk
-  folders. A folder with existing chats cannot be removed.
+  registered folder. The Primary folder stays first and cannot be removed, and
+  every other folder row offers a Set as Primary action that promotes it to the
+  top and makes it the group's primary root on save; additional folders can be
+  added through the native multi-selection picker or
+  removed individually. Saving updates group membership without rewriting path
+  identities, workspace identity, session ownership, transcripts, or on-disk
+  folders. Removing an additional folder with chats detaches it as a standalone
+  project and keeps its chats available there. Future chats use that project's
+  path-scoped context; shared instructions and memory stay with the original
+  group.
 - **Pin** toggles presentation priority. Pinned projects/conversations appear
   before unpinned rows within the selected secondary order. In the sidebar, a
   pinned project replaces its Folder glyph with a filled accent Star so its
@@ -267,7 +272,8 @@ may be retained while exactly one workspace supplies the visible shell context.
   permanent delete, and the folder on disk is never touched. A project whose
   turn is still live still opens the confirmation dialog that names those
   sessions and stops them first; an idle project is removed on that second
-  click.
+  click. Sidebar overflow menus stay inside the window; a tall menu scrolls
+  within the available viewport so its last action remains reachable.
 - **Create branch** snapshots an idle conversation's complete active
   transcript into an independent session in the same project/Temporary scope.
   The command is disabled while the source runs. Success selects the child and

@@ -218,11 +218,18 @@ impl Database {
         Ok(group)
     }
 
+    /// Edits a stored group's display name and ordered roots.
+    ///
+    /// `primary` selects which selected root becomes the primary root; the
+    /// stored primary is kept when it is `None`, and dropping it from `paths`
+    /// without naming a replacement is refused. The primary root always stays
+    /// first, so naming another root reorders the group around it.
     pub fn update_project_group(
         &self,
         id: &str,
         name: &str,
         paths: &[String],
+        primary: Option<&str>,
     ) -> Result<ProjectGroupRecord> {
         let name = name.trim();
         if name.is_empty() || name.chars().count() > MAX_PROJECT_GROUP_NAME_CHARS {
@@ -231,8 +238,14 @@ impl Database {
         let Some(current) = self.group_by_id(id.trim())? else {
             return Err(anyhow!("project group not found"));
         };
-        let primary = canonical_project_path(&current.primary_path)
+        let current_primary = canonical_project_path(&current.primary_path)
             .ok_or_else(|| anyhow!("project group primary path is invalid"))?;
+        let requested_primary = primary
+            .map(|path| {
+                canonical_project_path(path)
+                    .ok_or_else(|| anyhow!("project group primary path must not be blank"))
+            })
+            .transpose()?;
         let mut selected = Vec::with_capacity(paths.len());
         for raw in paths {
             let path = canonical_project_path(raw)
@@ -250,9 +263,16 @@ impl Database {
             }
             selected.push(path);
         }
-        if !selected.iter().any(|path| path == &primary) {
-            return Err(anyhow!("the primary folder cannot be removed"));
-        }
+        let primary = match requested_primary {
+            Some(requested) if selected.iter().any(|path| path == &requested) => requested,
+            Some(requested) => {
+                return Err(anyhow!(
+                    "the primary folder must be one of the group folders: {requested}"
+                ))
+            }
+            None if selected.iter().any(|path| path == &current_primary) => current_primary,
+            None => return Err(anyhow!("the primary folder cannot be removed")),
+        };
         let mut ordered = vec![primary.clone()];
         ordered.extend(selected.into_iter().filter(|path| path != &primary));
 

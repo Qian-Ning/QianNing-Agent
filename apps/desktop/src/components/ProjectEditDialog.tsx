@@ -163,6 +163,19 @@ export function ProjectEditDialog({
     }
   };
 
+  // Promoting a folder only changes which selected root is primary; the host
+  // stores the primary root first, and the rows below follow that order.
+  const promoteFolder = (path: string) => {
+    if (loading || busy) return;
+    setPrimaryPath(path);
+  };
+
+  // The primary folder stays the first row, exactly as the host stores it.
+  const orderedFolders = [
+    primaryPath,
+    ...folders.filter((path) => !samePath(path, primaryPath)),
+  ];
+
   const submit = async () => {
     const trimmedName = name.trim();
     if (!group || loading || !trimmedName || busyRef.current) return;
@@ -170,7 +183,7 @@ export function ProjectEditDialog({
     busyRef.current = true;
     setBusy(true);
     try {
-      const result = await api.updateProjectGroup(group.id, trimmedName, folders);
+      const result = await api.updateProjectGroup(group.id, trimmedName, folders, primaryPath);
       onSaved(result.group);
       onClose();
     } catch (error) {
@@ -274,7 +287,7 @@ export function ProjectEditDialog({
 
               {folders.length > 0 ? (
                 <div className="project-create-dialog-folder-list" role="list">
-                  {folders.map((path) => {
+                  {orderedFolders.map((path) => {
                     const primary = samePath(path, primaryPath);
                     return (
                       <div
@@ -295,6 +308,18 @@ export function ProjectEditDialog({
                             {t("project.createPrimary")}
                           </span>
                         ) : null}
+                        {primary ? null : (
+                          <TooltipButton
+                            type="button"
+                            className="project-create-folder-primary"
+                            tooltip={t("project.editSetPrimary")}
+                            ariaLabel={`${t("project.editSetPrimary")}: ${folderName(path)}`}
+                            disabled={loading || busy}
+                            onClick={() => promoteFolder(path)}
+                          >
+                            <IconStar size={15} aria-hidden />
+                          </TooltipButton>
+                        )}
                         <TooltipButton
                           type="button"
                           className="project-create-folder-remove"

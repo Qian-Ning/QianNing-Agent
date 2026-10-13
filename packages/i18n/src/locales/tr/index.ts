@@ -1959,6 +1959,7 @@ sklm: {
     editSaving: "Kaydediliyor…",
     editCancel: "İptal",
     editPrimaryLocked: "Birincil klasör kaldırılamaz",
+    editSetPrimary: "Primary klasör olarak ayarla",
     editMemory: "Proje belleği",
     memorySaved: "Proje belleği kaydedildi",
     memoryDescription: "Sohbetler arasında bu proje için kalıcı bağlam tutun.",

@@ -1952,6 +1952,7 @@ sklm: {
     "editAction": "Änderungen speichern",
     "editSaving": "Speichern…",
     "editCancel": "Abbrechen",
+    "editSetPrimary": "Als Primary folder festlegen",
     "editPrimaryLocked": "Der primäre Ordner kann nicht entfernt werden",
     "editMemory": "Projektspeicher",
     "memorySaved": "Projektspeicher gespeichert",

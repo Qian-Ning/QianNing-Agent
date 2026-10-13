@@ -1499,6 +1499,7 @@ fn project_group_update_adjusts_roots_without_orphaning_chats() {
                 primary.to_string_lossy().into(),
                 second.to_string_lossy().into(),
             ],
+            None,
         )
         .unwrap();
     assert_eq!(updated.name, "Adjusted");
@@ -1525,6 +1526,7 @@ fn project_group_update_adjusts_roots_without_orphaning_chats() {
             &updated.id,
             "Adjusted again",
             &[second.to_string_lossy().into()],
+            None,
         )
         .unwrap_err()
         .to_string()
@@ -1540,6 +1542,7 @@ fn project_group_update_adjusts_roots_without_orphaning_chats() {
             &updated.id,
             "Adjusted again",
             &[primary.to_string_lossy().into()],
+            None,
         )
         .unwrap_err()
         .to_string()
@@ -1571,6 +1574,7 @@ fn editing_a_legacy_project_with_an_extra_folder_upgrades_it_to_a_group() {
                 primary.to_string_lossy().into(),
                 extra.to_string_lossy().into(),
             ],
+            None,
         )
         .unwrap();
     assert!(!upgraded.legacy);

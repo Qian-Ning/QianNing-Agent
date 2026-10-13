@@ -1969,6 +1969,7 @@ sklm: {
     editSaving: "저장 중…",
     editCancel: "취소",
     editPrimaryLocked: "기본 폴더는 삭제할 수 없습니다",
+    editSetPrimary: "Primary 폴더로 설정",
     editMemory: "프로젝트 메모리",
     memorySaved: "프로젝트 메모리가 저장됨",
     memoryDescription: "채팅 간에 사용할 이 프로젝트의 지속적인 맥락을 저장하세요.",
