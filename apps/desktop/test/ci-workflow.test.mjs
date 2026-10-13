@@ -142,6 +142,38 @@ test("CI runs the upstream sync audit after the unit tests", () => {
   );
 });
 
+test("the js job runs the workspace unit tests with a display and the Electron binary", () => {
+  // One Desktop suite boots a real Electron window, and its own guard marks the
+  // test skipped when Linux has no DISPLAY while the step still exits 0. A green
+  // js job therefore reported that coverage as passing when it had not run at
+  // all. The job now supplies both the display and the binary, which
+  // `pnpm install` alone does not guarantee.
+  const start = ciWorkflowSource.indexOf("  js:");
+  assert.notEqual(start, -1, "the js job is missing");
+  const end = ciWorkflowSource.indexOf("\n  theme-surfaces:");
+  assert.notEqual(end, -1, "the theme-surfaces job is missing");
+  const block = ciWorkflowSource.slice(start, end);
+  assert.match(
+    block,
+    /run: node apps\/desktop\/node_modules\/electron\/install\.js/,
+    "the job installs the Electron binary before testing",
+  );
+  assert.match(
+    block,
+    /xvfb-run --auto-servernum pnpm -r --if-present test/,
+    "the job runs the unit tests under a virtual display",
+  );
+  assert.match(
+    block,
+    /ELECTRON_DISABLE_SANDBOX/,
+    "the job disables the sandbox on a hosted runner",
+  );
+  assert.ok(
+    block.indexOf("electron/install.js") < block.indexOf("pnpm -r --if-present test"),
+    "the binary is installed before the tests run",
+  );
+});
+
 test("release runners validate tags without a separate job barrier", () => {
   assert.doesNotMatch(releaseWorkflowSource, /^  validate:/m);
   assert.doesNotMatch(releaseWorkflowSource, /^    needs: validate$/m);
