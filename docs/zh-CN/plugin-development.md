@@ -552,7 +552,9 @@ MCP 服务器是声明性的。本地服务器需要 `mcp.server.local`；一个
 
 stdio 命令必须是 `PATH` 上的裸命令或插件相对路径的可执行文件；绝对路径会被拒绝。
 `npx` 和 `uvx` 会解析到真实的 Node.js / uv（PATH、官方 Node 安装、fnm、nvm、Volta、
-默认 uv 安装位置）。远程 URL 可以使用 HTTP 或 HTTPS，并且主机必须列在
+默认 uv 安装位置）。在 Windows 上，`python3` 与 `python` 会跳过 Microsoft Store
+别名，改用 `PATH` 上的真实解释器，其次回退到 `py -3`。远程 URL 可以使用 HTTP 或
+HTTPS，并且主机必须列在
 `net.domains` 中；非回环 HTTP 不加密，因此只应在可信网络中使用。设置引用仅读取
 该插件的设置——主机环境和提供商密钥永远不会被转发。MCP 工具遵循与手写插件工具
 相同的仅 Agent 策略和命名空间。
