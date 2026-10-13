@@ -254,14 +254,12 @@ export function Sidebar({
   const refreshProject = useAppStore((s) => s.refreshProject);
   const clearProject = useAppStore((s) => s.clearProject);
   const activateProject = useAppStore((s) => s.activateProject);
-  const closeProjectAction = useAppStore((s) => s.closeProject);
   const renameProject = useAppStore((s) => s.renameProject);
   const toggleSessionPinned = useAppStore((s) => s.toggleSessionPinned);
   const archiveSessionAction = useAppStore((s) => s.archiveSession);
   const restoreSession = useAppStore((s) => s.restoreSession);
   const renameSession = useAppStore((s) => s.renameSession);
   const deleteSessionAction = useAppStore((s) => s.deleteSession);
-  const deleteProjectAction = useAppStore((s) => s.deleteProject);
   const setSessionSort = useAppStore((s) => s.setSessionSort);
   const moveSessionProject = useAppStore((s) => s.moveSessionProject);
   const setSessionArchiveVisibility = useAppStore((s) => s.setSessionArchiveVisibility);
@@ -1361,37 +1359,10 @@ export function Sidebar({
     setSelectedIds(new Set());
   };
 
-  /** Menu items of different surfaces never share an armed key. */
-  const projectDeleteKey = (entry: ProjectEntry) => `project:${entry.key}`;
-
-  /**
-   * Two-step delete for a project row that keeps the running-task safety. The
-   * second click deletes an idle project straight away; a project whose turn is
-   * still live opens the dialog that names those sessions and stops them.
-   */
-  const requestDeleteProject = async (entry: ProjectEntry) => {
-    const key = projectDeleteKey(entry);
-    if (armedDelete !== key) {
-      setArmedDelete(key);
-      return;
-    }
-    setArmedDelete(null);
+  /** Always route project deletion through the explicit confirmation dialog. */
+  const requestDeleteProject = (entry: ProjectEntry) => {
     closeMenus(false);
-    if (entry.sessions.some((session) => runningSessions[session.id] === true)) {
-      setDeleteProjectFor(entry);
-      return;
-    }
-    try {
-      await deleteProjectAction(entry.path);
-      showToast(t("project.deleted", { name: entry.name }), { variant: "success" });
-    } catch (error) {
-      // The host refuses a project whose task started after this render.
-      reportError(
-        (error as { errorCode?: unknown } | null)?.errorCode === ErrorCodes.CONFLICT
-          ? new Error(t("project.deleteRunningBlocked"))
-          : error,
-      );
-    }
+    setDeleteProjectFor(entry);
   };
 
   const openProjectFolder = async (entry: ProjectEntry) => {
@@ -1466,15 +1437,6 @@ export function Sidebar({
         }
       }
       archiveProjectAction(entry.path);
-    } catch (error) {
-      reportError(error);
-    }
-  };
-
-  const closeProject = async (entry: ProjectEntry) => {
-    closeMenus();
-    try {
-      await closeProjectAction(entry.path);
     } catch (error) {
       reportError(error);
     }
@@ -2258,26 +2220,13 @@ export function Sidebar({
             <button
               type="button"
               role="menuitem"
-              className={cx("danger", armedDelete === projectDeleteKey(entry) && "is-armed")}
+              className="danger"
               data-action="delete-project"
-              data-armed={armedDelete === projectDeleteKey(entry) ? "true" : undefined}
-              onClick={() => void requestDeleteProject(entry)}
+              onClick={() => requestDeleteProject(entry)}
             >
               <IconTrash size={14} />
-              {armedDelete === projectDeleteKey(entry)
-                ? t("project.deleteMenuConfirm", { defaultValue: "Delete?" })
-                : t("project.delete", { defaultValue: "Delete project" })}
+              {t("project.delete", { defaultValue: "Delete project" })}
             </button>
-            {entry.open ? (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => void closeProject(entry)}
-              >
-                <IconX size={14} />
-                {t("project.close")}
-              </button>
-            ) : null}
           </>
         ) : null}
       </div>,

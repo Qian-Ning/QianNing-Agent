@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { ProjectGroupRecord } from "@pi-desktop/shared";
-import { ErrorCodes } from "@pi-desktop/shared";
 import { useAppStore } from "../stores/app-store";
 import { api } from "../lib/api";
 import { Button, TooltipButton, SegmentedControl, cx } from "../components/ui";
@@ -25,7 +24,6 @@ import { ProjectMemoryDialog } from "../components/ProjectMemoryDialog";
 import { ProjectEditDialog } from "../components/ProjectEditDialog";
 import { ProjectDeleteDialog } from "../components/ProjectDeleteDialog";
 import { SessionRenameDialog } from "../components/SessionRenameDialog";
-import { useArmedDelete } from "../hooks/use-armed-delete";
 import { AnchoredMenu } from "../components/settings/AnchoredMenu";
 import {
   INITIAL_VISIBLE_SESSION_COUNT,
@@ -52,11 +50,9 @@ export function ProjectsPage() {
   const openProject = useAppStore((s) => s.openProject);
   const activateProject = useAppStore((s) => s.activateProject);
   const clearProject = useAppStore((s) => s.clearProject);
-  const closeProject = useAppStore((s) => s.closeProject);
   const renameProject = useAppStore((s) => s.renameProject);
   const toggleProjectPinned = useAppStore((s) => s.toggleProjectPinned);
   const archiveProject = useAppStore((s) => s.archiveProject);
-  const deleteProjectAction = useAppStore((s) => s.deleteProject);
   const restoreProject = useAppStore((s) => s.restoreProject);
   const newSession = useAppStore((s) => s.newSession);
   const selectSession = useAppStore((s) => s.selectSession);
@@ -78,8 +74,6 @@ export function ProjectsPage() {
   const [openPath, setOpenPath] = useState<string | null>(null);
   const [visibleSessionCounts, setVisibleSessionCounts] = useState<Record<string, number>>({});
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  // Which row menu item is armed for its second, confirming click.
-  const { armed: armedDelete, setArmed: setArmedDelete } = useArmedDelete();
   const [renameFor, setRenameFor] = useState<SessionIndexRecord | null>(null);
   const [editProjectFor, setEditProjectFor] = useState<{
     path: string;
@@ -224,51 +218,15 @@ export function ProjectsPage() {
     }
   };
 
-  /** Menu items of different surfaces never share an armed key. */
-  const projectDeleteKey = (path: string) => `project:${normalizeProjectPath(path)}`;
-
-  /**
-   * Two-step delete for an index row. The first click arms the menu item and
-   * relabels it; the second deletes an idle project straight away. A project
-   * with a live turn keeps the dialog that names those sessions and stops them
-   * before the delete.
-   */
-  const requestDeleteProject = async (project: ProjectIndexItem, totalSessions: number) => {
-    const key = projectDeleteKey(project.path);
-    if (armedDelete !== key) {
-      setArmedDelete(key);
-      return;
-    }
-    setArmedDelete(null);
+  /** Always require the explicit confirmation dialog before deleting a project. */
+  const requestDeleteProject = (project: ProjectIndexItem, totalSessions: number) => {
     setMenuFor(null);
-    const liveSessions = sessions.filter(
-      (session) =>
-        sessionMatchesIndexProject(session, project) && runningSessions[session.id] === true,
-    );
-    if (liveSessions.length > 0) {
-      setDeleteFor({
-        name: project.name,
-        path: project.path,
-        sessionCount: totalSessions,
-        roots: project.roots,
-      });
-      return;
-    }
-    try {
-      await deleteProjectAction(project.path);
-      setRecents(loadRecentProjects());
-      showToast(t("project.deleted", { name: project.name }), { variant: "success" });
-    } catch (error) {
-      // The host refuses a project whose task started after this render.
-      showToast(
-        (error as { errorCode?: unknown } | null)?.errorCode === ErrorCodes.CONFLICT
-          ? t("project.deleteRunningBlocked")
-          : error instanceof Error
-            ? error.message
-            : String(error),
-        { variant: "error" },
-      );
-    }
+    setDeleteFor({
+      name: project.name,
+      path: project.path,
+      sessionCount: totalSessions,
+      roots: project.roots,
+    });
   };
 
   const toggleProjectArchive = async (project: (typeof items)[number]) => {
@@ -304,17 +262,6 @@ export function ProjectsPage() {
     }
   };
 
-  const closeProjectFromIndex = async (path: string) => {
-    try {
-      await closeProject(path);
-      setSettingsTab("projects");
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : String(error), {
-        variant: "error",
-      });
-    }
-  };
-
   const addProject = () =>
     void openProject().then(() => setRecents(loadRecentProjects()));
 
@@ -332,11 +279,6 @@ export function ProjectsPage() {
   const selectedActive =
     project != null &&
     normalizeProjectPath(workspace?.path) === normalizeProjectPath(project.path);
-  const selectedRetained =
-    project != null &&
-    openProjectPaths.some(
-      (path) => normalizeProjectPath(path) === normalizeProjectPath(project.path),
-    );
   const selectedArchived = project?.archived === true;
 
   /*
@@ -620,35 +562,13 @@ export function ProjectsPage() {
                         <button
                           type="button"
                           role="menuitem"
-                          className={cx(
-                            "danger",
-                            armedDelete === projectDeleteKey(project.path) && "is-armed",
-                          )}
+                          className="danger"
                           data-action="delete-project"
-                          data-armed={
-                            armedDelete === projectDeleteKey(project.path) ? "true" : undefined
-                          }
-                          onClick={() => void requestDeleteProject(project, totalSessions)}
+                          onClick={() => requestDeleteProject(project, totalSessions)}
                         >
                           <IconTrash size={14} />
-                          {armedDelete === projectDeleteKey(project.path)
-                            ? t("project.deleteMenuConfirm")
-                            : t("project.delete")}
+                          {t("project.delete")}
                         </button>
-                        {selectedRetained ? (
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="danger"
-                            onClick={() => {
-                              setMenuFor(null);
-                              void closeProjectFromIndex(project.path);
-                            }}
-                          >
-                            <IconX size={14} />
-                            {t("project.close")}
-                          </button>
-                        ) : null}
                       </AnchoredMenu>
                     </>
                   }
