@@ -57,3 +57,4 @@
 验证：`node scripts/e2e-image-generation.mjs` 覆盖宿主、stdio、HTTP 和存储；`node scripts/e2e-image-generation-ui.mjs` 使用 API 边界夹具覆盖真实 React/Chromium 交互。单元及服务测试覆盖限制、取消、部分失败、认证、超时、不安全路径和受限下载。
 
 `node scripts/e2e-image-chat.mjs` 在隔离桌面中使用本地模型/图片 HTTP 夹具，覆盖相邻默认设置、Composer 提交、批量结果、引用生成文件编辑、收起详情和配置跳转。真实接口验证通过 `scripts/test-image-generation-live.mjs` 显式启用，仅限一次生成和一次编辑，不属于默认测试命令。
+

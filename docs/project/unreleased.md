@@ -58,3 +58,6 @@
 - OpenAI Codex OAuth models can now opt into provider-hosted native web search.
   The feature remains off by default and search history is replayed only for
   the same Codex model.
+- Use Pi 1.1.0's 3.5-character text estimate for compaction limits and its
+  monotonic request duration for completed-response throughput; interrupted
+  streams keep the existing fallback.

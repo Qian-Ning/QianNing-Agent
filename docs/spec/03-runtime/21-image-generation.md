@@ -126,3 +126,4 @@ model/image HTTP fixtures: adjacent default settings, composer submission, batch
 previews, editing a generated file, collapsed results, and setup navigation.
 Live verification is opt-in via `scripts/test-image-generation-live.mjs`, limited
 to one generation plus one edit and never a default test command.
+

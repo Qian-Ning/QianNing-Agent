@@ -1,5 +1,8 @@
 import { type AgentMessage } from "@earendil-works/pi-agent-core";
-import { estimateTokens } from "./pi-runtime-estimates.js";
+import {
+  ESTIMATED_TEXT_CHARS_PER_TOKEN,
+  estimateTokens,
+} from "./pi-runtime-estimates.js";
 import { convertToLlm, serializeConversation } from "./pi-runtime-messages.js";
 import type { CompactionPreparation } from "./pi-runtime-types.js";
 import type { RetryPolicy, Usage } from "@earendil-works/pi-ai";
@@ -87,7 +90,9 @@ export function estimateSummaryPromptTokens(input: CompactionSummaryInput): numb
     input.isSplitTurn && input.turnPrefixMessages.length > 0
       ? serializeConversation(convertToLlm(input.turnPrefixMessages)).length
       : 0;
-  return Math.ceil(Math.max(historyChars, turnPrefixChars) / 4);
+  return Math.ceil(
+    Math.max(historyChars, turnPrefixChars) / ESTIMATED_TEXT_CHARS_PER_TOKEN,
+  );
 }
 
 /**
@@ -218,7 +223,11 @@ export function planSummaryChunks(
     }
     current.push(
       cost > budget
-        ? truncateMessageText(message, budget * 4, SUMMARY_CHUNK_TRUNCATION_MARKER)
+        ? truncateMessageText(
+            message,
+            Math.floor(budget * ESTIMATED_TEXT_CHARS_PER_TOKEN),
+            SUMMARY_CHUNK_TRUNCATION_MARKER,
+          )
         : message,
     );
     tokens += Math.min(cost, budget);

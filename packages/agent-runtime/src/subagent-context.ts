@@ -17,6 +17,7 @@
 import { type AgentMessage, type PrepareNextTurnContext, type ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { prepareCompaction } from "./pi-runtime-compaction-plan.js";
 import { generateSummaryWithUsage } from "./pi-runtime-compaction-summary.js";
+import { ESTIMATED_TEXT_CHARS_PER_TOKEN } from "./pi-runtime-estimates.js";
 import { createCompactionSummaryMessage } from "./pi-runtime-messages.js";
 import type { CompactionSummaryMessage } from "./pi-runtime-messages.js";
 import type { CompactionSettings, Entry, MessageEntry } from "./pi-runtime-types.js";
@@ -442,7 +443,10 @@ function truncateDelegateUserMessage(
   tokenBudget: number,
 ): UserMessage {
   const text = delegateUserMessageText(message);
-  const maxChars = Math.max(1, tokenBudget) * 4;
+  const maxChars = Math.max(
+    1,
+    Math.floor(tokenBudget * ESTIMATED_TEXT_CHARS_PER_TOKEN),
+  );
   if (text.length <= maxChars) return message;
   if (maxChars <= DELEGATE_RETENTION_TRUNCATION_MARKER.length) {
     return {

@@ -209,10 +209,12 @@ function createRuntime(
 function assistantMessage(overrides: {
   content: unknown[];
   stopReason?: string;
+  durationMs?: number;
   /** Merged over the default usage, so a case can report a real token split. */
   usage?: Record<string, unknown>;
 }) {
   return {
+    ...(overrides.durationMs !== undefined ? { durationMs: overrides.durationMs } : {}),
     role: "assistant",
     api: "openai-completions",
     provider: "local",
@@ -5110,11 +5112,13 @@ describe("DesktopAgentRuntime compaction restore", () => {
       (runtime as any).agent.state.messages,
     );
     // System sections and tool declarations now participate in the estimate;
-    // the invariant is that the old response's 250k usage is not reused.
+    // the invariant is that the old response's 250k usage is not reused. A
+    // desktop-only row sizes both sides with the same 3.5-chars/token estimate,
+    // so the budget may coincide with the estimate exactly.
     const estimate = estimateAgentContextTokens((runtime as any).agent.state.messages);
     expect(estimate.usageTokens).toBe(0);
     expect(estimate.lastUsageIndex).toBeNull();
-    expect(budget.tokens).toBeGreaterThan(estimate.tokens);
+    expect(budget.tokens).toBeGreaterThanOrEqual(estimate.tokens);
     expect(budget.tokens).toBeGreaterThan(0);
     expect(budget.tokens).toBeLessThan(250_000);
     await runtime.dispose();
@@ -10229,4 +10233,83 @@ describe("DesktopAgentRuntime Google Generative AI transport (#1072)", () => {
       await runtime.dispose();
     }
   }, 20_000);
+});
+
+describe("DesktopAgentRuntime response duration", () => {
+  const fallbackDurations = [
+    { label: "missing", durationMs: undefined },
+    { label: "zero", durationMs: 0 },
+    { label: "non-finite", durationMs: Number.NaN },
+    { label: "negative", durationMs: -1 },
+  ] as const;
+
+  it("uses pi-ai's monotonic duration for a completed response", async () => {
+    const onEvent = vi.fn();
+    const runtime = createRuntime({ onEvent });
+    const internals = runtime as unknown as {
+      handleAgentEvent(event: unknown): Promise<void>;
+      streamStartedAt: number | undefined;
+    };
+
+    await internals.handleAgentEvent({
+      type: "message_start",
+      message: { role: "assistant", content: [] },
+    });
+    // Make the local fallback visibly different from Pi's request duration.
+    internals.streamStartedAt = Date.now() - 2_000;
+    await internals.handleAgentEvent({
+      type: "message_end",
+      message: assistantMessage({
+        content: [{ type: "text", text: "answer" }],
+        durationMs: 47,
+      }),
+    });
+
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: "message_end",
+          message: expect.objectContaining({ responseDurationMs: 47 }),
+        }),
+      }),
+    );
+    await runtime.dispose();
+  });
+
+  it.each(fallbackDurations)(
+    "falls back to the sidecar stopwatch for a $label Pi duration",
+    async ({ durationMs }) => {
+      const onEvent = vi.fn();
+      const runtime = createRuntime({ onEvent });
+      const internals = runtime as unknown as {
+        handleAgentEvent(event: unknown): Promise<void>;
+        streamStartedAt: number | undefined;
+      };
+
+      await internals.handleAgentEvent({
+        type: "message_start",
+        message: { role: "assistant", content: [] },
+      });
+      internals.streamStartedAt = Date.now() - 2_000;
+      await internals.handleAgentEvent({
+        type: "message_end",
+        message: assistantMessage({
+          content: [{ type: "text", text: "answer" }],
+          ...(durationMs !== undefined ? { durationMs } : {}),
+        }),
+      });
+
+      type Envelope = {
+        event?: {
+          type?: string;
+          message?: { responseDurationMs?: number };
+        };
+      };
+      const terminal = onEvent.mock.calls
+        .map(([envelope]) => envelope as Envelope)
+        .find(({ event }) => event?.type === "message_end");
+      expect(terminal?.event?.message?.responseDurationMs).toBeGreaterThanOrEqual(2_000);
+      await runtime.dispose();
+    },
+  );
 });
