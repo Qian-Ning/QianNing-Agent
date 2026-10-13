@@ -382,7 +382,13 @@ export type AppState = {
   workPanelContexts: Record<string, WorkPanelContext>;
   workPanelWidth: number;
   /** Chat-initiated "preview this file" request consumed by the files viewer. */
-  workPanelFileRequest: { path: string; seq: number; mimeType?: string } | null;
+  workPanelFileRequest: {
+    path: string;
+    seq: number;
+    mimeType?: string;
+    line?: number;
+    column?: number;
+  } | null;
   /** Open (or activate) the transcript tab of one delegated subagent. */
   openSubagentTab: (delegationId: string, agentName?: string) => void;
   /** Abort one session's running turn, visible or not. */
@@ -406,7 +412,11 @@ export type AppState = {
   /** Hide the visible panel while retaining its session-owned context. */
   resetWorkPanelContext: () => void;
   setWorkPanelWidth: (width: number) => void;
-  openFileInWorkPanel: (path: string, mimeType?: string) => void;
+  openFileInWorkPanel: (
+    path: string,
+    mimeType?: string,
+    position?: { line?: number; column?: number },
+  ) => void;
   openUrlInWorkPanel: (url: string) => void;
   updateBrowserWorkPanelTab: (state: BrowserState) => void;
 };

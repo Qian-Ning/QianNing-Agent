@@ -8414,16 +8414,20 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   6. Click a project file path in the conversation. Confirm it opens in this
      view on that file — a chat click now prefers the file view over the host
      `file:` tab.
-  7. Disable the File Manager plugin. Confirm the view disappears from the menu
+  7. Click a conversation reference to `src/example.ts:42`. Confirm the host
+     `file:` tab opens at line 42 even though the File Manager plugin is enabled.
+  8. Disable the File Manager plugin. Confirm the view disappears from the menu
      and the panel, and that a clicked conversation file path falls back to the
      host `file:<path>` tab under Open resources.
-  8. Re-enable it, then restart the app. Confirm the enabled state and the tree
+  9. Re-enable it, then restart the app. Confirm the enabled state and the tree
      return, and that the registry did not gain a duplicate row.
 - **Expected**: A panel surface runs entirely on the public plugin contribution
   channel, is user-disableable, cannot be uninstalled, and survives restart. Its
   host-mediated actions obey the declared `fs.read` scope, and its own reads and
   writes stay inside the jail of the one project folder it is browsing
-  (ADR 0241, ADR 0263).
+  (ADR 0241, ADR 0263). Plain project-file links open in the bundled view; a
+  positioned `path:line` reference opens the host file tab and scrolls the
+  requested line even while the plugin view is available.
 - **Specs linked**: `07-plugins/03-plugin-api.md` §3,
   `07-plugins/13-plugin-permissions-matrix.md` §2,
   `04-ux/08-component-spec.md` §5, ADR 0104, ADR 0109, ADR 0111,

@@ -162,10 +162,14 @@ test("chat markdown HTTP clicks share openHttpUrl", () => {
 
 test("previewable transcript URLs follow the link-open setting", () => {
   assert.match(previewSource, /import \{ openHttpUrl \} from "\.\.\/lib\/open-http-url"/);
+  // A positioned file reference keeps its line and column on the way in, and a
+  // URL reference still goes through the shared link-open path.
   assert.match(
     previewSource,
-    /target\.kind === "file" \? openFileRef\(target\.path\) : openHttpUrl\(target\.url\)/,
+    /target\.kind === "file"\s*\?\s*openFileRef\(target\.path,/,
   );
+  assert.match(previewSource, /line: target\.line,[\s\S]*?column: target\.column,/);
+  assert.match(previewSource, /:\s*openHttpUrl\(target\.url\)/);
 });
 
 test("plugin homepage and repository links follow the link-open setting", () => {
