@@ -3,6 +3,7 @@ import type { BrowserState } from "@pi-desktop/shared";
 import type { BrowserPane } from "./browser-view";
 import type { BrowserActionResult } from "./browser-cdp";
 import { BrowserCdp } from "./browser-cdp";
+import { withScreenshotDeadline } from "./browser-screenshot-deadline";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -431,7 +432,13 @@ export class BrowserHost {
 
   async screenshot(input: { fullPage?: boolean } = {}, sessionId?: string): Promise<{ mimeType: string; data: string; path?: string }> {
     const page = this.currentPage();
-    const shot = await page.cdp.screenshot(this.requireWebContents(), input);
+    // A stalled guest would otherwise hang the capture forever; the deadline
+    // rejects with TIMEOUT and detaches the CDP session so the next capture
+    // rebuilds it instead of reusing a stuck one.
+    const shot = await withScreenshotDeadline(
+      () => page.cdp.screenshot(this.requireWebContents(), input),
+      () => page.cdp.detach(page.pane.getWebContents() ?? undefined),
+    );
     const scratch = this.deps.getScratchDir?.(sessionId ?? page.sessionId);
     if (!scratch) return shot;
     try {

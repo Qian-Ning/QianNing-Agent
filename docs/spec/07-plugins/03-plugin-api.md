@@ -675,6 +675,12 @@ session never takes focus; if it cannot become visible, `reveal()` fails with
 `UNAVAILABLE`. The bundled Browser agent tool calls `reveal()` before each
 operation. `BrowserPreview` remains the live-reloading workspace-file preview.
 
+Screenshot captures, including raw `Page.captureScreenshot` CDP calls, have a
+30-second host-side deadline. A capture that exceeds it fails with `TIMEOUT`;
+the host detaches the stalled CDP session and releases that page's capture
+queue so a later capture can reattach and proceed. Other CDP methods retain
+their existing timeout behavior.
+
 A click or fill reports the page rather than the call. `effect` is `confirmed`
 only when a value was read back from the page and matched, and `verified` is
 true only for that read-back; `suspected_noop` means the page kept nothing and
