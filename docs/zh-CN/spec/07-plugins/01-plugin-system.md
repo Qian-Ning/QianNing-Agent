@@ -544,7 +544,7 @@ Plugins → Load Development Plugin → choose directory
 
 | 生态系统对象 | 关系 |
 |---|---|
-| 圆周率技能 | 可以通过技能插件分发/管理 |
+| pi 技能 | 可以通过技能插件分发/管理 |
 | pi 扩展 | 由插件以 `contributes.agentExtensions` 加 `agent.extension` 授权贡献；pi CLI 扩展可导入为开发插件（D387 / D388、ADR 0214 / 0215、[16-trusted-extensions.md](/zh-CN/spec/07-plugins/16-trusted-extensions)） |
 | MCP | 插件在 `contributes.mcpServers` 中声明 MCP 服务器；他们的工具加入代理的工具集中 |
 | Agent 工具 | 最重要的插件扩展界面之一 |
