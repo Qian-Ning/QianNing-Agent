@@ -505,6 +505,7 @@ pi.shell.openExternal(url: string): Promise<void>
 
 ### browser（需要 `browser.cdp`）
 ```ts
+pi.browser.reveal(): Promise<void>
 pi.browser.navigate(input: { url?: string; path?: string }): Promise<BrowserState | null>
 pi.browser.action(input: { action: "back" | "forward" | "reload" | "stop" }): Promise<void>
 pi.browser.setBounds(hole: { x: number; y: number; width: number; height: number }): Promise<unknown>
@@ -533,6 +534,11 @@ type BrowserActionResult = {
 `setBounds` 相对调用插件视图的内容区，并被夹紧，因此访客页不能盖住聊天/输入框。
 `cdp` 默认拒绝；cookie、storage、target 和网络拦截方法以 `PERMISSION_DENIED` 失败。
 代理调用的会话身份来自进行中的 `plugins.execute` `sessionId`，而不是插件参数（D333 / ADR 0170）。
+页面操作（`navigate`、`action`、`openExternal`、`getState`、snapshot、screenshot 和 CDP 调用）
+仅在 Browser 视图可见时可用。`reveal()` 请求宿主为发起会话激活 Browser 标签页，且仅在
+该会话的视图可见后才 resolve。后台会话不会抢占焦点；若它无法变为可见，`reveal()` 以
+`UNAVAILABLE` 失败。内置 Browser 智能体工具在每次操作前调用 `reveal()`。
+`BrowserPreview` 仍是带热重载的工作区文件预览。
 
 click 与 fill 报告的是页面本身，而不是调用是否返回。只有从页面读回的值与请求一致时
 `effect` 才是 `confirmed`，且 `verified` 只在读回时为真；`suspected_noop` 表示页面什么

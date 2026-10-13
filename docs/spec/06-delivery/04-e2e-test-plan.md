@@ -1218,17 +1218,28 @@ identify the platform validation still needed.
 - **Preconditions**: Packaged or checkout build with bundled plugins; Agent
   session with a workspace HTML file; Plan session available.
 - **Steps**: 1) Confirm Plugins lists `pi.browser`, enabled, not uninstallable.
-  2) Open the work panel and launch Browser from plugin views. 3) Ask the
-  agent to preview a workspace HTML file (`BrowserPreview`) then snapshot via
-  ToolSearch `cdp` / `Browser`. 4) Switch to Plan and call the plugin Browser
-  tool. 5) Disable `pi.browser`. 6) Call `BrowserPreview` and click an http(s)
-  transcript link. 7) From a third-party or test caller, send
-  `Network.getAllCookies` through `pi.browser.cdp`. 8) With a page containing a
-  `disabled` button and a read-only field, snapshot, then call `Browser` with
-  `click` on the disabled uid and `fill` on the read-only uid.
+  2) With the work panel closed, ask the agent to preview a workspace HTML
+  file (`BrowserPreview`) and verify the Browser tab opens in the visible work
+  panel. 3) Use ToolSearch `cdp` / `Browser` to snapshot and interact while the
+  panel remains visible. 4) With the work panel closed, call the plugin
+  Browser tool for an HTTP(S) URL and verify it activates the existing Browser
+  tab before navigating. 5) Switch to a second session and call Browser;
+  verify it opens that session's own page, then switch back and verify the first
+  page is retained. 6) Run Browser from a background session and verify it does
+  not steal focus. 7) Switch to Plan and call the plugin Browser tool. 8) Disable
+  `pi.browser`. 9) Call `BrowserPreview` and click an http(s) transcript link.
+  10) From a third-party or test caller, send
+  `Network.getAllCookies` through `pi.browser.cdp`.
 - **Expected**: The launcher has no host Browser row. Preview opens the plugin
-  view and live-reloads the file. Plugin tool `plugin_pi_browser_Browser` can
-  snapshot after ToolSearch. Plan denies the plugin tool
+  view, reveals the work panel, and live-reloads the file. Browser operations
+  run only after the originating session's view is visible; the agent opens it
+  automatically and waits for readiness. A background session does not change
+  the visible tab and receives `UNAVAILABLE` if it cannot be revealed. Plugin
+  tool `plugin_pi_browser_Browser` can snapshot
+  after ToolSearch. Plan denies the plugin tool
+11) With a page containing a `disabled` button and a read-only field, snapshot,
+then call `Browser` with `click` on the disabled uid and `fill` on the read-only
+uid.
   (`PLUGIN_DISABLED_IN_PLAN`) while `BrowserPreview` remains callable. Disable
   hides the view and tools; `BrowserPreview` errors; http(s) chips use
   `openExternal`. Cookie CDP is denied. Guest bounds stay inside the plugin

@@ -495,15 +495,20 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
 - **先决条件**：带随应用打包插件的打包或检出构建；带工作区 HTML 文件的 Agent
   会话；可用 Plan 会话。
 - **步骤**：1) 确认插件页列出 `pi.browser`，已启用，不可卸载。
-  2) 打开工作面板并从插件视图启动浏览器。3) 让代理预览工作区 HTML
-  文件（`BrowserPreview`），再通过 ToolSearch `cdp` / `Browser` 做 snapshot。
-  4) 切到 Plan 并调用插件 Browser 工具。5) 禁用 `pi.browser`。
-  6) 调用 `BrowserPreview` 并点击 http(s) 对话链接。7) 从第三方或测试调用方
-  通过 `pi.browser.cdp` 发送 `Network.getAllCookies`。8) 准备一个含 `disabled`
+  2) 在工作面板关闭的情况下，让智能体预览一个工作区 HTML 文件（`BrowserPreview`），
+  确认 Browser 标签页在可见的工作面板中打开。3) 在面板保持可见时，用 ToolSearch
+  `cdp` / `Browser` 做 snapshot 与交互。4) 在工作面板关闭的情况下，对某个 HTTP(S) URL
+  调用插件 Browser 工具，确认它先激活已有的 Browser 标签页再导航。5) 切到第二个会话
+  并调用 Browser，确认它打开该会话自己的页面；切回后确认第一个页面仍在。6) 从后台会话
+  运行 Browser，确认它不会抢占焦点。7) 切到 Plan 并调用插件 Browser 工具。8) 禁用
+  `pi.browser`。9) 调用 `BrowserPreview` 并点击 http(s) 对话链接。10) 从第三方或测试调用方
+  通过 `pi.browser.cdp` 发送 `Network.getAllCookies`。11) 准备一个含 `disabled`
   按钮与只读字段的页面，snapshot 后对禁用 uid 调 `Browser` 的 `click`、
   对只读 uid 调 `fill`。
-- **预期**：启动项没有宿主 Browser 行。预览打开插件视图并实时重载文件。
-  插件工具 `plugin_pi_browser_Browser` 在 ToolSearch 后可以 snapshot。Plan 拒绝
+- **预期**：启动项没有宿主 Browser 行。预览打开插件视图、展开工作面板并实时重载文件。
+  Browser 操作只在发起会话的视图可见之后才运行；智能体自行打开它并等待就绪。后台会话
+  不会改变可见标签页，若无法展开则收到 `UNAVAILABLE`。插件工具
+  `plugin_pi_browser_Browser` 在 ToolSearch 后可以 snapshot。Plan 拒绝
   插件工具（`PLUGIN_DISABLED_IN_PLAN`），而 `BrowserPreview` 仍可调用。禁用后
   隐藏视图和工具；`BrowserPreview` 报错；http(s) 芯片走 `openExternal`。Cookie
   CDP 被拒绝。访客页边界留在插件视图内。会改动页面的动作返回从页面读出的

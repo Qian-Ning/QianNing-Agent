@@ -596,6 +596,8 @@ export function createPluginServices({
       return join(dataDir, "scratch", sessionId);
     },
     onState: emitBrowserState,
+    onRevealView: (sessionId, tabId) =>
+      sendToRenderer(IPC.event.browserPreview, { sessionId, tabId, revealOnly: true }),
   });
   pluginViews.onSurface = (surface) => {
     browserHost.setChromeSurface(surface);
@@ -617,11 +619,12 @@ export function createPluginServices({
     agentExtensionsChanged: () =>
       sendToRenderer(IPC.event.pluginChanged, { reason: "agentExtensions" }),
     browser: {
+      reveal: (sessionId) => browserHost.reveal(sessionId),
       navigate: (input, sessionId, tabId) => browserHost.navigate(input, sessionId, tabId),
       action: (action, sessionId, tabId) => browserHost.action(action, sessionId, tabId),
       setBounds: (pluginId, hole) => browserHost.setGuestHole(pluginId, hole),
       setVisible: (pluginId, visible) => browserHost.setGuestVisible(pluginId, visible),
-      getState: () => browserHost.getState(),
+      getState: () => browserHost.getStateForPlugin(),
       openExternal: (sessionId, tabId) => browserHost.openExternal(sessionId, tabId),
       snapshot: () => browserHost.snapshot(),
       screenshot: (input, sessionId) => browserHost.screenshot(input, sessionId),
