@@ -1,6 +1,6 @@
 ---
-name: Hello 插件演示
-description: 演示 QianNing Agent 插件能力时的操作步骤（回显、面板、主题、总线）
+name: Hello plugin demo
+description: Steps for exercising QianNing Agent plugin capabilities (echo, panel, theme, bus)
 ---
 
 # Hello Skill
