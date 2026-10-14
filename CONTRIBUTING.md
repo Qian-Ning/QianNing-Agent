@@ -50,7 +50,7 @@ Use the narrowest sufficient set for the files changed, but never report an unex
 
 ## Brand and compatibility
 
-Public and operating-system surfaces use **QianNing Agent** and the Chinese name **千凝**. This includes application labels, installers, shortcuts, window titles, permission descriptions, release documentation, and packaged process names.
+Public and operating-system surfaces use **QianNing Agent** — in every language and locale. In Chinese the product is still **QianNing Agent**; **千凝** is the developer's name, not the product's ([brand contract](docs/spec/01-qianning-brand.md)). This includes application labels, installers, shortcuts, window titles, permission descriptions, release documentation, and packaged process names.
 
 Some internal identifiers intentionally remain unchanged:
 
@@ -61,6 +61,17 @@ Some internal identifiers intentionally remain unchanged:
 - links that intentionally identify the upstream PI-Desktop project.
 
 Do not perform a blind repository-wide rename. Treat these identifiers as compatibility contracts.
+
+## Skill provenance
+
+Skills ship to users and their text reaches the model, so they are user-visible surfaces: the brand rule above applies to them, not the compatibility-identifier exception below.
+
+Every skill document declares where it came from, in the document itself:
+
+- A skill we wrote carries an `## Origin` section as its first heading, after the title and any one-paragraph usage summary. Its first line is `QianNing Agent` — the shipped identity, never a company, an upstream project, or a parent organization.
+- A skill whose method is re-implemented from another work names that work, its license, and specifically what was **not** carried over. Naming a source is not permission to ship its vocabulary: the skill keeps our names, our identifiers, and our document format.
+- A skill-market catalog entry carries `author` as the true origin. Ours is `QianNing Agent`; a third-party entry keeps its real author and is never relabelled as ours.
+- No third-party product vocabulary — its module names, its protocol names, its product words — appears in a skill we ship. What transfers is the technique; the credit and the naming stay with their owner.
 
 ## Upstream synchronization
 

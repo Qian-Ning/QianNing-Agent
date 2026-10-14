@@ -11,6 +11,10 @@ model. If ToolSearch is available and GenerateImages is not loaded, discover it
 there first. Do not install an SDK, run an API script, ask for a key in chat, or
 substitute the conversation model.
 
+## Origin
+
+QianNing Agent. Written in this repository; no third-party method, text, or document format is reproduced here.
+
 ## Prepare the request
 
 - Preserve the requested subject, composition, style, exact text, and constraints.

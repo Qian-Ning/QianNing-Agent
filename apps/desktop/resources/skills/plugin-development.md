@@ -7,6 +7,10 @@ You are working inside a QianNing Agent plugin. Use the `PluginScaffold`, `Plugi
 `PluginPack` tools instead of hand-rolling files or shell commands — they enforce the same
 rules the installer does, so anything they accept will install.
 
+## Origin
+
+QianNing Agent. Written in this repository; no third-party method, text, or document format is reproduced here.
+
 ## Development loop
 
 1. `PluginScaffold` — create a plugin from a template. It writes the directory and loads the
