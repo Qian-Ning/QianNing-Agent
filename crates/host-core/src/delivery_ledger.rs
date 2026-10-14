@@ -372,6 +372,42 @@ pub fn mark_failed(db: &Database, id: &str, worker: &str, error: &str) -> Result
     Ok(Some(row))
 }
 
+/// Mark a claimed delivery terminally failed without spending the attempt cap.
+///
+/// [`mark_failed`] spends the bounded retry budget on a failure that might
+/// succeed later. When the caller classifies a send failure as permanent for
+/// this delivery — the channel will reject the same payload forever, so no
+/// later attempt can succeed — retrying only burns the budget. This writes the
+/// same terminal `failed` state the cap would reach, keeps the last error, and
+/// stops the row from being claimed again. Only the holder of the live lease
+/// may take the transition; anyone else gets `Ok(None)` and the row is left
+/// alone, exactly like [`mark_failed`].
+#[allow(dead_code)]
+pub fn mark_failed_terminal(
+    db: &Database,
+    id: &str,
+    worker: &str,
+    error: &str,
+) -> Result<Option<Delivery>> {
+    let now = now_ms();
+    let sql = format!(
+        "UPDATE delivery_ledger
+         SET state = 'failed',
+             failed_at = ?3,
+             last_error = ?4,
+             updated_at = ?3,
+             lease_owner = NULL,
+             lease_expires_at = NULL,
+             next_attempt_at = NULL
+         WHERE id = ?1 AND state = 'attempting' AND lease_owner = ?2
+         RETURNING {DELIVERY_COLUMNS}"
+    );
+    let mut stmt = db.conn().prepare_cached(&sql)?;
+    Ok(stmt
+        .query_row(params![id, worker, now, error], row_to_delivery)
+        .optional()?)
+}
+
 /// Read one delivery by id.
 #[allow(dead_code)]
 pub fn get(db: &Database, id: &str) -> Result<Option<Delivery>> {
@@ -587,6 +623,45 @@ mod tests {
         // Completing twice is a no-op, not a second transition.
         assert!(mark_delivered(&db, &d.id, "worker-a").unwrap().is_none());
         assert_eq!(list(&db, Some(DeliveryState::Delivered)).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn mark_failed_terminal_requires_the_current_lease_holder() {
+        let (_dir, db) = open();
+        let d = enqueue(&db, new_delivery("webhook")).unwrap();
+        claim(&db, "worker-a", DEFAULT_LEASE_MS).unwrap().unwrap();
+        assert!(
+            mark_failed_terminal(&db, &d.id, "worker-b", "destination refused")
+                .unwrap()
+                .is_none(),
+            "a non-holder cannot take the terminal transition"
+        );
+        assert_eq!(
+            get(&db, &d.id).unwrap().unwrap().state,
+            DeliveryState::Attempting,
+            "the rejected terminal write changed nothing"
+        );
+        let terminal = mark_failed_terminal(&db, &d.id, "worker-a", "destination refused")
+            .unwrap()
+            .unwrap();
+        assert_eq!(terminal.state, DeliveryState::Failed);
+        assert!(terminal.failed_at.is_some());
+        assert_eq!(
+            terminal.last_error.as_deref(),
+            Some("destination refused"),
+            "the last error is kept"
+        );
+        assert!(
+            terminal.lease_owner.is_none(),
+            "the lease is released on the terminal write"
+        );
+        // A repeat terminal call is a no-op, not a second transition.
+        assert!(
+            mark_failed_terminal(&db, &d.id, "worker-a", "destination refused")
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(list(&db, Some(DeliveryState::Failed)).unwrap().len(), 1);
     }
 
     #[test]
