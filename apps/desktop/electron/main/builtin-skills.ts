@@ -110,6 +110,13 @@ export type BuiltinSkillInput = {
   workspacePath?: string | null;
   /** Directories of currently loaded plugins, used to detect a dev workspace. */
   pluginPaths?: string[];
+  /**
+   * Whether a generation model is configured for the capability, when the caller
+   * knows. `undefined` means the caller has no settings access and the entry is
+   * kept, so a surface that cannot see the configuration stays complete.
+   */
+  imageGenerationAvailable?: boolean;
+  videoGenerationAvailable?: boolean;
 };
 
 /**
@@ -117,7 +124,14 @@ export type BuiltinSkillInput = {
  * fresh so a packaged update takes effect without a restart.
  */
 export function builtinSkills(input: BuiltinSkillInput): PluginSkillDef[] {
-  const ids = [IMAGE_GENERATION_SKILL_ID, VIDEO_GENERATION_SKILL_ID];
+  // The model pays context for every advertised entry, and a capability skill
+  // whose tool has no configured model can only tell the model to go configure
+  // one. So the entry is advertised while the capability is usable, and an
+  // unavailable capability drops it — the same reasoning as the workspace gate
+  // below, applied to the other reason a skill cannot be used here.
+  const ids: string[] = [];
+  if (input.imageGenerationAvailable !== false) ids.push(IMAGE_GENERATION_SKILL_ID);
+  if (input.videoGenerationAvailable !== false) ids.push(VIDEO_GENERATION_SKILL_ID);
   if (isPluginWorkspace(input.workspacePath, input.pluginPaths)) ids.push(PLUGIN_DEV_SKILL_ID);
   return ids.flatMap((id) => {
     const raw = readBuiltinSkill(BUILTIN_SKILL_FILES[id]);

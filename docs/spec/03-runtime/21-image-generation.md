@@ -37,10 +37,12 @@ may ask for different sizes. Prompt length is bounded at 32,000 characters.
 Unsupported or excessive input is rejected rather than truncated. Plan and Goal cannot
 execute the tool.
 
-The bundled `qianning/imagegen` skill is discoverable in ordinary sessions and
-loads through the existing Skill tool. It teaches prompting, batches, reference
-edits, preserving originals, partial-failure handling and project asset delivery.
-It does not grant permission or carry credentials.
+The bundled `qianning/imagegen` skill is discoverable while an image model is
+configured, and loads through the existing Skill tool. A session with no image
+model is not advertised it: the entry would only cost context and tell the model
+to go configure one. It teaches prompting, batches, reference edits, preserving
+originals, partial-failure handling and project asset delivery. It does not
+grant permission or carry credentials.
 
 The trusted desktop bridge first calls host-core `tools.execute` with the same
 identity, arguments and permission scope. Host-core applies the existing high-risk
