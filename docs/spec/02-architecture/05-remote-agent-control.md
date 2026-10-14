@@ -450,7 +450,7 @@ under `lib/api.ts` so the renderer needs no transport knowledge. The same
 milestone carries the `tools/advertise` / `tool/execute` relay and the
 `terminal/*` operations. The
 messaging integration is a further caller of the module inside the Host
-process and needs no transport at all.
+process and opens no transport of its own.
 
 The migration is complete when the local desktop, a `pi-host` bundle, and,
 once scheduled, a Gateway route expose the same session/turn/event behavior.

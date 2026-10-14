@@ -6,6 +6,7 @@ use anyhow::Result;
 
 use crate::db::Database;
 use crate::mcp_servers::McpServerRegistry;
+use crate::messaging_adapter::AdapterRegistry;
 use crate::permissions::PermissionManager;
 use crate::plans::PlanManager;
 use crate::plugins::PluginManager;
@@ -74,6 +75,12 @@ pub struct AppState {
     /// Session-scoped Read/Edit snapshot store (ADR 0087). Interior mutex so
     /// tool execution does not hold the AppState lock.
     pub hashline: crate::tools::HashlineStore,
+    /// The outbound messaging channel registry (ADR 0205 D375 item 9). The
+    /// `messaging.enqueue` verb enqueues only to a channel registered here, and
+    /// the host's background attempt cycle sends only through one. It holds no
+    /// adapter until a concrete outbound channel is registered, so nothing is
+    /// deliverable — and nothing is enqueued — before then.
+    pub messaging: AdapterRegistry,
 }
 
 impl AppState {
@@ -150,6 +157,7 @@ impl AppState {
             pending_permissions: HashMap::new(),
             pending_bash_aborts: HashMap::new(),
             hashline: crate::tools::HashlineStore::new(),
+            messaging: AdapterRegistry::new(),
         })
     }
 

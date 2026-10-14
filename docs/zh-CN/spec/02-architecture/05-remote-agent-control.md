@@ -176,7 +176,7 @@ host-core 持久化的 Host 队列替换 renderer 内存队列（需单独 ADR �
 D375）。SSH 隧道里程碑再加两件东西而不改线上契约：`pi-host` 包，以及位于
 `lib/api.ts` 之下的桌面 RACP 客户端适配层；同一里程碑还包含 `tools/advertise` /
 `tool/execute` 中继与 `terminal/*` 操作。消息集成是
-模块在 Host 进程内的又一个调用方，不需要任何传输。
+模块在 Host 进程内的又一个调用方，自身不引入任何传输。
 
 ## 8. 验收要点
 

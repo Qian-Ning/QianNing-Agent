@@ -194,7 +194,7 @@ Deliver the integration adapter beside the Host (issue #100): a further
 caller of the module inside the Host process, with no transport and no
 inbound listener.
 
-- It subscribes to host-scope and session events and relays redacted
+- It subscribes to host-scope events and relays redacted
   summaries of `turn.completed`, `turn.failed`, `approval.requested`, and
   `input.requested` to outbound channels: webhook first, then Telegram and
   Slack through their outbound polling or socket modes; channels that require
