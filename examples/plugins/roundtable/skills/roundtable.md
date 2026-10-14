@@ -10,6 +10,10 @@ subagents, each assigned a distinct role or perspective, examine a topic and
 return independent reports. The parent agent collects those reports and
 synthesizes a conclusion. Delegates do not message each other.
 
+## Origin
+
+QianNing Agent. Written in this repository; no third-party method, text, or document format is reproduced here.
+
 ## When to use a roundtable
 
 Use a roundtable when the user's request benefits from multiple expert
