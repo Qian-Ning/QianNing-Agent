@@ -1095,7 +1095,9 @@ CREATE INDEX idx_delivery_ledger_channel
 - `state` 是投递所在位置的唯一真相来源，`CHECK` 正是挡住杂散取值的东西，与
   `connection_profiles.kind` 完全一致。投递以 `pending` 诞生；一次认领把它移向
   `attempting`；完成写入 `delivered`；达到尝试上限写入终态 `failed`，它保留最后
-  一次错误而不是被删除。
+  一次错误而不是被删除。发送方把某次失败判定为该投递的永久失败时
+  （`mark_failed_terminal`），会写入同一个终态 `failed` 而不消耗剩余尝试次数，
+  因为之后的尝试不可能成功。
 - `attempts` 统计**已开始**的尝试 —— 在 worker 认领该行时递增 —— 而上限
   `attempts >= max_attempts` 在 host-core 内判定，使退避调度只有一个所有者。
   `next_attempt_at` 是重试等待的退避门：未达上限时，一次失败尝试让该行以有界的

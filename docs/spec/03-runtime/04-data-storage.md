@@ -1292,7 +1292,10 @@ CREATE INDEX idx_delivery_ledger_channel
   is what keeps a stray value out, exactly as `connection_profiles.kind` does. A
   delivery is born `pending`; a claim moves it to `attempting`; completion writes
   `delivered`; reaching the attempt cap writes terminal `failed`, which keeps its
-  last error instead of being deleted.
+  last error instead of being deleted. A failure the sender classifies as
+  permanent for the delivery (`mark_failed_terminal`) writes that same terminal
+  `failed` without spending the remaining attempts, because a later attempt
+  cannot succeed.
 - `attempts` counts attempts *started* — incremented when a worker claims the
   row — and the cap `attempts >= max_attempts` is evaluated in host-core so the
   backoff schedule has one owner. `next_attempt_at` is the backoff gate a retry

@@ -1,0 +1,788 @@
+//! The outbound messaging integration adapter contract (ADR 0205 D375 item 9,
+//! rollout R3, step 2).
+//!
+//! The messaging integration is a further caller of the Host module that runs
+//! beside it: it relays redacted event summaries to the outbound channels the
+//! user configured, and maps a fixed command vocabulary onto turn and approval
+//! operations. This module is only the relay side's *contract* — the seam every
+//! outbound channel plugs into — plus the hand-off that drives the durable
+//! delivery ledger. It contains no transport: no HTTP client, no webhook
+//! sender, no socket, and no inbound listener. A concrete adapter is registered
+//! from outside this module.
+//!
+//! The component boundary fixes three prohibitions on the adapter, and this
+//! contract keeps all three: it holds no permission policy (it never decides an
+//! approval or a mode), it opens no inbound listener (a channel only receives
+//! what the Host hands it through [`OutboundAdapter::send`]), and it carries no
+//! raw transcript content (the payload is the caller's already-redacted
+//! summary, stored and forwarded verbatim).
+//!
+//! The shape is deliberately thin. A concrete adapter implements exactly three
+//! methods — [`OutboundAdapter::connect`], [`OutboundAdapter::disconnect`], and
+//! [`OutboundAdapter::send`] — and every other method on the trait has a
+//! default, so an implementor never writes more than those three. `send`
+//! returns a structured [`SendResult`] whose failure carries a [`FailureKind`],
+//! so the caller can tell a transient failure (retry on the ledger's backoff)
+//! from a permanent one (end the delivery now) instead of collapsing both into
+//! a bare error.
+//!
+//! Registration is explicit and name-keyed ([`AdapterRegistry`]); there is no
+//! metadata scan and no discovery of files on disk. The hand-off
+//! ([`enqueue_for`] then [`attempt_one`]) is the only bridge to persistence, and
+//! it is a thin wrapper over `delivery_ledger`, which stays the single owner of
+//! the delivery state machine, its retry/backoff schedule, and its terminal
+//! `failed` state.
+
+use std::collections::HashMap;
+
+use anyhow::{anyhow, Result};
+
+use crate::db::Database;
+use crate::delivery_ledger::{
+    self, Delivery, DeliveryState, NewDelivery, DEFAULT_LEASE_MS, DEFAULT_MAX_ATTEMPTS,
+};
+
+// Everything below is the forwarding end of the R3 milestone: the contract a
+// concrete adapter implements and the hand-off the Host will drive. The Host
+// wiring that registers a real adapter and runs the attempt cycle is a later
+// step, so nothing outside this module's tests reaches any of it yet and the
+// compiler flags each item unused. Each item carries its own item-scoped
+// `#[allow(dead_code)]` so the lint stays blind only to this forward API; drop
+// each allow as the Host wiring starts calling that item, and drop the whole set
+// once the cycle runs in production.
+
+/// Why a send attempt did not succeed, and whether a retry can help.
+///
+/// This is the caller-facing half of [`SendResult`]: it is the fact the ledger
+/// cannot derive on its own, because whether a failure is worth retrying is a
+/// property of the channel, not of the delivery's attempt count.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FailureKind {
+    /// The attempt may succeed later (a timeout, a throttled or unavailable
+    /// channel). The ledger retries it on its bounded backoff.
+    Retryable,
+    /// The channel will reject this delivery forever (a malformed or refused
+    /// payload, a revoked destination). No later attempt can succeed, so the
+    /// delivery ends terminally now.
+    Terminal,
+}
+
+/// The structured result of one [`OutboundAdapter::send`].
+///
+/// A caller classifies it without inspecting an opaque error: `Delivered` means
+/// the channel accepted the delivery, and `Failed` carries the [`FailureKind`]
+/// that decides retry versus terminal plus the detail to record as the last
+/// error.
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SendResult {
+    /// The channel accepted the delivery.
+    Delivered,
+    /// The attempt failed. `kind` decides what happens next; `detail` is kept
+    /// as the delivery's last error.
+    Failed { kind: FailureKind, detail: String },
+}
+
+/// One delivery handed to an adapter for one attempt.
+///
+/// It carries only what a channel needs to send and to tell a receiver the
+/// payload may be a duplicate: the delivery id, its channel, the redacted
+/// payload, and whether this attempt is a redelivery. It is not a transcript
+/// and holds no lease, attempt, or permission state.
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct OutboundMessage {
+    /// The ledger's delivery id, so a receiver can correlate a redelivery.
+    pub id: String,
+    /// The channel this delivery belongs to (the adapter's registered name).
+    pub channel: String,
+    /// The caller's already-redacted summary, forwarded verbatim.
+    pub payload: serde_json::Value,
+    /// Whether an earlier attempt for this delivery may already have been sent.
+    pub redelivery: bool,
+}
+
+/// The thin contract every outbound channel implements.
+///
+/// An implementor provides exactly three methods: [`connect`](Self::connect),
+/// [`disconnect`](Self::disconnect), and [`send`](Self::send). Every other
+/// method is defaulted, so a channel that needs nothing else writes nothing
+/// else.
+#[allow(dead_code)]
+pub trait OutboundAdapter: Send + Sync {
+    /// Prepare the channel for sends. Called once before the first `send` and
+    /// again after a restart. Must not open an inbound listener.
+    fn connect(&mut self) -> Result<()>;
+
+    /// Release whatever [`connect`](Self::connect) acquired. Called once at
+    /// shutdown; must be safe to call when the channel was never connected.
+    fn disconnect(&mut self) -> Result<()>;
+
+    /// Attempt one delivery. Must not block the Host: the caller treats the
+    /// returned [`SendResult`] as the whole outcome and never waits on it.
+    fn send(&self, message: &OutboundMessage) -> SendResult;
+
+    /// The delivery's default attempt cap, so the ledger's retry/backoff bound
+    /// can follow the channel's own policy. Defaults to the ledger's cap for a
+    /// channel that does not override it.
+    fn attempt_bound(&self) -> i64 {
+        DEFAULT_MAX_ATTEMPTS
+    }
+}
+
+/// A name-keyed registry of outbound adapters.
+///
+/// Registration is explicit: a caller registers an adapter under a name, and
+/// lookup is by that name. There is no metadata scan and no discovery of files,
+/// so a channel exists here only because a caller put it here.
+#[allow(dead_code)]
+#[derive(Default)]
+pub struct AdapterRegistry {
+    adapters: HashMap<String, Box<dyn OutboundAdapter>>,
+}
+
+#[allow(dead_code)]
+impl AdapterRegistry {
+    /// An empty registry. Nothing is registered until [`register`](Self::register).
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Register `adapter` under `name`. The name is the delivery channel used
+    /// by the ledger, so it must be non-blank, and it must be unique: a second
+    /// registration under a live name is rejected rather than silently
+    /// replacing the first.
+    pub fn register(&mut self, name: &str, adapter: Box<dyn OutboundAdapter>) -> Result<()> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(anyhow!("adapter name must not be blank"));
+        }
+        if self.adapters.contains_key(name) {
+            return Err(anyhow!("an adapter is already registered as '{name}'"));
+        }
+        self.adapters.insert(name.to_string(), adapter);
+        Ok(())
+    }
+
+    /// Look up the adapter registered under `name`, or `None` when no caller
+    /// registered one.
+    pub fn get(&self, name: &str) -> Option<&dyn OutboundAdapter> {
+        self.adapters.get(name).map(|adapter| adapter.as_ref())
+    }
+
+    /// Every registered name, sorted, so a caller iterates deterministically.
+    pub fn names(&self) -> Vec<&str> {
+        let mut names: Vec<&str> = self.adapters.keys().map(String::as_str).collect();
+        names.sort_unstable();
+        names
+    }
+
+    /// Connect every registered adapter, in name order. A failing `connect`
+    /// stops the pass and names the channel, so the Host can report which one.
+    pub fn connect_all(&mut self) -> Result<()> {
+        for name in self.sorted_names() {
+            let adapter = self
+                .adapters
+                .get_mut(&name)
+                .ok_or_else(|| anyhow!("adapter '{name}' vanished during connect"))?;
+            adapter
+                .connect()
+                .map_err(|error| anyhow!("adapter '{name}' failed to connect: {error}"))?;
+        }
+        Ok(())
+    }
+
+    /// Disconnect every registered adapter, in name order, for Host shutdown.
+    pub fn disconnect_all(&mut self) -> Result<()> {
+        for name in self.sorted_names() {
+            let adapter = self
+                .adapters
+                .get_mut(&name)
+                .ok_or_else(|| anyhow!("adapter '{name}' vanished during disconnect"))?;
+            adapter
+                .disconnect()
+                .map_err(|error| anyhow!("adapter '{name}' failed to disconnect: {error}"))?;
+        }
+        Ok(())
+    }
+
+    fn sorted_names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.adapters.keys().cloned().collect();
+        names.sort();
+        names
+    }
+}
+
+/// Enqueue one outbound item for a registered channel.
+///
+/// The delivery is born in the ledger's `pending` state, and its attempt bound
+/// comes from the adapter, so the ledger's retry/backoff rules follow the
+/// channel's own policy. A channel with no registered adapter is rejected here
+/// instead of being enqueued to nowhere.
+#[allow(dead_code)]
+pub fn enqueue_for(
+    db: &Database,
+    registry: &AdapterRegistry,
+    channel: &str,
+    payload: serde_json::Value,
+) -> Result<Delivery> {
+    let key = channel.trim();
+    let adapter = registry
+        .get(key)
+        .ok_or_else(|| anyhow!("no outbound adapter registered for channel '{key}'"))?;
+    delivery_ledger::enqueue(
+        db,
+        NewDelivery {
+            id: None,
+            channel: key.to_string(),
+            payload,
+            max_attempts: Some(adapter.attempt_bound()),
+        },
+    )
+}
+
+/// What one attempt cycle did.
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AttemptOutcome {
+    /// Nothing was due, or nothing was claimable behind its backoff gate.
+    Idle,
+    /// A due delivery was sent and the channel accepted it.
+    Delivered { id: String },
+    /// A delivery's attempt failed retryably; the ledger rescheduled it.
+    Retried { id: String, error: String },
+    /// A delivery reached terminal `failed` and will not be attempted again.
+    Failed { id: String, error: String },
+}
+
+/// Claim one due delivery, send it through its channel, and record the result.
+///
+/// This is the whole attempt cycle the Host drives: claim at most one due item,
+/// hand it to the registered adapter, and let the ledger decide what the
+/// outcome means. A retryable failure returns the item to the ledger's bounded
+/// backoff and, at the attempt cap, terminals it; a terminal failure ends it
+/// immediately. The ledger stays the single owner of persistence — this function
+/// only calls it, never writes delivery state itself.
+#[allow(dead_code)]
+pub fn attempt_one(
+    db: &Database,
+    registry: &AdapterRegistry,
+    worker: &str,
+) -> Result<AttemptOutcome> {
+    let Some(delivery) = delivery_ledger::claim(db, worker, DEFAULT_LEASE_MS)? else {
+        return Ok(AttemptOutcome::Idle);
+    };
+    let id = delivery.id.clone();
+
+    let Some(adapter) = registry.get(&delivery.channel) else {
+        // A delivery for a channel no caller registered can never be sent, so
+        // it is terminal rather than left to cycle through its budget.
+        let error = format!(
+            "no outbound adapter registered for channel '{}'",
+            delivery.channel
+        );
+        return match delivery_ledger::mark_failed_terminal(db, &id, worker, &error)? {
+            Some(_) => Ok(AttemptOutcome::Failed { id, error }),
+            None => Err(lease_write_missed(&id, worker, "failed")),
+        };
+    };
+
+    let message = OutboundMessage {
+        id: id.clone(),
+        channel: delivery.channel.clone(),
+        payload: delivery.payload.clone(),
+        redelivery: delivery.redelivery,
+    };
+
+    match adapter.send(&message) {
+        SendResult::Delivered => match delivery_ledger::mark_delivered(db, &id, worker)? {
+            Some(_) => Ok(AttemptOutcome::Delivered { id }),
+            None => Err(lease_write_missed(&id, worker, "delivered")),
+        },
+        SendResult::Failed {
+            kind: FailureKind::Terminal,
+            detail,
+        } => match delivery_ledger::mark_failed_terminal(db, &id, worker, &detail)? {
+            Some(_) => Ok(AttemptOutcome::Failed { id, error: detail }),
+            None => Err(lease_write_missed(&id, worker, "failed")),
+        },
+        SendResult::Failed {
+            kind: FailureKind::Retryable,
+            detail,
+        } => {
+            // The ledger owns the retry decision: under the cap it reschedules
+            // behind the backoff gate, and the attempt that reaches the cap
+            // becomes terminal failed.
+            let row = delivery_ledger::mark_failed(db, &id, worker, &detail)?;
+            match row.map(|row| row.state) {
+                Some(DeliveryState::Failed) => Ok(AttemptOutcome::Failed { id, error: detail }),
+                _ => Ok(AttemptOutcome::Retried { id, error: detail }),
+            }
+        }
+    }
+}
+
+/// The claim lease was not held when the cycle's terminal write ran, so the
+/// transition did not land. Reported as an error rather than an outcome, so a
+/// caller is never told a delivery was delivered or failed when the ledger
+/// recorded neither.
+fn lease_write_missed(id: &str, worker: &str, intended: &str) -> anyhow::Error {
+    anyhow!(
+        "delivery '{id}' was not marked {intended}: worker '{worker}' no longer holds its claim lease"
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::collections::VecDeque;
+    use std::sync::{Arc, Mutex};
+
+    use rusqlite::params;
+    use serde_json::json;
+
+    /// What a fake adapter records while the tests drive it.
+    #[derive(Default)]
+    struct FakeLedger {
+        connects: usize,
+        disconnects: usize,
+        sent: Vec<OutboundMessage>,
+        /// Results to return, one per `send`, oldest first. Empty means accept.
+        script: VecDeque<SendResult>,
+    }
+
+    /// An in-process adapter: the real [`OutboundAdapter`] contract with no
+    /// transport behind it. It records every call and returns the next scripted
+    /// result, so a test can drive the whole cycle without a channel.
+    struct FakeAdapter {
+        state: Arc<Mutex<FakeLedger>>,
+        bound: i64,
+    }
+
+    impl FakeAdapter {
+        fn new(state: Arc<Mutex<FakeLedger>>, bound: i64) -> Self {
+            Self { state, bound }
+        }
+    }
+
+    impl OutboundAdapter for FakeAdapter {
+        fn connect(&mut self) -> Result<()> {
+            self.state.lock().unwrap().connects += 1;
+            Ok(())
+        }
+
+        fn disconnect(&mut self) -> Result<()> {
+            self.state.lock().unwrap().disconnects += 1;
+            Ok(())
+        }
+
+        fn send(&self, message: &OutboundMessage) -> SendResult {
+            let mut state = self.state.lock().unwrap();
+            state.sent.push(message.clone());
+            state.script.pop_front().unwrap_or(SendResult::Delivered)
+        }
+
+        fn attempt_bound(&self) -> i64 {
+            self.bound
+        }
+    }
+
+    /// An adapter whose `send` lets a second worker take the row's lease while
+    /// the send is in flight — a reclaim racing the cycle — so the ledger write
+    /// the cycle makes next cannot land. It reaches the database through its own
+    /// connection, exactly as the reclaiming worker's claim would.
+    struct LeaseStealingAdapter {
+        db_path: std::path::PathBuf,
+        result: SendResult,
+    }
+
+    impl OutboundAdapter for LeaseStealingAdapter {
+        fn connect(&mut self) -> Result<()> {
+            Ok(())
+        }
+
+        fn disconnect(&mut self) -> Result<()> {
+            Ok(())
+        }
+
+        fn send(&self, _message: &OutboundMessage) -> SendResult {
+            rusqlite::Connection::open(&self.db_path)
+                .unwrap()
+                .execute("UPDATE delivery_ledger SET lease_owner = 'worker-z'", [])
+                .unwrap();
+            self.result.clone()
+        }
+    }
+
+    fn open() -> (tempfile::TempDir, Database) {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Database::open_in_dir(dir.path()).unwrap();
+        (dir, db)
+    }
+
+    /// A registry with one fake channel named `alpha`, plus the state handle.
+    fn registry_with(bound: i64) -> (AdapterRegistry, Arc<Mutex<FakeLedger>>) {
+        let state = Arc::new(Mutex::new(FakeLedger::default()));
+        let mut registry = AdapterRegistry::new();
+        registry
+            .register("alpha", Box::new(FakeAdapter::new(state.clone(), bound)))
+            .unwrap();
+        (registry, state)
+    }
+
+    /// Stand in for the backoff delay elapsing by moving the persisted gate into
+    /// the past. Reaches into the column the ledger owns, not a private field,
+    /// exactly as the ledger's own tests do for time.
+    fn make_ready(db: &Database, id: &str) {
+        db.conn()
+            .execute(
+                "UPDATE delivery_ledger SET next_attempt_at = 0 WHERE id = ?1",
+                params![id],
+            )
+            .unwrap();
+    }
+
+    fn raw_next_attempt_at(db: &Database, id: &str) -> Option<i64> {
+        db.conn()
+            .query_row(
+                "SELECT next_attempt_at FROM delivery_ledger WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .unwrap()
+    }
+
+    #[test]
+    fn registration_is_explicit_and_name_keyed() {
+        let (mut registry, _state) = registry_with(DEFAULT_MAX_ATTEMPTS);
+        assert_eq!(registry.names(), vec!["alpha"]);
+        assert!(registry.get("alpha").is_some());
+        assert!(registry.get("beta").is_none(), "lookup is by exact name");
+
+        // A second registration under a live name is rejected, not a silent
+        // replace: the first adapter is still the one that would be driven.
+        let duplicate = registry.register(
+            "alpha",
+            Box::new(FakeAdapter::new(
+                Arc::new(Mutex::new(FakeLedger::default())),
+                DEFAULT_MAX_ATTEMPTS,
+            )),
+        );
+        assert!(duplicate.is_err());
+        assert_eq!(registry.names(), vec!["alpha"]);
+
+        let blank = registry.register(
+            "   ",
+            Box::new(FakeAdapter::new(
+                Arc::new(Mutex::new(FakeLedger::default())),
+                DEFAULT_MAX_ATTEMPTS,
+            )),
+        );
+        assert!(blank.is_err());
+    }
+
+    #[test]
+    fn the_host_path_connects_enqueues_sends_and_delivers() {
+        let (_dir, db) = open();
+        let (mut registry, state) = registry_with(DEFAULT_MAX_ATTEMPTS);
+
+        // The Host drives the lifecycle around the registry.
+        registry.connect_all().unwrap();
+        assert_eq!(state.lock().unwrap().connects, 1);
+
+        let payload = json!({ "kind": "turn.completed", "turnId": "turn-1" });
+        let delivered = enqueue_for(&db, &registry, "alpha", payload.clone()).unwrap();
+        assert_eq!(delivered.state, DeliveryState::Pending);
+        assert_eq!(delivered.channel, "alpha");
+        assert_eq!(delivered.max_attempts, DEFAULT_MAX_ATTEMPTS);
+
+        let outcome = attempt_one(&db, &registry, "worker-a").unwrap();
+        assert_eq!(
+            outcome,
+            AttemptOutcome::Delivered {
+                id: delivered.id.clone()
+            }
+        );
+
+        // The channel saw exactly the redacted payload once, tagged with the id
+        // and channel and flagged as a first attempt.
+        let sent = state.lock().unwrap().sent.clone();
+        assert_eq!(sent.len(), 1);
+        assert_eq!(sent[0].id, delivered.id);
+        assert_eq!(sent[0].channel, "alpha");
+        assert_eq!(sent[0].payload, payload);
+        assert!(!sent[0].redelivery);
+
+        // The ledger owns the persisted result.
+        let stored = delivery_ledger::get(&db, &delivered.id).unwrap().unwrap();
+        assert_eq!(stored.state, DeliveryState::Delivered);
+        assert!(stored.delivered_at.is_some());
+
+        // Nothing is due once the only delivery is done.
+        assert_eq!(
+            attempt_one(&db, &registry, "worker-a").unwrap(),
+            AttemptOutcome::Idle
+        );
+
+        registry.disconnect_all().unwrap();
+        assert_eq!(state.lock().unwrap().disconnects, 1);
+    }
+
+    #[test]
+    fn a_retryable_failure_keeps_the_delivery_retryable_behind_its_backoff() {
+        let (_dir, db) = open();
+        let (registry, state) = registry_with(3);
+        state.lock().unwrap().script.push_back(SendResult::Failed {
+            kind: FailureKind::Retryable,
+            detail: "channel unavailable".into(),
+        });
+
+        let delivery =
+            enqueue_for(&db, &registry, "alpha", json!({ "kind": "turn.failed" })).unwrap();
+        assert_eq!(
+            delivery.max_attempts, 3,
+            "the enqueued bound is the adapter's, not the ledger default"
+        );
+
+        let outcome = attempt_one(&db, &registry, "worker-a").unwrap();
+        assert_eq!(
+            outcome,
+            AttemptOutcome::Retried {
+                id: delivery.id.clone(),
+                error: "channel unavailable".into()
+            }
+        );
+
+        // The ledger, not this layer, decided the retry: the row is pending
+        // again with the error kept and a real backoff gate set.
+        let row = delivery_ledger::get(&db, &delivery.id).unwrap().unwrap();
+        assert_eq!(row.state, DeliveryState::Pending);
+        assert_eq!(row.attempts, 1);
+        assert_eq!(
+            row.max_attempts, 3,
+            "the adapter's attempt bound is persisted on the row, not the default"
+        );
+        assert!(
+            row.attempts < row.max_attempts,
+            "under the cap the row is retryable"
+        );
+        assert_eq!(row.last_error.as_deref(), Some("channel unavailable"));
+        assert!(
+            raw_next_attempt_at(&db, &delivery.id).unwrap() > 0,
+            "the retry carries a backoff gate"
+        );
+
+        // Honoring backoff is observable: an immediate second cycle has nothing
+        // due, so the channel is not called again before the delay passes.
+        assert_eq!(
+            attempt_one(&db, &registry, "worker-a").unwrap(),
+            AttemptOutcome::Idle
+        );
+        assert_eq!(state.lock().unwrap().sent.len(), 1);
+
+        // Once the delay elapses the retry goes through and delivers.
+        make_ready(&db, &delivery.id);
+        assert_eq!(
+            attempt_one(&db, &registry, "worker-a").unwrap(),
+            AttemptOutcome::Delivered {
+                id: delivery.id.clone()
+            }
+        );
+        let sent = state.lock().unwrap().sent.clone();
+        assert_eq!(sent.len(), 2);
+        assert!(sent[1].redelivery, "the retry is marked a redelivery");
+    }
+
+    #[test]
+    fn a_terminal_failure_ends_the_delivery_without_spending_the_budget() {
+        let (_dir, db) = open();
+        // A generous cap proves terminality comes from the classification, not
+        // from the ledger running out of attempts.
+        let (registry, state) = registry_with(5);
+        state.lock().unwrap().script.push_back(SendResult::Failed {
+            kind: FailureKind::Terminal,
+            detail: "destination refused".into(),
+        });
+
+        let delivery = enqueue_for(
+            &db,
+            &registry,
+            "alpha",
+            json!({ "kind": "approval.requested" }),
+        )
+        .unwrap();
+
+        let outcome = attempt_one(&db, &registry, "worker-a").unwrap();
+        assert_eq!(
+            outcome,
+            AttemptOutcome::Failed {
+                id: delivery.id.clone(),
+                error: "destination refused".into()
+            }
+        );
+
+        let row = delivery_ledger::get(&db, &delivery.id).unwrap().unwrap();
+        assert_eq!(row.state, DeliveryState::Failed);
+        assert_eq!(row.attempts, 1);
+        assert_eq!(row.max_attempts, 5);
+        assert!(
+            row.attempts < row.max_attempts,
+            "the terminal state is reached well before the cap"
+        );
+        assert_eq!(row.last_error.as_deref(), Some("destination refused"));
+        assert!(row.failed_at.is_some());
+
+        // It is never claimed again.
+        assert_eq!(
+            attempt_one(&db, &registry, "worker-a").unwrap(),
+            AttemptOutcome::Idle
+        );
+        assert_eq!(state.lock().unwrap().sent.len(), 1);
+    }
+
+    #[test]
+    fn a_delivery_with_no_registered_channel_fails_terminally() {
+        let (_dir, db) = open();
+        let registry = AdapterRegistry::new();
+
+        // Enqueue directly through the ledger: the hand-off's `enqueue_for`
+        // would reject an unregistered channel up front, but a channel can also
+        // disappear from the registry after its delivery was queued.
+        let delivery = delivery_ledger::enqueue(
+            &db,
+            NewDelivery {
+                id: None,
+                channel: "alpha".into(),
+                payload: json!({ "kind": "turn.completed" }),
+                max_attempts: None,
+            },
+        )
+        .unwrap();
+
+        let outcome = attempt_one(&db, &registry, "worker-a").unwrap();
+        assert_eq!(
+            outcome,
+            AttemptOutcome::Failed {
+                id: delivery.id.clone(),
+                error: "no outbound adapter registered for channel 'alpha'".into()
+            }
+        );
+        let row = delivery_ledger::get(&db, &delivery.id).unwrap().unwrap();
+        assert_eq!(row.state, DeliveryState::Failed);
+
+        // And the hand-off refuses to enqueue to an unknown channel at all.
+        assert!(enqueue_for(&db, &registry, "ghost", json!({})).is_err());
+    }
+
+    #[test]
+    fn an_attempt_a_crash_interrupted_is_reclaimed_and_redelivered() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("pi.sqlite");
+        let id;
+        {
+            let db = Database::open(&path).unwrap();
+            let (registry, _state) = registry_with(DEFAULT_MAX_ATTEMPTS);
+            let delivery =
+                enqueue_for(&db, &registry, "alpha", json!({ "kind": "turn.completed" })).unwrap();
+            id = delivery.id;
+            // A worker claims the delivery, then the Host dies before it can
+            // mark the result: the row is left `attempting` with a live lease.
+            delivery_ledger::claim(&db, "worker-a", DEFAULT_LEASE_MS)
+                .unwrap()
+                .expect("the queued delivery is claimable");
+        }
+
+        // Restart: opening the database runs the boot reclaim, so the
+        // interrupted attempt is claimable again instead of stuck.
+        let db = Database::open(&path).unwrap();
+        let (registry, state) = registry_with(DEFAULT_MAX_ATTEMPTS);
+
+        let outcome = attempt_one(&db, &registry, "worker-b").unwrap();
+        assert_eq!(outcome, AttemptOutcome::Delivered { id: id.clone() });
+        let sent = state.lock().unwrap().sent.clone();
+        assert_eq!(sent.len(), 1);
+        assert_eq!(sent[0].id, id);
+        assert!(
+            sent[0].redelivery,
+            "the reclaimed attempt is handed to the channel as a redelivery"
+        );
+
+        let row = delivery_ledger::get(&db, &id).unwrap().unwrap();
+        assert_eq!(row.state, DeliveryState::Delivered);
+        assert_eq!(row.attempts, 2, "the reclaim counted a second attempt");
+        assert!(row.redelivery);
+    }
+
+    #[test]
+    fn a_delivery_write_that_does_not_land_is_not_reported_as_success() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("pi.sqlite");
+        let db = Database::open(&path).unwrap();
+
+        // The channel accepts the send, but a reclaim takes the lease before the
+        // cycle can record the completion, so `mark_delivered` does not land.
+        let mut registry = AdapterRegistry::new();
+        registry
+            .register(
+                "alpha",
+                Box::new(LeaseStealingAdapter {
+                    db_path: path.clone(),
+                    result: SendResult::Delivered,
+                }),
+            )
+            .unwrap();
+        let delivery =
+            enqueue_for(&db, &registry, "alpha", json!({ "kind": "turn.completed" })).unwrap();
+
+        let outcome = attempt_one(&db, &registry, "worker-a");
+        assert!(
+            outcome.is_err(),
+            "an attempt whose write did not land is not reported as success"
+        );
+
+        // The losing worker's write left no trace: the row is not delivered.
+        let row = delivery_ledger::get(&db, &delivery.id).unwrap().unwrap();
+        assert_eq!(row.state, DeliveryState::Attempting);
+        assert!(row.delivered_at.is_none());
+    }
+
+    #[test]
+    fn a_terminal_write_that_does_not_land_is_not_reported_as_success() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("pi.sqlite");
+        let db = Database::open(&path).unwrap();
+
+        let mut registry = AdapterRegistry::new();
+        registry
+            .register(
+                "alpha",
+                Box::new(LeaseStealingAdapter {
+                    db_path: path.clone(),
+                    result: SendResult::Failed {
+                        kind: FailureKind::Terminal,
+                        detail: "destination refused".into(),
+                    },
+                }),
+            )
+            .unwrap();
+        let delivery = enqueue_for(
+            &db,
+            &registry,
+            "alpha",
+            json!({ "kind": "approval.requested" }),
+        )
+        .unwrap();
+
+        let outcome = attempt_one(&db, &registry, "worker-a");
+        assert!(
+            outcome.is_err(),
+            "an attempt whose terminal write did not land is not reported as failure recorded"
+        );
+
+        let row = delivery_ledger::get(&db, &delivery.id).unwrap().unwrap();
+        assert_eq!(row.state, DeliveryState::Attempting);
+        assert!(row.failed_at.is_none());
+    }
+}
