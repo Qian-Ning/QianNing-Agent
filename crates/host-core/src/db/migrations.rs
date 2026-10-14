@@ -126,6 +126,17 @@ impl Database {
                 )?;
             }
         }
+        // Reclaim outbound deliveries a crash left mid-flight (delivery_ledger
+        // state 'attempting'). This is the same class of restart repair as the
+        // stale `turns`/`plan_approvals` resets above: without it a delivery
+        // whose worker died is stuck in 'attempting' forever.
+        let reclaimed = crate::delivery_ledger::recover_attempting(&tx)?;
+        if reclaimed > 0 {
+            tracing::info!(
+                count = reclaimed,
+                "reclaimed interrupted outbound deliveries after a restart"
+            );
+        }
         tx.commit()?;
         self.conn.execute(
             "DELETE FROM audit_log WHERE ts < ?1",
@@ -1019,6 +1030,29 @@ pub(crate) fn migrate_v21_to_v22(conn: &Connection, path: &Path) -> Result<()> {
     tx.commit().with_context(|| {
         format!(
             "commit schema v21 to v22 migration; backup {} remains",
+            backup.display()
+        )
+    })?;
+    Ok(())
+}
+
+/// v23 adds the `delivery_ledger` table, the durable outbound-delivery ledger
+/// (ADR 0205 D375 item 9 / milestone R3). Purely additive: no existing table,
+/// column, or row is touched, and `CREATE TABLE IF NOT EXISTS` makes a repeated
+/// attempt harmless.
+pub(crate) fn migrate_v22_to_v23_tx(tx: &rusqlite::Transaction<'_>) -> Result<()> {
+    tx.execute_batch(crate::db::schema::DELIVERY_LEDGER_SCHEMA)?;
+    tx.pragma_update(None, "user_version", 23i64)?;
+    Ok(())
+}
+
+pub(crate) fn migrate_v22_to_v23(conn: &Connection, path: &Path) -> Result<()> {
+    let backup = create_migration_backup(conn, path, 22)?;
+    let tx = conn.unchecked_transaction()?;
+    migrate_v22_to_v23_tx(&tx)?;
+    tx.commit().with_context(|| {
+        format!(
+            "commit schema v22 to v23 migration; backup {} remains",
             backup.display()
         )
     })?;

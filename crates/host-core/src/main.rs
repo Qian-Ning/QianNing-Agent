@@ -6,6 +6,7 @@ mod computer;
 mod config_sync;
 mod connection;
 mod db;
+mod delivery_ledger;
 mod keyboard;
 mod mcp_servers;
 mod network_policy;

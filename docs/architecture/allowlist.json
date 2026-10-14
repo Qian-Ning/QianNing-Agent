@@ -59,8 +59,8 @@
       "max": 1654
     },
     "crates/host-core/src/db/migrations.rs": {
-      "reason": "Append-only schema-version chain: each entry is an ordered step that only means anything next to the ones before it, so the file is one sequence rather than separable modules. It crossed the Rust limit by a few lines when the editable pricing-table migration landed; separating the sequence is its own change with its own ordering risk.",
-      "max": 1026
+      "reason": "Append-only schema-version chain: each entry is an ordered step that only means anything next to the ones before it, so the file is one sequence rather than separable modules. It crossed the Rust limit by a few lines when the editable pricing-table migration landed, and again by the v22->v23 delivery-ledger step (ADR 0205 D375 item 9) plus the startup reclaim of interrupted outbound deliveries in boot_maintenance: the new step is one more link in the same ordered chain and the reclaim is the same restart-repair pass as the stale turn/plan resets beside it, so separating either is its own change with its own ordering risk.",
+      "max": 1060
     }
   }
 }
