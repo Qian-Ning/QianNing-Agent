@@ -19,6 +19,7 @@ const [
   verifyMacScriptSource,
   notarizeMacScriptSource,
   macSigningDiagnosticsScriptSource,
+  skillsCheckWorkflowSource,
 ] = await Promise.all([
   read("../../../.github/workflows/ci.yml"),
   read("../../../.github/workflows/release.yml"),
@@ -34,6 +35,7 @@ const [
   read("../../../scripts/verify-macos-release.sh"),
   read("../../../scripts/notarize-and-staple-macos-release-dmg.sh"),
   read("../../../scripts/macos-signing-diagnostics.sh"),
+  read("../../../.github/workflows/skills-check.yml"),
 ]);
 
 const macSigningScripts = [
@@ -691,4 +693,60 @@ test("GitHub releases trigger the CNB mirror pipeline with a JSON payload", () =
     /-d ".*github\.event\.release\.tag_name/,
     "JSON payload must not interpolate the release tag through YAML string escaping",
   );
+});
+
+test("the skills workflow owns the surfaces CI ignores, and needs no install", async () => {
+  assert.match(skillsCheckWorkflowSource, /^name: Skills check$/m);
+  assert.match(skillsCheckWorkflowSource, /^  pull_request:$/m);
+  assert.match(skillsCheckWorkflowSource, /^  workflow_dispatch:$/m);
+
+  // A skill document is markdown and ci.yml ignores markdown, so this lane has
+  // to trigger on the documents themselves. Triggering only on the scripts
+  // would leave the rule unable to fire on the change it exists to police.
+  assert.match(
+    skillsCheckWorkflowSource,
+    /^      - 'apps\/desktop\/resources\/skills\/\*\*'$/m,
+    "the lane must trigger on the built-in skill documents",
+  );
+  assert.match(
+    skillsCheckWorkflowSource,
+    /^      - 'examples\/\*\*\/skills\/\*\*'$/m,
+    "the lane must trigger on skill documents that ship with the examples",
+  );
+  assert.match(
+    skillsCheckWorkflowSource,
+    /^      - 'scripts\/check-skill-provenance\.mjs'$/m,
+    "the lane must trigger on the gate itself",
+  );
+
+  assert.match(
+    skillsCheckWorkflowSource,
+    /^        run: node scripts\/check-skill-provenance\.mjs$/m,
+  );
+  assert.match(
+    skillsCheckWorkflowSource,
+    /^        run: node --test scripts\/skill-provenance-check\.test\.mjs$/m,
+    "the lane must run the negative cases that prove the rule rejects a bad document",
+  );
+
+  // The check imports only node: builtins, so the lane deliberately skips the
+  // install step that every other lane needs. Guard that: an added install would
+  // put a dependency-resolution failure in front of a rule that cannot fail that
+  // way, and would slow a seconds-long check into a minutes-long one.
+  assert.doesNotMatch(
+    skillsCheckWorkflowSource,
+    /pnpm install/,
+    "the provenance lane must stay dependency-free",
+  );
+
+  for (const script of [
+    "../../../scripts/check-skill-provenance.mjs",
+    "../../../scripts/skill-provenance-check.mjs",
+    "../../../scripts/skill-provenance-check.test.mjs",
+  ]) {
+    await assert.doesNotReject(
+      access(new URL(script, import.meta.url)),
+      `the skills lane references a missing script: ${script}`,
+    );
+  }
 });

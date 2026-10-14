@@ -1,0 +1,63 @@
+name: Skills check
+
+# ci.yml ignores `docs/**` and `**/*.md`, and a skill document is markdown: the
+# provenance rule in CONTRIBUTING.md would never have run on the exact class of
+# change it polices. This workflow owns the surfaces that rule covers — the
+# documents themselves, the examples that ship with the repository, and the
+# scripts that implement and test the rule — so a skill committed without an
+# Origin section fails here instead of reaching users.
+#
+# The check imports nothing but `node:fs`/`node:path`, so this lane needs no
+# install and no build: it finishes in seconds and cannot be broken by a
+# dependency resolution problem.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/desktop/resources/skills/**'
+      - 'examples/**/skills/**'
+      - 'scripts/check-skill-provenance.mjs'
+      - 'scripts/skill-provenance-check.mjs'
+      - 'scripts/skill-provenance-check.test.mjs'
+      - '.github/workflows/skills-check.yml'
+  pull_request:
+    paths:
+      - 'apps/desktop/resources/skills/**'
+      - 'examples/**/skills/**'
+      - 'scripts/check-skill-provenance.mjs'
+      - 'scripts/skill-provenance-check.mjs'
+      - 'scripts/skill-provenance-check.test.mjs'
+      - '.github/workflows/skills-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skills-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  skills:
+    name: Skill provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          # Same Node as ci.yml (matches the runtime Electron 43 bundles).
+          node-version: 24
+
+      - name: Check skill provenance
+        # Every discovered skill document must carry an `## Origin` section
+        # opening with QianNing Agent and must not name an upstream product.
+        run: node scripts/check-skill-provenance.mjs
+
+      - name: Self-test the provenance rules
+        # Guards the guard: the negative cases here are what prove a missing
+        # Origin section, a wrong owner, and a stray upstream product name are
+        # actually rejected rather than merely printed.
+        run: node --test scripts/skill-provenance-check.test.mjs

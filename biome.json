@@ -14,7 +14,10 @@
 			"apps/desktop/electron/main/ipc/workspace-ipc.ts",
 			"packages/shared/src/types/**/*.ts",
 			"scripts/check-architecture.mjs",
-			"scripts/e2e/*.mjs"
+			"scripts/check-skill-provenance.mjs",
+			"scripts/e2e/*.mjs",
+			"scripts/skill-provenance-check.mjs",
+			"scripts/skill-provenance-check.test.mjs"
 		]
 	},
 	"formatter": {

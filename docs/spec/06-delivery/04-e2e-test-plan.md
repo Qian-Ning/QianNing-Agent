@@ -16150,3 +16150,31 @@ renderer's durable transcript reads. No real model or provider is contacted.
   cumulative input cost. Report the larger first request and possible short-chat
   cost increase, alongside any longer-conversation benefit. Offline test success
   alone is not evidence of provider cache behavior.
+
+### E2E-SKILL-provenance: Shipped skills declare where they came from
+
+- **Preconditions**: The working tree contains at least one skill document, in
+  `apps/desktop/resources/skills/` or under a `skills/` directory that ships with
+  an example plugin.
+- **Steps**: 1) Edit a shipped skill document so that its `## Origin` section is
+  missing, is empty, or opens with anything other than `QianNing Agent`, or so
+  that the document mentions the upstream product name. 2) Run
+  `node scripts/check-skill-provenance.mjs`. 3) Restore the document. 4) Delete a
+  trigger path from `.github/workflows/skills-check.yml` and run
+  `node --test apps/desktop/test/ci-workflow.test.mjs`.
+- **Expected**: The provenance gate exits non-zero and names the offending
+  document and the rule it broke; a clean tree prints how many documents it
+  verified. The workflow test fails on the removed trigger with a message naming
+  the skill documents. `ci.yml` ignores `**/*.md`, and a skill document is
+  markdown, so the dedicated lane is the only thing that can police this class of
+  change: a rule wired into the markdown-ignoring workflow would never run on the
+  documents it exists to check.
+- **Specs linked**: `01-qianning-brand.md`,
+  `06-delivery/03-ai-development-workflow.md`
+- **Acceptance**: Quality (brand contract, dependency-free static gate)
+- **Milestone**: M6+
+- **Status**: Automated (`scripts/check-skill-provenance.mjs`, its rule self-test
+  `scripts/skill-provenance-check.test.mjs`, and the wiring assertion in
+  `ci-workflow.test.mjs`). The negative cases are what make the gate real: nine of
+  them must be rejected, and one pins that a lowercase `@pi-desktop` identifier
+  stays legal so the rule cannot be satisfied by stripping internal names.
