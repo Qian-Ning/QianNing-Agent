@@ -180,6 +180,7 @@ frontmatter **可选**。没有它的文档仍是合法技能：显示名取自�
 | Origin 段落存在、无上游产品名（§8） | `scripts/check-skill-provenance.mjs`，由 `.github/workflows/skills-check.yml` 运行 |
 | 上限与本文一致（§6） | `scripts/check-skill-authoring-spec.mjs`，同一工作流，**独立 job** |
 | 两种语言的规范都存在 | 同上 |
+| `SkillCreate` 宣告的上限与 §6 一致，且正文上限用**被强制的那种单位** | `apps/desktop/test/skill-authoring-tool.test.mjs` |
 | 发现能覆盖每一份内置文档 | `apps/desktop/test/builtin-skill-discovery.test.mjs` |
 | name 必需、裁剪、id 派生、改名保留 | `crates/host-core/src/user_skills/tests.rs`、`agent_capabilities/tests.rs` |
 | 导入器对缺字段的警告 | `apps/desktop/electron/test/agent-skill-scan.test.mjs` |

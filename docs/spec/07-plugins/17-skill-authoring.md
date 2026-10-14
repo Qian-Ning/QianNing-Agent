@@ -224,6 +224,7 @@ table is a convention followed by people, not a guarantee.
 | Origin section present, upstream name absent (§8) | `scripts/check-skill-provenance.mjs`, run by `.github/workflows/skills-check.yml` |
 | Limits match this document (§6) | `scripts/check-skill-authoring-spec.mjs`, same workflow, separate job |
 | Spec exists in both locales | same check |
+| `SkillCreate` advertises the limits from §6, and the body cap in the unit that is enforced | `apps/desktop/test/skill-authoring-tool.test.mjs` |
 | Discovery finds every bundled document | `apps/desktop/test/builtin-skill-discovery.test.mjs` |
 | Name required, clipping, id derivation, rename preservation | `crates/host-core/src/user_skills/tests.rs`, `crates/host-core/src/agent_capabilities/tests.rs` |
 | Importer warnings for missing fields | `apps/desktop/electron/test/agent-skill-scan.test.mjs` |
