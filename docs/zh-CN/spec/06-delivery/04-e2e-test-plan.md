@@ -9303,12 +9303,12 @@ the latest destination. These assertions measure work counts, not device FPS.
   cost increase, alongside any longer-conversation benefit. Offline test success
   alone is not evidence of provider cache behavior.
 
-### E2E-SKILL-provenance：随包发布的技能必须声明来源
+### E2E-SKILL-provenance：随包发布的技能与插件必须声明来源
 
-- **前置条件**：工作树中至少有一份技能文档，位于 `apps/desktop/resources/skills/`，或示例插件携带的 `skills/` 目录下。
-- **步骤**：1）把某份技能文档改成缺 `## Origin`、`## Origin` 为空、首行不是 `QianNing Agent`，或在文中出现上游产品名。2）执行 `node scripts/check-skill-provenance.mjs`。3）还原该文档。4）从 `.github/workflows/skills-check.yml` 删掉一条触发路径，执行 `node --test apps/desktop/test/ci-workflow.test.mjs`。
-- **预期**：来源门以非零退出，并点名出问题的文档与所违规则；干净的工作树会打印它核验了多少份文档。删掉触发路径后，工作流测试失败，报错信息点名技能文档。`ci.yml` 忽略 `**/*.md`，而技能文档本身就是 Markdown，因此必须由这条独立流水线来管：把规则接进忽略 Markdown 的 workflow，它永远跑不到它要检查的那些文档。
+- **前置条件**：工作树中至少有一份技能文档，位于 `apps/desktop/resources/skills/`，或示例插件携带的 `skills/` 目录下；且 `plugins/` 目录下至少有一份插件清单。
+- **步骤**：1）把某份技能文档改成缺 `## Origin`、`## Origin` 为空、首行不是 `QianNing Agent`，或在文中出现上游产品名。2）执行 `node scripts/check-skill-provenance.mjs`。3）还原该文档。4）从某份插件清单里删掉 `author`，再跑一次门。5）还原该清单。6）从 `.github/workflows/skills-check.yml` 删掉一条触发路径，执行 `node --test apps/desktop/test/ci-workflow.test.mjs`。
+- **预期**：来源门以非零退出，并点名出问题的文档或清单与所违规则；干净的工作树会打印它核验了多少份文档、多少份清单。删掉 `author` 的清单会失败；vendored 插件保留自己的作者，不被改标。删掉触发路径后，工作流测试失败，报错信息点名技能文档。`ci.yml` 忽略 `**/*.md`，而技能文档本身就是 Markdown，因此必须由这条独立流水线来管：把规则接进忽略 Markdown 的 workflow，它永远跑不到它要检查的那些文档。
 - **关联规格**：`01-qianning-brand.md`、`06-delivery/03-ai-development-workflow.md`
 - **验收**：质量（品牌契约、零依赖静态门）
 - **里程碑**：M6+
-- **状态**：已自动化（`scripts/check-skill-provenance.mjs` ＋其规则自测 `scripts/skill-provenance-check.test.mjs` ＋ `ci-workflow.test.mjs` 中的接线断言）。反向用例才是门的本体：九条必须被拒，其中一条固定「小写 `@pi-desktop` 标识仍属合法」，使该规则无法靠删掉内部名来蒙混过关。
+- **状态**：已自动化（`scripts/check-skill-provenance.mjs` ＋其规则自测 `scripts/skill-provenance-check.test.mjs` ＋ `ci-workflow.test.mjs` 中的接线断言）。反向用例才是门的本体：十六条必须被拒，横跨技能文档与插件清单；其中一条固定「小写 `@pi-desktop` 标识仍属合法」，使该规则无法靠删掉内部名来蒙混过关。

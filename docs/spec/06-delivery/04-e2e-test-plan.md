@@ -16151,21 +16151,25 @@ renderer's durable transcript reads. No real model or provider is contacted.
   cost increase, alongside any longer-conversation benefit. Offline test success
   alone is not evidence of provider cache behavior.
 
-### E2E-SKILL-provenance: Shipped skills declare where they came from
+### E2E-SKILL-provenance: Shipped skills and plugins declare where they came from
 
 - **Preconditions**: The working tree contains at least one skill document, in
   `apps/desktop/resources/skills/` or under a `skills/` directory that ships with
-  an example plugin.
+  an example plugin, and at least one plugin manifest under a `plugins/`
+  directory.
 - **Steps**: 1) Edit a shipped skill document so that its `## Origin` section is
   missing, is empty, or opens with anything other than `QianNing Agent`, or so
   that the document mentions the upstream product name. 2) Run
-  `node scripts/check-skill-provenance.mjs`. 3) Restore the document. 4) Delete a
-  trigger path from `.github/workflows/skills-check.yml` and run
-  `node --test apps/desktop/test/ci-workflow.test.mjs`.
+  `node scripts/check-skill-provenance.mjs`. 3) Restore the document. 4) Remove
+  the `author` from a plugin manifest and run the gate again. 5) Restore the
+  manifest. 6) Delete a trigger path from `.github/workflows/skills-check.yml`
+  and run `node --test apps/desktop/test/ci-workflow.test.mjs`.
 - **Expected**: The provenance gate exits non-zero and names the offending
-  document and the rule it broke; a clean tree prints how many documents it
-  verified. The workflow test fails on the removed trigger with a message naming
-  the skill documents. `ci.yml` ignores `**/*.md`, and a skill document is
+  document or manifest and the rule it broke; a clean tree prints how many
+  documents and how many manifests it verified. A manifest whose `author` was
+  removed fails, and a vendored plugin keeps its own author rather than being
+  relabelled. The workflow test fails on the removed trigger with a message
+  naming the skill documents. `ci.yml` ignores `**/*.md`, and a skill document is
   markdown, so the dedicated lane is the only thing that can police this class of
   change: a rule wired into the markdown-ignoring workflow would never run on the
   documents it exists to check.
@@ -16175,6 +16179,7 @@ renderer's durable transcript reads. No real model or provider is contacted.
 - **Milestone**: M6+
 - **Status**: Automated (`scripts/check-skill-provenance.mjs`, its rule self-test
   `scripts/skill-provenance-check.test.mjs`, and the wiring assertion in
-  `ci-workflow.test.mjs`). The negative cases are what make the gate real: nine of
-  them must be rejected, and one pins that a lowercase `@pi-desktop` identifier
-  stays legal so the rule cannot be satisfied by stripping internal names.
+  `ci-workflow.test.mjs`). The negative cases are what make the gate real:
+  sixteen must be rejected, spanning skill documents and plugin manifests, and
+  one pins that a lowercase `@pi-desktop` identifier stays legal so the rule
+  cannot be satisfied by stripping internal names.
