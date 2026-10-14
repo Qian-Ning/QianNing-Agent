@@ -446,6 +446,19 @@ export function createSessionLaunchRuntime({
       ...builtinSkills({
         workspacePath: projectPath,
         pluginPaths: plugins.listLoaded().map((loaded) => loaded.path),
+        // Only advertise a generation skill while its capability has a
+        // configured model. The composer's slash list passes neither field, so
+        // it keeps showing every built-in skill to the user.
+        imageGenerationAvailable:
+          imageGenerationBindings(
+            settings.imageGenerationModels,
+            settings.imageGeneration,
+          ).length > 0,
+        videoGenerationAvailable:
+          videoGenerationBindings(
+            settings.videoGenerationModels,
+            settings.videoGeneration,
+          ).length > 0,
       }),
       ...plugins
         .getSkills()
