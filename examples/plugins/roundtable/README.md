@@ -1,6 +1,6 @@
 # Roundtable Discussion Plugin
 
-A PI-Desktop plugin that helps the parent agent run a structured multi-agent
+A QianNing Agent plugin that helps the parent agent run a structured multi-agent
 roundtable. Each role is an independent `Task`; the parent collects reports
 and synthesizes them. Delegates do not message each other.
 
@@ -13,7 +13,7 @@ and synthesizes them. Delegates do not message each other.
 
 ## Install (dev-load)
 
-1. Open PI-Desktop.
+1. Open QianNing Agent.
 2. Go to **Plugins**.
 3. Open the header overflow menu and choose **Load development plugin**.
 4. Select the `examples/plugins/roundtable` directory.
@@ -59,4 +59,4 @@ The agent will:
 
 ## License
 
-Part of PI-Desktop examples. See the repository root for license terms.
+Part of QianNing Agent examples. See the repository root for license terms.
