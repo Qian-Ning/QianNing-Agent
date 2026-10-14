@@ -112,7 +112,10 @@ test("the built-in plugin skill only activates for plugin workspaces", () => {
   assert.match(builtinSrc, /isPluginWorkspace/);
   assert.match(builtinSrc, /schemaVersion.*number/s);
   assert.match(builtinSrc, /pluginPaths\.some/);
-  assert.match(builtinSrc, /if \(isPluginWorkspace\(input\.workspacePath, input\.pluginPaths\)\) ids\.push\(PLUGIN_DEV_SKILL_ID\)/);
+  // The primer is withheld by the catalog walk rather than by a push into a
+  // literal id list; the gate itself is asserted behaviorally in
+  // builtin-skill-discovery.test.mjs.
+  assert.match(builtinSrc, /if \(file === PLUGIN_DEV_SKILL_FILE && !devWorkspace\) return \[\];/);
   assert.match(mainSrc, /builtinSkills\(\{/);
 });
 
