@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { basename, join } from "node:path";
 import { parseSkillFrontmatter } from "@pi-desktop/plugin-sdk";
 import type { PluginSkillDef } from "@pi-desktop/agent-runtime";
 import type { LoadedSkillDocument } from "./skill-document";
@@ -11,24 +11,29 @@ import type { LoadedSkillDocument } from "./skill-document";
  * skills (D174), so a first-party skill and a third-party one are
  * indistinguishable to the model — but they need no permission grant, because
  * the host is not a plugin.
+ *
+ * The shipped set is discovered from the resource directory rather than listed
+ * here. A hand-maintained registry is a second source of truth: a file added
+ * without a matching entry is silently dead, and a deleted file leaves an entry
+ * that resolves to nothing. Discovery also means the catalog and
+ * `loadBuiltinSkillBody` cannot disagree, because they read the same list.
  */
 
 /** Bundled skill teaching the plugin-development loop. */
 export const PLUGIN_DEV_SKILL_FILE = "plugin-development.md";
 export const PLUGIN_DEV_SKILL_ID = "qianning/plugin-development";
 export const IMAGE_GENERATION_SKILL_ID = "qianning/imagegen";
-const IMAGE_GENERATION_SKILL_FILE = "image-generation.md";
 export const VIDEO_GENERATION_SKILL_ID = "qianning/videogen";
-const VIDEO_GENERATION_SKILL_FILE = "video-generation.md";
 
 /**
- * One table for id-to-file, so a new bundled capability cannot be added to the
- * catalog while `loadBuiltinSkillBody` quietly stops resolving it.
+ * Ids that are not the file-derived default, because they predate this naming
+ * rule and are already written into sent transcripts. A skill listed here keeps
+ * its id; every other file gets `qianning/<file name without extension>`.
  */
-const BUILTIN_SKILL_FILES: Readonly<Record<string, string>> = {
-  [IMAGE_GENERATION_SKILL_ID]: IMAGE_GENERATION_SKILL_FILE,
-  [VIDEO_GENERATION_SKILL_ID]: VIDEO_GENERATION_SKILL_FILE,
-  [PLUGIN_DEV_SKILL_ID]: PLUGIN_DEV_SKILL_FILE,
+const EXPLICIT_SKILL_IDS: Readonly<Record<string, string>> = {
+  "image-generation.md": IMAGE_GENERATION_SKILL_ID,
+  "video-generation.md": VIDEO_GENERATION_SKILL_ID,
+  [PLUGIN_DEV_SKILL_FILE]: PLUGIN_DEV_SKILL_ID,
 };
 
 /**
@@ -47,18 +52,40 @@ export function canonicalBuiltinSkillId(id: string): string {
   return LEGACY_BUILTIN_SKILL_IDS[id] ?? id;
 }
 
+/** The id a shipped file is advertised and resolved under. */
+export function builtinSkillIdForFile(fileName: string): string {
+  return EXPLICIT_SKILL_IDS[fileName] ?? `qianning/${basename(fileName, ".md")}`;
+}
+
 /** electron-builder copies `resources/skills` to `<resources>/skills`. */
-function resolveBuiltinSkillPath(fileName: string): string | null {
+function resolveBuiltinSkillDir(): string | null {
   const moduleDir = typeof __dirname === "string" ? __dirname : import.meta.dirname;
   const candidates = [
-    join(process.resourcesPath || "", "skills", fileName),
-    join(moduleDir, "../../resources/skills", fileName),
-    join(moduleDir, "../../../resources/skills", fileName),
+    join(process.resourcesPath || "", "skills"),
+    join(moduleDir, "../../resources/skills"),
+    join(moduleDir, "../../../resources/skills"),
   ];
   for (const candidate of candidates) {
     if (candidate && existsSync(candidate)) return candidate;
   }
   return null;
+}
+
+/**
+ * Every shipped skill file, in a stable order so the catalog does not reshuffle
+ * between prompts. Reads the directory each call, like the file reads below, so
+ * a packaged update takes effect without a restart.
+ */
+export function listBuiltinSkillFiles(): string[] {
+  const dir = resolveBuiltinSkillDir();
+  if (!dir) return [];
+  try {
+    return readdirSync(dir)
+      .filter((entry) => entry.endsWith(".md"))
+      .sort();
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -97,8 +124,9 @@ export function isPluginWorkspace(
 
 /** Front matter carries the skill's title and applicability line. */
 function readBuiltinSkill(fileName: string): { path: string; raw: string } | null {
-  const path = resolveBuiltinSkillPath(fileName);
-  if (!path) return null;
+  const dir = resolveBuiltinSkillDir();
+  if (!dir) return null;
+  const path = join(dir, fileName);
   try {
     return { path, raw: readFileSync(path, "utf8") };
   } catch {
@@ -120,21 +148,33 @@ export type BuiltinSkillInput = {
 };
 
 /**
+ * Whether a shipped capability is usable in this session.
+ *
+ * The model pays context for every advertised entry, and a capability skill
+ * whose tool has no configured model can only tell the model to go configure
+ * one. So the entry is advertised while the capability is usable, and an
+ * unavailable capability drops it. Keyed on the id rather than the file name,
+ * so renaming a document cannot silently unhook the gate.
+ */
+function isCapabilityAvailable(id: string, input: BuiltinSkillInput): boolean {
+  if (id === IMAGE_GENERATION_SKILL_ID) return input.imageGenerationAvailable !== false;
+  if (id === VIDEO_GENERATION_SKILL_ID) return input.videoGenerationAvailable !== false;
+  return true;
+}
+
+/**
  * Catalog entries for the built-in skills that apply to the given session, read
  * fresh so a packaged update takes effect without a restart.
  */
 export function builtinSkills(input: BuiltinSkillInput): PluginSkillDef[] {
-  // The model pays context for every advertised entry, and a capability skill
-  // whose tool has no configured model can only tell the model to go configure
-  // one. So the entry is advertised while the capability is usable, and an
-  // unavailable capability drops it — the same reasoning as the workspace gate
-  // below, applied to the other reason a skill cannot be used here.
-  const ids: string[] = [];
-  if (input.imageGenerationAvailable !== false) ids.push(IMAGE_GENERATION_SKILL_ID);
-  if (input.videoGenerationAvailable !== false) ids.push(VIDEO_GENERATION_SKILL_ID);
-  if (isPluginWorkspace(input.workspacePath, input.pluginPaths)) ids.push(PLUGIN_DEV_SKILL_ID);
-  return ids.flatMap((id) => {
-    const raw = readBuiltinSkill(BUILTIN_SKILL_FILES[id]);
+  const devWorkspace = isPluginWorkspace(input.workspacePath, input.pluginPaths);
+  return listBuiltinSkillFiles().flatMap((file) => {
+    // The plugin primer is the one entry gated on the workspace: it stays out of
+    // the catalog until the session shows signs of plugin work.
+    if (file === PLUGIN_DEV_SKILL_FILE && !devWorkspace) return [];
+    const id = builtinSkillIdForFile(file);
+    if (!isCapabilityAvailable(id, input)) return [];
+    const raw = readBuiltinSkill(file);
     if (!raw?.raw.trim()) return [];
     const parsed = parseSkillFrontmatter(raw.raw);
     return parsed.body ? [{ id, name: parsed.name ?? id, description: parsed.description }] : [];
@@ -144,10 +184,13 @@ export function builtinSkills(input: BuiltinSkillInput): PluginSkillDef[] {
 /**
  * Load a built-in skill body for the `Skill` tool. Returns null for any id the
  * host does not ship, which is the caller's cue to try the plugin registry.
+ *
+ * A withheld entry still resolves here: only the advertisement is conditional,
+ * so a transcript or an earlier model turn that named the id keeps working.
  */
 export function loadBuiltinSkillBody(id: string): LoadedSkillDocument | null {
   const canonical = canonicalBuiltinSkillId(id);
-  const file = BUILTIN_SKILL_FILES[canonical];
+  const file = listBuiltinSkillFiles().find((entry) => builtinSkillIdForFile(entry) === canonical);
   if (!file) return null;
   const raw = readBuiltinSkill(file);
   if (!raw?.raw.trim()) return null;
