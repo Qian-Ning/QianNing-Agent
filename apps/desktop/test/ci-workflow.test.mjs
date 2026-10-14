@@ -719,6 +719,57 @@ test("the skills workflow owns the surfaces CI ignores, and needs no install", a
     "the lane must trigger on the gate itself",
   );
 
+  // The discovery predicates in scripts/skill-provenance-check.mjs are broader
+  // than the two shipped directories above: `isSkillDocumentPath` accepts any
+  // markdown inside any `skills/` directory plus any `SKILL.md` anywhere, and
+  // `isPluginManifestPath` accepts a `manifest.json` inside any `plugins/`
+  // directory. The triggers have to name those same surfaces, or a document added
+  // under a new directory is scanned by the gate and never triggers it — the gate
+  // would pass while policing nothing.
+  assert.match(
+    skillsCheckWorkflowSource,
+    /^      - '\*\*\/skills\/\*\*'$/m,
+    "the lane must trigger on a skill document under any skills/ directory, matching isSkillDocumentPath",
+  );
+  assert.match(
+    skillsCheckWorkflowSource,
+    /^      - '\*\*\/SKILL\.md'$/m,
+    "the lane must trigger on a SKILL.md anywhere, matching isSkillDocumentPath",
+  );
+  assert.match(
+    skillsCheckWorkflowSource,
+    /^      - '\*\*\/plugins\/\*\*'$/m,
+    "the lane must trigger on a plugin manifest under any plugins/ directory, matching isPluginManifestPath",
+  );
+
+  // Guard the direction of the fix rather than the spelling of one glob: the
+  // predicate really does accept a document under a directory neither shipped
+  // surface mentions, so the generic triggers above are load-bearing and not
+  // decorative.
+  const { isSkillDocumentPath, isPluginManifestPath } = await import(
+    "../../../scripts/skill-provenance-check.mjs"
+  );
+  assert.equal(
+    isSkillDocumentPath("extras/tooling/skills/anything.md"),
+    true,
+    "isSkillDocumentPath is expected to accept a document under a new skills/ directory",
+  );
+  assert.equal(
+    isSkillDocumentPath("extras/anything/SKILL.md"),
+    true,
+    "isSkillDocumentPath is expected to accept a SKILL.md outside a skills/ directory",
+  );
+  assert.equal(
+    isPluginManifestPath("extras/tooling/plugins/manifest.json"),
+    true,
+    "isPluginManifestPath is expected to accept a manifest under a new plugins/ directory",
+  );
+  assert.equal(
+    isSkillDocumentPath("apps/desktop/resources/skills/agent-capabilities.md"),
+    true,
+    "the shipped directory must stay covered",
+  );
+
   assert.match(
     skillsCheckWorkflowSource,
     /^        run: node scripts\/check-skill-provenance\.mjs$/m,
