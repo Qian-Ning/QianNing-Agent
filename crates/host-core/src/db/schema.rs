@@ -317,3 +317,47 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_connection_profiles_label
 CREATE INDEX IF NOT EXISTS idx_connection_profiles_enabled
   ON connection_profiles(enabled, label COLLATE NOCASE);
 "#;
+
+/// The durable outbound-delivery ledger (ADR 0205 D375 item 9, milestone R3).
+/// Kept in one batch so a fresh database and the v22→v23 migration cannot drift
+/// in table names, checks, or indexes.
+///
+/// This table is the reliability substrate every outbound channel (webhook,
+/// Telegram, Slack) sits on. It records one row per pending outbound delivery
+/// and owns the `pending → attempting → delivered | failed` state machine so a
+/// delivery is never silently lost: an attempt that the Host crashes through is
+/// reclaimed at startup instead of staying stuck in `attempting` forever.
+///
+/// `state` is the single source of truth for where a delivery is; the `CHECK`
+/// is what keeps a stray value out, exactly as `connection_profiles.kind` does.
+/// `attempts` counts attempts *started* (incremented when a worker claims the
+/// row), and the cap is `attempts >= max_attempts` evaluated in Rust so the
+/// backoff schedule has one owner. `next_attempt_at` is the backoff gate a
+/// retry waits behind; `lease_owner`/`lease_expires_at` are the claim lease that
+/// keeps two workers off the same row and lets an expired lease be reclaimed.
+/// `redelivery` is persisted (not derived at read time) so a receiver can be
+/// told an attempt is a duplicate of one it may already have seen.
+pub(crate) const DELIVERY_LEDGER_SCHEMA: &str = r#"
+CREATE TABLE IF NOT EXISTS delivery_ledger (
+  id               TEXT PRIMARY KEY,
+  channel          TEXT NOT NULL,
+  payload_json     TEXT NOT NULL,
+  state            TEXT NOT NULL DEFAULT 'pending'
+                     CHECK (state IN ('pending', 'attempting', 'delivered', 'failed')),
+  attempts         INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  max_attempts     INTEGER NOT NULL DEFAULT 5 CHECK (max_attempts >= 1),
+  redelivery       INTEGER NOT NULL DEFAULT 0 CHECK (redelivery IN (0, 1)),
+  next_attempt_at  INTEGER,
+  lease_owner      TEXT,
+  lease_expires_at INTEGER,
+  last_error       TEXT,
+  created_at       INTEGER NOT NULL,
+  updated_at       INTEGER NOT NULL,
+  delivered_at     INTEGER,
+  failed_at        INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_delivery_ledger_claim
+  ON delivery_ledger(state, next_attempt_at);
+CREATE INDEX IF NOT EXISTS idx_delivery_ledger_channel
+  ON delivery_ledger(channel, created_at DESC);
+"#;

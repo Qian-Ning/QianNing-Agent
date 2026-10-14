@@ -1057,6 +1057,61 @@ CREATE INDEX idx_connection_profiles_enabled
 既有表、列或行，且使用 `CREATE ... IF NOT EXISTS`，重复尝试无害。迁移前会留下
 `pi.sqlite.v21.bak` 副本，与其余就地迁移一致。
 
+### 4.16 delivery_ledger — 持久化的出向投递状态（schema v23，ADR 0205 D375 item 9）
+
+一行记录一次待发出的出向投递，目标是一个通道 —— 先是 webhook，随后是
+Telegram 与 Slack。这张表是这些通道所依赖的可靠性基座：它持有
+`pending → attempting → delivered | failed` 状态机，因此当一次回合不能为它阻塞时，
+投递绝不会被静默丢弃；而一次被宿主崩溃打断的尝试会在启动时被回收，而不是永远
+卡在 `attempting`。它不携带任何转录内容，也不持有凭据。
+
+```sql
+CREATE TABLE delivery_ledger (
+  id               TEXT PRIMARY KEY,
+  channel          TEXT NOT NULL,
+  payload_json     TEXT NOT NULL,
+  state            TEXT NOT NULL DEFAULT 'pending'
+                     CHECK (state IN ('pending', 'attempting', 'delivered', 'failed')),
+  attempts         INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  max_attempts     INTEGER NOT NULL DEFAULT 5 CHECK (max_attempts >= 1),
+  redelivery       INTEGER NOT NULL DEFAULT 0 CHECK (redelivery IN (0, 1)),
+  next_attempt_at  INTEGER,
+  lease_owner      TEXT,
+  lease_expires_at INTEGER,
+  last_error       TEXT,
+  created_at       INTEGER NOT NULL,
+  updated_at       INTEGER NOT NULL,
+  delivered_at     INTEGER,
+  failed_at        INTEGER
+);
+CREATE INDEX idx_delivery_ledger_claim
+  ON delivery_ledger(state, next_attempt_at);
+CREATE INDEX idx_delivery_ledger_channel
+  ON delivery_ledger(channel, created_at DESC);
+```
+
+- `channel` 指名出向目标，`payload_json` 是脱敏后的摘要 —— 或指向它的引用 ——
+  原样存储，账本从不检查其内容。
+- `state` 是投递所在位置的唯一真相来源，`CHECK` 正是挡住杂散取值的东西，与
+  `connection_profiles.kind` 完全一致。投递以 `pending` 诞生；一次认领把它移向
+  `attempting`；完成写入 `delivered`；达到尝试上限写入终态 `failed`，它保留最后
+  一次错误而不是被删除。
+- `attempts` 统计**已开始**的尝试 —— 在 worker 认领该行时递增 —— 而上限
+  `attempts >= max_attempts` 在 host-core 内判定，使退避调度只有一个所有者。
+  `next_attempt_at` 是重试等待的退避门：未达上限时，一次失败尝试让该行以有界的
+  指数延迟回到 `pending`，不会早于基数、也不会晚于上限。
+- `lease_owner` 与 `lease_expires_at` 是认领租约。它们让两个 worker 不碰同一行，
+  并让持有者已死的租约在窗口过去后可被回收，因此 `recover_attempting` 能在宿主
+  启动时把每一行仍处于 `attempting` 的记录退回可认领状态。
+- `redelivery` 被持久化，而不是读取时推导，因此可以告知接收方某次尝试是它可能
+  已经见过的某次投递的重复。
+- 两个索引覆盖两处热读：`idx_delivery_ledger_claim` 服务于对可认领行的认领扫描，
+  `idx_delivery_ledger_channel` 服务于按通道的最新在前历史。
+
+**迁移。** v22 → v23 纯属新增：一个 `CREATE TABLE` 批次加两个索引，不触碰任何既
+有表、列或行，且使用 `CREATE ... IF NOT EXISTS`，重复尝试无害。迁移前会留下
+`pi.sqlite.v22.bak` 副本，与其余就地迁移一致。
+
 ### 从 v1 中删除
 
 | v1表 | v2首页 |

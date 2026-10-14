@@ -1250,6 +1250,69 @@ indexes, no existing table, column, or row is touched, and the migration is
 `CREATE ... IF NOT EXISTS` so a repeated attempt is harmless. A
 `pi.sqlite.v21.bak` copy precedes it, like every other in-place migration.
 
+### 4.16 delivery_ledger — durable outbound-delivery state (schema v23, ADR 0205 D375 item 9)
+
+One row records one pending outbound delivery to a channel — a webhook first,
+then Telegram and Slack. The table is the reliability substrate those channels
+sit on: it owns the `pending → attempting → delivered | failed` state machine so
+a delivery is never silently lost when a turn must not block on it, and an
+attempt the Host crashes through is reclaimed at startup instead of staying
+stuck in `attempting` forever. It carries no transcript content and holds no
+credential.
+
+```sql
+CREATE TABLE delivery_ledger (
+  id               TEXT PRIMARY KEY,
+  channel          TEXT NOT NULL,
+  payload_json     TEXT NOT NULL,
+  state            TEXT NOT NULL DEFAULT 'pending'
+                     CHECK (state IN ('pending', 'attempting', 'delivered', 'failed')),
+  attempts         INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  max_attempts     INTEGER NOT NULL DEFAULT 5 CHECK (max_attempts >= 1),
+  redelivery       INTEGER NOT NULL DEFAULT 0 CHECK (redelivery IN (0, 1)),
+  next_attempt_at  INTEGER,
+  lease_owner      TEXT,
+  lease_expires_at INTEGER,
+  last_error       TEXT,
+  created_at       INTEGER NOT NULL,
+  updated_at       INTEGER NOT NULL,
+  delivered_at     INTEGER,
+  failed_at        INTEGER
+);
+CREATE INDEX idx_delivery_ledger_claim
+  ON delivery_ledger(state, next_attempt_at);
+CREATE INDEX idx_delivery_ledger_channel
+  ON delivery_ledger(channel, created_at DESC);
+```
+
+- `channel` names the outbound target, and `payload_json` is the redacted
+  summary — or a reference to it — stored verbatim and never inspected by the
+  ledger.
+- `state` is the single source of truth for where a delivery is, and the `CHECK`
+  is what keeps a stray value out, exactly as `connection_profiles.kind` does. A
+  delivery is born `pending`; a claim moves it to `attempting`; completion writes
+  `delivered`; reaching the attempt cap writes terminal `failed`, which keeps its
+  last error instead of being deleted.
+- `attempts` counts attempts *started* — incremented when a worker claims the
+  row — and the cap `attempts >= max_attempts` is evaluated in host-core so the
+  backoff schedule has one owner. `next_attempt_at` is the backoff gate a retry
+  waits behind: under the cap a failed attempt returns the row to `pending` at a
+  bounded exponential delay, never sooner than the base or later than the cap.
+- `lease_owner` and `lease_expires_at` are the claim lease. They keep two workers
+  off the same row and let a lease whose owner died be reclaimed once the window
+  passes, so `recover_attempting` can return every row still `attempting` at Host
+  startup to a claimable state.
+- `redelivery` is persisted, not derived at read time, so a receiver can be told
+  an attempt is a duplicate of one it may already have seen.
+- The two indexes cover the two hot reads: `idx_delivery_ledger_claim` serves the
+  claim sweep over claimable rows, and `idx_delivery_ledger_channel` serves the
+  per-channel history newest-first.
+
+**Migration.** v22 → v23 is purely additive: one `CREATE TABLE` batch plus two
+indexes, no existing table, column, or row is touched, and the migration is
+`CREATE ... IF NOT EXISTS` so a repeated attempt is harmless. A
+`pi.sqlite.v22.bak` copy precedes it, like every other in-place migration.
+
 ### Dropped from v1
 
 | v1 table | v2 home |
