@@ -23,6 +23,15 @@ on:
       - 'scripts/check-skill-authoring-spec.mjs'
       - 'scripts/skill-authoring-spec-check.mjs'
       - 'scripts/skill-authoring-spec-check.test.mjs'
+      # The discovery predicates in scripts/skill-provenance-check.mjs are broader
+      # than the shipped directories above: any markdown inside any `skills/`
+      # directory, any `SKILL.md` anywhere, and a `manifest.json` inside any
+      # `plugins/` directory. Naming them here is what keeps the trigger surface
+      # equal to the discovery surface, so a document added under a new directory
+      # cannot be policed by a lane it never runs.
+      - '**/skills/**'
+      - '**/SKILL.md'
+      - '**/plugins/**'
       # ci.yml ignores `docs/**`, so the authoring spec would never trigger the
       # check that polices it unless it is named here.
       - 'docs/**/17-skill-authoring.md'
@@ -37,6 +46,15 @@ on:
       - 'scripts/check-skill-authoring-spec.mjs'
       - 'scripts/skill-authoring-spec-check.mjs'
       - 'scripts/skill-authoring-spec-check.test.mjs'
+      # The discovery predicates in scripts/skill-provenance-check.mjs are broader
+      # than the shipped directories above: any markdown inside any `skills/`
+      # directory, any `SKILL.md` anywhere, and a `manifest.json` inside any
+      # `plugins/` directory. Naming them here is what keeps the trigger surface
+      # equal to the discovery surface, so a document added under a new directory
+      # cannot be policed by a lane it never runs.
+      - '**/skills/**'
+      - '**/SKILL.md'
+      - '**/plugins/**'
       # ci.yml ignores `docs/**`, so the authoring spec would never trigger the
       # check that polices it unless it is named here.
       - 'docs/**/17-skill-authoring.md'
