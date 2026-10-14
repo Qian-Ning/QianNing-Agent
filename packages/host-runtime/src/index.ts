@@ -1,5 +1,6 @@
 export * from "./host-process.js";
 export * from "./agent-sidecar.js";
+export * from "./skill-authoring-tools.js";
 export * from "./runtime-supervisor.js";
 export * from "./host-ports.js";
 export * from "./launch-resolver.js";

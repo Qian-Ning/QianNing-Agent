@@ -10,6 +10,7 @@ import { loadBuiltinSkillBody } from "../builtin-skills";
 import { createImageGenerationTool } from "../services/image-generation-service";
 import { createVideoGenerationTool } from "../services/video-generation-service";
 import { registerPluginDevTools } from "../plugin-dev-tools";
+import { registerSkillAuthoringTools } from "@pi-desktop/host-runtime";
 import { resolveLocalFile } from "../browser-view";
 import { catalogModelConfigFor } from "../models-dev-catalog";
 import { AgentSidecar } from "../agent-sidecar";
@@ -592,6 +593,19 @@ export function createSidecarRuntime({
         sendToRenderer(IPC.event.toast, { message: toast });
       }
       sendToRenderer(IPC.event.pluginChanged,{ reason: "scaffold" });
+    },
+  });
+  // Skill authoring (D171's sibling): a procedure the model works out during a
+  // session becomes a user skill through the same `skills.create` host path the
+  // renderer's create action uses, so it lands in the same state.
+  registerSkillAuthoringTools(s, {
+    createUserSkill: async ({ name, description, body }) => {
+      if (!runtimeState.host) throw new Error("host unavailable");
+      const res = await runtimeState.host.call("skills.create", {
+        skill: { name, description, body },
+      });
+      sendToRenderer(IPC.event.pluginChanged, { reason: "skill" });
+      return res;
     },
   });
   runtimeState.sidecar = s;

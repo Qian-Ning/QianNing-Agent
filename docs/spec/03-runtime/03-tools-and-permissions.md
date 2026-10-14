@@ -38,6 +38,7 @@ Let the agent get things done, but stay under control by default.
 | `SubmitGoal` | low | Preserve exact Markdown bytes in a new `.pi/goal/*.md` artifact and request approval |
 | `Write` | high | Create/overwrite files; returns the post-write `tag` |
 | `Edit` | high | Modify files through line-anchored ops against a verified `tag` ([18](18-line-anchored-edit-contract.md)) |
+| `SkillCreate` | high | Create a user skill in the local skill library; host-core validates the name, derives the id, and stores it |
 | `Bash` | high | Execute commands |
 | `asktool` | low | Ask one or more user questions and return the submitted answers as tool output |
 
@@ -56,7 +57,7 @@ ADR 0230). The runtime still registers optional capabilities without sending
 their full schemas up front:
 
 - `BrowserPreview`
-- `PluginCheck`, `PluginScaffold`, and `PluginPack`
+- `PluginCheck`, `PluginScaffold`, `PluginPack`, and `SkillCreate`
 - plugin-declared agent tools
 
 These tools appear in a bounded `# On-demand tools` catalog with compact
@@ -627,6 +628,24 @@ Naming:
 - command allowlist / denylist
 - dry-run mode
 - apply patches after preview
+
+## Skill authoring
+
+`SkillCreate` lets the model write a procedure it worked out during a session
+into the user's own skill library, so the next session loads it instead of
+re-deriving it. It is a high-risk Agent-only capability: Plan and Goal never see
+it, because it leaves the workspace and changes state the user owns.
+
+The handler holds no storage of its own. It forwards to the same
+`skills.create` host method the Skills settings page calls, so a model-written
+skill carries the same validation, id derivation, and listing as one the user
+typed. host-core rejects a name that collides with an existing skill at the same
+level, matching on id or on the name case-insensitively, and that rejection
+returns to the model as a tool failure rather than an exception.
+
+Every host that embeds the runtime builds the same catalogue, so the desktop app
+and the headless host both register the handler; a catalogue entry without a
+handler would offer the model a tool that always fails.
 
 ## Image generation and editing
 
