@@ -209,7 +209,7 @@ Host Main (QianNing Agent)
 - 路由命令和工具调用
 
 ### 6. 2 插件运行时（受限）
-插件逻辑在受限环境中运行；它不等同于完整的 Electron 主要权限。
+插件逻辑在受限环境中运行；它不等同于完整的 Electron 主进程权限。
 
 **今天实施（ADR 0008）：**每个插件的主模块都在自己的中运行
 `utilityProcess` (`electron/main/plugin-host-process.mjs`) 并到达主机

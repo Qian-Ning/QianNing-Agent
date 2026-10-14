@@ -169,7 +169,7 @@ session 在工作区之外获取一个临时目录：
 ```
 
 粘贴到作曲器中的操作系统剪贴板文件和图像通过以下方式具体化
-Electron 主要低于 `<data_dir>/scratch/<sessionId>/pasted/` 之前的
+Electron 主进程低于 `<data_dir>/scratch/<sessionId>/pasted/` 之前的
 绝对路径被捕获为瞬态输入框引用并序列化为
 `@` 及时发送参考。他们使用与其他会话相同的生命周期
 暂存数据并且不输入工作区、工件或持久提示

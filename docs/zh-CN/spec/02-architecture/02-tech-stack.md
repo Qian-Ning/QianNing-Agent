@@ -71,7 +71,7 @@
 
 - 仅渲染器库是 development/build 依赖项，因为 Vite
   将其运行时代码和惰性资产捆绑到 `out/renderer` 中。
-- Electron 主要捆绑纯 JS 工作区包。需要的包
+- Electron 主进程捆绑纯 JS 工作区包。需要的包
   运行时模块解析或本机 ABI 仍然是生产依赖项；
   当前外部设置仅包括 `electron-updater`。
 - `Resources/agent-runtime/sidecar.js`是唯一独立的pi sidecar

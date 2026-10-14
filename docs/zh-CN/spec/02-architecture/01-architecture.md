@@ -154,7 +154,7 @@ reload 仅通过 `plans.pending` 重新水化仍待处理的行，而不是
 
 | 方法 | 判决 |
 |---|---|
-| 纯 TS Electron 主要用于一切 | 更简单、更弱的系统边界 |
+| 纯 TS Electron 主进程用于一切 | 更简单、更弱的系统边界 |
 | 代理循环的完整 Rust 重写 | 太贵了，失去了 pi 杠杆 |
 | **Rust 主机 + pi sidecar** | 选择：强大的主机+成熟的代理引擎 |
 
@@ -195,7 +195,7 @@ MVP 目标进程：
 
 仅渲染器库是构建输入。 Vite 必须发出可执行文件
 `out/renderer` 下的代码和惰性资产；electron-builder 不得也复制
-他们原来生产的`node_modules`树变成了ASAR。 Electron 主要可能
+他们原来生产的`node_modules`树变成了ASAR。 Electron 主进程可能
 内联纯 JS 工作区助手，同时保留本机或运行时解析的模块
 外部。发布包不包括依赖源映射、测试、示例、
 声明和非目标本机预构建，无需替换本地资产

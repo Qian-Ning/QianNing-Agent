@@ -1354,7 +1354,7 @@ type AgentCapabilityQuery = {
 
 ## 13a. 工作面板 API
 
-工作面板通道是 Electron 主要的实现。用户驱动的工作区
+工作面板通道是 Electron 主进程的实现。用户驱动的工作区
 操作从 `workspace.get` 解析可见根并失败关闭
 没有一个。代理驱动的 BrowserPreview 路由解析原始
 通过 `session.get` 进行对话，因此后台预览永远不会继承
