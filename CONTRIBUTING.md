@@ -62,9 +62,9 @@ Some internal identifiers intentionally remain unchanged:
 
 Do not perform a blind repository-wide rename. Treat these identifiers as compatibility contracts.
 
-## Skill provenance
+## Skill and plugin provenance
 
-Skills ship to users and their text reaches the model, so they are user-visible surfaces: the brand rule above applies to them, not the compatibility-identifier exception below.
+Skills and plugin manifests ship to users and their text reaches the model or the plugin list, so they are user-visible surfaces: the brand rule above applies to them, not the compatibility-identifier exception below.
 
 Every skill document declares where it came from, in the document itself:
 
@@ -72,6 +72,7 @@ Every skill document declares where it came from, in the document itself:
 - A skill whose method is re-implemented from another work names that work, its license, and specifically what was **not** carried over. Naming a source is not permission to ship its vocabulary: the skill keeps our names, our identifiers, and our document format.
 - A skill-market catalog entry carries `author` as the true origin. Ours is `QianNing Agent`; a third-party entry keeps its real author and is never relabelled as ours.
 - No third-party product vocabulary — its module names, its protocol names, its product words — appears in a skill we ship. What transfers is the technique; the credit and the naming stay with their owner.
+- A plugin manifest is the same kind of surface. Its `name`, its `description`, and every `manifest.i18n` string are display text a user reads in the plugin list, so they name the shipped product; `author` names the plugin's real origin under the rule above. A vendored or third-party plugin keeps its own author — never relabel it as ours.
 
 ## Upstream synchronization
 

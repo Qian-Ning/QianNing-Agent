@@ -3030,7 +3030,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
       if (scheduledToolDescriptions[toolName]) return scheduledToolDescriptions[toolName];
       switch (toolName) {
         case "BrowserPreview":
-          return "Open a workspace HTML file in PI-Desktop's built-in browser panel. `path` is workspace-relative (e.g. \"demo/index.html\"). The preview live-reloads on later edits to the file or its sibling assets, so call once per page.";
+          return "Open a workspace HTML file in QianNing Agent's built-in browser panel. `path` is workspace-relative (e.g. \"demo/index.html\"). The preview live-reloads on later edits to the file or its sibling assets, so call once per page.";
         case "Read":
           return (
             "Read a bounded window from an existing regular text file, never a directory. " +

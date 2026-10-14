@@ -53,7 +53,8 @@ jobs:
 
       - name: Check skill provenance
         # Every discovered skill document must carry an `## Origin` section
-        # opening with QianNing Agent and must not name an upstream product.
+        # opening with QianNing Agent, and every plugin manifest must name its
+        # real author; neither may carry an upstream product name.
         run: node scripts/check-skill-provenance.mjs
 
       - name: Self-test the provenance rules

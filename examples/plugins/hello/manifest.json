@@ -3,8 +3,18 @@
  "id": "demo.hello",
  "name": "Hello",
  "version": "0.2.0",
- "description": "PI-Desktop 示例插件：命令面板 + 面板 + Echo Tool + 技能 / 主题 / 常驻服务 / 消息总线",
- "author": "PI-Desktop",
+ "description": "Sample plugin: command palette, panel, Echo tool, skill, theme, resident service and message bus",
+ "author": "QianNing Agent",
+ "i18n": {
+  "en": {
+   "name": "Hello",
+   "description": "Sample plugin: command palette, panel, Echo tool, skill, theme, resident service and message bus"
+  },
+  "zh-CN": {
+   "name": "你好插件",
+   "description": "示例插件：命令面板 + 面板 + Echo Tool + 技能 / 主题 / 常驻服务 / 消息总线"
+  }
+ },
  "main": "main.js",
  "ui": {
  "panel": "renderer/index.html",

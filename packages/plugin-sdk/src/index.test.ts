@@ -90,7 +90,7 @@ describe("validateManifest", () => {
   });
 
   it("accepts author as a string or contact object plus homepage/repository", () => {
-    expect(validateManifest({ ...base, author: "PI-Desktop" }).ok).toBe(true);
+    expect(validateManifest({ ...base, author: "QianNing Agent" }).ok).toBe(true);
     expect(
       validateManifest({
         ...base,
