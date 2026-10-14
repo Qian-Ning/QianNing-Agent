@@ -11,6 +11,7 @@ import {
   createHostQueueStore,
   createHostSessionPort,
   listPendingToolRequests,
+  registerSkillAuthoringTools,
 } from "@pi-desktop/host-runtime";
 import { DeviceTokenAuthenticator, RacpServer, bindRacpWebSocket, type RacpHostOperations, type WsBinding } from "@pi-desktop/racp";
 import { APP_VERSION, type AgentEventEnvelope } from "@pi-desktop/shared";
@@ -166,6 +167,16 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
       const result = await host.call<{ skill: { id: string; name: string } | null; body: string | null }>("skills.read", { id, projectPath: session?.session?.projectPath ?? null }).catch(() => null);
       if (!result?.skill || typeof result.body !== "string") return { ok: false, isError: true, content: `Skill: "${id}" is not available on this Host.` };
       return { ok: true, content: `# Skill: ${result.skill.name} (${result.skill.id})\n\n${result.body}` };
+    });
+    // The headless host embeds the same runtime, so the tool catalogue it builds
+    // advertises SkillCreate too; without a handler here the model would be
+    // offered a tool that always fails.
+    registerSkillAuthoringTools(sidecar, {
+      createUserSkill: async ({ name, description, body }) => {
+        const host = getHost();
+        if (!host) throw new Error("host unavailable");
+        return host.call("skills.create", { skill: { name, description, body } });
+      },
     });
     sidecar.setTrustedExtensionBridge({
       publishCommands: () => undefined,
