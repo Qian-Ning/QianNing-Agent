@@ -20,6 +20,12 @@ on:
       - 'scripts/check-skill-provenance.mjs'
       - 'scripts/skill-provenance-check.mjs'
       - 'scripts/skill-provenance-check.test.mjs'
+      - 'scripts/check-skill-authoring-spec.mjs'
+      - 'scripts/skill-authoring-spec-check.mjs'
+      - 'scripts/skill-authoring-spec-check.test.mjs'
+      # ci.yml ignores `docs/**`, so the authoring spec would never trigger the
+      # check that polices it unless it is named here.
+      - 'docs/**/17-skill-authoring.md'
       - '.github/workflows/skills-check.yml'
   pull_request:
     paths:
@@ -28,6 +34,12 @@ on:
       - 'scripts/check-skill-provenance.mjs'
       - 'scripts/skill-provenance-check.mjs'
       - 'scripts/skill-provenance-check.test.mjs'
+      - 'scripts/check-skill-authoring-spec.mjs'
+      - 'scripts/skill-authoring-spec-check.mjs'
+      - 'scripts/skill-authoring-spec-check.test.mjs'
+      # ci.yml ignores `docs/**`, so the authoring spec would never trigger the
+      # check that polices it unless it is named here.
+      - 'docs/**/17-skill-authoring.md'
       - '.github/workflows/skills-check.yml'
   workflow_dispatch:
 
@@ -62,3 +74,30 @@ jobs:
         # Origin section, a wrong owner, and a stray upstream product name are
         # actually rejected rather than merely printed.
         run: node --test scripts/skill-provenance-check.test.mjs
+
+  authoring-spec:
+    name: Skill authoring spec
+    # A separate job, not a step in the one above: this check polices a different
+    # surface (the document format and its limits) and a failure here should be
+    # legible on its own rather than buried under a provenance result.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          # Same Node as ci.yml (matches the runtime Electron 43 bundles).
+          node-version: 24
+
+      - name: Check the spec against the code
+        # Every limit in the spec is derived from the constant that enforces it.
+        # Changing the code without changing the document fails, and editing the
+        # document to a different number fails too.
+        run: node scripts/check-skill-authoring-spec.mjs
+
+      - name: Self-test the authoring spec rules
+        # Guards the guard. The negative cases are the substance: each removes or
+        # changes one thing and asserts the check notices, including a renamed
+        # constant, which must be a problem rather than a silent skip.
+        run: node --test scripts/skill-authoring-spec-check.test.mjs
