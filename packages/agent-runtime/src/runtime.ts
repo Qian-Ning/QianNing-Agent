@@ -6,6 +6,10 @@ import { restoreHostedSearchReplay } from "./hosted-search-replay.js";
 import { requestExtensionUi } from "./extensions/ui-request.js";
 import { readLocalRequestErrorDetails } from "./local-request-errors.js";
 import { imageGenerationDescription, imageGenerationParameters } from "./image-generation/tool.js";
+import {
+  skillCreateDescription,
+  skillCreateParameters,
+} from "./skill-authoring/tool.js";
 import { scheduledToolParameters, scheduledToolDescriptions } from "./scheduled-tools.js";
 import { withPiFileOpToolNames } from "./pi-file-ops.js";
 import { randomUUID } from "node:crypto";
@@ -3027,6 +3031,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
       " An explicit path outside the workspace and session scratch roots requires permission unless the effective mode is Auto.";
     const describe = (toolName: string): string => {
       if (toolName === "GenerateImages") return imageGenerationDescription;
+      if (toolName === "SkillCreate") return skillCreateDescription;
       if (scheduledToolDescriptions[toolName]) return scheduledToolDescriptions[toolName];
       switch (toolName) {
         case "BrowserPreview":
@@ -3171,6 +3176,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
       },
       PluginCheck: { directory: Type.String() },
       PluginPack: { directory: Type.String() },
+      SkillCreate: skillCreateParameters,
     };
     const exec = (toolName: string): AgentTool => {
       const run: AgentTool["execute"] = async (
@@ -3577,8 +3583,9 @@ Call TaskWait only when your next step genuinely depends on that report and noth
 
     // BrowserPreview is non-mutating (renders an existing workspace file in
     // the work panel browser), so it ships in every mode. PluginCheck only
-    // reads a directory; PluginScaffold and PluginPack write, so they follow
-    // Write/Edit/Bash into agent mode only.
+    // reads a directory; PluginScaffold, PluginPack and SkillCreate write — to
+    // the workspace and to the user's own skill library respectively — so they
+    // follow Write/Edit/Bash into agent mode only.
     const tools =
       this.mode === "agent"
         ? [
@@ -3593,7 +3600,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
           ]
         : ["Read", "Glob", "Grep", "BrowserPreview", "Bash"];
     if (this.mode === "agent") {
-      tools.push("PluginScaffold", "PluginPack", "GenerateImages", ...Object.keys(scheduledToolParameters));
+      tools.push("PluginScaffold", "PluginPack", "GenerateImages", "SkillCreate", ...Object.keys(scheduledToolParameters));
     }
     const builtins = tools.map(exec);
     this.hostToolExecutor = exec;

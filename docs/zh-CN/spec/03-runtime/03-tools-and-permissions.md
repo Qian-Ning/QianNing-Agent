@@ -41,6 +41,7 @@
 | `SubmitGoal` | 低 | 在新的 `.pi/goal/*.md` 工件中保留精确的 Markdown 字节并请求批准 |
 | `Write` | 高 | Create/overwrite 文件；返回写入后的 `tag` |
 | `Edit` | 高 | 通过针对已校验 `tag` 的行锚定操作修改文件（[18](18-line-anchored-edit-contract.md)） |
+| `SkillCreate` | 高 | 在本地技能库中创建用户技能；由 host-core 校验名称、派生 id 并落库 |
 | `Bash` | 高 | 执行命令 |
 | `asktool` | 低 | 询问一个或多个用户问题并将提交的答案作为工具输出返回 |
 
@@ -57,7 +58,7 @@ Plan 和 Goal 保留其 read/inspection 核心。`Skill` 有意不作延迟：`/
 
 - Agent 模式下的 `Glob` 和 `Grep`
 - `BrowserPreview`
-- `PluginCheck`、`PluginScaffold` 和 `PluginPack`
+- `PluginCheck`、`PluginScaffold`、`PluginPack` 和 `SkillCreate`
 - 插件声明的代理工具
 
 这些工具出现在有界的 `# On-demand tools` 目录中，具有紧凑的结构
@@ -577,6 +578,21 @@ sidecar 不附加覆盖，委托使用会话的有效权限模式；因此父会
 - 命令允许列表/拒绝列表
 - 空运行模式
 - 预览后应用补丁
+
+## 技能编写
+
+`SkillCreate` 让模型把本次会话中摸索出的步骤写进用户自己的技能库，下一次会
+话直接加载，不必重新推导。它是高风险的、仅 Agent 模式可用的能力：Plan 与
+Goal 永远看不到它，因为它会离开工作区、改动归用户所有的状态。
+
+处理函数自身不持有任何存储。它转发给渲染层技能页调用的同一个
+`skills.create` 宿主方法，因此模型写的技能与用户手写的技能经过同样的校验、
+同样的 id 派生、出现在同样的列表里。host-core 会拒绝与同层级既有技能
+重名的名称（按 id、或按大小写不敏感的名称匹配），该拒绝以工具失败的形式
+返回给模型，而不是异常。
+
+每个内嵌该运行时的宿主都会构建同一份工具目录，所以桌面端与无头宿主都会
+注册该处理函数；只有目录条目而没有处理函数，等于给模型一个永远失败的工具。
 
 ## 图片生成与编辑
 
