@@ -11,6 +11,7 @@ mod connection_tool;
 mod keyboard_rpc;
 mod market_rpc;
 mod mcp_rpc;
+mod messaging_rpc;
 mod network_rpc;
 mod notification_rpc;
 mod permissions_rpc;
@@ -350,6 +351,7 @@ pub async fn serve(state: Arc<Mutex<AppState>>) -> Result<()> {
     });
 
     let mut input_error = None;
+    let messaging_driver = messaging_rpc::spawn_driver(state.clone());
     let mut writer_done = false;
     'serve: loop {
         tokio::select! {
@@ -473,6 +475,8 @@ pub async fn serve(state: Arc<Mutex<AppState>>) -> Result<()> {
 
     config_sync_scheduler.abort();
     let _ = config_sync_scheduler.await;
+    messaging_driver.abort();
+    let _ = messaging_driver.await;
     {
         let mut st = state.lock().await;
         st.shutdown();
@@ -1706,6 +1710,10 @@ async fn handle_request(
 
         method if method.starts_with("market.") => {
             return market_rpc::handle(&state, method, params, tx.clone()).await;
+        }
+
+        method if method.starts_with("messaging.") => {
+            return messaging_rpc::handle(&state, method, params).await;
         }
 
         method if method.starts_with("audit.") => {

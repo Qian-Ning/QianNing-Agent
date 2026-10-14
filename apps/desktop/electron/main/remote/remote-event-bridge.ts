@@ -55,6 +55,21 @@ export interface RemoteEventBridge {
 
 const APPROVAL_KIND = { tool: "tool", plan: "plan", goal: "goal" } as const;
 
+/**
+ * Kinds the outbound messaging integration forwards. They ride the session
+ * stream AND, because that integration subscribes at host scope, the host
+ * stream too. This bridge consumes them from the session stream alone
+ * ({@link handleSessionScope}), so the host-scope copy must be dropped here:
+ * it carries no session, and a session-bearing one would otherwise fall
+ * through to the `session.archived` branch and unregister a live session.
+ */
+const HOST_SCOPE_FORWARDED_KINDS: ReadonlySet<string> = new Set([
+  "turn.completed",
+  "turn.failed",
+  "approval.requested",
+  "input.requested",
+]);
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -160,6 +175,9 @@ export function createRemoteEventBridge(options: RemoteEventBridgeOptions): Remo
   };
 
   const handleHostSession = (envelope: RacpEventEnvelope): void => {
+    // Forwarded kinds also appear on the host stream but belong to the session
+    // stream; ignore them here rather than warn or misroute them.
+    if (HOST_SCOPE_FORWARDED_KINDS.has(envelope.kind)) return;
     const session = extractSessionRef(envelope.payload);
     if (!session) {
       log("warn", `host-scope ${envelope.kind} carried no session`, envelope);

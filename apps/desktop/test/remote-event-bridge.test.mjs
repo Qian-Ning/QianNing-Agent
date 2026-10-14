@@ -240,6 +240,33 @@ test("host.changed does not emit — the desktop has no host status surface yet"
   assert.equal(lifecycle.length, 0);
 });
 
+test("host-scope forwarded kinds are ignored — the session stream carries them", () => {
+  const { bridge, events, lifecycle, warnings } = collect();
+  for (const kind of ["turn.completed", "turn.failed", "approval.requested", "input.requested"]) {
+    // A forwarded kind carries no session field...
+    bridge.handle(makeEnvelope({ scope: "host", sessionId: HOST_SESSION_ID, kind, payload: {} }));
+    // ...and even a session-bearing one must not be misread as session.archived.
+    bridge.handle(
+      makeEnvelope({ scope: "host", kind, payload: { session: { id: HOST_SESSION_ID } } }),
+    );
+  }
+  assert.equal(events.length, 0);
+  assert.equal(lifecycle.length, 0);
+  assert.equal(warnings.length, 0);
+});
+
+test("a forwarded kind still arrives on the session stream", () => {
+  const { bridge, events } = collect();
+  const agentEvent = { type: "turn_end", reason: "completed" };
+  bridge.handle(
+    makeEnvelope({ kind: "turn.completed", turnId: "turn-1", payload: { event: agentEvent } }),
+  );
+  assert.equal(events.length, 1);
+  assert.equal(events[0].channel, IPC.event.agentMessage);
+  assert.equal(events[0].payload.sessionId, REMOTE_SESSION_ID);
+  assert.deepEqual(events[0].payload.event, agentEvent);
+});
+
 test("an unknown kind stays quiet — the bridge never throws on unfamiliar events", () => {
   const { bridge, events, warnings } = collect();
   bridge.handle(makeEnvelope({ kind: "made.up.kind", payload: {} }));

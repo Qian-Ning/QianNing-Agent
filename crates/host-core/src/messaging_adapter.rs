@@ -42,20 +42,26 @@ use crate::delivery_ledger::{
     self, Delivery, DeliveryState, NewDelivery, DEFAULT_LEASE_MS, DEFAULT_MAX_ATTEMPTS,
 };
 
-// Everything below is the forwarding end of the R3 milestone: the contract a
-// concrete adapter implements and the hand-off the Host will drive. The Host
-// wiring that registers a real adapter and runs the attempt cycle is a later
-// step, so nothing outside this module's tests reaches any of it yet and the
-// compiler flags each item unused. Each item carries its own item-scoped
-// `#[allow(dead_code)]` so the lint stays blind only to this forward API; drop
-// each allow as the Host wiring starts calling that item, and drop the whole set
-// once the cycle runs in production.
+// The forwarding end of the R3 milestone has two halves, and only one of them is
+// wired. The hand-off the Host spends today — `enqueue_for`, `attempt_one`, and
+// their `OutboundMessage` and `AttemptOutcome` — is reached in production by the
+// messaging.* RPC family and its attempt-cycle driver, so it carries no lint
+// allowance. The contract a concrete outbound channel implements —
+// `FailureKind`, `SendResult`, `OutboundAdapter`, and the `AdapterRegistry`
+// lifecycle that registers and drives a channel — is not yet reached by Host
+// wiring, because no real channel is registered until the channel milestone.
+// Each such item keeps its own item-scoped `#[allow(dead_code)]` so the lint
+// stays blind only to that forward API, with the removal condition recorded on
+// the item: drop each allow as the Host wiring starts calling that item, and
+// drop the whole set once a channel is registered and driven in production.
 
 /// Why a send attempt did not succeed, and whether a retry can help.
 ///
 /// This is the caller-facing half of [`SendResult`]: it is the fact the ledger
 /// cannot derive on its own, because whether a failure is worth retrying is a
 /// property of the channel, not of the delivery's attempt count.
+// Not yet constructed by Host wiring: only a concrete channel classifies a
+// failure (removal condition — drop when an adapter builds a `SendResult`).
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FailureKind {
@@ -74,6 +80,8 @@ pub enum FailureKind {
 /// the channel accepted the delivery, and `Failed` carries the [`FailureKind`]
 /// that decides retry versus terminal plus the detail to record as the last
 /// error.
+// Not yet constructed by Host wiring: only a concrete channel returns one
+// (removal condition — drop when an adapter returns a `SendResult`).
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SendResult {
@@ -90,7 +98,6 @@ pub enum SendResult {
 /// payload may be a duplicate: the delivery id, its channel, the redacted
 /// payload, and whether this attempt is a redelivery. It is not a transcript
 /// and holds no lease, attempt, or permission state.
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct OutboundMessage {
     /// The ledger's delivery id, so a receiver can correlate a redelivery.
@@ -109,6 +116,10 @@ pub struct OutboundMessage {
 /// [`disconnect`](Self::disconnect), and [`send`](Self::send). Every other
 /// method is defaulted, so a channel that needs nothing else writes nothing
 /// else.
+// `connect` and `disconnect` are not yet called by Host wiring: the connect and
+// disconnect passes run at Host boot and shutdown only once a channel is
+// registered (removal condition — drop when a channel is registered and its
+// lifecycle is driven; `send` and `attempt_bound` are already used).
 #[allow(dead_code)]
 pub trait OutboundAdapter: Send + Sync {
     /// Prepare the channel for sends. Called once before the first `send` and
@@ -136,12 +147,16 @@ pub trait OutboundAdapter: Send + Sync {
 /// Registration is explicit: a caller registers an adapter under a name, and
 /// lookup is by that name. There is no metadata scan and no discovery of files,
 /// so a channel exists here only because a caller put it here.
-#[allow(dead_code)]
 #[derive(Default)]
 pub struct AdapterRegistry {
     adapters: HashMap<String, Box<dyn OutboundAdapter>>,
 }
 
+// `register`, `names`, `connect_all`, and `disconnect_all` (and their private
+// `sorted_names` helper) are not yet reached by Host wiring: no concrete channel
+// is registered, and no caller enumerates or connects the registry, until the
+// channel milestone (removal condition — drop when the Host registers a channel
+// and runs its connect/disconnect lifecycle; `new` and `get` are already used).
 #[allow(dead_code)]
 impl AdapterRegistry {
     /// An empty registry. Nothing is registered until [`register`](Self::register).
@@ -220,7 +235,6 @@ impl AdapterRegistry {
 /// comes from the adapter, so the ledger's retry/backoff rules follow the
 /// channel's own policy. A channel with no registered adapter is rejected here
 /// instead of being enqueued to nowhere.
-#[allow(dead_code)]
 pub fn enqueue_for(
     db: &Database,
     registry: &AdapterRegistry,
@@ -243,7 +257,6 @@ pub fn enqueue_for(
 }
 
 /// What one attempt cycle did.
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AttemptOutcome {
     /// Nothing was due, or nothing was claimable behind its backoff gate.
@@ -264,7 +277,6 @@ pub enum AttemptOutcome {
 /// backoff and, at the attempt cap, terminals it; a terminal failure ends it
 /// immediately. The ledger stays the single owner of persistence — this function
 /// only calls it, never writes delivery state itself.
-#[allow(dead_code)]
 pub fn attempt_one(
     db: &Database,
     registry: &AdapterRegistry,

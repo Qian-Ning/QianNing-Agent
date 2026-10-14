@@ -42,6 +42,7 @@ import {
 import { ApprovalBroker, type ApprovalPort } from "./approvals.js";
 import { racpError } from "./errors.js";
 import { EventHub, type SubscribeParams, type SubscribeResult, type SubscriptionSink } from "./event-log.js";
+import { isForwardedKind } from "./messaging-redactor.js";
 import {
   MemoryQueueStore,
   RandomIds,
@@ -1063,8 +1064,7 @@ export class AgentHost {
   ): void {
     const durable = racpDurable(kind);
     if (durable) state.revision += 1;
-    this.hub.publish({
-      scope: "session",
+    const event = {
       sessionId: state.id,
       ...(meta.turnId ? { turnId: meta.turnId } : {}),
       revision: state.revision,
@@ -1072,7 +1072,16 @@ export class AgentHost {
       ...(meta.parentToolCallId ? { parentToolCallId: meta.parentToolCallId } : {}),
       ...(meta.agentName ? { agentName: meta.agentName } : {}),
       payload: this.boundPayload(payload),
-    });
+    };
+    this.hub.publish({ scope: "session", ...event });
+    // A terminal turn outcome, or a host-owned request the user must answer, is
+    // a fact about the Host as a whole rather than one session's private
+    // stream, so the four kinds the outbound messaging integration forwards are
+    // published on the host-scope surface as well. The session-scope draft above
+    // is unchanged; fan-out matches a subscription's scope against the draft's,
+    // so a session-scope subscriber still sees only the session draft and a
+    // host-scope subscriber only the host draft — never both for one turn.
+    if (isForwardedKind(kind)) this.hub.publish({ scope: "host", ...event });
   }
 
   private emitSessionChanged(state: SessionState): void {

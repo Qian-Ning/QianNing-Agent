@@ -634,7 +634,10 @@ describe("AgentHost attach and subscribe", () => {
     host.publishSessionChange("session.created", summary("s2"));
     host.ingest(envelope("s1", "rt_1", { type: "agent_start" }));
     host.ingest(envelope("s1", "rt_1", { type: "agent_end", messageIds: [] }));
-    expect(kinds).toEqual(["session.created", "session.changed"]);
+    // The host-scope surface carries the session lifecycle, and — because a
+    // terminal turn outcome is a Host-wide fact — the forwarded `turn.completed`
+    // as well. The session-scope stream is unchanged.
+    expect(kinds).toEqual(["session.created", "turn.completed", "session.changed"]);
   });
 });
 
