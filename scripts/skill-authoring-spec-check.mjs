@@ -32,7 +32,7 @@ export const AUTHORING_SOURCE_PATHS = {
 };
 
 /** Extract `NAME = <int>` or `NAME = <int> * <int>`, from Rust or TypeScript. */
-function readSizeConstant(source, name, where) {
+export function readSizeConstant(source, name, where) {
   const re = new RegExp(`${name}\\s*(?::[^=]*)?=\\s*([0-9_]+)(?:\\s*\\*\\s*([0-9_]+))?`);
   const match = re.exec(source);
   if (!match) return null;
