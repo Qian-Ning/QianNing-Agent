@@ -38,3 +38,21 @@ path-for-path companion for every specification. Each translated page links to
 the canonical English source and preserves code, protocol fields, and
 identifiers. The generated sidebar keeps both locale trees complete as the
 specification set grows.
+
+Chinese pages are **condensed references, not full translations.** English is
+normative (see [ADR 0009](adr/0009-english-first-globalization.md)), so a mirror
+is expected to carry fewer sections than its source: `spec/03-runtime/
+19-remote-agent-control-protocol.md` has 45 headings including its title and
+`zh-CN/spec/03-runtime/19-remote-agent-control-protocol.md` has 8, by design.
+What a Chinese page must get exactly right is what it claims to preserve —
+protocol fields, method names, and error codes — so translation work belongs in
+the accuracy of what the page already carries, not in expanding it to the
+English section count.
+
+Judge a mirror by whether its identifiers match the English, not by how many
+headings it has. Reading a condensed mirror as an unfinished translation is the
+easy mistake, and it has happened: every mirror states this contract in its own
+opening paragraph, next to the English-source link, and none of the checks
+treats a lower section count as a defect. `pnpm docs:check` enforces the parts a
+machine can decide — mirror existence, the source notice, table shape,
+code-fence counts, and terminology.
