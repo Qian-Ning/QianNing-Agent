@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { AgentEventEnvelope, RacpEventEnvelope, RacpInitializeResult, RacpSessionSnapshot, RacpTurn, UiMessage } from "@pi-desktop/shared";
 
-import { hashToken, newPairingToken } from "./auth.js";
-import { OWNER_TOKEN, VIEWER_TOKEN, flush, harness } from "./test-harness.js";
+import { hashToken, newDeviceToken, newPairingToken } from "./auth.js";
+import { OWNER_TOKEN, VIEWER_TOKEN, fakeTerminalAccess, flush, harness, summary } from "./test-harness.js";
 
 function envelope(sessionId: string, turnId: string, event: AgentEventEnvelope["event"]): AgentEventEnvelope {
   return { sessionId, turnId, ts: Date.parse("2026-09-18T00:00:01.000Z"), event };
@@ -179,6 +179,45 @@ describe("RACP-WS turns, events, and approvals", () => {
     expect(viewerSide.events.filter((event) => event.kind === "approval.resolved")).toHaveLength(1);
   });
 
+  it("resolves a repeat approval response against that approval's own session, not the first state in the map", async () => {
+    const h = await harness();
+    // A session owned by someone else, attached first so its state is the first
+    // in the Host's map — the state the removed global lookup used to return.
+    h.sessions.set("s_other", { ...summary("s_other"), owner: "dev_owner" });
+    const ownerSide = await h.connect(OWNER_TOKEN);
+    await ownerSide.client.request("session/attach", { sessionId: "s_other" });
+
+    // A controller/approver device that owns the fixture session.
+    const responderToken = newDeviceToken();
+    await h.store.saveDevice({
+      deviceId: "dev_responder",
+      label: "responder",
+      roles: ["controller", "approver", "viewer"],
+      tokenHash: hashToken(responderToken),
+      createdAt: "2026-09-18T00:00:00.000Z",
+    });
+    h.sessions.set("s1", { ...summary("s1"), owner: "dev_responder" });
+    const responder = await h.connect(responderToken);
+    await responder.client.request("session/attach", { sessionId: "s1" });
+    await responder.client.request("turn/start", { sessionId: "s1", input: { text: "run" }, context: context("r1") });
+    h.host.ingest(envelope("s1", "rt_1", { type: "agent_start" }));
+    h.host.ingest(
+      envelope("s1", "rt_1", {
+        type: "tool_permission_request",
+        request: { requestId: "perm-1", sessionId: "s1", toolCallId: "c1", toolName: "Bash", argsPreview: "rm", risk: "high", reason: "shell" },
+      }),
+    );
+    await flush();
+    const resolved = await responder.client.request<{ alreadyResolved: boolean }>("approval/respond", { approvalId: "perm-1", decision: "deny", context: context("r2") });
+    expect(resolved).toMatchObject({ status: "resolved", alreadyResolved: false });
+    // The repeat is checked against perm-1's own session (s1, owned by this
+    // principal), not against the first state in the map (s_other, owned by
+    // someone else), which used to refuse the legitimate owner FORBIDDEN.
+    const again = await responder.client.request<{ alreadyResolved: boolean; decision: string }>("approval/respond", { approvalId: "perm-1", decision: "allow-once", context: context("r3") });
+    expect(again).toMatchObject({ alreadyResolved: true, decision: "deny" });
+    expect(h.approvals.tool).toEqual([{ requestId: "perm-1", decision: "deny" }]);
+  });
+
   it("answers input requests and closes the subscription of a client that stops acknowledging", async () => {
     const h = await harness();
     const closed: unknown[] = [];
@@ -200,6 +239,155 @@ describe("RACP-WS turns, events, and approvals", () => {
     await flush();
     expect(closed).toHaveLength(1);
     expect(closed[0]).toMatchObject({ error: { code: "CLIENT_TOO_SLOW" }, lastSafeCursor: { sequence: expect.any(Number) } });
+  });
+});
+
+describe("RACP-WS session ownership (ADR 0325)", () => {
+  /**
+   * A device credential whose subject is not the fixture session's owner. It
+   * carries `controller` and `viewer`, so the role gate admits every operation
+   * below and only the ownership comparison refuses — which is exactly the
+   * boundary this suite proves is live over RACP.
+   */
+  async function strangerToken(h: Awaited<ReturnType<typeof harness>>): Promise<string> {
+    const token = newDeviceToken();
+    await h.store.saveDevice({
+      deviceId: "dev_stranger",
+      label: "stranger",
+      roles: ["controller", "viewer", "approver"],
+      tokenHash: hashToken(token),
+      createdAt: "2026-09-18T00:00:00.000Z",
+    });
+    return token;
+  }
+
+  it("refuses a principal that owns neither the session nor the owner role, on select and on act", async () => {
+    const h = await harness();
+    const { client } = await h.connect(await strangerToken(h));
+
+    await expect(client.request("session/attach", { sessionId: "s1" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.request("events/subscribe", { scope: "session", sessionId: "s1" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.request("turn/start", { sessionId: "s1", input: { text: "x" }, context: context("r1") })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.request("session/history", { sessionId: "s1" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    // Nothing was admitted, so no turn exists to address.
+    expect(h.runtime.prompts).toEqual([]);
+  });
+
+  it("admits the session's owner subject and a holder of the owner role, and still refuses an unknown session", async () => {
+    const h = await harness();
+    const viewerSide = await h.connect(VIEWER_TOKEN);
+    // The fixture session's owner is the viewer device (see the harness note).
+    await expect(viewerSide.client.request("session/attach", { sessionId: "s1" })).resolves.toBeDefined();
+    const ownerSide = await h.connect(OWNER_TOKEN);
+    await expect(ownerSide.client.request("session/attach", { sessionId: "s1" })).resolves.toBeDefined();
+    // A foreign subject is not admitted, and an unknown session is still NOT_FOUND.
+    await expect(viewerSide.client.request("session/attach", { sessionId: "nope" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  /**
+   * The operations whose handler does not go through the Agent Host module.
+   * Before this pass the role gate was the only gate on them, so a controller
+   * could retarget a session's model and permission mode and a viewer could
+   * read its workspace; the ownership admission now covers each of them, on the
+   * one RACP path every caller shares.
+   */
+  it("refuses a foreign principal on the session-addressed operations the Agent Host does not itself admit", async () => {
+    const terminal = fakeTerminalAccess();
+    const h = await harness({ operations: { terminal: terminal.access } });
+    // A terminal on the fixture session, opened by nobody in this test.
+    const terminalId = terminal.seed("s1", "term_seeded");
+    // A real turn to address with `turn/get`, started by the session's owner.
+    const ownerSide = await h.connect(OWNER_TOKEN);
+    await ownerSide.client.request("session/attach", { sessionId: "s1" });
+    const started = await ownerSide.client.request<{ turn: RacpTurn }>("turn/start", { sessionId: "s1", input: { text: "x" }, context: context("r0") });
+
+    const { client } = await h.connect(await strangerToken(h));
+
+    await expect(client.request("session/configure", { sessionId: "s1", mode: "plan", permissionMode: "auto" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.request("session/fork", { sessionId: "s1" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.request("session/rename", { sessionId: "s1", title: "stolen" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.request("session/delete", { sessionId: "s1" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.request("session/compact", { sessionId: "s1" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.request("workspace/list", { sessionId: "s1", path: "" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.request("workspace/read", { sessionId: "s1", path: "README.md" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.request("workspace/diff", { sessionId: "s1" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.request("terminal/open", { sessionId: "s1" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.request("terminal/input", { terminalId, data: "rm -rf /" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.request("terminal/resize", { terminalId, cols: 10, rows: 10 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.request("terminal/close", { terminalId })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.request("turn/get", { turnId: started.turn.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    // The refusals happened before any handler ran: the session was not retargeted.
+    expect(h.sessions.get("s1")).toMatchObject({ mode: "agent", permissionMode: "ask", title: "Session s1" });
+    expect(h.runtime.prompts).toHaveLength(1);
+  });
+
+  it("admits the session's own owner subject and the owner role on the same widened set", async () => {
+    const terminal = fakeTerminalAccess();
+    const h = await harness({ operations: { terminal: terminal.access } });
+    // `dev_viewer` owns the fixture session but holds only `viewer`: the
+    // viewer-gated widened operations admit it, the controller-gated ones refuse
+    // it on the role, not on ownership.
+    const ownerSubject = await h.connect(VIEWER_TOKEN);
+    await expect(ownerSubject.client.request("workspace/read", { sessionId: "s1", path: "README.md" })).resolves.toMatchObject({ kind: "text" });
+    await expect(ownerSubject.client.request("workspace/diff", { sessionId: "s1" })).resolves.toBeDefined();
+    await expect(ownerSubject.client.request("session/configure", { sessionId: "s1", mode: "plan" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    // The `owner` role reaches every session, so it configures the fixture one.
+    const ownerRole = await h.connect(OWNER_TOKEN);
+    await expect(ownerRole.client.request("session/configure", { sessionId: "s1", mode: "plan" })).resolves.toBeDefined();
+    await expect(ownerRole.client.request("workspace/list", { sessionId: "s1", path: "" })).resolves.toBeDefined();
+  });
+
+  /**
+   * The re-attach path the first cut of this admission missed. `terminal/open`
+   * with a `terminalId` re-attaches to an existing terminal, and the session it
+   * used to authorize was the caller-supplied `sessionId` on the wire — not the
+   * session the terminal actually belongs to. So a principal owning *any*
+   * session could name that session and attach to another session's terminal,
+   * reading its replay ring and live output. The check now resolves the
+   * terminal's own session through `sessionOf`, so it authorizes the terminal,
+   * not the id the caller wrote beside it. This exercises a *successful*
+   * re-attach by the session's owner as well as the foreign refusal: a fake
+   * whose `attach` always returned `null` could only ever prove the refusal,
+   * which is exactly why the original bug went unseen.
+   */
+  it("authorizes a terminal re-attach against the terminal's own session, not the caller-supplied sessionId", async () => {
+    const terminal = fakeTerminalAccess();
+    const h = await harness({ operations: { terminal: terminal.access } });
+    // A terminal on the fixture session, with output the foreign principal must
+    // never see. `terminal/open` is controller-gated, so the owning principal is
+    // a controller whose subject the fixture session is recorded as owning.
+    const ownerToken = newDeviceToken();
+    await h.store.saveDevice({
+      deviceId: "dev_terminal_owner",
+      label: "terminal owner",
+      roles: ["controller", "viewer"],
+      tokenHash: hashToken(ownerToken),
+      createdAt: "2026-09-18T00:00:00.000Z",
+    });
+    h.sessions.set("s1", { ...summary("s1"), owner: "dev_terminal_owner" });
+    const victim = terminal.seed("s1", "term_victim", "VICTIM-SECRET");
+    // A second session the stranger owns, so its id passes an ownership check on
+    // its own — the id the old code authorized while attaching to s1's terminal.
+    h.sessions.set("s_stranger", { ...summary("s_stranger"), owner: "dev_stranger" });
+
+    const stranger = await h.connect(await strangerToken(h));
+    await expect(
+      stranger.client.request("terminal/open", { sessionId: "s_stranger", terminalId: victim }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    // The owner of the terminal's own session re-attaches and receives the replay.
+    const ownerSide = await h.connect(ownerToken);
+    await expect(
+      ownerSide.client.request<{ terminalId: string; replay: string }>("terminal/open", { sessionId: "s1", terminalId: victim }),
+    ).resolves.toMatchObject({ terminalId: victim, replay: "VICTIM-SECRET" });
+
+    // Opening a fresh terminal (no terminalId) still authorizes the named session.
+    await expect(ownerSide.client.request<{ terminalId: string }>("terminal/open", { sessionId: "s1" })).resolves.toMatchObject({
+      terminalId: expect.any(String),
+    });
   });
 });
 

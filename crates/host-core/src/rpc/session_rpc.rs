@@ -65,6 +65,12 @@ pub(super) async fn handle(
                         .get("systemPrompt")
                         .and_then(|v| v.as_str())
                         .map(str::to_string),
+                    // Host-RPC only: the RACP `session/create` verb never sends
+                    // this (ADR 0325). The host's own callers name the owner.
+                    owner: params
+                        .get("owner")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string),
                 },
             )
             .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
@@ -253,6 +259,40 @@ pub(super) async fn handle(
             };
             let st = state.lock().await;
             let session = sessions::set_session_system_prompt(&st.db, id, value)
+                .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
+            let Some(session) = session else {
+                return Err(rpc_err(1007, "session not found", "NOT_FOUND"));
+            };
+            Ok(json!({ "session": session }))
+        }
+        // Record a session's owning principal subject (ADR 0325). This is a
+        // HOST-RPC method on the host's internal call path: it is not a RACP
+        // operation, `RACP_OPERATIONS` never names it, and the RACP server
+        // refuses unknown methods before dispatch, so no remote peer can set an
+        // owner. Present-but-null clears the owner back to host-local.
+        "session.setOwner" => {
+            let id = params
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
+            let raw = params
+                .get("owner")
+                .ok_or_else(|| rpc_err(1002, "owner required", "INVALID_PARAMS"))?;
+            let value = match raw {
+                Value::Null => None,
+                Value::String(text) => Some(text.as_str()),
+                _ => {
+                    return Err(rpc_err(
+                        1002,
+                        "owner must be a string or null",
+                        "INVALID_PARAMS",
+                    ))
+                }
+            };
+            let st = state.lock().await;
+            // Fail closed: an unknown session id writes nothing and reports
+            // NOT_FOUND, so a bind cannot name a session that does not exist.
+            let session = sessions::set_session_owner(&st.db, id, value)
                 .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
             let Some(session) = session else {
                 return Err(rpc_err(1007, "session not found", "NOT_FOUND"));

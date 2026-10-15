@@ -106,6 +106,10 @@ function sessionSummary(): SessionSummary {
     mode: "agent",
     permissionMode: "ask",
     planningState: "inactive",
+    // The bind records the linked principal as the session's owner (ADR 0325),
+    // so a real bound conversation reaches its session; the fixture mirrors the
+    // post-bind state rather than an unowned row.
+    owner: LINKED_PRINCIPAL.subject,
     createdAt: "2026-09-10T00:00:00.000Z",
     updatedAt: "2026-09-10T00:00:00.000Z",
   };
@@ -115,6 +119,7 @@ type HostFixture = {
   host: AgentHost;
   runtime: FakeRuntime;
   approvals: FakeApprovals;
+  sessions: FakeSessions;
   /** Every operation the driver actually routed into, in order. */
   routed: string[];
   surface: MessagingInboundOperationSurface;
@@ -152,7 +157,7 @@ function buildHost(): HostFixture {
       return host.respondApproval(principal, response);
     },
   };
-  return { host, runtime, approvals, routed, surface };
+  return { host, runtime, approvals, routed, surface, sessions };
 }
 
 function linkedSection(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -1110,6 +1115,21 @@ describe("validateInboundEndpoint", () => {
 // ---------------------------------------------------------------------------
 
 describe("createAgentHostTargets", () => {
+  it("admits the linked principal only to a session the bind recorded it as owning", async () => {
+    const { host, sessions } = buildHost();
+    const request = { sessionId: SESSION_ID, input: { text: "do it" }, context: { requestId: "r1" } };
+
+    // An unowned row (every pre-existing session, and any path that names no
+    // principal) is host-local: the linked principal is refused.
+    sessions.summaries.set(SESSION_ID, { ...sessionSummary(), owner: undefined });
+    await expect(host.startTurn(LINKED_PRINCIPAL, request)).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    // What the bind does: the same session now records the linked principal as
+    // its owner, so the path is usable.
+    sessions.summaries.set(SESSION_ID, sessionSummary());
+    await expect(host.startTurn(LINKED_PRINCIPAL, { ...request, context: { requestId: "r2" } })).resolves.toMatchObject({ accepted: true });
+  });
+
   it("resolves the session the wiring names, and nothing it does not hold", async () => {
     const { host } = buildHost();
     const targets = createAgentHostTargets(host, async () => SESSION_ID);

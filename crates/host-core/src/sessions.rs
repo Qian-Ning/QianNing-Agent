@@ -119,6 +119,12 @@ pub struct SessionSummary {
     /// session's turns only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub system_prompt: Option<String>,
+    /// The owning principal's `subject` (ADR 0325). `None` means the row has no
+    /// recorded owner — it predates the column or a path created it without
+    /// naming a principal — and is admitted only to a principal holding the
+    /// `owner` role.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<String>,
     pub updated_at: String,
     pub created_at: String,
 }
@@ -1173,7 +1179,8 @@ fn session_created_at(db: &Database, session_id: &str) -> Result<String> {
 
 const SUMMARY_SELECT: &str =
     "SELECT s.id, s.title, s.last_seq, p.path, s.model_id, s.provider_id, s.mode,
-            s.thinking_level, s.permission_mode, s.system_prompt, s.updated_at, s.created_at
+            s.thinking_level, s.permission_mode, s.system_prompt, s.updated_at, s.created_at,
+            s.owner
      FROM sessions s LEFT JOIN projects p ON p.id = s.project_id
      WHERE s.deleted_at IS NULL";
 
@@ -1191,6 +1198,7 @@ pub(crate) fn summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Sess
         system_prompt: row.get(9)?,
         updated_at: ms_to_ts(row.get(10)?),
         created_at: ms_to_ts(row.get(11)?),
+        owner: row.get(12)?,
     })
 }
 
@@ -1266,6 +1274,8 @@ pub struct SessionCreateOptions {
     pub permission_mode: Option<String>,
     /// Per-conversation system prompt; `None` keeps the built-in persona.
     pub system_prompt: Option<String>,
+    /// The owning principal's `subject` (ADR 0325); `None` records no owner.
+    pub owner: Option<String>,
 }
 
 pub fn create_session_with_thinking(
@@ -1288,6 +1298,7 @@ pub fn create_session_with_thinking(
             thinking_level,
             permission_mode: None,
             system_prompt: None,
+            owner: None,
         },
     )
 }
@@ -1310,6 +1321,7 @@ pub fn create_session_with_options(
         thinking_level,
         permission_mode,
         system_prompt,
+        owner,
     } = options;
     let now = now_ms();
     let id = Uuid::new_v4().to_string();
@@ -1320,6 +1332,7 @@ pub fn create_session_with_options(
     let permission_mode = permission_mode.unwrap_or_else(default_permission_mode);
     validate_permission_mode(&permission_mode)?;
     let system_prompt = normalize_session_system_prompt(system_prompt.as_deref())?;
+    let owner = normalize_session_owner(owner.as_deref());
     let project_id = match project_path
         .as_deref()
         .filter(|path| !path.trim().is_empty())
@@ -1335,8 +1348,8 @@ pub fn create_session_with_options(
         .prepare_cached(
             "INSERT INTO sessions (
                 id, title, project_id, provider_id, model_id, mode, thinking_level,
-                permission_mode, system_prompt, created_at, updated_at
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
+                permission_mode, system_prompt, owner, created_at, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)",
         )?
         .execute(params![
             id,
@@ -1348,6 +1361,7 @@ pub fn create_session_with_options(
             thinking_level,
             permission_mode,
             system_prompt,
+            owner,
             now
         ])?;
     Ok(SessionSummary {
@@ -1361,6 +1375,7 @@ pub fn create_session_with_options(
         thinking_level,
         permission_mode,
         system_prompt,
+        owner,
         updated_at: ms_to_ts(now),
         created_at: ms_to_ts(now),
     })
@@ -1396,6 +1411,40 @@ pub fn set_session_system_prompt(
     let changed = db
         .conn()
         .prepare_cached("UPDATE sessions SET system_prompt = ?2, updated_at = ?3 WHERE id = ?1")?
+        .execute(params![id, normalized, now_ms()])?;
+    if changed == 0 {
+        return Ok(None);
+    }
+    Ok(get_session(db, id)?.map(|detail| detail.summary))
+}
+
+/// Longest owning-principal subject accepted. Generous: subjects are opaque
+/// host-chosen identifiers, not user text.
+pub const MAX_SESSION_OWNER_CHARS: usize = 512;
+
+/// Normalize a session owner subject. A blank/whitespace value means "no
+/// recorded owner" (`None`) rather than an empty-string owner that no principal
+/// could ever match, which would silently lock the row.
+pub fn normalize_session_owner(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.chars().take(MAX_SESSION_OWNER_CHARS).collect())
+}
+
+/// Record `owner` as a session's owning subject (ADR 0325). This is the
+/// host-internal write the messaging bind path uses: it is reachable only on
+/// the host's own call path, never from RACP. Returns `None` for an unknown
+/// session so a caller fails closed instead of writing a phantom owner.
+pub fn set_session_owner(
+    db: &Database,
+    id: &str,
+    owner: Option<&str>,
+) -> Result<Option<SessionSummary>> {
+    let normalized = normalize_session_owner(owner);
+    let changed = db
+        .conn()
+        .prepare_cached("UPDATE sessions SET owner = ?2, updated_at = ?3 WHERE id = ?1")?
         .execute(params![id, normalized, now_ms()])?;
     if changed == 0 {
         return Ok(None);
@@ -1759,6 +1808,7 @@ pub fn fork_session_through(
         thinking_level: source.summary.thinking_level,
         permission_mode: source.summary.permission_mode,
         system_prompt: source.summary.system_prompt,
+        owner: None,
         updated_at: created_at.clone(),
         created_at,
     };
@@ -4900,6 +4950,65 @@ mod tests {
     }
 
     #[test]
+    fn create_records_the_owner_it_is_given() {
+        let db = test_db();
+        let created = create_session_with_options(
+            &db,
+            SessionCreateOptions {
+                owner: Some("linked-user".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(created.owner.as_deref(), Some("linked-user"));
+        let stored = get_session(&db, &created.id)
+            .unwrap()
+            .expect("the row is readable")
+            .summary
+            .owner;
+        assert_eq!(stored.as_deref(), Some("linked-user"));
+    }
+
+    #[test]
+    fn create_without_an_owner_records_a_null_owner() {
+        let db = test_db();
+        let created = create_session_with_options(
+            &db,
+            SessionCreateOptions {
+                owner: Some("   ".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(created.owner, None, "a blank owner is no owner");
+        let stored = get_session(&db, &created.id)
+            .unwrap()
+            .expect("the row is readable")
+            .summary
+            .owner;
+        assert_eq!(stored, None);
+    }
+
+    #[test]
+    fn set_session_owner_records_a_subject_and_refuses_an_unknown_session() {
+        let db = test_db();
+        let created = create_session(&db, None, None, None, None, None).unwrap();
+        assert_eq!(created.owner, None);
+
+        let updated = set_session_owner(&db, &created.id, Some("linked-user"))
+            .unwrap()
+            .expect("the session exists");
+        assert_eq!(updated.owner.as_deref(), Some("linked-user"));
+
+        // Fail closed: an unknown id is refused and nothing is written.
+        assert!(
+            set_session_owner(&db, "no-such-session", Some("linked-user"))
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
     fn rename_session_normalizes_title_without_touching_activity() {
         let db = test_db();
         let session = create_session(&db, Some("Original".into()), None, None, None, None).unwrap();
@@ -4981,6 +5090,7 @@ mod tests {
             thinking_level: "off".into(),
             permission_mode: "inherit".into(),
             system_prompt: None,
+            owner: None,
             created_at: "2025-01-01T00:00:00Z".into(),
             updated_at: "2025-01-02T00:00:00Z".into(),
         };
@@ -5032,6 +5142,7 @@ mod tests {
             thinking_level: "off".into(),
             permission_mode: "inherit".into(),
             system_prompt: None,
+            owner: None,
             created_at: "2025-01-01T00:00:00Z".into(),
             updated_at: "2025-01-01T00:00:00Z".into(),
         };
@@ -5781,6 +5892,7 @@ mod tests {
             thinking_level: "medium".into(),
             permission_mode: "inherit".into(),
             system_prompt: None,
+            owner: None,
             created_at: "2025-01-01T00:00:00Z".into(),
             updated_at: "2025-01-01T00:00:00Z".into(),
         };

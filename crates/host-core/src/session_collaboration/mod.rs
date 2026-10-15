@@ -170,6 +170,9 @@ fn spawn(db: &Database, input: &Value) -> Result<Value> {
             // A spawned worker inherits the parent conversation's persona so a
             // delegated session answers the same way its owner configured.
             system_prompt: parent.summary.system_prompt,
+            // A spawned worker is created by the host's collaboration path,
+            // which names no principal: it stays host-local (ADR 0325).
+            owner: None,
         },
     )?;
     db.conn().execute("INSERT INTO session_collaboration_links(session_id,created_by_session_id,plugin_id,created_at) VALUES(?1,?2,?3,?4)",params![created.id,source,plugin,now_ms()])?;

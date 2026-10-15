@@ -467,6 +467,28 @@ separate, explicitly specified credential-management capability is added.
 3. A viewer cannot start a turn or resolve an approval.
 4. A controller cannot select an unauthorized Session, workspace, tool, model,
    permission mode, or provider secret.
+   - **Session, enforced (ADR 0325).** Acting on a Session and subscribing to
+     one are gated on persisted ownership: a principal is admitted to a session
+     when it holds the `owner` role, or when its subject equals the session's
+     recorded `owner`. A principal that is neither is refused `FORBIDDEN` — on
+     the RACP path and on the messaging path alike, and for every session-addressed
+     remote operation, not only the ones the Agent Host module itself handles:
+     the RACP server applies the Host's ownership admission once, before any
+     handler runs, so `session/configure`, `session/fork`, `session/rename`,
+     `session/delete`, `session/compact`, the workspace operations, the terminal
+     operations, and `turn/get` are covered too. For the operations that address
+     a terminal rather than a session — `terminal/input`, `terminal/resize`,
+     `terminal/close`, and `terminal/open` when it carries a `terminalId` and so
+     re-attaches to an existing terminal — the admission is resolved against the
+     session the terminal belongs to, never the caller-supplied `sessionId` beside
+     it, so naming one session cannot reach another's terminal. The rule is the
+     Host's and no caller restates it.
+   - **Residuals, accepted.** A holder of the `owner` role is admitted to every
+     session, so the comparison is a floor, not a uniqueness check. And
+     `session/list` and `session/get` remain unfiltered: a principal can still
+     enumerate sessions and read their metadata, which gate 4's wording covers,
+     so the clause is true for acting on a session and false for enumerating
+     one. A session with no recorded owner is admitted only to the `owner` role.
 5. A prompt-injected tool result cannot change the authenticated principal or
    role.
 6. Duplicate mutation keys cannot create duplicate turns or approvals.

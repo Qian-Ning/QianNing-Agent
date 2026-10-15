@@ -1058,3 +1058,34 @@ pub(crate) fn migrate_v22_to_v23(conn: &Connection, path: &Path) -> Result<()> {
     })?;
     Ok(())
 }
+
+/// v24 adds the nullable `owner` column to `sessions` (ADR 0325). It holds the
+/// owning principal's `subject`; NULL means the row predates ownership or was
+/// created by a path that names no principal, and is admitted only to a
+/// principal holding the `owner` role. Purely additive, following the
+/// v19 -> v20 `system_prompt` precedent.
+pub(crate) fn migrate_v23_to_v24_tx(tx: &rusqlite::Transaction<'_>) -> Result<()> {
+    let has_column: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('sessions') WHERE name = 'owner')",
+        [],
+        |row| row.get(0),
+    )?;
+    if !has_column {
+        tx.execute_batch("ALTER TABLE sessions ADD COLUMN owner TEXT;")?;
+    }
+    tx.pragma_update(None, "user_version", 24i64)?;
+    Ok(())
+}
+
+pub(crate) fn migrate_v23_to_v24(conn: &Connection, path: &Path) -> Result<()> {
+    let backup = create_migration_backup(conn, path, 23)?;
+    let tx = conn.unchecked_transaction()?;
+    migrate_v23_to_v24_tx(&tx)?;
+    tx.commit().with_context(|| {
+        format!(
+            "commit schema v23 to v24 migration; backup {} remains",
+            backup.display()
+        )
+    })?;
+    Ok(())
+}

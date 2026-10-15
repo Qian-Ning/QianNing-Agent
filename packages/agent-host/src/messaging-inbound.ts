@@ -83,17 +83,18 @@ import { RandomIds, type IdSource, type Principal } from "./ports.js";
  * The current-session lookup is the persisted conversation-to-session binding
  * ([`InboundSessionDirectory`]), stored per linked conversation in the same
  * settings row; the rest of the target is read from the Agent Host's own
- * snapshot, not guessed. This module performs no session-ownership check, and
- * the wiring adds none: the Host's role gate checks the principal's roles but
- * not that the principal owns the session, and the sessions table has no owner
- * column, so a real check needs either new persisted ownership data or a new
- * per-session authorization scope — an architecture decision recorded
- * separately. What protects the session choice in the meantime is that the
+ * snapshot, read under the acting principal, so the Host's ownership rule
+ * applies before a target is built. This module performs no session-ownership
+ * check of its own, and must not: the boundary is the Host's, and a channel
+ * that restated it would be a second policy. The Host admits a principal to a
+ * session when it holds the `owner` role or when its subject is the session's
+ * recorded owner (ADR 0325), and the wiring makes the linked principal that
+ * owner when the operator binds the conversation. A session with no recorded
+ * owner is host-local. What still protects the session choice is that the
  * binding is written only through the host's internal `settings.set` path,
  * which no RACP peer can reach (the operation table does not name `settings`,
- * pinned by a test in `@pi-desktop/shared`), plus the role gate before every
- * operation; and that a chat with no binding yields no target and is refused
- * before any operation runs.
+ * pinned by a test in `@pi-desktop/shared`); and that a chat with no binding
+ * yields no target and is refused before any operation runs.
  *
  * # The lock rule
  *
@@ -673,10 +674,9 @@ export class MessagingInboundDriver {
  * principal's current one, and that session's active turn and oldest open
  * approval, read from the Agent Host's own snapshot.
  *
- * The Host's session catalog carries no owner, so "the principal's current
- * session" cannot be derived from it; the wiring supplies the session (the one
- * this chat is bound to). Everything after that is read from Host state, not
- * guessed.
+ * The Host reads the session under the acting principal, so the ownership rule
+ * applies before a target is built; the wiring supplies the session (the one
+ * this chat is bound to) rather than deriving it from the catalog.
  */
 export function createAgentHostTargets(
   agentHost: Pick<AgentHost, "snapshot">,
@@ -686,7 +686,7 @@ export function createAgentHostTargets(
     async resolve(principal: Principal): Promise<MessagingCommandTarget> {
       const sessionId = await currentSessionFor(principal);
       if (!sessionId) return {};
-      const snapshot = await agentHost.snapshot(sessionId);
+      const snapshot = await agentHost.snapshot(principal, sessionId);
       const target: MessagingCommandTarget = { sessionId };
       if (snapshot.activeTurn?.id) target.turnId = snapshot.activeTurn.id;
       const approvalId = snapshot.pendingApprovals[0]?.id;

@@ -281,11 +281,22 @@ to later refresh and inference; the vendor picker does not collect them.
 
 ### Sessions
 - `session.list` — returns summaries with host-authoritative `messageCount`
-  alongside the existing session metadata
+  alongside the existing session metadata, and the session's `owner` (the owning
+  principal's subject) when it has one. A session with no owner omits the field.
 - `session.create` — accepts optional `thinkingLevel` and optional
   `inheritPermissionFromSessionId`; when present, the host copies the existing
   session's persisted permission mode atomically, while omission preserves the
   existing `inherit` default. Missing/null thinking level defaults to `off`.
+  Also accepts an optional `owner` (ADR 0325): the owning principal's subject,
+  recorded on the new row. A blank or absent `owner` records no owner. This is a
+  host-RPC parameter only — the RACP `session/create` verb does not send it, and
+  the RACP contract is unchanged.
+- `session.setOwner` — sets or clears a session's owning subject
+  (`{ id, owner }`, `owner` a string or null). Added by ADR 0325 and **host-RPC
+  only**: it is not a RACP operation, `RACP_OPERATIONS` does not name it, and the
+  RACP server refuses an unknown method before dispatch, so no remote peer
+  reaches it. An unknown session id returns `NOT_FOUND` and writes nothing; the
+  messaging bind depends on that to fail closed.
 - `session.fork` — accepts `sessionId`, an optional caller-provided display
   `title`, and optional `throughMessageId`; creates
   one independent session from the source's current active canonical
@@ -299,7 +310,8 @@ to later refresh and inference; the vendor picker does not collect them.
   Whole-session, non-assistant, streaming/error, or live-turn anchors return
   `CONFLICT`, normalized by Electron to `AGENT_BUSY`. The source turn continues
   without sharing runtime state with the child.
-- `session.get` — accepts an optional renderer read window:
+- `session.get` — returns the session's `owner` when it has one, alongside the
+  same summary `session.list` returns. Accepts an optional renderer read window:
   `messageBefore` is the exclusive zero-based end offset, `messageLimit` is
   the positive page size, and `contentLimit` is the positive character budget
   for the derived display projection. The response includes

@@ -57,16 +57,21 @@ import { requireHostRpc, type HostRpc } from "./host-ports.js";
  * That channel is a host-internal IPC handler, not a RACP operation, so the
  * write never leaves the host's internal call path.
  *
- * There is deliberately no session-ownership check. The Host's role gate
- * checks the principal's roles but not that the principal owns the session,
- * and the sessions table has no owner column, so a real check needs either new
- * persisted ownership data or a new per-session authorization scope — an
- * architecture decision recorded separately. Until that lands, the protection
- * on the session choice is: (a) the binding is only writable on the host's
- * internal call path, which a remote RACP peer cannot reach; and (b) the role
- * gate before each operation. Neither one lets an inbound command name an
- * arbitrary session from the wire: the message text carries no ids, and the
- * only session name the driver can act on is the persisted binding.
+ * Since ADR 0325 the same bind write also records the session's owner: binding
+ * a conversation to a session sets that session's owning subject to the linked
+ * principal's subject, through the host-internal `session.setOwner` host-RPC
+ * method ([`HostSessionOwnerWriter`]). That is what makes the messaging path
+ * usable at all — the channel's principal cannot create a session and there is
+ * no ownership-transfer operation, so the bind is the one place the ownership
+ * is established. It is a host-RPC method, and `RACP_OPERATIONS` does not name
+ * it, so a remote peer cannot set an owner either.
+ *
+ * The ownership check itself is the Agent Host's, not this module's: the Host
+ * refuses a principal that is neither the session's owner nor a holder of the
+ * `owner` role, on every session-addressed operation, including the snapshot
+ * the target resolver reads. Nothing here restates or bypasses it. An unknown
+ * session id fails the bind closed: the owner write reports `NOT_FOUND` and the
+ * binding is not written.
  *
  * # Known interaction with the existing settings UI
  *
@@ -240,19 +245,55 @@ export function createSettingsSessionBindingStore(
 }
 
 /**
+ * The host-internal write that records a session's owning subject (ADR 0325).
+ * Backed by the `session.setOwner` host-RPC method, which is not a RACP
+ * operation: `RACP_OPERATIONS` does not name it and the RACP server refuses an
+ * unknown method before dispatch, so only the host's own call path reaches it.
+ * A writer rejects for an unknown session id, which is how the bind fails
+ * closed.
+ */
+export type HostSessionOwnerWriter = (sessionId: string, owner: string) => Promise<void>;
+
+/** The owner writer the composition roots give the bind path. */
+export function createHostSessionOwnerWriter(getHost: () => HostRpc | null): HostSessionOwnerWriter {
+  return async (sessionId, owner) => {
+    await requireHostRpc(getHost).call("session.setOwner", { id: sessionId, owner });
+  };
+}
+
+/**
  * Bind the linked conversation to `sessionId` — the one production writer of
- * the binding.
+ * the binding — and record the session's owner.
  *
  * The desktop-main `pi-desktop/messagingInbound/bindSession` IPC channel calls
  * this; it is the writer the wiring's binding store otherwise never had. It
  * stays on the host's internal call path: it goes through the host's own
  * `settings.set`, never through RACP, so a remote peer cannot move a linked
- * chat onto another session.
+ * chat onto another session. Since ADR 0325 the same call also writes the
+ * session's owner through `session.setOwner` (a host-RPC method, not a RACP
+ * operation), so a linked principal reaches the session it is bound to without
+ * needing a session-creation or ownership-transfer operation that does not
+ * exist.
  *
- * Shape, chosen deliberately: the write is a single `settings.set` carrying
- * only the channel's own top-level section key. `settings.set` merges at the
- * top level, so this patch can replace the `messagingTelegram` section and
- * nothing else — it can never overwrite a neighbouring app setting (theme,
+ * The `owners` writer is required, not optional: a bind that did not record an
+ * owner would leave a linked principal unable to reach the session it is bound
+ * to, which is the state this whole step removes. A caller that omits it does
+ * not compile.
+ *
+ * The owner write goes first, and the binding write follows only if it
+ * succeeds: an unknown session id is refused by `session.setOwner` and no
+ * binding is then written. The two writes are not transactional, so the
+ * failure direction is what makes the shape safe rather than atomicity: if
+ * `session.setOwner` succeeds and the settings write then fails, the session
+ * is left owned with the conversation unbound — no inbound command reaches it
+ * (the driver refuses an unbound conversation), and a later bind completes the
+ * pair. Owner-succeeds + save-fails is thus a retriable partial state, never a
+ * conversation bound to a session it does not own.
+ *
+ * Shape, chosen deliberately: the settings write is a single `settings.set`
+ * carrying only the channel's own top-level section key. `settings.set` merges
+ * at the top level, so this patch can replace the `messagingTelegram` section
+ * and nothing else — it can never overwrite a neighbouring app setting (theme,
  * language, network policy, …) even if another writer changed one between the
  * read of the section and the write. The pre-existing whole-snapshot settings
  * IPC writes every key from a separately read snapshot, a read-modify-write
@@ -260,20 +301,31 @@ export function createSettingsSessionBindingStore(
  * not that shape.
  *
  * Fail closed: a blank or non-string id is refused with `INVALID_ARGUMENT`
- * rather than written, matching the store, which never writes a blank id.
- * Nothing is written when the channel has no section — an unconfigured channel
- * has no field for a binding to occupy.
+ * rather than written, matching the store, which never writes a blank id, and
+ * a channel with no readable link names no principal to own the session, so it
+ * is refused too. Nothing is written when the channel has no section — an
+ * unconfigured channel has no field for a binding to occupy.
  */
 export async function bindMessagingInboundSession(
   settings: HostSettingsSurface,
   sessionId: unknown,
+  owners: HostSessionOwnerWriter,
 ): Promise<void> {
   if (typeof sessionId !== "string" || !sessionId.trim()) {
     throw Object.assign(new Error("the session id to bind must be a non-empty string"), {
       errorCode: ErrorCodes.INVALID_ARGUMENT,
     });
   }
-  await createSettingsSessionBindingStore(settings).save(sessionId.trim());
+  const id = sessionId.trim();
+  const link = readInboundLink(readSection(await settings.read()));
+  if (!link) {
+    throw Object.assign(
+      new Error("the channel names no linked principal to own the session"),
+      { errorCode: ErrorCodes.INVALID_ARGUMENT },
+    );
+  }
+  await owners(id, link.principal.subject);
+  await createSettingsSessionBindingStore(settings).save(id);
 }
 
 /** The audit sink a composition root installs: structure and ids, no content. */

@@ -202,7 +202,7 @@ export function createOperations(): Map<RacpOperation, OperationHandler> {
         details: { limit: context.limits.maxSubscriptionsPerConnection },
       });
     }
-    const result = context.agentHost.subscribe(
+    const result = await context.agentHost.subscribe(
       context.principal,
       { scope: input.scope, ...(input.sessionId ? { sessionId: input.sessionId } : {}), ...(input.after ? { after: input.after } : {}) },
       {

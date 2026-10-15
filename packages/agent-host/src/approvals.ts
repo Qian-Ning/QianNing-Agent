@@ -51,6 +51,13 @@ const MAX_REMEMBERED_RESULTS = 1000;
 export class ApprovalBroker {
   private readonly pending = new Map<string, PendingApproval>();
   private readonly results = new Map<string, RacpApprovalResult>();
+  /**
+   * The session each approval id belongs to, kept past `settle` so a repeat
+   * response to an already-resolved approval resolves the *right* session to
+   * run the ownership check against (ADR 0325). The pending request carries it
+   * while open; this map carries it afterwards.
+   */
+  private readonly sessions = new Map<string, string>();
 
   constructor(
     private readonly port: ApprovalPort,
@@ -83,6 +90,7 @@ export class ApprovalBroker {
         : RACP_TOOL_APPROVAL_DECISIONS.filter((decision) => decision !== "allow-session"),
     };
     this.pending.set(approval.id, { request: approval, expiresAtMs });
+    this.rememberSession(approval.id, approval.sessionId);
     return approval;
   }
 
@@ -110,6 +118,7 @@ export class ApprovalBroker {
       allowedPermissionModes: [...RACP_PERMISSION_MODES],
     };
     this.pending.set(approval.id, { request: approval, expiresAtMs, version: event.version });
+    this.rememberSession(approval.id, approval.sessionId);
     return approval;
   }
 
@@ -139,6 +148,15 @@ export class ApprovalBroker {
 
   result(approvalId: string): RacpApprovalResult | undefined {
     return this.results.get(approvalId);
+  }
+
+  /**
+   * The session an approval id belongs to, open or already resolved. Used by
+   * the ownership admission so a repeat response to a settled approval is
+   * checked against that approval's own session, not an arbitrary one.
+   */
+  sessionOf(approvalId: string): string | undefined {
+    return this.pending.get(approvalId)?.request.sessionId ?? this.sessions.get(approvalId);
   }
 
   async resolve(
@@ -219,6 +237,11 @@ export class ApprovalBroker {
       revision: outcome.revision,
     };
     this.results.set(approvalId, result);
+    // Re-insert the session at the tail so its eviction order tracks the
+    // result map's (both bounded by MAX_REMEMBERED_RESULTS): a remembered
+    // result never outlives the session a repeat response is checked against.
+    const sessionId = this.sessions.get(approvalId);
+    if (sessionId !== undefined) this.rememberSession(approvalId, sessionId);
     while (this.results.size > MAX_REMEMBERED_RESULTS) {
       const oldest = this.results.keys().next().value;
       if (oldest === undefined) break;
@@ -235,5 +258,14 @@ export class ApprovalBroker {
       closed.push(this.settle(entry.request.id, { status: "canceled", revision }));
     }
     return closed;
+  }
+
+  private rememberSession(approvalId: string, sessionId: string): void {
+    this.sessions.set(approvalId, sessionId);
+    while (this.sessions.size > MAX_REMEMBERED_RESULTS) {
+      const oldest = this.sessions.keys().next().value;
+      if (oldest === undefined) break;
+      this.sessions.delete(oldest);
+    }
   }
 }

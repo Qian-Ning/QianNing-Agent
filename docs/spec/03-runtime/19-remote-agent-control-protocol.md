@@ -578,7 +578,13 @@ part of the contract from v1.1 and are advertised through the
 and fork are idle-only, deletion is owner-only, and every workspace read is
 resolved against the Session's durable root with the Host's ignore rules and
 `PATH_OUTSIDE_WORKSPACE` boundary. Terminals run on the Host machine with the
-session root as working directory and stream through `terminal.output`.
+session root as working directory and stream through `terminal.output`. Beyond
+the role each operation requires, every one of them is also subject to the
+session-ownership rule (ADR 0325): the Host admits the principal only when it
+holds the `owner` role or its subject equals the Session's recorded owner, and
+refuses `FORBIDDEN` otherwise — before the operation acts, on the one admission
+path every RACP caller shares. `turn/get` is in the same table above and is
+subject to the same rule, resolving the Session from the turn.
 
 | Operation | Role | Behavior |
 |---|---|---|

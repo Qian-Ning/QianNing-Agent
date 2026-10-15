@@ -318,6 +318,19 @@ Every change follows this sequence. Steps may be iterated if the implementation 
   protocol contracts, data migrations, build configuration, or widely shared
   behavior, normally require the smallest targeted non-E2E validation that can
   address that risk. A full local suite is not the default.
+- A workspace package's own `test` script does not build its dependencies, so
+  running `pnpm --filter <pkg> test` (or `vitest` inside the package) can
+  exercise **stale `dist/` output** of a dependency it imports through the
+  package `exports` map. `@pi-desktop/racp` and `@pi-desktop/host-runtime`
+  import `@pi-desktop/agent-host` from `dist/index.js`; only `agent-host`'s own
+  suite consumes its source. Break a rule inside `packages/agent-host/src` and
+  run the `racp` suite without rebuilding `agent-host` and it stays green —
+  reproduced for ADR 0325's ownership admission, where neutering the check in
+  source with no rebuild left `racp` at 26/26 passing, and the same run failed
+  once `agent-host` was rebuilt. So: **build the dependency before a gate you
+  intend to be evidence** — `pnpm build:js` (or the dependency package's
+  `build`) first, then the test. The root `pnpm test` does this; a per-package
+  `test` does not.
 - When the full desktop suite is run, `@pi-desktop/desktop`'s `test` script caps
   the runner at four concurrent test files (`--test-concurrency=4`). Those files
   are subprocess- and connection-heavy, so the default (one file per core)

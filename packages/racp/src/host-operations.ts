@@ -74,6 +74,13 @@ export interface RacpTerminalAccess {
   input(terminalId: string, data: string): Promise<void>;
   resize(terminalId: string, cols: number, rows: number): Promise<void>;
   close(terminalId: string): Promise<void>;
+  /**
+   * The session an open terminal belongs to, or `undefined` when it is not
+   * open. The RACP admission path resolves a terminal-addressed operation's
+   * session through this so the Host's ownership rule can be applied before
+   * the operation acts (ADR 0325).
+   */
+  sessionOf(terminalId: string): string | undefined;
   /** Re-attach a subscriber after a reconnect; returns the replay ring. */
   attach(terminalId: string, sink: { output: (data: string) => void; exit: (code: number | null) => void }): Promise<TerminalOpenResult | null>;
   detach(terminalId: string): void;

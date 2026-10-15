@@ -130,6 +130,11 @@ export class TerminalService implements RacpTerminalAccess {
     }
   }
 
+  sessionOf(terminalId: string): string | undefined {
+    const record = this.terminals.get(terminalId);
+    return record && record.exited === null ? record.sessionId : undefined;
+  }
+
   async attach(terminalId: string, sink: TerminalSink): Promise<TerminalOpenResult | null> {
     const record = this.terminals.get(terminalId);
     if (!record || record.exited !== null) return null;

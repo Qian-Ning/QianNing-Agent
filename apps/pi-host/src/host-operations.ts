@@ -91,7 +91,7 @@ export function createSessionCatalog(deps: HostOperationsDeps): RacpSessionCatal
       const result = await host.call<{ sessions: HostSessionRecord[] }>("session.list", {}).catch(hostError);
       return withProjectIds(host, result.sessions ?? []);
     },
-    async create(input, _principal: Principal) {
+    async create(input, principal: Principal) {
       const host = requireHost(getHost);
       const projectPath = await projectPathFor(input.projectId, host);
       const result = await host
@@ -102,6 +102,11 @@ export function createSessionCatalog(deps: HostOperationsDeps): RacpSessionCatal
           ...(input.modelId ? { modelId: input.modelId } : {}),
           ...(input.thinkingLevel ? { thinkingLevel: input.thinkingLevel } : {}),
           ...(projectPath ? { projectPath } : {}),
+          // ADR 0325: a session created through a principal's path records that
+          // principal as its owner, so the ownership check has something to
+          // compare against. `owner` is a host-RPC parameter; the RACP
+          // `session/create` contract is unchanged.
+          ...(principal.subject ? { owner: principal.subject } : {}),
         })
         .catch(hostError);
       if (!result.session) throw new RacpError("INTERNAL", "session.create returned no session");
