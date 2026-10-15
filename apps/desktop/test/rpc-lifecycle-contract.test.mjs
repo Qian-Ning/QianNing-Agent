@@ -247,6 +247,22 @@ test("app quit waits for one idempotent teardown before allowing the follow-up q
     "the follow-up quit must run only after shutdownComplete is set",
   );
   assert.match(shutdownSource, /void state\.shutdownPromise\.then\(releaseQuit, releaseQuit\)/);
+
+  // The inbound messaging loop is aborted, and its stop is bounded, before
+  // host-core is disposed: the loop reads and writes the settings row through
+  // the host it must not outlive. Pinned as an ordering over identifiers, not
+  // as an exact block, so it survives a refactor that keeps the contract and
+  // fails one that moves the wait after disposal.
+  const inboundAbortAt = shutdownSource.indexOf("messagingInbound?.controller.abort()");
+  const inboundBoundAt = shutdownSource.indexOf("settleWithinBudget(");
+  const hostDisposeAt = shutdownSource.indexOf("getHost()?.dispose()");
+  assert.ok(inboundAbortAt >= 0, "a quit must abort the inbound messaging loop");
+  assert.ok(inboundBoundAt >= 0, "a quit must bound its wait for the inbound messaging loop");
+  assert.ok(hostDisposeAt >= 0, "the host is disposed during shutdown");
+  assert.ok(
+    inboundAbortAt < hostDisposeAt && inboundBoundAt < hostDisposeAt,
+    "the inbound loop must be aborted and its bounded wait run before host-core is disposed",
+  );
 });
 
 test("settings writes validate without applying read defaults", () => {

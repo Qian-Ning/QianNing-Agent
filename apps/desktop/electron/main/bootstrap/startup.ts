@@ -24,6 +24,12 @@ import {
   registerMediaAssetScheme,
 } from "../media-asset-protocol";
 import { applyNetworkProxyFromAppSettings } from "../network-proxy";
+import {
+  createHostSecretReader,
+  createHostSettingsSurface,
+  createMessagingInboundWiring,
+  type MessagingInboundHandle,
+} from "@pi-desktop/host-runtime";
 import { readCloseBehavior } from "../window-preferences";
 import { createAgentHostBridge, type AgentHostBridge } from "../agent-host-bridge";
 import { createBackendRouter, type BackendRouter } from "../remote/backend-router";
@@ -75,6 +81,12 @@ export type StartupState = {
   backendRouter: BackendRouter | null;
   desktopControl: McpControlController | null;
   mcpControl: McpControlServer | null;
+  /**
+   * The inbound messaging loop this boot started, with the controller that
+   * stops it. Shutdown reads it to abort the loop and await it before
+   * host-core is disposed.
+   */
+  messagingInbound: MessagingInboundHandle | null;
 };
 
 export type StartupDependencies = {
@@ -350,6 +362,23 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
       // If the backend never started, retain the default focused/global path.
       applyPluginLauncherShortcut();
       applyToggleWindowShortcut();
+    }
+    // The inbound messaging command path: a linked chat's commands act on the
+    // session bound to it, through the same Agent Host the RACP handlers call.
+    // Started only once host-core answers, because the settings row and the
+    // secret store both live there; a Host with no channel configured polls
+    // nothing. The controller belongs to shutdown, which aborts it and awaits
+    // the loop before host-core is disposed.
+    if (!bootError && host && state.agentHostBridge) {
+      const controller = new AbortController();
+      const wiring = createMessagingInboundWiring({
+        agentHost: state.agentHostBridge.agentHost,
+        settings: createHostSettingsSurface(getHost),
+        secrets: createHostSecretReader(getHost),
+        signal: controller.signal,
+        log: (level, message, data) => logger.app("runtime", level, message, { data }),
+      });
+      state.messagingInbound = { controller, done: wiring.run() };
     }
     await ensureWindow();
     if (process.env.PI_DESKTOP_MCP_CONTROL === "1") {

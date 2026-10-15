@@ -1,4 +1,8 @@
 import { IPC, type UpdatePreference } from "@pi-desktop/shared";
+import {
+  bindMessagingInboundSession,
+  createHostSettingsSurface,
+} from "@pi-desktop/host-runtime";
 import type { AgentSidecar } from "../agent-sidecar";
 import type { HostProcess } from "../host-process";
 import type { IpcRegistrar } from "./types";
@@ -108,4 +112,20 @@ export function registerSettingsIpc({
   });
 
   handle(IPC.invoke.commandShellList, async () => resolveEffectiveCommandShell());
+
+  // Bind the linked messaging conversation to the session its inbound commands
+  // act on (ADR 0205 D375 item 9). This is the writer the inbound wiring's
+  // binding store never had: without it a linked chat is always unbound and
+  // every inbound command is refused. It is a host-internal write, not a RACP
+  // operation: the handler calls the local host (`getHost()`) directly rather
+  // than going through the router, and `settings` is not in `RACP_OPERATIONS`,
+  // so the write never leaves this process and no RACP peer can reach it. It
+  // writes only the channel's own settings key (see
+  // `bindMessagingInboundSession`), so it cannot clobber a neighbouring app
+  // setting, and it fails closed on a blank or non-string id.
+  handle(IPC.invoke.messagingInboundBindSession, async (sessionId: unknown) => {
+    if (!host) throw new Error("host unavailable");
+    await bindMessagingInboundSession(createHostSettingsSurface(getHost), sessionId);
+    return { ok: true };
+  });
 }

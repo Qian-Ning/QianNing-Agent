@@ -9,9 +9,14 @@ import {
   RuntimeSupervisor,
   createHeadlessLaunchResolver,
   createHostQueueStore,
+  createHostSecretReader,
   createHostSessionPort,
+  createHostSettingsSurface,
+  createMessagingInboundWiring,
   listPendingToolRequests,
   registerSkillAuthoringTools,
+  settleWithinBudget,
+  type MessagingInboundHandle,
 } from "@pi-desktop/host-runtime";
 import { DeviceTokenAuthenticator, RacpServer, bindRacpWebSocket, type RacpHostOperations, type WsBinding } from "@pi-desktop/racp";
 import { APP_VERSION, type AgentEventEnvelope } from "@pi-desktop/shared";
@@ -36,6 +41,14 @@ export type PiHostApp = {
 };
 
 const APPROVAL_REQUEST_TIMEOUT_MS = 30 * 60 * 1000;
+
+/**
+ * How long headless stop waits for the inbound loop to leave `run` after its
+ * abort. Its own host calls carry no abort signal, so a single in-flight
+ * iteration is bounded only by the host RPC deadline — far longer than a stop
+ * may wait; this budget keeps a stop from stalling on it.
+ */
+const MESSAGING_INBOUND_STOP_BUDGET_MS = 2_000;
 
 /**
  * Compose the headless Host: host-core and the sidecar under the shared
@@ -218,6 +231,23 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
   await agentHost.start();
   await plans.drainApprovedPlanExecutions().catch((error: unknown) => log("warn", "queued approved plan drain failed", { error: String(error) }));
 
+  // The inbound messaging command path: a linked chat's commands act on the
+  // session bound to it, through the same Agent Host the RACP handlers call.
+  // The loop re-reads the channel's settings on every poll and holds no host
+  // state across one; `stop()` aborts this controller and awaits the loop
+  // before the host is disposed, so the loop cannot outlive the Host.
+  const messagingAbort = new AbortController();
+  const messaging: MessagingInboundHandle = {
+    controller: messagingAbort,
+    done: createMessagingInboundWiring({
+      agentHost,
+      settings: createHostSettingsSurface(getHost),
+      secrets: createHostSecretReader(getHost),
+      signal: messagingAbort.signal,
+      log: (level, message, data) => log(level, message, data),
+    }).run(),
+  };
+
   const pty = loadPty();
   const terminal = pty
     ? new TerminalService({
@@ -274,6 +304,14 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
       if (state.stopping) return;
       state.stopping = true;
       log("info", "pi-host stopping");
+      // Stop the inbound loop first: it reads and writes the settings row
+      // through host-core, so it must be finished before the host is disposed.
+      // The loop re-checks the signal between iterations, but a single
+      // in-flight iteration can be waiting on a host RPC whose deadline is far
+      // longer than a stop may wait, so the wait is bounded; giving up on it
+      // still lets the rest of stop proceed.
+      messaging.controller.abort();
+      await settleWithinBudget(messaging.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
       server.close();
       await binding.close();
       await terminal?.closeAll();
