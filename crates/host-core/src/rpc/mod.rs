@@ -11,7 +11,7 @@ mod connection_tool;
 mod keyboard_rpc;
 mod market_rpc;
 mod mcp_rpc;
-mod messaging_rpc;
+pub(crate) mod messaging_rpc;
 mod network_rpc;
 mod notification_rpc;
 mod permissions_rpc;
@@ -75,7 +75,7 @@ struct JsonRpcResponse {
 }
 
 #[derive(Debug, Serialize)]
-struct JsonRpcError {
+pub(crate) struct JsonRpcError {
     code: i64,
     message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
