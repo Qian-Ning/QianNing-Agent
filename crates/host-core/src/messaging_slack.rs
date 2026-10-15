@@ -9,23 +9,25 @@
 //! the transport classification, the endpoint rule, and the delivery envelope
 //! all live there.
 //!
-//! # Direction: outbound only, and the milestone is incomplete
+//! # Direction: outbound delivery, and Slack inbound is deferred
 //!
-//! The direction is outbound only. This channel never binds, listens, accepts,
-//! or long-polls: the one socket it opens is a client connection *to* the
-//! configured endpoint, and the acceptance scenario's precondition — no inbound
-//! port is open on the Host machine — stays true.
+//! This module only sends. It never binds, listens, accepts, or long-polls:
+//! the one socket it opens is a client connection *to* the configured
+//! endpoint, and the acceptance scenario's precondition — no inbound port is
+//! open on the Host machine — stays true. (The Telegram channel now also
+//! receives inbound commands, but by a long poll run in the agent host module,
+//! not here.)
 //!
-//! The inbound command direction is deliberately absent and out of scope for
-//! this increment. There is no message receive from a chat, no polling loop, no
-//! socket, no long-lived connection, and no webhook receiver; no command path
-//! (the command mapper stays unwired and is given no caller here); no
-//! chat-to-principal link, no operation-invocation verb, no request-context
-//! mint, and no inbound replay guard; and no own permission policy, no raw
-//! transcript content, no second enqueue path, and no second registry. **The
-//! milestone this increment belongs to requires an inbound command path to be
-//! complete; this increment does not complete it.** What lands here is the
-//! outbound half only.
+//! **Slack inbound is deferred.** Its incoming direction needs socket mode,
+//! which needs a websocket client, and this tree has none; adding that
+//! dependency is the maintainer's decision. Outbound Slack is unchanged.
+//!
+//! The inbound command path that does exist belongs to the Telegram channel and
+//! is delivered by the messaging integration's driver in the agent host module,
+//! beside the turn and approval operations it invokes, reached by an outbound
+//! long poll of its own. This module holds none of it: no message receive, no
+//! polling loop, no command mapping, no chat-to-principal link, no
+//! request-context mint, no inbound replay guard, and no own permission policy.
 //!
 //! # The lock rule
 //!

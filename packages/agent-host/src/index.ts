@@ -3,6 +3,7 @@ export * from "./ports.js";
 export * from "./event-log.js";
 export * from "./messaging-redactor.js";
 export * from "./messaging-commands.js";
+export * from "./messaging-inbound.js";
 export * from "./turn-queue.js";
 export * from "./approvals.js";
 export * from "./agent-host.js";
