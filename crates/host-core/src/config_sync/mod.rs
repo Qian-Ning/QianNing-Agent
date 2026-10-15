@@ -2,7 +2,7 @@ mod crypto;
 pub(crate) mod domains;
 pub(crate) mod engine;
 pub(crate) mod merge;
-mod transport;
+pub(crate) mod transport;
 
 pub(crate) use crypto::{
     create_vault, decrypt_object, encrypt_object, object_id, rewrap_vault, unlock_vault,

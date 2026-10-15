@@ -10,6 +10,7 @@ mod delivery_ledger;
 mod keyboard;
 mod mcp_servers;
 mod messaging_adapter;
+mod messaging_webhook;
 mod network_policy;
 mod network_proxy;
 mod notifications;

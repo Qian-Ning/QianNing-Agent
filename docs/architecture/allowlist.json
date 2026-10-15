@@ -61,6 +61,10 @@
     "crates/host-core/src/db/migrations.rs": {
       "reason": "Append-only schema-version chain: each entry is an ordered step that only means anything next to the ones before it, so the file is one sequence rather than separable modules. It crossed the Rust limit by a few lines when the editable pricing-table migration landed, and again by the v22->v23 delivery-ledger step (ADR 0205 D375 item 9) plus the startup reclaim of interrupted outbound deliveries in boot_maintenance: the new step is one more link in the same ordered chain and the reclaim is the same restart-repair pass as the stale turn/plan resets beside it, so separating either is its own change with its own ordering risk.",
       "max": 1060
+    },
+    "crates/host-core/src/messaging_webhook/tests.rs": {
+      "reason": "Test module for the outbound webhook channel (ADR 0205 D375 item 9). Every case shares one loopback HTTP fixture whose request parser and response writer only mean anything beside the tests that use them, and the file holds the whole transport-classification matrix (2xx statuses, a redirect the client refuses to follow — answered with a Location that names a second route on the same fixture, so a following client is recorded and caught — other 4xx, 429 and 5xx, a timeout, a response the client cannot parse, a connection closed before it answers, a refused connection, and a failed TLS handshake) plus the endpoint rule, the credential-leak surfaces, and the ledger-bound spending. The ceiling moved from 1036 to 1127 when the redirect fixture gained its second route, the credential-in-the-endpoint refusal joined the leak surfaces, and the accepted bodies gained their explicit JSON checks.",
+      "max": 1127
     }
   }
 }

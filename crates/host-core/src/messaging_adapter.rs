@@ -28,12 +28,13 @@
 //!
 //! Registration is explicit and name-keyed ([`AdapterRegistry`]); there is no
 //! metadata scan and no discovery of files on disk. The hand-off
-//! ([`enqueue_for`] then [`attempt_one`]) is the only bridge to persistence, and
-//! it is a thin wrapper over `delivery_ledger`, which stays the single owner of
-//! the delivery state machine, its retry/backoff schedule, and its terminal
-//! `failed` state.
+//! ([`enqueue_for`] and the attempt cycle's [`begin_attempt`] then
+//! [`finish_attempt`]) is the only bridge to persistence, and it is a thin
+//! wrapper over `delivery_ledger`, which stays the single owner of the delivery
+//! state machine, its retry/backoff schedule, and its terminal `failed` state.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 
@@ -43,26 +44,28 @@ use crate::delivery_ledger::{
 };
 
 // The forwarding end of the R3 milestone has two halves, and only one of them is
-// wired. The hand-off the Host spends today — `enqueue_for`, `attempt_one`, and
-// their `OutboundMessage` and `AttemptOutcome` — is reached in production by the
-// messaging.* RPC family and its attempt-cycle driver, so it carries no lint
-// allowance. The contract a concrete outbound channel implements —
-// `FailureKind`, `SendResult`, `OutboundAdapter`, and the `AdapterRegistry`
-// lifecycle that registers and drives a channel — is not yet reached by Host
-// wiring, because no real channel is registered until the channel milestone.
-// Each such item keeps its own item-scoped `#[allow(dead_code)]` so the lint
-// stays blind only to that forward API, with the removal condition recorded on
-// the item: drop each allow as the Host wiring starts calling that item, and
-// drop the whole set once a channel is registered and driven in production.
+// wired. The hand-off the Host spends today — `enqueue_for`, the attempt
+// cycle's `begin_attempt` and `finish_attempt`, and their `OutboundMessage` and
+// `AttemptOutcome` — is reached in production by the messaging.* RPC family and
+// its attempt-cycle driver, so it carries no lint allowance. The inline
+// `attempt_one` composer is that same cycle with the send run between the two
+// halves and no lock released, so it is compiled only for the tests that drive
+// the cycle without a host lock. The contract a concrete outbound channel
+// implements is now reached as well: the webhook channel (`messaging_webhook`)
+// registers itself into the registry at state construction, builds `SendResult`
+// and `FailureKind` for every attempt, and has its `connect` run there, so those
+// items carry no allowance either. What is still unreached by Host wiring keeps
+// its own item-scoped `#[allow(dead_code)]` with the removal condition recorded
+// on the item: the trait's `disconnect` waits for a shutdown pass, and the
+// registry's `names` and `disconnect_all` wait for a caller that enumerates or
+// releases channels — `rpc/mod.rs` holds the recorded ceiling that forbids
+// growing it to add one.
 
 /// Why a send attempt did not succeed, and whether a retry can help.
 ///
 /// This is the caller-facing half of [`SendResult`]: it is the fact the ledger
 /// cannot derive on its own, because whether a failure is worth retrying is a
 /// property of the channel, not of the delivery's attempt count.
-// Not yet constructed by Host wiring: only a concrete channel classifies a
-// failure (removal condition — drop when an adapter builds a `SendResult`).
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FailureKind {
     /// The attempt may succeed later (a timeout, a throttled or unavailable
@@ -80,9 +83,6 @@ pub enum FailureKind {
 /// the channel accepted the delivery, and `Failed` carries the [`FailureKind`]
 /// that decides retry versus terminal plus the detail to record as the last
 /// error.
-// Not yet constructed by Host wiring: only a concrete channel returns one
-// (removal condition — drop when an adapter returns a `SendResult`).
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SendResult {
     /// The channel accepted the delivery.
@@ -116,10 +116,10 @@ pub struct OutboundMessage {
 /// [`disconnect`](Self::disconnect), and [`send`](Self::send). Every other
 /// method is defaulted, so a channel that needs nothing else writes nothing
 /// else.
-// `connect` and `disconnect` are not yet called by Host wiring: the connect and
-// disconnect passes run at Host boot and shutdown only once a channel is
-// registered (removal condition — drop when a channel is registered and its
-// lifecycle is driven; `send` and `attempt_bound` are already used).
+// `disconnect` is not yet called by Host wiring: there is no channel shutdown
+// pass, because the one registered channel is released by the process ending
+// (removal condition — drop when a shutdown pass releases registered channels;
+// `connect`, `send`, and `attempt_bound` are already used).
 #[allow(dead_code)]
 pub trait OutboundAdapter: Send + Sync {
     /// Prepare the channel for sends. Called once before the first `send` and
@@ -130,8 +130,10 @@ pub trait OutboundAdapter: Send + Sync {
     /// shutdown; must be safe to call when the channel was never connected.
     fn disconnect(&mut self) -> Result<()>;
 
-    /// Attempt one delivery. Must not block the Host: the caller treats the
-    /// returned [`SendResult`] as the whole outcome and never waits on it.
+    /// Attempt one delivery. The caller releases every host lock before this
+    /// call and treats the returned [`SendResult`] as the whole outcome; a
+    /// channel may wait on its own transport, but no guarded Host state may be
+    /// held across that wait.
     fn send(&self, message: &OutboundMessage) -> SendResult;
 
     /// The delivery's default attempt cap, so the ledger's retry/backoff bound
@@ -149,14 +151,13 @@ pub trait OutboundAdapter: Send + Sync {
 /// so a channel exists here only because a caller put it here.
 #[derive(Default)]
 pub struct AdapterRegistry {
-    adapters: HashMap<String, Box<dyn OutboundAdapter>>,
+    adapters: HashMap<String, Arc<dyn OutboundAdapter>>,
 }
 
-// `register`, `names`, `connect_all`, and `disconnect_all` (and their private
-// `sorted_names` helper) are not yet reached by Host wiring: no concrete channel
-// is registered, and no caller enumerates or connects the registry, until the
-// channel milestone (removal condition — drop when the Host registers a channel
-// and runs its connect/disconnect lifecycle; `new` and `get` are already used).
+// `names` and `disconnect_all` are not yet reached by Host wiring: nothing
+// enumerates the registry and the release pass waits for a shutdown caller
+// (removal condition — drop when a caller names or releases registered
+// channels; `new`, `get`, `register`, and `connect_all` are already used).
 #[allow(dead_code)]
 impl AdapterRegistry {
     /// An empty registry. Nothing is registered until [`register`](Self::register).
@@ -176,7 +177,7 @@ impl AdapterRegistry {
         if self.adapters.contains_key(name) {
             return Err(anyhow!("an adapter is already registered as '{name}'"));
         }
-        self.adapters.insert(name.to_string(), adapter);
+        self.adapters.insert(name.to_string(), Arc::from(adapter));
         Ok(())
     }
 
@@ -184,6 +185,16 @@ impl AdapterRegistry {
     /// registered one.
     pub fn get(&self, name: &str) -> Option<&dyn OutboundAdapter> {
         self.adapters.get(name).map(|adapter| adapter.as_ref())
+    }
+
+    /// A shared handle to the adapter registered under `name`.
+    ///
+    /// The registry keeps its own reference, so a caller can carry this handle
+    /// out of the guarded state and run a send with the host lock released —
+    /// the same discipline the config-sync transport uses for its own network
+    /// wait. The channel stays alive as long as it stays registered.
+    pub fn get_shared(&self, name: &str) -> Option<Arc<dyn OutboundAdapter>> {
+        self.adapters.get(name).cloned()
     }
 
     /// Every registered name, sorted, so a caller iterates deterministically.
@@ -195,12 +206,19 @@ impl AdapterRegistry {
 
     /// Connect every registered adapter, in name order. A failing `connect`
     /// stops the pass and names the channel, so the Host can report which one.
+    ///
+    /// A registered channel can also be held by a shared handle mid-send, which
+    /// no `connect` may happen behind; that channel is reported rather than
+    /// mutated through another reference.
     pub fn connect_all(&mut self) -> Result<()> {
         for name in self.sorted_names() {
             let adapter = self
                 .adapters
                 .get_mut(&name)
                 .ok_or_else(|| anyhow!("adapter '{name}' vanished during connect"))?;
+            let adapter = Arc::get_mut(adapter).ok_or_else(|| {
+                anyhow!("adapter '{name}' is shared and cannot be connected while in use")
+            })?;
             adapter
                 .connect()
                 .map_err(|error| anyhow!("adapter '{name}' failed to connect: {error}"))?;
@@ -215,6 +233,9 @@ impl AdapterRegistry {
                 .adapters
                 .get_mut(&name)
                 .ok_or_else(|| anyhow!("adapter '{name}' vanished during disconnect"))?;
+            let adapter = Arc::get_mut(adapter).ok_or_else(|| {
+                anyhow!("adapter '{name}' is shared and cannot be disconnected while in use")
+            })?;
             adapter
                 .disconnect()
                 .map_err(|error| anyhow!("adapter '{name}' failed to disconnect: {error}"))?;
@@ -269,25 +290,63 @@ pub enum AttemptOutcome {
     Failed { id: String, error: String },
 }
 
-/// Claim one due delivery, send it through its channel, and record the result.
+/// The start of one attempt cycle, in the form a caller that must release the
+/// host lock needs.
 ///
-/// This is the whole attempt cycle the Host drives: claim at most one due item,
-/// hand it to the registered adapter, and let the ledger decide what the
-/// outcome means. A retryable failure returns the item to the ledger's bounded
-/// backoff and, at the attempt cap, terminals it; a terminal failure ends it
-/// immediately. The ledger stays the single owner of persistence — this function
-/// only calls it, never writes delivery state itself.
-pub fn attempt_one(
+/// [`begin_attempt`] claims a due delivery while the caller holds the lock and
+/// resolves everything the send needs into a [`PreparedAttempt`]. The caller
+/// then drops the lock and runs [`PreparedAttempt::send`], and [`finish_attempt`]
+/// records the outcome once the lock is held again. The send stays on the
+/// ledger's attempt cycle; only the lock is released across it, so a slow
+/// channel never holds guarded Host state while it waits.
+pub enum AttemptStart {
+    /// Nothing was due, or nothing was claimable behind its backoff gate.
+    Idle,
+    /// The claim was settled inside the ledger without a send — a delivery
+    /// whose channel has no registered adapter ends terminally.
+    Settled(AttemptOutcome),
+    /// Claimed and resolved: send through the channel, then record the result
+    /// with [`finish_attempt`].
+    Ready(PreparedAttempt),
+}
+
+/// A claimed delivery whose channel is resolved and whose send is ready to run.
+///
+/// It carries its own reference to the channel, so the send does not borrow the
+/// registry and can run with the host lock released.
+pub struct PreparedAttempt {
+    id: String,
+    adapter: Arc<dyn OutboundAdapter>,
+    message: OutboundMessage,
+}
+
+impl PreparedAttempt {
+    /// Attempt the send through the resolved channel.
+    ///
+    /// This is the one step of the cycle that can block, so the caller must not
+    /// hold the host state lock across it.
+    pub fn send(&self) -> SendResult {
+        self.adapter.send(&self.message)
+    }
+}
+
+/// Claim one due delivery and resolve its channel, without waiting on it yet.
+///
+/// Pairs with [`finish_attempt`]: a caller that holds the host lock uses this
+/// to take everything the send needs out of the guarded state, then drops the
+/// lock for the send. A caller that holds no such lock can instead call
+/// `attempt_one`, which runs the two halves around the send itself.
+pub fn begin_attempt(
     db: &Database,
     registry: &AdapterRegistry,
     worker: &str,
-) -> Result<AttemptOutcome> {
+) -> Result<AttemptStart> {
     let Some(delivery) = delivery_ledger::claim(db, worker, DEFAULT_LEASE_MS)? else {
-        return Ok(AttemptOutcome::Idle);
+        return Ok(AttemptStart::Idle);
     };
     let id = delivery.id.clone();
 
-    let Some(adapter) = registry.get(&delivery.channel) else {
+    let Some(adapter) = registry.get_shared(&delivery.channel) else {
         // A delivery for a channel no caller registered can never be sent, so
         // it is terminal rather than left to cycle through its budget.
         let error = format!(
@@ -295,19 +354,36 @@ pub fn attempt_one(
             delivery.channel
         );
         return match delivery_ledger::mark_failed_terminal(db, &id, worker, &error)? {
-            Some(_) => Ok(AttemptOutcome::Failed { id, error }),
+            Some(_) => Ok(AttemptStart::Settled(AttemptOutcome::Failed { id, error })),
             None => Err(lease_write_missed(&id, worker, "failed")),
         };
     };
 
-    let message = OutboundMessage {
+    Ok(AttemptStart::Ready(PreparedAttempt {
         id: id.clone(),
-        channel: delivery.channel.clone(),
-        payload: delivery.payload.clone(),
-        redelivery: delivery.redelivery,
-    };
+        adapter,
+        message: OutboundMessage {
+            id,
+            channel: delivery.channel.clone(),
+            payload: delivery.payload.clone(),
+            redelivery: delivery.redelivery,
+        },
+    }))
+}
 
-    match adapter.send(&message) {
+/// Record the outcome of a send the caller ran with [`PreparedAttempt::send`].
+///
+/// The ledger stays the single owner of persistence: under a retryable failure
+/// it reschedules behind the backoff gate, and the attempt that reaches the cap
+/// becomes terminal failed.
+pub fn finish_attempt(
+    db: &Database,
+    worker: &str,
+    prepared: &PreparedAttempt,
+    result: SendResult,
+) -> Result<AttemptOutcome> {
+    let id = prepared.id.clone();
+    match result {
         SendResult::Delivered => match delivery_ledger::mark_delivered(db, &id, worker)? {
             Some(_) => Ok(AttemptOutcome::Delivered { id }),
             None => Err(lease_write_missed(&id, worker, "delivered")),
@@ -331,6 +407,33 @@ pub fn attempt_one(
                 Some(DeliveryState::Failed) => Ok(AttemptOutcome::Failed { id, error: detail }),
                 _ => Ok(AttemptOutcome::Retried { id, error: detail }),
             }
+        }
+    }
+}
+
+/// Claim one due delivery, send it through its channel, and record the result.
+///
+/// This is the whole attempt cycle the Host drives: claim at most one due item,
+/// hand it to the registered adapter, and let the ledger decide what the
+/// outcome means. It runs the send inline, so a caller that holds the host
+/// state lock must use [`begin_attempt`] and [`finish_attempt`] instead, with
+/// the send between them and no lock held. A retryable failure returns the item
+/// to the ledger's bounded backoff and, at the attempt cap, terminals it; a
+/// terminal failure ends it immediately. The ledger stays the single owner of
+/// persistence — this function only calls it, never writes delivery state
+/// itself.
+#[cfg(test)]
+pub fn attempt_one(
+    db: &Database,
+    registry: &AdapterRegistry,
+    worker: &str,
+) -> Result<AttemptOutcome> {
+    match begin_attempt(db, registry, worker)? {
+        AttemptStart::Idle => Ok(AttemptOutcome::Idle),
+        AttemptStart::Settled(outcome) => Ok(outcome),
+        AttemptStart::Ready(prepared) => {
+            let result = prepared.send();
+            finish_attempt(db, worker, &prepared, result)
         }
     }
 }
