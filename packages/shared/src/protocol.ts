@@ -165,6 +165,21 @@ export const IPC = {
     settingsGet: "pi-desktop/settings/get",
     settingsSet: "pi-desktop/settings/set",
     /**
+     * Bind the one linked messaging conversation to the session its inbound
+     * commands act on (ADR 0205 D375 item 9). The conversation-to-session
+     * binding lives in the shared `app` settings row; this is the host-internal
+     * writer that puts it there, so a linked chat can actually reach an
+     * operation instead of being refused as unbound.
+     *
+     * It carries only the session id and writes only the channel's own settings
+     * key, so it cannot rewrite a neighbouring setting. It is deliberately not a
+     * RACP operation: `settings` stays out of `RACP_OPERATIONS`, so no remote
+     * peer can reach this row, and the desktop backend router only forwards a
+     * call whose session id is a paired remote id — this one carries the local
+     * session id, so it always runs against the local host-core.
+     */
+    messagingInboundBindSession: "pi-desktop/messagingInbound/bindSession",
+    /**
      * Skin center (D635). Import a local image/video as a background asset
      * (returns an opaque asset id), delete one, and export/import a whole skin
      * as a `.qnskin` bundle. Assets never expose a filesystem path to the

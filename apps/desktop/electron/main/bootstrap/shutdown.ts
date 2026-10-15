@@ -3,7 +3,7 @@ import type { CloseBehavior } from "@pi-desktop/shared";
 import type { AgentSidecar } from "../agent-sidecar";
 import type { BrowserHost } from "../browser-host";
 import type { HostProcess } from "../host-process";
-import type { InflightCheckpointer } from "@pi-desktop/host-runtime";
+import { settleWithinBudget, type InflightCheckpointer, type MessagingInboundHandle } from "@pi-desktop/host-runtime";
 import type { Logger } from "../logger";
 import type { PersistenceOutbox } from "../persistence-outbox";
 import type { PluginPanelHost } from "../plugin-panel-host";
@@ -17,6 +17,14 @@ import { getActiveRemoteHostsBoot, setActiveRemoteHostsBoot } from "./remote-hos
 import { uninstallMediaAssetProtocol } from "../media-asset-protocol";
 
 const QUIT_TURN_SETTLE_BUDGET_MS = 2_000;
+
+/**
+ * How long a quit waits for the inbound messaging loop to leave `run` after its
+ * abort. The loop's own host calls carry no abort signal, so a single in-flight
+ * iteration is bounded only by the host RPC deadline — far longer than a quit
+ * may wait; this budget keeps that from stalling the quit.
+ */
+const QUIT_MESSAGING_INBOUND_BUDGET_MS = 2_000;
 
 export type ShutdownState = {
   shutdownComplete: boolean;
@@ -35,6 +43,8 @@ export type ShutdownDependencies = {
   getHost: () => HostProcess | null;
   getSidecar: () => AgentSidecar | null;
   getMcpControl: () => McpControlServer | null;
+  /** The inbound messaging loop this boot started, if any. */
+  getMessagingInbound: () => MessagingInboundHandle | null;
   activeTurns: Map<string, string>;
   persistenceOutbox: PersistenceOutbox;
   inflightCheckpointer: InflightCheckpointer;
@@ -58,6 +68,7 @@ export function registerShutdownHandlers({
   getHost,
   getSidecar,
   getMcpControl,
+  getMessagingInbound,
   activeTurns,
   persistenceOutbox,
   inflightCheckpointer,
@@ -137,6 +148,17 @@ export function registerShutdownHandlers({
       state.toggleWindowAccelerator = null;
     }
     state.shutdownPromise = (async () => {
+      // Stop the inbound messaging loop first: it reads and writes the settings
+      // row through the local host-core, and this shutdown owns its controller,
+      // so it is aborted and awaited before the host is disposed. The loop
+      // re-checks the signal between iterations, so the abort ends it as soon as
+      // the current iteration returns — but a single in-flight iteration is one
+      // host RPC, whose own deadline is far longer than a quit may wait. The
+      // wait is therefore bounded, the way the provider wait below is; giving up
+      // on the wait does not hold up the rest of shutdown.
+      const messagingInbound = getMessagingInbound();
+      messagingInbound?.controller.abort();
+      await settleWithinBudget(messagingInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
       // Close every paired remote host before the local host-core so any
       // in-flight remote turn's abort still goes over a live socket. Bounded
       // parallelism inside `closeAll`; safe to run before local disposals.

@@ -330,6 +330,22 @@ describe("catalog and roles", () => {
   });
 });
 
+describe("the settings row is not a RACP operation", () => {
+  it("keeps settings.get and settings.set out of the operation catalog", () => {
+    // The inbound messaging wiring stores the chat-to-principal link, the poll
+    // cursor and the conversation-to-session binding in the shared `app`
+    // settings row. Those writes are safe only because no RACP peer can reach
+    // that row: the server answers METHOD_NOT_FOUND for any method absent from
+    // this table before a handler is looked up, and every settings.write caller
+    // is on the host's internal call path. If `settings` ever joins the
+    // catalog, a remote peer could rewrite the binding and point a linked chat
+    // at an arbitrary session; this assertion turns red first.
+    expect(RACP_OPERATIONS).not.toHaveProperty("settings.get");
+    expect(RACP_OPERATIONS).not.toHaveProperty("settings.set");
+    expect(Object.keys(RACP_OPERATIONS).filter((operation) => operation.startsWith("settings."))).toEqual([]);
+  });
+});
+
 describe("versions and errors", () => {
   it("accepts minor additions and rejects a different major", () => {
     expect(protocolVersionsCompatible("1.0", "1.0")).toBe(true);

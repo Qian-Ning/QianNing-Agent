@@ -17,8 +17,8 @@
       "max": 1127
     },
     "packages/agent-host/src/messaging-inbound.ts": {
-      "reason": "The inbound command path (ADR 0205 D375 item 9) keeps the link reader, receive-loop driver, replay guard, cursor handling and outbound transport in one sidecar-private source boundary: the driver, its cursor and its guard only mean anything next to each other, the guard's record-point and the cursor's save-point are the same ordering decision seen from two sides, and the transport's endpoint rule is the boundary the driver's credential depends on. The ceiling records the size at which the module-doc at-least-once semantics, the LAN-host restatement and the stated test-coverage limit were added; split by lifecycle once the inbound-channel wiring lands.",
-      "max": 874
+      "reason": "The inbound command path (ADR 0205 D375 item 9) keeps the link reader, receive-loop driver, replay guard, cursor handling and outbound transport in one sidecar-private source boundary: the driver, its cursor and its guard only mean anything next to each other, the guard's record-point and the cursor's save-point are the same ordering decision seen from two sides, and the transport's endpoint rule is the boundary the driver's credential depends on. The ceiling moved from 874 to 896 when the Forward-API note was replaced by the wiring note and that note was then made true: the wiring note now names the factory in host-runtime, the ports it injects, the persisted binding, the production binding writer (`bindMessagingInboundSession`, behind the host-internal bind IPC channel), and the honest statement that the wiring adds no session-ownership check; it also states the loop's shutdown precisely — the signal is re-checked between iterations, so a single in-flight iteration can outlive the abort by one host RPC deadline, which is why each root bounds its await. Both are documentation changes with no new production behaviour in this module, so the file is not split here; the driver, cursor and guard still need to be read together.",
+      "max": 896
     }
   },
   "rust": {

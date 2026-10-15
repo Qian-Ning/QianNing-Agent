@@ -47,33 +47,53 @@ import { RandomIds, type IdSource, type Principal } from "./ports.js";
  * - No second enqueue path and no second registry.
  * - The mapper's output is what is routed; command parsing is never restated.
  *
- * # Forward API
+ * # Wiring
  *
- * The module is reached by its tests only: the Host wiring that constructs a
- * [`MessagingInboundDriver`] — the settings read that supplies the link, the
- * secret read that supplies the channel credential, the session directory that
- * supplies the principal's current session, the poll-cursor store, and the audit
- * sink — and that starts and stops [`MessagingInboundDriver::run`] lands with
- * the inbound-channel wiring change (removal condition: drop this note when the
- * wiring constructs the driver). Nothing here depends on that step: the
- * operation surface, the transport, the link, and the cursor store are all
- * injected, so the wiring is composition only.
+ * The driver is constructed by `createMessagingInboundWiring` in
+ * `@pi-desktop/host-runtime`, which both composition roots call: the desktop
+ * main process (`electron/main/bootstrap/startup.ts`) and the headless entry
+ * point (`apps/pi-host/src/app.ts`). That factory hands the driver the
+ * channel's settings section read through the host's settings surface, the bot
+ * token read through the secret store, a cursor store and a
+ * conversation-to-session binding store over that same settings row, the audit
+ * sink, and an abort signal the root owns. Each root aborts its own controller
+ * on shutdown and awaits the loop's completion, bounded by a short budget the
+ * way a quit bounds its wait on an unresponsive provider. The loop re-checks
+ * the signal *between* iterations, so after an abort it leaves `run` as soon as
+ * the current iteration returns; a single in-flight iteration can still be
+ * waiting on a host RPC whose own deadline is far longer, which is exactly why
+ * the roots bound that wait rather than awaiting it unbounded. Nothing here
+ * depends on that step: the operation surface, the transport, the link, the
+ * cursor and the binding are all injected, so the wiring is composition only.
  *
- * Two conditions the wiring must meet before it is written:
+ * The binding has a production writer: the host-internal
+ * `pi-desktop/messagingInbound/bindSession` IPC handler calls
+ * [`bindMessagingInboundSession`] in `@pi-desktop/host-runtime`, which writes
+ * `inbound.sessionId` in the channel's settings section through the host's own
+ * `settings.set`. Until that writer lands, a linked chat has no binding and
+ * every command is refused, so the loop can only refuse; with it, a bound
+ * conversation reaches an operation.
  *
- * - The poll cursor must be persisted, not only held in memory. The wiring
- *   supplies a [`MessagingInboundCursorStore`] backed by the same `app` settings
- *   row the link is read from, so a restart resumes at the last offset the
- *   driver saved instead of replaying from zero. A store that lives only in
- *   memory leaves a restart free to replay whatever the platform redelivers.
- * - The current-session lookup must be a persisted conversation-to-session
- *   binding with a host-side ownership check. The Host's role gate checks the
- *   principal's roles but not that the principal owns the session, so the lookup
- *   this module is handed must not be able to name an arbitrary session: the
- *   binding is stored per conversation and the Host confirms ownership before an
- *   operation runs. This module does not build that check; it is recorded here
- *   as a wiring-time condition so the wiring cannot be written without
- *   addressing it.
+ * The poll cursor is persisted, not only held in memory: the wiring's cursor
+ * store rides the same `app` settings row the link is read from, so a restart
+ * resumes at the last offset the driver saved instead of replaying from zero. A
+ * store that lives only in memory would leave a restart free to replay whatever
+ * the platform redelivers.
+ *
+ * The current-session lookup is the persisted conversation-to-session binding
+ * ([`InboundSessionDirectory`]), stored per linked conversation in the same
+ * settings row; the rest of the target is read from the Agent Host's own
+ * snapshot, not guessed. This module performs no session-ownership check, and
+ * the wiring adds none: the Host's role gate checks the principal's roles but
+ * not that the principal owns the session, and the sessions table has no owner
+ * column, so a real check needs either new persisted ownership data or a new
+ * per-session authorization scope — an architecture decision recorded
+ * separately. What protects the session choice in the meantime is that the
+ * binding is written only through the host's internal `settings.set` path,
+ * which no RACP peer can reach (the operation table does not name `settings`,
+ * pinned by a test in `@pi-desktop/shared`), plus the role gate before every
+ * operation; and that a chat with no binding yields no target and is refused
+ * before any operation runs.
  *
  * # The lock rule
  *
@@ -311,9 +331,11 @@ export interface MessagingInboundCursorStore {
  * Resolve the operation target for a principal.
  *
  * A chat message carries no ids, so an operation that names no target acts on
- * the principal's current session and that session's active turn — this is the
- * one place that decision is made, and the wiring decides how "current session"
- * is found (the Host's session catalog, or the session this chat was bound to).
+ * the session the linked chat is bound to and that session's active turn — this
+ * is the one place that decision is made. The wiring resolves the session from
+ * the persisted conversation-to-session binding (see the wiring note), never
+ * from the message: the message text carries no ids, and a chat with no binding
+ * yields no target at all.
  */
 export interface InboundSessionDirectory {
   resolve(principal: Principal): Promise<MessagingCommandTarget>;

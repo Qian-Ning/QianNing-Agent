@@ -691,6 +691,14 @@ export const api = {
   getSettings: () => invoke<AppSettings>(IPC.invoke.settingsGet).then(normalizeSettings),
   setSettings: (settings: AppSettings) =>
     invoke(IPC.invoke.settingsSet, validateSettingsWrite(settings)),
+  /**
+   * Bind the linked messaging conversation to a session (ADR 0205 D375 item 9).
+   * The one production writer of the conversation-to-session binding the
+   * inbound command path resolves a target from; it writes only the channel's
+   * own settings key and refuses a blank session id.
+   */
+  bindMessagingInboundSession: (sessionId: string) =>
+    invoke<{ ok: boolean }>(IPC.invoke.messagingInboundBindSession, sessionId),
   /** Skin center (D635): host-side background media + bundle import/export. */
   importSkinAsset: (path?: string) =>
     invoke<SkinImportAssetResult | null>(IPC.invoke.skinImportAsset, { path }),
