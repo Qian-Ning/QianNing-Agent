@@ -354,3 +354,4 @@ Each ADR includes:
 | 0323 | [Add HappyCoding as a named endpoint preset](0323-happycoding-endpoint-preset.md) | Accepted |
 | 0324 | [Bound the architecture budget exemptions](0324-bound-architecture-budget-exemptions.md) | Accepted (amends 0235) |
 | chronological-system-transcript | [Preserve chronological model system state](chronological-system-transcript.md) | Accepted |
+| 0325 | [Give sessions persisted ownership and enforce it at the Agent Host](0325-session-ownership-at-the-agent-host.md) | Accepted for implementation (per-session scoped roles deferred) |
