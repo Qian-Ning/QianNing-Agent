@@ -23,20 +23,21 @@
 //! refactor inside a feature change — and nothing here alters the webhook's
 //! behaviour: a status-bearing answer is classified the same way in both.
 //!
-//! # Direction: outbound only
+//! # Direction: this transport is outbound only
 //!
-//! This module, and every channel built on it, is outbound only. Nothing here
-//! binds, listens, accepts, or long-polls: the one socket a channel opens is a
-//! client connection *to* the endpoint the user configured.
+//! This module, and every channel built on it, sends only. Nothing here binds,
+//! listens, accepts, or long-polls: the one socket a channel opens is a client
+//! connection *to* the endpoint the user configured.
 //!
-//! The inbound direction is deliberately absent, and that is the boundary this
-//! doc comment records. There is no message receive, no polling loop, no socket
-//! server, and no webhook receiver; no command path (a command mapper stays
-//! unwired and is given no caller here); no chat-to-principal link, no
-//! operation-invocation verb, no request-context mint, and no inbound replay
-//! guard; and no second enqueue path and no second registry. The milestone this
-//! increment belongs to requires an inbound command path to be complete; this
-//! increment does not complete it.
+//! The inbound command path is not part of this transport. It is delivered by
+//! the messaging integration's driver in the agent host module, beside the turn
+//! and approval operations it invokes, and it reaches the channel by an
+//! outbound long poll of its own — an ordinary HTTPS request the Host
+//! originates — so neither this transport nor that driver opens a listener, a
+//! port, or an accepting socket. The chat-to-principal link, the command
+//! mapping, the request-context mint, and the inbound replay guard all live on
+//! that driver; none of them lives here, and there is still no second enqueue
+//! path and no second registry.
 //!
 //! # The lock rule
 //!

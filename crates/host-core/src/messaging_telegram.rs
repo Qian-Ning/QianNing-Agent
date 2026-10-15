@@ -8,23 +8,28 @@
 //! restating it — the request worker, the transport classification, the
 //! endpoint rule, and the delivery envelope all live there.
 //!
-//! # Direction: outbound only, and the milestone is incomplete
+//! # Direction: outbound delivery
 //!
-//! The direction is outbound only. This channel never binds, listens, accepts,
-//! or long-polls: the one socket it opens is a client connection *to* the
-//! configured endpoint, and the acceptance scenario's precondition — no inbound
-//! port is open on the Host machine — stays true.
+//! This module only sends. It never binds, listens, accepts, or long-polls:
+//! the one socket it opens is a client connection *to* the configured
+//! endpoint, and the acceptance scenario's precondition — no inbound port is
+//! open on the Host machine — stays true. The channel as a whole now also
+//! receives inbound commands, but not through this module: that direction is an
+//! outbound long poll run elsewhere (see below), so the module's own claim
+//! stands.
 //!
-//! The inbound command direction is deliberately absent and out of scope for
-//! this increment. There is no message receive from a chat, no polling loop, no
-//! socket, no long-lived connection, and no webhook receiver; no command path
-//! (the command mapper stays unwired and is given no caller here); no
-//! chat-to-principal link, no operation-invocation verb, no request-context
-//! mint, and no inbound replay guard; and no own permission policy, no raw
-//! transcript content, no second enqueue path, and no second registry. **The
-//! milestone this increment belongs to requires an inbound command path to be
-//! complete; this increment does not complete it.** What lands here is the
-//! outbound half only.
+//! The inbound command path for this channel is delivered by the messaging
+//! integration's driver in the agent host module, beside the turn and approval
+//! operations it invokes, and it reaches the channel by an outbound long poll
+//! of its own. That driver exists but is not yet constructed by any production
+//! entry point: it is reached by its tests only, and the wiring that starts it
+//! lands with the inbound-channel change. This module holds none of it: no
+//! message receive, no polling loop, no command mapping, no chat-to-principal
+//! link, no request-context mint, no inbound replay guard, and no own
+//! permission policy. The link and the permission mode ride the same
+//! `messagingTelegram` settings section the record below uses, and admission
+//! stays with the operation surface's own role gate — this module never decides
+//! what a command may do.
 //!
 //! # The lock rule
 //!
@@ -66,7 +71,11 @@
 //!   "version": 1,
 //!   "endpoint": "https://api.example.invalid",
 //!   "destination": "<chat id>",
-//!   "requestTimeoutMs": 10000
+//!   "requestTimeoutMs": 10000,
+//!   "inbound": {
+//!     "linkedPrincipal": { "subject": "<principal subject>", "roles": ["controller"] },
+//!     "permissionMode": "ask"
+//!   }
 //! }
 //! ```
 //!
@@ -78,6 +87,17 @@
 //! is configured or not, and a configured channel registers alongside the
 //! webhook — several channels coexist, distinguished by the ledger's channel
 //! column.
+//!
+//! `inbound` is the inbound command path's half of the same record, and this
+//! module reads none of it: `Serde` ignores the field, so a record carrying it
+//! registers exactly as one without it does. The messaging integration's driver
+//! in the agent host module reads it — the chat-to-principal link it holds
+//! (`linkedPrincipal`) and the out-of-band permission mode a contract approval
+//! carries (`permissionMode`) — but that driver is not yet constructed by any
+//! production entry point, so for now the field is read only by that driver's
+//! tests. An absent `inbound`, or one without `linkedPrincipal`, leaves the
+//! conversation unlinked, and an unlinked chat's messages are ignored and
+//! audited.
 //!
 //! The endpoint rule is the webhook's, applied by calling the same shared
 //! helper: HTTPS is required, and a plaintext hop is accepted only to the user's

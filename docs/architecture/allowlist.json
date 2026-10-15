@@ -11,6 +11,14 @@
     "packages/agent-runtime/src/native-pi-session.ts": {
       "reason": "Native Pi discovery, immutable projection, guarded continuation, and fork publication share one sidecar-private source boundary; split by lifecycle once the native adapter contract stabilises without widening path ownership.",
       "max": 1166
+    },
+    "packages/agent-host/src/messaging-inbound.test.ts": {
+      "reason": "Regression coverage for the inbound command path keeps the link, routing, replay guard, poll-cursor durability, poll-loop and endpoint-rule contracts in one suite beside the module they exercise, because each contract is a facet of the same receive loop; the ceiling moved from 983 to 1127 when the crash-window ordering, the backwards-cursor guard, the audited cursor-save failure, the guard record-point ordering and the IPv4-mapped-literal refusals each gained a case.",
+      "max": 1127
+    },
+    "packages/agent-host/src/messaging-inbound.ts": {
+      "reason": "The inbound command path (ADR 0205 D375 item 9) keeps the link reader, receive-loop driver, replay guard, cursor handling and outbound transport in one sidecar-private source boundary: the driver, its cursor and its guard only mean anything next to each other, the guard's record-point and the cursor's save-point are the same ordering decision seen from two sides, and the transport's endpoint rule is the boundary the driver's credential depends on. The ceiling records the size at which the module-doc at-least-once semantics, the LAN-host restatement and the stated test-coverage limit were added; split by lifecycle once the inbound-channel wiring lands.",
+      "max": 874
     }
   },
   "rust": {
