@@ -143,6 +143,12 @@ impl AppState {
         if let Err(error) = crate::messaging_webhook::register(&mut messaging, &db, &secrets) {
             tracing::warn!(%error, "outbound webhook channel is not available");
         }
+        if let Err(error) = crate::messaging_telegram::register(&mut messaging, &db, &secrets) {
+            tracing::warn!(%error, "outbound telegram channel is not available");
+        }
+        if let Err(error) = crate::messaging_slack::register(&mut messaging, &db, &secrets) {
+            tracing::warn!(%error, "outbound slack channel is not available");
+        }
         if let Err(error) = messaging.connect_all() {
             tracing::warn!(%error, "an outbound channel failed to connect");
         }
