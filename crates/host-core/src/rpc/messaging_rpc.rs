@@ -18,8 +18,11 @@
 //!
 //! [`drive_once`] is one tick of the attempt cycle the Host's background driver
 //! runs: it claims at most one due delivery and records the outcome through the
-//! ledger. The channel registry it drives ([`AppState::messaging`]) holds no
-//! adapter until a concrete outbound channel is registered, so in production
+//! ledger. It claims and records while holding the host state lock, but drops
+//! that lock across the channel's send — the same discipline the config-sync
+//! coordinator uses for its network I/O — so a slow channel never holds up an
+//! unrelated RPC. The channel registry it drives ([`AppState::messaging`]) holds
+//! no adapter until a concrete outbound channel is registered, so in production
 //! the cycle claims nothing and `messaging.enqueue` refuses an unregistered
 //! channel — the ledger, not this file, governs a delivery once one exists.
 
@@ -31,7 +34,9 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
 use super::{rpc_err, AppState, JsonRpcError};
-use crate::messaging_adapter::{attempt_one, enqueue_for, AttemptOutcome};
+use crate::messaging_adapter::{
+    begin_attempt, enqueue_for, finish_attempt, AttemptOutcome, AttemptStart,
+};
 
 /// How often the host's background driver runs one tick of the outbound
 /// messaging attempt cycle. It matches the neighboring config-sync cadence: the
@@ -80,15 +85,32 @@ pub(super) async fn handle(
 
 /// One tick of the outbound attempt cycle.
 ///
-/// This is the only caller of [`attempt_one`]: claim at most one due delivery,
-/// send it through its channel, and let the ledger record the outcome. A
-/// delivery's retry, backoff and terminal rules are the ledger's, unchanged.
+/// This is the only caller of the attempt cycle's two halves: claim at most one
+/// due delivery under the host lock, run the channel's send with that lock
+/// released, then record the outcome under the lock again. A delivery's retry,
+/// backoff and terminal rules are the ledger's, unchanged.
 pub(crate) async fn drive_once(
     state: &Arc<Mutex<AppState>>,
     worker: &str,
 ) -> Result<AttemptOutcome, JsonRpcError> {
+    // Claim while the lock is held, and take everything the send needs out of
+    // the guarded state — the channel comes back as a shared handle — so the
+    // blocking wait runs with no lock held.
+    let start = {
+        let st = state.lock().await;
+        begin_attempt(&st.db, &st.messaging, worker)
+            .map_err(|error| rpc_err(1000, error.to_string(), "INTERNAL"))?
+    };
+    let prepared = match start {
+        AttemptStart::Idle => return Ok(AttemptOutcome::Idle),
+        AttemptStart::Settled(outcome) => return Ok(outcome),
+        AttemptStart::Ready(prepared) => prepared,
+    };
+    // The send is the one step that can block; it runs with the host lock free
+    // so a slow channel cannot delay an unrelated turn.
+    let result = prepared.send();
     let st = state.lock().await;
-    attempt_one(&st.db, &st.messaging, worker)
+    finish_attempt(&st.db, worker, &prepared, result)
         .map_err(|error| rpc_err(1000, error.to_string(), "INTERNAL"))
 }
 
@@ -96,7 +118,7 @@ pub(crate) async fn drive_once(
 ///
 /// This is the side that owns the job: host-core holds SQLite and the ledger,
 /// so it is host-core that claims a due delivery, sends it through its channel,
-/// and records the outcome. No other side drives [`attempt_one`], and the
+/// and records the outcome. No other side drives the cycle, and the
 /// driver adds no enqueue path — a delivery exists only because
 /// `messaging.enqueue` created it. `serve` owns the returned handle and aborts
 /// it on shutdown, exactly as it does the config-sync scheduler.
@@ -385,5 +407,101 @@ mod tests {
             AttemptOutcome::Idle
         );
         assert_eq!(channel.lock().unwrap().sent.len(), 1);
+    }
+
+    /// A channel whose `send` blocks until the test opens its gate, so a test
+    /// can observe the host while a send is in flight.
+    struct GatedAdapter {
+        started: StdArc<tokio::sync::Notify>,
+        /// Held across the send: `recv` blocks until the test releases it.
+        release: StdMutex<std::sync::mpsc::Receiver<()>>,
+        sent: StdArc<StdMutex<Vec<OutboundMessage>>>,
+    }
+
+    impl OutboundAdapter for GatedAdapter {
+        fn connect(&mut self) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        fn disconnect(&mut self) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        fn send(&self, message: &OutboundMessage) -> SendResult {
+            self.sent.lock().unwrap().push(message.clone());
+            // Announce that the send is in flight, then block until the test
+            // lets it finish. If the cycle released the host lock first, an
+            // unrelated host call runs to completion while this waits.
+            self.started.notify_one();
+            let _ = self.release.lock().unwrap().recv();
+            SendResult::Delivered
+        }
+    }
+
+    #[tokio::test]
+    async fn the_attempt_cycle_releases_the_host_lock_across_a_blocking_send() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = AppState::open(dir.path()).unwrap();
+        let started = StdArc::new(tokio::sync::Notify::new());
+        let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+        let sent = StdArc::new(StdMutex::new(Vec::new()));
+        app.messaging
+            .register(
+                "primary",
+                Box::new(GatedAdapter {
+                    started: started.clone(),
+                    release: StdMutex::new(release_rx),
+                    sent: sent.clone(),
+                }),
+            )
+            .unwrap();
+        let state = Arc::new(Mutex::new(app));
+
+        let id = enqueue(&state, "primary", json!({ "kind": "turn.completed" }))
+            .await
+            .unwrap()["delivery"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        // Run one cycle on a thread of its own, where it blocks inside the
+        // channel's send without occupying this test's runtime.
+        let cycle = {
+            let state = state.clone();
+            std::thread::spawn(move || {
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap();
+                runtime.block_on(drive_once(&state, "worker-a"))
+            })
+        };
+
+        // The send is now in flight and has not returned.
+        started.notified().await;
+
+        // Host work that needs the same lock must complete: the cycle holds no
+        // guarded state across the send. Were the lock still held, this would
+        // not finish and the guard below would fail instead of racing a timer.
+        let second = tokio::time::timeout(
+            Duration::from_secs(10),
+            enqueue(&state, "primary", json!({ "kind": "turn.failed" })),
+        )
+        .await
+        .expect("host work must not wait for a blocking send")
+        .unwrap();
+        assert!(second["delivery"]["id"].is_string());
+
+        // Let the send finish; the cycle records the outcome as usual.
+        release_tx.send(()).unwrap();
+        assert_eq!(
+            cycle.join().unwrap().unwrap(),
+            AttemptOutcome::Delivered { id: id.clone() }
+        );
+        assert_eq!(sent.lock().unwrap().len(), 1, "the channel was sent once");
+
+        let st = state.lock().await;
+        let stored = delivery_ledger::get(&st.db, &id).unwrap().unwrap();
+        assert_eq!(stored.state, DeliveryState::Delivered);
     }
 }

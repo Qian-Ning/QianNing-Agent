@@ -77,9 +77,10 @@ pub struct AppState {
     pub hashline: crate::tools::HashlineStore,
     /// The outbound messaging channel registry (ADR 0205 D375 item 9). The
     /// `messaging.enqueue` verb enqueues only to a channel registered here, and
-    /// the host's background attempt cycle sends only through one. It holds no
-    /// adapter until a concrete outbound channel is registered, so nothing is
-    /// deliverable — and nothing is enqueued — before then.
+    /// the host's background attempt cycle sends only through one. Opening the
+    /// state registers the webhook channel when the host is configured for one,
+    /// so a host that is not configured still registers nothing and delivers
+    /// nothing, exactly as before.
     pub messaging: AdapterRegistry,
 }
 
@@ -131,6 +132,20 @@ impl AppState {
         let mcp_servers = McpServerRegistry::new(data_dir);
         let user_skills = UserSkillRegistry::new(data_dir);
         let user_subagents = UserSubagentRegistry::new(data_dir);
+        // The outbound channels the Host can actually deliver through. The
+        // webhook channel is registered only when the host is configured for
+        // one — an unconfigured Host registers nothing and runs the same — and
+        // each registered channel is connected here, so the existing attempt
+        // cycle reaches a channel that is ready rather than one that has never
+        // been prepared. Neither failure is fatal: a channel that cannot be
+        // configured or connected costs its own deliveries, not the Host's boot.
+        let mut messaging = AdapterRegistry::new();
+        if let Err(error) = crate::messaging_webhook::register(&mut messaging, &db, &secrets) {
+            tracing::warn!(%error, "outbound webhook channel is not available");
+        }
+        if let Err(error) = messaging.connect_all() {
+            tracing::warn!(%error, "an outbound channel failed to connect");
+        }
         Ok(Self {
             data_dir: data_dir.to_path_buf(),
             db,
@@ -157,7 +172,7 @@ impl AppState {
             pending_permissions: HashMap::new(),
             pending_bash_aborts: HashMap::new(),
             hashline: crate::tools::HashlineStore::new(),
-            messaging: AdapterRegistry::new(),
+            messaging,
         })
     }
 

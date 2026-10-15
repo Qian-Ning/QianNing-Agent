@@ -62,7 +62,11 @@ fn validate_relative_directory(value: &str) -> Result<String> {
     Ok(parts.join("/"))
 }
 
-fn is_lan_http_host(host: &str) -> bool {
+/// Whether a plaintext `http` hop to `host` is within the user's own network.
+///
+/// Shared with the outbound webhook endpoint rule (`messaging_webhook`), which
+/// applies the same limit so the two plaintext exceptions cannot drift apart.
+pub(crate) fn is_lan_http_host(host: &str) -> bool {
     let host = host
         .trim()
         .trim_start_matches('[')
