@@ -150,6 +150,78 @@ fn v19_database_migrates_session_system_prompt_column() {
 }
 
 #[test]
+fn a_v23_database_gains_the_owner_column_and_takes_a_v23_backup() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    {
+        let db = Database::open(&path).unwrap();
+        // Force the pre-v24 shape: drop the column so the migration has real
+        // work to do rather than reading a column CREATE already added.
+        db.conn()
+            .execute_batch("ALTER TABLE sessions DROP COLUMN owner;")
+            .unwrap();
+        db.conn().pragma_update(None, "user_version", 23).unwrap();
+    }
+    let db = Database::open(&path).unwrap();
+    assert_eq!(schema_version(db.conn()), SCHEMA_VERSION);
+    assert!(migration_backup_path(&path, 23).exists());
+    let has_column: i64 = db
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name = 'owner'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(has_column, 1, "owner column is present after v24");
+}
+
+#[test]
+fn a_fresh_database_carries_the_session_owner_column() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = Database::open(&dir.path().join("pi.sqlite")).unwrap();
+    let has_column: i64 = db
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name = 'owner'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(has_column, 1, "owner column is in the fresh schema");
+}
+
+#[test]
+fn an_existing_session_row_keeps_a_null_owner_after_the_migration() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    {
+        let db = Database::open(&path).unwrap();
+        db.conn()
+            .execute_batch(
+                "INSERT INTO sessions (id, created_at, updated_at)
+                     VALUES ('legacy-owned', 1, 1);",
+            )
+            .unwrap();
+        db.conn()
+            .execute_batch("ALTER TABLE sessions DROP COLUMN owner;")
+            .unwrap();
+        db.conn().pragma_update(None, "user_version", 23).unwrap();
+    }
+    let db = Database::open(&path).unwrap();
+    let owner: Option<String> = db
+        .conn()
+        .query_row(
+            "SELECT owner FROM sessions WHERE id = 'legacy-owned'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(owner, None, "a pre-existing row keeps a null owner");
+    assert_eq!(schema_version(db.conn()), SCHEMA_VERSION);
+}
+
+#[test]
 fn v20_database_migrates_and_seeds_model_pricing() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("pi.sqlite");

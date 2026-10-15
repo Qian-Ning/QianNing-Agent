@@ -88,6 +88,16 @@ export class FakeRuntime implements RuntimePort {
   }
 }
 
+/**
+ * The fixture session's owner (ADR 0325). A viewer-role principal reaches a
+ * session only when its subject is that session's owner: the per-session
+ * scoped role that would give a viewer someone else's session is the deferred
+ * follow-on, so today `dev_viewer` can only follow a session it owns. The
+ * owner-role device above reaches every session through the owner bypass, so
+ * the harness keeps both credentials meaningful.
+ */
+export const SESSION_OWNER_SUBJECT = "dev_viewer";
+
 export function summary(id: string, permissionMode: SessionSummary["permissionMode"] = "ask"): SessionSummary {
   return {
     id,
@@ -95,6 +105,7 @@ export function summary(id: string, permissionMode: SessionSummary["permissionMo
     projectId: "proj",
     mode: "agent",
     permissionMode,
+    owner: SESSION_OWNER_SUBJECT,
     createdAt: "2026-09-18T00:00:00.000Z",
     updatedAt: "2026-09-18T00:00:00.000Z",
   };
@@ -193,6 +204,52 @@ export function fakeOperations(sessions: Map<string, SessionSummary>): RacpHostO
 
 export const OWNER_TOKEN = newDeviceToken();
 export const VIEWER_TOKEN = newDeviceToken();
+
+/**
+ * An in-memory terminal access for the ownership suite: it remembers which
+ * session each terminal was opened for, which is what the RACP admission path
+ * resolves a terminal-addressed operation through (ADR 0325). Seeding a
+ * terminal lets a test address one it did not open over the wire, and seed's
+ * third argument lets a test give that terminal a replay ring so `attach` can
+ * *succeed* — the path a real re-attach takes and the one a fake that always
+ * returned `null` never exercised.
+ */
+export function fakeTerminalAccess(): {
+  access: import("./host-operations.js").RacpTerminalAccess;
+  seed(sessionId: string, terminalId: string, replay?: string): string;
+} {
+  const terminals = new Map<string, { sessionId: string; replay: string; cols: number; rows: number }>();
+  let counter = 0;
+  const access: import("./host-operations.js").RacpTerminalAccess = {
+    async open(sessionId, options) {
+      counter += 1;
+      const terminalId = `term_${counter}`;
+      terminals.set(terminalId, { sessionId, replay: "", cols: options.cols, rows: options.rows });
+      return { terminalId, replay: "", cols: options.cols, rows: options.rows };
+    },
+    async input() {},
+    async resize() {},
+    async close(terminalId) {
+      terminals.delete(terminalId);
+    },
+    sessionOf(terminalId) {
+      return terminals.get(terminalId)?.sessionId;
+    },
+    async attach(terminalId) {
+      const terminal = terminals.get(terminalId);
+      if (!terminal) return null;
+      return { terminalId, replay: terminal.replay, cols: terminal.cols, rows: terminal.rows };
+    },
+    detach() {},
+  };
+  return {
+    access,
+    seed(sessionId, terminalId, replay = "") {
+      terminals.set(terminalId, { sessionId, replay, cols: 80, rows: 24 });
+      return terminalId;
+    },
+  };
+}
 
 export async function credentialStore(): Promise<{ store: MemoryCredentialStore; authenticator: DeviceTokenAuthenticator }> {
   const store = new MemoryCredentialStore();

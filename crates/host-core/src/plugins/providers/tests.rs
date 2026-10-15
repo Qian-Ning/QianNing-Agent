@@ -91,11 +91,12 @@ fn declaration_manifest(providers: Value, permissions: Value) -> Value {
 #[test]
 fn a_new_database_carries_the_owner_column_at_the_current_schema_version() {
     let (_dir, db, _secrets) = test_context();
-    // v17 added the owner column, v18 the turn-queue priority column, v19 session omit,
-    // v20 the per-conversation system prompt, v21 the model pricing table, v22 the
-    // connection profiles table, v23 the outbound-delivery ledger; a fresh database is
-    // stamped with the newest, so the column set is the current one.
-    assert_eq!(SCHEMA_VERSION, 23);
+    // v17 added the provider owner column, v18 the turn-queue priority column, v19
+    // session omit, v20 the per-conversation system prompt, v21 the model pricing
+    // table, v22 the connection profiles table, v23 the outbound-delivery ledger,
+    // v24 the session owner column; a fresh database is stamped with the newest, so
+    // the column set is the current one.
+    assert_eq!(SCHEMA_VERSION, 24);
     let version: i64 = db
         .conn()
         .query_row("PRAGMA user_version", [], |row| row.get(0))

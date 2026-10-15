@@ -62,6 +62,34 @@ export type RacpServerOptions = {
 
 type Subscription = { id: string; sessionId?: string };
 
+/**
+ * Session-addressed operations whose handler does not go through the Agent
+ * Host module: they name the session on the wire. ADR 0325's ownership rule
+ * must reach each of them, so `dispatch` admits them once before the handler
+ * runs. Operations the Agent Host already admits (`session/attach`,
+ * `session/history`, `turn/start`, `turn/stop`, `events/subscribe` with a
+ * session scope, `respondApproval`, `respondInput`, …) are deliberately absent:
+ * their check runs inside the module and must not run twice.
+ */
+const SESSION_ADDRESSED_OPERATIONS: ReadonlySet<string> = new Set([
+  "session/configure",
+  "session/fork",
+  "session/rename",
+  "session/delete",
+  "session/compact",
+  "workspace/list",
+  "workspace/read",
+  "workspace/diff",
+  "terminal/open",
+]);
+
+/** Terminal-addressed operations: the session is the one the terminal belongs to. */
+const TERMINAL_ADDRESSED_OPERATIONS: ReadonlySet<string> = new Set([
+  "terminal/input",
+  "terminal/resize",
+  "terminal/close",
+]);
+
 type ServerRequestWaiter = {
   resolve: (value: unknown) => void;
   reject: (error: RacpError) => void;
@@ -311,6 +339,11 @@ export class RacpServer {
     if (!rolesAllowOperation(connection.principal.roles, operation)) {
       throw new RacpError("FORBIDDEN", `principal lacks the role for ${operation}`);
     }
+    const request = (params ?? {}) as Record<string, unknown>;
+    // ADR 0325: the ownership admission is applied once, here, on the one path
+    // every RACP caller shares. The rule is the Agent Host's; this only says
+    // which session the operation addresses.
+    await this.admitSessionOwnership(connection.principal, operation, request);
     const context: OperationContext = {
       connection,
       principal: connection.principal,
@@ -332,7 +365,63 @@ export class RacpServer {
       },
       log: this.options.log,
     };
-    return handler(context, (params ?? {}) as Record<string, unknown>);
+    return handler(context, request);
+  }
+
+  /**
+   * The session-ownership admission (ADR 0325). The rule and the durable
+   * re-read are the Agent Host's (`authorizeSession` / `authorizeTurn`); this
+   * method only resolves *which* session an operation addresses, so the
+   * admission is applied once, on the one path every RACP caller shares, and a
+   * handler — or a second caller of a handler — cannot restate or skip it.
+   *
+   * The session-addressed operations whose handler does not go through the
+   * Agent Host module carry their session id on the wire; the terminal
+   * operations carry a terminal id, resolved to its session through the
+   * terminal access the Host is wired with; `turn/get` carries a turn id,
+   * resolved inside the Host. An operation the Agent Host already admits
+   * (`session/attach`, `session/history`, `turn/start`, …) is not listed here,
+   * so its check is not run twice.
+   */
+  private async admitSessionOwnership(
+    principal: Principal,
+    operation: RacpOperation,
+    params: Record<string, unknown>,
+  ): Promise<void> {
+    if (operation === "turn/get") {
+      const turnId = params.turnId;
+      if (typeof turnId === "string" && turnId.length > 0) {
+        await this.options.agentHost.authorizeTurn(principal, turnId);
+      }
+      return;
+    }
+    const sessionId = this.addressedSessionId(operation, params);
+    if (sessionId !== undefined) await this.options.agentHost.authorizeSession(principal, sessionId);
+  }
+
+  /**
+   * The session a session-addressed operation names, or `undefined` if it names
+   * none.
+   *
+   * `terminal/open` is the one operation that is both: without a `terminalId`
+   * it opens a new terminal in the session it names (resolved from the wire
+   * `sessionId` below), but with a `terminalId` it re-attaches to an existing
+   * terminal — and then the terminal's own session is what must be authorized,
+   * never the caller-supplied `sessionId` sitting beside it. Resolving through
+   * `sessionOf` there keeps the ownership *rule* in the Agent Host: this layer
+   * only decides which session id to hand `authorizeSession`, so a caller
+   * cannot name one session and act on another's terminal.
+   */
+  private addressedSessionId(operation: RacpOperation, params: Record<string, unknown>): string | undefined {
+    const terminalId = params.terminalId;
+    const namesTerminal = typeof terminalId === "string" && terminalId.length > 0;
+    if (namesTerminal && (operation === "terminal/open" || TERMINAL_ADDRESSED_OPERATIONS.has(operation))) {
+      return this.options.operations.terminal?.sessionOf(terminalId);
+    }
+    if (TERMINAL_ADDRESSED_OPERATIONS.has(operation)) return undefined;
+    if (!SESSION_ADDRESSED_OPERATIONS.has(operation)) return undefined;
+    const sessionId = params.sessionId;
+    return typeof sessionId === "string" && sessionId.length > 0 ? sessionId : undefined;
   }
 
   private deliverEvent(connection: RacpConnection, envelope: RacpEventEnvelope): void {

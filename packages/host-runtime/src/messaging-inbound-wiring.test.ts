@@ -366,6 +366,7 @@ describe("bindMessagingInboundSession", () => {
   it("binds the conversation through the host-internal write, then its command reaches an operation", async () => {
     const settings = memorySettings({ messagingTelegram: linkedSection() });
     const routed: Routed[] = [];
+    const owners: Array<{ sessionId: string; owner: string }> = [];
     const { wiring } = buildWiring({
       settings: settings.surface,
       routed,
@@ -378,7 +379,9 @@ describe("bindMessagingInboundSession", () => {
     expect(routed).toEqual([]);
 
     // The host-internal write the operator bind channel drives.
-    await bindMessagingInboundSession(settings.surface, SESSION_ID);
+    await bindMessagingInboundSession(settings.surface, SESSION_ID, async (sessionId, owner) => {
+      owners.push({ sessionId, owner });
+    });
     expect(await wiring.binding.load()).toBe(SESSION_ID);
 
     // A fresh message id: the first refusal is recorded in the replay guard.
@@ -388,15 +391,55 @@ describe("bindMessagingInboundSession", () => {
     });
     expect(outcome).toEqual({ kind: "invoked", messageId: "m2", operation: "turn/start" });
     expect(routed).toEqual([{ operation: "turn/start", sessionId: SESSION_ID }]);
+    expect(owners).toEqual([{ sessionId: SESSION_ID, owner: LINKED_PRINCIPAL.subject }]);
+  });
+
+  it("records the session's owner as the linked principal's subject in the same bind", async () => {
+    const settings = memorySettings({ messagingTelegram: linkedSection() });
+    const owners: Array<{ sessionId: string; owner: string }> = [];
+
+    await bindMessagingInboundSession(settings.surface, SESSION_ID, async (sessionId, owner) => {
+      owners.push({ sessionId, owner });
+    });
+
+    // The owner write and the binding write are one call, in that order: the
+    // binding is written only after the owner write succeeds, and an unowned
+    // session is never bound. (The two writes are not transactional, so an
+    // owner-write-succeeds/save-fails partial state is possible — it leaves the
+    // session owned and the conversation unbound, which refuses every inbound
+    // command.)
+    expect(owners).toEqual([{ sessionId: SESSION_ID, owner: LINKED_PRINCIPAL.subject }]);
+    expect(settings.inbound()).toMatchObject({ sessionId: SESSION_ID });
+  });
+
+  it("fails closed on an unknown session id: the owner write rejects and no binding is written", async () => {
+    const settings = memorySettings({ messagingTelegram: linkedSection() });
+
+    await expect(
+      bindMessagingInboundSession(settings.surface, SESSION_ID, async () => {
+        throw Object.assign(new Error("session not found"), { errorCode: "NOT_FOUND" });
+      }),
+    ).rejects.toThrow(/not found/);
+
+    expect(settings.inbound()).not.toHaveProperty("sessionId");
+    expect(await createSettingsSessionBindingStore(settings.surface).load()).toBeNull();
+  });
+
+  it("fails closed when the channel names no linked principal to own the session", async () => {
+    const settings = memorySettings({ messagingTelegram: { format: "pi-desktop-messaging-telegram", version: 1 } });
+
+    await expect(
+      bindMessagingInboundSession(settings.surface, SESSION_ID, async () => {}),
+    ).rejects.toThrow(/no linked principal/);
   });
 
   it("fails closed: a blank or non-string id is refused and nothing is written", async () => {
     const settings = memorySettings({ messagingTelegram: linkedSection() });
 
-    await expect(bindMessagingInboundSession(settings.surface, "   ")).rejects.toThrow(/non-empty/);
-    await expect(bindMessagingInboundSession(settings.surface, "")).rejects.toThrow(/non-empty/);
-    await expect(bindMessagingInboundSession(settings.surface, 42)).rejects.toThrow(/non-empty/);
-    await expect(bindMessagingInboundSession(settings.surface, null)).rejects.toThrow(/non-empty/);
+    await expect(bindMessagingInboundSession(settings.surface, "   ", async () => {})).rejects.toThrow(/non-empty/);
+    await expect(bindMessagingInboundSession(settings.surface, "", async () => {})).rejects.toThrow(/non-empty/);
+    await expect(bindMessagingInboundSession(settings.surface, 42, async () => {})).rejects.toThrow(/non-empty/);
+    await expect(bindMessagingInboundSession(settings.surface, null, async () => {})).rejects.toThrow(/non-empty/);
 
     expect(settings.inbound()).not.toHaveProperty("sessionId");
     expect(await createSettingsSessionBindingStore(settings.surface).load()).toBeNull();
@@ -405,7 +448,7 @@ describe("bindMessagingInboundSession", () => {
   it("writes only the channel's settings key, leaving a neighbouring setting intact", async () => {
     const settings = memorySettings({ theme: "dark", messagingTelegram: linkedSection() });
 
-    await bindMessagingInboundSession(settings.surface, SESSION_ID);
+    await bindMessagingInboundSession(settings.surface, SESSION_ID, async () => {});
 
     expect(settings.row().theme).toBe("dark");
     expect(settings.inbound()).toMatchObject({ sessionId: SESSION_ID });

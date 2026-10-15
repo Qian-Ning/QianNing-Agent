@@ -32,6 +32,13 @@ describe("host ports", () => {
     });
   });
 
+  it("carries a session's owning subject, and omits the key when the session has none", () => {
+    expect(toSessionSummary({ id: "s1", owner: "linked-user" })).toMatchObject({ owner: "linked-user" });
+    // An absent owner must stay absent, not become an empty string that no
+    // principal could ever match (ADR 0325).
+    expect(toSessionSummary({ id: "s2" })).not.toHaveProperty("owner");
+  });
+
   it("pages history backwards from an item id", async () => {
     const messages = ["m1", "m2", "m3", "m4"].map((id) => ({
       id,

@@ -102,9 +102,19 @@ class FakeApprovals implements ApprovalPort {
 }
 
 const owner: Principal = { subject: "desktop", roles: ["owner"], pairedDevice: true };
-const controller: Principal = { subject: "phone", roles: ["controller"] };
-const approver: Principal = { subject: "reviewer", roles: ["approver"] };
-const viewer: Principal = { subject: "watcher", roles: ["viewer"] };
+// The fixture drives one session (`s1`) through four role-carrying principals.
+// Under ADR 0325 a non-owner principal reaches a session only when its subject
+// is that session's owner, so they share the session owner's subject: the
+// single-owner rule has nothing else to compare, and the per-session scoped
+// viewer role that would give each of them its own scope is the deferred
+// follow-on. `owner` keeps its own role, so the owner-role bypass is exercised
+// here too; a foreign subject is exercised by `stranger` below.
+const SESSION_OWNER_SUBJECT = "desktop";
+const controller: Principal = { subject: SESSION_OWNER_SUBJECT, roles: ["controller"] };
+const approver: Principal = { subject: SESSION_OWNER_SUBJECT, roles: ["approver"] };
+const viewer: Principal = { subject: SESSION_OWNER_SUBJECT, roles: ["viewer"] };
+/** A principal that owns nothing: the negative control for every ownership test. */
+const stranger: Principal = { subject: "intruder", roles: ["controller", "approver", "viewer"] };
 
 function summary(id: string, permissionMode: SessionSummary["permissionMode"] = "ask"): SessionSummary {
   return {
@@ -113,9 +123,15 @@ function summary(id: string, permissionMode: SessionSummary["permissionMode"] = 
     projectId: "proj",
     mode: "agent",
     permissionMode,
+    owner: SESSION_OWNER_SUBJECT,
     createdAt: "2026-09-10T00:00:00.000Z",
     updatedAt: "2026-09-10T00:00:00.000Z",
   };
+}
+
+/** A session with no recorded owner: host-local under ADR 0325. */
+function unownedSummary(id: string): SessionSummary {
+  return { ...summary(id), owner: undefined };
 }
 
 function message(id: string, content: string, status: UiMessage["status"] = "streaming"): UiMessage {
@@ -126,7 +142,7 @@ function envelope(sessionId: string, turnId: string | undefined, event: AgentEve
   return { sessionId, ...(turnId ? { turnId } : {}), ts: Date.parse("2026-09-10T00:00:01.000Z"), event };
 }
 
-function build(options: { permissionMode?: SessionSummary["permissionMode"]; queueStore?: MemoryQueueStore; allowRemoteSessionGrants?: boolean } = {}) {
+async function build(options: { permissionMode?: SessionSummary["permissionMode"]; queueStore?: MemoryQueueStore; allowRemoteSessionGrants?: boolean } = {}) {
   const runtime = new FakeRuntime();
   const sessions = new FakeSessions();
   sessions.summaries.set("s1", summary("s1", options.permissionMode));
@@ -143,13 +159,13 @@ function build(options: { permissionMode?: SessionSummary["permissionMode"]; que
     allowRemoteSessionGrants: options.allowRemoteSessionGrants,
   });
   const received: RacpEventEnvelope[] = [];
-  const sub = host.subscribe(viewer, { scope: "session", sessionId: "s1" }, { deliver: (event) => received.push(event), close: () => {} });
-  return { runtime, sessions, approvals, clock, host, received, sub };
+  await host.subscribe(viewer, { scope: "session", sessionId: "s1" }, { deliver: (event) => received.push(event), close: () => {} });
+  return { runtime, sessions, approvals, clock, host, received };
 }
 
 describe("AgentHost ingest", () => {
   it("reconciles only a matching optimistic user item and ignores duplicate, unknown and wrong-turn acknowledgements", async () => {
-    const { host, received, sessions } = build();
+    const { host, received, sessions } = await build();
     sessions.summaries.set("s2", summary("s2"));
     const optimistic = { ...message("optimistic", "same", "streaming"), role: "user" as const };
     const durable = { ...optimistic, id: "durable", status: "complete" as const };
@@ -159,20 +175,20 @@ describe("AgentHost ingest", () => {
     const ack: AgentEvent = { type: "user_message_persisted", optimisticMessageId: "optimistic", message: durable };
     host.ingest(envelope("s1", "other-turn", ack));
     host.ingest(envelope("s1", "rt_1", { ...ack, optimisticMessageId: "unknown" }));
-    expect((await host.snapshot("s1")).activeItems).toHaveLength(1);
+    expect((await host.snapshot(owner, "s1")).activeItems).toHaveLength(1);
     host.ingest(envelope("s1", "rt_1", ack));
     host.ingest(envelope("s1", "rt_1", ack));
-    expect((await host.snapshot("s1")).activeItems).toEqual([]);
+    expect((await host.snapshot(owner, "s1")).activeItems).toEqual([]);
     const completed = received.filter((event) => event.kind === "item.completed");
     expect(completed).toHaveLength(1);
     expect(completed[0]).toMatchObject({ sessionId: "s1", turnId: "rt_1", payload: { itemType: "message", itemId: "durable", event: ack } });
     expect(JSON.stringify(completed)).not.toContain("path");
-    expect((await host.snapshot("s2")).activeItems.map((item) => item.id)).toEqual(["optimistic"]);
+    expect((await host.snapshot(owner, "s2")).activeItems.map((item) => item.id)).toEqual(["optimistic"]);
     expect(host.getTurn("rt_1").status).toBe("running");
   });
 
-  it("maps a full turn to durable and ephemeral RACP events", () => {
-    const { host, received } = build();
+  it("maps a full turn to durable and ephemeral RACP events", async () => {
+    const { host, received } = await build();
     host.ingest(envelope("s1", "rt_1", { type: "agent_start" }));
     host.ingest(envelope("s1", "rt_1", { type: "turn_start" }));
     host.ingest(envelope("s1", "rt_1", { type: "message_start", message: message("m1", "") }));
@@ -207,17 +223,17 @@ describe("AgentHost ingest", () => {
   });
 
   it("keeps active items for the snapshot while streaming and clears them at the end", async () => {
-    const { host } = build();
+    const { host } = await build();
     host.ingest(envelope("s1", "rt_1", { type: "agent_start" }));
     host.ingest(envelope("s1", "rt_1", { type: "message_start", message: message("m1", "") }));
     host.ingest(envelope("s1", "rt_1", { type: "message_update", message: message("m1", "partial text") }));
-    const streaming = await host.snapshot("s1");
+    const streaming = await host.snapshot(owner, "s1");
     expect(streaming.activeTurn?.status).toBe("running");
     expect(streaming.activeItems).toHaveLength(1);
     expect((streaming.activeItems[0]!.content as UiMessage).content).toBe("partial text");
     expect(streaming.cursor.sequence).toBe(2);
     host.ingest(envelope("s1", "rt_1", { type: "agent_end", messageIds: [] }), { interrupted: true });
-    const done = await host.snapshot("s1");
+    const done = await host.snapshot(owner, "s1");
     expect(done.activeItems).toEqual([]);
     expect(done.activeTurn).toBeUndefined();
     expect(host.getTurn("rt_1").status).toBe("interrupted");
@@ -225,7 +241,7 @@ describe("AgentHost ingest", () => {
   });
 
   it("applies delta-only message_update onto the live item snapshot", async () => {
-    const { host } = build();
+    const { host } = await build();
     host.ingest(envelope("s1", "rt_1", { type: "agent_start" }));
     host.ingest(envelope("s1", "rt_1", { type: "message_start", message: message("m1", "") }));
     host.ingest(envelope("s1", "rt_1", {
@@ -240,14 +256,14 @@ describe("AgentHost ingest", () => {
       message: { id: "m1", role: "assistant", content: "", createdAt: "2026-09-10T00:00:00.000Z", status: "streaming" },
       deltaText: "text",
     }));
-    const streaming = await host.snapshot("s1");
+    const streaming = await host.snapshot(owner, "s1");
     expect((streaming.activeItems[0]!.content as UiMessage).content).toBe("partial text");
   });
 });
 
 describe("AgentHost turns", () => {
   it("serializes same-session admission while independent sessions can start", async () => {
-    const { host, runtime, sessions } = build();
+    const { host, runtime, sessions } = await build();
     sessions.summaries.set("s2", summary("s2"));
     let release!: () => void;
     let entered!: () => void;
@@ -283,7 +299,7 @@ describe("AgentHost turns", () => {
   });
 
   it("includes collaboration identity in idempotency checks", async () => {
-    const { host, runtime } = build();
+    const { host, runtime } = await build();
     const request = {
       sessionId: "s1", idempotencyKey: "delivery", input: { text: "same text", sessionMessageId: "m1" }, context: { requestId: "r1" },
     };
@@ -295,7 +311,7 @@ describe("AgentHost turns", () => {
 
   it("cancels a queued collaboration message without dispatching it", async () => {
     const store = new MemoryQueueStore();
-    const { host, runtime } = build({ queueStore: store });
+    const { host, runtime } = await build({ queueStore: store });
     const first = await host.startTurn(owner, { sessionId: "s1", input: { text: "first" }, context: { requestId: "r1" } });
     const second = await host.startTurn(owner, {
       sessionId: "s1", admission: "queue", input: { text: "later", sessionMessageId: "m2" }, context: { requestId: "r2" },
@@ -310,7 +326,7 @@ describe("AgentHost turns", () => {
   });
 
   it("starts immediately, applies the ceiling, and honors idempotency", async () => {
-    const { host, runtime } = build({ permissionMode: "auto" });
+    const { host, runtime } = await build({ permissionMode: "auto" });
     const started = await host.startTurn(controller, {
       sessionId: "s1",
       idempotencyKey: "k1",
@@ -334,7 +350,7 @@ describe("AgentHost turns", () => {
   });
 
   it("exempts the paired desktop from the ceiling and rejects stale revisions", async () => {
-    const { host, runtime } = build({ permissionMode: "auto" });
+    const { host, runtime } = await build({ permissionMode: "auto" });
     await expect(
       host.startTurn(owner, { sessionId: "s1", input: { text: "x" }, context: { requestId: "r", expectedRevision: 9 } }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
@@ -347,7 +363,7 @@ describe("AgentHost turns", () => {
   });
 
   it("queues behind an active turn, drains in order, and aliases runtime ids", async () => {
-    const { host, runtime, received } = build();
+    const { host, runtime, received } = await build();
     const first = await host.startTurn(controller, { sessionId: "s1", input: { text: "one" }, context: { requestId: "r1" } });
     host.ingest(envelope("s1", first.turn.id, { type: "agent_start" }));
     await expect(host.startTurn(controller, { sessionId: "s1", input: { text: "two" }, context: { requestId: "r2" } })).rejects.toMatchObject({
@@ -362,7 +378,7 @@ describe("AgentHost turns", () => {
       host.startTurn(controller, { sessionId: "s1", admission: "queue", input: { text: "four" }, context: { requestId: "r5" } }),
     ).rejects.toMatchObject({ code: "AGENT_BUSY", details: { queueFull: true } });
     expect(received.filter((event) => event.kind === "turn.queued")).toHaveLength(2);
-    const snapshot = await host.snapshot("s1");
+    const snapshot = await host.snapshot(owner, "s1");
     expect(snapshot.queuedTurns.map((turn) => turn.queuePosition)).toEqual([1, 2]);
     expect(snapshot.session.queuedTurnIds).toEqual([queued.turn.id, third.turn.id]);
 
@@ -385,7 +401,7 @@ describe("AgentHost turns", () => {
 
 
   it("folds the rest of the promoted block into the started turn, in click order", async () => {
-    const { host, runtime } = build();
+    const { host, runtime } = await build();
     const first = await host.startTurn(controller, { sessionId: "s1", input: { text: "one" }, context: { requestId: "r1" } });
     host.ingest(envelope("s1", first.turn.id, { type: "agent_start" }));
     const second = await host.startTurn(controller, { sessionId: "s1", admission: "queue", input: { text: "two" }, context: { requestId: "r2" } });
@@ -412,7 +428,7 @@ describe("AgentHost turns", () => {
   });
 
   it("keeps a promoted row queued when the runtime cannot steer it", async () => {
-    const { host, runtime } = build();
+    const { host, runtime } = await build();
     runtime.refuseSteers = true;
     const first = await host.startTurn(controller, { sessionId: "s1", input: { text: "one" }, context: { requestId: "r1" } });
     host.ingest(envelope("s1", first.turn.id, { type: "agent_start" }));
@@ -431,7 +447,7 @@ describe("AgentHost turns", () => {
   });
 
   it("settles a turn whose terminal event never reached the Host", async () => {
-    const { host, runtime } = build();
+    const { host, runtime } = await build();
     const first = await host.startTurn(controller, { sessionId: "s1", input: { text: "one" }, context: { requestId: "r1" } });
     host.ingest(envelope("s1", first.turn.id, { type: "agent_start" }));
     await host.startTurn(controller, { sessionId: "s1", admission: "queue", input: { text: "two" }, context: { requestId: "r2" } });
@@ -446,7 +462,7 @@ describe("AgentHost turns", () => {
     expect(host.queueEntries("s1")).toHaveLength(0);
   });
   it("marks a queued turn failed when the runtime rejects it and keeps draining", async () => {
-    const { host, runtime, received } = build();
+    const { host, runtime, received } = await build();
     const first = await host.startTurn(controller, { sessionId: "s1", input: { text: "one" }, context: { requestId: "r1" } });
     host.ingest(envelope("s1", first.turn.id, { type: "agent_start" }));
     const bad = await host.startTurn(controller, { sessionId: "s1", admission: "queue", input: { text: "bad" }, context: { requestId: "r2" } });
@@ -471,7 +487,7 @@ describe("AgentHost turns", () => {
       inputHash: "h",
       createdAt: 1,
     });
-    const { host, runtime } = build({ queueStore: store });
+    const { host, runtime } = await build({ queueStore: store });
     await host.start();
     const asViewer = await host.attach(viewer, { sessionId: "s1" });
     expect(asViewer.snapshot?.queuedTurns.map((turn) => turn.id)).toEqual(["turn_restored"]);
@@ -491,13 +507,13 @@ describe("AgentHost approvals and inputs", () => {
   });
 
   it("raises approvals with the local vocabulary and settles them once", async () => {
-    const { host, approvals, received } = build();
+    const { host, approvals, received } = await build();
     host.ingest(envelope("s1", "rt_1", { type: "agent_start" }));
     host.ingest(envelope("s1", "rt_1", permission()));
     const raised = received.find((event) => event.kind === "approval.requested")!;
     expect((raised.payload as { allowedDecisions: string[] }).allowedDecisions).toEqual(["allow-once", "deny"]);
     expect(host.getTurn("rt_1").status).toBe("waiting_approval");
-    expect((await host.snapshot("s1")).session.status).toBe("waiting_permission");
+    expect((await host.snapshot(owner, "s1")).session.status).toBe("waiting_permission");
 
     await expect(
       host.respondApproval(viewer, { approvalId: "req_1", decision: "deny", context: { requestId: "r" } }),
@@ -516,7 +532,7 @@ describe("AgentHost approvals and inputs", () => {
   });
 
   it("lets the desktop card settle an approval so a later remote answer is a no-op", async () => {
-    const { host, approvals, received } = build();
+    const { host, approvals, received } = await build();
     host.ingest(envelope("s1", "rt_1", { type: "agent_start" }));
     host.ingest(envelope("s1", "rt_1", permission()));
     const settled = host.settleApprovalExternally("req_1", { decision: "deny" });
@@ -528,7 +544,7 @@ describe("AgentHost approvals and inputs", () => {
   });
 
   it("shows host-pending approvals to a late attach and uses the remote lifetime", async () => {
-    const { host, approvals } = build();
+    const { host, approvals } = await build();
     approvals.pending = [
       { ...permission("req_late").request, createdAt: "2026-09-10T00:00:00.000Z", expiresAt: "2026-09-10T00:02:00.000Z" },
     ];
@@ -552,12 +568,12 @@ describe("AgentHost approvals and inputs", () => {
   });
 
   it("routes contract approvals through the contract port with a permission mode", async () => {
-    const { host, approvals, received } = build();
+    const { host, approvals, received } = await build();
     host.ingest(envelope("s1", "rt_1", { type: "agent_start" }));
     host.ingest(
       envelope("s1", "rt_1", { type: "planning_state", state: "awaiting_approval", kind: "plan", proposalId: "prop_1", title: "Plan", question: "Go?", version: 3 }),
     );
-    expect((await host.snapshot("s1")).session.planningState).toBe("awaiting_approval");
+    expect((await host.snapshot(owner, "s1")).session.planningState).toBe("awaiting_approval");
     expect(received.filter((event) => event.kind === "approval.requested")).toHaveLength(1);
     await expect(
       host.respondApproval(owner, { approvalId: "prop_1", decision: "approve", context: { requestId: "r" } }),
@@ -567,7 +583,7 @@ describe("AgentHost approvals and inputs", () => {
   });
 
   it("relays asktool answers with skip semantics", async () => {
-    const { host, runtime, received } = build();
+    const { host, runtime, received } = await build();
     host.ingest(envelope("s1", "rt_1", { type: "agent_start" }));
     host.ingest(
       envelope("s1", "rt_1", {
@@ -608,7 +624,7 @@ describe("AgentHost approvals and inputs", () => {
 
 describe("AgentHost attach and subscribe", () => {
   it("replays from a cursor or reports a resync, and paginates history", async () => {
-    const { host, sessions } = build();
+    const { host, sessions } = await build();
     sessions.items = [{ id: "old", turnId: "t0", itemType: "message", status: "completed", createdAt: "2026-09-09T00:00:00.000Z", content: {} }];
     host.ingest(envelope("s1", "rt_1", { type: "agent_start" }));
     host.ingest(envelope("s1", "rt_1", { type: "agent_end", messageIds: [] }));
@@ -627,10 +643,10 @@ describe("AgentHost attach and subscribe", () => {
     expect(page.revision).toBeGreaterThan(0);
   });
 
-  it("publishes host-scope session changes", () => {
-    const { host } = build();
+  it("publishes host-scope session changes", async () => {
+    const { host } = await build();
     const kinds: string[] = [];
-    host.subscribe(viewer, { scope: "host" }, { deliver: (event) => kinds.push(event.kind), close: () => {} });
+    await host.subscribe(viewer, { scope: "host" }, { deliver: (event) => kinds.push(event.kind), close: () => {} });
     host.publishSessionChange("session.created", summary("s2"));
     host.ingest(envelope("s1", "rt_1", { type: "agent_start" }));
     host.ingest(envelope("s1", "rt_1", { type: "agent_end", messageIds: [] }));
@@ -723,7 +739,7 @@ describe("AgentHost queue extras", () => {
   });
 
   it("queues behind a pending contract approval and drains when planning leaves it", async () => {
-    const { host, runtime } = build();
+    const { host, runtime } = await build();
     host.ingest(envelope("s1", "rt_1", { type: "agent_start" }));
     host.ingest(envelope("s1", "rt_1", { type: "planning_state", state: "awaiting_approval", kind: "plan", proposalId: "p1", title: "T", question: "?" }));
     host.ingest(envelope("s1", "rt_1", { type: "agent_end", messageIds: [] }));
@@ -734,5 +750,90 @@ describe("AgentHost queue extras", () => {
     host.ingest(envelope("s1", undefined, { type: "planning_state", state: "inactive" }));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(runtime.prompts.map((prompt) => prompt.content)).toEqual(["later"]);
+  });
+});
+
+describe("AgentHost session ownership (ADR 0325)", () => {
+  const sink = { deliver: () => {}, close: () => {} };
+  const permissionRequest = (requestId = "req_1") => ({
+    type: "tool_permission_request" as const,
+    request: {
+      requestId,
+      sessionId: "s1",
+      toolCallId: "c1",
+      toolName: "Bash",
+      argsPreview: { command: "ls" },
+      risk: "high" as const,
+      reason: "high risk",
+    },
+  });
+  const asktoolRequest = () => ({
+    type: "asktool_request" as const,
+    request: {
+      requestId: "ask_1",
+      sessionId: "s1",
+      toolCallId: "c9",
+      questions: [{ question: "Which?", options: [{ label: "a", description: "First" }] }],
+    },
+  });
+
+  it("admits the owner subject and an owner-role holder, and refuses a foreign subject everywhere", async () => {
+    const { host } = await build();
+    // The owner subject may act; the owner role may act on a session it does not own.
+    await expect(host.startTurn(controller, { sessionId: "s1", input: { text: "ok" }, context: { requestId: "r1" } })).resolves.toMatchObject({ accepted: true });
+    await expect(host.attach(owner, { sessionId: "s1" })).resolves.toBeDefined();
+    await expect(host.history(owner, { sessionId: "s1" })).resolves.toBeDefined();
+
+    // A foreign subject is refused on every session-addressed entry point, with
+    // the FORBIDDEN code the error table reserves for a missing session scope.
+    await expect(host.startTurn(stranger, { sessionId: "s1", input: { text: "x" }, context: { requestId: "r2" } })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(host.attach(stranger, { sessionId: "s1" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(host.history(stranger, { sessionId: "s1" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(host.subscribe(stranger, { scope: "session", sessionId: "s1" }, sink)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(host.cancelSessionMessage(stranger, "s1", "m1")).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("admits only the owner role to a session with no recorded owner", async () => {
+    const { host, sessions } = await build();
+    sessions.summaries.set("s2", unownedSummary("s2"));
+
+    await expect(host.startTurn(owner, { sessionId: "s2", input: { text: "ok" }, context: { requestId: "r1" } })).resolves.toMatchObject({ accepted: true });
+    // A principal whose subject merely equals the (absent) owner value is not
+    // admitted: a null owner is host-local, not a wildcard.
+    await expect(host.startTurn(controller, { sessionId: "s2", input: { text: "x" }, context: { requestId: "r2" } })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(host.attach(stranger, { sessionId: "s2" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("resolves a turn's session and refuses a non-owner on all five turn-addressed operations", async () => {
+    const { host, runtime } = await build();
+    const first = await host.startTurn(controller, { sessionId: "s1", input: { text: "one" }, context: { requestId: "r1" } });
+    host.ingest(envelope("s1", first.turn.id, { type: "agent_start" }));
+    const second = await host.startTurn(controller, { sessionId: "s1", admission: "queue", input: { text: "two" }, context: { requestId: "r2" } });
+    await host.startTurn(controller, { sessionId: "s1", admission: "queue", input: { text: "three" }, context: { requestId: "r3" } });
+
+    // `stranger` holds controller for turn/stop, turn/interrupt, turn/cancel and
+    // turn/prioritize, so the role gate admits it and only ownership refuses.
+    await expect(host.stopTurn(stranger, first.turn.id)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(host.interruptTurn(stranger, first.turn.id)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(host.cancelTurn(stranger, second.turn.id)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(host.prioritizeTurn(stranger, second.turn.id)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(host.reorderTurn(stranger, second.turn.id, "up")).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    // Refused before any effect: nothing stopped, nothing reordered.
+    expect(runtime.stops).toEqual([]);
+    expect(runtime.aborts).toEqual([]);
+    expect(host.queueEntries("s1").map((entry) => entry.content)).toEqual(["two", "three"]);
+  });
+
+  it("refuses a non-owner on respondApproval and respondInput without settling either", async () => {
+    const { host, runtime, approvals } = await build();
+    host.ingest(envelope("s1", "rt_1", { type: "agent_start" }));
+    host.ingest(envelope("s1", "rt_1", permissionRequest()));
+    await expect(host.respondApproval(stranger, { approvalId: "req_1", decision: "deny", context: { requestId: "r" } })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(approvals.tool).toEqual([]);
+
+    host.ingest(envelope("s1", "rt_1", asktoolRequest()));
+    await expect(host.respondInput(stranger, { inputId: "ask_1", answers: [["a"]], context: { requestId: "r" } })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(runtime.inputs).toEqual([]);
   });
 });

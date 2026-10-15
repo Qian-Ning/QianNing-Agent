@@ -1,6 +1,7 @@
 import { IPC, type UpdatePreference } from "@pi-desktop/shared";
 import {
   bindMessagingInboundSession,
+  createHostSessionOwnerWriter,
   createHostSettingsSurface,
 } from "@pi-desktop/host-runtime";
 import type { AgentSidecar } from "../agent-sidecar";
@@ -125,7 +126,11 @@ export function registerSettingsIpc({
   // setting, and it fails closed on a blank or non-string id.
   handle(IPC.invoke.messagingInboundBindSession, async (sessionId: unknown) => {
     if (!host) throw new Error("host unavailable");
-    await bindMessagingInboundSession(createHostSettingsSurface(getHost), sessionId);
+    await bindMessagingInboundSession(
+      createHostSettingsSurface(getHost),
+      sessionId,
+      createHostSessionOwnerWriter(getHost),
+    );
     return { ok: true };
   });
 }

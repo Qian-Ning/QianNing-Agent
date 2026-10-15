@@ -242,6 +242,12 @@ An authenticated principal receives one or more scoped roles per session:
 Roles are additive but never bypass host policy. A `controller` cannot approve
 its own request unless the policy explicitly grants the `approver` role.
 
+Scoping is currently single-owner: the Agent Host persists one owning subject per
+session and admits a principal to it only when it holds the `owner` role or when
+its subject equals that owner (ADR 0325). The per-session role assignment this
+section describes is the deferred follow-on; until it lands, a non-owner role
+alone does not reach a session.
+
 Only one turn may run in a session. Multiple viewers are allowed. Queued
 turns are Host state shared by every client, including the local desktop.
 Concurrent mutations are serialized by the Agent Host and rejected with a

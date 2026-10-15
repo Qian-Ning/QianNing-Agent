@@ -12,6 +12,13 @@ const { createAgentHostBridge, DESKTOP_PRINCIPAL } = await import(
 );
 const { IPC } = await import("@pi-desktop/shared");
 
+// ADR 0325: a session records an owner, and a principal that is not an
+// owner-role holder reaches a session only when its subject equals that
+// recorded owner. The fixtures below act as the desktop subject, which is the
+// owner of the session they address; a non-owner principal therefore shares
+// this subject, exactly as the agent-host suite's ownership fixtures do.
+const SESSION_OWNER_SUBJECT = DESKTOP_PRINCIPAL.subject;
+
 /**
  * The bridge exposes an `agentHost` whose `startTurn` runs the same runtime
  * port the Electron composition wires. These tests reach through it to verify
@@ -30,6 +37,7 @@ function fixture({ sessionPermissionMode }) {
             title: "S1",
             mode: "agent",
             permissionMode: sessionPermissionMode,
+            owner: SESSION_OWNER_SUBJECT,
             createdAt: "2026-09-18T10:00:00.000Z",
             updatedAt: "2026-09-18T10:00:00.000Z",
           },
@@ -89,7 +97,11 @@ test("a narrower per-turn ceiling forwards permissionMode without refusing the t
   // rides through as a `permissionMode` override on the sidecar prompt.
   const { bridge, prompts } = fixture({ sessionPermissionMode: "auto" });
   const remoteController = {
-    subject: "remote-controller",
+    // A controller that OWNS this session (its subject equals the session's
+    // recorded owner) so it is admitted under ADR 0325. It is not a paired
+    // device, so the default `remoteMaxPermissionMode: "ask"` ceiling narrows
+    // the session's `auto` mode for the turn.
+    subject: SESSION_OWNER_SUBJECT,
     roles: ["controller"],
     pairedDevice: false,
     approverOverride: false,

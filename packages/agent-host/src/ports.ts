@@ -115,6 +115,13 @@ export type SessionSummary = {
   mode: "agent" | "plan" | "goal";
   permissionMode: RacpPermissionMode;
   planningState?: RacpPlanningState;
+  /**
+   * The owning principal's `subject` (ADR 0325). Absent or `undefined` means
+   * the session has no recorded owner: it predates the column, or a host-local
+   * path created it without naming a principal. Such a row is admitted only to
+   * a principal holding the `owner` role.
+   */
+  owner?: string;
   createdAt: string;
   updatedAt: string;
 };

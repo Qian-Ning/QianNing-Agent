@@ -469,6 +469,7 @@ CREATE TABLE sessions (
                                           'high', 'xhigh', 'max', 'omit')),
   permission_mode TEXT NOT NULL DEFAULT 'inherit' -- D115: inherit follows settings
                 CHECK (permission_mode IN ('inherit', 'ask', 'accept-edits', 'auto')),
+  owner       TEXT,                            -- owning principal subject; NULL = unowned (ADR 0325)
   source      TEXT,                            -- import origin: claude-code | codex | opencode | pi
   deleted_at  INTEGER,                         -- plugin trash marker; null means active
   pinned      INTEGER NOT NULL DEFAULT 0,
@@ -480,6 +481,21 @@ CREATE INDEX idx_sessions_updated ON sessions(updated_at DESC);
 CREATE INDEX idx_sessions_project ON sessions(project_id) WHERE project_id IS NOT NULL;
 CREATE INDEX idx_sessions_deleted ON sessions(deleted_at) WHERE deleted_at IS NOT NULL;
 ```
+
+`owner` is the owning principal's `subject`. A session created through a
+caller's path records that caller's subject; a fresh, imported, forked or
+plugin-created row, and a session the local desktop creates, leaves it null. The
+Agent Host admits a principal to a session only when it holds the `owner` role or
+when its subject equals `owner`, so a null owner admits the `owner` role alone
+(ADR 0325). The messaging bind records the linked principal as the owner of the
+session it binds, in the same host-internal call, which is how a linked chat
+principal reaches its session.
+
+**Migration.** v23 → v24 adds the column with
+`ALTER TABLE sessions ADD COLUMN owner TEXT`, guarded on `pragma_table_info` and
+run with `PRAGMA user_version = 24`; no existing table, column, or row is
+touched and every existing row keeps a null owner. A `pi.sqlite.v23.bak` copy
+precedes it, like every other in-place migration.
 
 Plugin imports add a host-owned origin sidecar. It is deliberately separate
 from the core session identity and scopes every plugin read/write to the

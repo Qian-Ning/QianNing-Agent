@@ -23,6 +23,8 @@ export type HostSessionRecord = {
   mode?: string;
   permissionMode?: string;
   planningState?: string;
+  /** The owning principal's `subject`, absent when the session has none. */
+  owner?: string;
   createdAt?: string;
   updatedAt?: string;
   messages?: UiMessage[];
@@ -50,6 +52,7 @@ export function toSessionSummary(record: HostSessionRecord): SessionSummary {
     mode,
     permissionMode,
     planningState,
+    ...(record.owner ? { owner: record.owner } : {}),
     createdAt: record.createdAt ?? new Date(0).toISOString(),
     updatedAt: record.updatedAt ?? record.createdAt ?? new Date(0).toISOString(),
   };

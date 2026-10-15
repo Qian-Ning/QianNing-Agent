@@ -120,6 +120,14 @@ async function flushHandoff(): Promise<void> {
 
 const owner: Principal = { subject: "messaging", roles: ["viewer"] };
 
+/**
+ * The fixture session's owner (ADR 0325). A viewer-role principal reaches a
+ * session only when it is that session's owner — a `viewer` scoped to someone
+ * else's session is the deferred per-session-role follow-on — so the fixture
+ * session is owned by the `owner` principal above.
+ */
+const SESSION_OWNER_SUBJECT = "messaging";
+
 class NullRuntime implements RuntimePort {
   async prompt(): Promise<{ turnId: string }> {
     return { turnId: "turn" };
@@ -132,8 +140,17 @@ class NullRuntime implements RuntimePort {
 }
 
 class NullSessions implements SessionPort {
-  async get(): Promise<SessionSummary | null> {
-    return null;
+  async get(sessionId: string): Promise<SessionSummary | null> {
+    if (sessionId !== "s1") return null;
+    return {
+      id: "s1",
+      title: "Session s1",
+      mode: "agent",
+      permissionMode: "ask",
+      owner: SESSION_OWNER_SUBJECT,
+      createdAt: "2026-09-10T00:00:00.000Z",
+      updatedAt: "2026-09-10T00:00:00.000Z",
+    };
   }
   async history(): ReturnType<SessionPort["history"]> {
     return { items: [], hasMore: false };
@@ -255,14 +272,14 @@ describe("MessagingRedactor", () => {
     expect(slack.calls[0]!.params.channel).toBe("secondary");
   });
 
-  it("is driven by the real Host subscription contract", () => {
+  it("is driven by the real Host subscription contract", async () => {
     const host = buildHost();
     const { port, calls } = recordingPort();
     const redactor = new MessagingRedactor(port, "primary");
     const deliver = vi.spyOn(redactor, "deliver");
 
     // The Host subscribes the redactor through its own public entry point.
-    host.subscribe(owner, { scope: "host" }, redactor);
+    await host.subscribe(owner, { scope: "host" }, redactor);
     host.publishSessionChange("session.created", {
       id: "s1",
       title: "Session s1",
@@ -281,12 +298,12 @@ describe("MessagingRedactor", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("publishes a forwarded kind at host scope without double-delivering to either scope", () => {
+  it("publishes a forwarded kind at host scope without double-delivering to either scope", async () => {
     const host = buildHost();
     const sessionSink = new RecordingSink();
     const hostSink = new RecordingSink();
-    host.subscribe(owner, { scope: "session", sessionId: "s1" }, sessionSink);
-    host.subscribe(owner, { scope: "host" }, hostSink);
+    await host.subscribe(owner, { scope: "session", sessionId: "s1" }, sessionSink);
+    await host.subscribe(owner, { scope: "host" }, hostSink);
 
     driveOneTurn(host);
 
@@ -317,7 +334,7 @@ describe("MessagingRedactor", () => {
     const { port, calls } = recordingPort();
     // The Host subscribes the redactor on its host-scope surface, exactly as it
     // would in production; no hand-published event stands in for a real one.
-    host.subscribe(owner, { scope: "host" }, new MessagingRedactor(port, "primary"));
+    await host.subscribe(owner, { scope: "host" }, new MessagingRedactor(port, "primary"));
 
     driveOneTurn(host);
     await flushHandoff();

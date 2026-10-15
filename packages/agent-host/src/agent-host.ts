@@ -383,7 +383,7 @@ export class AgentHost {
 
   async attach(principal: Principal, params: AttachParams): Promise<AttachResult> {
     this.requireRole(principal, "session/attach");
-    const summary = await this.requireSession(params.sessionId);
+    const summary = await this.requireSession(principal, params.sessionId);
     const state = this.state(summary.id);
     state.permissionMode = summary.permissionMode;
     await this.syncPendingApprovals(state);
@@ -403,14 +403,15 @@ export class AgentHost {
       replayComplete,
       ...(decision.status === "resync" ? { resyncReason: decision.reason } : {}),
     };
-    if (params.includeSnapshot !== false) result.snapshot = await this.snapshot(state.id, summary);
+    if (params.includeSnapshot !== false) result.snapshot = await this.snapshot(principal, state.id, summary);
     return result;
   }
 
-  subscribe(principal: Principal, params: SubscribeParams, sink: SubscriptionSink): SubscribeResult {
+  async subscribe(principal: Principal, params: SubscribeParams, sink: SubscriptionSink): Promise<SubscribeResult> {
     this.requireRole(principal, "events/subscribe");
     if (params.scope === "session") {
-      const state = this.state(requireSessionId(params.sessionId));
+      const summary = await this.requireSession(principal, requireSessionId(params.sessionId));
+      const state = this.state(summary.id);
       state.remoteSubscribers += 1;
       const wrapped: SubscriptionSink = {
         deliver: (envelope) => sink.deliver(envelope),
@@ -443,7 +444,7 @@ export class AgentHost {
   }
 
   private async startTurnAdmitted(principal: Principal, params: StartTurnParams): Promise<StartTurnResult> {
-    const summary = await this.requireSession(params.sessionId);
+    const summary = await this.requireSession(principal, params.sessionId);
     const state = this.state(summary.id);
     state.permissionMode = summary.permissionMode;
     const inputHash = hashInput(params.input);
@@ -524,14 +525,25 @@ export class AgentHost {
     return { accepted: true, turn: this.toRacpTurn(state, turn), cursor: this.hub.stream(state.id).cursor() };
   }
 
+  /**
+   * The live view of one turn, keyed by turn id. It takes no principal because
+   * every caller that reaches it is admitted before the call: the RACP
+   * `turn/get` operation (viewer) is admitted by the RACP server's single
+   * ownership gate — [`authorizeTurn`] — before the handler runs, and the
+   * desktop bridge calls it as the Host's own local principal. So the session
+   * scope is checked, once, on the admission path, not in this reader; the
+   * read itself is routing over the in-memory turn index.
+   */
   getTurn(turnId: string): RacpTurn {
-    const state = this.stateForTurn(turnId);
+    const sessionId = this.turnIndex.get(turnId);
+    if (!sessionId) throw racpError("NOT_FOUND", `turn ${turnId} is unknown`);
+    const state = this.state(sessionId);
     return this.toRacpTurn(state, state.turns.get(turnId)!);
   }
 
   async stopTurn(principal: Principal, turnId: string): Promise<RacpTurn> {
     this.requireRole(principal, "turn/stop");
-    const state = this.stateForTurn(turnId);
+    const state = await this.requireTurnSession(principal, turnId);
     const turn = state.turns.get(turnId)!;
     if (turn.status === "queued") return this.cancelTurn(principal, turnId);
     if (isActive(turn.status)) await this.runtime.stop(state.id);
@@ -540,7 +552,7 @@ export class AgentHost {
 
   async interruptTurn(principal: Principal, turnId: string): Promise<RacpTurn> {
     this.requireRole(principal, "turn/interrupt");
-    const state = this.stateForTurn(turnId);
+    const state = await this.requireTurnSession(principal, turnId);
     const turn = state.turns.get(turnId)!;
     if (turn.status === "queued") return this.cancelTurn(principal, turnId);
     if (isActive(turn.status)) await this.runtime.abort(state.id, turn.runtimeTurnId ?? turn.id);
@@ -549,7 +561,7 @@ export class AgentHost {
 
   async cancelTurn(principal: Principal, turnId: string): Promise<RacpTurn> {
     this.requireRole(principal, "turn/cancel");
-    const state = this.stateForTurn(turnId);
+    const state = await this.requireTurnSession(principal, turnId);
     return this.withAdmission(state.id, async () => {
       const turn = state.turns.get(turnId)!;
       if (turn.deliveryPending || turn.deliveredIntoTurnId || turn.status !== "queued") {
@@ -563,10 +575,11 @@ export class AgentHost {
   /** Remove a collaboration delivery from both the live and durable queue. */
   async cancelSessionMessage(principal: Principal, sessionId: string, messageId: string): Promise<boolean> {
     this.requireRole(principal, "turn/cancel");
-    return this.withAdmission(sessionId, async () => {
-      const record = this.queue.list(sessionId).find((entry) => entry.sessionMessageId === messageId);
+    const summary = await this.requireSession(principal, sessionId);
+    return this.withAdmission(summary.id, async () => {
+      const record = this.queue.list(summary.id).find((entry) => entry.sessionMessageId === messageId);
       if (!record) return false;
-      const state = this.state(sessionId);
+      const state = this.state(summary.id);
       await this.cancelQueued(state, this.ensureTurn(state, record.id));
       return true;
     });
@@ -575,7 +588,7 @@ export class AgentHost {
   /** Promote a queued turn to the end of its session's priority block ("send now"). */
   async prioritizeTurn(principal: Principal, turnId: string): Promise<RacpTurn> {
     this.requireRole(principal, "turn/prioritize");
-    const state = this.stateForTurn(turnId);
+    const state = await this.requireTurnSession(principal, turnId);
     return this.withAdmission(state.id, async () => {
       const turn = state.turns.get(turnId)!;
       if (turn.deliveryPending || turn.deliveredIntoTurnId || turn.status !== "queued") {
@@ -601,7 +614,7 @@ export class AgentHost {
     direction: QueueReorderDirection,
   ): Promise<{ moved: boolean }> {
     this.requireRole(principal, "turn/prioritize");
-    const state = this.stateForTurn(turnId);
+    const state = await this.requireTurnSession(principal, turnId);
     return this.withAdmission(state.id, async () => {
       const turn = state.turns.get(turnId)!;
       if (turn.deliveryPending || turn.deliveredIntoTurnId || turn.status !== "queued") {
@@ -628,7 +641,15 @@ export class AgentHost {
     const request = this.approvals.get(response.approvalId);
     const remembered = this.approvals.result(response.approvalId);
     if (!request && !remembered) throw racpError("NOT_FOUND", `approval ${response.approvalId} is not open`);
-    const state = this.state((request ?? { sessionId: this.sessionOfResult(response.approvalId) }).sessionId);
+    // The session is the approval's own, whether it is still open or already
+    // settled: `sessionOf` carries it past `settle` so a repeat response is
+    // checked against the session the approval belongs to, not the first state
+    // in the map (ADR 0325). A remembered result with no session — impossible
+    // while the result is retained — fails closed with NOT_FOUND.
+    const approvalSessionId = this.approvals.sessionOf(response.approvalId);
+    if (!approvalSessionId) throw racpError("NOT_FOUND", `approval ${response.approvalId} is unknown`);
+    const summary = await this.requireSession(principal, approvalSessionId);
+    const state = this.state(summary.id);
     if (response.decision === "allow-session" && !this.allowRemoteSessionGrants && !principal.pairedDevice) {
       throw racpError("FORBIDDEN", "remote session grants are not allowed by Host policy");
     }
@@ -649,6 +670,7 @@ export class AgentHost {
     }
     if (!found) throw racpError("NOT_FOUND", `input request ${response.inputId} is not open`);
     const { state, entry } = found;
+    await this.requireSession(principal, state.id);
     if (response.answers.length !== entry.request.questions.length) {
       throw racpError("INVALID_ARGUMENT", "answers must match the number of questions");
     }
@@ -669,17 +691,18 @@ export class AgentHost {
     params: { sessionId: string; beforeItemId?: string; limit?: number },
   ): Promise<{ items: RacpItemSummary[]; hasMore: boolean; revision: number }> {
     this.requireRole(principal, "session/history");
-    const state = this.state(params.sessionId);
+    const summary = await this.requireSession(principal, params.sessionId);
+    const state = this.state(summary.id);
     const limit = Math.max(1, Math.min(params.limit ?? 100, 200));
-    const page = await this.sessions.history(params.sessionId, {
+    const page = await this.sessions.history(summary.id, {
       limit,
       ...(params.beforeItemId ? { beforeItemId: params.beforeItemId } : {}),
     });
     return { ...page, revision: state.revision };
   }
 
-  async snapshot(sessionId: string, summary?: SessionSummary): Promise<RacpSessionSnapshot> {
-    const resolved = summary ?? (await this.requireSession(sessionId));
+  async snapshot(principal: Principal, sessionId: string, summary?: SessionSummary): Promise<RacpSessionSnapshot> {
+    const resolved = summary ?? (await this.requireSession(principal, sessionId));
     const state = this.state(sessionId);
     const page = await this.sessions.history(sessionId, { limit: this.snapshotItems });
     const activeTurn = state.activeTurnId ? state.turns.get(state.activeTurnId) : undefined;
@@ -1254,19 +1277,6 @@ export class AgentHost {
     return runtimeTurnId;
   }
 
-  private stateForTurn(turnId: string): SessionState {
-    const sessionId = this.turnIndex.get(turnId);
-    if (!sessionId) throw racpError("NOT_FOUND", `turn ${turnId} is unknown`);
-    return this.state(sessionId);
-  }
-
-  private sessionOfResult(approvalId: string): string {
-    for (const state of this.states.values()) {
-      if (this.approvals.result(approvalId) && state.turns.size >= 0) return state.id;
-    }
-    throw racpError("NOT_FOUND", `approval ${approvalId} is unknown`);
-  }
-
   private isBusy(state: SessionState): boolean {
     return this.isOccupied(state) || this.queue.size(state.id) > 0;
   }
@@ -1300,10 +1310,63 @@ export class AgentHost {
     }
   }
 
-  private async requireSession(sessionId: string): Promise<SessionSummary> {
+  /**
+   * The session-ownership rule (ADR 0325). A principal holding the `owner`
+   * role is admitted to every session; any other principal's `subject` must
+   * equal the session's recorded owner. A session with no recorded owner is
+   * host-local, so only the `owner` role reaches it.
+   *
+   * This is the Host's property, not a caller's: every session-addressed
+   * operation reaches the session through this, so neither the RACP handlers
+   * nor the messaging adapter can bypass it with its own policy.
+   */
+  private assertSessionAccess(principal: Principal, session: SessionSummary): void {
+    if (principal.roles.includes("owner")) return;
+    if (session.owner && session.owner === principal.subject) return;
+    throw racpError("FORBIDDEN", `principal is not the owner of session ${session.id}`);
+  }
+
+  private async requireSession(principal: Principal, sessionId: string): Promise<SessionSummary> {
     const summary = await this.sessions.get(sessionId);
     if (!summary) throw racpError("NOT_FOUND", `session ${sessionId} is unknown`);
+    this.assertSessionAccess(principal, summary);
     return summary;
+  }
+
+  /**
+   * The Host's ownership admission for one session id (ADR 0325), exposed so
+   * that the session-addressed operations which do not go through this module
+   * — `session/configure`, `session/fork`, `session/rename`, `session/delete`,
+   * `session/compact`, the workspace operations, and `terminal/open` — are
+   * admitted by the same rule as the ones that do. The comparison and the
+   * durable re-read stay here; the caller only says which session it addresses.
+   */
+  async authorizeSession(principal: Principal, sessionId: string): Promise<void> {
+    await this.requireSession(principal, sessionId);
+  }
+
+  /**
+   * The same admission for an operation that addresses a *turn*
+   * (`turn/get`), which carries no session id on the wire. The session is
+   * resolved from the turn through [`requireTurnSession`], so the durable row
+   * is re-read and compared exactly as [`authorizeSession`] does.
+   */
+  async authorizeTurn(principal: Principal, turnId: string): Promise<void> {
+    await this.requireTurnSession(principal, turnId);
+  }
+
+  /**
+   * Resolve the session a turn belongs to and admit the principal to it. The
+   * in-memory turn index is routing, not authorization, so the session row is
+   * re-read through [`requireSession`] rather than trusted from state: a turn
+   * addressed by a principal that does not own its session is refused even
+   * when the turn id is known.
+   */
+  private async requireTurnSession(principal: Principal, turnId: string): Promise<SessionState> {
+    const sessionId = this.turnIndex.get(turnId);
+    if (!sessionId) throw racpError("NOT_FOUND", `turn ${turnId} is unknown`);
+    const summary = await this.requireSession(principal, sessionId);
+    return this.state(summary.id);
   }
 
   private state(sessionId: string): SessionState {
