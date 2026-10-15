@@ -30,9 +30,17 @@ test("the host-internal bind channel is declared, handled, and exposed to the cl
     /messagingInboundBindSession: "pi-desktop\/messagingInbound\/bindSession"/,
   );
   assert.match(settingsIpcSource, /handle\(IPC\.invoke\.messagingInboundBindSession,/);
+  // Assert the behaviour, not a byte-exact call: the bind write must receive the
+  // settings surface, the session id, and a session-owner writer. The three
+  // arguments are matched as a set with whitespace tolerance so a reflow or a
+  // trailing comma does not break the test, while the meaning — that the owner
+  // writer rides along with the settings surface and session id — is still
+  // pinned. It is no longer pinned to one private implementation line. The
+  // behaviour itself (the owner write and the binding write are one call) is
+  // covered by packages/host-runtime/src/messaging-inbound-wiring.test.ts.
   assert.match(
     settingsIpcSource,
-    /await bindMessagingInboundSession\(createHostSettingsSurface\(getHost\), sessionId\)/,
+    /bindMessagingInboundSession\(\s*createHostSettingsSurface\(getHost\),\s*sessionId,\s*createHostSessionOwnerWriter\(getHost\),?\s*\)/,
   );
   assert.match(apiSource, /bindMessagingInboundSession: \(sessionId: string\)/);
   assert.match(

@@ -331,6 +331,15 @@ Every change follows this sequence. Steps may be iterated if the implementation 
   intend to be evidence** — `pnpm build:js` (or the dependency package's
   `build`) first, then the test. The root `pnpm test` does this; a per-package
   `test` does not.
+- A change that touches `apps/desktop`'s Electron main process — for example
+  `apps/desktop/electron/main/**`, which includes the IPC handlers — requires
+  the desktop test suite, `pnpm --filter @pi-desktop/desktop test`, and not only
+  `pnpm --filter @pi-desktop/desktop typecheck`. A typecheck does not exercise
+  those handlers, so a change there could pass every local gate while the suite
+  that covers it is run for the first time by CI (ADR 0325's session-ownership
+  admission in `ipc/settings-ipc.ts` is exactly this omission). Add the desktop
+  suite to the affected-suites union whenever `apps/desktop` main-process code
+  changes.
 - When the full desktop suite is run, `@pi-desktop/desktop`'s `test` script caps
   the runner at four concurrent test files (`--test-concurrency=4`). Those files
   are subprocess- and connection-heavy, so the default (one file per core)
