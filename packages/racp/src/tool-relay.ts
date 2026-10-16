@@ -62,12 +62,30 @@ type Advertisement = {
 };
 
 /**
+ * Told which session's catalog changed after an advertisement is recorded or a
+ * connection's advertisement is released. A session's catalog can change on an
+ * `advertise` (a desktop connecting or re-advertising) and on a disconnect
+ * (`release`), and the consumer must resync that session's tool list — so the
+ * notification carries the session id, never a delta the caller has to
+ * reconcile against a snapshot it might have missed.
+ */
+export type RelayCatalogChangeListener = (sessionId: string) => void;
+
+/**
  * Per-Host registry of the tools connected desktops advertise for relay. One
  * advertisement per connection (spec §6.1: `tools/advertise` "replaces the
  * connection's previous set"), cleared when the connection is released.
+ *
+ * `onChange` is the fan-out seam the embedding host (pi-host) uses to keep the
+ * Agent runtime's tool list in step with the relayed catalog. It is optional so
+ * the registry stays usable without a consumer, and it is invoked synchronously
+ * after the registry's own state mutates, so a listener that re-reads
+ * `catalogFor` observes the change it was told about.
  */
 export class ToolRelayRegistry {
   private readonly advertisements = new Map<string, Advertisement>();
+
+  constructor(private readonly onChange?: RelayCatalogChangeListener) {}
 
   /**
    * Record one connection's advertised set and return the session's merged
@@ -82,12 +100,21 @@ export class ToolRelayRegistry {
       sessionId: params.sessionId,
       tools: eligible.map(relayedToolDescriptor),
     });
-    return { tools: this.catalogFor(params.sessionId), rejected };
+    const tools = this.catalogFor(params.sessionId);
+    this.onChange?.(params.sessionId);
+    return { tools, rejected };
   }
 
-  /** Drop a connection's advertisement when it disconnects (spec §6.1). */
+  /**
+   * Drop a connection's advertisement when it disconnects (spec §6.1). The
+   * released session is reported to the change listener, because a disconnect
+   * removes tools from a catalog just as an advertisement adds them.
+   */
   release(connectionId: string): void {
+    const advertisement = this.advertisements.get(connectionId);
+    if (!advertisement) return;
     this.advertisements.delete(connectionId);
+    this.onChange?.(advertisement.sessionId);
   }
 
   /** The merged, de-duplicated relayed catalog a session currently sees. */

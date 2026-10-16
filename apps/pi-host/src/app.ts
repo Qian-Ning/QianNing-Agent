@@ -28,6 +28,7 @@ import type { PiHostConfig } from "./config.js";
 import { FileCredentialStore, loadOrCreateHostId } from "./credentials.js";
 import { createHostOperations } from "./host-operations.js";
 import { createLogger, type HostLogger } from "./logger.js";
+import { RelayedToolBridge } from "./relayed-tools.js";
 import { TerminalService, loadPty } from "./terminal.js";
 
 export type PiHostApp = {
@@ -70,6 +71,13 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
   const state: { host: HostProcess | null; sidecar: AgentSidecar | null; stopping: boolean } = { host: null, sidecar: null, stopping: false };
   const getHost = () => state.host;
   const getSidecar = () => state.sidecar;
+
+  /**
+   * The reverse tool relay's runtime wiring (spec §9.4). Declared before the
+   * sidecar boot so a restart can re-apply it, and assigned once the RACP server
+   * exists; every method is a no-op while it is undefined.
+   */
+  let relayedTools: RelayedToolBridge | undefined;
 
   const launch = createHeadlessLaunchResolver({ getHost, dataDir: config.dataDir, log: (level, message, data) => log(level, message, data) });
   const runtime = new RuntimeService({ getHost, getSidecar, launch, log });
@@ -215,6 +223,10 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
     state.sidecar = sidecar;
     runtime.attachSidecar(sidecar);
     if (state.host) sidecar.setHost(state.host);
+    // A restarted sidecar comes up with an empty host-local tool registry, so
+    // re-apply the relayed tools the Host currently holds: a live advertisement
+    // must survive a sidecar crash, not silently stop being offered.
+    relayedTools?.refresh();
     await sidecar.call("sidecar.configure", { hostBinary: config.hostCoreBinary, dataDir: config.dataDir });
     log("info", "agent sidecar configured");
   };
@@ -315,7 +327,20 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
     }),
     ...(terminal ? { terminal } : {}),
   };
-  const server = new RacpServer({ agentHost, operations, authenticator, hostId, serverVersion: APP_VERSION, log });
+  const server = new RacpServer({
+    agentHost,
+    operations,
+    authenticator,
+    hostId,
+    serverVersion: APP_VERSION,
+    log,
+    // The relay's catalog changes feed the runtime's tool list (spec §9.4). The
+    // callback reads the bridge through a closure because the server is built
+    // first and the bridge needs the server; the server only calls it once a
+    // desktop advertises or disconnects, long after both exist.
+    onRelayedToolsChanged: (sessionId) => relayedTools?.onCatalogChanged(sessionId),
+  });
+  relayedTools = new RelayedToolBridge({ server, getSidecar, log });
   let binding: WsBinding;
   try {
     binding = await bindRacpWebSocket({ server: server, authenticator, host: config.host, port: config.port, log });
@@ -361,6 +386,10 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
       server.close();
       await binding.close();
       await terminal?.closeAll();
+      // Withdraw the relayed-tool registrations while the sidecar is still
+      // alive, so a fresh advertisement cannot be left pointing at a dead
+      // sidecar registry.
+      relayedTools?.dispose();
       plans.dispose();
       await runtime.dispose();
       await state.sidecar?.dispose();

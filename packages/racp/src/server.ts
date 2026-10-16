@@ -64,6 +64,13 @@ export type RacpServerOptions = {
   now?: () => number;
   /** Deadline for `connection/initialize` after the socket opened (spec §12). */
   initializeTimeoutMs?: number;
+  /**
+   * Told which session's relayed-tool catalog changed when a desktop
+   * advertises (`tools/advertise`) or disconnects (spec §9.4). The embedding
+   * Host uses it to keep the Agent runtime's tool list in step; the server
+   * itself never reaches into a runtime.
+   */
+  onRelayedToolsChanged?: (sessionId: string) => void;
 };
 
 type Subscription = { id: string; sessionId?: string };
@@ -196,7 +203,7 @@ export class RacpServer {
   private readonly connections = new Map<string, RacpConnection>();
   private readonly handlers: Map<RacpOperation, OperationHandler>;
   /** The reverse tool relay's server half (spec §9.4). */
-  private readonly toolRelay = new ToolRelayRegistry();
+  private readonly toolRelay: ToolRelayRegistry;
   private readonly now: () => number;
   private closed = false;
 
@@ -204,6 +211,7 @@ export class RacpServer {
     this.limits = { ...RACP_DEFAULT_LIMITS, ...options.limits };
     this.policy = { ...RACP_DEFAULT_POLICY, ...options.policy };
     this.now = options.now ?? (() => Date.now());
+    this.toolRelay = new ToolRelayRegistry(options.onRelayedToolsChanged);
     this.capabilities = {
       eventReplay: true,
       snapshot: true,
