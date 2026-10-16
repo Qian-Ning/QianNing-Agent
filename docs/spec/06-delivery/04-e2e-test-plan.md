@@ -13656,7 +13656,8 @@ browser milestones are scheduled.
   while idle, then attempt it while a turn runs. 6) Open the files tab and the
   diff tab for the remote session. 7) Advertise relay from the desktop, run a
   turn that calls the desktop MCP tool, then close the desktop during a
-  second call. 8) Open a terminal on the remote session and run a command.
+  second call. 8) Open a terminal on the remote session over the transport
+  (`terminal/open`, then `terminal/input`) and run a command.
   9) Kill the SSH session mid-turn with the terminal open, restore it, and
   let the desktop reconnect. 10) Inspect the remote tool catalog. 11) Attempt
   to connect from a non-loopback address on the remote machine, then with a
@@ -13670,7 +13671,9 @@ browser milestones are scheduled.
   `PATH_OUTSIDE_WORKSPACE`; the desktop MCP tool executes on the desktop and
   its result reaches the remote transcript, while the second call fails with
   `TOOL_FAILED` and the turn continues; the terminal runs on the remote
-  machine inside the session root; the turn continues through the SSH drop,
+  machine inside the session root and its `terminal.output` chunks reach the
+  desktop instead of being dropped, with no interactive terminal view (the
+  desktop has none by design); the turn continues through the SSH drop,
   the desktop resumes by cursor without a duplicate, and the terminal output
   resumes from the replay ring; the remote catalog lists the relayed MCP tool
   but not the workspace-requiring plugin tool; the non-loopback peer and the
