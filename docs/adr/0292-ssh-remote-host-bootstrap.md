@@ -133,7 +133,10 @@ Still open for R2b and later:
   part of the bootstrap step, but it needs host-side provider schema work and is
   not in this change, so a freshly bootstrapped host still fails `turn/start`
   closed with `MODEL_NOT_CONFIGURED` until a provider is configured on it.
-- **The resync watchdog**: `resync.required` events are still dropped.
+- **The resync watchdog**: delivered in R2b stage 3b
+  (`remote/remote-host-connection.ts` resubscribes from `RacpClient.cursorFor`
+  after a bounded-backoff reconnect and honours `resync.required` by refreshing
+  from a Host snapshot rather than replaying a backlog).
 - **Non-Linux remote targets, and Windows as a *remote* target.** Only
   `linux-x64` is published, so both are refused before a download starts.
 

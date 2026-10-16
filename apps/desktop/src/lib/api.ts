@@ -117,6 +117,7 @@ import type {
   RemoteHostBootstrapResult,
   RemoteHostPairRequest,
   RemoteHostPairResult,
+  RemoteHostStateEvent,
   RemoteHostSummary,
   UpdateState,
   WindowControlAction,
@@ -1843,6 +1844,18 @@ export const api = {
   /** Close and drop a paired host by its stable routing key. */
   removeRemoteHost: (hostKey: string) =>
     invoke<{ ok: true }>(IPC.invoke.remoteHostRemove, { hostKey }),
+  /**
+   * Live link state of one paired host: `connecting` / `connected` /
+   * `reconnecting` / `disconnected` / `failed` (R2b stage 3b). Distinct from
+   * `remoteHostList`'s snapshot `connected` flag, which cannot say *why* a row
+   * is not usable.
+   */
+  onRemoteHostState: (listener: (event: RemoteHostStateEvent) => void) => {
+    if (!window.piDesktop?.on) return () => undefined;
+    return window.piDesktop.on(IPC.event.remoteHostState, (payload) =>
+      listener(payload as RemoteHostStateEvent),
+    );
+  },
   onSessionsChanged: (
     listener: (event: {
       reason?: string;

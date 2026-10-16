@@ -161,11 +161,18 @@ events. What is scheduled for later stages of R2:
 - **Reverse tool relay (Stage 6).** A `RelayToolPort` bridge that lets the
   agent host run local desktop tools against a remote session. Belongs on the
   agent-host and pi-host, not on `packages/racp`.
-- **Resync watchdog.** `resync.required` events are dropped today; the
-  connection layer will eventually rebuild subscriptions from the last
-  cursor per session (`RacpClient.cursorFor`).
+- **Resync watchdog (delivered, R2b stage 3b).** `resync.required` events were
+  dropped; `remote/remote-host-connection.ts` now consumes them — and an
+  unusable cursor (`replayComplete: false`) — by taking the Host's snapshot and
+  re-subscribing at the head, and rebuilds every subscription from the last
+  cursor per session (`RacpClient.cursorFor`) after a reconnect with bounded
+  backoff scheduled here (`bootstrap/remote-hosts.ts`).
 - **Multi-listener contract.** `subscribe()` is used by exactly one consumer
-  today (the event bridge); Stage 3b's resync watchdog will be the second.
+  today (the event bridge). Stage 3b's resync watchdog and the link-state
+  surface did not become a second `subscribe()` listener after all: the
+  connection needs to know *when the transport reconnected* and *what state it
+  is in*, not to see envelopes, so the adapter exposes two dedicated seams
+  (`subscribeReconnected`, `subscribeState`) beside it.
 
 ## Alternatives considered
 
