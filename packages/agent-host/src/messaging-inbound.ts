@@ -17,7 +17,7 @@ import { RandomIds, type IdSource, type Principal } from "./ports.js";
 
 /**
  * The inbound command path for the messaging integration (ADR 0205 D375 item 9,
- * rollout R3), Telegram only.
+ * rollout R3): Telegram over an outbound long poll, and Slack over Socket Mode.
  *
  * A linked chat's message is mapped by the existing command vocabulary
  * ([`mapMessagingCommand`]) onto the four operations the Host already exposes,
@@ -37,10 +37,16 @@ import { RandomIds, type IdSource, type Principal } from "./ports.js";
  *
  * # Boundaries, stated once
  *
- * - **Slack inbound is deferred.** Its socket mode needs a websocket client and
- *   the tree has none; adding that dependency is the maintainer's decision.
- *   Outbound Slack is unchanged.
- * - No inbound listener, no bound port, no accepting socket.
+ * - **Slack inbound is a Socket Mode push (ADR 0326).** Its client lives in
+ *   `messaging-slack-inbound.ts` and reuses the `ws` client this JavaScript
+ *   tree already ships (it is in the lockfile for `@pi-desktop/racp` and the
+ *   desktop apps; only the dependency *edge* into `@pi-desktop/agent-host` is
+ *   new). The **Rust** tree still has no websocket client and `messaging_slack`
+ *   stays outbound only, so the two trees differ on purpose. Outbound Slack is
+ *   unchanged in both.
+ * - No inbound listener, no bound port, no accepting socket. Socket Mode is an
+ *   outbound WSS connection the Host *originates* to Slack, exactly as the long
+ *   poll is an outbound HTTPS request; nothing here binds or accepts.
  * - No new operation verb, no parallel admission path, no permission policy
  *   beyond the role gate, and no raw transcript content on the wire: a message
  *   carries only its own text, and only the message's own text is read.
@@ -171,7 +177,14 @@ import { RandomIds, type IdSource, type Principal } from "./ports.js";
  * including one arriving while the first copy is still being applied; it does
  * not stop a redelivery that spans a restart — nothing here does — which is why
  * the cursor is the part that must be durable and the guard is documented as
- * best-effort per run.
+ * best-effort per run. A *push* channel has no cursor to persist (there are no
+ * offsets), so for that side the durability lives in the transport instead:
+ * `messaging-slack-inbound.ts` keeps its own restart-durable replay guard, keyed
+ * on the platform's own event id, and acknowledges an envelope only after the
+ * message has been durably recorded there — at-least-once with dedupe, never
+ * at-most-once with loss. The in-run guard above still applies to a push message
+ * once it reaches [`MessagingInboundDriver::handleMessage`], because the push
+ * transport hands the driver that same call.
  *
  * The guard is bounded to [`DEFAULT_HANDLED_CAPACITY`] keys, oldest evicted
  * first: after that many messages have been accepted, a redelivery of an older
@@ -250,11 +263,20 @@ export type MessagingInboundLink = {
  * `inbound` object, no `inbound.linkedPrincipal.subject`, or an empty role list
  * — yields `null`, which the driver treats as "not linked" and audits. A mode
  * that is not one of the accepted modes is dropped, not trusted.
+ *
+ * The section key and the record's `format`/`version` default to the Telegram
+ * channel's own, so every existing caller reads the same record it always did;
+ * a second channel passes its own format through the two optional parameters
+ * rather than restating this fail-closed reader.
  */
-export function readInboundLink(section: unknown): MessagingInboundLink | null {
+export function readInboundLink(
+  section: unknown,
+  format: string = MESSAGING_TELEGRAM_FORMAT,
+  formatVersion: number = MESSAGING_TELEGRAM_FORMAT_VERSION,
+): MessagingInboundLink | null {
   if (!isRecord(section)) return null;
-  if (section.format !== MESSAGING_TELEGRAM_FORMAT) return null;
-  if (section.version !== MESSAGING_TELEGRAM_FORMAT_VERSION) return null;
+  if (section.format !== format) return null;
+  if (section.version !== formatVersion) return null;
 
   const chatId = typeof section.destination === "string" ? section.destination.trim() : "";
   if (!chatId) return null;
@@ -281,10 +303,11 @@ export function readInboundLink(section: unknown): MessagingInboundLink | null {
   };
 }
 
-/** One inbound message, as the channel's receive loop sees it. */
-export type TelegramInboundMessage = {
-  /** The platform's update id, the long poll's cursor. */
-  updateId: number;
+/**
+ * One inbound message, channel-neutral: the fields every receive path shares,
+ * whatever transport delivered it.
+ */
+export type InboundMessage = {
   /** The message's own id; with the conversation, the replay guard's key. */
   messageId: string;
   /** The conversation the message came from. */
@@ -293,19 +316,59 @@ export type TelegramInboundMessage = {
   text: string;
 };
 
+/** One inbound Telegram message: the neutral shape plus the long poll's cursor. */
+export type TelegramInboundMessage = InboundMessage & {
+  /** The platform's update id, the long poll's cursor. */
+  updateId: number;
+};
+
 /** One long poll's answer. */
 export type TelegramPollResult =
   | { ok: true; messages: TelegramInboundMessage[]; nextOffset: number }
   | { ok: false; error: string; retryAfterMs?: number };
 
 /**
- * How the receive loop reaches the channel. An implementation performs one
- * outbound long poll and returns; it opens no listener and holds no Host state.
- * A failure is reported in the result, never thrown, so the loop owns its own
- * error handling.
+ * How the receive loop reaches an *outbound long-poll* channel. An
+ * implementation performs one outbound long poll and returns; it opens no
+ * listener and holds no Host state. A failure is reported in the result, never
+ * thrown, so the loop owns its own error handling.
  */
 export interface TelegramInboundTransport {
   poll(offset: number, signal?: AbortSignal): Promise<TelegramPollResult>;
+}
+
+/**
+ * How the receive loop reaches a *push* channel — one whose platform delivers
+ * to a socket the loop holds open, with no offsets to poll from.
+ *
+ * The loop hands `start` a handler and awaits it; `start` resolves when `signal`
+ * aborts or the socket closes. `onMessage` resolves only once the message has
+ * been taken as far as the transport's own durability rule requires, so a
+ * transport that must acknowledge after a durable record can order the two on
+ * that resolution and never acknowledge an unrecorded message. The transport
+ * owns its own replay guard across restarts (there is no cursor to persist for
+ * a push channel) and reports its own failures; it never holds Host state.
+ */
+export interface MessagingInboundPushTransport {
+  start(
+    onMessage: (message: InboundMessage) => Promise<void>,
+    signal?: AbortSignal,
+  ): Promise<void>;
+}
+
+/**
+ * Either receive shape: the loop polls a pull transport, or it serves a push
+ * transport. The two are told apart structurally, so a transport object the
+ * existing Telegram tests already build — one with only a `poll` method —
+ * remains a pull transport with no change.
+ */
+export type MessagingInboundTransport = TelegramInboundTransport | MessagingInboundPushTransport;
+
+/** Whether `transport` is the push shape (it has a `start`), never the poll shape. */
+export function isPushTransport(
+  transport: MessagingInboundTransport,
+): transport is MessagingInboundPushTransport {
+  return typeof (transport as MessagingInboundPushTransport).start === "function";
 }
 
 /** Where the current link is read from, once per message. */
@@ -371,7 +434,7 @@ export type MessagingInboundOperationSurface = Pick<
 export type MessagingInboundOptions = {
   /** The existing Agent Host surface; the same object the RACP handlers call. */
   agentHost: MessagingInboundOperationSurface;
-  transport: TelegramInboundTransport;
+  transport: MessagingInboundTransport;
   readConfig: MessagingInboundConfigSource;
   targets: InboundSessionDirectory;
   audit?: MessagingInboundAudit;
@@ -430,7 +493,7 @@ function handledKey(chatId: string, messageId: string): string {
  */
 export class MessagingInboundDriver {
   private readonly agentHost: MessagingInboundOperationSurface;
-  private readonly transport: TelegramInboundTransport;
+  private readonly transport: MessagingInboundTransport;
   private readonly readConfig: MessagingInboundConfigSource;
   private readonly targets: InboundSessionDirectory;
   private readonly audit: MessagingInboundAudit;
@@ -473,7 +536,7 @@ export class MessagingInboundDriver {
    * Host raises while applying a command, are outcomes of this call, never
    * exceptions.
    */
-  async handleMessage(message: TelegramInboundMessage): Promise<MessagingInboundOutcome> {
+  async handleMessage(message: InboundMessage): Promise<MessagingInboundOutcome> {
     const key = handledKey(message.chatId, message.messageId);
     if (this.handled.has(key)) {
       this.audit({ kind: "duplicate", messageId: message.messageId });
@@ -576,7 +639,11 @@ export class MessagingInboundDriver {
   async pollOnce(
     signal?: AbortSignal,
   ): Promise<{ polled: boolean; outcomes: MessagingInboundOutcome[]; retryAfterMs?: number }> {
-    const result = await this.transport.poll(this.offset, signal);
+    const transport = this.transport;
+    // A push transport has no poll; a caller that reaches here with one gets a
+    // no-op rather than a type error. `run` never polls a push transport.
+    if (isPushTransport(transport)) return { polled: false, outcomes: [] };
+    const result = await transport.poll(this.offset, signal);
     if (!result.ok) {
       this.audit({ kind: "poll-failed", error: result.error });
       return {
@@ -650,6 +717,25 @@ export class MessagingInboundDriver {
    * back-off a poll carried (a `retryAfterMs`) is honoured as the longer wait.
    */
   async run(signal?: AbortSignal): Promise<void> {
+    const transport = this.transport;
+    if (isPushTransport(transport)) {
+      // A push channel delivers to a socket the transport holds open: there is
+      // no cursor to load and no poll to make. The loop hands the transport the
+      // same handler the poll path applies per message — so a message from a
+      // push channel goes through the one routing path, not a second one — and
+      // returns when the transport does (its socket closed, or `signal`
+      // aborted). A transport that throws is still not a Host failure: it is
+      // caught and reported and the loop ends, exactly as a throwing poll would
+      // be.
+      try {
+        await transport.start(async (message) => {
+          await this.handleMessage(message);
+        }, signal);
+      } catch (error) {
+        this.audit({ kind: "poll-failed", error: error instanceof Error ? error.message : String(error) });
+      }
+      return;
+    }
     await this.loadCursor();
     while (!signal?.aborted) {
       let polled = false;

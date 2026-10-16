@@ -45,6 +45,8 @@ export type ShutdownDependencies = {
   getMcpControl: () => McpControlServer | null;
   /** The inbound messaging loop this boot started, if any. */
   getMessagingInbound: () => MessagingInboundHandle | null;
+  /** The inbound Slack Socket Mode loop this boot started, if any. */
+  getMessagingSlackInbound: () => MessagingInboundHandle | null;
   activeTurns: Map<string, string>;
   persistenceOutbox: PersistenceOutbox;
   inflightCheckpointer: InflightCheckpointer;
@@ -69,6 +71,7 @@ export function registerShutdownHandlers({
   getSidecar,
   getMcpControl,
   getMessagingInbound,
+  getMessagingSlackInbound,
   activeTurns,
   persistenceOutbox,
   inflightCheckpointer,
@@ -159,6 +162,12 @@ export function registerShutdownHandlers({
       const messagingInbound = getMessagingInbound();
       messagingInbound?.controller.abort();
       await settleWithinBudget(messagingInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
+      // The Slack Socket Mode loop is stopped the same way, beside the Telegram
+      // loop and before host-core is disposed: the same bounded wait, so a
+      // hung connection cannot hold up the quit.
+      const messagingSlackInbound = getMessagingSlackInbound();
+      messagingSlackInbound?.controller.abort();
+      await settleWithinBudget(messagingSlackInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
       // Close every paired remote host before the local host-core so any
       // in-flight remote turn's abort still goes over a live socket. Bounded
       // parallelism inside `closeAll`; safe to run before local disposals.

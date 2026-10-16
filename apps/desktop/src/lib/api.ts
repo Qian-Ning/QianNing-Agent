@@ -699,6 +699,13 @@ export const api = {
    */
   bindMessagingInboundSession: (sessionId: string) =>
     invoke<{ ok: boolean }>(IPC.invoke.messagingInboundBindSession, sessionId),
+  /**
+   * Bind a *Slack* conversation to a session (ADR 0326). Same shape and the same
+   * host-internal write as `bindMessagingInboundSession`, selecting the Slack
+   * settings section; the Telegram call above is unchanged.
+   */
+  bindSlackInboundSession: (sessionId: string) =>
+    invoke<{ ok: boolean }>(IPC.invoke.messagingInboundBindSessionSlack, sessionId),
   /** Skin center (D635): host-side background media + bundle import/export. */
   importSkinAsset: (path?: string) =>
     invoke<SkinImportAssetResult | null>(IPC.invoke.skinImportAsset, { path }),

@@ -202,7 +202,10 @@ inbound listener.
 - It maps a fixed command vocabulary from a linked chat to `turn/start`,
   `turn/stop`, `turn/interrupt`, and `approval/respond`, executed under the
   linked principal's roles and the same Host policy as any client; unlinked
-  chats are ignored and audited.
+  chats are ignored and audited. Telegram receives commands by an outbound long
+  poll and Slack by a Socket Mode push (ADR 0326) — a WebSocket connection the
+  Host originates to Slack, so Slack inbound needs no inbound callback and no
+  public endpoint either.
 - It never blocks a turn: delivery failures are logged and retried with a
   bound, and the Host runs the same whether the adapter is configured or not.
 

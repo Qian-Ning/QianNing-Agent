@@ -1003,6 +1003,7 @@ registerShutdownHandlers({
   getSidecar,
   getMcpControl: () => mainState.mcpControl,
   getMessagingInbound: () => mainState.messagingInbound,
+  getMessagingSlackInbound: () => mainState.messagingSlackInbound,
   activeTurns,
   persistenceOutbox,
   inflightCheckpointer,

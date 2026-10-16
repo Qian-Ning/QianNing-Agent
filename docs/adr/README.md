@@ -355,3 +355,4 @@ Each ADR includes:
 | 0324 | [Bound the architecture budget exemptions](0324-bound-architecture-budget-exemptions.md) | Accepted (amends 0235) |
 | chronological-system-transcript | [Preserve chronological model system state](chronological-system-transcript.md) | Accepted |
 | 0325 | [Give sessions persisted ownership and enforce it at the Agent Host](0325-session-ownership-at-the-agent-host.md) | Accepted for implementation (per-session scoped roles deferred) |
+| 0326 | [Deliver Slack inbound over Socket Mode](0326-slack-inbound-socket-mode.md) | Accepted for implementation |

@@ -13,6 +13,7 @@ import {
   createHostSessionPort,
   createHostSettingsSurface,
   createMessagingInboundWiring,
+  createSlackInboundWiring,
   listPendingToolRequests,
   registerSkillAuthoringTools,
   settleWithinBudget,
@@ -248,6 +249,24 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
     }).run(),
   };
 
+  // The inbound Slack command path over Socket Mode (ADR 0326), beside the
+  // Telegram loop: the same driver, over an outbound WSS connection the Host
+  // originates (no port is bound). Config-gated on the Slack app-level token —
+  // with none configured the transport starts nothing and this loop resolves at
+  // once, so nothing changes with nothing configured. `stop()` aborts this
+  // controller and awaits the loop, bounded, before the host is disposed.
+  const messagingSlackAbort = new AbortController();
+  const messagingSlack: MessagingInboundHandle = {
+    controller: messagingSlackAbort,
+    done: createSlackInboundWiring({
+      agentHost,
+      settings: createHostSettingsSurface(getHost),
+      secrets: createHostSecretReader(getHost),
+      signal: messagingSlackAbort.signal,
+      log: (level, message, data) => log(level, message, data),
+    }).run(),
+  };
+
   const pty = loadPty();
   const terminal = pty
     ? new TerminalService({
@@ -312,6 +331,10 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
       // still lets the rest of stop proceed.
       messaging.controller.abort();
       await settleWithinBudget(messaging.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
+      // The Slack Socket Mode loop stops the same way, beside the Telegram loop
+      // and before the host is disposed: abort, then a bounded wait.
+      messagingSlack.controller.abort();
+      await settleWithinBudget(messagingSlack.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
       server.close();
       await binding.close();
       await terminal?.closeAll();

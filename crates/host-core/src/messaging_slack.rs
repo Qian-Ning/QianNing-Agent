@@ -18,9 +18,12 @@
 //! receives inbound commands, but by a long poll run in the agent host module,
 //! not here.)
 //!
-//! **Slack inbound is deferred.** Its incoming direction needs socket mode,
-//! which needs a websocket client, and this tree has none; adding that
-//! dependency is the maintainer's decision. Outbound Slack is unchanged.
+//! **Slack inbound does not live here (ADR 0326).** Its incoming direction is a
+//! Socket Mode push; that client is JavaScript and lives in the agent host
+//! module (`packages/agent-host/src/messaging-slack-inbound.ts`). The **Rust**
+//! tree still has no websocket client — `websocket` appears nowhere in this
+//! crate — so this module stays outbound only and never binds, listens or
+//! accepts. Outbound Slack is unchanged here.
 //!
 //! The inbound command path that does exist belongs to the Telegram channel and
 //! is delivered by the messaging integration's driver in the agent host module,
