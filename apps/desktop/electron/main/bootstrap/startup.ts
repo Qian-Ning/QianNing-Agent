@@ -28,8 +28,10 @@ import {
   createHostSecretReader,
   createHostSettingsSurface,
   createMessagingInboundWiring,
+  createMessagingOutboundRelay,
   createSlackInboundWiring,
   type MessagingInboundHandle,
+  type MessagingOutboundRelay,
 } from "@pi-desktop/host-runtime";
 import { readCloseBehavior } from "../window-preferences";
 import { createAgentHostBridge, type AgentHostBridge } from "../agent-host-bridge";
@@ -96,6 +98,13 @@ export type StartupState = {
    * resolves at once and opens nothing, so no behaviour changes.
    */
   messagingSlackInbound: MessagingInboundHandle | null;
+  /**
+   * The outbound messaging relay this boot subscribed, with the release that
+   * stops it. Shutdown releases it, bounded, before host-core is disposed. It is
+   * config-gated on each channel's own settings record: with none configured
+   * nothing is subscribed, so no behaviour changes.
+   */
+  messagingOutbound: MessagingOutboundRelay | null;
 };
 
 export type StartupDependencies = {
@@ -405,6 +414,21 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
         log: (level, message, data) => logger.app("runtime", level, message, { data }),
       });
       state.messagingSlackInbound = { controller, done: wiring.run() };
+    }
+    // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3), beside
+    // the two inbound loops: the Host-side redactor subscribed on the
+    // host-scope surface, so redacted summaries of terminal turn outcomes and
+    // host-owned requests reach the durable delivery ledger. Config-gated on
+    // each channel's own settings record — with none configured nothing is
+    // subscribed and no delivery is issued, so the default behaviour with
+    // nothing configured is unchanged. Shutdown owns its release.
+    if (!bootError && host && state.agentHostBridge) {
+      state.messagingOutbound = createMessagingOutboundRelay({
+        agentHost: state.agentHostBridge.agentHost,
+        settings: createHostSettingsSurface(getHost),
+        getHost,
+        log: (level, message, data) => logger.app("runtime", level, message, { data }),
+      });
     }
     await ensureWindow();
     if (process.env.PI_DESKTOP_MCP_CONTROL === "1") {

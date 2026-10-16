@@ -3,7 +3,7 @@ import type { CloseBehavior } from "@pi-desktop/shared";
 import type { AgentSidecar } from "../agent-sidecar";
 import type { BrowserHost } from "../browser-host";
 import type { HostProcess } from "../host-process";
-import { settleWithinBudget, type InflightCheckpointer, type MessagingInboundHandle } from "@pi-desktop/host-runtime";
+import { settleWithinBudget, type InflightCheckpointer, type MessagingInboundHandle, type MessagingOutboundRelay } from "@pi-desktop/host-runtime";
 import type { Logger } from "../logger";
 import type { PersistenceOutbox } from "../persistence-outbox";
 import type { PluginPanelHost } from "../plugin-panel-host";
@@ -47,6 +47,8 @@ export type ShutdownDependencies = {
   getMessagingInbound: () => MessagingInboundHandle | null;
   /** The inbound Slack Socket Mode loop this boot started, if any. */
   getMessagingSlackInbound: () => MessagingInboundHandle | null;
+  /** The outbound messaging relay this boot subscribed, if any. */
+  getMessagingOutbound: () => MessagingOutboundRelay | null;
   activeTurns: Map<string, string>;
   persistenceOutbox: PersistenceOutbox;
   inflightCheckpointer: InflightCheckpointer;
@@ -72,6 +74,7 @@ export function registerShutdownHandlers({
   getMcpControl,
   getMessagingInbound,
   getMessagingSlackInbound,
+  getMessagingOutbound,
   activeTurns,
   persistenceOutbox,
   inflightCheckpointer,
@@ -168,6 +171,13 @@ export function registerShutdownHandlers({
       const messagingSlackInbound = getMessagingSlackInbound();
       messagingSlackInbound?.controller.abort();
       await settleWithinBudget(messagingSlackInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
+      // The outbound messaging relay is released the same way, beside the two
+      // loops and before host-core is disposed: it unsubscribes at once, and the
+      // wait is bounded so a release that ever refused to settle cannot hold up
+      // the quit.
+      const messagingOutbound = getMessagingOutbound();
+      messagingOutbound?.stop();
+      await settleWithinBudget(messagingOutbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
       // Close every paired remote host before the local host-core so any
       // in-flight remote turn's abort still goes over a live socket. Bounded
       // parallelism inside `closeAll`; safe to run before local disposals.
