@@ -11,12 +11,53 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { RemoteHostSshAuth, RemoteHostSummary } from "@pi-desktop/shared";
+import type {
+  RemoteHostLinkState,
+  RemoteHostSshAuth,
+  RemoteHostSummary,
+} from "@pi-desktop/shared";
 import { api } from "../../lib/api";
 import { useAppStore } from "../../stores/app-store";
 import { Badge, Button, Field, Input, PasswordInput, SegmentedControl, cx } from "../ui";
 
 type AddMode = "ssh" | "pair";
+
+/**
+ * Live link state of one row: the last `remoteHostState` push for that host,
+ * or — before any push — the snapshot `remoteHostList` returned. Distinguishes
+ * a dropped link coming back (`reconnecting`) from one that gave up (`failed`)
+ * and from a host the desktop never reached (`disconnected`); the online /
+ * offline snapshot flag alone cannot express that (R2b stage 3b).
+ */
+function linkStateOf(
+  host: RemoteHostSummary,
+  live: Record<string, RemoteHostLinkState>,
+): RemoteHostLinkState {
+  return live[host.hostKey] ?? (host.connected ? "connected" : "disconnected");
+}
+
+function statusTone(state: RemoteHostLinkState): "neutral" | "success" | "warning" | "error" {
+  switch (state) {
+    case "connected":
+      return "success";
+    case "connecting":
+    case "reconnecting":
+      return "warning";
+    case "failed":
+      return "error";
+    default:
+      return "neutral";
+  }
+}
+
+/** Locale key for a link state; the online/offline pair stays for compatibility. */
+const STATUS_KEY: Record<RemoteHostLinkState, string> = {
+  connected: "settings.remoteHosts.statusOnline",
+  disconnected: "settings.remoteHosts.statusOffline",
+  connecting: "settings.remoteHosts.statusConnecting",
+  reconnecting: "settings.remoteHosts.statusReconnecting",
+  failed: "settings.remoteHosts.statusFailed",
+};
 
 type PairForm = {
   url: string;
@@ -57,6 +98,7 @@ export function RemoteHostsPage() {
   const [sshForm, setSshForm] = useState<SshForm>(EMPTY_SSH_FORM);
   const [installing, setInstalling] = useState(false);
   const [addMode, setAddMode] = useState<AddMode>("ssh");
+  const [linkStates, setLinkStates] = useState<Record<string, RemoteHostLinkState>>({});
 
   const refresh = useCallback(async () => {
     try {
@@ -72,6 +114,21 @@ export function RemoteHostsPage() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Live link state per host: connecting / connected / reconnecting / failed.
+  // A state push is the only place a dropped-and-recovering host is visible,
+  // because `remoteHostList` reports a snapshot, not a transition.
+  useEffect(
+    () =>
+      api.onRemoteHostState((event) => {
+        setLinkStates((prev) =>
+          prev[event.hostKey] === event.state
+            ? prev
+            : { ...prev, [event.hostKey]: event.state },
+        );
+      }),
+    [],
+  );
 
   const submit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -199,42 +256,43 @@ export function RemoteHostsPage() {
             {t("settings.remoteHosts.empty")}
           </div>
         ) : (
-          hosts.map((host) => (
-            <article key={host.hostKey} className="settings-remote-host-card" role="listitem">
-              <span
-                className={cx(
-                  "settings-remote-host-pulse",
-                  host.connected && "is-online",
-                )}
-                aria-hidden="true"
-              />
-              <div className="settings-remote-host-copy">
-                <div className="settings-remote-host-name">{host.label}</div>
-                <div className="settings-remote-host-meta">
-                  {host.transport === "ssh"
-                    ? `${t("settings.remoteHosts.transportSsh")} · ${host.url}`
-                    : host.url}
+          hosts.map((host) => {
+            const state = linkStateOf(host, linkStates);
+            return (
+              <article key={host.hostKey} className="settings-remote-host-card" role="listitem">
+                <span
+                  className={cx(
+                    "settings-remote-host-pulse",
+                    state === "connected" && "is-online",
+                  )}
+                  aria-hidden="true"
+                />
+                <div className="settings-remote-host-copy">
+                  <div className="settings-remote-host-name">{host.label}</div>
+                  <div className="settings-remote-host-meta">
+                    {host.transport === "ssh"
+                      ? `${t("settings.remoteHosts.transportSsh")} · ${host.url}`
+                      : host.url}
+                  </div>
                 </div>
-              </div>
-              <span className="settings-remote-host-card-actions">
-                <Badge tone={host.connected ? "success" : "neutral"}>
-                  {host.connected
-                    ? t("settings.remoteHosts.statusOnline")
-                    : t("settings.remoteHosts.statusOffline")}
-                </Badge>
-                <Button
-                  variant="ghost"
-                  type="button"
-                  disabled={removing === host.hostKey}
-                  onClick={() => void remove(host)}
-                >
-                  {removing === host.hostKey
-                    ? t("settings.remoteHosts.removing")
-                    : t("settings.remoteHosts.remove")}
-                </Button>
-              </span>
-            </article>
-          ))
+                <span className="settings-remote-host-card-actions">
+                  <Badge tone={statusTone(state)}>
+                    {t(STATUS_KEY[state])}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    type="button"
+                    disabled={removing === host.hostKey}
+                    onClick={() => void remove(host)}
+                  >
+                    {removing === host.hostKey
+                      ? t("settings.remoteHosts.removing")
+                      : t("settings.remoteHosts.remove")}
+                  </Button>
+                </span>
+              </article>
+            );
+          })
         )}
       </div>
 

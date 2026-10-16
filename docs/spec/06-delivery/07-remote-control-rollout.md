@@ -485,6 +485,25 @@ Recorded on the `feat/remote-agent-host` branch, 2026-09-10:
   a local and a remote session, distinguished only by the session id, as
   `agentMessage` does; no renderer view consumes it yet. The milestone text
   above, which had assumed a desktop terminal surface, is corrected here.
+- R2b reconnect and resync (2026-10-17): a dropped remote host link now comes
+  back instead of leaving a dead pane. The transport reconnects with bounded
+  exponential backoff (500 ms doubling, capped at 15 s, eight attempts) via
+  `RacpClient`'s existing policy, wired in `bootstrap/remote-hosts.ts`; the
+  desktop connection (`remote/remote-host-connection.ts`) exposes `resync()`,
+  which re-runs the same establishment pass `open()` runs — host-scope
+  subscribe, `session/list`, per-session subscribe, terminal re-attach — so one
+  code path serves the first dial and every reconnect. The resync resumes each
+  stream from the cursor `RacpClient.cursorFor` kept; when the Host says that
+  cursor is no longer usable (`replayComplete: false`, or a `resync.required`
+  event the event bridge now routes to the connection instead of dropping) the
+  desktop takes the Host's snapshot and re-subscribes at the head, so the only
+  history that can cross the wire is the Host's bounded window and the bounded
+  terminal replay ring — never an unbounded backlog, and nothing accumulates
+  locally while disconnected. Overlapping passes coalesce into one, a pass
+  superseded by teardown aborts, and a durable event at or below the applied
+  watermark is dropped. New IPC event `remoteHostState` carries
+  `connecting` / `connected` / `reconnecting` / `disconnected` / `failed` per
+  host to the Settings row. Exit criteria 2 and 7 are served.
 
 ## 8. Amendment history
 

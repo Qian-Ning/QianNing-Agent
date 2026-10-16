@@ -208,6 +208,22 @@ type OpenHost = {
   url: string;
 };
 
+/**
+ * Reconnect policy for a paired host (R2b stage 3b). The transport reconnects
+ * with bounded exponential backoff — 500 ms, doubling, capped at 15 s — and
+ * gives up after 8 attempts (about a minute), at which point the link state
+ * reaches `failed` and the Settings row says so instead of showing a host that
+ * silently never comes back. The bound is deliberate: a `pi-host` that was
+ * uninstalled or a forward that died is a user-visible failure, not something
+ * to retry forever while the desktop holds a stale registration.
+ */
+const RECONNECT_POLICY = {
+  enabled: true,
+  baseDelayMs: 500,
+  maxDelayMs: 15_000,
+  maxAttempts: 8,
+} as const;
+
 export function createRemoteHostsBoot(
   options: BootRemoteHostsOptions,
 ): RemoteHostsBoot {
@@ -218,6 +234,9 @@ export function createRemoteHostsBoot(
       createRacpRemoteHostClient({
         transport: wsClientTransport({ url: record.url, token: record.deviceToken }),
         clientInfo: options.clientInfo,
+        // Stage 3b: a dropped link comes back on its own, and the connection's
+        // resync pass re-subscribes and re-attaches once it does.
+        reconnect: { ...RECONNECT_POLICY },
         log: (level, message, data) => log(level, message, data),
       }));
 

@@ -67,6 +67,35 @@ export type RemoteHostSummary = {
 };
 
 /**
+ * Live link state of one paired host, as the desktop-side connection observes
+ * it. Mirrors the transport's own state machine
+ * (`RacpClientState`, `packages/racp/src/client.ts`): `connecting` is an
+ * initial dial, `reconnecting` is a dropped link being re-established with
+ * backoff, `disconnected` is a clean close the desktop asked for, and `failed`
+ * is a reconnect budget that ran out. `connected` means the transport is
+ * initialized and the host's sessions are subscribed again.
+ *
+ * `connected` maps onto `RemoteHostSummary.connected`; the other four are the
+ * states the online/offline pill cannot express.
+ */
+export type RemoteHostLinkState =
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "disconnected"
+  | "failed";
+
+/**
+ * Payload of the `remoteHostState` push event: the host whose link changed and
+ * its new state. Deliberately host-scoped rather than a single global status,
+ * because several paired hosts reconnect independently.
+ */
+export type RemoteHostStateEvent = {
+  hostKey: string;
+  state: RemoteHostLinkState;
+};
+
+/**
  * Input for `remoteHostPair`. The pairing token is single-use and expiring
  * (spec §3.4); the desktop uses it once on the upgrade to call
  * `connection/pair`, exchanges it for a durable device token, and stores that

@@ -54,6 +54,17 @@ export type RemoteEventBridgeOptions = {
    * terminal event is forwarded, which is what a bridge-only fixture wants.
    */
   isSessionActive?: (remoteSessionId: string) => boolean;
+  /**
+   * A `resync.required` event the Host raised (spec §8): the cursor the
+   * desktop holds for that stream is invalid — the epoch changed or the replay
+   * window evicted it — so the connection layer must refresh its state from a
+   * snapshot instead of expecting the missing events. Carries the host session
+   * id for a session-scope event; `null` for the host-scope stream, which has
+   * no snapshot and is refreshed by re-listing sessions. Absent means the
+   * event is dropped, which is the pre-Stage-3b behaviour a bridge-only
+   * fixture keeps.
+   */
+  onResyncRequired?: (hostSessionId: string | null) => void;
   /** Optional structured warning log; defaults to a no-op. */
   log?: (level: "warn", message: string, data?: unknown) => void;
 };
@@ -208,7 +219,7 @@ function toPlanningStateAgentEvent(
 }
 
 export function createRemoteEventBridge(options: RemoteEventBridgeOptions): RemoteEventBridge {
-  const { hostKey, emit, onLifecycle, isSessionActive } = options;
+  const { hostKey, emit, onLifecycle, isSessionActive, onResyncRequired } = options;
   const log = options.log ?? (() => undefined);
   const remoteIdOf = (hostSessionId: string) => makeRemoteSessionId(hostKey, hostSessionId);
   const emitAgentEvent = (
@@ -231,6 +242,13 @@ export function createRemoteEventBridge(options: RemoteEventBridgeOptions): Remo
     // Forwarded kinds also appear on the host stream but belong to the session
     // stream; ignore them here rather than warn or misroute them.
     if (HOST_SCOPE_FORWARDED_KINDS.has(envelope.kind)) return;
+    // `resync.required` on the host stream carries no session: the host-scope
+    // cursor is invalid for every session at once, and the connection refreshes
+    // the whole host by re-listing rather than from a session snapshot.
+    if (envelope.kind === "resync.required") {
+      onResyncRequired?.(null);
+      return;
+    }
     const session = extractSessionRef(envelope.payload);
     if (!session) {
       log("warn", `host-scope ${envelope.kind} carried no session`, envelope);
@@ -349,12 +367,18 @@ export function createRemoteEventBridge(options: RemoteEventBridgeOptions): Remo
       }
       case "approval.resolved":
       case "input.resolved":
-      case "resync.required":
         // Approvals settle through the renderer's own resolve call; the plan
         // and status changes come as `session.changed` payloads.
-        // `resync.required` is Stage 3b — the connection layer must consume it,
-        // not the bridge.
         return;
+      case "resync.required": {
+        // The Host raised this (spec §8): the cursor for this session's stream
+        // is invalid, so the connection must refresh from a snapshot rather
+        // than wait for events that will never be replayed.
+        onResyncRequired?.(
+          typeof envelope.sessionId === "string" ? envelope.sessionId : null,
+        );
+        return;
+      }
       default:
         return;
     }

@@ -17,7 +17,7 @@ import {
   type ClientTransportFactory,
   type RacpClientState,
 } from "@pi-desktop/racp";
-import { ErrorCodes, type RacpEventEnvelope } from "@pi-desktop/shared";
+import { ErrorCodes, type RacpEventEnvelope, type RemoteHostLinkState } from "@pi-desktop/shared";
 import type { RemoteHostClient } from "./remote-host-connection.js";
 
 export type PairingExchangeOptions = {
@@ -96,6 +96,22 @@ export type RacpRemoteHostClient = {
   close(): Promise<void>;
 };
 
+/** RacpClient states mapped onto the renderer-visible link vocabulary. */
+function toLinkState(state: RacpClientState): RemoteHostLinkState {
+  switch (state) {
+    case "connecting":
+      return "connecting";
+    case "connected":
+      return "connected";
+    case "reconnecting":
+      return "reconnecting";
+    case "error":
+      return "failed";
+    default:
+      return "disconnected";
+  }
+}
+
 /**
  * The adapter multiplexes {@link RacpClient.onEvent} — a single-slot callback
  * — into the `subscribe()` API {@link RemoteHostConnection} expects. Fan-out
@@ -106,6 +122,13 @@ export function createRacpRemoteHostClient(
   options: RacpRemoteHostClientOptions,
 ): RacpRemoteHostClient {
   const listeners = new Set<(envelope: RacpEventEnvelope) => void>();
+  // Fan-out for the two lifecycle seams the connection layer needs:
+  // `subscribeReconnected` (re-subscribe + re-attach after the transport comes
+  // back) and `subscribeState` (surface connecting/reconnecting/failed to the
+  // UI). Both are per-listener, mirroring `subscribe`, so Stage 3b's resync
+  // watchdog does not have to share a single callback with the event bridge.
+  const reconnectedListeners = new Set<() => void>();
+  const stateListeners = new Set<(state: RemoteHostLinkState) => void>();
   const racp = new RacpClient({
     transport: options.transport,
     client: options.clientInfo,
@@ -115,6 +138,25 @@ export function createRacpRemoteHostClient(
           listener(envelope);
         } catch (error) {
           options.log?.("warn", "remote event listener threw", { error: String(error) });
+        }
+      }
+    },
+    onReconnected: () => {
+      for (const listener of reconnectedListeners) {
+        try {
+          listener();
+        } catch (error) {
+          options.log?.("warn", "remote reconnect listener threw", { error: String(error) });
+        }
+      }
+    },
+    onStateChange: (state) => {
+      const link = toLinkState(state);
+      for (const listener of stateListeners) {
+        try {
+          listener(link);
+        } catch (error) {
+          options.log?.("warn", "remote state listener threw", { error: String(error) });
         }
       }
     },
@@ -143,6 +185,23 @@ export function createRacpRemoteHostClient(
         listeners.delete(listener);
       };
     },
+    subscribeReconnected(listener) {
+      reconnectedListeners.add(listener);
+      return () => {
+        reconnectedListeners.delete(listener);
+      };
+    },
+    subscribeState(listener) {
+      stateListeners.add(listener);
+      return () => {
+        stateListeners.delete(listener);
+      };
+    },
+    // The durable cursors the RACP client already tracks per session (and for
+    // the host stream) — the resync path re-subscribes from these so a
+    // reconnect replays the gap instead of the whole history.
+    cursorFor: (sessionId) => racp.cursorFor(sessionId),
+    cursorForHost: () => racp.cursorForHost(),
   };
   return {
     client,

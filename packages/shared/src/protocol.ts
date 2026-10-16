@@ -533,6 +533,15 @@ export const IPC = {
     terminalOutput: "pi-desktop/terminal/event/output",
     /** A terminal's state change — it exited (`{ sessionId, terminalId, state, code }`). */
     terminalChanged: "pi-desktop/terminal/event/changed",
+    /**
+     * Live link state of one paired remote host (`RemoteHostStateEvent`). Emitted
+     * by the desktop-side connection whenever the RACP transport enters
+     * `connecting`, `connected`, `reconnecting`, `disconnected`, or `failed`, so
+     * the Settings → Remote Hosts row can say *why* a host is not usable instead
+     * of only online/offline. Distinct from `hostStatus`, which is this machine's
+     * own backend supervision state and is not scoped to a host key.
+     */
+    remoteHostState: "pi-desktop/remoteHost/event/state",
   },
 } as const;
 

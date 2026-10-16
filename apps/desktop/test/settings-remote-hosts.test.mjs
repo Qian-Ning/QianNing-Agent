@@ -55,6 +55,20 @@ test("remote hosts omits instructional copy", () => {
   assert.doesNotMatch(page, /<SettingsCard title=\{t\("settings\.remoteHosts\.listTitle"\)\}/);
 });
 
+test("the remote-hosts row reflects live link state, not only a connected flag", () => {
+  // R2b stage 3b: a dropped host that is coming back (`reconnecting`) or has
+  // given up (`failed`) must be visible, so the row consumes the push event
+  // rather than the `remoteHostList` snapshot alone.
+  assert.match(page, /api\.onRemoteHostState\(/);
+  for (const key of [
+    "settings.remoteHosts.statusConnecting",
+    "settings.remoteHosts.statusReconnecting",
+    "settings.remoteHosts.statusFailed",
+  ]) {
+    assert.ok(page.includes(key), `${key} must be rendered`);
+  }
+});
+
 test("the remote-hosts destination is marked experimental", () => {
   assert.match(
     settingsNav,
