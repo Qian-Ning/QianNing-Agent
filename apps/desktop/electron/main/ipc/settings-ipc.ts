@@ -3,6 +3,7 @@ import {
   bindMessagingInboundSession,
   createHostSessionOwnerWriter,
   createHostSettingsSurface,
+  SLACK_INBOUND_CHANNEL,
 } from "@pi-desktop/host-runtime";
 import type { AgentSidecar } from "../agent-sidecar";
 import type { HostProcess } from "../host-process";
@@ -130,6 +131,20 @@ export function registerSettingsIpc({
       createHostSettingsSurface(getHost),
       sessionId,
       createHostSessionOwnerWriter(getHost),
+    );
+    return { ok: true };
+  });
+
+  // The Slack channel's counterpart bind (ADR 0326): the same host-internal,
+  // non-RACP write, selecting the Slack settings section. The Telegram handler
+  // above is unchanged.
+  handle(IPC.invoke.messagingInboundBindSessionSlack, async (sessionId: unknown) => {
+    if (!host) throw new Error("host unavailable");
+    await bindMessagingInboundSession(
+      createHostSettingsSurface(getHost),
+      sessionId,
+      createHostSessionOwnerWriter(getHost),
+      SLACK_INBOUND_CHANNEL,
     );
     return { ok: true };
   });

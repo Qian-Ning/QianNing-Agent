@@ -24,4 +24,17 @@ describe("headless stop", () => {
     expect(abortAt).toBeLessThan(hostDisposeAt);
     expect(boundAt).toBeLessThan(hostDisposeAt);
   });
+
+  it("aborts the Slack inbound loop and bounds the wait before disposing the host", () => {
+    const stopSource = appSource.slice(appSource.indexOf("async stop()"));
+    const abortAt = stopSource.indexOf("messagingSlack.controller.abort()");
+    const boundAt = stopSource.indexOf("settleWithinBudget(messagingSlack.done,");
+    const hostDisposeAt = stopSource.indexOf("await state.host?.dispose()");
+
+    expect(abortAt).toBeGreaterThanOrEqual(0);
+    expect(boundAt).toBeGreaterThanOrEqual(0);
+    expect(hostDisposeAt).toBeGreaterThanOrEqual(0);
+    expect(abortAt).toBeLessThan(hostDisposeAt);
+    expect(boundAt).toBeLessThan(hostDisposeAt);
+  });
 });

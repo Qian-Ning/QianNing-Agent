@@ -1,13 +1,27 @@
 import {
   MessagingInboundDriver,
+  MESSAGING_SLACK_APP_TOKEN_SECRET_REF,
+  MESSAGING_SLACK_FORMAT,
+  MESSAGING_SLACK_FORMAT_VERSION,
+  MESSAGING_SLACK_SECTION,
+  MESSAGING_TELEGRAM_FORMAT,
+  MESSAGING_TELEGRAM_FORMAT_VERSION,
   MESSAGING_TELEGRAM_SECTION,
   createAgentHostTargets,
+  createSettingsSlackHandledStore,
+  createSlackInboundPushTransport,
+  createSlackOpenConnection,
   createTelegramInboundTransport,
+  createWsSlackSocketFactory,
   readInboundLink,
   type MessagingInboundAudit,
   type MessagingInboundAuditEntry,
   type MessagingInboundCursorStore,
-  type TelegramInboundTransport,
+  type MessagingInboundPushTransport,
+  type MessagingInboundTransport,
+  type SlackInboundAudit,
+  type SlackOpenConnection,
+  type SlackSocketFactory,
   type TelegramPollResult,
 } from "@pi-desktop/agent-host";
 import type { AgentHost } from "@pi-desktop/agent-host";
@@ -92,6 +106,18 @@ import { requireHostRpc, type HostRpc } from "./host-ports.js";
 export const MESSAGING_TELEGRAM_BOT_TOKEN_SECRET_REF = "secret:messaging-telegram:bot-token";
 
 /**
+ * Where the Slack app-level token lives in the host's secret store (ADR 0326).
+ *
+ * The sibling of the bot token ref above, following the same shape the outbound
+ * Slack channel's `secret:messaging-slack:bot-token` and config sync's
+ * `secret:config-sync:webdav-password` use. Its definition lives beside the
+ * Socket Mode client that consumes it (`@pi-desktop/agent-host`); it is
+ * re-exported here so each composition root imports every messaging secret ref
+ * from one module.
+ */
+export { MESSAGING_SLACK_APP_TOKEN_SECRET_REF };
+
+/**
  * The host's settings surface: the shared `app` row, read whole and written
  * with a top-level patch. `settings.set` merges by top-level key, so a write
  * replaces a whole section rather than merging into it.
@@ -152,10 +178,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** The channel's settings section, or `null` when absent or not an object. */
-function readSection(settings: unknown): Record<string, unknown> | null {
+/** The channel's settings section, or `null` when absent or not an object.
+ *  Defaults to the Telegram channel's, so existing callers are unchanged. */
+function readSection(
+  settings: unknown,
+  sectionKey: string = MESSAGING_TELEGRAM_SECTION,
+): Record<string, unknown> | null {
   if (!isRecord(settings)) return null;
-  const section = settings[MESSAGING_TELEGRAM_SECTION];
+  const section = settings[sectionKey];
   return isRecord(section) ? section : null;
 }
 
@@ -185,14 +215,38 @@ function readInbound(section: Record<string, unknown> | null): Record<string, un
 async function patchSection(
   settings: HostSettingsSurface,
   mutate: (section: Record<string, unknown>, inbound: Record<string, unknown>) => Record<string, unknown>,
+  sectionKey: string = MESSAGING_TELEGRAM_SECTION,
 ): Promise<void> {
-  const section = readSection(await settings.read());
+  const section = readSection(await settings.read(), sectionKey);
   if (!section) return;
   const inbound = readInbound(section) ?? {};
   await settings.write({
-    [MESSAGING_TELEGRAM_SECTION]: { ...section, inbound: mutate(section, inbound) },
+    [sectionKey]: { ...section, inbound: mutate(section, inbound) },
   });
 }
+
+/**
+ * A channel the bind path can write: the settings section its record lives in
+ * and the record's self-identifying format. The Telegram channel is the default
+ * everywhere, so every existing caller and the existing bind IPC channel keep
+ * the exact shape they had; a second channel (Slack, ADR 0326) is selected by
+ * passing its descriptor rather than by restating the reader.
+ */
+export type MessagingInboundChannel = { section: string; format: string; version: number };
+
+/** The Telegram channel's descriptor: the default the bind path uses. */
+export const TELEGRAM_INBOUND_CHANNEL: MessagingInboundChannel = {
+  section: MESSAGING_TELEGRAM_SECTION,
+  format: MESSAGING_TELEGRAM_FORMAT,
+  version: MESSAGING_TELEGRAM_FORMAT_VERSION,
+};
+
+/** The Slack channel's descriptor (ADR 0326), selected by its own bind channel. */
+export const SLACK_INBOUND_CHANNEL: MessagingInboundChannel = {
+  section: MESSAGING_SLACK_SECTION,
+  format: MESSAGING_SLACK_FORMAT,
+  version: MESSAGING_SLACK_FORMAT_VERSION,
+};
 
 /**
  * The poll cursor, persisted in the same settings row the link is read from.
@@ -228,9 +282,10 @@ export function createSettingsCursorStore(
 /** The conversation-to-session binding, persisted beside the cursor. */
 export function createSettingsSessionBindingStore(
   settings: HostSettingsSurface,
+  sectionKey: string = MESSAGING_TELEGRAM_SECTION,
 ): MessagingInboundSessionBindingStore {
   const load = async (): Promise<string | null> => {
-    const inbound = readInbound(readSection(await settings.read()));
+    const inbound = readInbound(readSection(await settings.read(), sectionKey));
     const value = inbound?.sessionId;
     return typeof value === "string" && value.trim() ? value.trim() : null;
   };
@@ -239,7 +294,7 @@ export function createSettingsSessionBindingStore(
     async save(sessionId: string): Promise<void> {
       const trimmed = sessionId.trim();
       if (!trimmed) return;
-      await patchSection(settings, (_section, inbound) => ({ ...inbound, sessionId: trimmed }));
+      await patchSection(settings, (_section, inbound) => ({ ...inbound, sessionId: trimmed }), sectionKey);
     },
   };
 }
@@ -310,6 +365,7 @@ export async function bindMessagingInboundSession(
   settings: HostSettingsSurface,
   sessionId: unknown,
   owners: HostSessionOwnerWriter,
+  channel: MessagingInboundChannel = TELEGRAM_INBOUND_CHANNEL,
 ): Promise<void> {
   if (typeof sessionId !== "string" || !sessionId.trim()) {
     throw Object.assign(new Error("the session id to bind must be a non-empty string"), {
@@ -317,7 +373,11 @@ export async function bindMessagingInboundSession(
     });
   }
   const id = sessionId.trim();
-  const link = readInboundLink(readSection(await settings.read()));
+  const link = readInboundLink(
+    readSection(await settings.read(), channel.section),
+    channel.format,
+    channel.version,
+  );
   if (!link) {
     throw Object.assign(
       new Error("the channel names no linked principal to own the session"),
@@ -325,7 +385,7 @@ export async function bindMessagingInboundSession(
     );
   }
   await owners(id, link.principal.subject);
-  await createSettingsSessionBindingStore(settings).save(id);
+  await createSettingsSessionBindingStore(settings, channel.section).save(id);
 }
 
 /** The audit sink a composition root installs: structure and ids, no content. */
@@ -361,7 +421,7 @@ export type MessagingInboundWiringOptions = {
   /** Where audit records go; absent means the records are dropped. */
   log?: MessagingInboundWiringLog;
   /** Test seam: a transport in place of the one built from the settings. */
-  transport?: TelegramInboundTransport;
+  transport?: MessagingInboundTransport;
 };
 
 /** A built driver and the loop that runs it, for the root that owns the signal. */
@@ -430,7 +490,7 @@ function idlePoll(offset: number): TelegramPollResult {
  * to [`createTelegramInboundTransport`], which keeps it out of every failure
  * detail; this wrapper never places it in a value it reports.
  */
-function createConfiguredTransport(options: MessagingInboundWiringOptions): TelegramInboundTransport {
+function createConfiguredTransport(options: MessagingInboundWiringOptions): MessagingInboundTransport {
   return {
     async poll(offset: number, signal?: AbortSignal): Promise<TelegramPollResult> {
       let settings: unknown;
@@ -516,6 +576,151 @@ export function createMessagingInboundWiring(
         // defensive: a loop that somehow throws still resolves its owner's
         // await instead of leaving the shutdown path pending.
         options.log?.("warn", "inbound messaging loop failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+  };
+}
+
+/** The default Slack Web API base; `apps.connections.open` is appended to it. */
+const SLACK_DEFAULT_API_BASE = "https://slack.com";
+
+/**
+ * The audit sink for the Slack Socket Mode client (ADR 0326): structure and ids
+ * only — never message text and never the app-level token. The client reports
+ * typed entries that carry exactly those fields. A handled event (processed, or
+ * a duplicate the durable guard already knew) is informational; a refused
+ * handshake, a filtered or malformed frame, and a failed record are warnings.
+ */
+export function createSlackInboundAudit(log?: MessagingInboundWiringLog): SlackInboundAudit {
+  if (!log) return () => {};
+  return (entry) => {
+    const level = entry.kind === "processed" || entry.kind === "duplicate" ? "info" : "warn";
+    log(level, "inbound slack channel", { ...entry });
+  };
+}
+
+/**
+ * The production Slack transport, config-gated on the app-level token (ADR 0326).
+ *
+ * `start` reads the app-level token from the host's secret store — the same
+ * external seam the Telegram transport reads its bot token from — and only then
+ * opens a Socket Mode connection. With no token configured it returns without
+ * opening anything: the transport does not start, no `apps.connections.open`
+ * call is made, no socket is opened, and the loop each composition root started
+ * resolves at once. This is the config gate: an install with no Slack
+ * app-level token configured behaves exactly as it did before this channel
+ * existed — the released product's default behaviour is unchanged. Nothing is
+ * opened and no port is bound: the Socket Mode connection is one the Host
+ * originates, so no inbound listener is started.
+ *
+ * Fail-safe: a missing, malformed or refused credential, and a refused
+ * `apps.connections.open`, are never propagated out of `start`. The push
+ * transport's own loop reconnects after a bounded delay and the driver reports
+ * its own failures without throwing, so no Slack failure can take the Host down
+ * or hold up its startup.
+ */
+function createConfiguredSlackTransport(options: MessagingSlackWiringOptions): MessagingInboundPushTransport {
+  return {
+    async start(onMessage, signal): Promise<void> {
+      let token: string | null = null;
+      try {
+        token = await options.secrets(MESSAGING_SLACK_APP_TOKEN_SECRET_REF);
+      } catch {
+        token = null;
+      }
+      // The config gate: an unconfigured channel opens nothing.
+      if (!token || !token.trim()) return;
+      const openConnection =
+        options.openConnection ??
+        createSlackOpenConnection({ endpoint: options.endpoint ?? SLACK_DEFAULT_API_BASE });
+      const connect = options.connect ?? createWsSlackSocketFactory();
+      await createSlackInboundPushTransport({
+        client: {
+          appToken: token.trim(),
+          openConnection,
+          connect,
+          handled: createSettingsSlackHandledStore(options.settings),
+          audit: createSlackInboundAudit(options.log),
+        },
+        ...(options.wait ? { wait: options.wait } : {}),
+      }).start(onMessage, signal);
+    },
+  };
+}
+
+/**
+ * The wiring for the inbound Slack channel over Socket Mode (ADR 0326).
+ *
+ * It is the Telegram wiring's shape with the channel swapped: the same
+ * [`MessagingInboundDriver`], the same conversation-to-session binding store and
+ * target resolver, over the Socket Mode push transport instead of the long
+ * poll. Every port reads an existing surface — the Slack settings section
+ * (`messagingSlack`) for the link and the conversation-to-session binding, the
+ * settings row the durable replay guard rides, and the host secret store for
+ * the app-level token — so no new store, namespace, operation verb or listener
+ * is introduced: this module is composition only. The transport is
+ * config-gated on the app-level token (see [`createConfiguredSlackTransport`]),
+ * so a Host with nothing configured starts no loop and behaves as before.
+ */
+export type MessagingSlackWiringOptions = {
+  /** The Agent Host the commands are applied through, with the snapshot reader. */
+  agentHost: MessagingInboundHostSurface;
+  /** The host settings surface the link, the binding and the replay guard ride. */
+  settings: HostSettingsSurface;
+  /** The host secret store, read for the app-level token. */
+  secrets: HostSecretReader;
+  /** The owner's abort signal; the loop leaves `run` once it aborts. */
+  signal: AbortSignal;
+  /** Where audit records go; absent means the records are dropped. */
+  log?: MessagingInboundWiringLog;
+  /** The Slack Web API base the handshake posts to; defaults to Slack's own. */
+  endpoint?: string;
+  /** Test seam: the `apps.connections.open` call, in place of the production one. */
+  openConnection?: SlackOpenConnection;
+  /** Test seam: the WebSocket client factory, in place of the production one. */
+  connect?: SlackSocketFactory;
+  /** Test seam: how the reconnect loop waits; injected so tests run without sleeps. */
+  wait?: (ms: number) => Promise<void>;
+  /** Test seam: a push transport in place of the one built from the settings. */
+  transport?: MessagingInboundPushTransport;
+};
+
+/**
+ * Build the inbound Slack wiring. The transport is the configured Socket Mode
+ * push transport unless a test injects one; the driver, the binding and the
+ * `run` contract are exactly the Telegram channel's, so the two channels share
+ * one routing path and one shutdown shape.
+ */
+export function createSlackInboundWiring(options: MessagingSlackWiringOptions): MessagingInboundWiring {
+  const binding = createSettingsSessionBindingStore(options.settings, MESSAGING_SLACK_SECTION);
+  const targets = createAgentHostTargets(options.agentHost, () => binding.load());
+  const driver = new MessagingInboundDriver({
+    agentHost: options.agentHost,
+    transport: options.transport ?? createConfiguredSlackTransport(options),
+    readConfig: async () => ({
+      link: readInboundLink(
+        readSection(await options.settings.read(), MESSAGING_SLACK_SECTION),
+        MESSAGING_SLACK_FORMAT,
+        MESSAGING_SLACK_FORMAT_VERSION,
+      ),
+    }),
+    targets,
+    audit: createMessagingInboundAudit(options.log),
+    wait: (ms) => waitOrAbort(ms, options.signal),
+  });
+  return {
+    driver,
+    binding,
+    async run(): Promise<void> {
+      try {
+        await driver.run(options.signal);
+      } catch (error) {
+        // The driver reports its own failures and does not throw, so this is
+        // defensive: a loop that somehow throws still resolves its owner's
+        // await instead of leaving the shutdown path pending.
+        options.log?.("warn", "inbound slack loop failed", {
           error: error instanceof Error ? error.message : String(error),
         });
       }

@@ -263,6 +263,17 @@ test("app quit waits for one idempotent teardown before allowing the follow-up q
     inboundAbortAt < hostDisposeAt && inboundBoundAt < hostDisposeAt,
     "the inbound loop must be aborted and its bounded wait run before host-core is disposed",
   );
+
+  // The inbound Slack Socket Mode loop (ADR 0326) is stopped the same way,
+  // beside the Telegram loop and before host-core is disposed.
+  const slackAbortAt = shutdownSource.indexOf("messagingSlackInbound?.controller.abort()");
+  const slackBoundAt = shutdownSource.lastIndexOf("settleWithinBudget(messagingSlackInbound?.done");
+  assert.ok(slackAbortAt >= 0, "a quit must abort the inbound Slack loop");
+  assert.ok(slackBoundAt >= 0, "a quit must bound its wait for the inbound Slack loop");
+  assert.ok(
+    slackAbortAt < hostDisposeAt && slackBoundAt < hostDisposeAt,
+    "the Slack inbound loop must be aborted and its bounded wait run before host-core is disposed",
+  );
 });
 
 test("settings writes validate without applying read defaults", () => {

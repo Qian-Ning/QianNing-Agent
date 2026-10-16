@@ -180,6 +180,14 @@ export const IPC = {
      */
     messagingInboundBindSession: "pi-desktop/messagingInbound/bindSession",
     /**
+     * The Slack channel's counterpart of the bind channel above (ADR 0326). It
+     * carries the same session id and is the same host-internal, non-RACP write;
+     * it selects the Slack channel's settings section, so the two channels keep
+     * separate conversation-to-session bindings. The Telegram channel above is
+     * unchanged and keeps its exact shape.
+     */
+    messagingInboundBindSessionSlack: "pi-desktop/messagingSlack/bindSession",
+    /**
      * Skin center (D635). Import a local image/video as a background asset
      * (returns an opaque asset id), delete one, and export/import a whole skin
      * as a `.qnskin` bundle. Assets never expose a filesystem path to the

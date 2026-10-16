@@ -73,6 +73,7 @@ export class MainProcessState {
   desktopControl: McpControlController | null = null;
   backendRouter: BackendRouter | null = null;
   messagingInbound: MessagingInboundHandle | null = null;
+  messagingSlackInbound: MessagingInboundHandle | null = null;
 
   quitting = false;
   shutdownComplete = false;
@@ -386,6 +387,12 @@ export class MainProcessState {
       },
       set messagingInbound(value) {
         self.messagingInbound = value;
+      },
+      get messagingSlackInbound() {
+        return self.messagingSlackInbound;
+      },
+      set messagingSlackInbound(value) {
+        self.messagingSlackInbound = value;
       },
     };
 

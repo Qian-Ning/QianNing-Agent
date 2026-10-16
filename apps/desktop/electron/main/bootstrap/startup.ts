@@ -28,6 +28,7 @@ import {
   createHostSecretReader,
   createHostSettingsSurface,
   createMessagingInboundWiring,
+  createSlackInboundWiring,
   type MessagingInboundHandle,
 } from "@pi-desktop/host-runtime";
 import { readCloseBehavior } from "../window-preferences";
@@ -87,6 +88,14 @@ export type StartupState = {
    * host-core is disposed.
    */
   messagingInbound: MessagingInboundHandle | null;
+  /**
+   * The inbound Slack Socket Mode loop this boot started, with the controller
+   * that stops it. Shutdown aborts it and awaits it, bounded, beside the
+   * Telegram loop and before host-core is disposed. The transport is
+   * config-gated on the Slack app-level token: with none configured the loop
+   * resolves at once and opens nothing, so no behaviour changes.
+   */
+  messagingSlackInbound: MessagingInboundHandle | null;
 };
 
 export type StartupDependencies = {
@@ -379,6 +388,23 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
         log: (level, message, data) => logger.app("runtime", level, message, { data }),
       });
       state.messagingInbound = { controller, done: wiring.run() };
+    }
+    // The inbound Slack command path over Socket Mode (ADR 0326): the same
+    // driver, over an outbound WSS connection the Host originates (no port is
+    // bound). Config-gated on the Slack app-level token — with none configured
+    // the transport starts nothing and this loop resolves at once, so the
+    // default behaviour with nothing configured is unchanged. Started beside
+    // the Telegram loop; shutdown owns its controller too.
+    if (!bootError && host && state.agentHostBridge) {
+      const controller = new AbortController();
+      const wiring = createSlackInboundWiring({
+        agentHost: state.agentHostBridge.agentHost,
+        settings: createHostSettingsSurface(getHost),
+        secrets: createHostSecretReader(getHost),
+        signal: controller.signal,
+        log: (level, message, data) => logger.app("runtime", level, message, { data }),
+      });
+      state.messagingSlackInbound = { controller, done: wiring.run() };
     }
     await ensureWindow();
     if (process.env.PI_DESKTOP_MCP_CONTROL === "1") {
