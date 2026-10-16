@@ -35,12 +35,30 @@ test("sidecar routes main-local tools before the host-core proxy", () => {
   );
   // Host availability is only required on the proxy path, after local
   // dispatch — a local tool must work even if host-core is restarting.
-  const proxyBranch = sidecarSource.slice(
-    sidecarSource.indexOf('msg.method === "host.proxy"'),
-  );
-  assert.ok(
-    proxyBranch.indexOf("this.localTools.get") <
-      proxyBranch.indexOf('throw new Error("host unavailable")'),
+  //
+  // Anchor on the tools.execute short-circuit and the statement block that
+  // reaches it, never on the whole `host.proxy` tail: sibling methods (e.g.
+  // `tools.list`) legitimately throw "host unavailable" of their own, so a
+  // byte-offset comparison over the whole tail can be inverted by any new
+  // sibling branch landing between the two markers without the invariant
+  // being broken. The window below is exactly the region on the tools.execute
+  // path where a host-availability guard would have to appear to break "a
+  // local tool still runs when host-core is down": from the previous method
+  // branch's terminating `return;` up to (not including) the `if (localTool)`
+  // local dispatch.
+  const dispatchAt = sidecarSource.indexOf("const localTool =");
+  const shortCircuitAt = sidecarSource.indexOf("if (localTool)", dispatchAt);
+  assert.ok(dispatchAt >= 0 && shortCircuitAt > dispatchAt);
+  const windowStart = sidecarSource.lastIndexOf("return;", dispatchAt);
+  assert.ok(windowStart >= 0 && windowStart < dispatchAt);
+  const preShortCircuit = sidecarSource.slice(windowStart, shortCircuitAt);
+  // The window must actually contain the local short-circuit it protects...
+  assert.match(preShortCircuit, /this\.localTools\.get\(requestedToolName\)/);
+  // ...and no host-core guard may sit ahead of it on this path.
+  assert.doesNotMatch(
+    preShortCircuit,
+    /throw new Error\("host unavailable"\)/,
+    "tools.execute must reach the local short-circuit with no host-core guard ahead of it",
   );
 });
 
