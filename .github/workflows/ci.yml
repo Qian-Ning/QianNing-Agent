@@ -191,3 +191,45 @@ jobs:
         # all of them. Formatting and linting stay on the Linux leg — repeating
         # them would only double the cost.
         run: cargo test -p host-core --locked
+
+  messaging-relay:
+    name: Outbound messaging relay E2E
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the host-core binary
+        # The scenario spawns host-core from `target/debug`, the first candidate
+        # `resolveHostBinary` looks in, and drives it over the real RACP socket,
+        # so the debug binary has to exist before the scenario runs.
+        run: cargo build -p host-core --locked
+
+      - name: Build workspace packages
+        run: pnpm build:js
+
+      - name: Bundle the agent-runtime sidecar
+        # `pnpm build:js` compiles each package's `dist`, but the sidecar the
+        # Host is spawned with is a separate esbuild step (`bundle`), not a
+        # `build`, so it would otherwise be absent from the scenario's prereqs.
+        run: pnpm -C packages/agent-runtime bundle
+
+      - name: Run the relay scenario
+        # The scenario spawns the Windows host-core binary and its "the Host
+        # opens no listener" clause enumerates the Host's process tree with
+        # `Get-NetTCPConnection -State Listen`, which exists only on Windows.
+        run: pnpm test:e2e:messaging

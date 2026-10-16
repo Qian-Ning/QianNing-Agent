@@ -13786,7 +13786,11 @@ browser milestones are scheduled.
 - **Milestone**: Post-MVP (rollout R3)
 - **Status**: Automated (`pnpm test:e2e:messaging` — the headless `pi-host` over
   a loopback webhook sink, a long-polling bot and a model fixture; the "no
-  listener" clause is asserted from the process tree's own listening sockets)
+  listener" clause is asserted from the process tree's own listening sockets).
+  The `messaging-relay` CI job runs it on every pull request, on the Windows
+  runner because the scenario spawns the Windows host-core binary and reads the
+  Host's listening sockets from its process tree. Branch runs do not replace
+  post-integration E2E.
 
 ## Trusted extension scenarios (R7 v1)
 
