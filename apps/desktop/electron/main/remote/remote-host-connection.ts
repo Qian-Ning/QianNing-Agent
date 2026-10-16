@@ -119,6 +119,11 @@ export function createRemoteHostConnection(
         hostKey,
         emit,
         onLifecycle: handleLifecycle,
+        // Terminal kinds are connection-local, so the bridge needs the live
+        // registration view to drop a chunk whose session the router has
+        // already released (session switch, host disconnect). The set is the
+        // same one `close()` clears, so it needs no separate teardown.
+        isSessionActive: (remoteSessionId) => registered.has(remoteSessionId),
         log: (level, message, data) => log(level, message, data),
       });
       unsubscribe = client.subscribe((envelope) => bridge?.handle(envelope));

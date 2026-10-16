@@ -221,14 +221,89 @@ test("input.requested synthesizes an asktool_request keyed by the RACP input id"
   assert.equal(request.questions[0].multiSelect, false);
 });
 
-test("terminal and resync kinds are silently dropped in Stage 2 — later stages own them", () => {
+test("resync and resolved kinds are silently dropped — other stages own them", () => {
   const { bridge, events } = collect();
-  bridge.handle(makeEnvelope({ kind: "terminal.output", payload: {} }));
-  bridge.handle(makeEnvelope({ kind: "terminal.changed", payload: {} }));
   bridge.handle(makeEnvelope({ kind: "resync.required", payload: {} }));
   bridge.handle(makeEnvelope({ kind: "approval.resolved", payload: {} }));
   bridge.handle(makeEnvelope({ kind: "input.resolved", payload: {} }));
   assert.equal(events.length, 0);
+});
+
+test("terminal.output forwards the base64 chunk onto the terminal surface under the remote session id", () => {
+  const { bridge, events } = collect();
+  bridge.handle(
+    makeEnvelope({
+      kind: "terminal.output",
+      payload: { terminalId: "term_1", data: "aGVsbG8=" },
+    }),
+  );
+  assert.equal(events.length, 1);
+  assert.equal(events[0].channel, IPC.event.terminalOutput);
+  assert.equal(events[0].payload.sessionId, REMOTE_SESSION_ID);
+  assert.equal(events[0].payload.terminalId, "term_1");
+  assert.equal(events[0].payload.data, "aGVsbG8=");
+});
+
+test("terminal.changed forwards the exit transition with its code", () => {
+  const { bridge, events } = collect();
+  bridge.handle(
+    makeEnvelope({
+      kind: "terminal.changed",
+      payload: { terminalId: "term_1", state: "exited", code: 130 },
+    }),
+  );
+  assert.equal(events.length, 1);
+  assert.equal(events[0].channel, IPC.event.terminalChanged);
+  assert.equal(events[0].payload.sessionId, REMOTE_SESSION_ID);
+  assert.equal(events[0].payload.terminalId, "term_1");
+  assert.equal(events[0].payload.state, "exited");
+  assert.equal(events[0].payload.code, 130);
+});
+
+test("a terminal envelope that is not the expected shape is dropped, not thrown", () => {
+  const { bridge, events, warnings } = collect();
+  // No terminalId at all.
+  bridge.handle(makeEnvelope({ kind: "terminal.output", payload: { data: "aGVsbG8=" } }));
+  // An output chunk with no data.
+  bridge.handle(makeEnvelope({ kind: "terminal.output", payload: { terminalId: "term_1" } }));
+  // A session-scope terminal frame with no session id cannot be routed.
+  bridge.handle(
+    makeEnvelope({
+      kind: "terminal.output",
+      sessionId: undefined,
+      payload: { terminalId: "term_1", data: "aGVsbG8=" },
+    }),
+  );
+  assert.equal(events.length, 0);
+  assert.equal(warnings.length, 0);
+});
+
+test("a terminal event for an unregistered session is dropped, not delivered to a stale id", () => {
+  const events = [];
+  const warnings = [];
+  const bridge = createRemoteEventBridge({
+    hostKey: HOST_KEY,
+    emit: (channel, payload) => events.push({ channel, payload }),
+    // Only this session is live; anything else has been released.
+    isSessionActive: (remoteSessionId) => remoteSessionId === REMOTE_SESSION_ID,
+    log: (level, message, data) => warnings.push({ level, message, data }),
+  });
+  bridge.handle(
+    makeEnvelope({
+      kind: "terminal.output",
+      sessionId: "sess-gone",
+      payload: { terminalId: "term_1", data: "aGVsbG8=" },
+    }),
+  );
+  assert.equal(events.length, 0);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0].message, /unregistered session/);
+  // The live session still streams.
+  bridge.handle(
+    makeEnvelope({ kind: "terminal.output", payload: { terminalId: "term_1", data: "aGVsbG8=" } }),
+  );
+  assert.equal(events.length, 1);
+  assert.equal(events[0].payload.sessionId, REMOTE_SESSION_ID);
 });
 
 test("host.changed does not emit — the desktop has no host status surface yet", () => {

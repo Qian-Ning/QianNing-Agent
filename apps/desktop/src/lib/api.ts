@@ -571,6 +571,14 @@ function normalizePlansChangedEvent(value: unknown): PlanningStateEvent {
   };
 }
 
+/** The `terminal/open` result: the terminal id, its bounded base64 replay ring, and its size. */
+export type TerminalOpenResult = {
+  terminalId: string;
+  replay: string;
+  cols: number;
+  rows: number;
+};
+
 export const api = {
   getVersion: () => invoke<AppVersionInfo>(IPC.invoke.appGetVersion),
   health: () => invoke<HostHealth>(IPC.invoke.appHealth),
@@ -643,6 +651,34 @@ export const api = {
     invoke<{ ok: boolean; path: string }>(IPC.invoke.projectOpenFolder, path),
   renameSession: (id: string, title: string) =>
     invoke<{ ok: boolean }>(IPC.invoke.sessionRename, id, title),
+  /**
+   * Terminal surface (spec `03-runtime/19-remote-agent-control-protocol.md`
+   * §6.2, rollout R2b). On a remote session these reach the paired `pi-host`
+   * over RACP; a local session has no interactive terminal in this build and
+   * the call is refused. `openTerminal` answers with the terminal id and the
+   * *bounded* replay ring; passing an existing `terminalId` re-attaches after
+   * a reconnect and returns that same bounded ring rather than a backlog.
+   */
+  openTerminal: (request: {
+    sessionId: string;
+    cols?: number;
+    rows?: number;
+    terminalId?: string;
+  }) => invoke<TerminalOpenResult>(IPC.invoke.terminalOpen, request),
+  writeTerminal: (request: {
+    sessionId: string;
+    terminalId: string;
+    /** Base64 bytes, matching the RACP `terminal/input` wire shape. */
+    data: string;
+  }) => invoke<{ ok: boolean }>(IPC.invoke.terminalInput, request),
+  resizeTerminal: (request: {
+    sessionId: string;
+    terminalId: string;
+    cols: number;
+    rows: number;
+  }) => invoke<{ ok: boolean }>(IPC.invoke.terminalResize, request),
+  closeTerminal: (request: { sessionId: string; terminalId: string }) =>
+    invoke<{ ok: boolean }>(IPC.invoke.terminalClose, request),
   setSessionSystemPrompt: (id: string, systemPrompt: string | null) =>
     invoke<{ session: SessionSummary }>(
       IPC.invoke.sessionSetSystemPrompt,
@@ -1634,6 +1670,39 @@ export const api = {
     if (!window.piDesktop?.on) return () => undefined;
     return window.piDesktop.on(IPC.event.menuCommand, (payload) =>
       listener((payload as { command: AppMenuCommand }).command),
+    );
+  },
+  /**
+   * A bounded base64 output chunk from a terminal, keyed by its session. The
+   * returned function detaches this listener; the caller owns that teardown.
+   */
+  onTerminalOutput: (
+    listener: (event: { sessionId: string; terminalId: string; data: string }) => void,
+  ) => {
+    if (!window.piDesktop?.on) return () => undefined;
+    return window.piDesktop.on(IPC.event.terminalOutput, (payload) =>
+      listener(payload as { sessionId: string; terminalId: string; data: string }),
+    );
+  },
+  /** A terminal state change (it exited); the returned function detaches. */
+  onTerminalChanged: (
+    listener: (event: {
+      sessionId: string;
+      terminalId: string;
+      state: string;
+      code: number | null;
+    }) => void,
+  ) => {
+    if (!window.piDesktop?.on) return () => undefined;
+    return window.piDesktop.on(IPC.event.terminalChanged, (payload) =>
+      listener(
+        payload as {
+          sessionId: string;
+          terminalId: string;
+          state: string;
+          code: number | null;
+        },
+      ),
     );
   },
   onBrowserState: (listener: (state: BrowserState) => void) => {

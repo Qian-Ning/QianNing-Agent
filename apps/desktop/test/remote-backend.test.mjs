@@ -147,6 +147,10 @@ test("handles() covers exactly the channels the remote profile serves", () => {
     IPC.invoke.askToolResolve,
     IPC.invoke.plansResolve,
     IPC.invoke.plansPending,
+    IPC.invoke.terminalOpen,
+    IPC.invoke.terminalInput,
+    IPC.invoke.terminalResize,
+    IPC.invoke.terminalClose,
   ];
   for (const channel of covered) assert.ok(backend.handles(channel), `${channel} should be handled`);
   // Unrelated desktop channels remain local.
@@ -459,4 +463,70 @@ test("an unknown channel is a bug and surfaces INTERNAL", async () => {
     backend.invoke("pi-desktop/channel/not-a-thing", [{ sessionId: REMOTE_SESSION_ID }]),
     (error) => error.errorCode === "INTERNAL",
   );
+});
+
+test("terminalOpen spawns on the host session and returns the id with its replay ring", async () => {
+  const { backend, client } = makeBackend({
+    "terminal/open": () => ({ terminalId: "term_a", replay: "", cols: 80, rows: 24 }),
+  });
+  const opened = await backend.invoke(IPC.invoke.terminalOpen, [
+    { sessionId: REMOTE_SESSION_ID, cols: 120, rows: 40 },
+  ]);
+  assert.deepEqual(opened, { terminalId: "term_a", replay: "", cols: 80, rows: 24 });
+  assert.equal(client.calls[0].method, "terminal/open");
+  // The renderer's remote id is unwrapped to the host's own session id, and no
+  // working directory crosses the wire — the Host resolves it.
+  assert.deepEqual(client.calls[0].params, { sessionId: HOST_SESSION_ID, cols: 120, rows: 40 });
+});
+
+test("terminalOpen with a terminalId re-attaches and passes the bounded ring through untouched", async () => {
+  // The Host answers a re-attach with its bounded replay ring. The desktop may
+  // only hand that ring on: it must not grow it into a backlog of its own.
+  const ring = Buffer.alloc(64, 0x41).toString("base64");
+  const { backend, client } = makeBackend({
+    "terminal/open": () => ({ terminalId: "term_a", replay: ring, cols: 80, rows: 24 }),
+  });
+  const opened = await backend.invoke(IPC.invoke.terminalOpen, [
+    { sessionId: REMOTE_SESSION_ID, terminalId: "term_a" },
+  ]);
+  assert.equal(opened.replay, ring);
+  assert.equal(Buffer.from(opened.replay, "base64").length, 64);
+  assert.deepEqual(client.calls[0].params, { sessionId: HOST_SESSION_ID, terminalId: "term_a" });
+});
+
+test("terminalInput forwards the base64 bytes to the addressed terminal", async () => {
+  const { backend, client } = makeBackend({ "terminal/input": () => ({ ok: true }) });
+  const result = await backend.invoke(IPC.invoke.terminalInput, [
+    { sessionId: REMOTE_SESSION_ID, terminalId: "term_a", data: "bHMK" },
+  ]);
+  assert.deepEqual(result, { ok: true });
+  assert.equal(client.calls[0].method, "terminal/input");
+  assert.deepEqual(client.calls[0].params, { terminalId: "term_a", data: "bHMK" });
+});
+
+test("terminalResize forwards the new size", async () => {
+  const { backend, client } = makeBackend({ "terminal/resize": () => ({ ok: true }) });
+  await backend.invoke(IPC.invoke.terminalResize, [
+    { sessionId: REMOTE_SESSION_ID, terminalId: "term_a", cols: 100, rows: 30 },
+  ]);
+  assert.equal(client.calls[0].method, "terminal/resize");
+  assert.deepEqual(client.calls[0].params, { terminalId: "term_a", cols: 100, rows: 30 });
+});
+
+test("terminalClose closes the addressed terminal", async () => {
+  const { backend, client } = makeBackend({ "terminal/close": () => ({ ok: true }) });
+  await backend.invoke(IPC.invoke.terminalClose, [
+    { sessionId: REMOTE_SESSION_ID, terminalId: "term_a" },
+  ]);
+  assert.equal(client.calls[0].method, "terminal/close");
+  assert.deepEqual(client.calls[0].params, { terminalId: "term_a" });
+});
+
+test("a terminal call that names no remote session is refused before any RACP request", async () => {
+  const { backend, client } = makeBackend({ "terminal/open": () => ({ terminalId: "x" }) });
+  await assert.rejects(
+    backend.invoke(IPC.invoke.terminalOpen, [{ sessionId: "local-session", cols: 80, rows: 24 }]),
+    (error) => error.errorCode === "INTERNAL",
+  );
+  assert.equal(client.calls.length, 0);
 });

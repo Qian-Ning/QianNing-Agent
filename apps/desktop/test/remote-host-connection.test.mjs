@@ -21,6 +21,7 @@ const HOST_KEY = "hostA";
  * push envelopes back to whichever listener attached last. */
 function fakeClient({ sessions = [], requestFailures = {} } = {}) {
   const calls = [];
+  const listeners = [];
   let listener = null;
   return {
     calls,
@@ -32,6 +33,7 @@ function fakeClient({ sessions = [], requestFailures = {} } = {}) {
     },
     subscribe: (fn) => {
       listener = fn;
+      listeners.push(fn);
       return () => {
         if (listener === fn) listener = null;
       };
@@ -41,6 +43,15 @@ function fakeClient({ sessions = [], requestFailures = {} } = {}) {
       if (!listener) throw new Error("no listener attached");
       listener(envelope);
     },
+    /**
+     * Deliver to every listener this client ever handed out — including one a
+     * `close()` already detached. Models a frame the transport had queued
+     * before teardown and released after it.
+     */
+    deliverToAll(envelope) {
+      for (const fn of listeners) fn(envelope);
+    },
+    listenerCount: () => listeners.length,
     hasListener: () => listener !== null,
   };
 }
@@ -185,4 +196,101 @@ test("session/list failure leaves the connection registered for nothing but does
     null,
   );
   assert.equal(client.hasListener(), true);
+});
+
+test("a terminal chunk reaches the renderer surface under its own session and no other", async () => {
+  const { conn, client, events } = setup({ sessions: [makeSession("s1"), makeSession("s2")] });
+  await conn.open();
+  client.push(
+    makeEnvelope({ kind: "terminal.output", sessionId: "s1", payload: { terminalId: "term_1", data: "YQ==" } }),
+  );
+  const delivered = events.filter((event) => event.channel === IPC.event.terminalOutput);
+  assert.equal(delivered.length, 1);
+  assert.equal(delivered[0].payload.sessionId, makeRemoteSessionId(HOST_KEY, "s1"));
+  assert.equal(delivered[0].payload.terminalId, "term_1");
+  // A session switch never repaints one session's shell under another id.
+  assert.equal(
+    delivered.some((event) => event.payload.sessionId === makeRemoteSessionId(HOST_KEY, "s2")),
+    false,
+  );
+});
+
+test("a disconnect mid-stream stops terminal delivery and leaves no dangling listener", async () => {
+  const { conn, client, events } = setup({ sessions: [makeSession("s1")] });
+  await conn.open();
+  client.push(
+    makeEnvelope({ kind: "terminal.output", sessionId: "s1", payload: { terminalId: "term_1", data: "YQ==" } }),
+  );
+  assert.equal(events.filter((event) => event.channel === IPC.event.terminalOutput).length, 1);
+  await conn.close();
+  assert.equal(client.hasListener(), false, "close must detach the event listener");
+  // A frame that was already in flight when the host dropped reaches only the
+  // detached listener; it must not emit and must not throw.
+  assert.doesNotThrow(() =>
+    client.deliverToAll(
+      makeEnvelope({ kind: "terminal.output", sessionId: "s1", payload: { terminalId: "term_1", data: "Yg==" } }),
+    ),
+  );
+  assert.equal(
+    events.filter((event) => event.channel === IPC.event.terminalOutput).length,
+    1,
+    "no terminal output may be delivered after teardown",
+  );
+});
+
+test("a terminal event arriving after teardown emits nothing and does not throw", async () => {
+  const { conn, client, events } = setup({ sessions: [makeSession("s1")] });
+  await conn.open();
+  const before = events.length;
+  await conn.close();
+  assert.doesNotThrow(() =>
+    client.deliverToAll(
+      makeEnvelope({ kind: "terminal.changed", sessionId: "s1", payload: { terminalId: "term_1", state: "exited", code: 0 } }),
+    ),
+  );
+  assert.equal(events.length, before);
+});
+
+test("a terminal event for an archived session is dropped once the router released it", async () => {
+  const { conn, router, client, events } = setup({ sessions: [makeSession("s1")] });
+  await conn.open();
+  const remoteId = makeRemoteSessionId(HOST_KEY, "s1");
+  client.push(
+    makeEnvelope({ scope: "host", kind: "session.archived", payload: { session: { id: "s1" } } }),
+  );
+  assert.equal(router.resolveBackend(IPC.invoke.sessionGet, [{ id: remoteId }]), null);
+  const before = events.filter((event) => event.channel === IPC.event.terminalOutput).length;
+  client.push(
+    makeEnvelope({ kind: "terminal.output", sessionId: "s1", payload: { terminalId: "term_1", data: "YQ==" } }),
+  );
+  assert.equal(
+    events.filter((event) => event.channel === IPC.event.terminalOutput).length,
+    before,
+    "a released session must not receive terminal output",
+  );
+});
+
+test("terminal input and resize route to the registered remote backend", async () => {
+  const { conn, router } = setup({ sessions: [makeSession("s1")] });
+  await conn.open();
+  const remoteId = makeRemoteSessionId(HOST_KEY, "s1");
+  const backend = router.resolveBackend(IPC.invoke.terminalInput, [
+    { sessionId: remoteId, terminalId: "term_1", data: "YQ==" },
+  ]);
+  assert.ok(backend, "terminal/input must resolve to the remote backend");
+  assert.equal(
+    router.resolveBackend(IPC.invoke.terminalResize, [
+      { sessionId: remoteId, terminalId: "term_1", cols: 80, rows: 24 },
+    ]),
+    backend,
+  );
+  // After the host disconnects the same call falls back to local, never to a
+  // stale remote backend.
+  await conn.close();
+  assert.equal(
+    router.resolveBackend(IPC.invoke.terminalInput, [
+      { sessionId: remoteId, terminalId: "term_1", data: "YQ==" },
+    ]),
+    null,
+  );
 });

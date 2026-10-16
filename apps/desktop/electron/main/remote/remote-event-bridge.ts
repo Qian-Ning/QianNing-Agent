@@ -44,6 +44,16 @@ export type RemoteEventBridgeOptions = {
   emit: (channel: string, payload: unknown) => void;
   /** Lifecycle callback for host-scope `session.*` kinds; drives the router. */
   onLifecycle?: (event: RemoteLifecycleEvent) => void;
+  /**
+   * Whether a renderer-visible session id is still registered on this
+   * connection. Terminal kinds are *connection-local* and never enter the
+   * replay log (spec §5.3), so a chunk that arrives for a session the router
+   * has already released (a session switch, or a host disconnect racing an
+   * in-flight frame) has no live surface to reach and is dropped rather than
+   * delivered to a stale id. Absent means "no registration view" and every
+   * terminal event is forwarded, which is what a bridge-only fixture wants.
+   */
+  isSessionActive?: (remoteSessionId: string) => boolean;
   /** Optional structured warning log; defaults to a no-op. */
   log?: (level: "warn", message: string, data?: unknown) => void;
 };
@@ -108,6 +118,49 @@ function extractInputRequest(payload: unknown): RacpInputRequest | undefined {
   return payload as unknown as RacpInputRequest;
 }
 
+/** A `terminal.output` chunk: one base64 slice of the pty's byte stream. */
+export type RemoteTerminalOutput = {
+  readonly kind: "output";
+  readonly terminalId: string;
+  readonly data: string;
+};
+
+/** A `terminal.changed` transition; the Host currently emits `state: "exited"`. */
+export type RemoteTerminalChanged = {
+  readonly kind: "changed";
+  readonly terminalId: string;
+  readonly state: string;
+  readonly code: number | null;
+};
+
+export type RemoteTerminalEvent = RemoteTerminalOutput | RemoteTerminalChanged;
+
+/**
+ * Read one terminal envelope payload. `terminal.output` carries
+ * `{ terminalId, data }` with the data already base64 (operations.ts
+ * `terminalEvent`); `terminal.changed` carries `{ terminalId, state, code }`.
+ * Both are session-scoped and connection-local — they never enter the replay
+ * log — so there are no cursor fields to translate. A payload that is not one
+ * of those two shapes is dropped, exactly as an unknown kind is.
+ */
+export function extractTerminalEvent(
+  kind: "terminal.output" | "terminal.changed",
+  payload: unknown,
+): RemoteTerminalEvent | null {
+  if (!isRecord(payload) || typeof payload.terminalId !== "string") return null;
+  if (kind === "terminal.output") {
+    return typeof payload.data === "string"
+      ? { kind: "output", terminalId: payload.terminalId, data: payload.data }
+      : null;
+  }
+  return {
+    kind: "changed",
+    terminalId: payload.terminalId,
+    state: typeof payload.state === "string" ? payload.state : "exited",
+    code: typeof payload.code === "number" ? payload.code : null,
+  };
+}
+
 function toToolPermissionRequest(
   remoteSessionId: string,
   approval: RacpApprovalRequest,
@@ -155,7 +208,7 @@ function toPlanningStateAgentEvent(
 }
 
 export function createRemoteEventBridge(options: RemoteEventBridgeOptions): RemoteEventBridge {
-  const { hostKey, emit, onLifecycle } = options;
+  const { hostKey, emit, onLifecycle, isSessionActive } = options;
   const log = options.log ?? (() => undefined);
   const remoteIdOf = (hostSessionId: string) => makeRemoteSessionId(hostKey, hostSessionId);
   const emitAgentEvent = (
@@ -262,15 +315,45 @@ export function createRemoteEventBridge(options: RemoteEventBridgeOptions): Remo
         });
         return;
       }
+      case "terminal.output":
+      case "terminal.changed": {
+        // Terminal kinds are connection-local (spec §5.3): they stream to
+        // whichever connection attached, keyed by the remote session id, and
+        // never enter the replay log. A chunk for a session the router already
+        // released has no live surface and is dropped so a session switch can
+        // never paint one session's shell into another.
+        if (isSessionActive && !isSessionActive(remoteSessionId)) {
+          log("warn", `${envelope.kind} arrived for an unregistered session`, {
+            remoteSessionId,
+            terminalId: isRecord(envelope.payload) ? envelope.payload.terminalId : undefined,
+          });
+          return;
+        }
+        const terminal = extractTerminalEvent(envelope.kind, envelope.payload);
+        if (!terminal) return;
+        if (terminal.kind === "output") {
+          emit(IPC.event.terminalOutput, {
+            sessionId: remoteSessionId,
+            terminalId: terminal.terminalId,
+            data: terminal.data,
+          });
+          return;
+        }
+        emit(IPC.event.terminalChanged, {
+          sessionId: remoteSessionId,
+          terminalId: terminal.terminalId,
+          state: terminal.state,
+          code: terminal.code,
+        });
+        return;
+      }
       case "approval.resolved":
       case "input.resolved":
-      case "terminal.changed":
-      case "terminal.output":
       case "resync.required":
         // Approvals settle through the renderer's own resolve call; the plan
-        // and status changes come as `session.changed` payloads. Terminal
-        // events belong to Stage 5. `resync.required` is Stage 3b — the
-        // connection layer must consume it, not the bridge.
+        // and status changes come as `session.changed` payloads.
+        // `resync.required` is Stage 3b — the connection layer must consume it,
+        // not the bridge.
         return;
       default:
         return;
