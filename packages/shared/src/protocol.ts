@@ -455,6 +455,22 @@ export const IPC = {
      */
     connectionPickIdentityFile: "pi-desktop/connection/pickIdentityFile",
     connectionActivity: "pi-desktop/connection/activity",
+    /**
+     * The terminal surface (spec `03-runtime/19-remote-agent-control-protocol.md`
+     * §6.2, rollout R2b). `open` asks for a pty with the session root as its
+     * working directory and answers with the terminal id plus the *bounded*
+     * replay ring; passing an existing `terminalId` re-attaches after a
+     * reconnect and returns that same bounded ring rather than a backlog.
+     * `input` and `data` are base64, matching the wire shape.
+     *
+     * A local session has no interactive terminal in this build, so its local
+     * handler refuses with `CAPABILITY_UNAVAILABLE`; a remote session routes
+     * every one of these over RACP to the paired `pi-host`.
+     */
+    terminalOpen: "pi-desktop/terminal/open",
+    terminalInput: "pi-desktop/terminal/input",
+    terminalResize: "pi-desktop/terminal/resize",
+    terminalClose: "pi-desktop/terminal/close",
   },
   event: {
     pluginChanged: "pi-desktop/event/pluginChanged",
@@ -508,6 +524,15 @@ export const IPC = {
     updatesState: "pi-desktop/updates/event/state",
     voiceStateChanged: "pi-desktop/voice/event/stateChanged",
     voiceModelProgress: "pi-desktop/voice/event/modelProgress",
+    /**
+     * Terminal output, one bounded base64 chunk at a time, keyed by the session
+     * that owns the terminal (`{ sessionId, terminalId, data }`). The desktop's
+     * terminal surface consumes this for a local and a remote session alike, so
+     * a remote row is distinguished only by its namespaced session id.
+     */
+    terminalOutput: "pi-desktop/terminal/event/output",
+    /** A terminal's state change — it exited (`{ sessionId, terminalId, state, code }`). */
+    terminalChanged: "pi-desktop/terminal/event/changed",
   },
 } as const;
 

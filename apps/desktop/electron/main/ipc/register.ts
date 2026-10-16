@@ -27,6 +27,7 @@ import { registerConnectionIpc } from "./connection-ipc";
 import { registerSkinIpc } from "./skin-ipc";
 import { registerAgentImportIpc } from "./agent-import-ipc";
 import { registerRemoteHostIpc } from "./remote-host-ipc";
+import { registerTerminalIpc } from "./terminal-ipc";
 import { fetchSkillMarketDocument, searchSkillMarket } from "../skill-market-catalog";
 import { registerWindowIpc } from "./window-ipc";
 import { createComposerTemplateLoader, registerWorkspaceIpc } from "./workspace-ipc";
@@ -488,6 +489,8 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
   }
 
   registerRemoteHostIpc({ registrar });
+
+  registerTerminalIpc({ registrar });
 
   registerMarketIpc({
     registrar,

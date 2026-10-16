@@ -55,6 +55,20 @@ export type RemoteBackendOptions = {
 
 type AttachResultLike = { session: RacpSession; snapshot?: RacpSessionSnapshot };
 
+/**
+ * The `terminal/open` result, mirroring `TerminalOpenResult` in
+ * `@pi-desktop/racp`'s host-operations (§6.2): the terminal id plus its
+ * bounded, base64 replay ring and current size. Declared here rather than
+ * imported so this adapter keeps depending only on the protocol types it
+ * already consumes from `@pi-desktop/shared`.
+ */
+type TerminalOpenResult = {
+  terminalId: string;
+  replay: string;
+  cols: number;
+  rows: number;
+};
+
 function capabilityUnavailable(message: string): Error {
   return Object.assign(new Error(message), {
     errorCode: ErrorCodes.CAPABILITY_UNAVAILABLE,
@@ -80,6 +94,13 @@ const HANDLED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.invoke.askToolResolve,
   IPC.invoke.plansResolve,
   IPC.invoke.plansPending,
+  // The R2b terminal surface: the remote-host profile owns the pty, so an
+  // open/input/resize/close on a remote session is served over RACP and never
+  // by a local handler.
+  IPC.invoke.terminalOpen,
+  IPC.invoke.terminalInput,
+  IPC.invoke.terminalResize,
+  IPC.invoke.terminalClose,
 ]);
 
 export function createRemoteBackend(options: RemoteBackendOptions): RemoteBackend {
@@ -280,6 +301,49 @@ export function createRemoteBackend(options: RemoteBackendOptions): RemoteBacken
       }
       case IPC.invoke.sessionDelete: {
         await client.request("session/delete", { sessionId: hostIdFor(args) });
+        return { ok: true };
+      }
+      case IPC.invoke.terminalOpen: {
+        // `terminal/open` with no `terminalId` spawns a pty on the Host; with
+        // one it re-attaches (spec §6.2) and answers with the *bounded* replay
+        // ring, which is how a reconnecting client resumes without a backlog.
+        // The renderer's remote session id becomes the Host's own session id;
+        // the working directory is resolved by the Host, never sent here.
+        const request = args[0] as {
+          cols?: number;
+          rows?: number;
+          terminalId?: string;
+        };
+        const opened = await client.request<TerminalOpenResult>("terminal/open", {
+          sessionId: hostIdFor(args),
+          ...(request.cols !== undefined ? { cols: request.cols } : {}),
+          ...(request.rows !== undefined ? { rows: request.rows } : {}),
+          ...(request.terminalId ? { terminalId: request.terminalId } : {}),
+        });
+        // Passed through untouched: this backend never re-buffers the stream,
+        // so the ring's bound is the only bound a client ever sees.
+        return opened;
+      }
+      case IPC.invoke.terminalInput: {
+        const request = args[0] as { terminalId: string; data: string };
+        await client.request("terminal/input", {
+          terminalId: request.terminalId,
+          data: request.data,
+        });
+        return { ok: true };
+      }
+      case IPC.invoke.terminalResize: {
+        const request = args[0] as { terminalId: string; cols: number; rows: number };
+        await client.request("terminal/resize", {
+          terminalId: request.terminalId,
+          cols: request.cols,
+          rows: request.rows,
+        });
+        return { ok: true };
+      }
+      case IPC.invoke.terminalClose: {
+        const request = args[0] as { terminalId: string };
+        await client.request("terminal/close", { terminalId: request.terminalId });
         return { ok: true };
       }
       case IPC.invoke.toolResolvePermission: {
