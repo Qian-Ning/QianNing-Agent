@@ -101,6 +101,14 @@ const HANDLED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.invoke.terminalInput,
   IPC.invoke.terminalResize,
   IPC.invoke.terminalClose,
+  // The R2b workspace surface: listing, reading, and diffing a remote
+  // session's files must resolve on the Host's filesystem, which is the whole
+  // point of the work panel following the session. A local session's call
+  // carries no remote session id, so the router never reaches this backend and
+  // the local handler answers exactly as before.
+  IPC.invoke.fsList,
+  IPC.invoke.fsRead,
+  IPC.invoke.workspaceDiff,
 ]);
 
 export function createRemoteBackend(options: RemoteBackendOptions): RemoteBackend {
@@ -346,6 +354,39 @@ export function createRemoteBackend(options: RemoteBackendOptions): RemoteBacken
         await client.request("terminal/close", { terminalId: request.terminalId });
         return { ok: true };
       }
+      // The R2b workspace surface (spec `03-runtime/19-remote-agent-control-protocol.md`
+      // §6.2, remote-host profile). The renderer's `fsList` / `fsRead` / `workspaceDiff` are the work
+      // panel's files and diff; on a remote session they are the Host's own
+      // `workspace/list`, `workspace/read`, and `workspace/diff`, answered from
+      // the Host's session root. The session id travels the same way it does for
+      // every other routed operation — on the first argument, resolved by
+      // `sessionIdForCall` — so nothing new carries identity and a local call
+      // (no remote id) never enters this backend at all.
+      case IPC.invoke.fsList: {
+        const request = args[0] as { path?: unknown } | undefined;
+        const path = typeof request?.path === "string" ? request.path : "";
+        return client.request<{ entries: unknown[] }>("workspace/list", {
+          sessionId: hostIdFor(args),
+          ...(path ? { path } : {}),
+        });
+      }
+      case IPC.invoke.fsRead: {
+        const request = args[0] as { path?: unknown } | undefined;
+        const path = typeof request?.path === "string" ? request.path : "";
+        // The Host refuses a missing path too; refusing here keeps the failure
+        // shaped like the local handler's rather than a schema rejection.
+        if (!path) {
+          throw Object.assign(new Error("path is required"), {
+            errorCode: ErrorCodes.INVALID_ARGUMENT,
+          });
+        }
+        // The path is sent verbatim: the Host decides containment against the
+        // session root, exactly as this desktop does for a local session. No
+        // desktop-side check is relaxed to make this leg work.
+        return client.request("workspace/read", { sessionId: hostIdFor(args), path });
+      }
+      case IPC.invoke.workspaceDiff:
+        return client.request("workspace/diff", { sessionId: hostIdFor(args) });
       case IPC.invoke.toolResolvePermission: {
         const resolution = args[0] as ToolPermissionResolution;
         const parsed = parseRemoteApprovalRequestId(resolution.requestId);

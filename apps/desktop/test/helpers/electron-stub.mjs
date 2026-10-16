@@ -64,6 +64,15 @@ export const dialog = {
   showSaveDialog: notInNode("dialog.showSaveDialog"),
 };
 
+/**
+ * The window class. `BrowserWindow` is a value import in the main-process
+ * modules that open a native picker, so the module scope needs the name to
+ * exist; reaching it still fails loudly.
+ */
+export const BrowserWindow = {
+  fromWebContents: notInNode("BrowserWindow.fromWebContents"),
+};
+
 export const shell = {
   showItemInFolder: notInNode("shell.showItemInFolder"),
   trashItem: async (path) => {

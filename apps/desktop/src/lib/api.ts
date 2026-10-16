@@ -1510,7 +1510,18 @@ export const api = {
   /** Toggles the devtools console; rejects unless developer mode is on. */
   toggleDevTools: (open?: boolean) =>
     invoke<{ open: boolean }>(IPC.invoke.devtoolsToggle, { open }),
-  workspaceDiff: () => invoke<WorkspaceDiff>(IPC.invoke.workspaceDiff),
+  /**
+   * The active workspace diff. On a remote session the diff is the Host's own
+   * working tree, so the call carries the renderer-visible session id — the
+   * same way every other routed operation carries one — and the backend router
+   * serves it over RACP. A local session omits it and the local handler runs
+   * exactly as before.
+   */
+  workspaceDiff: (sessionId?: string) =>
+    invoke<WorkspaceDiff>(
+      IPC.invoke.workspaceDiff,
+      ...(sessionId ? [{ sessionId }] : []),
+    ),
   workspaceReviewRollback: (input: {
     sessionId: string;
     snapshotId: string;
@@ -1531,12 +1542,23 @@ export const api = {
     invoke(IPC.invoke.browserOpenExternal, url ? { url } : {}),
   browserGetState: () =>
     invoke<BrowserState | null>(IPC.invoke.browserGetState),
-  fsList: (path?: string) =>
-    invoke<{ entries: FsEntry[] }>(IPC.invoke.fsList, { path: path ?? "" }),
-  fsRead: (path: string, mimeType?: string) =>
+  /**
+   * List one directory of the workspace. `sessionId` is the renderer-visible
+   * id of the session the panel is showing; a remote session's tree is listed
+   * on its host through the backend router, and a local session omits it so the
+   * call is byte-for-byte what it always was.
+   */
+  fsList: (path?: string, sessionId?: string) =>
+    invoke<{ entries: FsEntry[] }>(IPC.invoke.fsList, {
+      path: path ?? "",
+      ...(sessionId ? { sessionId } : {}),
+    }),
+  /** Read one workspace file; `sessionId` routes a remote session to its host. */
+  fsRead: (path: string, mimeType?: string, sessionId?: string) =>
     invoke<FsReadResult>(IPC.invoke.fsRead, {
       path,
       ...(mimeType ? { mimeType } : {}),
+      ...(sessionId ? { sessionId } : {}),
     }),
   fsReadImageDataUrl: (ref: string, mimeType?: string) =>
     invoke<FsImageDataUrlResult>(IPC.invoke.fsReadImageDataUrl, {
