@@ -3711,7 +3711,12 @@ Call TaskWait only when your next step genuinely depends on that report and noth
 
     let listed: unknown;
     try {
-      listed = await this.host.call("tools.list", {});
+      // The session id rides on the call so the embedding host can scope the
+      // reply to this session's relayed tools (reverse tool relay, spec §9.4):
+      // the relayed catalogue depends on which desktops are connected to the
+      // Host, and it is per-session, so a host-wide answer could offer one
+      // session's desktop tools to another. host-core ignores the field.
+      listed = await this.host.call("tools.list", { sessionId: this.sessionId });
     } catch {
       return;
     }

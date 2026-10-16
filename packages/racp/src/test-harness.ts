@@ -271,7 +271,7 @@ export type Harness = {
   connect(token: string, options?: Partial<ConstructorParameters<typeof RacpClient>[0]>): Promise<{ client: RacpClient; events: import("@pi-desktop/shared").RacpEventEnvelope[]; link: () => MemoryLink }>;
 };
 
-export async function harness(options: { limits?: Partial<import("@pi-desktop/shared").RacpLimits>; operations?: Partial<RacpHostOperations> } = {}): Promise<Harness> {
+export async function harness(options: { limits?: Partial<import("@pi-desktop/shared").RacpLimits>; operations?: Partial<RacpHostOperations>; onRelayedToolsChanged?: (sessionId: string) => void } = {}): Promise<Harness> {
   const { host, runtime, sessions, approvals } = buildHost(options.limits);
   const { store, authenticator } = await credentialStore();
   const operations = { ...fakeOperations(sessions), ...options.operations };
@@ -284,6 +284,7 @@ export async function harness(options: { limits?: Partial<import("@pi-desktop/sh
     limits: options.limits,
     log: () => undefined,
     initializeTimeoutMs: 1_000,
+    ...(options.onRelayedToolsChanged ? { onRelayedToolsChanged: options.onRelayedToolsChanged } : {}),
   });
   const links: MemoryLink[] = [];
   return {

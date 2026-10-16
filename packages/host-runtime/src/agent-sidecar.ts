@@ -20,9 +20,30 @@ export type LocalToolResult = {
 export type LocalToolHandler = (input: {
   sessionId: string;
   toolCallId: string;
+  /** The running host turn the call belongs to, when the runtime named one. */
+  turnId?: string;
   args: unknown;
   signal: AbortSignal;
 }) => Promise<LocalToolResult>;
+
+/**
+ * One session-scoped tool declaration the embedding host overlays on the
+ * `tools.list` reply the sidecar forwards from host-core.
+ *
+ * The reverse tool relay (spec §9.4) makes the set of tools a session may call
+ * depend on *which desktops are currently connected and advertising*, which
+ * host-core cannot know: it owns the built-in catalogue, not RACP connections.
+ * So the embedding host (pi-host) supplies the relayed entries per session here,
+ * and the sidecar appends them to host-core's answer. Additive only — an entry
+ * whose name host-core already declared is dropped, so the overlay can never
+ * shadow a built-in.
+ */
+export type SidecarSessionTool = {
+  name: string;
+  description?: string;
+  /** JSON Schema for the tool's arguments; the Agent runtime defaults to an open object when absent. */
+  parameters?: unknown;
+};
 
 /**
  * Resolve request auth for a vendor account. Answered by the embedding host
@@ -137,6 +158,12 @@ export class AgentSidecar {
   private localToolControllers = new Map<string, AbortController>();
   private localTools = new Map<string, LocalToolHandler>();
   private localToolTimers = new Set<ReturnType<typeof setTimeout>>();
+  /**
+   * The embedding host's per-session tool overlay (reverse tool relay, spec
+   * §9.4). Empty by default, so the `tools.list` path is byte-for-byte the
+   * host-core reply until a desktop actually advertises something.
+   */
+  private sessionTools = new Map<string, readonly SidecarSessionTool[]>();
   private vendorAuthResolver: VendorAuthResolver | null = null;
   private trustedExtensionBridge: TrustedExtensionSidecarBridge | null = null;
   // Vendor-account rows this session was launched with. The sidecar can only
@@ -293,6 +320,33 @@ export class AgentSidecar {
   /** Register a tool the sidecar can call that the embedding host handles locally. */
   setLocalTool(name: string, handler: LocalToolHandler): void {
     this.localTools.set(name, handler);
+  }
+
+  /**
+   * Withdraw a host-local tool registration. Public so a tool whose backing
+   * resource is gone — a relayed desktop that disconnected — stops being offered
+   * the moment it can no longer run; a stale handler would otherwise hold the
+   * name forever and shadow the host's own path for it.
+   */
+  removeLocalTool(name: string): void {
+    this.localTools.delete(name);
+  }
+
+  /**
+   * Replace one session's overlay entries. The Agent runtime calls
+   * `tools.list` with its session id before each prompt, so a change here shows
+   * up on that session's next turn, exactly like the host capability mirror.
+   */
+  setSessionTools(sessionId: string, tools: readonly SidecarSessionTool[]): void {
+    const id = sessionId.trim();
+    if (!id) return;
+    if (tools.length === 0) this.sessionTools.delete(id);
+    else this.sessionTools.set(id, tools);
+  }
+
+  /** Drop a session's overlay entries, e.g. when its last advertiser disconnects. */
+  clearSessionTools(sessionId: string): void {
+    this.sessionTools.delete(sessionId.trim());
   }
 
   setVendorAuthResolver(resolver: VendorAuthResolver): void {
@@ -472,6 +526,25 @@ export class AgentSidecar {
           );
           return;
         }
+        // The session tool overlay (reverse tool relay, spec §9.4): host-core
+        // owns the built-in catalogue, but the relayed tools a session may call
+        // depend on which desktops are connected to *this* Host, which only the
+        // embedding host knows. The runtime sends its session id on `tools.list`
+        // (runtime.ts `refreshHostTools`) precisely so this merge can be scoped;
+        // host-core ignores the extra field. Additive and fail-open: an unknown
+        // session or an empty overlay returns host-core's answer untouched.
+        if (method === "tools.list") {
+          if (!this.host) throw new Error("host unavailable");
+          const base = await this.host.call("tools.list", params);
+          const result = mergeSessionTools(
+            base,
+            this.sessionTools.get(String(params.sessionId ?? "").trim()),
+          );
+          this.writeToChild(
+            JSON.stringify({ jsonrpc: "2.0", id: msg.id, result }) + "\n",
+          );
+          return;
+        }
         if (method.startsWith("extensions.") || method === "session.queuePush" || method === "session.queuePrioritize") {
           const bridge = this.trustedExtensionBridge;
           if (!bridge) throw new Error("trusted extension bridge unavailable");
@@ -510,6 +583,9 @@ export class AgentSidecar {
               : await this.runLocalTool(localTool, {
                   sessionId: String(params.sessionId ?? ""),
                   toolCallId: String(params.toolCallId ?? ""),
+                  ...(typeof params.turnId === "string" && params.turnId
+                    ? { turnId: params.turnId }
+                    : {}),
                   args: params.args,
                 }, params);
           this.writeToChild(
@@ -615,3 +691,42 @@ export class AgentSidecar {
 
 /** Upper bound on how long `dispose()` waits for the killed sidecar to exit. */
 const SIDECAR_DISPOSE_GRACE_MS = 2_000;
+
+/**
+ * Append a session's overlay entries to host-core's `tools.list` reply.
+ *
+ * The overlay is additive: an entry whose name host-core already listed (or
+ * that the overlay repeats) is skipped, so a relayed tool can never shadow a
+ * built-in of the same name. A malformed base reply is passed through
+ * unchanged rather than replaced, because the overlay must never be the reason
+ * a prompt loses its tool catalogue.
+ */
+export function mergeSessionTools(
+  base: unknown,
+  overlay: readonly SidecarSessionTool[] | undefined,
+): unknown {
+  if (!overlay || overlay.length === 0) return base;
+  const record = isRecord(base) ? base : {};
+  const listed = Array.isArray(record.tools) ? record.tools : [];
+  const present = new Set<string>();
+  for (const entry of listed) {
+    const name = isRecord(entry) && typeof entry.name === "string" ? entry.name : undefined;
+    if (name) present.add(name);
+  }
+  const merged = [...listed];
+  for (const tool of overlay) {
+    const name = tool.name.trim();
+    if (!name || present.has(name)) continue;
+    present.add(name);
+    merged.push({
+      name,
+      ...(tool.description !== undefined ? { description: tool.description } : {}),
+      ...(tool.parameters !== undefined ? { parameters: tool.parameters } : {}),
+    });
+  }
+  return { ...record, tools: merged };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
