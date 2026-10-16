@@ -18,6 +18,7 @@ import {
   type RacpOperation,
   type RacpPolicy,
   type RacpServerCapabilities,
+  type RacpToolExecuteParams,
 } from "@pi-desktop/shared";
 import * as Value from "typebox/value";
 
@@ -35,6 +36,11 @@ import {
   type JsonRpcMessage,
 } from "./jsonrpc.js";
 import { createOperations, type OperationContext, type OperationHandler } from "./operations.js";
+import {
+  RACP_RELAY_DEFAULT_TIMEOUT_MS,
+  ToolRelayRegistry,
+  type RacpRelayedToolOutcome,
+} from "./tool-relay.js";
 
 /** One accepted transport connection, as the server drives it. */
 export interface ServerConnectionTransport {
@@ -81,6 +87,9 @@ const SESSION_ADDRESSED_OPERATIONS: ReadonlySet<string> = new Set([
   "workspace/read",
   "workspace/diff",
   "terminal/open",
+  // The relay names the session its tools are advertised for (spec §9.4), so the
+  // ownership rule reaches it on the same path as the other addressed operations.
+  "tools/advertise",
 ]);
 
 /** Terminal-addressed operations: the session is the one the terminal belongs to. */
@@ -186,6 +195,8 @@ export class RacpServer {
   readonly capabilities: RacpServerCapabilities;
   private readonly connections = new Map<string, RacpConnection>();
   private readonly handlers: Map<RacpOperation, OperationHandler>;
+  /** The reverse tool relay's server half (spec §9.4). */
+  private readonly toolRelay = new ToolRelayRegistry();
   private readonly now: () => number;
   private closed = false;
 
@@ -204,7 +215,7 @@ export class RacpServer {
       hostEvents: true,
       history: true,
       remoteHostProfile: true,
-      toolRelay: false,
+      toolRelay: true,
       terminal: Boolean(options.operations.terminal),
       notifications: false,
       bindings: ["RACP-WS"],
@@ -218,6 +229,32 @@ export class RacpServer {
 
   connectionCount(): number {
     return this.connections.size;
+  }
+
+  /**
+   * Execute a relayed tool on the desktop that advertised it (spec §9.4).
+   *
+   * This is the Host-to-desktop hop only: the Host-side permission decision,
+   * including session grants, precedes it and belongs to the Agent Host module,
+   * and the relayed tool never runs on the Host nor receives Host secrets
+   * (rules 1 and 2). It never throws — a desktop that is gone or silent yields a
+   * `TOOL_FAILED` outcome, which the caller records as a tool error, so the tool
+   * fails without the turn being interrupted (rule 3).
+   */
+  async executeRelayedTool(
+    request: Omit<RacpToolExecuteParams, "executionId"> & { executionId?: string },
+    timeoutMs: number = RACP_RELAY_DEFAULT_TIMEOUT_MS,
+  ): Promise<RacpRelayedToolOutcome> {
+    const params: RacpToolExecuteParams = {
+      ...request,
+      executionId: request.executionId ?? `exec_${randomUUID()}`,
+    };
+    return this.toolRelay.execute(params, timeoutMs);
+  }
+
+  /** The merged relayed catalog a session currently sees (for diagnostics and tests). */
+  relayedCatalog(sessionId: string): import("@pi-desktop/shared").RacpRelayedToolDescriptor[] {
+    return this.toolRelay.catalogFor(sessionId);
   }
 
   /**
@@ -282,6 +319,9 @@ export class RacpServer {
 
   private release(connection: RacpConnection): void {
     if (!this.connections.delete(connection.id)) return;
+    // The relay's tools go with the connection that advertised them (spec §6.1:
+    // "cleared on disconnect"), so a gone desktop leaves no catalog entry behind.
+    this.toolRelay.release(connection.id);
     for (const subscription of connection.subscriptions.values()) {
       this.options.agentHost.unsubscribe(subscription.id, subscription.sessionId);
     }
@@ -349,6 +389,7 @@ export class RacpServer {
       principal: connection.principal,
       agentHost: this.options.agentHost,
       operations: this.options.operations,
+      toolRelay: this.toolRelay,
       authenticator: this.options.authenticator,
       limits: this.limits,
       capabilities: this.capabilities,

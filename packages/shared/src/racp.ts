@@ -570,6 +570,121 @@ export type RacpOperation = keyof typeof RACP_OPERATIONS;
 export const RACP_SERVER_REQUESTS = ["approval/request", "input/request", "tool/execute"] as const;
 export type RacpServerRequest = (typeof RACP_SERVER_REQUESTS)[number];
 
+// ---------------------------------------------------------------------------
+// Reverse tool relay (spec §9.4; rollout R2b, design decision 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * A tool a paired desktop offers to execute on its own machine (`tools/advertise`).
+ *
+ * `kind` tells the two relay sources apart: `mcp` is a user-configured MCP server
+ * tool, `plugin` is a tool contributed by a desktop plugin. `permissions` carries
+ * the plugin manifest's permission set and is how the Host decides whether the
+ * tool needs workspace or filesystem access (see {@link relayToolIneligibilityReason});
+ * it is unused for MCP tools, which never touch the session workspace.
+ */
+export const RacpRelayedToolSchema = Type.Object({
+  name: Type.String({ minLength: 1 }),
+  description: Type.Optional(Type.String()),
+  kind: Type.Union([Type.Literal("mcp"), Type.Literal("plugin")]),
+  permissions: Type.Optional(Type.Array(Type.String())),
+});
+export type RacpRelayedTool = Static<typeof RacpRelayedToolSchema>;
+
+/** An accepted relayed tool: the catalog entry a remote session sees. */
+export const RacpRelayedToolDescriptorSchema = Type.Object({
+  name: Type.String({ minLength: 1 }),
+  description: Type.Optional(Type.String()),
+  kind: Type.Union([Type.Literal("mcp"), Type.Literal("plugin")]),
+});
+export type RacpRelayedToolDescriptor = Static<typeof RacpRelayedToolDescriptorSchema>;
+
+export const RacpToolsAdvertiseParamsSchema = Type.Object({
+  sessionId: Type.String({ minLength: 1 }),
+  tools: Type.Array(RacpRelayedToolSchema),
+});
+export type RacpToolsAdvertiseParams = Static<typeof RacpToolsAdvertiseParamsSchema>;
+
+export const RacpToolsAdvertiseResultSchema = Type.Object({
+  /** The session's relayed catalog after this advertisement (architecture §6.3). */
+  tools: Type.Array(RacpRelayedToolDescriptorSchema),
+  /** Advertised entries the Host refused, each with its reason. */
+  rejected: Type.Array(Type.Object({ name: Type.String(), reason: Type.String() })),
+});
+export type RacpToolsAdvertiseResult = Static<typeof RacpToolsAdvertiseResultSchema>;
+
+/** The `tool/execute` server request payload (spec §9.4). */
+export const RacpToolExecuteParamsSchema = Type.Object({
+  executionId: Type.String({ minLength: 1 }),
+  sessionId: Type.String({ minLength: 1 }),
+  turnId: Type.Optional(Type.String({ minLength: 1 })),
+  toolCallId: Type.String({ minLength: 1 }),
+  toolName: Type.String({ minLength: 1 }),
+  args: Type.Unknown(),
+});
+export type RacpToolExecuteParams = Static<typeof RacpToolExecuteParamsSchema>;
+
+/** The client's answer to `tool/execute`: the local result, or a tool-level error. */
+export const RacpToolExecuteResultSchema = Type.Object({
+  result: Type.Optional(Type.Unknown()),
+  isError: Type.Boolean(),
+});
+export type RacpToolExecuteResult = Static<typeof RacpToolExecuteResultSchema>;
+
+/**
+ * The plugin permissions that make a tool ineligible for relay.
+ *
+ * Rollout R2 design decision 2 (docs/spec/06-delivery/07-remote-control-rollout.md):
+ * "plugin tools that require workspace or filesystem access are excluded", and
+ * protocol §9.4 rule 4 gives the reason: such a tool would act on the *desktop's*
+ * filesystem while the session root is on the Host. `fs.read` / `fs.write` /
+ * `fs.delete` are the plugin manifest's filesystem grants (packages/plugin-sdk
+ * `PLUGIN_PERMISSIONS`); a manifest that requires any of them describes a tool
+ * bound to a workspace, so it is refused rather than silently listed.
+ */
+export const RELAY_EXCLUDED_PLUGIN_PERMISSIONS = ["fs.read", "fs.write", "fs.delete"] as const;
+
+/** Why a tool may not be relayed, or `undefined` when it may. */
+export function relayToolIneligibilityReason(tool: RacpRelayedTool): string | undefined {
+  if (tool.kind !== "plugin") return undefined;
+  const excluded = (tool.permissions ?? []).filter((permission) =>
+    (RELAY_EXCLUDED_PLUGIN_PERMISSIONS as readonly string[]).includes(permission),
+  );
+  if (excluded.length === 0) return undefined;
+  return `plugin tool requires workspace/filesystem access (${excluded.join(", ")}) and would act on the desktop filesystem while the session root is on the Host`;
+}
+
+/** The catalog entry for an accepted tool: what a remote session sees advertised. */
+export function relayedToolDescriptor(tool: RacpRelayedTool): RacpRelayedToolDescriptor {
+  return {
+    name: tool.name,
+    kind: tool.kind,
+    ...(tool.description ? { description: tool.description } : {}),
+  };
+}
+
+/**
+ * Split advertised tools into the ones the Host accepts for relay and the ones
+ * it refuses, each refusal carrying {@link relayToolIneligibilityReason}'s reason.
+ * This is the one place the exclusion rule is applied, so the Host and the
+ * desktop pre-filter cannot drift apart. Accepted tools are returned as they were
+ * advertised (the Host reduces them to {@link relayedToolDescriptor} for the
+ * catalog), so the desktop can advertise from the same call.
+ */
+export function partitionRelayedTools(tools: readonly RacpRelayedTool[]): {
+  eligible: RacpRelayedTool[];
+  rejected: Array<{ name: string; reason: string }>;
+} {
+  const eligible: RacpRelayedTool[] = [];
+  const rejected: Array<{ name: string; reason: string }> = [];
+  for (const tool of tools) {
+    const reason = relayToolIneligibilityReason(tool);
+    if (reason) rejected.push({ name: tool.name, reason });
+    else eligible.push(tool);
+  }
+  return { eligible, rejected };
+}
+
 /** Notification method that carries an `EventEnvelope` on the WS binding. */
 export const RACP_EVENT_NOTIFICATION = "session/event" as const;
 /** Notification the Host sends when it closes one subscription (`CLIENT_TOO_SLOW`, §8). */
@@ -848,5 +963,11 @@ export const RACP_SCHEMAS = {
   RemoteError: RacpRemoteErrorSchema,
   Limits: RacpLimitsSchema,
   Policy: RacpPolicySchema,
+  RelayedTool: RacpRelayedToolSchema,
+  RelayedToolDescriptor: RacpRelayedToolDescriptorSchema,
+  ToolsAdvertiseParams: RacpToolsAdvertiseParamsSchema,
+  ToolsAdvertiseResult: RacpToolsAdvertiseResultSchema,
+  ToolExecuteParams: RacpToolExecuteParamsSchema,
+  ToolExecuteResult: RacpToolExecuteResultSchema,
 } as const;
 export type RacpSchemaName = keyof typeof RACP_SCHEMAS;

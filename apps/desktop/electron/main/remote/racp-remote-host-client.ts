@@ -74,6 +74,13 @@ export type RacpRemoteHostClientOptions = {
     maxDelayMs?: number;
     maxAttempts?: number;
   };
+  /**
+   * Answers a server-initiated request (`tool/execute`, and later the approval
+   * and input requests). Returning `undefined` — the shape the reverse-tool-relay
+   * handler uses for a method it does not own — is answered with
+   * `METHOD_NOT_FOUND`, as the client core does when no handler is wired at all.
+   */
+  onServerRequest?: (method: string, params: unknown) => Promise<unknown> | undefined;
   /** Optional structured log; defaults to a no-op. */
   log?: (level: "info" | "warn", message: string, data?: Record<string, unknown>) => void;
 };
@@ -111,6 +118,19 @@ export function createRacpRemoteHostClient(
         }
       }
     },
+    ...(options.onServerRequest
+      ? {
+          onServerRequest: async (method: string, params: unknown) => {
+            const answered = await options.onServerRequest!(method, params);
+            if (answered === undefined) {
+              throw Object.assign(new Error(`${method} is not handled by this client`), {
+                errorCode: "METHOD_NOT_FOUND",
+              });
+            }
+            return answered;
+          },
+        }
+      : {}),
     ...(options.requestTimeoutMs !== undefined ? { requestTimeoutMs: options.requestTimeoutMs } : {}),
     ...(options.reconnect ? { reconnect: options.reconnect } : {}),
     ...(options.log ? { log: options.log } : {}),

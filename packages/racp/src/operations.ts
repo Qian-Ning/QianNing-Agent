@@ -5,6 +5,7 @@ import {
   RacpCursorSchema,
   RacpInputResponseSchema,
   RacpRequestContextSchema,
+  RacpToolsAdvertiseParamsSchema,
   type RacpCursor,
   type RacpLimits,
   type RacpOperation,
@@ -17,12 +18,15 @@ import * as Value from "typebox/value";
 import type { DeviceTokenAuthenticator } from "./auth.js";
 import type { RacpHostOperations } from "./host-operations.js";
 import type { RacpConnection } from "./server.js";
+import type { ToolRelayRegistry } from "./tool-relay.js";
 
 export type OperationContext = {
   connection: RacpConnection;
   principal: Principal;
   agentHost: AgentHost;
   operations: RacpHostOperations;
+  /** The Host's relay registry: the reverse tool relay's server half (spec §9.4). */
+  toolRelay: ToolRelayRegistry;
   authenticator: DeviceTokenAuthenticator;
   limits: RacpLimits;
   capabilities: RacpServerCapabilities;
@@ -274,7 +278,26 @@ export function createOperations(): Map<RacpOperation, OperationHandler> {
 
   handlers.set("attachment/create", unavailable("attachments"));
   handlers.set("attachment/complete", unavailable("attachments"));
-  handlers.set("tools/advertise", unavailable("tool relay"));
+  /**
+   * The reverse tool relay's write half (spec §9.4). The connection advertises
+   * the tools it will execute on its own machine; the Host filters out the ones
+   * that need the session workspace (design decision 2) and returns the session's
+   * merged catalog. The connection's set is cleared when it disconnects
+   * (server.ts `release`), so a gone desktop cannot leave tools in the catalog.
+   */
+  handlers.set("tools/advertise", async (context, params) => {
+    if (!context.capabilities.toolRelay) {
+      throw new RacpError("CAPABILITY_UNAVAILABLE", "tool relay is not offered by this Host");
+    }
+    const input = check(RacpToolsAdvertiseParamsSchema, params);
+    const result = context.toolRelay.advertise(context.connection, input);
+    context.log("info", "relayed tools advertised", {
+      sessionId: input.sessionId,
+      accepted: result.tools.length,
+      rejected: result.rejected.length,
+    });
+    return result;
+  });
 
   handlers.set("session/revoke", async (context, params) => {
     const input = check(Type.Object({ deviceId: Type.String({ minLength: 1 }) }), params);

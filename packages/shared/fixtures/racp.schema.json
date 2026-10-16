@@ -2250,5 +2250,220 @@
         "minimum": 1
       }
     }
+  },
+  "RelayedTool": {
+    "type": "object",
+    "required": [
+      "name",
+      "kind"
+    ],
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": {
+        "type": "string"
+      },
+      "kind": {
+        "anyOf": [
+          {
+            "type": "string",
+            "const": "mcp"
+          },
+          {
+            "type": "string",
+            "const": "plugin"
+          }
+        ]
+      },
+      "permissions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "RelayedToolDescriptor": {
+    "type": "object",
+    "required": [
+      "name",
+      "kind"
+    ],
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": {
+        "type": "string"
+      },
+      "kind": {
+        "anyOf": [
+          {
+            "type": "string",
+            "const": "mcp"
+          },
+          {
+            "type": "string",
+            "const": "plugin"
+          }
+        ]
+      }
+    }
+  },
+  "ToolsAdvertiseParams": {
+    "type": "object",
+    "required": [
+      "sessionId",
+      "tools"
+    ],
+    "properties": {
+      "sessionId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "tools": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "name",
+            "kind"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": {
+              "type": "string"
+            },
+            "kind": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "mcp"
+                },
+                {
+                  "type": "string",
+                  "const": "plugin"
+                }
+              ]
+            },
+            "permissions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "ToolsAdvertiseResult": {
+    "type": "object",
+    "required": [
+      "tools",
+      "rejected"
+    ],
+    "properties": {
+      "tools": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "name",
+            "kind"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": {
+              "type": "string"
+            },
+            "kind": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "mcp"
+                },
+                {
+                  "type": "string",
+                  "const": "plugin"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "rejected": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "name",
+            "reason"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "ToolExecuteParams": {
+    "type": "object",
+    "required": [
+      "executionId",
+      "sessionId",
+      "toolCallId",
+      "toolName",
+      "args"
+    ],
+    "properties": {
+      "executionId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "sessionId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "turnId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "toolCallId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "toolName": {
+        "type": "string",
+        "minLength": 1
+      },
+      "args": {}
+    }
+  },
+  "ToolExecuteResult": {
+    "type": "object",
+    "required": [
+      "isError"
+    ],
+    "properties": {
+      "result": {},
+      "isError": {
+        "type": "boolean"
+      }
+    }
   }
 }
