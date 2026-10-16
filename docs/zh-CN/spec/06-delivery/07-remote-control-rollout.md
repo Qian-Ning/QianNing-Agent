@@ -47,9 +47,11 @@ Linux 或 WSL 机器上的项目，即 SSH 隧道远端 Host 拓扑；#100 要�
   与设备 token 配对；远端 Host profile 操作（`session/configure`、
   `session/fork`、`session/rename`、`session/delete`、`session/compact`、
   `workspace/list`、`workspace/read`、`workspace/diff`）；以及远程会话归属划分；反向工具中继（`tools/advertise` 与 `tool/execute` 服务端
-  请求，让桌面 MCP 服务器和不需工作区的插件工具在远程会话中于桌面执行）；终端
-  （`terminal/open`、`terminal/input`、`terminal/resize`、`terminal/close`、
-  `terminal.output` 与有界回放环，在远端机器运行）；设置 → 远程主机为紧凑主机清单加一个 SSH/配对添加表单、不含说明性文案；整项功能在导航与标题上标为实验性，因为远程连接仍可能失败，仅在开发者模式开启时显示（连同其在设置搜索中的命中）（`04-ux/06-settings-ia.md` §1、§3）。
+  请求，让桌面 MCP 服务器和不需工作区的插件工具在远程会话中于桌面执行）；终端（Host 的会话终端服务：`terminal/open`、
+  `terminal/input`、`terminal/resize`、`terminal/close` 与 `terminal.changed` /
+  `terminal.output` 两类事件，使用丢弃最旧片段的有界回放环，在远端机器运行；桌面侧只承载
+  传输通道，把终端输出投递到 renderer 而不丢弃，使远程终端输出进入转录。本里程碑不含
+  交互式终端视图，因为桌面按设计没有终端界面，`04-ux/01-ui-ia.md`）；设置 → 远程主机为紧凑主机清单加一个 SSH/配对添加表单、不含说明性文案；整项功能在导航与标题上标为实验性，因为远程连接仍可能失败，仅在开发者模式开启时显示（连同其在设置搜索中的命中）（`04-ux/06-settings-ia.md` §1、§3）。
 - R3：出站消息集成（#100）。Host 进程内的又一个模块调用方，无传输、无入站
   监听：订阅 Host 范围事件，把 `turn.completed`、`turn.failed`、
   `approval.requested`、`input.requested` 的脱敏摘要转发到出站渠道（先 Webhook，
@@ -63,8 +65,9 @@ Linux 或 WSL 机器上的项目，即 SSH 隧道远端 Host 拓扑；#100 要�
 
 R2 的设计决定（D375，2026-09-10 记录）：远端 Host 的 provider 配置经 SSH 引导通道
 写入，不经 RACP；桌面用户 MCP 服务器与不需工作区的插件工具在本里程碑通过反向工具
-中继进入远程会话，需要工作区或文件系统访问的插件工具排除；工作面板终端在本里程碑
-以 `terminal/*` 操作交付，在远端机器运行；`pi-host` 由桌面经 SSH 上传的引导脚本按
+中继进入远程会话，需要工作区或文件系统访问的插件工具排除；终端在本里程碑交付为 Host
+的会话终端服务与桌面把其输出送往转录的传输通道，交互式终端视图明确不在范围内，因为桌面按
+设计没有终端界面，如需要应另立提案而不并入 R2b；`pi-host` 由桌面经 SSH 上传的引导脚本按
 平台从 GitHub Releases 下载桌面版本并校验公布的 SHA-256，版本不匹配即
 `PROTOCOL_MISMATCH` 并提供重新下载，首版不支持没有 GitHub 出网能力的机器；SSH 配对
 的桌面设备持有 `owner` 并豁免远程权限上限，除非启用 Host 策略
@@ -75,7 +78,7 @@ R1 退出条件包括模块测试不依赖 Electron、晚接入的客户端能�
 恢复后按游标续传不重复回合、远程会话的模式/模型/思考等级变更与本地一致且仅限
 空闲、远端工具目录不含需要工作区的桌面插件工具、公布中继的桌面 MCP 工具在远程回合
 中于桌面执行且桌面中途关闭时工具失败而回合继续、远程会话终端在远端机器的会话根内
-运行且 SSH 中断后从回放环续传、引导下载校验 checksum 并拒绝被篡改的包、版本不匹配
+运行、其输出到达桌面而不被丢弃且 SSH 中断后从回放环续传（不预期出现交互式终端视图，桌面按设计没有）、引导下载校验 checksum 并拒绝被篡改的包、版本不匹配
 被拒并提供更新。R3 退出条件包括
 E2E-232 通过、载荷只含摘要与 id、未关联聊天的指令无效、Host 无新监听器。
 
@@ -149,6 +152,7 @@ runbook 写明 feature flag、配对撤销路径、远端机器上的数据保�
 - R2 已开始（2026-09-18，D447 / ADR 0284）：`packages/host-runtime` 承载与 Electron 无关的运行时层 —— host-core 与 sidecar 的 stdio 传输、重启监督器、`RuntimeService`（模块的 `RuntimePort`，含持久回合生命周期）、转录持久化、无头启动解析器与已批准 Plan/Goal 的派发 —— Electron main 通过薄适配层运行其上。
 - R2（2026-09-18，D448 / ADR 0285）：`packages/racp` 承载 `RACP-WS` 服务端与客户端核心、回环上的 `ws` 绑定与设备令牌配对；握手、鉴权、幂等、队列顺序、审批、游标重放、驱逐、epoch 变更、慢客户端与不重复执行的重连都是包内测试。`pi-host` 包、桌面适配器与 SSH 引导此后均已开始：R2a 桌面内核（D449 / ADR 0286）带来了适配器与 `pi-host` 包，SSH 引导随后在 D453 / ADR 0292 落地。
 - R2b 部分完成（2026-09-19，D453 / ADR 0292）：桌面使用用户自己的 `ssh` 客户端并以 `BatchMode=yes` 在远端安装并配对 `pi-host`，用户的配置、agent 与跳板机照常生效，应用不持有任何 SSH 密钥。`remote/pi-host-release.ts` 承载纯发布坐标（远端平台、桌面版本、已发布的 SHA-256、拒绝未发布的目标），`remote/pi-host-bootstrap-script.ts` 生成唯一的 `umask 077` 脚本：下载、校验、安装到远端 `$HOME`、以 `--pair` 在回环上重启主机，并回显 `PI_HOST_READY` / `PI_HOST_PAIRING_TOKEN`；`remote/ssh-transport.ts` 是可注入的传输端口，`remote/ssh-tunnel.ts` 为每台主机维护一条持久的 `ssh -N -L` 转发，每次启动重新建立，并在引导时被收编（adopt），使配对只建立一条隧道。记录以 `metadata.transport = "ssh"` 加 SSH 描述符取代 URL，`pi-desktop/remoteHost/bootstrap` 加入 `list` / `pair` / `remove`。终端工作面板客户端、反向工具中继，以及经 SSH 通道下发 provider 配置均不在本次范围内。
+- R2b 终端（2026-10-16）：上一条所述的终端工作面板客户端未构建，也不在计划内。Host 的会话终端服务（`apps/pi-host/src/terminal.ts`）为每个终端在会话根下持有 pty，并使用有界回放环（`RACP_DEFAULT_LIMITS.terminalReplayRingBytes`，128 KiB，丢弃最旧片段，每会话至多两个）。桌面把远端 `terminal.output` / `terminal.changed` 事件投递到 renderer 而不丢弃（`remote/remote-event-bridge.ts`），把四个 `terminal/*` 操作路由到远端 Host（`remote/remote-backend.ts`），并新增附加 IPC 通道（`packages/shared/src/protocol.ts`、`electron/main/ipc/terminal-ipc.ts`、`src/lib/api.ts`）。同一契约同时服务本地与远程会话，仅以会话 id 区分，与 `agentMessage` 一致；目前尚无 renderer 视图消费它。上文曾假定桌面终端界面的里程碑表述已在此更正。
 
 ## 8. 修订记录
 

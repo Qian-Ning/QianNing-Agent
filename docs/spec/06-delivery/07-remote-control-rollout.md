@@ -139,9 +139,14 @@ Deliverables:
 - the reverse tool relay: `tools/advertise` and the `tool/execute` server
   request, so desktop MCP servers and workspace-free plugin tools run on the
   desktop for a remote session;
-- the terminal: `terminal/open`, `terminal/input`, `terminal/resize`,
-  `terminal/close`, `terminal.output`, and a bounded replay ring, running on
-  the remote machine; and
+- the terminal: the Host's session terminal service — `terminal/open`,
+  `terminal/input`, `terminal/resize`, `terminal/close`, and the
+  `terminal.changed` / `terminal.output` kinds over a bounded replay ring
+  that drops the oldest chunks first, running on the remote machine — and the
+  desktop transport channels that deliver its output to the renderer instead
+  of dropping it, so remote terminal output reaches the transcript. No
+  interactive terminal view is in scope: the desktop has no terminal surface
+  by design (`04-ux/01-ui-ia.md`); and
 - the Settings → Remote Hosts destination: a compact host inventory and one
   Add form with SSH and Pair tabs, no instructional copy, marked Experimental
   on the settings rail and page title because the topology may still fail, and
@@ -155,8 +160,11 @@ Design decisions (D375, recorded 2026-09-10):
 2. Desktop user MCP servers and workspace-free plugin tools reach remote
    sessions through the reverse tool relay in this milestone; plugin tools
    that require workspace or filesystem access are excluded.
-3. The work-panel terminal ships in this milestone as the `terminal/*`
-   operations, running on the remote machine.
+3. The terminal ships in this milestone as the Host's session terminal
+   service and the desktop transport channels that carry its output to the
+   transcript. An interactive terminal view is explicitly out of scope
+   because the desktop has no terminal surface by design; one would be a
+   separate proposal, not part of R2b.
 4. `pi-host` is downloaded from GitHub Releases per platform at the desktop's
    version by a bootstrap script the desktop uploads over SSH, with the
    published SHA-256 verified; a version mismatch is `PROTOCOL_MISMATCH`
@@ -183,8 +191,9 @@ Exit criteria:
    remote catalog, and closing the desktop mid-call fails the tool without
    interrupting the turn.
 7. A terminal opened on a remote session runs on the remote machine inside
-   the session root and its output resumes from the replay ring after an SSH
-   drop.
+   the session root, its output reaches the desktop instead of being dropped,
+   and it resumes from the replay ring after an SSH drop; no interactive
+   terminal view is expected, because the desktop has none by design.
 8. The bootstrap download verifies the published checksum and refuses a
    tampered bundle.
 
@@ -462,6 +471,20 @@ Recorded on the `feat/remote-agent-host` branch, 2026-09-10:
   `pi-desktop/remoteHost/bootstrap` joins `list` / `pair` / `remove`. The
   terminal work-panel client, the reverse tool relay, and provider-configuration
   propagation over the SSH channel are not in this slice.
+- R2b terminal (2026-10-16): the terminal work-panel client named in the
+  preceding note is not built and is not planned. The Host's session terminal
+  service (`apps/pi-host/src/terminal.ts`) owns a pty per terminal under the
+  session root with a bounded replay ring
+  (`RACP_DEFAULT_LIMITS.terminalReplayRingBytes`, 128 KiB, oldest chunks
+  dropped first, at most two per session). The desktop delivers the remote
+  `terminal.output` / `terminal.changed` events to the renderer instead of
+  dropping them (`remote/remote-event-bridge.ts`), routes the four
+  `terminal/*` operations to the remote Host (`remote/remote-backend.ts`),
+  and adds additive IPC channels (`packages/shared/src/protocol.ts`,
+  `electron/main/ipc/terminal-ipc.ts`, `src/lib/api.ts`). One contract serves
+  a local and a remote session, distinguished only by the session id, as
+  `agentMessage` does; no renderer view consumes it yet. The milestone text
+  above, which had assumed a desktop terminal surface, is corrected here.
 
 ## 8. Amendment history
 
