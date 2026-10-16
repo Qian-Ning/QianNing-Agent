@@ -99,13 +99,10 @@ export const MESSAGING_ENQUEUE_METHOD = "messaging.enqueue";
  * is fired asynchronously and a failure to hand off is reported through
  * `onError` rather than swallowed, never thrown back into the publish loop.
  *
- * Forward API: the concrete outbound channel whose registration in host-core
- * makes an enqueue succeed, and the Host wiring that starts this subscription,
- * land with the channel milestone. The Host already reads the forwarded-kind
- * set ([`FORWARDED_EVENT_KINDS`]) so it can publish those kinds on the host-scope
- * surface, but the [`MessagingRedactor`] subscription itself is reached by its
- * tests only until the channel lands; drop this note when the Host subscribes it
- * (removal condition).
+ * The Host subscribes it: both composition roots start the subscription
+ * (`createMessagingOutboundRelay` in `@pi-desktop/host-runtime`, called from
+ * the desktop main process and from the headless `pi-host` entry point), gated
+ * on the channel's own settings record and released at shutdown.
  */
 export class MessagingRedactor implements SubscriptionSink {
   constructor(

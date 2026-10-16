@@ -24,7 +24,7 @@ import type { AgentSidecar } from "../agent-sidecar";
 import type { AgentHostBridge } from "../agent-host-bridge";
 import type { McpControlController, McpControlServer } from "../mcp-control";
 import type { BackendRouter } from "../remote/backend-router";
-import type { MessagingInboundHandle } from "@pi-desktop/host-runtime";
+import type { MessagingInboundHandle, MessagingOutboundRelay } from "@pi-desktop/host-runtime";
 
 export type MenuRendererReadyGate = {
   window: BrowserWindow;
@@ -74,6 +74,7 @@ export class MainProcessState {
   backendRouter: BackendRouter | null = null;
   messagingInbound: MessagingInboundHandle | null = null;
   messagingSlackInbound: MessagingInboundHandle | null = null;
+  messagingOutbound: MessagingOutboundRelay | null = null;
 
   quitting = false;
   shutdownComplete = false;
@@ -393,6 +394,12 @@ export class MainProcessState {
       },
       set messagingSlackInbound(value) {
         self.messagingSlackInbound = value;
+      },
+      get messagingOutbound() {
+        return self.messagingOutbound;
+      },
+      set messagingOutbound(value) {
+        self.messagingOutbound = value;
       },
     };
 

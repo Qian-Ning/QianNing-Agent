@@ -13,11 +13,13 @@ import {
   createHostSessionPort,
   createHostSettingsSurface,
   createMessagingInboundWiring,
+  createMessagingOutboundRelay,
   createSlackInboundWiring,
   listPendingToolRequests,
   registerSkillAuthoringTools,
   settleWithinBudget,
   type MessagingInboundHandle,
+  type MessagingOutboundRelay,
 } from "@pi-desktop/host-runtime";
 import { DeviceTokenAuthenticator, RacpServer, bindRacpWebSocket, type RacpHostOperations, type WsBinding } from "@pi-desktop/racp";
 import { APP_VERSION, type AgentEventEnvelope } from "@pi-desktop/shared";
@@ -267,6 +269,21 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
     }).run(),
   };
 
+  // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3): the
+  // Host-side redactor subscribed on the host-scope event surface, so the
+  // redacted summaries of terminal turn outcomes and host-owned requests reach
+  // the durable delivery ledger in host-core and then the channels. Config-gated
+  // on each channel's own settings record — with no channel configured nothing
+  // is subscribed and no delivery is issued, so nothing changes with nothing
+  // configured. Started beside the two inbound loops; `stop()` releases its
+  // subscriptions, bounded, before the host is disposed.
+  const messagingOutbound: MessagingOutboundRelay = createMessagingOutboundRelay({
+    agentHost,
+    settings: createHostSettingsSurface(getHost),
+    getHost,
+    log: (level, message, data) => log(level, message, data),
+  });
+
   const pty = loadPty();
   const terminal = pty
     ? new TerminalService({
@@ -335,6 +352,12 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
       // and before the host is disposed: abort, then a bounded wait.
       messagingSlack.controller.abort();
       await settleWithinBudget(messagingSlack.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
+      // The outbound relay is released the same way, beside the two loops and
+      // before the host is disposed: it unsubscribes at once, and the (already
+      // settled) wait is bounded so a release that ever refused to settle could
+      // not stall a stop.
+      messagingOutbound.stop();
+      await settleWithinBudget(messagingOutbound.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
       server.close();
       await binding.close();
       await terminal?.closeAll();

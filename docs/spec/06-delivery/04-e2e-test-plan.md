@@ -374,6 +374,7 @@ The minimum selection is:
 - Trusted extension or plugin-extension changes: `pnpm test:e2e:trusted-extensions`.
 - Session collaboration / Session Orchestrator: `pnpm test:e2e:collaboration`.
 - Completion-notice silence or the silent-turn contract (D193 / D446): `pnpm test:e2e:session-completion`.
+- Outbound messaging relay or linked-chat command routing: `pnpm test:e2e:messaging`.
 - Changes spanning multiple surfaces use the union of the applicable suites.
 
 `pnpm test:e2e` is the default cross-system smoke suite for host RPC, IPC,
@@ -13783,7 +13784,9 @@ browser milestones are scheduled.
   `05-security/02-remote-control-security.md` §10
 - **Acceptance**: Security, Quality
 - **Milestone**: Post-MVP (rollout R3)
-- **Status**: Draft; integration fixture required
+- **Status**: Automated (`pnpm test:e2e:messaging` — the headless `pi-host` over
+  a loopback webhook sink, a long-polling bot and a model fixture; the "no
+  listener" clause is asserted from the process tree's own listening sockets)
 
 ## Trusted extension scenarios (R7 v1)
 
