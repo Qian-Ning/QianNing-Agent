@@ -127,6 +127,34 @@ test("CI compiles and runs the host-core tests on Windows", () => {
   assert.doesNotMatch(block, /cargo (?:fmt|clippy)/);
 });
 
+test("the messaging relay E2E job builds the host and runs the scenario on Windows", () => {
+  const start = ciWorkflowSource.indexOf("  messaging-relay:");
+  assert.notEqual(start, -1, "the messaging-relay job is missing");
+  const block = ciWorkflowSource.slice(start);
+  // Windows-only: the scenario spawns the Windows host-core binary, and its
+  // "the Host opens no listener" clause reads the Host's process tree with
+  // `Get-NetTCPConnection -State Listen`, which exists only on Windows.
+  assert.match(block, /^    runs-on: windows-latest$/m);
+  // Everything the scenario spawns has to exist before it runs: the debug
+  // host-core binary `resolveHostBinary` looks for in `target/debug`, the
+  // workspace `dist` output, and the sidecar bundle — the last is an esbuild
+  // `bundle`, not a `build`, so `pnpm build:js` alone would not produce it.
+  assert.match(block, /^        run: cargo build -p host-core --locked$/m);
+  assert.match(block, /^        run: pnpm build:js$/m);
+  assert.match(block, /^        run: pnpm -C packages\/agent-runtime bundle$/m);
+  assert.match(block, /^        run: pnpm test:e2e:messaging$/m);
+  assert.ok(
+    block.indexOf("cargo build -p host-core") <
+      block.indexOf("pnpm test:e2e:messaging"),
+    "the host binary is built before the scenario runs",
+  );
+  assert.ok(
+    block.indexOf("pnpm -C packages/agent-runtime bundle") <
+      block.indexOf("pnpm test:e2e:messaging"),
+    "the sidecar bundle is built before the scenario runs",
+  );
+});
+
 test("CI runs the upstream sync audit after the unit tests", () => {
   // The audit's own `node --test scripts/*.test.mjs` file is not reached by
   // `pnpm -r --if-present test` (that only runs each workspace package's test
