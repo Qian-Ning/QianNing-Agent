@@ -1748,9 +1748,18 @@ without one. Agent-driven BrowserPreview routing resolves the originating
 conversation through `session.get`, so a background preview never inherits the
 visible session's workspace.
 
+A remote session's workspace belongs to its host. `fs/list`, `fs/read`, and
+`workspace/diff` accept an optional `sessionId`; a call naming a session owned
+by a paired remote host is routed over RACP to that host's own
+`workspace/list`, `workspace/read`, and `workspace/diff` (rollout R2b) instead
+of being answered here. A call naming a remote session is never answered from
+this machine's filesystem: with the host unavailable the call fails rather
+than showing the user another machine's files. A local session passes no id —
+or a local one — and behaves exactly as it did before.
+
 ### workspace
 
-- `workspace/diff()` → `WorkspaceDiff { repo, clean, files: DiffFile[], truncated? }`.
+- `workspace/diff({sessionId?})` → `WorkspaceDiff { repo, clean, files: DiffFile[], truncated? }`.
   This legacy diagnostics channel may inspect the current working tree, but it
   is not the Review source of truth. The Review UI reads message-owned review
   records from transcript tool results instead, so a commit cannot erase a
@@ -1782,10 +1791,10 @@ Renderer IPC kept for the Plan-safe preview facade and URL fallback:
 
 ### fs (read-only)
 
-- `fs/list({path})` → entries sorted dirs-first; ignores `.git`,
+- `fs/list({path, sessionId?})` → entries sorted dirs-first; ignores `.git`,
   `node_modules`, and the default ignore subset of
   [15-workspace-ignore-rules](15-workspace-ignore-rules.md)
-- `fs/read({path, mimeType?})` → text (≤512KB) / image data URL (≤5MB) /
+- `fs/read({path, mimeType?, sessionId?})` → text (≤512KB) / image data URL (≤5MB) /
   binary / tooLarge. Relative paths resolve inside the workspace root;
   `attachments/<sha256>` blobs and absolute paths already inside the
   workspace, `<data_dir>/scratch/`, or `<data_dir>/attachments/` are also

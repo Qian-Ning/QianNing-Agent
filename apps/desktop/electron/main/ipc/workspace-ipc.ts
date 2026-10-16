@@ -44,6 +44,7 @@ import {
   workspaceRootsFor,
 } from "../workspace-roots";
 import { BROWSER_PLUGIN_ID, type BrowserHost } from "../browser-host";
+import { isRemoteSessionId } from "../remote/backend-router";
 import type { AgentSidecar } from "../agent-sidecar";
 import type { HostProcess } from "../host-process";
 import type { Logger } from "../logger";
@@ -125,6 +126,27 @@ export function registerWorkspaceIpc({
     });
   };
   const assertMainWindowSender = registrar.assertMainWindowSender;
+  /**
+   * A remote session's workspace lives on its Host, and the backend router
+   * serves such a call before any handler here runs — the router is consulted
+   * inside the registration wrapper, so a `remote:`-addressed call never
+   * reaches this file. This is the second half of that contract, for the window
+   * in which the host has been unregistered or disconnected: answering a remote
+   * session's read from *this* machine's filesystem would show the user another
+   * machine's file, so the call fails instead of falling back. A local session
+   * carries no `remote:` id, so the path these handlers have always served is
+   * untouched — the check is a no-op for every existing caller.
+   */
+  const assertLocalWorkspace = (sessionId: unknown): void => {
+    if (isRemoteSessionId(sessionId)) {
+      throw Object.assign(
+        new Error(
+          "this workspace belongs to a remote host and is served by its host, not locally",
+        ),
+        { errorCode: ErrorCodes.CAPABILITY_UNAVAILABLE },
+      );
+    }
+  };
   let composerPickerActive = false;
   let projectPickerActive = false;
 
@@ -613,7 +635,10 @@ export function registerWorkspaceIpc({
     },
   );
 
-  handle(IPC.invoke.workspaceDiff, async () => {
+  handle(IPC.invoke.workspaceDiff, async (input: { sessionId?: unknown } = {}) => {
+    // Fail closed rather than diff this machine's repository for a session that
+    // belongs to another machine (see `assertLocalWorkspace`).
+    assertLocalWorkspace(input?.sessionId);
     if (!host) throw new Error("host unavailable");
     const res = (await host.call("workspace.get")) as {
       workspace: { path: string } | null;
@@ -821,7 +846,11 @@ export function registerWorkspaceIpc({
     return root;
   };
 
-  handle(IPC.invoke.fsList, async (input: { path?: string } = {}) => {
+  handle(IPC.invoke.fsList, async (input: { path?: string; sessionId?: unknown } = {}) => {
+    // A remote session's tree is listed by its host, never here (see
+    // `assertLocalWorkspace`); a local call passes no remote id and is
+    // unaffected.
+    assertLocalWorkspace(input?.sessionId);
     const root = await requireWorkspaceRoot();
     return { entries: await listDir(root, String(input.path ?? "")) };
   });
@@ -914,7 +943,11 @@ export function registerWorkspaceIpc({
 
   handle(
     IPC.invoke.fsRead,
-    async (input: { path?: string; mimeType?: string } = {}) => {
+    async (input: { path?: string; mimeType?: string; sessionId?: unknown } = {}) => {
+      // A remote session's file is read by its host, never here (see
+      // `assertLocalWorkspace`). A local call passes no remote id, so every
+      // existing caller keeps its exact result, error shape and timing.
+      assertLocalWorkspace(input?.sessionId);
       const requested = String(input.path ?? "").trim();
       let workspaceRoot: string | null = null;
       try {

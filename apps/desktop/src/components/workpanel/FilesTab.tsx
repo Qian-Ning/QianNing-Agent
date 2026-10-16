@@ -155,6 +155,11 @@ let handledFileRequestSeq = 0;
 export function FilesTab() {
   const { t } = useTranslation();
   const workspace = useAppStore((s) => s.workspace);
+  // The panel follows the session the user is working in, so the file tree of a
+  // remote session is read on that session's host (the backend router serves
+  // the call over RACP). For a local session this is a local id, which routes
+  // locally and changes nothing.
+  const activeSessionId = useAppStore((s) => s.activeSessionId);
   const fileRequest = useAppStore((s) => s.workPanelFileRequest);
   const showToast = useAppStore((s) => s.showToast);
   const root = workspace?.path ?? null;
@@ -189,13 +194,13 @@ export function FilesTab() {
     async (rel: string) => {
       if (!root) return;
       try {
-        const res = await api.fsList(rel);
+        const res = await api.fsList(rel, activeSessionId);
         setDirs((prev) => ({ ...prev, [rel]: { entries: res.entries } }));
       } catch {
         setDirs((prev) => ({ ...prev, [rel]: { entries: [], error: true } }));
       }
     },
-    [root],
+    [root, activeSessionId],
   );
 
   useEffect(() => {
@@ -226,7 +231,7 @@ export function FilesTab() {
       setFile(null);
       setFileError(false);
       try {
-        setFile(await api.fsRead(rel, mimeType));
+        setFile(await api.fsRead(rel, mimeType, activeSessionId));
         if (position?.line != null) {
           requestAnimationFrame(() => {
             const lineNode = viewerBodyRef.current?.querySelector(
@@ -239,7 +244,7 @@ export function FilesTab() {
         setFileError(true);
       }
     },
-    [],
+    [activeSessionId],
   );
 
   const openMp4 = useCallback(async () => {
