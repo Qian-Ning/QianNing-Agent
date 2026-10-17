@@ -70,12 +70,16 @@ const telegramCrate = read("../../../crates/host-core/src/messaging_telegram.rs"
 const slackCrate = read("../../../crates/host-core/src/messaging_slack.rs");
 const agentHostInbound = read("../../../packages/agent-host/src/messaging-inbound.ts");
 const agentHostSlack = read("../../../packages/agent-host/src/messaging-slack-inbound.ts");
+const agentHostDiscord = read("../../../packages/agent-host/src/messaging-discord-inbound.ts");
+const agentHostMattermost = read("../../../packages/agent-host/src/messaging-mattermost-inbound.ts");
 const hostRuntimeWiring = read("../../../packages/host-runtime/src/messaging-inbound-wiring.ts");
 
 const identity = (key) => key;
 
 const telegram = SUPPORTED_MESSAGING_PLATFORMS.find((entry) => entry.id === "telegram");
 const slack = SUPPORTED_MESSAGING_PLATFORMS.find((entry) => entry.id === "slack");
+const discord = SUPPORTED_MESSAGING_PLATFORMS.find((entry) => entry.id === "discord");
+const mattermost = SUPPORTED_MESSAGING_PLATFORMS.find((entry) => entry.id === "mattermost");
 
 const TELEGRAM_RECORD = {
   format: "pi-desktop-messaging-telegram",
@@ -85,8 +89,20 @@ const TELEGRAM_RECORD = {
   inbound: { linkedPrincipal: { subject: "telegram:ops", roles: ["controller"] } },
 };
 const TELEGRAM_SECRET = { "secret:messaging-telegram:bot-token": true };
-const GATEWAY_UP = { booted: true, telegram: true, slack: true };
-const GATEWAY_DOWN = { booted: true, telegram: false, slack: false };
+const GATEWAY_UP = {
+  booted: true,
+  telegram: true,
+  slack: true,
+  discord: true,
+  mattermost: true,
+};
+const GATEWAY_DOWN = {
+  booted: true,
+  telegram: false,
+  slack: false,
+  discord: false,
+  mattermost: false,
+};
 
 /** The whole catalogue, in rail order: two supported, the rest honest. */
 test("the catalogue has the reference breadth and marks support honestly", () => {
@@ -96,13 +112,13 @@ test("the catalogue has the reference breadth and marks support honestly", () =>
   );
   assert.deepEqual(
     SUPPORTED_MESSAGING_PLATFORMS.map((entry) => entry.id),
-    ["telegram", "slack"],
+    ["telegram", "slack", "discord", "mattermost"],
   );
   assert.equal(
     SUPPORTED_MESSAGING_PLATFORMS.length + UNSUPPORTED_MESSAGING_PLATFORMS.length,
     MESSAGING_PLATFORMS.length,
   );
-  assert.ok(UNSUPPORTED_MESSAGING_PLATFORMS.length >= 16);
+  assert.ok(UNSUPPORTED_MESSAGING_PLATFORMS.length >= 14);
   // Ids are unique: two rows must never share a platform.
   assert.equal(new Set(MESSAGING_PLATFORMS.map((entry) => entry.id)).size, MESSAGING_PLATFORMS.length);
 
@@ -164,6 +180,8 @@ test("enabled, setup and gateway are computed independently", () => {
     booted: true,
     telegram: false,
     slack: true,
+    discord: true,
+    mattermost: true,
   });
   assert.deepEqual(gatewayDown, {
     enabled: "on",
@@ -210,7 +228,13 @@ test("enabled, setup and gateway are computed independently", () => {
         "secret:messaging-slack:app-token": true,
         "secret:messaging-slack:bot-token": true,
       },
-      { booted: true, telegram: true, slack: false },
+      {
+        booted: true,
+        telegram: true,
+        slack: false,
+        discord: false,
+        mattermost: false,
+      },
     ).gateway,
     "stopped",
   );
@@ -222,14 +246,27 @@ test("fields are grouped, and every field explains itself and its blank", () => 
     const required = fieldsInGroup(platform, "required");
     const recommended = fieldsInGroup(platform, "recommended");
 
+    // The credentials, the conversation and the link are always required; the
+    // endpoint is required only where the platform has no public default
+    // (Mattermost is self-hosted), and recommended everywhere else.
+    const requiredIds = required.map((field) => field.id);
     assert.deepEqual(
-      required.map((field) => field.id),
-      [...platform.secrets.map((slot) => slot.id), "destination", "subject", "roles"],
+      requiredIds.filter((id) => !platform.secrets.some((slot) => slot.id === id)),
+      platform.id === "mattermost"
+        ? ["destination", "subject", "roles", "endpoint"]
+        : ["destination", "subject", "roles"],
       `${platform.id} required group`,
     );
     assert.deepEqual(
+      requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
+      platform.secrets.map((slot) => slot.id),
+      `${platform.id} credential group`,
+    );
+    assert.deepEqual(
       recommended.map((field) => field.id),
-      ["permissionMode", "endpoint", "requestTimeoutMs"],
+      platform.id === "mattermost"
+        ? ["permissionMode", "requestTimeoutMs"]
+        : ["permissionMode", "endpoint", "requestTimeoutMs"],
       `${platform.id} recommended group`,
     );
 
@@ -323,6 +360,100 @@ test("each platform's section, format and version match the runtime's constants"
   assert.equal(slack.section, "messagingSlack");
   assert.equal(slack.format, "pi-desktop-messaging-slack");
   assert.equal(slack.version, 1);
+
+  // The two gateway channels name their own section and record, and the
+  // renderer's values are the runtime's.
+  assert.match(agentHostDiscord, /MESSAGING_DISCORD_SECTION = "messagingDiscord";/);
+  assert.match(agentHostDiscord, /MESSAGING_DISCORD_FORMAT = "pi-desktop-messaging-discord";/);
+  assert.match(agentHostMattermost, /MESSAGING_MATTERMOST_SECTION = "messagingMattermost";/);
+  assert.match(
+    agentHostMattermost,
+    /MESSAGING_MATTERMOST_FORMAT = "pi-desktop-messaging-mattermost";/,
+  );
+  assert.equal(discord.section, "messagingDiscord");
+  assert.equal(discord.format, "pi-desktop-messaging-discord");
+  assert.equal(discord.version, 1);
+  assert.equal(mattermost.section, "messagingMattermost");
+  assert.equal(mattermost.format, "pi-desktop-messaging-mattermost");
+  assert.equal(mattermost.version, 1);
+});
+
+/** The two gateway panels write a record the runtime reads, and no credential. */
+test("Discord and Mattermost write their own record and their own secret ref", async () => {
+  for (const platform of [discord, mattermost]) {
+    const draft = {
+      ...draftFrom(platform, null),
+      destination: platform.id === "discord" ? "123456789012345678" : "channel-id",
+      subject: `${platform.id}:ops`,
+      endpoint:
+        platform.id === "discord" ? "https://discord.com/api/v10" : "https://chat.example.com",
+      secrets: { [platform.secrets[0].id]: `${platform.id}-secret-value` },
+    };
+    const written = [];
+    const secrets = [];
+    await saveMessagingPlatform(platform, draft, null, {
+      setSecret: async (ref, value) => secrets.push({ ref, value }),
+      writeSection: async (section, value) => written.push({ section, value }),
+    });
+
+    assert.equal(written[0].section, platform.section);
+    assert.equal(written[0].value.format, platform.format);
+    assert.equal(written[0].value.version, platform.version);
+    assert.equal(JSON.stringify(written[0].value).includes("secret-value"), false);
+    assert.deepEqual(
+      secrets.map((entry) => entry.ref),
+      [platform.secrets[0].ref],
+    );
+
+    // Turning it off clears the section and writes no credential.
+    const calls = [];
+    await saveMessagingPlatform(
+      platform,
+      draft,
+      written[0].value,
+      {
+        setSecret: async (ref) => calls.push({ kind: "secret", ref }),
+        writeSection: async (section, value) => calls.push({ kind: "section", section, value }),
+      },
+      { enabled: false },
+    );
+    assert.deepEqual(calls, [{ kind: "section", section: platform.section, value: null }]);
+  }
+
+  // Mattermost's base URL is required: a blank one is a setup gap, while
+  // Discord falls back to its public API base.
+  const emptyMattermost = {
+    format: mattermost.format,
+    version: 1,
+    endpoint: "",
+    destination: "channel-id",
+    inbound: { linkedPrincipal: { subject: "mattermost:ops", roles: ["controller"] } },
+  };
+  assert.equal(
+    deriveChannelState(
+      mattermost,
+      emptyMattermost,
+      { "secret:messaging-mattermost:access-token": true },
+      GATEWAY_UP,
+    ).missing.includes("endpoint"),
+    true,
+  );
+  const blankDiscord = {
+    format: discord.format,
+    version: 1,
+    endpoint: "",
+    destination: "123",
+    inbound: { linkedPrincipal: { subject: "discord:ops", roles: ["controller"] } },
+  };
+  assert.equal(
+    deriveChannelState(
+      discord,
+      blankDiscord,
+      { "secret:messaging-discord:bot-token": true },
+      GATEWAY_UP,
+    ).missing.includes("endpoint"),
+    false,
+  );
 });
 
 test("every credential ref is the one the transport reads", () => {
@@ -344,6 +475,22 @@ test("every credential ref is the one the transport reads", () => {
   assert.deepEqual(
     slack.secrets.map((slot) => slot.ref),
     ["secret:messaging-slack:app-token", "secret:messaging-slack:bot-token"],
+  );
+  assert.match(
+    agentHostDiscord,
+    /MESSAGING_DISCORD_BOT_TOKEN_SECRET_REF = "secret:messaging-discord:bot-token"/,
+  );
+  assert.match(
+    agentHostMattermost,
+    /MESSAGING_MATTERMOST_ACCESS_TOKEN_SECRET_REF = "secret:messaging-mattermost:access-token"/,
+  );
+  assert.deepEqual(
+    discord.secrets.map((slot) => slot.ref),
+    ["secret:messaging-discord:bot-token"],
+  );
+  assert.deepEqual(
+    mattermost.secrets.map((slot) => slot.ref),
+    ["secret:messaging-mattermost:access-token"],
   );
 });
 
@@ -537,7 +684,13 @@ test("the panel carries the walkthrough, the groups and the footer action", () =
 /** The gateway registry: the loop's lifetime is the signal. */
 test("the gateway registry reports the loops that are actually running", async () => {
   const registry = new MessagingGatewayRegistry();
-  assert.deepEqual(registry.snapshot(), { booted: false, telegram: false, slack: false });
+  assert.deepEqual(registry.snapshot(), {
+    booted: false,
+    telegram: false,
+    slack: false,
+    discord: false,
+    mattermost: false,
+  });
 
   registry.markBooted();
   let finishTelegram;
@@ -546,7 +699,13 @@ test("the gateway registry reports the loops that are actually running", async (
   });
   registry.track("telegram", { done: telegramDone });
   registry.track("slack", null);
-  assert.deepEqual(registry.snapshot(), { booted: true, telegram: true, slack: false });
+  assert.deepEqual(registry.snapshot(), {
+    booted: true,
+    telegram: true,
+    slack: false,
+    discord: false,
+    mattermost: false,
+  });
 
   registry.track("slack", { done: Promise.resolve() });
   await Promise.resolve();
@@ -556,7 +715,13 @@ test("the gateway registry reports the loops that are actually running", async (
   finishTelegram();
   await Promise.resolve();
   await Promise.resolve();
-  assert.deepEqual(registry.snapshot(), { booted: true, telegram: false, slack: false });
+  assert.deepEqual(registry.snapshot(), {
+    booted: true,
+    telegram: false,
+    slack: false,
+    discord: false,
+    mattermost: false,
+  });
 });
 
 /** The quick setup probe: a constant host, typed failures, no token back. */
@@ -702,10 +867,10 @@ test("the section write is narrow, allowlisted, and can clear the section", () =
   assert.match(settingsIpc, /IPC\.invoke\.messagingSetSection/);
   assert.match(settingsIpc, /IPC\.invoke\.messagingGateway/);
   assert.match(settingsIpc, /IPC\.invoke\.messagingTelegramProbe/);
-  assert.match(
-    settingsIpc,
-    /section !== MESSAGING_TELEGRAM_SECTION && section !== MESSAGING_SLACK_SECTION/,
-  );
+  assert.match(settingsIpc, /section !== MESSAGING_TELEGRAM_SECTION/);
+  assert.match(settingsIpc, /section !== MESSAGING_SLACK_SECTION/);
+  assert.match(settingsIpc, /section !== MESSAGING_DISCORD_SECTION/);
+  assert.match(settingsIpc, /section !== MESSAGING_MATTERMOST_SECTION/);
   assert.match(settingsIpc, /host\.call\("settings\.set", \{ \[section\]: value \}\)/);
   assert.match(api, /\bsetMessagingSection:/);
   assert.match(api, /\bsetSecret:/);
@@ -717,6 +882,11 @@ test("the section write is narrow, allowlisted, and can clear the section", () =
 test("the composition root registers the loops the panel reports on", () => {
   assert.match(startup, /messagingGateway\.track\("telegram", state\.messagingInbound\)/);
   assert.match(startup, /messagingGateway\.track\("slack", state\.messagingSlackInbound\)/);
+  assert.match(startup, /messagingGateway\.track\("discord", state\.messagingDiscordInbound\)/);
+  assert.match(
+    startup,
+    /messagingGateway\.track\("mattermost", state\.messagingMattermostInbound\)/,
+  );
   assert.match(startup, /messagingGateway\.markBooted\(\)/);
 });
 

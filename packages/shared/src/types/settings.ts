@@ -32,6 +32,12 @@ export type MessagingInboundSettings = {
   sessionId?: string;
   /** Slack's restart-durable replay guard, keyed on the platform's event id. */
   handledEventIds?: string[];
+  /**
+   * A gateway channel's restart-durable replay guard, keyed on the platform's
+   * message id (Discord) or post id (Mattermost). The channel's section owns
+   * it, so the guard rides the same settings row as the link.
+   */
+  handledMessageIds?: string[];
 };
 
 /**
@@ -251,6 +257,8 @@ export type AppSettings = {
    */
   messagingTelegram?: MessagingChannelSettings;
   messagingSlack?: MessagingChannelSettings;
+  messagingDiscord?: MessagingChannelSettings;
+  messagingMattermost?: MessagingChannelSettings;
   onboardingDismissed: boolean;
 };
 

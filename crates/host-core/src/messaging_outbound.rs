@@ -576,17 +576,33 @@ pub(crate) fn request_timeout(ms: Option<u64>, code: &str) -> Result<Duration> {
     Ok(Duration::from_millis(ms))
 }
 
-/// The `Authorization` header value for a configured token.
-pub(crate) fn bearer_header(token: &str, code: &str) -> Result<HeaderValue> {
+/// The `Authorization` header value for a configured credential, under the
+/// scheme the platform's API specifies.
+///
+/// `credential` names the credential in a refusal, so a channel whose token is
+/// called something else (an access token) reports it honestly. The value is
+/// marked sensitive so nothing that formats a request can reveal it, and a
+/// blank credential is refused rather than sent as an empty header.
+pub(crate) fn authorization_header(
+    scheme: &str,
+    token: &str,
+    code: &str,
+    credential: &str,
+) -> Result<HeaderValue> {
     let token = token.trim();
     if token.is_empty() {
-        bail!("{code}: the configured bot token is empty");
+        bail!("{code}: the configured {credential} is empty");
     }
-    let mut value = HeaderValue::from_str(&format!("Bearer {token}"))
-        .with_context(|| format!("{code}: the bot token is not a valid header value"))?;
+    let mut value = HeaderValue::from_str(&format!("{scheme} {token}"))
+        .with_context(|| format!("{code}: the {credential} is not a valid header value"))?;
     // Keeps the value out of every `{:?}` that could ever reach a log.
     value.set_sensitive(true);
     Ok(value)
+}
+
+/// The `Authorization` header value for a configured bot token, as `Bearer`.
+pub(crate) fn bearer_header(token: &str, code: &str) -> Result<HeaderValue> {
+    authorization_header("Bearer", token, code, "bot token")
 }
 
 /// Validate a configured endpoint and return the address to post to.

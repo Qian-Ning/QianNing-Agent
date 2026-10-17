@@ -38,6 +38,20 @@ const TELEGRAM: MessagingOutboundChannel = {
   version: MESSAGING_TELEGRAM_FORMAT_VERSION,
 };
 
+const DISCORD: MessagingOutboundChannel = {
+  channel: "discord",
+  section: "messagingDiscord",
+  format: "pi-desktop-messaging-discord",
+  version: 1,
+};
+
+const MATTERMOST: MessagingOutboundChannel = {
+  channel: "mattermost",
+  section: "messagingMattermost",
+  format: "pi-desktop-messaging-mattermost",
+  version: 1,
+};
+
 /** One configured channel section, in the shape the Host stores it under. */
 function section(channel: MessagingOutboundChannel): Record<string, unknown> {
   return { format: channel.format, version: channel.version };
@@ -270,7 +284,84 @@ describe("the outbound messaging relay", () => {
   });
 
   it("names every channel this build relays to, in the order the roots subscribe them", () => {
-    expect(MESSAGING_OUTBOUND_CHANNELS.map((entry) => entry.channel)).toEqual(["webhook", "telegram", "slack"]);
+    expect(MESSAGING_OUTBOUND_CHANNELS.map((entry) => entry.channel)).toEqual([
+      "webhook",
+      "telegram",
+      "slack",
+      "discord",
+      "mattermost",
+    ]);
     expect(MESSAGING_OUTBOUND_CHANNELS.every((entry) => entry.section && entry.format && entry.version > 0)).toBe(true);
+  });
+
+  /**
+   * The relay's descriptors and host-core's channel records are two halves of one
+   * contract: a channel the relay subscribes but the Host never registered gets
+   * `messaging.enqueue` refused, and a channel the Host registered but the relay
+   * never subscribes never receives a delivery. These are the strings
+   * `crates/host-core/src/messaging_{discord,mattermost}.rs` hard-code, so a
+   * drift on either side fails here.
+   */
+  it("describes the Discord and Mattermost records exactly as host-core registers them", () => {
+    expect(MESSAGING_OUTBOUND_CHANNELS).toContainEqual(DISCORD);
+    expect(MESSAGING_OUTBOUND_CHANNELS).toContainEqual(MATTERMOST);
+  });
+
+  /**
+   * The channel that made a turn can answer it: the same event the Host publishes
+   * for any turn is handed to the ledger under the platform's own channel name,
+   * which is the name host-core registered the adapter under and the name the
+   * ledger's channel column takes.
+   */
+  it("hands a turn from a Discord or Mattermost channel to the ledger under that channel's name", async () => {
+    for (const channel of [DISCORD, MATTERMOST]) {
+      const { host, taken } = fakeHost();
+      const calls: Array<{ method: string; params?: Record<string, unknown> }> = [];
+      const relay = createMessagingOutboundRelay({
+        agentHost: host,
+        settings: settingsOf({ [channel.section]: section(channel) }),
+        getHost: () => fakeHostRpc(calls),
+      });
+
+      await relay.started;
+      expect(relay.subscribed).toEqual([channel.channel]);
+      taken[0]!.sink.deliver(envelope());
+      await settle();
+
+      expect(calls).toHaveLength(1);
+      expect(calls[0]!.method).toBe("messaging.enqueue");
+      expect(calls[0]!.params?.channel).toBe(channel.channel);
+      const payload = calls[0]!.params?.payload as Record<string, unknown>;
+      expect(payload.kind).toBe("turn.completed");
+      expect(payload.turnId).toBe("turn-1");
+      expect(payload.status).toBe("completed");
+      expect(JSON.stringify(payload)).not.toContain("transcript content");
+
+      relay.stop();
+      await relay.done;
+    }
+  });
+
+  it("subscribes neither new channel while its record is absent or of another format", async () => {
+    const { host, taken } = fakeHost();
+    const calls: Array<{ method: string; params?: Record<string, unknown> }> = [];
+    const relay = createMessagingOutboundRelay({
+      agentHost: host,
+      settings: settingsOf({
+        // A record written by a later build: not this one's.
+        messagingDiscord: { format: DISCORD.format, version: 2 },
+        // A section of another channel's format.
+        messagingMattermost: { format: "pi-desktop-messaging-slack", version: 1 },
+      }),
+      getHost: () => fakeHostRpc(calls),
+    });
+
+    await relay.started;
+    expect(relay.subscribed).toEqual([]);
+    expect(taken).toEqual([]);
+    expect(calls).toEqual([]);
+
+    relay.stop();
+    await relay.done;
   });
 });

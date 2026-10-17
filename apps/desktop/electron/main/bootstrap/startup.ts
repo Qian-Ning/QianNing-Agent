@@ -30,6 +30,8 @@ import {
   createMessagingInboundWiring,
   createMessagingOutboundRelay,
   createSlackInboundWiring,
+  createDiscordInboundWiring,
+  createMattermostInboundWiring,
   type MessagingInboundHandle,
   type MessagingOutboundRelay,
 } from "@pi-desktop/host-runtime";
@@ -99,6 +101,18 @@ export type StartupState = {
    * resolves at once and opens nothing, so no behaviour changes.
    */
   messagingSlackInbound: MessagingInboundHandle | null;
+  /**
+   * The inbound Discord Gateway loop this boot started, with the controller
+   * that stops it. Config-gated on the Discord bot token: with none configured
+   * the transport starts nothing and the loop resolves at once.
+   */
+  messagingDiscordInbound: MessagingInboundHandle | null;
+  /**
+   * The inbound Mattermost websocket loop this boot started, with the
+   * controller that stops it. Config-gated on the Mattermost access token and
+   * a configured server URL: with either missing nothing is opened.
+   */
+  messagingMattermostInbound: MessagingInboundHandle | null;
   /**
    * The outbound messaging relay this boot subscribed, with the release that
    * stops it. Shutdown releases it, bounded, before host-core is disposed. It is
@@ -420,6 +434,37 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
       });
       state.messagingSlackInbound = { controller, done: wiring.run() };
       messagingGateway.track("slack", state.messagingSlackInbound);
+    }
+    // The inbound Discord and Mattermost channels: the same driver again, over
+    // outbound gateway websockets the Host originates (no port is bound). Each
+    // is config-gated on its own token and record, so a Host with neither
+    // configured starts nothing and behaves as before. Shutdown owns both
+    // controllers.
+    if (!bootError && host && state.agentHostBridge) {
+      const discordController = new AbortController();
+      const discordWiring = createDiscordInboundWiring({
+        agentHost: state.agentHostBridge.agentHost,
+        settings: createHostSettingsSurface(getHost),
+        secrets: createHostSecretReader(getHost),
+        signal: discordController.signal,
+        log: (level, message, data) => logger.app("runtime", level, message, { data }),
+      });
+      state.messagingDiscordInbound = { controller: discordController, done: discordWiring.run() };
+      messagingGateway.track("discord", state.messagingDiscordInbound);
+
+      const mattermostController = new AbortController();
+      const mattermostWiring = createMattermostInboundWiring({
+        agentHost: state.agentHostBridge.agentHost,
+        settings: createHostSettingsSurface(getHost),
+        secrets: createHostSecretReader(getHost),
+        signal: mattermostController.signal,
+        log: (level, message, data) => logger.app("runtime", level, message, { data }),
+      });
+      state.messagingMattermostInbound = {
+        controller: mattermostController,
+        done: mattermostWiring.run(),
+      };
+      messagingGateway.track("mattermost", state.messagingMattermostInbound);
     }
     // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3), beside
     // the two inbound loops: the Host-side redactor subscribed on the

@@ -47,6 +47,10 @@ export type ShutdownDependencies = {
   getMessagingInbound: () => MessagingInboundHandle | null;
   /** The inbound Slack Socket Mode loop this boot started, if any. */
   getMessagingSlackInbound: () => MessagingInboundHandle | null;
+  /** The inbound Discord Gateway loop this boot started, if any. */
+  getMessagingDiscordInbound: () => MessagingInboundHandle | null;
+  /** The inbound Mattermost websocket loop this boot started, if any. */
+  getMessagingMattermostInbound: () => MessagingInboundHandle | null;
   /** The outbound messaging relay this boot subscribed, if any. */
   getMessagingOutbound: () => MessagingOutboundRelay | null;
   activeTurns: Map<string, string>;
@@ -74,6 +78,8 @@ export function registerShutdownHandlers({
   getMcpControl,
   getMessagingInbound,
   getMessagingSlackInbound,
+  getMessagingDiscordInbound,
+  getMessagingMattermostInbound,
   getMessagingOutbound,
   activeTurns,
   persistenceOutbox,
@@ -171,6 +177,15 @@ export function registerShutdownHandlers({
       const messagingSlackInbound = getMessagingSlackInbound();
       messagingSlackInbound?.controller.abort();
       await settleWithinBudget(messagingSlackInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
+      // The Discord and Mattermost gateway loops stop the same way, before
+      // host-core is disposed: each is aborted and awaited under the same
+      // bound, so a socket that will not settle cannot hold up the quit.
+      const messagingDiscordInbound = getMessagingDiscordInbound();
+      messagingDiscordInbound?.controller.abort();
+      await settleWithinBudget(messagingDiscordInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
+      const messagingMattermostInbound = getMessagingMattermostInbound();
+      messagingMattermostInbound?.controller.abort();
+      await settleWithinBudget(messagingMattermostInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
       // The outbound messaging relay is released the same way, beside the two
       // loops and before host-core is disposed: it unsubscribes at once, and the
       // wait is bounded so a release that ever refused to settle cannot hold up

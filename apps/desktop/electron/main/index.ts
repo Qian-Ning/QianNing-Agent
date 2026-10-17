@@ -1012,6 +1012,8 @@ registerShutdownHandlers({
   getMcpControl: () => mainState.mcpControl,
   getMessagingInbound: () => mainState.messagingInbound,
   getMessagingSlackInbound: () => mainState.messagingSlackInbound,
+  getMessagingDiscordInbound: () => mainState.messagingDiscordInbound,
+  getMessagingMattermostInbound: () => mainState.messagingMattermostInbound,
   getMessagingOutbound: () => mainState.messagingOutbound,
   activeTurns,
   persistenceOutbox,

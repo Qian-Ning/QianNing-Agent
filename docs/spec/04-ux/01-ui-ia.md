@@ -322,7 +322,8 @@ destinations alongside Instructions and Model configuration; selecting one
 changes the page destination rather than a tab inside a shared capability panel.
 
 Messaging platforms is a chooser plus a panel: the platform list — marked with which
-platforms this build actually runs — and the selected platform's configuration, which
+platforms this build actually runs (Telegram, Slack, Discord and Mattermost) — and the
+selected platform's configuration, which
 shows three independently derived states (enabled, setup, gateway), a numbered
 walkthrough for getting that platform's credentials with a link to its own guide,
 required and recommended fields that each state the consequence of being blank, and
