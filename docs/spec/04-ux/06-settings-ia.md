@@ -655,23 +655,59 @@ system while preserving their different data ownership:
   form state is announced from the shared error region.
 
 ### Messaging platforms
-- A destination of its own — one rail entry, one page — with a platform list on
-  the left and the selected platform's record on the right. It is not part of
-  Connections and is not a second target manager: messaging is how the agent is
-  reached, not something it dials.
-- The list holds only platforms whose send and receive paths both exist in this
-  build: **Telegram** and **Slack**. A platform that could not be made to work
-  is not listed, and no inert "coming soon" row is rendered.
-- Each row carries the platform's name and its state, and the detail pane
-  carries the same state, the form, and the save. State is derived from the
-  stored record, not assumed: **Not configured** when no section exists,
-  **Needs setup** when the record of this build is missing a required field or
-  a credential, **Running** when the record is complete and every credential
-  the channel reads is present, and **Unreadable record** when the stored
-  `format`/`version` is not one this build reads. The pane names the fields
-  that are still missing. `Running` is configuration state: it says the host
-  has what it needs to start the channel, not that a socket is open at this
-  moment, and the page says so.
+- A destination of its own — one rail entry, one page — laid out as the shell's
+  second and third column: the platform list is the chooser, the selected
+  platform's panel is the work. It is not part of Connections and is not a
+  second target manager: messaging is how the agent is reached, not something it
+  dials.
+- The list carries the reference product's catalogue, so the surface has a real
+  product's density, and it is honest about breadth. **Telegram** and **Slack**
+  are marked Supported and open a working panel. Every other entry is marked Not
+  supported and opens a panel that says so in words and names the capability
+  this build lacks — a QR pairing flow for a linked phone session, an outbound
+  socket client for a gateway protocol, a public webhook receiver, a local
+  bridge process, or a client sync loop. An unsupported platform renders no
+  form: this build stores no section, format or credential for it, so a field
+  could only pretend to save something.
+- Three state dimensions are computed independently and never merged into one
+  badge. **Enabled**: is a record of this build stored? It reads `off` when no
+  section exists and `unreadable` when the stored `format`/`version` is not one
+  this build reads. **Setup**: does that record carry the conversation id, the
+  link and every credential the transport reads? A channel that was never
+  enabled is `not started` rather than incomplete. **Gateway**: did the desktop
+  main process start this channel's receive loop, and is that loop still alive?
+  It is read from `pi-desktop/messaging/gateway`, which answers from the handles
+  the composition root started, so it is a fact about that process rather than
+  an inference from the record. A complete record with a stopped loop is a real
+  combination — enabled, set up, gateway down — and the panel shows it as three
+  values, one per dimension. The pane names the fields that are still missing.
+- The required/recommended split is explicit and every field carries one plain
+  sentence about what it is and what happens if it is blank or wrong.
+  **Required** holds the credentials, the conversation id, the command identity
+  and the roles. **Recommended** holds the API endpoint, the approval mode and
+  the request timeout, and each states the consequence of leaving it empty: the
+  platform's public address and the host's ten-second default are what apply, and
+  a blank approval mode means every file change waits in the chat. Placeholders
+  are realistic example values, masked for tokens.
+- A **Get your credentials** walkthrough numbers the steps in each product's own
+  language: for Telegram, @BotFather, `/newbot` and the token line, plus
+  @userinfobot for a numeric id; for Slack, creating the app, enabling Socket
+  Mode, the app-level token, the bot scopes and message event subscriptions, and
+  installing to the workspace. Each panel links out to that platform's official
+  setup guide.
+- Telegram also offers **Quick setup**. The pasted token is checked with
+  `getMe`, so "the bot exists" is confirmed rather than assumed, and
+  `getUpdates` finds the chat that has messaged it, filling the numeric chat id.
+  Both calls run in the desktop main process against the constant
+  `https://api.telegram.org`, with redirects disabled because the token travels
+  in the request path; the answer is projected onto ids and usernames, never a
+  response body and never the token. Quick setup writes nothing — it fills the
+  form, and Save stays the only writer.
+- The enable toggle and the save action sit together at the bottom of the panel.
+  Turning the toggle off and saving clears the channel's settings section; the
+  host then reads no section, registers nothing and polls nothing. Credentials
+  stay in the secret store under their refs, so turning the channel back on
+  needs no retyping.
 - The form edits exactly what the runtime reads: the API endpoint, the
   conversation (Telegram chat id or Slack channel id), the linked principal's
   subject and roles, the approval mode carried by a contract approval, and the
@@ -952,10 +988,16 @@ system while preserving their different data ownership:
     - Status indicators → `Badge` (not inline `<span>` with manual classes)
     - Layout → `SettingsCard` + `SettingsRow` from `features/settings/primitives`
     Inline reimplementation of any shared primitive is a spec violation.
-29. Messaging platforms lists only the platforms this build can run (Telegram
-    and Slack), states each platform's condition from its stored record, and
-    writes a typed credential to the host's secret store under its `secret:` ref
-    — never into the settings row, and never back into the interface
+29. Messaging platforms is a chooser plus a panel: the list carries the reference
+    catalogue and marks honestly which platforms this build runs (Telegram and
+    Slack) and which it does not, the unsupported ones opening a statement
+    rather than a form. It reports three independent states — enabled, setup and
+    gateway, the last read from the running receive loops — groups fields into
+    required and recommended with the consequence of each blank stated, walks
+    the user through getting credentials with a link to each platform's guide,
+    and keeps the enable toggle and save at the bottom. A typed credential goes
+    to the host's secret store under its `secret:` ref — never into the settings
+    row, and never back into the interface
 
 ## 5. General chrome metrics
 

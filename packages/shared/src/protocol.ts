@@ -177,6 +177,29 @@ export const IPC = {
      */
     messagingSetSection: "pi-desktop/messaging/setSection",
     /**
+     * Which inbound messaging loops this process has running.
+     *
+     * The Messaging platforms panel shows three independent states, and the
+     * third one — is the gateway running — is a fact about the main process,
+     * not about the settings row the other two read. It answers from the
+     * handles the composition root started (`MessagingGatewayRegistry`), so the
+     * panel no longer has to describe configuration intent as if it were
+     * liveness. Read-only: it writes nothing, opens nothing and reads no
+     * credential.
+     */
+    messagingGateway: "pi-desktop/messaging/gateway",
+    /**
+     * Prove a Telegram bot token and find the chat that has messaged the bot.
+     *
+     * The quick-setup panel uses it to confirm a token really belongs to a bot
+     * and to discover the numeric chat id, so the two values a beginner would
+     * otherwise copy blind are checked instead. The token crosses this channel
+     * once, the host is a constant (`https://api.telegram.org`), redirects are
+     * disabled because the credential travels in the path, and the answer is
+     * projected onto ids only — never a response body, never the token.
+     */
+    messagingTelegramProbe: "pi-desktop/messaging/telegramProbe",
+    /**
      * Bind the one linked messaging conversation to the session its inbound
      * commands act on (ADR 0205 D375 item 9). The conversation-to-session
      * binding lives in the shared `app` settings row; this is the host-internal

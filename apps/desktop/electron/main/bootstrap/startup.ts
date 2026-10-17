@@ -35,6 +35,7 @@ import {
 } from "@pi-desktop/host-runtime";
 import { readCloseBehavior } from "../window-preferences";
 import { createAgentHostBridge, type AgentHostBridge } from "../agent-host-bridge";
+import { messagingGateway } from "../messaging-gateway";
 import { createBackendRouter, type BackendRouter } from "../remote/backend-router";
 import { createRemoteHostsBoot, setActiveRemoteHostsBoot } from "./remote-hosts";
 import {
@@ -388,6 +389,7 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
     // nothing. The controller belongs to shutdown, which aborts it and awaits
     // the loop before host-core is disposed.
     if (!bootError && host && state.agentHostBridge) {
+      messagingGateway.markBooted();
       const controller = new AbortController();
       const wiring = createMessagingInboundWiring({
         agentHost: state.agentHostBridge.agentHost,
@@ -397,6 +399,9 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
         log: (level, message, data) => logger.app("runtime", level, message, { data }),
       });
       state.messagingInbound = { controller, done: wiring.run() };
+      // The registry is the panel's evidence for "is the gateway running": the
+      // loop's own lifetime, not a guess from the stored record.
+      messagingGateway.track("telegram", state.messagingInbound);
     }
     // The inbound Slack command path over Socket Mode (ADR 0326): the same
     // driver, over an outbound WSS connection the Host originates (no port is
@@ -414,6 +419,7 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
         log: (level, message, data) => logger.app("runtime", level, message, { data }),
       });
       state.messagingSlackInbound = { controller, done: wiring.run() };
+      messagingGateway.track("slack", state.messagingSlackInbound);
     }
     // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3), beside
     // the two inbound loops: the Host-side redactor subscribed on the

@@ -6,6 +6,8 @@ import {
   SLACK_INBOUND_CHANNEL,
 } from "@pi-desktop/host-runtime";
 import { MESSAGING_SLACK_SECTION, MESSAGING_TELEGRAM_SECTION } from "@pi-desktop/agent-host";
+import { messagingGateway } from "../messaging-gateway";
+import { discoverTelegramChats, probeTelegramBot } from "../messaging-telegram-probe";
 import type { AgentSidecar } from "../agent-sidecar";
 import type { HostProcess } from "../host-process";
 import type { IpcRegistrar } from "./types";
@@ -133,13 +135,45 @@ export function registerSettingsIpc({
         });
       }
       const value = input?.value;
-      if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      // `null` clears the section: that is how the panel's enable toggle turns
+      // a channel off. The host reads no section, registers nothing and polls
+      // nothing, while the credentials stay in the secret store under their
+      // refs, so turning the channel back on needs no retyping.
+      if (value === null) {
+        await host.call("settings.set", { [section]: null });
+        return { ok: true };
+      }
+      if (typeof value !== "object" || Array.isArray(value)) {
         throw Object.assign(new Error("the messaging settings section must be an object"), {
           errorCode: "INVALID_PARAMS",
         });
       }
       await host.call("settings.set", { [section]: value });
       return { ok: true };
+    },
+  );
+
+  /*
+    The third state dimension: which inbound loops are actually running. The
+    registry is the composition root's own record of the handles it started
+    (`bootstrap/startup.ts`), so this answers a fact about this process rather
+    than a guess about configuration.
+  */
+  handle(IPC.invoke.messagingGateway, async () => messagingGateway.snapshot());
+
+  /*
+    Telegram quick setup. The token crosses this channel once and is used
+    immediately; the module never echoes it, and a failure is a typed code.
+  */
+  handle(
+    IPC.invoke.messagingTelegramProbe,
+    async (input: { token?: unknown; action?: unknown }) => {
+      const action = input?.action;
+      if (action === "bot") return probeTelegramBot(input?.token, { fetch });
+      if (action === "chats") return discoverTelegramChats(input?.token, { fetch });
+      throw Object.assign(new Error("unknown Telegram probe action"), {
+        errorCode: "INVALID_PARAMS",
+      });
     },
   );
 
