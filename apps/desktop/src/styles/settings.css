@@ -888,6 +888,16 @@
   line-height: var(--leading-compact);
 }
 
+.settings-messaging-note {
+  padding: 8px 10px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--ds-surface-sunken);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-compact);
+}
+
 /* Three answers side by side, each with the evidence it was read from. */
 .settings-messaging-states {
   display: grid;

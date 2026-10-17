@@ -51,6 +51,8 @@ export type ShutdownDependencies = {
   getMessagingDiscordInbound: () => MessagingInboundHandle | null;
   /** The inbound Mattermost websocket loop this boot started, if any. */
   getMessagingMattermostInbound: () => MessagingInboundHandle | null;
+  /** The inbound Matrix sync loop this boot started, if any. */
+  getMessagingMatrixInbound: () => MessagingInboundHandle | null;
   /** The outbound messaging relay this boot subscribed, if any. */
   getMessagingOutbound: () => MessagingOutboundRelay | null;
   activeTurns: Map<string, string>;
@@ -80,6 +82,7 @@ export function registerShutdownHandlers({
   getMessagingSlackInbound,
   getMessagingDiscordInbound,
   getMessagingMattermostInbound,
+  getMessagingMatrixInbound,
   getMessagingOutbound,
   activeTurns,
   persistenceOutbox,
@@ -186,6 +189,12 @@ export function registerShutdownHandlers({
       const messagingMattermostInbound = getMessagingMattermostInbound();
       messagingMattermostInbound?.controller.abort();
       await settleWithinBudget(messagingMattermostInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
+      // The Matrix sync loop stops the same way: its long poll is aborted and
+      // awaited under the same bound, so a homeserver that will not answer
+      // cannot hold up the quit.
+      const messagingMatrixInbound = getMessagingMatrixInbound();
+      messagingMatrixInbound?.controller.abort();
+      await settleWithinBudget(messagingMatrixInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
       // The outbound messaging relay is released the same way, beside the two
       // loops and before host-core is disposed: it unsubscribes at once, and the
       // wait is bounded so a release that ever refused to settle cannot hold up

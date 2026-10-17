@@ -15,7 +15,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { IngressMessage, MessagingIngressAdapter } from "./messaging-ingress.js";
+import type {
+  IngressMessage,
+  IngressPollResult,
+  MessagingIngressAdapter,
+} from "./messaging-ingress.js";
 import {
   ingressConformanceScenarios,
   type IngressConformanceConnection,
@@ -39,6 +43,11 @@ import {
   type MattermostIdentityResult,
   type MattermostInboundAuditEntry,
 } from "./messaging-mattermost-inbound.js";
+import {
+  createMatrixIngressAdapter,
+  createMatrixInboundPushTransport,
+  type MatrixInboundAuditEntry,
+} from "./messaging-matrix-inbound.js";
 import { createTelegramIngressAdapter } from "./messaging-inbound.js";
 import { WebhookIngressTransport } from "./messaging-ingress-webhook.js";
 
@@ -446,6 +455,121 @@ function mattermostFixture(): IngressConformanceFixture {
 }
 
 // ---------------------------------------------------------------------------
+// Matrix (long poll over the client-server API)
+// ---------------------------------------------------------------------------
+
+/** The one batch the fixture's fake homeserver has to offer. */
+const MATRIX_ROOM = "!conformance:matrix.test";
+const MATRIX_OWN_USER = "@bot:matrix.test";
+const MATRIX_BATCH_TOKEN = "conformance-batch-1";
+
+const matrixRoomEvent = (event: Record<string, unknown>) => ({
+  room_id: MATRIX_ROOM,
+  ...event,
+});
+
+function matrixFixture(): IngressConformanceFixture {
+  const foreignEvent = {
+    event_id: "$conformance",
+    sender: "@human:matrix.test",
+    type: "m.room.message",
+    content: { msgtype: "m.text", body: "/start do the thing" },
+  };
+  const delivered: string[] = [];
+  /**
+   * One fake homeserver for the pull and send routes. A sync from a token other
+   * than the batch's own offers the batch (which is what a lost cursor looks
+   * like); a sync from the batch token offers nothing.
+   */
+  const fetchImpl = (async (input: string, init: RequestInit = {}) => {
+    const url = new URL(input);
+    let body: unknown = {};
+    if (url.pathname.endsWith("/sync")) {
+      const since = url.searchParams.get("since") ?? "";
+      body =
+        since === MATRIX_BATCH_TOKEN
+          ? { next_batch: MATRIX_BATCH_TOKEN, rooms: { join: {} } }
+          : {
+              next_batch: MATRIX_BATCH_TOKEN,
+              rooms: {
+                join: { [MATRIX_ROOM]: { timeline: { events: [foreignEvent] } } },
+              },
+            };
+    } else if (url.pathname.includes("/send/m.room.message/")) {
+      const payload = JSON.parse(String(init.body)) as { body?: string };
+      delivered.push(payload.body ?? "");
+      body = { event_id: `$sent-${delivered.length}` };
+    } else {
+      body = { user_id: MATRIX_OWN_USER };
+    }
+    return {
+      status: 200,
+      ok: true,
+      headers: new Headers(),
+      json: async () => body,
+    } as unknown as Response;
+  }) as unknown as typeof fetch;
+
+  const adapter = createMatrixIngressAdapter({
+    endpoint: "https://conformance.matrix.test",
+    token: "matrix-conformance-token",
+    fetchImpl,
+    ownUserId: MATRIX_OWN_USER,
+    wait: async () => {},
+  });
+
+  return {
+    adapter,
+    foreign: () => ({
+      raw: matrixRoomEvent(foreignEvent),
+      expected: {
+        messageId: "$conformance",
+        chatId: MATRIX_ROOM,
+        text: "/start do the thing",
+      },
+    }),
+    own: () =>
+      matrixRoomEvent({
+        ...foreignEvent,
+        event_id: "$own",
+        sender: MATRIX_OWN_USER,
+      }),
+    longPoll: () => ({
+      poll: adapter.poll,
+      normalise: adapter.normalise,
+    }),
+    deliver: (text: string) => {
+      const chunks: string[] = [];
+      const before = delivered.length;
+      const deliverer = adapter.deliver!;
+      const result = (async () => {
+        const outcome = await deliverer(MATRIX_ROOM, text);
+        chunks.push(...delivered.slice(before));
+        return outcome;
+      })();
+      return { chatId: MATRIX_ROOM, chunks, result };
+    },
+    async refusedCredential() {
+      const refusedAudit: MatrixInboundAuditEntry[] = [];
+      const controller = new AbortController();
+      const transport = createMatrixInboundPushTransport({
+        endpoint: "https://conformance.matrix.test",
+        token: "matrix-SECRET-token",
+        resolveIdentity: async () => ({ ok: false, error: "the identity lookup was refused" }),
+        handled: durableGuard(),
+        cursor: { load: async () => null, save: async () => {} },
+        wait: async () => {
+          controller.abort();
+        },
+        audit: (entry) => refusedAudit.push(entry),
+      });
+      await transport.start(async () => {}, controller.signal);
+      return { token: "matrix-SECRET-token", observed: JSON.stringify(refusedAudit) };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Telegram (polling)
 // ---------------------------------------------------------------------------
 
@@ -480,6 +604,7 @@ const FIXTURES: { name: string; build: () => IngressConformanceFixture }[] = [
   { name: "discord", build: discordFixture },
   { name: "mattermost", build: mattermostFixture },
   { name: "telegram", build: telegramFixture },
+  { name: "matrix", build: matrixFixture },
 ];
 
 for (const entry of FIXTURES) {
@@ -643,5 +768,49 @@ describe("the conformance suite rejects a broken adapter", () => {
     const scenarios = ingressConformanceScenarios(discordFixture());
     const own = scenarios.find((s) => s.name.includes("own message"));
     await expect(own!.run()).resolves.toBeUndefined();
+  });
+
+  /**
+   * The long-poll cursor half: a channel whose poll ignores the token it was
+   * given is the copy-paste failure this scenario exists for — it applies the
+   * batch again after a restart.
+   */
+  function brokenLongPoll(): MessagingIngressAdapter & { kind: "poll" } {
+    type Polling = {
+      poll: (cursor: string, signal?: AbortSignal) => Promise<IngressPollResult<string>>;
+    };
+    const base = matrixFixture().adapter as unknown as Record<string, unknown> & Polling;
+    return {
+      ...base,
+      poll: async () => {
+        const consequence = await base.poll("", undefined);
+        if (consequence.ok) return { ok: true, events: consequence.events, nextCursor: "moved" };
+        return consequence;
+      },
+    } as unknown as MessagingIngressAdapter & { kind: "poll" };
+  }
+
+  it("fails the restart scenario when the poll ignores its token", async () => {
+    const broken = brokenLongPoll();
+    const polling = broken as unknown as {
+      poll: (cursor: string, signal?: AbortSignal) => Promise<IngressPollResult<string>>;
+    };
+    const fixture: IngressConformanceFixture = {
+      ...matrixFixture(),
+      adapter: broken,
+      // The probe has to point at the broken adapter, or it would keep polling
+      // through the good one and the control would prove nothing.
+      longPoll: () => ({ poll: polling.poll, normalise: broken.normalise }),
+    };
+    const scenarios = ingressConformanceScenarios(fixture);
+    const restart = scenarios.find((s) => s.name.includes("restart resumes"));
+    expect(restart).toBeDefined();
+    await expect(restart!.run()).rejects.toThrow();
+  });
+
+  it("passes the restart scenario with the real adapter", async () => {
+    const scenarios = ingressConformanceScenarios(matrixFixture());
+    const restart = scenarios.find((s) => s.name.includes("restart resumes"));
+    await expect(restart!.run()).resolves.toBeUndefined();
   });
 });

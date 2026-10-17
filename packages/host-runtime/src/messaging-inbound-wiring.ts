@@ -8,6 +8,10 @@ import {
   MESSAGING_MATTERMOST_FORMAT,
   MESSAGING_MATTERMOST_FORMAT_VERSION,
   MESSAGING_MATTERMOST_SECTION,
+  MESSAGING_MATRIX_ACCESS_TOKEN_SECRET_REF,
+  MESSAGING_MATRIX_FORMAT,
+  MESSAGING_MATRIX_FORMAT_VERSION,
+  MESSAGING_MATRIX_SECTION,
   MESSAGING_SLACK_APP_TOKEN_SECRET_REF,
   MESSAGING_SLACK_FORMAT,
   MESSAGING_SLACK_FORMAT_VERSION,
@@ -18,11 +22,13 @@ import {
   DISCORD_DEFAULT_ENDPOINT,
   DISCORD_HANDLED_CAPACITY,
   MATTERMOST_HANDLED_CAPACITY,
+  MATRIX_HANDLED_CAPACITY,
   createAgentHostTargets,
   createDiscordInboundPushTransport,
   createDiscordGatewayLookup,
   createMattermostIdentityLookup,
   createMattermostInboundPushTransport,
+  createMatrixInboundPushTransport,
   createSettingsHandledMessageStore,
   createSettingsSlackHandledStore,
   createSlackInboundPushTransport,
@@ -32,6 +38,7 @@ import {
   createWsMattermostSocketFactory,
   createWsSlackSocketFactory,
   mattermostWebSocketUrl,
+  matrixApiBase,
   readInboundLink,
   type DiscordGatewayLookup,
   type DiscordInboundAudit,
@@ -39,11 +46,14 @@ import {
   type MattermostIdentityLookup,
   type MattermostInboundAudit,
   type MattermostSocketFactory,
+  type MatrixIdentityLookup,
+  type MatrixInboundAudit,
   type MessagingInboundAudit,
   type MessagingInboundAuditEntry,
   type MessagingInboundCursorStore,
   type MessagingInboundPushTransport,
   type MessagingInboundTransport,
+  type IngressCursorStore,
   type SlackInboundAudit,
   type SlackOpenConnection,
   type SlackSocketFactory,
@@ -285,6 +295,13 @@ export const MATTERMOST_INBOUND_CHANNEL: MessagingInboundChannel = {
   section: MESSAGING_MATTERMOST_SECTION,
   format: MESSAGING_MATTERMOST_FORMAT,
   version: MESSAGING_MATTERMOST_FORMAT_VERSION,
+};
+
+/** The Matrix channel's descriptor, selected by its own bind channel. */
+export const MATRIX_INBOUND_CHANNEL: MessagingInboundChannel = {
+  section: MESSAGING_MATRIX_SECTION,
+  format: MESSAGING_MATRIX_FORMAT,
+  version: MESSAGING_MATRIX_FORMAT_VERSION,
 };
 
 /**
@@ -1009,6 +1026,147 @@ export function createMattermostInboundWiring(
     channel: MATTERMOST_INBOUND_CHANNEL,
     transport: options.transport ?? createConfiguredMattermostTransport(options),
     failureLabel: "inbound mattermost loop failed",
+  });
+}
+
+/**
+ * The sync token, persisted in the channel's own settings section under
+ * `inbound.syncToken`.
+ *
+ * Matrix's `next_batch` is an opaque string, so it is stored verbatim and read
+ * back verbatim: nothing parses it, orders it or derives anything from it. A
+ * missing, non-string or blank field reads as "no position stored", which asks
+ * the homeserver for everything from the beginning of its window; a write that
+ * fails leaves the last good token in place, and the shared transport only ever
+ * writes a token that a poll from the stored one answered.
+ *
+ * The cost is the same as the Telegram cursor's: a save is a `settings.set`, so
+ * it re-applies the network proxy policy and re-pins the plugin market channel
+ * and locale (host-core's `settings.set`). It is issued only when the token
+ * actually moved, which is a message rate, not a poll rate.
+ */
+export function createSettingsSyncTokenStore(
+  settings: HostSettingsSurface,
+  sectionKey: string = MESSAGING_MATRIX_SECTION,
+): IngressCursorStore<string> {
+  return {
+    async load(): Promise<string | null> {
+      const inbound = readInbound(readSection(await settings.read(), sectionKey));
+      const value = inbound?.syncToken;
+      return typeof value === "string" && value.trim() ? value.trim() : null;
+    },
+    async save(token: string): Promise<void> {
+      await patchSection(
+        settings,
+        (_section, inbound) => ({ ...inbound, syncToken: token }),
+        sectionKey,
+      );
+    },
+  };
+}
+
+/** The audit sink for the Matrix sync client. */
+export function createMatrixInboundAudit(log?: MessagingInboundWiringLog): MatrixInboundAudit {
+  if (!log) return () => {};
+  return (entry) => {
+    const level = entry.kind === "processed" || entry.kind === "duplicate" ? "info" : "warn";
+    log(level, "inbound matrix channel", { ...entry });
+  };
+}
+
+/**
+ * The Matrix transport, config-gated on the access token and the channel record.
+ *
+ * The base URL is the user's own homeserver, so there is no default: with no
+ * `endpoint` in the record, no destination room, or no token in the secret store
+ * under `secret:messaging-matrix:access-token`, nothing is opened and nothing is
+ * polled. The endpoint goes through the shared inbound rule
+ * ([`matrixApiBase`]), so a plaintext homeserver is accepted only under the
+ * relaxed LAN policy, and the token never enters a URL.
+ *
+ * The sync token and the durable replay guard both ride the channel's own
+ * settings section, so no new store, namespace or operation verb is introduced.
+ */
+function createConfiguredMatrixTransport(
+  options: MessagingMatrixWiringOptions,
+): MessagingInboundPushTransport {
+  return {
+    async start(onMessage, signal): Promise<void> {
+      let token: string | null = null;
+      try {
+        token = await options.secrets(MESSAGING_MATRIX_ACCESS_TOKEN_SECRET_REF);
+      } catch {
+        token = null;
+      }
+      if (!token || !token.trim()) return;
+      let settings: unknown;
+      try {
+        settings = await options.settings.read();
+      } catch {
+        return;
+      }
+      const record = readTransportRecord(settings, MESSAGING_MATRIX_SECTION);
+      if (!record.endpoint || !record.destination) return;
+      const base = matrixApiBase(record.endpoint, {
+        allowInsecureHttp: allowInsecureUserEndpoints(settings),
+      });
+      if (!base.ok) {
+        options.log?.("warn", "inbound matrix channel has an unusable endpoint", {
+          error: base.error,
+        });
+        return;
+      }
+      await createMatrixInboundPushTransport({
+        endpoint: record.endpoint,
+        token: token.trim(),
+        ...(options.resolveIdentity ? { resolveIdentity: options.resolveIdentity } : {}),
+        handled: createSettingsHandledMessageStore({
+          settings: options.settings,
+          section: MESSAGING_MATRIX_SECTION,
+          capacity: MATRIX_HANDLED_CAPACITY,
+        }),
+        cursor: createSettingsSyncTokenStore(options.settings),
+        allowInsecureHttp: allowInsecureUserEndpoints(settings),
+        audit: createMatrixInboundAudit(options.log),
+        ...(options.wait ? { wait: options.wait } : {}),
+      }).start(onMessage, signal);
+    },
+  };
+}
+
+/**
+ * The wiring for the inbound Matrix channel over the client-server API.
+ *
+ * The same driver, binding and target resolver as every other channel, over a
+ * long poll the Host originates. The two channels that pull look different on
+ * the wire and identical here: the section (`messagingMatrix`), the record's
+ * format and the secret ref are the only differences.
+ */
+export type MessagingMatrixWiringOptions = {
+  agentHost: MessagingInboundHostSurface;
+  settings: HostSettingsSurface;
+  secrets: HostSecretReader;
+  signal: AbortSignal;
+  log?: MessagingInboundWiringLog;
+  /** Test seam: the `whoami` lookup, in place of the production one. */
+  resolveIdentity?: MatrixIdentityLookup;
+  /** Test seam: how the loop waits. */
+  wait?: (ms: number) => Promise<void>;
+  /** Test seam: a push transport in place of the one built from the settings. */
+  transport?: MessagingInboundPushTransport;
+};
+
+export function createMatrixInboundWiring(
+  options: MessagingMatrixWiringOptions,
+): MessagingInboundWiring {
+  return createIngressWiring({
+    agentHost: options.agentHost,
+    settings: options.settings,
+    signal: options.signal,
+    ...(options.log ? { log: options.log } : {}),
+    channel: MATRIX_INBOUND_CHANNEL,
+    transport: options.transport ?? createConfiguredMatrixTransport(options),
+    failureLabel: "inbound matrix loop failed",
   });
 }
 

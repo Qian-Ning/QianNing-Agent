@@ -15,6 +15,8 @@ export * from "./messaging-discord-inbound.js";
 export * from "./messaging-discord-send.js";
 export * from "./messaging-mattermost-inbound.js";
 export * from "./messaging-mattermost-send.js";
+export * from "./messaging-matrix-inbound.js";
+export * from "./messaging-matrix-send.js";
 export * from "./messaging-handled-store.js";
 export * from "./messaging-push-sockets.js";
 export * from "./turn-queue.js";

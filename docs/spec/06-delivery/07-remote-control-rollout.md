@@ -216,6 +216,23 @@ inbound listener.
   poll, Slack by a Socket Mode push (ADR 0326), and Discord and Mattermost by
   their own gateway websockets — every one a connection the Host originates, so
   none needs an inbound callback or a public endpoint.
+- Matrix is the fifth channel and the second pull: the Host long-polls
+  `GET /_matrix/client/v3/sync` on the user's own homeserver with an access
+  token from the secret store, and the `next_batch` token is the cursor. The
+  token is opaque and has no order, so it is stored verbatim, saved only after
+  the batch it names has been applied, and advanced only to a token the server
+  answered a poll from the stored one with; a restart resumes there rather than
+  replaying. A message is admitted when its event type is `m.room.message`, its
+  `msgtype` is `m.text`, and its sender is not the account's own user id — the
+  id `GET /account/whoami` answers, because a bot id in the wild varies between
+  bridges and the account's own id is the only authoritative filter. Replies
+  leave by `PUT /rooms/{roomId}/send/m.room.message/{txnId}`, chunked at the
+  declared 4000-character limit, with a fresh transaction id per attempt so two
+  sends can never be folded into one, and a transport failure whose outcome is
+  unknown is reported rather than retried so an attempt that did land cannot be
+  posted twice. End-to-end encryption is not implemented: an `m.room.encrypted`
+  event is refused with an audit line naming the room, and the settings panel
+  says so in plain language.
 - It never blocks a turn: delivery failures are logged and retried with a
   bound, and the Host runs the same whether the adapter is configured or not.
 

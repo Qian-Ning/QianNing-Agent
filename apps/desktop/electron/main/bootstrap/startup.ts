@@ -32,6 +32,7 @@ import {
   createSlackInboundWiring,
   createDiscordInboundWiring,
   createMattermostInboundWiring,
+  createMatrixInboundWiring,
   type MessagingInboundHandle,
   type MessagingOutboundRelay,
 } from "@pi-desktop/host-runtime";
@@ -113,6 +114,12 @@ export type StartupState = {
    * a configured server URL: with either missing nothing is opened.
    */
   messagingMattermostInbound: MessagingInboundHandle | null;
+  /**
+   * The inbound Matrix sync loop this boot started, with the controller that
+   * stops it. Config-gated on the Matrix access token and the channel's record,
+   * so a Host with nothing configured starts no loop and polls nothing.
+   */
+  messagingMatrixInbound: MessagingInboundHandle | null;
   /**
    * The outbound messaging relay this boot subscribed, with the release that
    * stops it. Shutdown releases it, bounded, before host-core is disposed. It is
@@ -465,6 +472,21 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
         done: mattermostWiring.run(),
       };
       messagingGateway.track("mattermost", state.messagingMattermostInbound);
+
+      // Matrix pulls rather than pushes, but from this wiring's side it is the
+      // same shape: an outbound connection the Host originates (a sync long
+      // poll), config-gated on its own token and record, so nothing is polled
+      // unless the channel is configured.
+      const matrixController = new AbortController();
+      const matrixWiring = createMatrixInboundWiring({
+        agentHost: state.agentHostBridge.agentHost,
+        settings: createHostSettingsSurface(getHost),
+        secrets: createHostSecretReader(getHost),
+        signal: matrixController.signal,
+        log: (level, message, data) => logger.app("runtime", level, message, { data }),
+      });
+      state.messagingMatrixInbound = { controller: matrixController, done: matrixWiring.run() };
+      messagingGateway.track("matrix", state.messagingMatrixInbound);
     }
     // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3), beside
     // the two inbound loops: the Host-side redactor subscribed on the

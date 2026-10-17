@@ -33,8 +33,11 @@ import assert from "node:assert/strict";
 import {
   chunkIngressText,
   IngressGate,
+  type IngressCursorStore,
   type IngressDeliveryResult,
   type IngressMessage,
+  type IngressNormalise,
+  type IngressPollResult,
   type MessagingIngressAdapter,
 } from "./messaging-ingress.js";
 import { PollingIngressTransport } from "./messaging-ingress-polling.js";
@@ -82,6 +85,23 @@ export type IngressCredentialRefusal = {
   observed: string;
 };
 
+/**
+ * A long-poll channel's own half of the cursor scenarios.
+ *
+ * A long poll is a pull like Telegram's, but its cursor is an opaque token with
+ * no order (Matrix's `next_batch`), so the count-shaped scenarios below cannot
+ * drive it. The fixture supplies its poll — against whatever stand-in for the
+ * platform it owns — and the adapter's projection; the suite supplies the store,
+ * the transport and the assertions, so every future token-cursor channel is
+ * covered by the same three guarantees without writing them again.
+ */
+export type IngressLongPollFixture = {
+  /** One poll from `cursor`; a failure is reported in the result. */
+  poll: (cursor: string, signal?: AbortSignal) => Promise<IngressPollResult<string>>;
+  /** The adapter's own projection, the one the live loop uses. */
+  normalise: IngressNormalise;
+};
+
 export type IngressConformanceFixture = {
   /** The adapter under test. */
   adapter: MessagingIngressAdapter;
@@ -91,6 +111,8 @@ export type IngressConformanceFixture = {
   own?(): unknown;
   /** A push channel's live reconnect probe. */
   reconnect?(): Promise<IngressReconnectProbe>;
+  /** A long-poll channel's opaque-token half: its poll and its projection. */
+  longPoll?(): IngressLongPollFixture;
   /** A refused credential, where the channel holds one. */
   refusedCredential?(): Promise<IngressCredentialRefusal>;
   /**
@@ -318,6 +340,117 @@ export function ingressConformanceScenarios(
         assert.equal(outcome.retryAfterMs, 7_000);
         assert.equal(transport.nextCursor, 0, "a failed poll must not move the cursor");
         assert.deepEqual(messages, []);
+      },
+    });
+  }
+
+  if (fixture.longPoll) {
+    const longPoll = fixture.longPoll.bind(fixture);
+    /**
+     * One transport over `store`, built the way a channel builds it: the token
+     * starts empty and advances only when the server answers a different one.
+     *
+     * The scenarios drive `run`, not `pollOnce`, because loading the stored
+     * token is the loop's first act — that is what a restart is. `stopAfter`
+     * aborts the loop once that many polls have been waited out, so each run is
+     * one or two iterations and no test sleeps.
+     */
+    const build = (
+      store: IngressCursorStore<string>,
+      stopAfter: number,
+    ): { run: PollingIngressTransport<unknown, string>["run"]; transport: PollingIngressTransport<unknown, string> } => {
+      const source = longPoll();
+      const controller = new AbortController();
+      let polls = 0;
+      const poll = async (cursor: string, signal?: AbortSignal) => {
+        const result = await source.poll(cursor, signal);
+        polls += 1;
+        return result;
+      };
+      const transport = new PollingIngressTransport<unknown, string>({
+        poll,
+        normalise: source.normalise,
+        cursor: store,
+        initialCursor: "",
+        nextIsAhead: (next, current) => next !== current,
+        wait: async () => {
+          if (polls >= stopAfter) controller.abort();
+        },
+      });
+      return {
+        transport,
+        run: (apply) => transport.run(apply, controller.signal),
+      };
+    };
+    const memoryStore = (
+      order: string[] = [],
+    ): { store: IngressCursorStore<string>; saved: string[] } => {
+      const saved: string[] = [];
+      return {
+        saved,
+        store: {
+          load: async () => (saved.length > 0 ? saved[saved.length - 1]! : null),
+          save: async (token) => {
+            order.push("save");
+            saved.push(token);
+          },
+        },
+      };
+    };
+
+    scenarios.push({
+      name: "a sync batch is applied once and its token is saved after the batch",
+      async run() {
+        const { expected } = fixture.foreign();
+        const order: string[] = [];
+        const { store, saved } = memoryStore(order);
+        const { transport, run } = build(store, 1);
+        const applied: IngressMessage[] = [];
+        await run(async (message) => {
+          order.push("apply");
+          applied.push(message);
+        });
+        assert.deepEqual(applied, [expected], "the batch must be applied exactly once");
+        assert.deepEqual(order, ["apply", "save"], "the token must be saved after the batch");
+        assert.equal(saved.length, 1, "the token must be saved once");
+        assert.equal(transport.nextCursor, saved[0], "the cursor must be the token that was saved");
+      },
+    });
+
+    scenarios.push({
+      name: "a restart resumes from the saved token and replays nothing",
+      async run() {
+        const { store, saved } = memoryStore();
+        const first = build(store, 1);
+        const before: IngressMessage[] = [];
+        await first.run(async (message) => {
+          before.push(message);
+        });
+        assert.equal(before.length, 1);
+        assert.equal(saved.length, 1);
+        // A second transport over the same store is a restart: the token it
+        // loads is the one the first run saved, so the platform is asked from
+        // there and the batch is not offered again.
+        const second = build(store, 1);
+        const after: IngressMessage[] = [];
+        await second.run(async (message) => {
+          after.push(message);
+        });
+        assert.equal(second.transport.nextCursor, saved[0], "the restart must resume at the saved token");
+        assert.deepEqual(after, [], "a restart must not replay a batch it already applied");
+        assert.equal(saved.length, 1, "a restart with nothing new must save nothing");
+      },
+    });
+
+    scenarios.push({
+      name: "a batch whose apply throws saves no token",
+      async run() {
+        const { store, saved } = memoryStore();
+        const { run } = build(store, 1);
+        await run(async () => {
+          throw new Error("the routing path failed");
+        });
+        assert.deepEqual(saved, [], "a batch that was not applied must not advance the token");
       },
     });
   }

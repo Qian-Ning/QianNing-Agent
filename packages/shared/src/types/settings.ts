@@ -28,6 +28,12 @@ export type MessagingInboundSettings = {
   permissionMode?: RacpPermissionMode;
   /** Telegram long-poll cursor; absent means start from zero. */
   pollOffset?: number;
+  /**
+   * Matrix's `next_batch` sync token, stored verbatim: it is opaque and has no
+   * order, so nothing parses it or compares it. Absent means "no position
+   * stored", and the next sync asks for everything the homeserver offers.
+   */
+  syncToken?: string;
   /** The session the linked conversation's commands act on. */
   sessionId?: string;
   /** Slack's restart-durable replay guard, keyed on the platform's event id. */
@@ -259,6 +265,7 @@ export type AppSettings = {
   messagingSlack?: MessagingChannelSettings;
   messagingDiscord?: MessagingChannelSettings;
   messagingMattermost?: MessagingChannelSettings;
+  messagingMatrix?: MessagingChannelSettings;
   onboardingDismissed: boolean;
 };
 

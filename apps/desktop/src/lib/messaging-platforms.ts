@@ -32,12 +32,12 @@ import type {
  * # The catalogue is honest about breadth
  *
  * The list carries every platform the reference product lists, because a user
- * comparing the two should be able to see what exists. Only the four with a
- * send path and a receive path in this build (Telegram, Slack, Discord and
- * Mattermost) are `supported`; the rest render a panel that says so plainly and
- * names the capability that is missing.
- * unsupported entry has no section, no format and no credentials, so there is
- * nothing for a form to write and nothing the host would read.
+ * comparing the two should be able to see what exists. Only the five with a
+ * send path and a receive path in this build (Telegram, Slack, Discord,
+ * Mattermost and Matrix) are `supported`; the rest render a panel that says so
+ * plainly and names the capability that is missing. An unsupported entry has no
+ * section, no format and no credentials, so there is nothing for a form to write
+ * and nothing the host would read.
  */
 
 export type MessagingPlatformId =
@@ -65,7 +65,8 @@ export type MessagingSectionKey =
   | "messagingTelegram"
   | "messagingSlack"
   | "messagingDiscord"
-  | "messagingMattermost";
+  | "messagingMattermost"
+  | "messagingMatrix";
 
 /** One credential a channel reads, and where the host keeps it. */
 export type MessagingSecretSlot = {
@@ -119,6 +120,11 @@ type PlatformBase = {
 
 export type SupportedMessagingPlatform = PlatformBase & {
   support: "supported";
+  /**
+   * A standing limitation the user has to know before they wire the channel up,
+   * rendered in the panel in plain language. Only the channels with one carry it.
+   */
+  noteKey?: string;
   section: MessagingSectionKey;
   /** The record's self-identifying format; a foreign value is refused. */
   format: string;
@@ -235,6 +241,30 @@ function mattermostFields(): MessagingField[] {
   ];
 }
 
+/**
+ * Matrix's fields. Its homeserver URL is required for the same reason
+ * Mattermost's is: the product is self-hosted or federated, so there is no
+ * public address to fall back to. The rest of the panel is the shared shape.
+ */
+function matrixFields(): MessagingField[] {
+  const shared = channelFields({
+    secrets: matrixSecrets,
+    destinationLabelKey: "settings.messaging.matrixRoom",
+    destinationHelpKey: "settings.messaging.matrixRoomHelp",
+    destinationPlaceholderKey: "settings.messaging.matrixRoomPlaceholder",
+    subjectPlaceholderKey: "settings.messaging.subjectPlaceholderMatrix",
+    endpointPlaceholderKey: "settings.messaging.endpointPlaceholderMatrix",
+  });
+  const endpoint = shared.find((field) => field.id === "endpoint");
+  if (!endpoint) return shared;
+  const rest = shared.filter((field) => field.id !== "endpoint");
+  return [
+    ...rest.filter((field) => field.group === "required"),
+    { ...endpoint, group: "required" as const },
+    ...rest.filter((field) => field.group === "recommended"),
+  ];
+}
+
 const telegramSecrets: MessagingSecretSlot[] = [
   {
     id: "bot-token",
@@ -262,6 +292,16 @@ const mattermostSecrets: MessagingSecretSlot[] = [
     labelKey: "settings.messaging.mattermostAccessToken",
     hintKey: "settings.messaging.mattermostAccessTokenHint",
     placeholderKey: "settings.messaging.mattermostTokenPlaceholder",
+  },
+];
+
+const matrixSecrets: MessagingSecretSlot[] = [
+  {
+    id: "access-token",
+    ref: "secret:messaging-matrix:access-token",
+    labelKey: "settings.messaging.matrixAccessToken",
+    hintKey: "settings.messaging.matrixAccessTokenHint",
+    placeholderKey: "settings.messaging.matrixTokenPlaceholder",
   },
 ];
 
@@ -387,6 +427,27 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
     fields: mattermostFields(),
   },
   {
+    id: "matrix",
+    support: "supported",
+    section: "messagingMatrix",
+    format: "pi-desktop-messaging-matrix",
+    version: 1,
+    // Federated and self-hosted: the homeserver URL is required, with no default.
+    defaultEndpoint: "",
+    labelKey: "settings.messaging.platformMatrix",
+    blurbKey: "settings.messaging.blurbMatrix",
+    noteKey: "settings.messaging.matrixEncryptionNote",
+    guideUrl: "https://spec.matrix.org/latest/client-server-api/",
+    credentialStepKeys: [
+      "settings.messaging.stepMatrix1",
+      "settings.messaging.stepMatrix2",
+      "settings.messaging.stepMatrix3",
+      "settings.messaging.stepMatrix4",
+    ],
+    secrets: matrixSecrets,
+    fields: matrixFields(),
+  },
+  {
     id: "whatsapp",
     support: "unsupported",
     labelKey: "settings.messaging.platformWhatsapp",
@@ -444,16 +505,6 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
     guideUrl: "https://learn.microsoft.com/microsoftteams/platform/bots/what-are-bots",
     credentialStepKeys: [],
     requirementKey: "settings.messaging.needsWebhook",
-    secrets: [],
-  },
-  {
-    id: "matrix",
-    support: "unsupported",
-    labelKey: "settings.messaging.platformMatrix",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    guideUrl: "https://spec.matrix.org/latest/client-server-api/",
-    credentialStepKeys: [],
-    requirementKey: "settings.messaging.needsPolling",
     secrets: [],
   },
   {
@@ -544,7 +595,12 @@ export const UNSUPPORTED_MESSAGING_PLATFORMS: UnsupportedMessagingPlatform[] =
  * receive loop the desktop main process started for this channel, so the key is
  * the loop's, not the settings section's.
  */
-export type MessagingGatewayChannel = "telegram" | "slack" | "discord" | "mattermost";
+export type MessagingGatewayChannel =
+  | "telegram"
+  | "slack"
+  | "discord"
+  | "mattermost"
+  | "matrix";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -558,6 +614,7 @@ export type MessagingGatewaySnapshot = {
   slack: boolean;
   discord: boolean;
   mattermost: boolean;
+  matrix: boolean;
 };
 
 /** The snapshot to use before the first reply arrives: nothing is known to run. */
@@ -567,6 +624,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   slack: false,
   discord: false,
   mattermost: false,
+  matrix: false,
 };
 
 /** The link roles the inbound driver accepts, in `RACP_ROLES` order. */
