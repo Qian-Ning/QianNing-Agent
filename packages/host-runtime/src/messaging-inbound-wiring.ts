@@ -1,5 +1,13 @@
 import {
   MessagingInboundDriver,
+  MESSAGING_DISCORD_BOT_TOKEN_SECRET_REF,
+  MESSAGING_DISCORD_FORMAT,
+  MESSAGING_DISCORD_FORMAT_VERSION,
+  MESSAGING_DISCORD_SECTION,
+  MESSAGING_MATTERMOST_ACCESS_TOKEN_SECRET_REF,
+  MESSAGING_MATTERMOST_FORMAT,
+  MESSAGING_MATTERMOST_FORMAT_VERSION,
+  MESSAGING_MATTERMOST_SECTION,
   MESSAGING_SLACK_APP_TOKEN_SECRET_REF,
   MESSAGING_SLACK_FORMAT,
   MESSAGING_SLACK_FORMAT_VERSION,
@@ -7,13 +15,30 @@ import {
   MESSAGING_TELEGRAM_FORMAT,
   MESSAGING_TELEGRAM_FORMAT_VERSION,
   MESSAGING_TELEGRAM_SECTION,
+  DISCORD_DEFAULT_ENDPOINT,
+  DISCORD_HANDLED_CAPACITY,
+  MATTERMOST_HANDLED_CAPACITY,
   createAgentHostTargets,
+  createDiscordInboundPushTransport,
+  createDiscordGatewayLookup,
+  createMattermostIdentityLookup,
+  createMattermostInboundPushTransport,
+  createSettingsHandledMessageStore,
   createSettingsSlackHandledStore,
   createSlackInboundPushTransport,
   createSlackOpenConnection,
   createTelegramInboundTransport,
+  createWsDiscordSocketFactory,
+  createWsMattermostSocketFactory,
   createWsSlackSocketFactory,
+  mattermostWebSocketUrl,
   readInboundLink,
+  type DiscordGatewayLookup,
+  type DiscordInboundAudit,
+  type DiscordSocketFactory,
+  type MattermostIdentityLookup,
+  type MattermostInboundAudit,
+  type MattermostSocketFactory,
   type MessagingInboundAudit,
   type MessagingInboundAuditEntry,
   type MessagingInboundCursorStore,
@@ -246,6 +271,20 @@ export const SLACK_INBOUND_CHANNEL: MessagingInboundChannel = {
   section: MESSAGING_SLACK_SECTION,
   format: MESSAGING_SLACK_FORMAT,
   version: MESSAGING_SLACK_FORMAT_VERSION,
+};
+
+/** The Discord channel's descriptor, selected by its own bind channel. */
+export const DISCORD_INBOUND_CHANNEL: MessagingInboundChannel = {
+  section: MESSAGING_DISCORD_SECTION,
+  format: MESSAGING_DISCORD_FORMAT,
+  version: MESSAGING_DISCORD_FORMAT_VERSION,
+};
+
+/** The Mattermost channel's descriptor, selected by its own bind channel. */
+export const MATTERMOST_INBOUND_CHANNEL: MessagingInboundChannel = {
+  section: MESSAGING_MATTERMOST_SECTION,
+  format: MESSAGING_MATTERMOST_FORMAT,
+  version: MESSAGING_MATTERMOST_FORMAT_VERSION,
 };
 
 /**
@@ -721,6 +760,270 @@ export function createSlackInboundWiring(options: MessagingSlackWiringOptions): 
         // defensive: a loop that somehow throws still resolves its owner's
         // await instead of leaving the shutdown path pending.
         options.log?.("warn", "inbound slack loop failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+  };
+}
+
+/**
+ * The audit sink for the Discord Gateway client: structure and ids only, never
+ * message text and never the bot token.
+ */
+export function createDiscordInboundAudit(log?: MessagingInboundWiringLog): DiscordInboundAudit {
+  if (!log) return () => {};
+  return (entry) => {
+    const level = entry.kind === "processed" || entry.kind === "duplicate" ? "info" : "warn";
+    log(level, "inbound discord channel", { ...entry });
+  };
+}
+
+/** How a channel's record is read at transport start. */
+function readTransportRecord(
+  settings: unknown,
+  sectionKey: string,
+): { endpoint: string; destination: string } {
+  const section = readSection(settings, sectionKey);
+  return {
+    endpoint: typeof section?.endpoint === "string" ? section.endpoint.trim() : "",
+    destination: typeof section?.destination === "string" ? section.destination.trim() : "",
+  };
+}
+
+/**
+ * The Discord transport, config-gated on the bot token and the channel record.
+ *
+ * `start` reads both from the host's own surfaces — the token from the secret
+ * store under `secret:messaging-discord:bot-token`, the endpoint from the
+ * channel's settings section — and only then opens a Gateway connection. With
+ * no token, or no record naming a destination, it returns without opening
+ * anything: an install with no Discord channel configured starts no loop and
+ * behaves exactly as it did before. Nothing is bound: the Gateway connection is
+ * one the Host originates.
+ */
+function createConfiguredDiscordTransport(
+  options: MessagingDiscordWiringOptions,
+): MessagingInboundPushTransport {
+  return {
+    async start(onMessage, signal): Promise<void> {
+      let token: string | null = null;
+      try {
+        token = await options.secrets(MESSAGING_DISCORD_BOT_TOKEN_SECRET_REF);
+      } catch {
+        token = null;
+      }
+      if (!token || !token.trim()) return;
+      let settings: unknown;
+      try {
+        settings = await options.settings.read();
+      } catch {
+        return;
+      }
+      const record = readTransportRecord(settings, MESSAGING_DISCORD_SECTION);
+      if (!record.destination) return;
+      const endpoint = options.endpoint ?? (record.endpoint || DISCORD_DEFAULT_ENDPOINT);
+      const resolveGateway =
+        options.resolveGateway ?? createDiscordGatewayLookup({ endpoint });
+      const connect = options.connect ?? createWsDiscordSocketFactory();
+      await createDiscordInboundPushTransport({
+        client: {
+          token: token.trim(),
+          resolveGateway,
+          connect,
+          handled: createSettingsHandledMessageStore({
+            settings: options.settings,
+            section: MESSAGING_DISCORD_SECTION,
+            capacity: DISCORD_HANDLED_CAPACITY,
+          }),
+          audit: createDiscordInboundAudit(options.log),
+        },
+        ...(options.wait ? { wait: options.wait } : {}),
+      }).start(onMessage, signal);
+    },
+  };
+}
+
+/**
+ * The wiring for the inbound Discord channel over the Gateway websocket.
+ *
+ * It is the Slack wiring's shape with the channel swapped: the same
+ * [`MessagingInboundDriver`], the same conversation-to-session binding store and
+ * target resolver, over a Gateway push transport instead of Socket Mode. Every
+ * port reads an existing surface — the `messagingDiscord` settings section for
+ * the link and the binding, the settings row the durable replay guard rides, and
+ * the host secret store for the bot token — so no new store, namespace,
+ * operation verb or listener is introduced: composition only.
+ */
+export type MessagingDiscordWiringOptions = {
+  agentHost: MessagingInboundHostSurface;
+  settings: HostSettingsSurface;
+  secrets: HostSecretReader;
+  signal: AbortSignal;
+  log?: MessagingInboundWiringLog;
+  /** The Discord API base the Gateway lookup posts to; defaults to the record's. */
+  endpoint?: string;
+  /** Test seam: the `/gateway/bot` lookup, in place of the production one. */
+  resolveGateway?: DiscordGatewayLookup;
+  /** Test seam: the websocket client factory, in place of the production one. */
+  connect?: DiscordSocketFactory;
+  /** Test seam: how the reconnect loop waits. */
+  wait?: (ms: number) => Promise<void>;
+  /** Test seam: a push transport in place of the one built from the settings. */
+  transport?: MessagingInboundPushTransport;
+};
+
+export function createDiscordInboundWiring(options: MessagingDiscordWiringOptions): MessagingInboundWiring {
+  const binding = createSettingsSessionBindingStore(options.settings, MESSAGING_DISCORD_SECTION);
+  const targets = createAgentHostTargets(options.agentHost, () => binding.load());
+  const driver = new MessagingInboundDriver({
+    agentHost: options.agentHost,
+    transport: options.transport ?? createConfiguredDiscordTransport(options),
+    readConfig: async () => ({
+      link: readInboundLink(
+        readSection(await options.settings.read(), MESSAGING_DISCORD_SECTION),
+        MESSAGING_DISCORD_FORMAT,
+        MESSAGING_DISCORD_FORMAT_VERSION,
+      ),
+    }),
+    targets,
+    audit: createMessagingInboundAudit(options.log),
+    wait: (ms) => waitOrAbort(ms, options.signal),
+  });
+  return {
+    driver,
+    binding,
+    async run(): Promise<void> {
+      try {
+        await driver.run(options.signal);
+      } catch (error) {
+        options.log?.("warn", "inbound discord loop failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+  };
+}
+
+/** The audit sink for the Mattermost websocket client. */
+export function createMattermostInboundAudit(log?: MessagingInboundWiringLog): MattermostInboundAudit {
+  if (!log) return () => {};
+  return (entry) => {
+    const level = entry.kind === "processed" || entry.kind === "duplicate" ? "info" : "warn";
+    log(level, "inbound mattermost channel", { ...entry });
+  };
+}
+
+/**
+ * The Mattermost transport, config-gated on the access token and a base URL.
+ *
+ * The base URL is the user's own server, so there is no default: with no
+ * `endpoint` in the record, or no token in the secret store under
+ * `secret:messaging-mattermost:access-token`, nothing is opened. The websocket
+ * address is derived from the configured base through the shared endpoint rule,
+ * so a plaintext server is accepted only under the relaxed LAN policy — the
+ * same rule the other channels apply — and the credential never enters the URL.
+ */
+function createConfiguredMattermostTransport(
+  options: MessagingMattermostWiringOptions,
+): MessagingInboundPushTransport {
+  return {
+    async start(onMessage, signal): Promise<void> {
+      let token: string | null = null;
+      try {
+        token = await options.secrets(MESSAGING_MATTERMOST_ACCESS_TOKEN_SECRET_REF);
+      } catch {
+        token = null;
+      }
+      if (!token || !token.trim()) return;
+      let settings: unknown;
+      try {
+        settings = await options.settings.read();
+      } catch {
+        return;
+      }
+      const record = readTransportRecord(settings, MESSAGING_MATTERMOST_SECTION);
+      if (!record.endpoint || !record.destination) return;
+      const socketUrl = mattermostWebSocketUrl(record.endpoint, {
+        allowInsecureHttp: allowInsecureUserEndpoints(settings),
+      });
+      if (!socketUrl.ok) {
+        options.log?.("warn", "inbound mattermost channel has an unusable endpoint", {
+          error: socketUrl.error,
+        });
+        return;
+      }
+      const resolveIdentity =
+        options.resolveIdentity ?? createMattermostIdentityLookup({ endpoint: record.endpoint });
+      const connect = options.connect ?? createWsMattermostSocketFactory();
+      await createMattermostInboundPushTransport({
+        client: {
+          token: token.trim(),
+          resolveIdentity,
+          connect,
+          url: socketUrl.url,
+          handled: createSettingsHandledMessageStore({
+            settings: options.settings,
+            section: MESSAGING_MATTERMOST_SECTION,
+            capacity: MATTERMOST_HANDLED_CAPACITY,
+          }),
+          audit: createMattermostInboundAudit(options.log),
+        },
+        ...(options.wait ? { wait: options.wait } : {}),
+      }).start(onMessage, signal);
+    },
+  };
+}
+
+/**
+ * The wiring for the inbound Mattermost channel over its websocket. The same
+ * driver, binding and target resolver as every other channel, over a websocket
+ * push with REST sends; the section (`messagingMattermost`) and the secret ref
+ * are the only differences.
+ */
+export type MessagingMattermostWiringOptions = {
+  agentHost: MessagingInboundHostSurface;
+  settings: HostSettingsSurface;
+  secrets: HostSecretReader;
+  signal: AbortSignal;
+  log?: MessagingInboundWiringLog;
+  /** Test seam: the `GET /users/me` lookup, in place of the production one. */
+  resolveIdentity?: MattermostIdentityLookup;
+  /** Test seam: the websocket client factory, in place of the production one. */
+  connect?: MattermostSocketFactory;
+  /** Test seam: how the reconnect loop waits. */
+  wait?: (ms: number) => Promise<void>;
+  /** Test seam: a push transport in place of the one built from the settings. */
+  transport?: MessagingInboundPushTransport;
+};
+
+export function createMattermostInboundWiring(
+  options: MessagingMattermostWiringOptions,
+): MessagingInboundWiring {
+  const binding = createSettingsSessionBindingStore(options.settings, MESSAGING_MATTERMOST_SECTION);
+  const targets = createAgentHostTargets(options.agentHost, () => binding.load());
+  const driver = new MessagingInboundDriver({
+    agentHost: options.agentHost,
+    transport: options.transport ?? createConfiguredMattermostTransport(options),
+    readConfig: async () => ({
+      link: readInboundLink(
+        readSection(await options.settings.read(), MESSAGING_MATTERMOST_SECTION),
+        MESSAGING_MATTERMOST_FORMAT,
+        MESSAGING_MATTERMOST_FORMAT_VERSION,
+      ),
+    }),
+    targets,
+    audit: createMessagingInboundAudit(options.log),
+    wait: (ms) => waitOrAbort(ms, options.signal),
+  });
+  return {
+    driver,
+    binding,
+    async run(): Promise<void> {
+      try {
+        await driver.run(options.signal);
+      } catch (error) {
+        options.log?.("warn", "inbound mattermost loop failed", {
           error: error instanceof Error ? error.message : String(error),
         });
       }

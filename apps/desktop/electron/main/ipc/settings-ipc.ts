@@ -5,7 +5,12 @@ import {
   createHostSettingsSurface,
   SLACK_INBOUND_CHANNEL,
 } from "@pi-desktop/host-runtime";
-import { MESSAGING_SLACK_SECTION, MESSAGING_TELEGRAM_SECTION } from "@pi-desktop/agent-host";
+import {
+  MESSAGING_DISCORD_SECTION,
+  MESSAGING_MATTERMOST_SECTION,
+  MESSAGING_SLACK_SECTION,
+  MESSAGING_TELEGRAM_SECTION,
+} from "@pi-desktop/agent-host";
 import { messagingGateway } from "../messaging-gateway";
 import { discoverTelegramChats, probeTelegramBot } from "../messaging-telegram-probe";
 import type { AgentSidecar } from "../agent-sidecar";
@@ -129,7 +134,12 @@ export function registerSettingsIpc({
     async (input: { section?: unknown; value?: unknown }) => {
       if (!host) throw new Error("host unavailable");
       const section = input?.section;
-      if (section !== MESSAGING_TELEGRAM_SECTION && section !== MESSAGING_SLACK_SECTION) {
+      if (
+        section !== MESSAGING_TELEGRAM_SECTION &&
+        section !== MESSAGING_SLACK_SECTION &&
+        section !== MESSAGING_DISCORD_SECTION &&
+        section !== MESSAGING_MATTERMOST_SECTION
+      ) {
         throw Object.assign(new Error("unknown messaging settings section"), {
           errorCode: "INVALID_PARAMS",
         });

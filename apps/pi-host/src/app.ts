@@ -15,6 +15,8 @@ import {
   createMessagingInboundWiring,
   createMessagingOutboundRelay,
   createSlackInboundWiring,
+  createDiscordInboundWiring,
+  createMattermostInboundWiring,
   listPendingToolRequests,
   registerSkillAuthoringTools,
   settleWithinBudget,
@@ -281,6 +283,34 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
     }).run(),
   };
 
+  // The inbound Discord and Mattermost channels, beside the Telegram and Slack
+  // loops: the same driver over outbound gateway websockets the Host
+  // originates (no port is bound). Each is config-gated on its own token and
+  // record, so a Host with neither configured starts nothing. `stop()` aborts
+  // both controllers and awaits them, bounded, before the host is disposed.
+  const messagingDiscordAbort = new AbortController();
+  const messagingDiscord: MessagingInboundHandle = {
+    controller: messagingDiscordAbort,
+    done: createDiscordInboundWiring({
+      agentHost,
+      settings: createHostSettingsSurface(getHost),
+      secrets: createHostSecretReader(getHost),
+      signal: messagingDiscordAbort.signal,
+      log: (level, message, data) => log(level, message, data),
+    }).run(),
+  };
+  const messagingMattermostAbort = new AbortController();
+  const messagingMattermost: MessagingInboundHandle = {
+    controller: messagingMattermostAbort,
+    done: createMattermostInboundWiring({
+      agentHost,
+      settings: createHostSettingsSurface(getHost),
+      secrets: createHostSecretReader(getHost),
+      signal: messagingMattermostAbort.signal,
+      log: (level, message, data) => log(level, message, data),
+    }).run(),
+  };
+
   // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3): the
   // Host-side redactor subscribed on the host-scope event surface, so the
   // redacted summaries of terminal turn outcomes and host-owned requests reach
@@ -377,6 +407,12 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
       // and before the host is disposed: abort, then a bounded wait.
       messagingSlack.controller.abort();
       await settleWithinBudget(messagingSlack.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
+      // The Discord and Mattermost gateway loops stop the same way, beside the
+      // other inbound loops and before the host is disposed.
+      messagingDiscord.controller.abort();
+      await settleWithinBudget(messagingDiscord.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
+      messagingMattermost.controller.abort();
+      await settleWithinBudget(messagingMattermost.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
       // The outbound relay is released the same way, beside the two loops and
       // before the host is disposed: it unsubscribes at once, and the (already
       // settled) wait is bounded so a release that ever refused to settle could

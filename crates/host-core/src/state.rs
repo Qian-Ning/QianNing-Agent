@@ -149,6 +149,12 @@ impl AppState {
         if let Err(error) = crate::messaging_slack::register(&mut messaging, &db, &secrets) {
             tracing::warn!(%error, "outbound slack channel is not available");
         }
+        if let Err(error) = crate::messaging_discord::register(&mut messaging, &db, &secrets) {
+            tracing::warn!(%error, "outbound discord channel is not available");
+        }
+        if let Err(error) = crate::messaging_mattermost::register(&mut messaging, &db, &secrets) {
+            tracing::warn!(%error, "outbound mattermost channel is not available");
+        }
         if let Err(error) = messaging.connect_all() {
             tracing::warn!(%error, "an outbound channel failed to connect");
         }

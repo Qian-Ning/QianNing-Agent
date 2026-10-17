@@ -10,6 +10,8 @@ mod delivery_ledger;
 mod keyboard;
 mod mcp_servers;
 mod messaging_adapter;
+mod messaging_discord;
+mod messaging_mattermost;
 mod messaging_outbound;
 mod messaging_slack;
 mod messaging_telegram;

@@ -65,9 +65,9 @@ import {
  *
  * # Breadth
  *
- * The catalogue lists the platforms the reference product lists. Only Telegram
- * and Slack have an adapter in this build; every other entry opens a panel that
- * says so and names the capability that is missing. No dead form is rendered:
+ * The catalogue lists the platforms the reference product lists. Telegram,
+ * Slack, Discord and Mattermost have an adapter in this build; every other
+ * entry opens a panel that says so and names the capability that is missing. No dead form is rendered:
  * an unsupported platform has no section, no format and no credentials, so
  * there is nothing a form could write.
  *
@@ -397,7 +397,8 @@ function SupportedPanel({
     const label = t(field.labelKey);
     switch (field.id) {
       case "bot-token":
-      case "app-token": {
+      case "app-token":
+      case "access-token": {
         const slot = platform.secrets.find((entry) => entry.id === field.id);
         if (!slot) return null;
         return (
@@ -512,6 +513,7 @@ function SupportedPanel({
     const labelled = [
       "bot-token",
       "app-token",
+      "access-token",
       "destination",
       "subject",
       "endpoint",
@@ -661,13 +663,16 @@ function missingLabelKey(id: string, platform: SupportedMessagingPlatform): stri
     case "endpoint":
       return "settings.messaging.endpoint";
     case "destination":
-      return platform.id === "slack"
-        ? "settings.messaging.channelId"
-        : "settings.messaging.chatId";
+      if (platform.id === "slack") return "settings.messaging.channelId";
+      if (platform.id === "discord") return "settings.messaging.discordChannelId";
+      if (platform.id === "mattermost") return "settings.messaging.mattermostChannel";
+      return "settings.messaging.chatId";
     case "link":
       return "settings.messaging.link";
     case "app-token":
       return "settings.messaging.appToken";
+    case "access-token":
+      return "settings.messaging.mattermostAccessToken";
     default:
       return "settings.messaging.botToken";
   }

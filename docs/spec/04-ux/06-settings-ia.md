@@ -661,8 +661,8 @@ system while preserving their different data ownership:
   second target manager: messaging is how the agent is reached, not something it
   dials.
 - The list carries the reference product's catalogue, so the surface has a real
-  product's density, and it is honest about breadth. **Telegram** and **Slack**
-  are marked Supported and open a working panel. Every other entry is marked Not
+  product's density, and it is honest about breadth. **Telegram**, **Slack**,
+  **Discord** and **Mattermost** are marked Supported and open a working panel. Every other entry is marked Not
   supported and opens a panel that says so in words and names the capability
   this build lacks — a QR pairing flow for a linked phone session, an outbound
   socket client for a gateway protocol, a public webhook receiver, a local
@@ -687,13 +687,17 @@ system while preserving their different data ownership:
   and the roles. **Recommended** holds the API endpoint, the approval mode and
   the request timeout, and each states the consequence of leaving it empty: the
   platform's public address and the host's ten-second default are what apply, and
-  a blank approval mode means every file change waits in the chat. Placeholders
+  a blank approval mode means every file change waits in the chat. Mattermost's
+  server URL is the one exception: it is self-hosted, so it has no public default
+  and is required. Placeholders
   are realistic example values, masked for tokens.
 - A **Get your credentials** walkthrough numbers the steps in each product's own
   language: for Telegram, @BotFather, `/newbot` and the token line, plus
   @userinfobot for a numeric id; for Slack, creating the app, enabling Socket
   Mode, the app-level token, the bot scopes and message event subscriptions, and
-  installing to the workspace. Each panel links out to that platform's official
+  installing to the workspace; for Discord, creating the application, the bot
+  token, the Message Content intent, the OAuth scopes and channel id; and for
+  Mattermost, a personal access token and the server's base URL. Each panel links out to that platform's official
   setup guide.
 - Telegram also offers **Quick setup**. The pasted token is checked with
   `getMe`, so "the bot exists" is confirmed rather than assumed, and
@@ -718,7 +722,9 @@ system while preserving their different data ownership:
   host's secret store under its own ref — `secret:messaging-telegram:bot-token`
   for Telegram; `secret:messaging-slack:app-token` and
   `secret:messaging-slack:bot-token` for Slack, because the Socket Mode
-  connection and the send path use different platform tokens. The record
+  connection and the send path use different platform tokens;
+  `secret:messaging-discord:bot-token` for Discord; and
+  `secret:messaging-mattermost:access-token` for Mattermost. The record
   carries no credential at all. The page shows only whether a ref is present
   ("Stored" / "Not set"), never a value, and an empty token field means "keep
   the stored one".
@@ -989,8 +995,8 @@ system while preserving their different data ownership:
     - Layout → `SettingsCard` + `SettingsRow` from `features/settings/primitives`
     Inline reimplementation of any shared primitive is a spec violation.
 29. Messaging platforms is a chooser plus a panel: the list carries the reference
-    catalogue and marks honestly which platforms this build runs (Telegram and
-    Slack) and which it does not, the unsupported ones opening a statement
+    catalogue and marks honestly which platforms this build runs (Telegram,
+    Slack, Discord and Mattermost) and which it does not, the unsupported ones opening a statement
     rather than a form. It reports three independent states — enabled, setup and
     gateway, the last read from the running receive loops — groups fields into
     required and recommended with the consequence of each blank stated, walks

@@ -74,6 +74,8 @@ export class MainProcessState {
   backendRouter: BackendRouter | null = null;
   messagingInbound: MessagingInboundHandle | null = null;
   messagingSlackInbound: MessagingInboundHandle | null = null;
+  messagingDiscordInbound: MessagingInboundHandle | null = null;
+  messagingMattermostInbound: MessagingInboundHandle | null = null;
   messagingOutbound: MessagingOutboundRelay | null = null;
 
   quitting = false;
@@ -394,6 +396,18 @@ export class MainProcessState {
       },
       set messagingSlackInbound(value) {
         self.messagingSlackInbound = value;
+      },
+      get messagingDiscordInbound() {
+        return self.messagingDiscordInbound;
+      },
+      set messagingDiscordInbound(value) {
+        self.messagingDiscordInbound = value;
+      },
+      get messagingMattermostInbound() {
+        return self.messagingMattermostInbound;
+      },
+      set messagingMattermostInbound(value) {
+        self.messagingMattermostInbound = value;
       },
       get messagingOutbound() {
         return self.messagingOutbound;

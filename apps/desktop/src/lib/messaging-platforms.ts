@@ -32,9 +32,10 @@ import type {
  * # The catalogue is honest about breadth
  *
  * The list carries every platform the reference product lists, because a user
- * comparing the two should be able to see what exists. Only the two with a
- * send path and a receive path in this build are `supported`; the rest render a
- * panel that says so plainly and names the capability that is missing. An
+ * comparing the two should be able to see what exists. Only the four with a
+ * send path and a receive path in this build (Telegram, Slack, Discord and
+ * Mattermost) are `supported`; the rest render a panel that says so plainly and
+ * names the capability that is missing.
  * unsupported entry has no section, no format and no credentials, so there is
  * nothing for a form to write and nothing the host would read.
  */
@@ -60,11 +61,15 @@ export type MessagingPlatformId =
   | "webchat";
 
 /** The one settings section key each channel's record lives under, inside `app`. */
-export type MessagingSectionKey = "messagingTelegram" | "messagingSlack";
+export type MessagingSectionKey =
+  | "messagingTelegram"
+  | "messagingSlack"
+  | "messagingDiscord"
+  | "messagingMattermost";
 
 /** One credential a channel reads, and where the host keeps it. */
 export type MessagingSecretSlot = {
-  id: "app-token" | "bot-token";
+  id: "app-token" | "bot-token" | "access-token";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -152,6 +157,8 @@ function channelFields(platform: {
   destinationHelpKey: string;
   destinationPlaceholderKey: string;
   subjectPlaceholderKey: string;
+  /** The platform's API base example; defaults to Telegram's own. */
+  endpointPlaceholderKey?: string;
 }): MessagingField[] {
   return [
     ...secretFields(platform.secrets),
@@ -190,7 +197,7 @@ function channelFields(platform: {
       group: "recommended",
       labelKey: "settings.messaging.endpoint",
       helpKey: "settings.messaging.endpointHint",
-      placeholderKey: "settings.messaging.endpointPlaceholder",
+      placeholderKey: platform.endpointPlaceholderKey ?? "settings.messaging.endpointPlaceholder",
       consequenceKey: "settings.messaging.consequenceEndpoint",
     },
     {
@@ -204,6 +211,30 @@ function channelFields(platform: {
   ];
 }
 
+/**
+ * Mattermost's fields. Its base URL is required, not recommended: the product
+ * is self-hosted, so there is no public address to fall back to. The rest of the
+ * panel is the shared shape.
+ */
+function mattermostFields(): MessagingField[] {
+  const shared = channelFields({
+    secrets: mattermostSecrets,
+    destinationLabelKey: "settings.messaging.mattermostChannel",
+    destinationHelpKey: "settings.messaging.mattermostChannelHelp",
+    destinationPlaceholderKey: "settings.messaging.mattermostChannelPlaceholder",
+    subjectPlaceholderKey: "settings.messaging.subjectPlaceholderMattermost",
+    endpointPlaceholderKey: "settings.messaging.endpointPlaceholderMattermost",
+  });
+  const endpoint = shared.find((field) => field.id === "endpoint");
+  if (!endpoint) return shared;
+  const rest = shared.filter((field) => field.id !== "endpoint");
+  return [
+    ...rest.filter((field) => field.group === "required"),
+    { ...endpoint, group: "required" as const },
+    ...rest.filter((field) => field.group === "recommended"),
+  ];
+}
+
 const telegramSecrets: MessagingSecretSlot[] = [
   {
     id: "bot-token",
@@ -211,6 +242,26 @@ const telegramSecrets: MessagingSecretSlot[] = [
     labelKey: "settings.messaging.botToken",
     hintKey: "settings.messaging.botTokenHint",
     placeholderKey: "settings.messaging.telegramTokenPlaceholder",
+  },
+];
+
+const discordSecrets: MessagingSecretSlot[] = [
+  {
+    id: "bot-token",
+    ref: "secret:messaging-discord:bot-token",
+    labelKey: "settings.messaging.discordBotToken",
+    hintKey: "settings.messaging.discordBotTokenHint",
+    placeholderKey: "settings.messaging.discordTokenPlaceholder",
+  },
+];
+
+const mattermostSecrets: MessagingSecretSlot[] = [
+  {
+    id: "access-token",
+    ref: "secret:messaging-mattermost:access-token",
+    labelKey: "settings.messaging.mattermostAccessToken",
+    hintKey: "settings.messaging.mattermostAccessTokenHint",
+    placeholderKey: "settings.messaging.mattermostTokenPlaceholder",
   },
 ];
 
@@ -289,6 +340,53 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
     }),
   },
   {
+    id: "discord",
+    support: "supported",
+    section: "messagingDiscord",
+    format: "pi-desktop-messaging-discord",
+    version: 1,
+    defaultEndpoint: "https://discord.com/api/v10",
+    labelKey: "settings.messaging.platformDiscord",
+    blurbKey: "settings.messaging.blurbDiscord",
+    guideUrl: "https://discord.com/developers/docs/topics/gateway",
+    credentialStepKeys: [
+      "settings.messaging.stepDiscord1",
+      "settings.messaging.stepDiscord2",
+      "settings.messaging.stepDiscord3",
+      "settings.messaging.stepDiscord4",
+      "settings.messaging.stepDiscord5",
+    ],
+    secrets: discordSecrets,
+    fields: channelFields({
+      secrets: discordSecrets,
+      destinationLabelKey: "settings.messaging.discordChannelId",
+      destinationHelpKey: "settings.messaging.discordChannelIdHelp",
+      destinationPlaceholderKey: "settings.messaging.discordChannelIdPlaceholder",
+      subjectPlaceholderKey: "settings.messaging.subjectPlaceholderDiscord",
+      endpointPlaceholderKey: "settings.messaging.endpointPlaceholderDiscord",
+    }),
+  },
+  {
+    id: "mattermost",
+    support: "supported",
+    section: "messagingMattermost",
+    format: "pi-desktop-messaging-mattermost",
+    version: 1,
+    // A self-hosted product has no public default: the server URL is required.
+    defaultEndpoint: "",
+    labelKey: "settings.messaging.platformMattermost",
+    blurbKey: "settings.messaging.blurbMattermost",
+    guideUrl: "https://developers.mattermost.com/integrate/reference/",
+    credentialStepKeys: [
+      "settings.messaging.stepMattermost1",
+      "settings.messaging.stepMattermost2",
+      "settings.messaging.stepMattermost3",
+      "settings.messaging.stepMattermost4",
+    ],
+    secrets: mattermostSecrets,
+    fields: mattermostFields(),
+  },
+  {
     id: "whatsapp",
     support: "unsupported",
     labelKey: "settings.messaging.platformWhatsapp",
@@ -296,16 +394,6 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
     guideUrl: "https://developers.facebook.com/docs/whatsapp",
     credentialStepKeys: [],
     requirementKey: "settings.messaging.needsQrPairing",
-    secrets: [],
-  },
-  {
-    id: "discord",
-    support: "unsupported",
-    labelKey: "settings.messaging.platformDiscord",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    guideUrl: "https://discord.com/developers/docs/topics/gateway",
-    credentialStepKeys: [],
-    requirementKey: "settings.messaging.needsSocket",
     secrets: [],
   },
   {
@@ -389,16 +477,6 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
     secrets: [],
   },
   {
-    id: "mattermost",
-    support: "unsupported",
-    labelKey: "settings.messaging.platformMattermost",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    guideUrl: "https://developers.mattermost.com/integrate/reference/",
-    credentialStepKeys: [],
-    requirementKey: "settings.messaging.needsSocket",
-    secrets: [],
-  },
-  {
     id: "nextcloudTalk",
     support: "unsupported",
     labelKey: "settings.messaging.platformNextcloudTalk",
@@ -466,7 +544,7 @@ export const UNSUPPORTED_MESSAGING_PLATFORMS: UnsupportedMessagingPlatform[] =
  * receive loop the desktop main process started for this channel, so the key is
  * the loop's, not the settings section's.
  */
-export type MessagingGatewayChannel = "telegram" | "slack";
+export type MessagingGatewayChannel = "telegram" | "slack" | "discord" | "mattermost";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -478,6 +556,8 @@ export type MessagingGatewaySnapshot = {
   booted: boolean;
   telegram: boolean;
   slack: boolean;
+  discord: boolean;
+  mattermost: boolean;
 };
 
 /** The snapshot to use before the first reply arrives: nothing is known to run. */
@@ -485,6 +565,8 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   booted: false,
   telegram: false,
   slack: false,
+  discord: false,
+  mattermost: false,
 };
 
 /** The link roles the inbound driver accepts, in `RACP_ROLES` order. */
@@ -667,7 +749,13 @@ export function deriveChannelState(
         ? "incomplete"
         : "complete";
   const channel: MessagingGatewayChannel =
-    platform.id === "slack" ? "slack" : "telegram";
+    platform.id === "slack"
+      ? "slack"
+      : platform.id === "discord"
+        ? "discord"
+        : platform.id === "mattermost"
+          ? "mattermost"
+          : "telegram";
   const gatewayState: MessagingGatewayState =
     gateway.booted && gateway[channel] ? "running" : "stopped";
   return { enabled, setup, gateway: gatewayState, missing };

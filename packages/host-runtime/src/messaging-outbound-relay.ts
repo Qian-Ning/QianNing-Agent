@@ -1,4 +1,10 @@
 import {
+  MESSAGING_DISCORD_FORMAT,
+  MESSAGING_DISCORD_FORMAT_VERSION,
+  MESSAGING_DISCORD_SECTION,
+  MESSAGING_MATTERMOST_FORMAT,
+  MESSAGING_MATTERMOST_FORMAT_VERSION,
+  MESSAGING_MATTERMOST_SECTION,
   MESSAGING_SLACK_FORMAT,
   MESSAGING_SLACK_FORMAT_VERSION,
   MESSAGING_SLACK_SECTION,
@@ -91,9 +97,9 @@ export type MessagingOutboundRelayHost = Pick<AgentHost, "subscribe" | "unsubscr
  *
  * Each descriptor mirrors the channel's own record in host-core — its
  * `SETTINGS_SECTION`, `FORMAT` and `FORMAT_VERSION`, and the registry name it
- * registers under (`CHANNEL`), which is also the ledger's channel. The Telegram
- * and Slack values are imported from the module that owns them rather than
- * restated; the webhook channel is host-core's alone
+ * registers under (`CHANNEL`), which is also the ledger's channel. The Telegram,
+ * Slack, Discord and Mattermost values are imported from the module that owns
+ * them rather than restated; the webhook channel is host-core's alone
  * (`crates/host-core/src/messaging_webhook.rs`) and has no TypeScript home, so
  * its three strings are written out here beside its sibling's imports.
  */
@@ -127,6 +133,18 @@ export const MESSAGING_OUTBOUND_CHANNELS: readonly MessagingOutboundChannel[] = 
     section: MESSAGING_SLACK_SECTION,
     format: MESSAGING_SLACK_FORMAT,
     version: MESSAGING_SLACK_FORMAT_VERSION,
+  },
+  {
+    channel: "discord",
+    section: MESSAGING_DISCORD_SECTION,
+    format: MESSAGING_DISCORD_FORMAT,
+    version: MESSAGING_DISCORD_FORMAT_VERSION,
+  },
+  {
+    channel: "mattermost",
+    section: MESSAGING_MATTERMOST_SECTION,
+    format: MESSAGING_MATTERMOST_FORMAT,
+    version: MESSAGING_MATTERMOST_FORMAT_VERSION,
   },
 ];
 

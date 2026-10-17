@@ -205,16 +205,17 @@ inbound listener.
 
 - It subscribes to host-scope events and relays redacted
   summaries of `turn.completed`, `turn.failed`, `approval.requested`, and
-  `input.requested` to outbound channels: webhook first, then Telegram and
-  Slack through their outbound polling or socket modes; channels that require
-  an inbound callback are deferred.
+  `input.requested` to outbound channels: webhook first, then Telegram, Slack,
+  Discord and Mattermost through their outbound APIs; channels that require an
+  inbound callback are deferred. Each gateway channel also carries its own
+  reply send path, chunked at the platform's message limit.
 - It maps a fixed command vocabulary from a linked chat to `turn/start`,
   `turn/stop`, `turn/interrupt`, and `approval/respond`, executed under the
   linked principal's roles and the same Host policy as any client; unlinked
   chats are ignored and audited. Telegram receives commands by an outbound long
-  poll and Slack by a Socket Mode push (ADR 0326) — a WebSocket connection the
-  Host originates to Slack, so Slack inbound needs no inbound callback and no
-  public endpoint either.
+  poll, Slack by a Socket Mode push (ADR 0326), and Discord and Mattermost by
+  their own gateway websockets — every one a connection the Host originates, so
+  none needs an inbound callback or a public endpoint.
 - It never blocks a turn: delivery failures are logged and retried with a
   bound, and the Host runs the same whether the adapter is configured or not.
 
