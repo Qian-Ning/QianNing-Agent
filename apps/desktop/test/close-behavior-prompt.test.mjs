@@ -39,8 +39,16 @@ test("both quit questions are drawn by the renderer first", () => {
 
   const quit = bodyOf(closeBehaviorSource, "const confirmQuitDialog = async");
   assert.ok(
-    quit.indexOf('askRenderer("quit")') < quit.indexOf("dialog.showMessageBox"),
+    quit.indexOf('askRenderer("quit")') < quit.indexOf("askNativeQuit()"),
     "the quit confirmation must ask the renderer before the native dialog",
+  );
+  // The default surface still prefers the renderer; only a caller that names the
+  // native surface (the tray item) skips it.
+  assert.match(quit, /surface: QuitPromptSurface = "auto"/);
+  assert.ok(
+    closeBehaviorSource.indexOf("const askNativeQuit = async") <
+      closeBehaviorSource.indexOf("const confirmTrayQuit ="),
+    "the native dialog is one implementation, asked by both surfaces",
   );
 });
 

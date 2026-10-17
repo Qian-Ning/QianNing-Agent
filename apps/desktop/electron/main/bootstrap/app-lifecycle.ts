@@ -67,6 +67,11 @@ export type ApplicationLifecycleDependencies = {
   safeOpenExternal: (rawUrl: unknown) => Promise<void>;
   showPluginLauncher: () => Promise<void>;
   askCloseBehavior: (window: BrowserWindow) => Promise<CloseBehavior | null>;
+  /**
+   * The quit confirmation, drawn by the OS rather than by the window: the tray
+   * item is clicked while the main window sits hidden inside the tray.
+   */
+  confirmTrayQuit: () => Promise<boolean>;
   applyCloseBehavior: (behavior: CloseBehavior) => void;
   browserHost: BrowserHost;
   pluginViews: PluginViewHost;
@@ -100,6 +105,7 @@ export function createApplicationLifecycle({
   safeOpenExternal,
   showPluginLauncher,
   askCloseBehavior,
+  confirmTrayQuit,
   applyCloseBehavior,
   browserHost,
   pluginViews,
@@ -244,9 +250,50 @@ export function createApplicationLifecycle({
       Menu.buildFromTemplate([
         ...template,
         { type: "separator" },
-        { label: labels.quit, click: () => app.quit() },
+        { label: labels.quit, click: () => void quitFromTray() },
       ]),
     );
+  }
+
+  /**
+   * The tray's Quit item, and the only quit path the tray owns.
+   *
+   * This deliberately does *not* start with `app.quit()`. That runs the ordinary
+   * quit flow, which closes the window, which runs the window's close handler,
+   * which asks `askCloseBehavior` — the Cancel / Minimize-to-tray / Quit
+   * question. A user who just chose Quit must not then be offered minimize-to-
+   * tray, so the tray asks the app's own quit confirmation first and only a
+   * confirmed answer reaches `app.quit()`, with `quitConfirmed` already latched
+   * so `before-quit` does not ask a second time and the close handler releases
+   * the window without prompting.
+   */
+  let trayQuitPromptOpen = false;
+  async function quitFromTray(): Promise<void> {
+    // One question at a time: a second click while the dialog is up must not
+    // stack a second dialog (or a second quit).
+    if (state.quitting || trayQuitPromptOpen) return;
+    trayQuitPromptOpen = true;
+    let confirmed = false;
+    try {
+      // Answered by the OS dialog on purpose — see `confirmTrayQuit`.
+      confirmed = await confirmTrayQuit();
+    } catch (error) {
+      // A confirmation that cannot be asked must not quit unasked; the app
+      // stays up and the tray item can be clicked again.
+      logger.app("lifecycle", "warn", "tray quit confirmation failed", {
+        data: String(error),
+      });
+    } finally {
+      trayQuitPromptOpen = false;
+    }
+    if (!confirmed || state.quitting) return;
+    // Read by both the `before-quit` handler and the window's close handler:
+    // the quit question is already answered, so neither may ask again — least
+    // of all the different, three-option close-behaviour question.
+    state.quitConfirmed = true;
+    const window = state.mainWindow;
+    if (window && !window.isDestroyed()) windowsAllowedToClose.add(window);
+    app.quit();
   }
 
   function createTray() {

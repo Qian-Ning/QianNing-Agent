@@ -14,6 +14,15 @@ export type CloseBehaviorDependencies = {
   createTray: () => void;
 };
 
+/**
+ * Where a quit confirmation is drawn. `auto` prefers the app's own prompt in a
+ * live main window and falls back to the native dialog; `native` goes straight
+ * to the OS dialog, for a quit that was raised from outside the window (the
+ * tray item), where restoring the window just to ask a question would undo the
+ * minimize the user asked for.
+ */
+export type QuitPromptSurface = "auto" | "native";
+
 /** What the user picked in an in-app quit / close prompt (D674). */
 export type QuitPromptChoice = "cancel" | "tray" | "quit";
 /** `quit` confirms exiting the app; `close` picks the window-close behavior. */
@@ -136,9 +145,7 @@ export function createCloseBehaviorRuntime({
     return response === 1 ? "tray" : response === 2 ? "quit" : null;
   };
 
-  const confirmQuitDialog = async (): Promise<boolean> => {
-    const answered = await askRenderer("quit");
-    if (answered) return answered === "quit";
+  const askNativeQuit = async (): Promise<boolean> => {
     const labels = catalogs[resolveLocale(getLocale())];
     const parent =
       state.mainWindow && !state.mainWindow.isDestroyed()
@@ -160,10 +167,34 @@ export function createCloseBehaviorRuntime({
     return response === 1;
   };
 
+  const confirmQuitDialog = async (
+    surface: QuitPromptSurface = "auto",
+  ): Promise<boolean> => {
+    if (surface === "auto") {
+      const answered = await askRenderer("quit");
+      if (answered) return answered === "quit";
+    }
+    return askNativeQuit();
+  };
+
+  /**
+   * The tray's Quit item, deliberately answered by the OS dialog.
+   *
+   * A tray quit is raised outside the window, and the window in question is the
+   * one the user put away in the tray: the renderer cannot draw the question
+   * while it is hidden, so asking it there would only mean waiting out
+   * `QUIT_PROMPT_TIMEOUT_MS` before the same native dialog appears. Restoring
+   * the window to show the app's own card would undo the minimize the user just
+   * asked for, so this path picks the native dialog on purpose rather than
+   * relying on the hidden-window fallback.
+   */
+  const confirmTrayQuit = (): Promise<boolean> => confirmQuitDialog("native");
+
   return {
     applyCloseBehavior,
     askCloseBehavior,
     confirmQuitDialog,
+    confirmTrayQuit,
     answerQuitPrompt,
     readCloseBehavior: () => readCloseBehavior(dataDir),
   };
