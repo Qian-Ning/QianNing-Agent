@@ -320,6 +320,14 @@ settings rail with concise, parallel destination labels. The Agent group
 contains independent Skills, MCP, Subagents, and Messaging platforms
 destinations alongside Instructions and Model configuration; selecting one
 changes the page destination rather than a tab inside a shared capability panel.
+
+Messaging platforms is a chooser plus a panel: the platform list — marked with which
+platforms this build actually runs — and the selected platform's configuration, which
+shows three independently derived states (enabled, setup, gateway), a numbered
+walkthrough for getting that platform's credentials with a link to its own guide,
+required and recommended fields that each state the consequence of being blank, and
+the enable toggle with save at the bottom. A platform this build does not run opens a
+statement of that fact, never a form.
 Appearance lives inside General; global AI behavior (permissions and context
 management) lives inside 全局 AI; keyboard shortcuts and global/project
 instructions have their own destinations; provider management lives inside

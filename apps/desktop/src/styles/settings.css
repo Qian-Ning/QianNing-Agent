@@ -751,20 +751,38 @@
 }
 
 /*
-  Messaging platforms: a master/detail pair. The left rail lists the platforms
-  this build can run, each with its state; the right pane owns the selected
-  platform's record. Surfaces, radii and type sizes come from tokens only.
+  Messaging platforms: a chooser and a work surface. The settings shell already
+  owns the outer rail, so this page is the second and third column of the
+  three-column layout. Surfaces, radii and type sizes come from tokens only.
 */
 .settings-messaging {
   display: grid;
-  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  grid-template-columns: minmax(190px, 250px) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
 
+.settings-messaging-chooser {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.settings-messaging-chooser-head {
+  display: grid;
+  gap: 2px;
+  padding: 0 4px;
+}
+
+.settings-messaging-chooser-note {
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact);
+}
+
 .settings-messaging-list {
   display: grid;
-  gap: 6px;
+  gap: 2px;
 }
 
 .settings-messaging-item {
@@ -772,22 +790,28 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
   border-radius: var(--radius-md-plus);
-  background: var(--ds-tile);
+  background: transparent;
   color: var(--ds-text-secondary);
   text-align: left;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .settings-messaging-item:hover {
-    background: var(--ds-settings-nav-active);
+    background: var(--ds-tile);
+    color: var(--ds-text-primary);
   }
 }
 
 .settings-messaging-item.active {
   background: var(--ds-settings-nav-active);
   color: var(--ds-text-primary);
+}
+
+.settings-messaging-item.is-unsupported .settings-messaging-item-name {
+  color: var(--ds-text-muted);
 }
 
 .settings-messaging-item-name {
@@ -799,9 +823,44 @@
   white-space: nowrap;
 }
 
+.settings-messaging-item-tag {
+  flex: 0 0 auto;
+  color: var(--ds-text-faint);
+  font-size: var(--text-xs-plus);
+}
+
+/*
+  The three state dimensions, one pip each: enabled, setup, gateway. They are
+  order-stable so a row can be read at a glance without the badge being merged.
+*/
+.settings-messaging-pips {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.settings-messaging-pip {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--ds-text-faint);
+}
+
+.settings-messaging-pip[data-tone="on"] {
+  background: var(--ds-success);
+}
+
+.settings-messaging-pip[data-tone="warn"] {
+  background: var(--ds-warning);
+}
+
+.settings-messaging-pip[data-tone="bad"] {
+  background: var(--ds-error);
+}
+
 .settings-messaging-detail {
   display: grid;
-  gap: 12px;
+  gap: 16px;
   min-width: 0;
   padding: 16px;
   border-radius: var(--radius-md-plus);
@@ -829,15 +888,194 @@
   line-height: var(--leading-compact);
 }
 
-.settings-messaging-status-note {
+/* Three answers side by side, each with the evidence it was read from. */
+.settings-messaging-states {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.settings-messaging-state {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  padding: 10px 12px;
+  border-radius: var(--radius-md-plus);
+  background: var(--ds-bg-inset);
+}
+
+.settings-messaging-state-label {
+  color: var(--ds-text-secondary);
+  font-size: var(--text-xs-plus);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.settings-messaging-state-note {
   color: var(--ds-text-muted);
   font-size: var(--text-xs-plus);
   line-height: var(--leading-compact);
 }
 
+.settings-messaging-missing {
+  color: var(--ds-warning);
+  font-size: var(--text-sm);
+  line-height: var(--leading-compact);
+}
+
+.settings-messaging-section-title {
+  margin: 0;
+  color: var(--ds-text-primary);
+  font-size: var(--text-md-plus);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-compact);
+}
+
+.settings-messaging-steps {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md-plus);
+  background: var(--ds-bg-inset);
+}
+
+.settings-messaging-step-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+.settings-messaging-step::marker {
+  color: var(--ds-text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.settings-messaging-guide {
+  justify-self: start;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  text-decoration: underline;
+  text-decoration-color: var(--ds-border-strong);
+  text-underline-offset: 3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .settings-messaging-guide:hover {
+    color: var(--ds-text-primary);
+  }
+}
+
+.settings-messaging-quick {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px dashed var(--ds-border-default);
+  border-radius: var(--radius-md-plus);
+}
+
+.settings-messaging-quick-body {
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+.settings-messaging-quick-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-messaging-quick-row .password-input {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.settings-messaging-quick-note {
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact);
+}
+
+.settings-messaging-quick-note.ok {
+  color: var(--ds-success);
+}
+
+.settings-messaging-quick-note.bad {
+  color: var(--ds-error);
+}
+
 .settings-messaging-form {
   display: grid;
-  gap: 12px;
+  gap: 18px;
+}
+
+.settings-messaging-group {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.settings-messaging-group-title {
+  display: grid;
+  gap: 2px;
+  padding: 0;
+  color: var(--ds-text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.settings-messaging-group-note {
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  font-weight: var(--font-weight-normal);
+  letter-spacing: normal;
+  line-height: var(--leading-compact);
+  text-transform: none;
+}
+
+.settings-messaging-field {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md-plus);
+  background: var(--ds-bg-primary);
+}
+
+.settings-messaging-field.is-invalid {
+  border-color: var(--ds-error);
+}
+
+.settings-messaging-field-label {
+  color: var(--ds-text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.settings-messaging-field-help {
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+.settings-messaging-field-consequence {
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact);
+}
+
+.settings-messaging-field.is-invalid .settings-messaging-field-consequence {
+  color: var(--ds-error);
 }
 
 .settings-messaging-secret {
@@ -845,25 +1083,94 @@
   gap: 4px;
 }
 
-.settings-messaging-secret-state,
-.settings-messaging-secret-ref {
+.settings-messaging-secret-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   color: var(--ds-text-muted);
   font-size: var(--text-xs-plus);
 }
 
 .settings-messaging-secret-ref {
+  color: var(--ds-text-faint);
   font-family: var(--font-mono);
+  font-size: var(--text-xs-plus);
 }
 
-.settings-messaging-actions {
+.settings-messaging-footer {
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ds-border-subtle);
 }
 
-@media (max-width: 720px) {
+.settings-messaging-enable {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.settings-messaging-enable-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-messaging-enable-title {
+  color: var(--ds-text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.settings-messaging-enable-note {
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact);
+}
+
+/* An unsupported platform: a statement, never a form. */
+.settings-messaging-unsupported {
+  display: grid;
+  gap: 10px;
+  max-width: 560px;
+  padding: 16px;
+  border: 1px dashed var(--ds-border-default);
+  border-radius: var(--radius-md-plus);
+}
+
+.settings-messaging-unsupported-body {
+  color: var(--ds-text-primary);
+  font-size: var(--text-md-plus);
+  line-height: var(--leading-body);
+}
+
+.settings-messaging-unsupported-needs,
+.settings-messaging-unsupported-note {
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+.settings-messaging-unsupported-note {
+  color: var(--ds-text-muted);
+}
+
+@media (max-width: 860px) {
   .settings-messaging {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-messaging-states {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-messaging-footer {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

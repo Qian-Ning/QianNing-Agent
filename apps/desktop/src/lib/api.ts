@@ -155,7 +155,12 @@ import {
   validateNetworkProxy,
   validateSpeechSettings,
 } from "@pi-desktop/shared";
-import type { MessagingSectionKey } from "./messaging-platforms";
+import type {
+  MessagingGatewaySnapshot,
+  MessagingSectionKey,
+  TelegramChatsResult,
+  TelegramProbeResult,
+} from "./messaging-platforms";
 
 export type ImportSource = "claude-code" | "opencode" | "codex" | "pi";
 // One definition, owned by the shared package (the host and sidecar use the
@@ -1838,8 +1843,23 @@ export const api = {
    */
   setMessagingSection: (
     section: MessagingSectionKey,
-    value: MessagingChannelSettings,
+    value: MessagingChannelSettings | null,
   ) => invoke<{ ok: boolean }>(IPC.invoke.messagingSetSection, { section, value }),
+  /**
+   * Which inbound loops the main process has running, for the panel's third
+   * state. A fact about that process, not about the settings row.
+   */
+  messagingGateway: () =>
+    invoke<MessagingGatewaySnapshot>(IPC.invoke.messagingGateway),
+  /**
+   * Prove a Telegram token and find the chat that has messaged the bot. The
+   * answer carries ids only; the token is never returned or echoed.
+   */
+  probeTelegram: (token: string, action: "bot" | "chats") =>
+    invoke<TelegramProbeResult | TelegramChatsResult>(IPC.invoke.messagingTelegramProbe, {
+      token,
+      action,
+    }),
   /**
    * Write one credential to the host's secret store, under a `secret:` ref.
    * The value never crosses back: `hasSecret` answers presence only.
