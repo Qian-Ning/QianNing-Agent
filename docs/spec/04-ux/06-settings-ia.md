@@ -47,43 +47,38 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   exact order:
   1. **General / 常规** — Lucide `SlidersHorizontal` (appearance)
   2. **AI** — Lucide `Sparkles` (permissions, defaults, command shell)
-  3. **Shortcuts / 快捷键** — Lucide `Keyboard` (keyboard shortcuts)
-  4. **Models / 模型** — Lucide `Bot` (providers and default model)
-  5. **Skills / 技能** — Lucide `BookOpen` (reusable agent instructions)
-  6. **MCP** — Lucide `Server` (agent connections)
-  7. **Subagents / 子智能体** — Lucide `Bot` (built-in and personal parallel agents)
-  8. **Import / 导入** — Lucide `Download` (bring sessions and model configuration in from other tools)
-  9. **Projects / 项目** — Lucide `Archive` (durable project index)
-  10. **Cloud sync / 云同步** — Lucide `CloudDownload` (encrypted portable configuration backup and bidirectional sync; developer mode only)
-  11. **Remote Hosts / 远程主机** — Lucide `Globe` (SSH bootstrap and pairing inventory; developer mode only)
-  12. **Voice / 语音输入** — Lucide `Mic` (local offline transcription;
-      available in packaged builds, with the microphone button shown after the
-      user enables Voice)
+  3. **Voice / 语音输入** — Lucide `Mic` (local offline transcription;
+     available in packaged builds, with the microphone button shown after the
+     user enables Voice)
+  4. **Shortcuts / 快捷键** — Lucide `Keyboard` (keyboard shortcuts)
+  5. **Models / 模型** — Lucide `Bot` (providers and default model)
+  6. **Skills / 技能** — Lucide `BookOpen` (reusable agent instructions)
+  7. **MCP** — Lucide `Server` (agent connections)
+  8. **Subagents / 子智能体** — Lucide `Bot` (built-in and personal parallel agents)
+  9. **Messaging platforms / 消息平台** — Lucide `MessageSquare` (the chat
+     platforms the agent is reached on)
+  10. **Import / 导入** — Lucide `Download` (bring sessions and model configuration in from other tools)
+  11. **Projects / 项目** — Lucide `Archive` (durable project index)
+  12. **Usage / 用量** — Lucide `ChartColumn` (token usage and cost)
   13. **Info / 信息** — Lucide `Info` (versions, logs, updates, developer)
   Icons are decorative (`aria-hidden` via the SVG default) and stay monochrome
   with the rail label; do not reuse refresh/rotate glyphs here.
 - The directory remains a flat searchable list in the same exact order. For
   scanability, the destinations are shown in four titled visual clusters:
   `Preferences` / `偏好` (General, AI, Shortcuts, Voice), `Agent` / `智能体`
-  (Models, Skills, MCP, Subagents), `Workspace` / `工作区`
-  (Import, Projects), and `System` / `系统` (Cloud sync, Remote Hosts, Info;
-  Cloud sync and Remote Hosts are developer-only). Headings are
+  (Models, Skills, MCP, Subagents, Messaging platforms), `Workspace` / `工作区`
+  (Import, Projects), and `System` / `系统` (Usage, Info). Headings are
   muted, non-interactive labels and use whitespace for separation; no divider
   lines are rendered. These are visual landmarks only, not a second navigation
   level.
   When search filters the directory, empty clusters and their headings disappear.
-- **Cloud sync / 云同步** is a developer-only, Experimental destination: its
-  rail row, page, and settings-search hits exist only while
-  `AppSettings.developerMode` is `true`. With developer mode off the row is
-  absent rather than disabled, settings search returns no hit for it, and a
-  rail position left on it falls back to General. The row and page title carry
-  the Experimental badge (`settings.configSync.experimental`)
-- **Remote Hosts / 远程主机** is a developer-only, Experimental destination: its
-  rail row, its page, and its settings-search hits exist only while
-  `AppSettings.developerMode` is `true`. With developer mode off the row is
-  absent rather than disabled, settings search returns no hit for it, and a
-  rail position left on it falls back to General. The row and the page title
-  carry the Experimental badge (`settings.remoteHosts.experimental`)
+- **Messaging platforms / 消息平台** is a destination of its own, and is not a
+  row inside Connections: a channel the agent is reached on is not a target it
+  dials. Its rail row, page and settings-search hits are part of the normal
+  build in every mode — it is not developer-only and carries no Experimental
+  badge. Cloud sync / 云同步 is retained in the build (rail entry removed) and
+  appears in neither the rail, the destination index, nor settings search;
+  with developer mode on or off the directory is identical.
 - Loaded plugin Settings entries may appear only in a final **Extensions** group
   after all core groups. The host owns their ordering, search result, titlebar
   and fallback to General. The rail icon is the destination's host token
@@ -189,6 +184,12 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
 
 ### Cloud sync
 
+- **Retained, not reachable from the rail.** The destination's component and its
+  host backend remain in the build, but the settings directory no longer offers
+  it: there is no rail row, no destination-index entry, and no settings-search
+  hit, in either developer mode. A rail position left on it falls back to
+  General. Everything below describes the retained page, which is reachable only
+  if its rail entry is restored.
 - **Connection**: WebDAV URL, username, app password, remote directory, device
   label, a separate backup/vault password, and a server compatibility mode.
   Strict CAS is the default. The test action uses only temporary remote
@@ -653,6 +654,43 @@ system while preserving their different data ownership:
   and focus lift a control without adding a persistent in-flow divider; invalid
   form state is announced from the shared error region.
 
+### Messaging platforms
+- A destination of its own — one rail entry, one page — with a platform list on
+  the left and the selected platform's record on the right. It is not part of
+  Connections and is not a second target manager: messaging is how the agent is
+  reached, not something it dials.
+- The list holds only platforms whose send and receive paths both exist in this
+  build: **Telegram** and **Slack**. A platform that could not be made to work
+  is not listed, and no inert "coming soon" row is rendered.
+- Each row carries the platform's name and its state, and the detail pane
+  carries the same state, the form, and the save. State is derived from the
+  stored record, not assumed: **Not configured** when no section exists,
+  **Needs setup** when the record of this build is missing a required field or
+  a credential, **Running** when the record is complete and every credential
+  the channel reads is present, and **Unreadable record** when the stored
+  `format`/`version` is not one this build reads. The pane names the fields
+  that are still missing. `Running` is configuration state: it says the host
+  has what it needs to start the channel, not that a socket is open at this
+  moment, and the page says so.
+- The form edits exactly what the runtime reads: the API endpoint, the
+  conversation (Telegram chat id or Slack channel id), the linked principal's
+  subject and roles, the approval mode carried by a contract approval, and the
+  optional request timeout. The principal's roles are the link's admission: an
+  absent or empty role set leaves the conversation unlinked, so at least one
+  role is required before the form can save.
+- **Credentials never enter settings.** A token typed into the form goes to the
+  host's secret store under its own ref — `secret:messaging-telegram:bot-token`
+  for Telegram; `secret:messaging-slack:app-token` and
+  `secret:messaging-slack:bot-token` for Slack, because the Socket Mode
+  connection and the send path use different platform tokens. The record
+  carries no credential at all. The page shows only whether a ref is present
+  ("Stored" / "Not set"), never a value, and an empty token field means "keep
+  the stored one".
+- Saving writes the credentials first and then the channel's own settings
+  section, through a host-internal write that replaces only that section. A
+  failed credential write therefore leaves the previous configuration intact,
+  and the record never names a credential that was not written.
+
 ### Conversation prompt
 - A conversation's own prompt is the single editable persona scope. It is
   edited from the conversation topbar, not from Settings, so the scope is set
@@ -808,22 +846,23 @@ system while preserving their different data ownership:
 - Project archive is indexed by Settings search and is not duplicated as a home
   sidebar destination or standalone global-search page
 - Back to app returns to chat shell from the rail's pinned footer action
-- Developer-only destinations join and leave the rail, the page, and settings
-  search as one unit: while developer mode is off the rail omits the row,
-  settings search returns no hit for it, and an open Cloud sync or Remote Hosts
-  page returns to General
+- Developer-only destinations would join and leave the rail, the page, and
+  settings search as one unit; no destination currently carries that flag, so
+  the directory is identical in both modes (Cloud sync is not developer-only —
+  it is simply unlisted, with its page retained)
 
 ## 4. Acceptance
 
 1. Opening Settings hides the coding app sidebar (full-page takeover)
 2. Rail shows the search pill at the top, the back-to-app action pinned at the
    foot on the main sidebar's footer icon line, and exactly General / 常规, AI,
-   Shortcuts / 快捷键, Models / 模型, Skills / 技能, MCP,
-   Subagents / 子智能体, Import / 导入, Projects / 项目, Cloud sync / 云同步,
-   Remote Hosts / 远程主机, and Info / 信息 in that order. Cloud sync / 云同步
-   and Remote Hosts / 远程主机 appear only while developer mode is on. The rows are grouped under Preferences / 偏好,
-   Agent / 智能体, Workspace / 工作区, and System / 系统. There is no
-   Usage / 用量 destination.
+   Voice / 语音输入, Shortcuts / 快捷键, Models / 模型, Skills / 技能, MCP,
+   Subagents / 子智能体, Messaging platforms / 消息平台, Import / 导入,
+   Projects / 项目, Usage / 用量, and Info / 信息 in that order. No row is
+   conditional on developer mode or on a packaged build, and there is no
+   Cloud sync / 云同步 or Remote Hosts / 远程主机 destination. The rows are
+   grouped under Preferences / 偏好, Agent / 智能体, Workspace / 工作区, and
+   System / 系统.
 3. Appearance is part of General and has no standalone rail destination
 4. Providers is part of Agent and has no standalone rail destination
 5. Plugins has no Settings destination; the app-shell Plugins page supports
@@ -913,6 +952,10 @@ system while preserving their different data ownership:
     - Status indicators → `Badge` (not inline `<span>` with manual classes)
     - Layout → `SettingsCard` + `SettingsRow` from `features/settings/primitives`
     Inline reimplementation of any shared primitive is a spec violation.
+29. Messaging platforms lists only the platforms this build can run (Telegram
+    and Slack), states each platform's condition from its stored record, and
+    writes a typed credential to the host's secret store under its `secret:` ref
+    — never into the settings row, and never back into the interface
 
 ## 5. General chrome metrics
 

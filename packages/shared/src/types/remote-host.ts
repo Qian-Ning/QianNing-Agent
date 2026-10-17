@@ -64,6 +64,14 @@ export type RemoteHostSummary = {
   connected: boolean;
   /** Absent on records written before the SSH bootstrap existed → `direct`. */
   transport?: RemoteHostTransport;
+  /**
+   * The SSH descriptor a bootstrapped host reconnects through, so a surface can
+   * tell which machine this record belongs to without a second lookup. Absent
+   * for a `direct` host. The bootstrap result already returns this shape, so
+   * listing it exposes nothing new; the login password it may describe is not
+   * part of it.
+   */
+  ssh?: RemoteHostSshMetadata;
 };
 
 /**

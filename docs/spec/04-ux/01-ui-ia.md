@@ -317,8 +317,8 @@ are not tabs or sections of Extensions.
 ### 3.5 Settings (full-page takeover)
 Settings replaces the whole shell (D063): back-to-app + search + a grouped
 settings rail with concise, parallel destination labels. The Agent group
-contains independent Skills, MCP, and Subagents destinations alongside
-Instructions and Model configuration; selecting one
+contains independent Skills, MCP, Subagents, and Messaging platforms
+destinations alongside Instructions and Model configuration; selecting one
 changes the page destination rather than a tab inside a shared capability panel.
 Appearance lives inside General; global AI behavior (permissions and context
 management) lives inside 全局 AI; keyboard shortcuts and global/project
@@ -362,20 +362,45 @@ shared capability contract:
 
 ### 3.6 Connections
 
-The Connections destination is the user-owned list of outbound targets — remote
-shells over SSH, serial devices, telnet endpoints, raw TCP sockets — that the
-agent may operate. It is a sibling of Scheduled and Extensions rather than a
-member of a project tree, because a target is not owned by a project. Each row
-shows its label, its transport kind, and its last probe state, and carries its
-own switch; the whole list sits behind the global switch on the Connections
-settings card. Selecting a row opens its detail view beneath that row: the
-transport and target summary, the credential's *kind* rather than its value, the
+The Connections destination is the user-owned list of machines — remote shells
+over SSH, serial devices, telnet endpoints, raw TCP sockets — that the agent may
+operate. It is a sibling of Scheduled and Extensions rather than a member of a
+project tree, because a target is not owned by a project. Each row shows its
+label, its transport kind, and its last probe state, and carries its own switch;
+the whole list sits behind the global switch on the Connections settings card.
+
+A row is one machine, and a machine has two layers. The *target* is the
+connection profile: address, host-key policy, multiplex mode, limits, credential
+state, and the switch that lets the agent use it. The *host* is whether our
+runtime is installed and running there. The row shows a single host badge —
+running, connecting, reconnecting, disconnected, failed, not installed, or state
+unavailable — driven by the live `remoteHostState` push rather than by the list
+snapshot, so a host that re-dials on its own is reflected without reopening the
+page.
+
+Selecting a row opens its detail view beneath that row: the transport and target
+summary, the credential's *kind* rather than its value, the host section, the
 last probe result including the host-key fingerprint, recent audit activity, and
-the enable, edit, probe, and delete actions. The destination is where a changed
-host key is cleared, because that decision belongs to a person and to no method
-call. There is no terminal view here: a live shell the user drives themselves is
-a different capability, and §10 of `02-architecture/06-connections.md` records
-the exclusion.
+the enable, edit, probe, and delete actions.
+
+There is exactly one add flow: **Add target**, the SSH profile form. Installing
+the runtime is an action *on* a target — it takes the address, user, and identity
+file the target already stores, so it is not a second way to say "machine".
+Pairing is the alternative for a machine with no SSH at all and is offered as
+**Pair a host** beside the add button; a paired runtime with no target keeps its
+own row (marked paired host, with no enable switch) so it can be seen, used for
+sessions, and removed.
+
+Deleting is one action that reports its scope: a row with both layers removes the
+target, its stored credential, and the host registration, and says so before it
+does; a host-only row removes the registration alone. The destination is where a
+changed host key is cleared, because that decision belongs to a person and to no
+method call.
+
+There is no terminal view here: a live shell the user drives themselves is a
+different capability, and §10 of `02-architecture/06-connections.md` records the
+exclusion. Messaging platforms are a Settings destination of their own (§3.5),
+not a row here — a channel the agent is reached on is not a target it dials.
 
 ## 4. Overlays
 

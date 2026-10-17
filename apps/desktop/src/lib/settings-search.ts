@@ -13,10 +13,10 @@ export type SettingsTabId =
   | "skills"
   | "mcp"
   | "subagents"
+  | "messaging"
   | "import"
   | "projects"
   | "sync"
-  | "remoteHosts"
   | "voice"
   | "usage"
   | "about";
@@ -229,6 +229,27 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
     ],
   },
   {
+    /*
+     * Messaging is its own destination, not a row inside Connections: it is
+     * the set of channels the agent is reached on, not a target it dials.
+     */
+    id: "messaging",
+    labelKey: "settings.nav.messaging",
+    titleKey: "settings.messaging.title",
+    group: "agent",
+    keywordKeys: [
+      "settings.messaging.platformSlack",
+      "settings.messaging.platformTelegram",
+      "settings.messaging.endpoint",
+      "settings.messaging.destination",
+      "settings.messaging.botToken",
+      "settings.messaging.appToken",
+      "settings.messaging.statusRunning",
+      "settings.messaging.statusNeedsSetup",
+      "settings.messaging.statusDisabled",
+    ],
+  },
+  {
     id: "import",
     labelKey: "settings.nav.import",
     titleKey: "settings.import",
@@ -257,47 +278,13 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
     ],
   },
   {
-    id: "sync",
-    labelKey: "settings.nav.sync",
-    titleKey: "settings.configSync.title",
-    group: "system",
-    developerOnly: true,
-    developmentOnly: true,
-    experimentalBadgeKey: "settings.configSync.experimental",
-    keywordKeys: [
-      "settings.configSync.connectionTitle",
-      "settings.configSync.endpoint",
-      "settings.configSync.statusTitle",
-      "settings.configSync.categoriesTitle",
-      "settings.configSync.approvalsTitle",
-      "settings.configSync.syncNow",
-    ],
-  },
-  {
-    id: "remoteHosts",
-    labelKey: "settings.nav.remoteHosts",
-    titleKey: "settings.remoteHosts.title",
-    group: "system",
-    developerOnly: true,
-    developmentOnly: true,
-    experimentalBadgeKey: "settings.remoteHosts.experimental",
-    keywordKeys: [
-      "settings.remoteHosts.title",
-      "settings.remoteHosts.addTitle",
-      "settings.remoteHosts.addSsh",
-      "settings.remoteHosts.addPair",
-      "settings.remoteHosts.pair",
-      "settings.remoteHosts.fieldUrl",
-      "settings.remoteHosts.fieldPairingToken",
-      "settings.remoteHosts.sshHost",
-      "settings.remoteHosts.sshAuthMode",
-      "settings.remoteHosts.sshPassword",
-      "settings.remoteHosts.statusOnline",
-      "settings.remoteHosts.statusOffline",
-      "settings.remoteHosts.experimental",
-    ],
-  },
-  {
+    /*
+     * The Cloud sync destination is intentionally absent from the rail, the
+     * page index and settings search. Its component and host backend are kept
+     * in the build; the `sync` tab id still exists so the retained page can be
+     * restored by putting this entry back, and so a stored selection remains
+     * type-safe.
+     */
     id: "usage",
     labelKey: "settings.nav.usage",
     titleKey: "settings.usage",
