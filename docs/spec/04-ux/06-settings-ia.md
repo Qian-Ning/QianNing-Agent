@@ -662,12 +662,12 @@ system while preserving their different data ownership:
   dials.
 - The list carries the reference product's catalogue, so the surface has a real
   product's density, and it is honest about breadth. **Telegram**, **Slack**,
-  **Discord**, **Mattermost** and **Matrix** are marked Supported and open a
-  working panel. Every other entry is marked Not supported and opens a panel
-  that says so in words and names the capability this build lacks — a QR
-  pairing flow for a linked phone session, an outbound socket client for a
-  gateway protocol, a public webhook receiver, or a local bridge process. An
-  unsupported platform renders no
+  **Discord**, **Mattermost**, **Matrix** and **IRC** are marked Supported and
+  open a working panel. Every other entry is marked Not
+  supported and opens a panel that says so in words and names the capability
+  this build lacks — a QR pairing flow for a linked phone session, an outbound
+  socket client for a gateway protocol, a public webhook receiver, a local
+  bridge process, or a client sync loop. An unsupported platform renders no
   form: this build stores no section, format or credential for it, so a field
   could only pretend to save something.
 - Three state dimensions are computed independently and never merged into one
@@ -689,26 +689,39 @@ system while preserving their different data ownership:
   the request timeout, and each states the consequence of leaving it empty: the
   platform's public address and the host's ten-second default are what apply, and
   a blank approval mode means every file change waits in the chat. Mattermost's
-  and Matrix's server URL is the one exception: both are self-hosted (Matrix is
-  also federated), so neither has a public default and both are required.
-  Placeholders are realistic example values, masked for tokens.
+  and Matrix's server URL is the same exception: both are self-hosted (Matrix
+  is also federated), so neither has a public default and both are required.
+  IRC likewise has no public default address and additionally requires the
+  nick it registers; its server password is optional and sits with the
+  recommended fields, and its channel list is recommended because the linked
+  channel is always joined. Placeholders are realistic example values, masked
+  for tokens.
 - A **Get your credentials** walkthrough numbers the steps in each product's own
   language: for Telegram, @BotFather, `/newbot` and the token line, plus
   @userinfobot for a numeric id; for Slack, creating the app, enabling Socket
   Mode, the app-level token, the bot scopes and message event subscriptions, and
   installing to the workspace; for Discord, creating the application, the bot
   token, the Message Content intent, the OAuth scopes and channel id; and for
-  Mattermost, a personal access token and the server's base URL; and for
+  Mattermost, a personal access token and the server's base URL; for IRC, the
+  server address and TLS port (6697), the nick the bot registers, the
+  comma-separated channels to join, and the optional server password; and for
   Matrix, signing in as the account in a web client such as Element, copying
   the access token from Help & About, and taking the room id in Matrix's own
   `!abc:server` form. Each panel links out to that platform's official setup
   guide.
-- Matrix's panel also carries one standing limitation in plain language, and it
-  is the only channel with such a note: **encrypted rooms cannot be read yet**.
+- Matrix's panel also carries one standing limitation in plain language:
+  **encrypted rooms cannot be read yet**.
   This build holds no Matrix device keys, so `m.room.encrypted` events are
   refused and audited rather than answered, and the note says so where the user
   is about to paste a token. The same ref is what the receive path audits, so
   the panel and the log cannot describe the limitation differently.
+- IRC's panel states its limit in plain language: **SASL and TLS client
+  certificates are not supported**. The client registers with `PASS` (only when
+  a server password is set), `NICK` and `USER`, answers the server's `PING` with
+  a matching `PONG`, and joins the configured channels. A registration refusal is
+  reported by its numeric — `433` for a taken nick, `464` for a rejected server
+  password, `465` for a ban — rather than being retried silently, and the panel
+  says so instead of appearing to log in.
 - Telegram also offers **Quick setup**. The pasted token is checked with
   `getMe`, so "the bot exists" is confirmed rather than assumed, and
   `getUpdates` finds the chat that has messaged it, filling the numeric chat id.
@@ -735,7 +748,8 @@ system while preserving their different data ownership:
   connection and the send path use different platform tokens;
   `secret:messaging-discord:bot-token` for Discord;
   `secret:messaging-mattermost:access-token` for Mattermost; and
-  `secret:messaging-matrix:access-token` for Matrix. The record
+  `secret:messaging-matrix:access-token` for Matrix, and
+  `secret:messaging-irc:server-password` for IRC's optional server password. The record
   carries no credential at all. The page shows only whether a ref is present
   ("Stored" / "Not set"), never a value, and an empty token field means "keep
   the stored one".
@@ -1007,7 +1021,7 @@ system while preserving their different data ownership:
     Inline reimplementation of any shared primitive is a spec violation.
 29. Messaging platforms is a chooser plus a panel: the list carries the reference
     catalogue and marks honestly which platforms this build runs (Telegram,
-    Slack, Discord, Mattermost and Matrix) and which it does not, the unsupported ones opening a statement
+    Slack, Discord, Mattermost, Matrix and IRC) and which it does not, the unsupported ones opening a statement
     rather than a form. It reports three independent states — enabled, setup and
     gateway, the last read from the running receive loops — groups fields into
     required and recommended with the consequence of each blank stated, walks

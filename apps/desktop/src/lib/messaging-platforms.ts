@@ -32,10 +32,10 @@ import type {
  * # The catalogue is honest about breadth
  *
  * The list carries every platform the reference product lists, because a user
- * comparing the two should be able to see what exists. Only the five with a
+ * comparing the two should be able to see what exists. Only the six with a
  * send path and a receive path in this build (Telegram, Slack, Discord,
- * Mattermost and Matrix) are `supported`; the rest render a panel that says so
- * plainly and names the capability that is missing. An unsupported entry has no
+ * Mattermost, Matrix and IRC) are `supported`; the rest render a panel that
+ * says so plainly and names the capability that is missing. An unsupported entry has no
  * section, no format and no credentials, so there is nothing for a form to write
  * and nothing the host would read.
  */
@@ -66,11 +66,12 @@ export type MessagingSectionKey =
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
-  | "messagingMatrix";
+  | "messagingMatrix"
+  | "messagingIrc";
 
 /** One credential a channel reads, and where the host keeps it. */
 export type MessagingSecretSlot = {
-  id: "app-token" | "bot-token" | "access-token";
+  id: "app-token" | "bot-token" | "access-token" | "server-password";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -81,6 +82,8 @@ export type MessagingSecretSlot = {
 
 export type MessagingFieldId =
   | MessagingSecretSlot["id"]
+  | "nick"
+  | "channels"
   | "destination"
   | "subject"
   | "roles"
@@ -134,6 +137,13 @@ export type SupportedMessagingPlatform = PlatformBase & {
   secrets: MessagingSecretSlot[];
   /** Every field the panel renders, required first. */
   fields: MessagingField[];
+  /**
+   * What this channel deliberately does not implement, in plain language.
+   *
+   * The panel says it, rather than leaving a user to discover it from a failed
+   * connection: IRC's honest limits are SASL and TLS client certificates.
+   */
+  limitationKey?: string;
 };
 
 export type UnsupportedMessagingPlatform = PlatformBase & {
@@ -262,6 +272,69 @@ function matrixFields(): MessagingField[] {
     ...rest.filter((field) => field.group === "required"),
     { ...endpoint, group: "required" as const },
     ...rest.filter((field) => field.group === "recommended"),
+  ];
+}
+
+/** IRC's only optional credential: a PASS line for a password-protected server. */
+const ircSecrets: MessagingSecretSlot[] = [
+  {
+    id: "server-password",
+    ref: "secret:messaging-irc:server-password",
+    labelKey: "settings.messaging.ircServerPassword",
+    hintKey: "settings.messaging.ircServerPasswordHint",
+    placeholderKey: "settings.messaging.ircServerPasswordPlaceholder",
+  },
+];
+
+/**
+ * IRC's fields.
+ *
+ * The server address is required — IRC is a network of independent servers, so
+ * there is no public default — and so is the nick, which is the identity the
+ * client registers under. The channel list is recommended: the linked channel is
+ * always joined, so a single-channel setup needs only the destination. The
+ * server password is optional and lives in the secret store like every other
+ * credential, never in the record.
+ */
+function ircFields(): MessagingField[] {
+  const shared = channelFields({
+    secrets: [],
+    destinationLabelKey: "settings.messaging.ircChannel",
+    destinationHelpKey: "settings.messaging.ircChannelHelp",
+    destinationPlaceholderKey: "settings.messaging.ircChannelPlaceholder",
+    subjectPlaceholderKey: "settings.messaging.subjectPlaceholderIrc",
+    endpointPlaceholderKey: "settings.messaging.endpointPlaceholderIrc",
+  });
+  const endpoint = shared.find((field) => field.id === "endpoint");
+  const rest = shared.filter((field) => field.id !== "endpoint");
+  return [
+    ...(endpoint ? [{ ...endpoint, group: "required" as const }] : []),
+    {
+      id: "nick" as const,
+      group: "required" as const,
+      labelKey: "settings.messaging.ircNick",
+      helpKey: "settings.messaging.ircNickHint",
+      placeholderKey: "settings.messaging.ircNickPlaceholder",
+      consequenceKey: "settings.messaging.consequenceIrcNick",
+    },
+    ...rest.filter((field) => field.group === "required"),
+    {
+      id: "channels" as const,
+      group: "recommended" as const,
+      labelKey: "settings.messaging.ircChannels",
+      helpKey: "settings.messaging.ircChannelsHint",
+      placeholderKey: "settings.messaging.ircChannelsPlaceholder",
+      consequenceKey: "settings.messaging.consequenceIrcChannels",
+    },
+    ...rest.filter((field) => field.group === "recommended"),
+    {
+      id: "server-password" as const,
+      group: "recommended" as const,
+      labelKey: "settings.messaging.ircServerPassword",
+      helpKey: "settings.messaging.ircServerPasswordHint",
+      placeholderKey: "settings.messaging.ircServerPasswordPlaceholder",
+      consequenceKey: "settings.messaging.consequenceIrcServerPassword",
+    },
   ];
 }
 
@@ -448,6 +521,28 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
     fields: matrixFields(),
   },
   {
+    id: "irc",
+    support: "supported",
+    section: "messagingIrc",
+    format: "pi-desktop-messaging-irc",
+    version: 1,
+    // IRC is a network of independent servers: there is no public default.
+    defaultEndpoint: "",
+    labelKey: "settings.messaging.platformIrc",
+    blurbKey: "settings.messaging.blurbIrc",
+    guideUrl: "https://modern.ircdocs.horse/",
+    credentialStepKeys: [
+      "settings.messaging.stepIrc1",
+      "settings.messaging.stepIrc2",
+      "settings.messaging.stepIrc3",
+      "settings.messaging.stepIrc4",
+      "settings.messaging.stepIrc5",
+    ],
+    secrets: ircSecrets,
+    fields: ircFields(),
+    limitationKey: "settings.messaging.ircLimitations",
+  },
+  {
     id: "whatsapp",
     support: "unsupported",
     labelKey: "settings.messaging.platformWhatsapp",
@@ -485,16 +580,6 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
     guideUrl: "https://support.apple.com/guide/messages/welcome/mac",
     credentialStepKeys: [],
     requirementKey: "settings.messaging.needsBridge",
-    secrets: [],
-  },
-  {
-    id: "irc",
-    support: "unsupported",
-    labelKey: "settings.messaging.platformIrc",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    guideUrl: "https://ircv3.net/",
-    credentialStepKeys: [],
-    requirementKey: "settings.messaging.needsSocket",
     secrets: [],
   },
   {
@@ -600,7 +685,8 @@ export type MessagingGatewayChannel =
   | "slack"
   | "discord"
   | "mattermost"
-  | "matrix";
+  | "matrix"
+  | "irc";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -615,6 +701,7 @@ export type MessagingGatewaySnapshot = {
   discord: boolean;
   mattermost: boolean;
   matrix: boolean;
+  irc: boolean;
 };
 
 /** The snapshot to use before the first reply arrives: nothing is known to run. */
@@ -625,6 +712,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   discord: false,
   mattermost: false,
   matrix: false,
+  irc: false,
 };
 
 /** The link roles the inbound driver accepts, in `RACP_ROLES` order. */
@@ -647,6 +735,10 @@ export const MESSAGING_MAX_TIMEOUT_MS = 60_000;
  */
 export type MessagingDraft = {
   endpoint: string;
+  /** IRC only: the nick to register. Empty for every other channel. */
+  nick: string;
+  /** IRC only: extra channels to join, comma-separated. */
+  channels: string;
   destination: string;
   subject: string;
   roles: RacpRole[];
@@ -674,6 +766,8 @@ export function draftFrom(
   const roles = MESSAGING_ROLES.filter((role) => linked?.roles?.includes(role));
   return {
     endpoint: trimmed(record?.endpoint) || platform.defaultEndpoint,
+    nick: trimmed(record?.nick),
+    channels: trimmed(record?.channels),
     destination: trimmed(record?.destination),
     subject: trimmed(linked?.subject),
     roles: roles.length > 0 ? roles : ["controller"],
@@ -716,6 +810,9 @@ export function draftMissing(
 ): string[] {
   const missing: string[] = [];
   if (trimmed(draft.destination) === "") missing.push("destination");
+  if (platform.fields.some((field) => field.id === "nick") && trimmed(draft.nick) === "") {
+    missing.push("nick");
+  }
   if (trimmed(draft.subject) === "" || draft.roles.length === 0) missing.push("link");
   return missing;
 }
@@ -779,6 +876,9 @@ export function missingFromRecord(
     missing.push("endpoint");
   }
   if (trimmed(record.destination) === "") missing.push("destination");
+  if (platform.fields.some((field) => field.id === "nick") && trimmed(record.nick) === "") {
+    missing.push("nick");
+  }
   const linked = record.inbound?.linkedPrincipal;
   if (!linked || trimmed(linked.subject) === "" || (linked.roles?.length ?? 0) === 0) {
     missing.push("link");
@@ -813,7 +913,9 @@ export function deriveChannelState(
         ? "discord"
         : platform.id === "mattermost"
           ? "mattermost"
-          : "telegram";
+          : platform.id === "irc"
+            ? "irc"
+            : "telegram";
   const gatewayState: MessagingGatewayState =
     gateway.booted && gateway[channel] ? "running" : "stopped";
   return { enabled, setup, gateway: gatewayState, missing };
@@ -850,6 +952,8 @@ export function buildSectionWrite(
     format: platform.format,
     version: platform.version,
     endpoint,
+    ...(trimmed(draft.nick) !== "" ? { nick: trimmed(draft.nick) } : {}),
+    ...(trimmed(draft.channels) !== "" ? { channels: trimmed(draft.channels) } : {}),
     destination,
     ...(Number.isFinite(timeout) && timeout > 0
       ? { requestTimeoutMs: Math.floor(timeout) }

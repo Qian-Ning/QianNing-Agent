@@ -1015,6 +1015,7 @@ registerShutdownHandlers({
   getMessagingDiscordInbound: () => mainState.messagingDiscordInbound,
   getMessagingMattermostInbound: () => mainState.messagingMattermostInbound,
   getMessagingMatrixInbound: () => mainState.messagingMatrixInbound,
+  getMessagingIrcInbound: () => mainState.messagingIrcInbound,
   getMessagingOutbound: () => mainState.messagingOutbound,
   activeTurns,
   persistenceOutbox,

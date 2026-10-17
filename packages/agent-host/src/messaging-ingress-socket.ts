@@ -168,8 +168,20 @@ export abstract class SocketIngressClient implements MessagingIngressClient {
 
   /** Send one frame; a dead socket is not an error, its close drives reconnect. */
   protected send(frame: Record<string, unknown>): void {
+    this.sendText(JSON.stringify(frame));
+  }
+
+  /**
+   * Send one already-formatted frame.
+   *
+   * A JSON channel passes its envelope through [`send`]; a channel whose
+   * protocol is a line rather than an envelope (IRC) formats the line itself and
+   * sends it here, so the socket-tolerance rule below has one implementation and
+   * a raw-socket channel does not need a second connection lifecycle.
+   */
+  protected sendText(frame: string): void {
     try {
-      this.socket?.send(JSON.stringify(frame));
+      this.socket?.send(frame);
     } catch {
       // The socket is gone; the close handler drives the reconnect.
     }

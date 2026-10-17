@@ -53,6 +53,7 @@ export type ShutdownDependencies = {
   getMessagingMattermostInbound: () => MessagingInboundHandle | null;
   /** The inbound Matrix sync loop this boot started, if any. */
   getMessagingMatrixInbound: () => MessagingInboundHandle | null;
+  getMessagingIrcInbound: () => MessagingInboundHandle | null;
   /** The outbound messaging relay this boot subscribed, if any. */
   getMessagingOutbound: () => MessagingOutboundRelay | null;
   activeTurns: Map<string, string>;
@@ -83,6 +84,7 @@ export function registerShutdownHandlers({
   getMessagingDiscordInbound,
   getMessagingMattermostInbound,
   getMessagingMatrixInbound,
+  getMessagingIrcInbound,
   getMessagingOutbound,
   activeTurns,
   persistenceOutbox,
@@ -195,6 +197,10 @@ export function registerShutdownHandlers({
       const messagingMatrixInbound = getMessagingMatrixInbound();
       messagingMatrixInbound?.controller.abort();
       await settleWithinBudget(messagingMatrixInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
+      // The IRC socket loop stops the same way, under the same bound.
+      const messagingIrcInbound = getMessagingIrcInbound();
+      messagingIrcInbound?.controller.abort();
+      await settleWithinBudget(messagingIrcInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
       // The outbound messaging relay is released the same way, beside the two
       // loops and before host-core is disposed: it unsubscribes at once, and the
       // wait is bounded so a release that ever refused to settle cannot hold up

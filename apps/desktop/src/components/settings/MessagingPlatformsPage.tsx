@@ -66,7 +66,7 @@ import {
  * # Breadth
  *
  * The catalogue lists the platforms the reference product lists. Telegram,
- * Slack, Discord and Mattermost have an adapter in this build; every other
+ * Slack, Discord, Mattermost and IRC have an adapter in this build; every other
  * entry opens a panel that says so and names the capability that is missing. No dead form is rendered:
  * an unsupported platform has no section, no format and no credentials, so
  * there is nothing a form could write.
@@ -398,7 +398,8 @@ function SupportedPanel({
     switch (field.id) {
       case "bot-token":
       case "app-token":
-      case "access-token": {
+      case "access-token":
+      case "server-password": {
         const slot = platform.secrets.find((entry) => entry.id === field.id);
         if (!slot) return null;
         return (
@@ -423,6 +424,24 @@ function SupportedPanel({
               <span className="settings-messaging-secret-ref">{slot.ref}</span>
             </span>
           </div>
+        );
+      }
+      case "nick":
+      case "channels": {
+        // IRC's two record fields that are not credentials: the nick it
+        // registers and the extra channels it joins.
+        const isNick = field.id === "nick";
+        return (
+          <Input
+            id={id}
+            value={isNick ? draft.nick : draft.channels}
+            aria-label={label}
+            placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
+            disabled={saving}
+            onChange={(event) =>
+              patch(isNick ? { nick: event.target.value } : { channels: event.target.value })
+            }
+          />
         );
       }
       case "destination":
@@ -514,6 +533,9 @@ function SupportedPanel({
       "bot-token",
       "app-token",
       "access-token",
+      "server-password",
+      "nick",
+      "channels",
       "destination",
       "subject",
       "endpoint",
@@ -565,6 +587,10 @@ function SupportedPanel({
           noteKey="settings.messaging.stateGatewayNote"
         />
       </div>
+
+      {platform.limitationKey ? (
+        <p className="settings-messaging-limitation">{t(platform.limitationKey)}</p>
+      ) : null}
 
       {state.setup === "incomplete" ? (
         <p className="settings-messaging-missing" role="status">
@@ -677,6 +703,12 @@ function missingLabelKey(id: string, platform: SupportedMessagingPlatform): stri
       return "settings.messaging.appToken";
     case "access-token":
       return "settings.messaging.mattermostAccessToken";
+    case "server-password":
+      return "settings.messaging.ircServerPassword";
+    case "nick":
+      return "settings.messaging.ircNick";
+    case "channels":
+      return "settings.messaging.ircChannels";
     default:
       return "settings.messaging.botToken";
   }

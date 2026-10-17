@@ -55,7 +55,7 @@ Linux 或 WSL 机器上的项目，即 SSH 隧道远端 Host 拓扑；#100 要�
 - R3：出站消息集成（#100）。Host 进程内的又一个模块调用方，无传输、无入站
   监听：订阅 Host 范围事件，把 `turn.completed`、`turn.failed`、
   `approval.requested`、`input.requested` 的脱敏摘要转发到出站渠道（先 Webhook，
-  再经 Telegram、Slack 的出站轮询或 socket 模式，以及 Discord、Mattermost 的网关连接；需要入站回调的渠道推迟）；每个网关渠道还带有自己的回复发送路径，按平台的消息长度上限分片；把固定
+  再经 Telegram、Slack 的出站轮询或 socket 模式，以及 Discord、Mattermost 的网关连接；需要入站回调的渠道推迟）；IRC 由主机自己打开的一条客户端 TCP/TLS 连接读取与回复，按协议的字预算分片；每个网关渠道还带有自己的回复发送路径，按平台的消息长度上限分片；把固定
   指令词汇从已关联的聊天映射到 `turn/start`、`turn/stop`、`turn/interrupt`、
   `approval/respond`，以关联主体的角色和同一 Host 策略执行，未关联聊天忽略并审计；
   投递失败有界重试，绝不阻塞回合。Matrix 是第五个渠道、也是第二个拉取渠道：Host 用

@@ -13,6 +13,8 @@ export * from "./messaging-slack-store.js";
 export * from "./messaging-slack-socket.js";
 export * from "./messaging-discord-inbound.js";
 export * from "./messaging-discord-send.js";
+export * from "./messaging-irc-inbound.js";
+export * from "./messaging-irc-send.js";
 export * from "./messaging-mattermost-inbound.js";
 export * from "./messaging-mattermost-send.js";
 export * from "./messaging-matrix-inbound.js";
