@@ -1,5 +1,15 @@
 import type { InboundMessage, MessagingInboundPushTransport } from "./messaging-inbound.js";
 import { validateInboundEndpoint } from "./messaging-inbound.js";
+import {
+  IngressGate,
+  ingressReconnectDelayMs,
+  type IngressAudit,
+  type IngressDeliveryResult,
+  type IngressNormalisation,
+  type SocketIngressAdapter,
+} from "./messaging-ingress.js";
+import { createSocketIngressTransport, SocketIngressClient } from "./messaging-ingress-socket.js";
+import type { IngressSocket } from "./messaging-ingress-socket.js";
 
 export {
   MATTERMOST_POST_LIMIT,
@@ -11,46 +21,42 @@ export {
   type MattermostSender,
   type MattermostSenderOptions,
 } from "./messaging-mattermost-send.js";
+import { MATTERMOST_POST_LIMIT } from "./messaging-mattermost-send.js";
 
 /**
- * The inbound Mattermost channel over its websocket, and the REST send path its
- * replies use.
+ * The inbound Mattermost channel over its websocket — the adapter half.
  *
  * Mattermost's incoming direction is a *push*: the server delivers events to a
- * websocket at `/api/v4/websocket`, which the Host *originates*. No inbound
- * port is bound and no public callback URL is needed, so the acceptance
- * precondition the other channels keep (ADR 0326) stays true. There is no
- * listener here.
+ * websocket at `/api/v4/websocket`, which the Host *originates*. No inbound port
+ * is bound and no public callback URL is needed, so the acceptance precondition
+ * the other channels keep (ADR 0326) stays true. There is no listener here.
  *
- * # What this module is
+ * Everything a socket channel shares with its siblings is the shared layer's:
+ * the connection lifecycle and the reconnect discipline
+ * (`messaging-ingress-socket.ts`), and the replay-guard ordering, the audit sink
+ * and the reply chunker (`messaging-ingress.ts`). This module supplies only what
+ * is Mattermost's own:
  *
- * 1. `GET /api/v4/users/me` resolves the bot's own user id, then the websocket
- *    is opened and `authentication_challenge` is sent with the access token —
- *    Mattermost's own handshake, not a header;
- * 2. a `status` frame with `OK` confirms the token; a refusal is audited and the
- *    socket is closed so the reconnect loop owns the retry;
- * 3. `posted` events are unwrapped (the payload arrives as a JSON string or,
- *    on newer servers, an object), filtered against the bot's own user id and
- *    non-empty system post types, and normalised into the neutral
- *    [`InboundMessage`] shape;
- * 4. a restart-durable guard keyed on the post id deduplicates a redelivery;
- * 5. replies are posted with `POST /api/v4/posts`, chunked at Mattermost's
- *    16383-character limit, sequentially so order is preserved, with `root_id`
- *    carrying a thread so a reply lands in the thread it came from.
+ * - **connect** — `GET /api/v4/users/me` resolves the bot's own user id, the
+ *   websocket is opened, and `authentication_challenge` is sent with the access
+ *   token (Mattermost's own handshake, not a header);
+ * - **normalise** — [`normaliseMattermostPost`]: one `posted` event's post
+ *   (a JSON string on older servers, an object on newer ones), filtered against
+ *   the bot's own user id and non-empty system post types, keyed on the post id;
+ * - **deliver** — `POST /api/v4/posts`, chunked by the shared chunker at
+ *   Mattermost's 16383-character limit and posted sequentially, with `root_id`
+ *   carrying the thread (declared here where a sender is supplied);
+ * - **limit** — [`MATTERMOST_POST_LIMIT`].
  *
- * The command vocabulary, the link, the principal and the four Host operations
- * are the existing driver's (`messaging-inbound.ts`); this module produces a
- * neutral message and hands it to that one routing path through a
- * [`MessagingInboundPushTransport`]. It performs no mapping, no admission and
- * no permission policy of its own.
+ * The handshake answer (`status`/`seq_reply`) and `hello` are Mattermost's own
+ * frames and stay in `handleFrame`.
  *
  * # Trust boundary and the credential
  *
  * The access token is a bearer credential for the REST call and the websocket
- * handshake. It travels in the `Authorization` header and in the
- * `authentication_challenge` frame — the platform's own locations — never in a
- * URL, a log line, an audit entry or an error this module reports. Everything
- * arriving over the socket is untrusted and is validated field by field.
+ * handshake. It travels in the platform's own locations — never in a URL, a log
+ * line, an audit entry or an error this module reports. Everything arriving over
+ * the socket is untrusted and is validated field by field.
  *
  * # Testability without a network
  *
@@ -107,6 +113,41 @@ export type MattermostInboundAuditEntry =
 
 export type MattermostInboundAudit = (entry: MattermostInboundAuditEntry) => void;
 
+/**
+ * The shared audit vocabulary expressed in Mattermost's published entry type:
+ * the id field here is `postId`, and a malformed frame is `malformed-event`.
+ */
+function mattermostAudit(sink?: MattermostInboundAudit): IngressAudit {
+  if (!sink) return () => {};
+  return (entry) => {
+    switch (entry.kind) {
+      case "malformed":
+        return sink({ kind: "malformed-event", reason: entry.reason });
+      case "duplicate":
+      case "processed":
+        return sink({ kind: entry.kind, postId: entry.eventId });
+      case "process-failed":
+      case "record-failed":
+        return sink({ kind: entry.kind, postId: entry.eventId, error: entry.error });
+      case "auth-failed":
+      case "identity-failed":
+      case "connect-failed":
+        return sink({ kind: entry.kind, error: entry.error });
+      case "disconnect":
+        return sink({ kind: "disconnect", reason: entry.reason });
+      case "filtered":
+        return sink({
+          kind: "filtered",
+          reason: entry.reason,
+          ...(entry.channelId ? { channelId: entry.channelId } : {}),
+        });
+      default:
+        // `heartbeat-missed` belongs to Discord.
+        return;
+    }
+  };
+}
+
 /** The bot's own identity, resolved once per connection. */
 export type MattermostIdentityResult =
   | { ok: true; userId: string }
@@ -116,13 +157,7 @@ export type MattermostIdentityResult =
 export type MattermostIdentityLookup = (token: string) => Promise<MattermostIdentityResult>;
 
 /** The minimal websocket surface this module uses. */
-export interface MattermostSocket {
-  send(data: string): void;
-  close(): void;
-  onMessage(handler: (data: string) => void): void;
-  onClose(handler: (code?: number, reason?: string) => void): void;
-  onError(handler: (error: unknown) => void): void;
-}
+export type MattermostSocket = IngressSocket;
 
 /** Opens a websocket to a URL; injected so a suite needs no socket. */
 export type MattermostSocketFactory = (url: string) => MattermostSocket;
@@ -179,6 +214,24 @@ export function classifyMattermostPost(
   return { accepted: true, message: { messageId, chatId, text } };
 }
 
+/**
+ * Project one post onto the shared shape, keyed on the post id. Mattermost keeps
+ * a post id stable server-wide, so the id alone is the replay key.
+ */
+export function normaliseMattermostPost(
+  payload: unknown,
+  botUserId: string | null,
+): IngressNormalisation {
+  const classification = classifyMattermostPost(payload, botUserId);
+  if (!classification.accepted) {
+    const channelId = isRecord(payload) && typeof payload.channel_id === "string"
+      ? payload.channel_id
+      : undefined;
+    return { kind: "filtered", reason: classification.reason, ...(channelId ? { channelId } : {}) };
+  }
+  return { kind: "message", message: classification.message, key: classification.message.messageId };
+}
+
 export type MattermostSocketClientOptions = {
   token: string;
   /** The `GET /users/me` seam, run once per connection. */
@@ -194,30 +247,24 @@ export type MattermostSocketClientOptions = {
 };
 
 /**
- * The websocket client: handshake, `posted` events, strict filters, and the
- * durable guard.
+ * The websocket client: handshake, `posted` events, the strict filter, and the
+ * shared dedupe gate.
  *
  * Mattermost has no resume: a fresh connection receives only what happens after
- * it authenticates, so a reconnect cannot duplicate a subscription. The
- * durable guard still covers a redelivery the server makes within a connection
- * and across a restart, keyed on the post id.
+ * it authenticates, so a reconnect cannot duplicate a subscription. The durable
+ * guard still covers a redelivery the server makes within a connection and
+ * across a restart, keyed on the post id.
  */
-export class MattermostSocketClient {
+export class MattermostSocketClient extends SocketIngressClient {
   private readonly options: MattermostSocketClientOptions;
-  private readonly audit: MattermostInboundAudit;
-  private socket: MattermostSocket | null = null;
+  private readonly gate: IngressGate;
   private botUserId: string | null = null;
-  private ready = false;
-  private closed = true;
-  private closeWaiters: Array<() => void> = [];
 
   constructor(options: MattermostSocketClientOptions) {
+    const audit = mattermostAudit(options.audit);
+    super({ audit });
     this.options = options;
-    this.audit = options.audit ?? (() => {});
-  }
-
-  get isReady(): boolean {
-    return this.ready;
+    this.gate = new IngressGate({ handled: options.handled, onMessage: options.onMessage, audit });
   }
 
   async connect(): Promise<void> {
@@ -233,60 +280,10 @@ export class MattermostSocketClient {
       throw new Error(`mattermost identity lookup refused: ${identity.error}`);
     }
     this.botUserId = identity.userId;
-    const socket = this.options.connect(this.options.url);
-    this.closed = false;
-    this.ready = false;
-    this.socket = socket;
-    socket.onMessage((data) => {
-      void this.handleFrame(data);
-    });
-    socket.onClose((code, reason) => {
-      this.finishClose(reason ?? (code !== undefined ? `closed (${code})` : "closed"));
-    });
-    socket.onError((error) => {
-      this.audit({ kind: "connect-failed", error: errorMessage(error) });
-      this.finishClose(errorMessage(error));
-    });
+    this.attach(this.options.connect(this.options.url));
     // Mattermost's own handshake: the token travels in the frame, not a header
     // and not the URL.
-    socket.send(
-      JSON.stringify({ seq: 1, action: "authentication_challenge", data: { token } }),
-    );
-  }
-
-  waitForClose(signal?: AbortSignal): Promise<void> {
-    if (this.closed || this.socket === null) return Promise.resolve();
-    return new Promise((resolve) => {
-      let settled = false;
-      const done = () => {
-        if (settled) return;
-        settled = true;
-        signal?.removeEventListener("abort", done);
-        resolve();
-      };
-      this.closeWaiters.push(done);
-      signal?.addEventListener("abort", done, { once: true });
-    });
-  }
-
-  close(): void {
-    this.finishClose("closed by the caller");
-  }
-
-  private finishClose(reason: string): void {
-    if (this.closed) return;
-    this.closed = true;
-    this.ready = false;
-    this.audit({ kind: "disconnect", reason });
-    try {
-      this.socket?.close();
-    } catch {
-      // A socket that throws on close is already gone.
-    }
-    this.socket = null;
-    const waiters = this.closeWaiters;
-    this.closeWaiters = [];
-    for (const waiter of waiters) waiter();
+    this.send({ seq: 1, action: "authentication_challenge", data: { token } });
   }
 
   /** Route one raw socket frame: the auth answer, `hello`, or a `posted` event. */
@@ -295,11 +292,11 @@ export class MattermostSocketClient {
     try {
       parsed = JSON.parse(raw);
     } catch {
-      this.audit({ kind: "malformed-event", reason: "frame is not JSON" });
+      this.audit({ kind: "malformed", reason: "frame is not JSON" });
       return;
     }
     if (!isRecord(parsed)) {
-      this.audit({ kind: "malformed-event", reason: "frame is not an object" });
+      this.audit({ kind: "malformed", reason: "frame is not an object" });
       return;
     }
     // The handshake answer is a bare `{status, seq_reply}` frame.
@@ -309,12 +306,12 @@ export class MattermostSocketClient {
         this.finishClose("the handshake was refused");
         return;
       }
-      this.ready = true;
+      this.markReady();
       return;
     }
     const event = typeof parsed.event === "string" ? parsed.event : "";
     if (event === "hello") {
-      this.ready = true;
+      this.markReady();
       return;
     }
     if (event === "posted") {
@@ -325,44 +322,24 @@ export class MattermostSocketClient {
   private async handlePosted(frame: Record<string, unknown>): Promise<void> {
     const data = isRecord(frame.data) ? frame.data : null;
     if (!data) {
-      this.audit({ kind: "malformed-event", reason: "posted event has no data" });
+      this.audit({ kind: "malformed", reason: "posted event has no data" });
       return;
     }
     const post = parsePost(data.post);
     if (!post.ok) {
-      this.audit({ kind: "malformed-event", reason: post.reason });
+      this.audit({ kind: "malformed", reason: post.reason });
       return;
     }
-    const classification = classifyMattermostPost(post.value, this.botUserId);
-    if (!classification.accepted) {
-      const channelId = typeof post.value.channel_id === "string" ? post.value.channel_id : undefined;
-      this.audit({ kind: "filtered", reason: classification.reason, ...(channelId ? { channelId } : {}) });
+    const normalisation = normaliseMattermostPost(post.value, this.botUserId);
+    if (normalisation.kind !== "message") {
+      this.audit({
+        kind: "filtered",
+        reason: normalisation.reason,
+        ...(normalisation.channelId ? { channelId: normalisation.channelId } : {}),
+      });
       return;
     }
-    const { message } = classification;
-    let alreadyHandled: boolean;
-    try {
-      alreadyHandled = await this.options.handled.has(message.messageId);
-    } catch {
-      alreadyHandled = false;
-    }
-    if (alreadyHandled) {
-      this.audit({ kind: "duplicate", postId: message.messageId });
-      return;
-    }
-    try {
-      await this.options.onMessage(message);
-    } catch (error) {
-      this.audit({ kind: "process-failed", postId: message.messageId, error: errorMessage(error) });
-      return;
-    }
-    try {
-      await this.options.handled.record(message.messageId);
-    } catch (error) {
-      this.audit({ kind: "record-failed", postId: message.messageId, error: errorMessage(error) });
-      return;
-    }
-    this.audit({ kind: "processed", postId: message.messageId });
+    await this.gate.ingest(normalisation.message, normalisation.key);
   }
 }
 
@@ -379,10 +356,6 @@ function parsePost(raw: unknown): { ok: true; value: Record<string, unknown> } |
   }
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 export type MattermostInboundTransportOptions = {
   client: Omit<MattermostSocketClientOptions, "onMessage">;
   reconnectDelayMs?: number;
@@ -390,14 +363,52 @@ export type MattermostInboundTransportOptions = {
   wait?: (ms: number) => Promise<void>;
 };
 
-const MIN_RECONNECT_DELAY_MS = 1_000;
-const MAX_RECONNECT_DELAY_MS = 30_000;
-
-/** The reconnect delay: exponential from `baseMs`, capped, with equal jitter. */
+/**
+ * The reconnect delay after `attempt` consecutive failures: the shared jittered,
+ * capped exponential ([`ingressReconnectDelayMs`]).
+ */
 export function mattermostReconnectDelayMs(attempt: number, baseMs: number, maxMs: number): number {
-  const exponential = Math.min(maxMs, baseMs * 2 ** Math.min(attempt, 30));
-  const half = exponential / 2;
-  return Math.round(half + half * Math.random());
+  return ingressReconnectDelayMs(attempt, baseMs, maxMs);
+}
+
+/** What the adapter needs beyond the client's own options. */
+export type MattermostIngressAdapterOptions = Omit<MattermostSocketClientOptions, "onMessage"> & {
+  /** The bot's own user id, when it is already known. */
+  ownUserId?: string;
+  /** The reply path, when one is supplied; the shared chunker calls it per chunk. */
+  deliver?: (chatId: string, text: string) => Promise<IngressDeliveryResult>;
+};
+
+/**
+ * The Mattermost ingress adapter: the platform-specific seams and nothing else.
+ * A fresh client per connection attempt, because Mattermost has no resume and
+ * nothing about a closed connection is worth keeping.
+ */
+export function createMattermostIngressAdapter(
+  options: MattermostIngressAdapterOptions,
+): SocketIngressAdapter {
+  let botUserId: string | null = options.ownUserId ?? null;
+  return {
+    platform: "mattermost",
+    kind: "socket",
+    messageLimit: MATTERMOST_POST_LIMIT,
+    normalise: (raw) => normaliseMattermostPost(raw, botUserId),
+    ...(options.deliver ? { deliver: options.deliver } : {}),
+    openClient: (onMessage) => {
+      const { deliver: _deliver, ownUserId: _ownUserId, ...clientOptions } = options;
+      return new MattermostSocketClient({
+        ...clientOptions,
+        // The identity is resolved by the client's own handshake; the adapter's
+        // filter reads it through this seam so both agree on "the bot's own".
+        resolveIdentity: async (token) => {
+          const result = await clientOptions.resolveIdentity(token);
+          if (result.ok) botUserId = result.userId;
+          return result;
+        },
+        onMessage,
+      });
+    },
+  };
 }
 
 /**
@@ -409,29 +420,11 @@ export function mattermostReconnectDelayMs(attempt: number, baseMs: number, maxM
 export function createMattermostInboundPushTransport(
   options: MattermostInboundTransportOptions,
 ): MessagingInboundPushTransport {
-  const wait = options.wait ?? ((ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
-  const base = Math.max(MIN_RECONNECT_DELAY_MS, options.reconnectDelayMs ?? MIN_RECONNECT_DELAY_MS);
-  const max = Math.max(base, options.maxReconnectDelayMs ?? MAX_RECONNECT_DELAY_MS);
-  return {
-    async start(onMessage, signal) {
-      let failures = 0;
-      while (!signal?.aborted) {
-        const client = new MattermostSocketClient({ ...options.client, onMessage });
-        let established = false;
-        try {
-          await client.connect();
-          established = true;
-          await client.waitForClose(signal);
-        } catch {
-          // The client audited the reason; the wait below is the retry.
-        } finally {
-          client.close();
-        }
-        if (signal?.aborted) break;
-        if (established) failures = 0;
-        await wait(mattermostReconnectDelayMs(failures, base, max));
-        if (!established) failures += 1;
-      }
-    },
-  };
+  return createSocketIngressTransport(createMattermostIngressAdapter(options.client), {
+    ...(options.reconnectDelayMs !== undefined ? { reconnectDelayMs: options.reconnectDelayMs } : {}),
+    ...(options.maxReconnectDelayMs !== undefined
+      ? { maxReconnectDelayMs: options.maxReconnectDelayMs }
+      : {}),
+    ...(options.wait ? { wait: options.wait } : {}),
+  });
 }

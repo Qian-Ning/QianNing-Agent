@@ -35,6 +35,12 @@ export type SettingsHandledMessageStoreOptions = {
   section: string;
   /** The most ids remembered before the oldest is evicted. */
   capacity: number;
+  /**
+   * The field inside `<section>.inbound` that carries the ids. It is the
+   * channel's published schema, so it is not renamed: Slack's guard has always
+   * written `handledEventIds` and the sockets' guards `handledMessageIds`.
+   */
+  field?: string;
 };
 
 export type MessagingHandledMessageStore = {
@@ -42,7 +48,7 @@ export type MessagingHandledMessageStore = {
   record(id: string): Promise<void>;
 };
 
-/** The field inside `<section>.inbound` that carries the ids. */
+/** The field inside `<section>.inbound` that carries the ids, by default. */
 const FIELD = "handledMessageIds";
 
 function readSection(settings: unknown, sectionKey: string): Record<string, unknown> | null {
@@ -51,10 +57,10 @@ function readSection(settings: unknown, sectionKey: string): Record<string, unkn
   return isRecord(section) ? section : null;
 }
 
-function readIds(settings: unknown, sectionKey: string): string[] {
+function readIds(settings: unknown, sectionKey: string, field: string): string[] {
   const section = readSection(settings, sectionKey);
   const inbound = section && isRecord(section.inbound) ? section.inbound : null;
-  const raw = inbound?.[FIELD];
+  const raw = inbound?.[field];
   return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === "string" && id.length > 0) : [];
 }
 
@@ -62,6 +68,7 @@ export function createSettingsHandledMessageStore(
   options: SettingsHandledMessageStoreOptions,
 ): MessagingHandledMessageStore {
   const { settings, section: sectionKey } = options;
+  const field = options.field ?? FIELD;
   const capacity = Math.max(1, Math.floor(options.capacity));
   let tail: Promise<void> = Promise.resolve();
   const serialize = <T>(work: () => Promise<T>): Promise<T> => {
@@ -74,7 +81,7 @@ export function createSettingsHandledMessageStore(
   };
   return {
     async has(id: string): Promise<boolean> {
-      return readIds(await settings.read(), sectionKey).includes(id);
+      return readIds(await settings.read(), sectionKey, field).includes(id);
     },
     record(id: string): Promise<void> {
       return serialize(async () => {
@@ -82,12 +89,12 @@ export function createSettingsHandledMessageStore(
         const section = readSection(state, sectionKey);
         // An unconfigured channel has no field for the guard to occupy.
         if (!section) return;
-        const ids = readIds(state, sectionKey);
+        const ids = readIds(state, sectionKey, field);
         if (ids.includes(id)) return;
         const next = [...ids, id].slice(-capacity);
         const inbound = isRecord(section.inbound) ? section.inbound : {};
         await settings.write({
-          [sectionKey]: { ...section, inbound: { ...inbound, [FIELD]: next } },
+          [sectionKey]: { ...section, inbound: { ...inbound, [field]: next } },
         });
       });
     },

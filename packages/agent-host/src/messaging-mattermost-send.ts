@@ -5,8 +5,20 @@
  * It lives apart from the websocket client so each module has one
  * responsibility; the client re-exports these symbols, so callers and tests
  * import one place.
+ *
+ * The boundary rule, the order of the chunks, the wait out of a 429 and the
+ * bounded retry of a 5xx are the shared delivery loop's ([`deliverInChunks`]).
+ * What stays Mattermost's is one request: the endpoint rule, the URL, the
+ * bearer header, the body (with `root_id`), and how a status maps onto the
+ * shared outcome vocabulary.
  */
 
+import {
+  chunkIngressText,
+  deliverInChunks,
+  type IngressDeliveryResult,
+  type IngressPostOutcome,
+} from "./messaging-ingress.js";
 import { validateInboundEndpoint } from "./messaging-inbound.js";
 
 /** Mattermost's default `MaxPostSize`, in characters. */
@@ -15,7 +27,6 @@ export const MATTERMOST_POST_LIMIT = 16_383;
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-
 
 /** The host's fetch, injected so the send path is testable. */
 export type MattermostFetch = typeof fetch;
@@ -28,22 +39,7 @@ export type MattermostFetch = typeof fetch;
  * original text exactly.
  */
 export function chunkMattermostPost(text: string, limit: number = MATTERMOST_POST_LIMIT): string[] {
-  const size = Math.max(1, Math.floor(limit));
-  if (text.length <= size) return text.length > 0 ? [text] : [];
-  const chunks: string[] = [];
-  let rest = text;
-  while (rest.length > size) {
-    let cut = rest.lastIndexOf("\n", size - 1);
-    if (cut <= 0) cut = rest.lastIndexOf(" ", size - 1);
-    if (cut <= 0) cut = size;
-    const code = rest.charCodeAt(cut - 1);
-    if (code >= 0xd800 && code <= 0xdbff) cut -= 1;
-    if (cut <= 0) cut = size;
-    chunks.push(rest.slice(0, cut));
-    rest = rest.slice(cut);
-  }
-  if (rest.length > 0) chunks.push(rest);
-  return chunks;
+  return chunkIngressText(text, limit);
 }
 
 export type MattermostSendTarget = {
@@ -53,9 +49,8 @@ export type MattermostSendTarget = {
   rootId?: string;
 };
 
-export type MattermostSendResult =
-  | { ok: true; sent: number; ids: string[] }
-  | { ok: false; error: string; sent: number };
+/** The shared result shape; a Mattermost send has nothing of its own to add. */
+export type MattermostSendResult = IngressDeliveryResult;
 
 export type MattermostSenderOptions = {
   /** The base URL the user configured, e.g. `https://chat.example.com`. */
@@ -78,13 +73,14 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_ATTEMPTS = 5;
 
 /**
- * The outbound send path: one POST per chunk to `/api/v4/posts`, sequentially.
+ * The outbound send path: the shared delivery loop over one `/api/v4/posts`
+ * request per chunk.
  *
  * Every chunk of one reply carries the same `root_id`, so a long answer stays
  * in one thread rather than splitting across the channel. A 429 is waited out
- * from `Retry-After` (seconds), a 5xx is retried on a bounded backoff, and any
- * other refusal ends the send with a status-only detail; the token never
- * appears in a result.
+ * from `Retry-After` (seconds) by the shared loop, a 5xx is retried on the
+ * shared bounded backoff, and any other refusal ends the send with a
+ * status-only detail; the token never appears in a result.
  */
 export function createMattermostSender(options: MattermostSenderOptions): MattermostSender {
   const token = options.token.trim();
@@ -92,6 +88,53 @@ export function createMattermostSender(options: MattermostSenderOptions): Matter
   const maxAttempts = Math.max(1, options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
   const wait = options.wait ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const fetchImpl = options.fetchImpl ?? fetch;
+
+  /** One POST of one chunk, in the shared loop's outcome vocabulary. */
+  const post = async (
+    base: string,
+    channelId: string,
+    rootId: string,
+    chunk: string,
+  ): Promise<IngressPostOutcome> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+      const response = await fetchImpl(`${base}/api/v4/posts`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          channel_id: channelId,
+          message: chunk,
+          ...(rootId ? { root_id: rootId } : {}),
+        }),
+        signal: controller.signal,
+        // A followed POST would carry the bearer token to another host.
+        redirect: "manual",
+      });
+      if (response.status === 429) {
+        const header = response.headers.get("retry-after");
+        const parsed = header !== null ? Number(header) : NaN;
+        return {
+          kind: "rate-limited",
+          retryAfterMs: Number.isFinite(parsed) && parsed >= 0 ? Math.ceil(parsed * 1000) : 1000,
+        };
+      }
+      if (response.status >= 500) return { kind: "unavailable" };
+      if (response.status >= 300 && response.status < 400) {
+        return { kind: "refused", error: `mattermost answered a redirect (HTTP ${response.status})` };
+      }
+      if (!response.ok) {
+        return { kind: "refused", error: `mattermost answered HTTP ${response.status}` };
+      }
+      const body = (await response.json().catch(() => null)) as unknown;
+      return { kind: "accepted", id: isRecord(body) && typeof body.id === "string" ? body.id : "" };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
 
   return {
     async send(target: MattermostSendTarget, text: string): Promise<MattermostSendResult> {
@@ -103,68 +146,14 @@ export function createMattermostSender(options: MattermostSenderOptions): Matter
       });
       if (!checked.ok) return { ok: false, error: checked.error, sent: 0 };
       const base = `${checked.url.protocol}//${checked.url.host}${checked.url.pathname.replace(/\/+$/, "")}`;
-      const chunks = chunkMattermostPost(text);
-      if (chunks.length === 0) return { ok: true, sent: 0, ids: [] };
-      const ids: string[] = [];
-      for (const chunk of chunks) {
-        let sent = false;
-        for (let attempt = 0; attempt < maxAttempts && !sent; attempt += 1) {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), timeout);
-          try {
-            const response = await fetchImpl(`${base}/api/v4/posts`, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "content-type": "application/json",
-              },
-              body: JSON.stringify({
-                channel_id: channelId,
-                message: chunk,
-                ...(target.rootId && target.rootId.trim() ? { root_id: target.rootId.trim() } : {}),
-              }),
-              signal: controller.signal,
-              // A followed POST would carry the bearer token to another host.
-              redirect: "manual",
-            });
-            if (response.status === 429) {
-              const header = response.headers.get("retry-after");
-              const parsed = header !== null ? Number(header) : NaN;
-              await wait(Number.isFinite(parsed) && parsed >= 0 ? Math.ceil(parsed * 1000) : 1000);
-              continue;
-            }
-            if (response.status >= 500) {
-              await wait(Math.min(30_000, 500 * 2 ** attempt));
-              continue;
-            }
-            if (response.status >= 300 && response.status < 400) {
-              return { ok: false, error: `mattermost answered a redirect (HTTP ${response.status})`, sent: ids.length };
-            }
-            if (!response.ok) {
-              return { ok: false, error: `mattermost answered HTTP ${response.status}`, sent: ids.length };
-            }
-            const body = (await response.json().catch(() => null)) as unknown;
-            ids.push(isRecord(body) && typeof body.id === "string" ? body.id : "");
-            sent = true;
-          } catch (error) {
-            if (attempt + 1 >= maxAttempts) {
-              return {
-                ok: false,
-                error: error instanceof Error && error.name === "AbortError"
-                  ? "the send timed out"
-                  : "the send failed",
-                sent: ids.length,
-              };
-            }
-            await wait(Math.min(30_000, 500 * 2 ** attempt));
-          } finally {
-            clearTimeout(timer);
-          }
-        }
-        if (!sent) return { ok: false, error: "mattermost kept rate limiting the send", sent: ids.length };
-      }
-      return { ok: true, sent: ids.length, ids };
+      const rootId = target.rootId?.trim() ?? "";
+      return deliverInChunks(text, {
+        platform: "mattermost",
+        limit: MATTERMOST_POST_LIMIT,
+        post: (chunk) => post(base, channelId, rootId, chunk),
+        maxAttempts,
+        wait,
+      });
     },
   };
 }
-

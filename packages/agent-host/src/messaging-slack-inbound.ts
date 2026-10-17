@@ -1,35 +1,33 @@
-import type { InboundMessage, MessagingInboundPushTransport } from "./messaging-inbound.js";
-
 /**
- * The inbound Slack channel over Socket Mode (ADR 0326, rollout R3).
+ * The inbound Slack channel over Socket Mode — the adapter half only.
  *
- * Slack's incoming direction is a *push*: the platform delivers events
- * to a WebSocket the client opens. Socket Mode is the shape that keeps the
- * acceptance precondition — "no inbound port is open on the Host machine" —
- * true, because the connection is one the Host *originates* to Slack, exactly
- * as the Telegram long poll is an outbound HTTPS request. There is no listener,
- * no bound port, and no accepting socket here, and there is no public Events
- * API callback.
+ * Slack's incoming direction is a *push*: the platform delivers envelopes down a
+ * websocket the Host opens. The connection is one the Host *originates*, so no
+ * inbound port is bound, no listener is accepted, and no public Events API
+ * callback is required (ADR 0326) — the acceptance precondition "no inbound port
+ * is open on the Host machine" stays true.
  *
- * # What this module is
+ * Everything a socket channel shares with its siblings lives in the shared
+ * ingress layer: the connection lifecycle and the reconnect discipline
+ * (`messaging-ingress-socket.ts`), and the replay-guard ordering, the audit sink
+ * and the reply chunker (`messaging-ingress.ts`). This module supplies only what
+ * is Slack's own:
  *
- * It is the client half of the inbound path, and nothing else. It:
- *
- * 1. performs the Socket Mode handshake — `apps.connections.open` with the
- *    app-level token, then a WebSocket client connection to the returned URL;
- * 2. unwraps each `events_api` envelope's `event_callback` payload;
- * 3. applies strict filters (a bot id, any subtype other than the plain message
- *    case, and any channel type outside the allowed set are ignored) because
- *    Socket Mode input is externally reachable and untrusted;
- * 4. keeps a restart-durable replay guard keyed on the platform's own event id,
- *    so a redelivery Slack sends after a restart is recognised and not acted on
- *    twice;
- * 5. acknowledges each envelope **only after** the message has been handled and
- *    durably recorded — at-least-once with dedupe, never at-most-once with loss.
+ * - **connect** — `apps.connections.open` with the app-level token, then the
+ *   websocket to the URL it returns;
+ * - **normalise** — [`normaliseSlackEvent`]: one `message` event, filtered to a
+ *   plain human message in an allowed conversation type, projected onto the
+ *   shared shape with the platform's event id as the replay key;
+ * - **acknowledge** — an `events_api` envelope is acked only after the durable
+ *   record, so a redelivery Slack sends after a restart is recognised and never
+ *   acted on twice;
+ * - **limit** — Slack's message size limit, declared for the shared chunker.
+ *   Slack replies leave through host-core's sender, so this module declares the
+ *   limit without growing a second send path.
  *
  * The command vocabulary, the link, the principal and the four Host operations
- * are all the existing driver's (`messaging-inbound.ts`); this module produces a
- * neutral [`InboundMessage`] and hands it to that one routing path through a
+ * are the existing driver's (`messaging-inbound.ts`); this module produces a
+ * neutral message and hands it to that one routing path through a
  * [`MessagingInboundPushTransport`]. It performs no mapping, no admission, and
  * no permission policy of its own.
  *
@@ -37,18 +35,30 @@ import type { InboundMessage, MessagingInboundPushTransport } from "./messaging-
  *
  * The app-level token is a bearer credential for `apps.connections.open`; it is
  * never placed in a URL, never logged, and never appears in an error this module
- * reports. The WebSocket URL the platform returns is used as given. Everything
+ * reports. The websocket URL the platform returns is used as given. Everything
  * arriving over the socket is untrusted and is validated field by field before
  * any of it reaches the driver.
  *
  * # Testability without a network
  *
- * The two seams that would otherwise need a live Slack — the
- * `apps.connections.open` call and the WebSocket client — are injected
- * ([`SlackOpenConnection`] and [`SlackSocketFactory`]). A suite drives the client
- * with a fake of each, so both a successful handshake and a rejected one are
- * reproducible, and no test opens a socket.
+ * The two seams that would otherwise need a live Slack — `apps.connections.open`
+ * and the websocket client — are injected ([`SlackOpenConnection`] and
+ * [`SlackSocketFactory`]). A suite drives the client with a fake of each, so
+ * both a successful handshake and a rejected one are reproducible, and no test
+ * opens a socket.
  */
+
+import type { InboundMessage, MessagingInboundPushTransport } from "./messaging-inbound.js";
+import {
+  IngressGate,
+  ingressReconnectDelayMs,
+  type IngressAudit,
+  type IngressMessage,
+  type IngressNormalisation,
+  type SocketIngressAdapter,
+} from "./messaging-ingress.js";
+import { createSocketIngressTransport, SocketIngressClient } from "./messaging-ingress-socket.js";
+import type { IngressSocket } from "./messaging-ingress-socket.js";
 
 /** The settings section the Slack channel's record lives in, inside `app`. */
 export const MESSAGING_SLACK_SECTION = "messagingSlack";
@@ -60,6 +70,9 @@ export const MESSAGING_SLACK_FORMAT_VERSION = 1;
 export const MESSAGING_SLACK_APP_TOKEN_SECRET_REF = "secret:messaging-slack:app-token";
 /** The platform method that opens a Socket Mode connection. */
 export const SLACK_CONNECTIONS_OPEN_METHOD = "apps.connections.open";
+
+/** Slack's message size limit, in characters, for the shared reply chunker. */
+export const SLACK_MESSAGE_LIMIT = 40_000;
 
 /**
  * The channel types a message event may come from. Anything else — an app-home
@@ -75,12 +88,6 @@ export const SLACK_HANDLED_CAPACITY = 2048;
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-
-/**
- * The settings-backed replay guard moved to its own module
- * (`messaging-slack-store.ts`) to keep this client module focused; the constant
- * it shares lives here.
- */
 
 /** The settings surface the settings-backed replay guard rides. */
 export type SlackSettingsSurface = {
@@ -113,6 +120,43 @@ export type SlackInboundAuditEntry =
 
 export type SlackInboundAudit = (entry: SlackInboundAuditEntry) => void;
 
+/**
+ * The shared audit vocabulary expressed in Slack's published entry type.
+ *
+ * Which facts are recorded, and what a record may carry, is the shared layer's
+ * decision; only the vocabulary is Slack's — `malformed` is this channel's
+ * `malformed-envelope` and the id field is `eventId`.
+ */
+function slackAudit(sink?: SlackInboundAudit): IngressAudit {
+  if (!sink) return () => {};
+  return (entry) => {
+    switch (entry.kind) {
+      case "malformed":
+        return sink({ kind: "malformed-envelope", reason: entry.reason });
+      case "duplicate":
+      case "processed":
+        return sink({ kind: entry.kind, eventId: entry.eventId });
+      case "process-failed":
+      case "record-failed":
+        return sink({ kind: entry.kind, eventId: entry.eventId, error: entry.error });
+      case "auth-failed":
+      case "connect-failed":
+        return sink({ kind: entry.kind, error: entry.error });
+      case "disconnect":
+        return sink({ kind: "disconnect", reason: entry.reason });
+      case "filtered":
+        return sink({
+          kind: "filtered",
+          reason: entry.reason,
+          ...(entry.channelId ? { channelId: entry.channelId } : {}),
+        });
+      default:
+        // `identity-failed` and `heartbeat-missed` belong to other channels.
+        return;
+    }
+  };
+}
+
 /** The answer to `apps.connections.open`: either the WSS URL, or the platform's refusal. */
 export type SlackConnectionResult =
   | { ok: true; url: string }
@@ -126,13 +170,7 @@ export type SlackOpenConnection = (appToken: string) => Promise<SlackConnectionR
  * driven by a fake. A production implementation wraps `ws`; the shape is
  * deliberately small — send a frame, close, and three event subscriptions.
  */
-export interface SlackSocket {
-  send(data: string): void;
-  close(): void;
-  onMessage(handler: (data: string) => void): void;
-  onClose(handler: (code?: number, reason?: string) => void): void;
-  onError(handler: (error: unknown) => void): void;
-}
+export type SlackSocket = IngressSocket;
 
 /** Opens a WebSocket client connection to a URL; injected so a suite needs no socket. */
 export type SlackSocketFactory = (url: string) => SlackSocket;
@@ -159,7 +197,7 @@ export type SlackSocketModeClientOptions = {
  * A refusal carries a reason the caller audits; only `accepted` yields a message.
  */
 type EventClassification =
-  | { accepted: true; message: InboundMessage }
+  | { accepted: true; message: IngressMessage }
   | { accepted: false; reason: string };
 
 /**
@@ -200,6 +238,33 @@ export function classifySlackMessageEvent(
   return { accepted: true, message: { messageId, chatId, text } };
 }
 
+/**
+ * Project one Slack `message` event onto the shared shape.
+ *
+ * Slack keeps the event id stable across a redelivery, so the replay key is the
+ * event id rather than the message id: a redelivered envelope is recognised even
+ * before its timestamp is re-read.
+ */
+export function normaliseSlackEvent(
+  event: unknown,
+  allowedChannelTypes: readonly string[],
+  eventId: string,
+): IngressNormalisation {
+  const classification = classifySlackMessageEvent(event, allowedChannelTypes);
+  if (!classification.accepted) {
+    const channelId = isRecord(event) && typeof event.channel === "string" ? event.channel : undefined;
+    return { kind: "filtered", reason: classification.reason, ...(channelId ? { channelId } : {}) };
+  }
+  return {
+    kind: "message",
+    message: classification.message,
+    // The replay key is the platform's event id; a bare event (one the adapter
+    // is handed without its envelope) falls back to the message's own timestamp,
+    // which Slack also keeps stable across a redelivery.
+    key: eventId.trim() || classification.message.messageId,
+  };
+}
+
 /** One `events_api` envelope, already checked down to the fields this module reads. */
 type SlackEnvelope = {
   envelopeId: string;
@@ -210,11 +275,11 @@ type SlackEnvelope = {
 /**
  * Unwrap one `events_api` envelope down to its `event_callback` payload.
  *
- * Returns `null` (with a reason) for anything this module cannot process: an
- * envelope with no string id (nothing to ack), a payload that is not an
- * `event_callback`, or a payload with no event. The event id Slacks provides is
- * carried out as the replay key; when it is absent the envelope id stands in,
- * so a redelivery is still recognised.
+ * Returns the reason for anything this module cannot process: an envelope with
+ * no string id (nothing to ack), a payload that is not an `event_callback`, or a
+ * payload with no event. The event id Slack provides is carried out as the
+ * replay key; when it is absent the envelope id stands in, so a redelivery is
+ * still recognised.
  */
 function unwrapEnvelope(
   envelope: Record<string, unknown>,
@@ -231,31 +296,24 @@ function unwrapEnvelope(
 }
 
 /**
- * The Socket Mode client: handshake, envelope unwrap, strict filters, the
- * restart-durable replay guard, and the ack discipline.
+ * The Socket Mode client: handshake, envelope unwrap, the strict filter, the
+ * shared dedupe gate, and the ack discipline.
  *
- * It is deliberately small and side-effect-limited so a suite can drive it
- * frame by frame through the two injected seams. It never opens a listener and
- * never touches Host state.
+ * The connection lifecycle (attach, readiness, close waiters) and the reconnect
+ * policy are the shared socket layer's. This class is Slack's framing: which
+ * envelope type means hello, which means reconnect, and which carries a message.
  */
-export class SlackSocketModeClient {
+export class SlackSocketModeClient extends SocketIngressClient {
   private readonly options: SlackSocketModeClientOptions;
   private readonly allowed: readonly string[];
-  private readonly audit: SlackInboundAudit;
-  private socket: SlackSocket | null = null;
-  private ready = false;
-  private closed = false;
-  private closeWaiters: Array<() => void> = [];
+  private readonly gate: IngressGate;
 
   constructor(options: SlackSocketModeClientOptions) {
+    const audit = slackAudit(options.audit);
+    super({ audit });
     this.options = options;
     this.allowed = options.allowedChannelTypes ?? SLACK_DEFAULT_ALLOWED_CHANNEL_TYPES;
-    this.audit = options.audit ?? (() => {});
-  }
-
-  /** Whether a `hello` frame has been seen on the current connection. */
-  get isReady(): boolean {
-    return this.ready;
+    this.gate = new IngressGate({ handled: options.handled, onMessage: options.onMessage, audit });
   }
 
   /**
@@ -264,7 +322,7 @@ export class SlackSocketModeClient {
    *
    * A refused `apps.connections.open` (a bad token, a network failure) is
    * audited and thrown, so the caller's reconnect loop owns the retry; no socket
-   * is opened in that case. On success the socket is opened and every frame it
+   * is opened in that case. On success the socket is adopted and every frame it
    * delivers is routed to [`handleFrame`].
    */
   async connect(): Promise<void> {
@@ -279,60 +337,7 @@ export class SlackSocketModeClient {
       this.audit({ kind: "auth-failed", error: result.error });
       throw new Error(`socket mode handshake refused: ${result.error}`);
     }
-    const socket = this.options.connect(result.url);
-    this.socket = socket;
-    socket.onMessage((data) => {
-      void this.handleFrame(data);
-    });
-    socket.onClose((code, reason) => {
-      this.finishClose(reason ?? (code !== undefined ? `closed (${code})` : "closed"));
-    });
-    socket.onError((error) => {
-      this.audit({ kind: "connect-failed", error: error instanceof Error ? error.message : String(error) });
-      // An `error` is normally followed by a `close`, but if the platform emits
-      // one without the other the reconnect loop would sit in `waitForClose`
-      // until abort. End the wait here as well, so the loop is never stalled;
-      // the following `close` (when there is one) is a no-op because
-      // `finishClose` is idempotent.
-      this.finishClose(error instanceof Error ? error.message : String(error));
-    });
-  }
-
-  /** Resolves once the current socket closes, or `signal` aborts. */
-  waitForClose(signal?: AbortSignal): Promise<void> {
-    if (this.closed || this.socket === null) return Promise.resolve();
-    return new Promise((resolve) => {
-      let settled = false;
-      const done = () => {
-        if (settled) return;
-        settled = true;
-        signal?.removeEventListener("abort", done);
-        resolve();
-      };
-      this.closeWaiters.push(done);
-      signal?.addEventListener("abort", done, { once: true });
-    });
-  }
-
-  /** Close the socket and mark the client closed. */
-  close(): void {
-    this.finishClose("closed by the caller");
-  }
-
-  private finishClose(reason: string): void {
-    if (this.closed) return;
-    this.closed = true;
-    this.ready = false;
-    this.audit({ kind: "disconnect", reason });
-    try {
-      this.socket?.close();
-    } catch {
-      // A socket that throws on close is already gone; there is nothing to do.
-    }
-    this.socket = null;
-    const waiters = this.closeWaiters;
-    this.closeWaiters = [];
-    for (const waiter of waiters) waiter();
+    this.attach(this.options.connect(result.url));
   }
 
   /** Route one raw socket frame by its Slack envelope type. */
@@ -341,16 +346,16 @@ export class SlackSocketModeClient {
     try {
       parsed = JSON.parse(raw);
     } catch {
-      this.audit({ kind: "malformed-envelope", reason: "frame is not JSON" });
+      this.audit({ kind: "malformed", reason: "frame is not JSON" });
       return;
     }
     if (!isRecord(parsed)) {
-      this.audit({ kind: "malformed-envelope", reason: "frame is not an object" });
+      this.audit({ kind: "malformed", reason: "frame is not an object" });
       return;
     }
     const type = typeof parsed.type === "string" ? parsed.type : "";
     if (type === "hello") {
-      this.ready = true;
+      this.markReady();
       return;
     }
     if (type === "disconnect") {
@@ -362,7 +367,7 @@ export class SlackSocketModeClient {
       await this.handleEnvelope(parsed);
       return;
     }
-    this.audit({ kind: "malformed-envelope", reason: `unknown envelope type "${type}"` });
+    this.audit({ kind: "malformed", reason: `unknown envelope type "${type}"` });
   }
 
   /**
@@ -375,7 +380,7 @@ export class SlackSocketModeClient {
   private async handleEnvelope(envelope: Record<string, unknown>): Promise<void> {
     const unwrapped = unwrapEnvelope(envelope);
     if (!unwrapped.ok) {
-      this.audit({ kind: "malformed-envelope", reason: unwrapped.reason });
+      this.audit({ kind: "malformed", reason: unwrapped.reason });
       // Nothing to ack if there is no id; otherwise ack so the platform stops
       // redelivering a frame this path will never process.
       const id = typeof envelope.envelope_id === "string" ? envelope.envelope_id : "";
@@ -384,10 +389,13 @@ export class SlackSocketModeClient {
     }
     const { envelopeId, eventId, event } = unwrapped.value;
 
-    const classification = classifySlackMessageEvent(event, this.allowed);
-    if (!classification.accepted) {
-      const channelId = isRecord(event) && typeof event.channel === "string" ? event.channel : undefined;
-      this.audit({ kind: "filtered", reason: classification.reason, ...(channelId ? { channelId } : {}) });
+    const normalisation = normaliseSlackEvent(event, this.allowed, eventId);
+    if (normalisation.kind !== "message") {
+      this.audit({
+        kind: "filtered",
+        reason: normalisation.reason,
+        ...(normalisation.channelId ? { channelId: normalisation.channelId } : {}),
+      });
       // A filtered event is not this path's to act on; ack it so Slack does not
       // redeliver it forever. It is never recorded — a filtered event leaves no
       // trace in the durable guard.
@@ -395,58 +403,14 @@ export class SlackSocketModeClient {
       return;
     }
 
-    // The restart-durable replay guard: a redelivery (including one across a
-    // restart) is acked without being handled again.
-    let alreadyHandled: boolean;
-    try {
-      alreadyHandled = await this.options.handled.has(eventId);
-    } catch {
-      alreadyHandled = false;
-    }
-    if (alreadyHandled) {
-      this.audit({ kind: "duplicate", eventId });
-      this.ack(envelopeId);
-      return;
-    }
-
-    // Handle first; a failure here leaves the envelope unacked so Slack
-    // redelivers it rather than the command being lost.
-    try {
-      await this.options.onMessage(classification.message);
-    } catch (error) {
-      this.audit({
-        kind: "process-failed",
-        eventId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return;
-    }
-
-    // Record durably, and only then ack. If the record fails, the envelope stays
-    // unacked: a crash now would let Slack redeliver, and the guard that would
-    // have recognised the redelivery was never written, so the message is
-    // re-applied rather than silently dropped.
-    try {
-      await this.options.handled.record(eventId);
-    } catch (error) {
-      this.audit({
-        kind: "record-failed",
-        eventId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return;
-    }
-
-    this.audit({ kind: "processed", eventId });
-    this.ack(envelopeId);
+    // The gate consults the durable guard, handles, records, then acks — in that
+    // order, so a redelivery across a restart is recognised and a failure leaves
+    // the envelope for Slack to redeliver.
+    await this.gate.ingest(normalisation.message, normalisation.key, () => this.ack(envelopeId));
   }
 
   private ack(envelopeId: string): void {
-    try {
-      this.socket?.send(JSON.stringify({ envelope_id: envelopeId }));
-    } catch {
-      // The socket is gone; the platform will redeliver on the next connection.
-    }
+    this.send({ envelope_id: envelopeId });
   }
 }
 
@@ -462,80 +426,55 @@ export type SlackInboundTransportOptions = {
   wait?: (ms: number) => Promise<void>;
 };
 
-/** The least the loop waits before reconnecting, so a flapping socket cannot spin it. */
-const MIN_RECONNECT_DELAY_MS = 1_000;
-
 /**
- * The most the loop waits between attempts. Without a cap a permanently bad
- * token would back off without bound (minutes, then hours) and a token fixed
- * while the Host runs would not be picked up for that long; with the cap it
- * retries at most every 30s, so a repaired credential is live again quickly.
- */
-const MAX_RECONNECT_DELAY_MS = 30_000;
-
-/**
- * The reconnect delay after `attempt` consecutive failures (`attempt` 0 is the
- * first failure): exponential from `baseMs`, capped at `maxMs`, with equal
- * jitter — the value is drawn from [d/2, d] where `d` is the capped
- * exponential. The jitter keeps a fleet of Hosts from retrying a down platform
- * in lockstep; equal jitter is chosen over full jitter because it keeps the
- * sequence non-decreasing (the next exponential is twice the current, so its
- * floor is the current ceiling), which both avoids a retry that is shorter than
- * the last and makes the escalation testable without pinning the random source.
+ * The reconnect delay after `attempt` consecutive failures: the shared jittered,
+ * capped exponential ([`ingressReconnectDelayMs`]). Kept as this channel's named
+ * export because its escalation is part of the channel's contract.
  */
 export function slackReconnectDelayMs(attempt: number, baseMs: number, maxMs: number): number {
-  const exponential = Math.min(maxMs, baseMs * 2 ** Math.min(attempt, 30));
-  const half = exponential / 2;
-  return Math.round(half + half * Math.random());
+  return ingressReconnectDelayMs(attempt, baseMs, maxMs);
 }
 
 /**
- * The production push transport: it opens a Socket Mode connection, serves its
- * frames through [`SlackSocketModeClient`], and reconnects until `signal`
- * aborts.
+ * The Slack ingress adapter: the platform-specific seams and nothing else.
  *
- * The driver hands `start` the one handler its routing path uses
- * ([`MessagingInboundDriver::handleMessage`]); the transport binds that as the
- * client's `onMessage`, so a Slack message and a Telegram message go through the
- * same routing path and no second one exists. A refused handshake, a socket
- * error, and a platform `disconnect` all leave the loop to wait and reconnect,
- * so an unreachable platform can neither take the Host down nor spin the CPU.
- * The wait is exponential from the first delay up to a cap, with jitter, so a
- * permanently bad token settles at the cap instead of hammering the platform
- * once a second; a connection whose handshake was accepted resets the back-off,
- * so a healthy channel reconnects at the base delay.
+ * `openClient` builds one client per connection attempt; the shared transport
+ * owns the reconnect loop, the back-off and the one-subscription-per-attempt
+ * rule. This object is what the conformance suite runs against, and what the
+ * next socket channel is compared with.
+ */
+export function createSlackIngressAdapter(
+  options: Omit<SlackSocketModeClientOptions, "onMessage">,
+): SocketIngressAdapter {
+  const allowed = options.allowedChannelTypes ?? SLACK_DEFAULT_ALLOWED_CHANNEL_TYPES;
+  return {
+    platform: "slack",
+    kind: "socket",
+    messageLimit: SLACK_MESSAGE_LIMIT,
+    normalise: (raw) => normaliseSlackEvent(raw, allowed, ""),
+    openClient: (onMessage) => new SlackSocketModeClient({ ...options, onMessage }),
+  };
+}
+
+/**
+ * The production push transport: a Socket Mode connection served through
+ * [`SlackSocketModeClient`], reconnected until `signal` aborts.
+ *
+ * The driver hands `start` the one handler its routing path uses; the transport
+ * binds that as the client's `onMessage`, so a Slack message and a Telegram
+ * message go through the same routing path and no second one exists. A refused
+ * handshake, a socket error and a platform `disconnect` all leave the loop to
+ * wait and reconnect, so an unreachable platform can neither take the Host down
+ * nor spin it.
  */
 export function createSlackInboundPushTransport(
   options: SlackInboundTransportOptions,
 ): MessagingInboundPushTransport {
-  const wait = options.wait ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
-  const base = Math.max(MIN_RECONNECT_DELAY_MS, options.reconnectDelayMs ?? MIN_RECONNECT_DELAY_MS);
-  const max = Math.max(base, options.maxReconnectDelayMs ?? MAX_RECONNECT_DELAY_MS);
-  return {
-    async start(onMessage, signal) {
-      let failures = 0;
-      while (!signal?.aborted) {
-        const client = new SlackSocketModeClient({ ...options.client, onMessage });
-        let established = false;
-        try {
-          await client.connect();
-          established = true;
-          await client.waitForClose(signal);
-        } catch {
-          // A refused handshake or a failed connect: fall through to the wait
-          // and try again. The client already audited the reason.
-        } finally {
-          client.close();
-        }
-        if (signal?.aborted) break;
-        // A connection whose handshake was accepted is not the failure loop a
-        // bad token is, so it resets the back-off to the base delay. A refused
-        // handshake escalates the next delay.
-        if (established) failures = 0;
-        await wait(slackReconnectDelayMs(failures, base, max));
-        if (!established) failures += 1;
-      }
-    },
-  };
+  return createSocketIngressTransport(createSlackIngressAdapter(options.client), {
+    ...(options.reconnectDelayMs !== undefined ? { reconnectDelayMs: options.reconnectDelayMs } : {}),
+    ...(options.maxReconnectDelayMs !== undefined
+      ? { maxReconnectDelayMs: options.maxReconnectDelayMs }
+      : {}),
+    ...(options.wait ? { wait: options.wait } : {}),
+  });
 }
-
