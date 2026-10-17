@@ -34,6 +34,7 @@ import {
   chunkIngressText,
   IngressGate,
   type IngressCursorStore,
+  ingressUtf8Bytes,
   type IngressDeliveryResult,
   type IngressMessage,
   type IngressNormalise,
@@ -65,10 +66,82 @@ export type IngressConformanceConnection = {
 };
 
 /**
- * A push channel's reconnect probe: one connection, then a second one, so the
- * suite can prove a reconnect does not create a second subscription and does
- * not re-deliver a message the durable guard already knows.
+ * The raw-socket pair a line protocol's suite needs: two ends of one in-process
+ * connection, no OS socket and no network.
+ *
+ * A websocket channel can be driven with a frame emitter because its transport
+ * already frames for it. A line protocol — IRC is the first — has to frame
+ * *bytes* itself, so a fixture that only pushed whole lines would skip the
+ * splitter that is the channel's own work. Both ends here are byte sinks: what
+ * one end writes arrives at the other's data handler verbatim, so a suite can
+ * send half a line, then the rest, and prove the client reassembled it.
+ *
+ * The shape is the structural subset every raw-socket client in the shared layer
+ * uses (`write`/`end`/`onData`/`onClose`/`onError`), so the next line protocol
+ * reuses this rather than writing a third fake.
  */
+export type IngressRawSocketEnd = {
+  /** Write bytes; they arrive at the other end's data handler. */
+  write(text: string): void;
+  /** Close this end, which closes the other end with a close event. */
+  end(): void;
+  onData(handler: (chunk: string) => void): void;
+  onClose(handler: (reason?: string) => void): void;
+  onError(handler: (error: unknown) => void): void;
+};
+
+export type IngressRawSocketPair = {
+  /** The end the client attaches; it is the `IrcRawSocket` the factory returns. */
+  client: IngressRawSocketEnd;
+  /** The end the suite plays the server on. */
+  server: IngressRawSocketEnd;
+  /** The platform's transport failure, as the client's error handler sees it. */
+  fail(error: unknown): void;
+};
+
+/** Build one in-process byte connection: what one end writes the other reads. */
+export function createIngressRawSocketPair(): IngressRawSocketPair {
+  type Side = {
+    data: Array<(chunk: string) => void>;
+    close: Array<(reason?: string) => void>;
+    error: Array<(error: unknown) => void>;
+    peer: Side | null;
+    closed: boolean;
+  };
+  const side = (): Side => ({ data: [], close: [], error: [], peer: null, closed: false });
+  const left = side();
+  const right = side();
+  left.peer = right;
+  right.peer = left;
+  const endpoint = (self: Side): IngressRawSocketEnd => ({
+    write(text) {
+      const peer = self.peer;
+      if (!peer || self.closed) return;
+      for (const handler of peer.data) handler(text);
+    },
+    end() {
+      if (self.closed) return;
+      self.closed = true;
+      for (const handler of self.peer!.close) handler("the connection ended");
+    },
+    onData(handler) {
+      self.data.push(handler);
+    },
+    onClose(handler) {
+      self.close.push(handler);
+    },
+    onError(handler) {
+      self.error.push(handler);
+    },
+  });
+  return {
+    client: endpoint(left),
+    server: endpoint(right),
+    fail(error) {
+      for (const handler of left.error) handler(error);
+    },
+  };
+}
 export type IngressReconnectProbe = {
   first: IngressConformanceConnection;
   /** Open the second connection (the reconnect), reusing the same guard. */
@@ -207,11 +280,13 @@ export function ingressConformanceScenarios(
       async run() {
         const limit = adapter.messageLimit;
         assert.ok(Number.isFinite(limit) && limit > 0, "the adapter must declare its message limit");
+        const unit = adapter.messageLimitUnit ?? "characters";
         const text = longReply(limit);
-        const chunks = chunkIngressText(text, limit);
+        const chunks = chunkIngressText(text, limit, unit);
         assert.ok(chunks.length > 1, "the fixture reply must cross the limit");
         for (const chunk of chunks) {
-          assert.ok(chunk.length <= limit, `a chunk of ${chunk.length} exceeds the limit ${limit}`);
+          const size = unit === "bytes" ? ingressUtf8Bytes(chunk) : chunk.length;
+          assert.ok(size <= limit, `a chunk of ${size} exceeds the limit ${limit} ${unit}`);
         }
         assert.equal(chunks.join(""), text, "joining the chunks must return the original text");
       },
@@ -266,11 +341,10 @@ export function ingressConformanceScenarios(
         const result = await delivery.result;
         assert.equal(result.ok, true, "the delivery must succeed");
         assert.ok(delivery.chunks.length > 1, "the fixture reply must cross the limit");
+        const unit = adapter.messageLimitUnit ?? "characters";
         for (const chunk of delivery.chunks) {
-          assert.ok(
-            chunk.length <= limit,
-            `a delivered chunk of ${chunk.length} exceeds the limit ${limit}`,
-          );
+          const size = unit === "bytes" ? ingressUtf8Bytes(chunk) : chunk.length;
+          assert.ok(size <= limit, `a delivered chunk of ${size} exceeds the limit ${limit} ${unit}`);
         }
         assert.equal(
           delivery.chunks.join(""),

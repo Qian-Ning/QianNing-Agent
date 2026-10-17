@@ -4,6 +4,10 @@ import {
   MESSAGING_DISCORD_FORMAT,
   MESSAGING_DISCORD_FORMAT_VERSION,
   MESSAGING_DISCORD_SECTION,
+  MESSAGING_IRC_FORMAT,
+  MESSAGING_IRC_FORMAT_VERSION,
+  MESSAGING_IRC_SECTION,
+  MESSAGING_IRC_SERVER_PASSWORD_SECRET_REF,
   MESSAGING_MATTERMOST_ACCESS_TOKEN_SECRET_REF,
   MESSAGING_MATTERMOST_FORMAT,
   MESSAGING_MATTERMOST_FORMAT_VERSION,
@@ -21,11 +25,13 @@ import {
   MESSAGING_TELEGRAM_SECTION,
   DISCORD_DEFAULT_ENDPOINT,
   DISCORD_HANDLED_CAPACITY,
+  IRC_HANDLED_CAPACITY,
   MATTERMOST_HANDLED_CAPACITY,
   MATRIX_HANDLED_CAPACITY,
   createAgentHostTargets,
   createDiscordInboundPushTransport,
   createDiscordGatewayLookup,
+  createIrcInboundPushTransport,
   createMattermostIdentityLookup,
   createMattermostInboundPushTransport,
   createMatrixInboundPushTransport,
@@ -39,10 +45,14 @@ import {
   createWsSlackSocketFactory,
   mattermostWebSocketUrl,
   matrixApiBase,
+  normaliseIrcChannels,
   readInboundLink,
+  validateIrcEndpoint,
   type DiscordGatewayLookup,
   type DiscordInboundAudit,
   type DiscordSocketFactory,
+  type IrcSocketFactory,
+  type IrcInboundAudit,
   type MattermostIdentityLookup,
   type MattermostInboundAudit,
   type MattermostSocketFactory,
@@ -1167,6 +1177,129 @@ export function createMatrixInboundWiring(
     channel: MATRIX_INBOUND_CHANNEL,
     transport: options.transport ?? createConfiguredMatrixTransport(options),
     failureLabel: "inbound matrix loop failed",
+  });
+}
+
+/** The IRC channel's descriptor, selected by its own bind channel. */
+export const IRC_INBOUND_CHANNEL: MessagingInboundChannel = {
+  section: MESSAGING_IRC_SECTION,
+  format: MESSAGING_IRC_FORMAT,
+  version: MESSAGING_IRC_FORMAT_VERSION,
+};
+
+/** The audit sink for the IRC client: structure and ids only, never a password. */
+export function createIrcInboundAudit(log?: MessagingInboundWiringLog): IrcInboundAudit {
+  if (!log) return () => {};
+  return (entry) => {
+    const level = entry.kind === "processed" || entry.kind === "duplicate" ? "info" : "warn";
+    log(level, "inbound irc channel", { ...entry });
+  };
+}
+
+/**
+ * The IRC transport, config-gated on a record and a nick.
+ *
+ * `start` reads the channel's section from the host's own settings row and only
+ * then opens a connection: no section, no server address, no nick, or no linked
+ * channel means it returns without opening anything, so an install with no IRC
+ * channel configured starts no loop and behaves exactly as it did before this
+ * channel existed.
+ *
+ * The server address goes through the shared endpoint rule (TLS unless the
+ * relaxed policy names a LAN host), and a refused address is logged and not
+ * dialled. The optional server password is read from its own secret reference
+ * and handed to the client only to be written as `PASS`; it is never placed in a
+ * log entry, and the refusal reasons the client reports name the numeric, not
+ * the parameter.
+ *
+ * Channels are the record's `channels` list plus its linked `destination`, so a
+ * record that names only the linked channel joins it without repeating it.
+ */
+function createConfiguredIrcTransport(
+  options: MessagingIrcWiringOptions,
+): MessagingInboundPushTransport {
+  return {
+    async start(onMessage, signal): Promise<void> {
+      let settings: unknown;
+      try {
+        settings = await options.settings.read();
+      } catch {
+        return;
+      }
+      const section = readSection(settings, MESSAGING_IRC_SECTION);
+      if (!section) return;
+      const record = readTransportRecord(settings, MESSAGING_IRC_SECTION);
+      const nick = typeof section.nick === "string" ? section.nick.trim() : "";
+      if (!record.endpoint || !record.destination || !nick) return;
+      const checked = validateIrcEndpoint(record.endpoint, {
+        allowInsecureHttp: allowInsecureUserEndpoints(settings),
+      });
+      if (!checked.ok) {
+        options.log?.("warn", "inbound irc channel has an unusable server address", {
+          error: checked.error,
+        });
+        return;
+      }
+      let password: string | null = null;
+      try {
+        password = await options.secrets(MESSAGING_IRC_SERVER_PASSWORD_SECRET_REF);
+      } catch {
+        password = null;
+      }
+      const channels = normaliseIrcChannels(section.channels, record.destination);
+      if (channels.length === 0) return;
+      await createIrcInboundPushTransport({
+        client: {
+          endpoint: checked.endpoint,
+          nick,
+          channels,
+          ...(password && password.trim() ? { password: password.trim() } : {}),
+          handled: createSettingsHandledMessageStore({
+            settings: options.settings,
+            section: MESSAGING_IRC_SECTION,
+            capacity: IRC_HANDLED_CAPACITY,
+          }),
+          audit: createIrcInboundAudit(options.log),
+          ...(options.connect ? { connect: options.connect } : {}),
+        },
+        ...(options.wait ? { wait: options.wait } : {}),
+      }).start(onMessage, signal);
+    },
+  };
+}
+
+/**
+ * The wiring for the inbound IRC channel over a raw TLS socket.
+ *
+ * The same driver, binding store and target resolver as every other channel,
+ * over a connection the Host originates — no port is bound and no listener
+ * exists. The section (`messagingIrc`), the nick it carries in the record, and
+ * the one optional secret (the server password, under its own ref) are the only
+ * differences.
+ */
+export type MessagingIrcWiringOptions = {
+  agentHost: MessagingInboundHostSurface;
+  settings: HostSettingsSurface;
+  secrets: HostSecretReader;
+  signal: AbortSignal;
+  log?: MessagingInboundWiringLog;
+  /** Test seam: the raw socket factory, in place of the TLS one. */
+  connect?: IrcSocketFactory;
+  /** Test seam: how the reconnect loop waits. */
+  wait?: (ms: number) => Promise<void>;
+  /** Test seam: a push transport in place of the one built from the settings. */
+  transport?: MessagingInboundPushTransport;
+};
+
+export function createIrcInboundWiring(options: MessagingIrcWiringOptions): MessagingInboundWiring {
+  return createIngressWiring({
+    agentHost: options.agentHost,
+    settings: options.settings,
+    signal: options.signal,
+    ...(options.log ? { log: options.log } : {}),
+    channel: IRC_INBOUND_CHANNEL,
+    transport: options.transport ?? createConfiguredIrcTransport(options),
+    failureLabel: "inbound irc loop failed",
   });
 }
 

@@ -5,6 +5,9 @@ import {
   MESSAGING_DISCORD_BOT_TOKEN_SECRET_REF,
   MESSAGING_DISCORD_FORMAT,
   MESSAGING_DISCORD_FORMAT_VERSION,
+  MESSAGING_IRC_FORMAT,
+  MESSAGING_IRC_FORMAT_VERSION,
+  MESSAGING_IRC_SERVER_PASSWORD_SECRET_REF,
   MESSAGING_MATTERMOST_ACCESS_TOKEN_SECRET_REF,
   MESSAGING_MATTERMOST_FORMAT,
   MESSAGING_MATTERMOST_FORMAT_VERSION,
@@ -18,6 +21,7 @@ import {
 
 import {
   createDiscordInboundWiring,
+  createIrcInboundWiring,
   createMattermostInboundWiring,
   type HostSettingsSurface,
   type MessagingInboundHostSurface,
@@ -452,6 +456,173 @@ describe("mattermost inbound wiring", () => {
     const row = (await settings.read()) as Record<string, unknown>;
     const inbound = (row.messagingMattermost as Record<string, unknown>).inbound as Record<string, unknown>;
     expect(inbound.handledMessageIds).toEqual(["p-1"]);
+
+    controller.abort();
+    await done;
+  });
+});
+
+// ---------------------------------------------------------------------------
+// IRC: config gate, registration into the existing driver, byte-limited replies
+// ---------------------------------------------------------------------------
+
+/** A raw IRC socket the suite plays a server on: bytes in, lines out. */
+class FakeIrcSocket {
+  readonly lines: string[] = [];
+  private dataHandler: ((chunk: string) => void) | null = null;
+  private closed = false;
+  write(text: string): void {
+    if (this.closed) return;
+    for (const line of text.split("\r\n")) if (line !== "") this.lines.push(line);
+  }
+  end(): void {
+    this.closed = true;
+  }
+  onData(handler: (chunk: string) => void): void {
+    this.dataHandler = handler;
+  }
+  onClose(): void {}
+  onError(): void {}
+  send(line: string): void {
+    this.dataHandler?.(`${line}\r\n`);
+  }
+}
+
+class IrcFactory {
+  readonly created: FakeIrcSocket[] = [];
+  factory = (): FakeIrcSocket => {
+    const socket = new FakeIrcSocket();
+    this.created.push(socket);
+    return socket;
+  };
+  get last(): FakeIrcSocket {
+    const socket = this.created[this.created.length - 1];
+    if (!socket) throw new Error("no IRC connection was opened");
+    return socket;
+  }
+}
+
+function ircWiring(options: {
+  settings: HostSettingsSurface;
+  signal: AbortSignal;
+  secrets: (ref: string) => Promise<string | null>;
+  factory: IrcFactory;
+  routed?: Routed[];
+  logs?: Array<{ level: string; message: string; data?: Record<string, unknown> }>;
+}) {
+  const logs = options.logs ?? [];
+  const log: MessagingInboundWiringLog = (level, message, data) => logs.push({ level, message, data });
+  return {
+    logs,
+    wiring: createIrcInboundWiring({
+      agentHost: stubHost(options.routed ?? []),
+      settings: options.settings,
+      secrets: options.secrets,
+      signal: options.signal,
+      connect: options.factory.factory,
+      wait: async () => {},
+      log,
+    }),
+  };
+}
+
+function ircSection(extra: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    ...section(MESSAGING_IRC_FORMAT, MESSAGING_IRC_FORMAT_VERSION, "#pi-desktop"),
+    endpoint: "ircs://irc.example.test:6697",
+    nick: "pi-bot",
+    channels: "#pi-desktop, #ops",
+    ...extra,
+  };
+}
+
+describe("irc inbound wiring", () => {
+  it("opens no connection without a section, without a nick, or without a channel", async () => {
+    const cases: Array<Record<string, unknown>> = [
+      {},
+      { messagingIrc: ircSection({ nick: "" }) },
+      { messagingIrc: ircSection({ channels: "", destination: "" }) },
+    ];
+    for (const row of cases) {
+      const factory = new IrcFactory();
+      const controller = new AbortController();
+      const { wiring } = ircWiring({
+        settings: memorySettings(row),
+        signal: controller.signal,
+        factory,
+        secrets: async () => null,
+      });
+      const done = wiring.run();
+      await settle();
+      expect(factory.created).toHaveLength(0);
+      controller.abort();
+      await done;
+    }
+  });
+
+  it("refuses a plaintext server address without the relaxed policy and logs why", async () => {
+    const factory = new IrcFactory();
+    const logs: Array<{ level: string; message: string; data?: Record<string, unknown> }> = [];
+    const controller = new AbortController();
+    const { wiring } = ircWiring({
+      settings: memorySettings({
+        messagingIrc: ircSection({ endpoint: "irc://irc.example.test:6667" }),
+      }),
+      signal: controller.signal,
+      factory,
+      secrets: async () => null,
+      logs,
+    });
+    const done = wiring.run();
+    await settle();
+    expect(factory.created).toHaveLength(0);
+    expect(logs.some((entry) => entry.level === "warn")).toBe(true);
+    controller.abort();
+    await done;
+  });
+
+  it("registers, joins the configured channels, and routes one message into a turn", async () => {
+    const routed: Routed[] = [];
+    const factory = new IrcFactory();
+    const logs: Array<{ level: string; message: string; data?: Record<string, unknown> }> = [];
+    const controller = new AbortController();
+    const secretsAsked: string[] = [];
+    const { wiring } = ircWiring({
+      settings: memorySettings({ messagingIrc: ircSection() }),
+      signal: controller.signal,
+      factory,
+      secrets: async (ref) => {
+        secretsAsked.push(ref);
+        return "server-password-value";
+      },
+      routed,
+      logs,
+    });
+    const done = wiring.run();
+    await settle();
+
+    expect(factory.created).toHaveLength(1);
+    const socket = factory.last;
+    expect(socket.lines).toContain("PASS :server-password-value");
+    expect(socket.lines).toContain("NICK pi-bot");
+    expect(secretsAsked).toContain(MESSAGING_IRC_SERVER_PASSWORD_SECRET_REF);
+
+    socket.send(":irc.example.test 001 pi-bot :Welcome");
+    await settle();
+    expect(socket.lines).toContain("JOIN #pi-desktop");
+    expect(socket.lines).toContain("JOIN #ops");
+
+    socket.send(":human-1!u@host PRIVMSG #pi-desktop :/start hi");
+    await settle();
+    expect(routed).toEqual([{ operation: "turn/start", sessionId: SESSION_ID, text: "hi" }]);
+
+    // Our own nick, echoed with the server's casing, is not a command.
+    socket.send(":PI-BOT!bot@host PRIVMSG #pi-desktop :/start own");
+    await settle();
+    expect(routed).toHaveLength(1);
+
+    // The password never reaches a log entry.
+    expect(JSON.stringify(logs)).not.toContain("server-password-value");
 
     controller.abort();
     await done;

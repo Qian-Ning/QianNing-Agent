@@ -18,6 +18,7 @@ import {
   createDiscordInboundWiring,
   createMattermostInboundWiring,
   createMatrixInboundWiring,
+  createIrcInboundWiring,
   listPendingToolRequests,
   registerSkillAuthoringTools,
   settleWithinBudget,
@@ -326,6 +327,23 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
     }).run(),
   };
 
+  // The inbound IRC channel, beside the others: the same driver over a raw TLS
+  // connection the Host originates (no port is bound). Config-gated on its
+  // record, nick and linked channel, so a Host with no IRC section starts
+  // nothing. `stop()` aborts this controller and awaits the loop, bounded,
+  // before the host is disposed.
+  const messagingIrcAbort = new AbortController();
+  const messagingIrc: MessagingInboundHandle = {
+    controller: messagingIrcAbort,
+    done: createIrcInboundWiring({
+      agentHost,
+      settings: createHostSettingsSurface(getHost),
+      secrets: createHostSecretReader(getHost),
+      signal: messagingIrcAbort.signal,
+      log: (level, message, data) => log(level, message, data),
+    }).run(),
+  };
+
   // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3): the
   // Host-side redactor subscribed on the host-scope event surface, so the
   // redacted summaries of terminal turn outcomes and host-owned requests reach
@@ -432,6 +450,9 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
       // awaited under the same bound.
       messagingMatrix.controller.abort();
       await settleWithinBudget(messagingMatrix.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
+      // The IRC socket loop stops the same way, under the same bound.
+      messagingIrc.controller.abort();
+      await settleWithinBudget(messagingIrc.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
       // The outbound relay is released the same way, beside the two loops and
       // before the host is disposed: it unsubscribes at once, and the (already
       // settled) wait is bounded so a release that ever refused to settle could

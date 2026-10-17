@@ -282,6 +282,25 @@ export class IngressGate {
 // ---------------------------------------------------------------------------
 
 /**
+ * What a channel's limit counts.
+ *
+ * Most platforms limit a message by characters, and the limit is enforced by the
+ * platform's API. IRC's 512-byte line is a byte limit on the wire, and it is the
+ * one case where the difference is not academic: 400 Chinese characters are
+ * 1200 bytes, so a chunker that counted characters would cut a line the server
+ * drops (or trims mid-character). The unit is declared by the adapter and read
+ * by the chunker, so the rule stays one rule with one axis.
+ */
+export type IngressLimitUnit = "characters" | "bytes";
+
+const utf8Encoder = new TextEncoder();
+
+/** The UTF-8 size of a string, in bytes — what a byte limit actually counts. */
+export function ingressUtf8Bytes(value: string): number {
+  return utf8Encoder.encode(value).length;
+}
+
+/**
  * Split a reply at a channel's message limit, preserving order and content.
  *
  * A split prefers the last newline inside the window, then the last space, and
@@ -290,10 +309,24 @@ export class IngressGate {
  * chunks returns the original text exactly: the separator stays at the end of
  * the earlier chunk.
  *
- * The algorithm is one copy because the rule is one rule; only the limit is the
- * platform's.
+ * With `unit: "bytes"` the window is a UTF-8 budget and the cut only ever lands
+ * on a code-point boundary, so no multibyte character is ever split across two
+ * chunks — the failure that turns a Chinese, Korean or emoji message into
+ * replacement characters on a byte-limited protocol.
+ *
+ * The algorithm is one copy because the rule is one rule; only the limit and its
+ * unit are the platform's.
  */
-export function chunkIngressText(text: string, limit: number): string[] {
+export function chunkIngressText(
+  text: string,
+  limit: number,
+  unit: IngressLimitUnit = "characters",
+): string[] {
+  return unit === "bytes" ? chunkIngressByBytes(text, limit) : chunkIngressByCharacters(text, limit);
+}
+
+/** The character-counted split every API-limited channel uses. */
+function chunkIngressByCharacters(text: string, limit: number): string[] {
   const size = Math.max(1, Math.floor(limit));
   if (text.length <= size) return text.length > 0 ? [text] : [];
   const chunks: string[] = [];
@@ -309,6 +342,55 @@ export function chunkIngressText(text: string, limit: number): string[] {
     if (cut <= 0) cut = size;
     chunks.push(rest.slice(0, cut));
     rest = rest.slice(cut);
+  }
+  if (rest.length > 0) chunks.push(rest);
+  return chunks;
+}
+
+/**
+ * The largest prefix of `text` that fits in `budget` UTF-8 bytes, measured in
+ * UTF-16 code units and stopping only on a code-point boundary.
+ *
+ * Iterating with `for…of` walks whole code points (a surrogate pair arrives as
+ * one two-unit string), which is what makes "never split a multibyte character"
+ * true by construction rather than by a post-hoc repair.
+ */
+function byteCutIndex(text: string, budget: number): number {
+  let used = 0;
+  let index = 0;
+  for (const codePoint of text) {
+    const size = utf8Encoder.encode(codePoint).length;
+    if (used + size > budget) break;
+    used += size;
+    index += codePoint.length;
+  }
+  return index;
+}
+
+/** The byte-counted split a wire-limited channel uses. */
+function chunkIngressByBytes(text: string, limit: number): string[] {
+  const budget = Math.max(1, Math.floor(limit));
+  if (text.length === 0) return [];
+  if (ingressUtf8Bytes(text) <= budget) return [text];
+  const chunks: string[] = [];
+  let rest = text;
+  while (ingressUtf8Bytes(rest) > budget) {
+    const cut = byteCutIndex(rest, budget);
+    if (cut <= 0) {
+      // A budget smaller than one code point cannot be honoured and still make
+      // progress; emit the single code point rather than loop forever.
+      const first = Array.from(rest)[0] ?? "";
+      chunks.push(first);
+      rest = rest.slice(first.length);
+      continue;
+    }
+    // The separator belongs to the earlier chunk, so `join("")` is the original.
+    const newline = rest.lastIndexOf("\n", cut - 1);
+    const space = newline > 0 ? -1 : rest.lastIndexOf(" ", cut - 1);
+    const at = newline > 0 ? newline : space;
+    const end = at > 0 ? at + 1 : cut;
+    chunks.push(rest.slice(0, end));
+    rest = rest.slice(end);
   }
   if (rest.length > 0) chunks.push(rest);
   return chunks;
@@ -336,6 +418,15 @@ export type ChunkedDeliveryOptions = {
   platform: string;
   /** The platform's message limit; the reply is chunked at it. */
   limit: number;
+  /** Whether the limit counts characters (default) or UTF-8 bytes. */
+  limitUnit?: IngressLimitUnit;
+  /**
+   * How the channel splits its reply, when the shared rule is not the whole
+   * story. IRC is the case: a line may not contain CR or LF at all, so it splits
+   * on newlines before measuring bytes. Absent uses [`chunkIngressText`] at
+   * `limit`/`limitUnit`.
+   */
+  chunk?: (text: string) => string[];
   /** Post one chunk; a throw is treated as a transport failure. */
   post: (chunk: string) => Promise<IngressPostOutcome>;
   /** The most attempts per chunk after a 429/5xx. */
@@ -363,7 +454,9 @@ export async function deliverInChunks(
 ): Promise<IngressDeliveryResult> {
   const maxAttempts = Math.max(1, options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
   const wait = options.wait ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
-  const chunks = chunkIngressText(text, options.limit);
+  const chunks = options.chunk
+    ? options.chunk(text)
+    : chunkIngressText(text, options.limit, options.limitUnit);
   if (chunks.length === 0) return { ok: true, sent: 0, ids: [] };
 
   const ids: string[] = [];
@@ -452,6 +545,12 @@ type IngressAdapterCommon = {
   readonly platform: string;
   /** The platform's own message size limit, in characters. */
   readonly messageLimit: number;
+  /**
+   * What [`messageLimit`] counts. Absent means characters, which is every
+   * API-limited channel; `"bytes"` names a wire limit, where a chunker that
+   * counted characters would overflow the line it was meant to protect.
+   */
+  readonly messageLimitUnit?: IngressLimitUnit;
   /**
    * Project one raw platform event onto the shared shape. The same function the
    * live client calls, so the conformance suite exercises the runtime path
