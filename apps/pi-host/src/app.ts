@@ -17,6 +17,7 @@ import {
   createSlackInboundWiring,
   createDiscordInboundWiring,
   createMattermostInboundWiring,
+  createMatrixInboundWiring,
   listPendingToolRequests,
   registerSkillAuthoringTools,
   settleWithinBudget,
@@ -310,6 +311,20 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
       log: (level, message, data) => log(level, message, data),
     }).run(),
   };
+  // The Matrix sync loop, beside the other inbound loops: a long poll the Host
+  // originates against the user's own homeserver, config-gated on its token and
+  // record. Nothing is bound and nothing is polled until it is configured.
+  const messagingMatrixAbort = new AbortController();
+  const messagingMatrix: MessagingInboundHandle = {
+    controller: messagingMatrixAbort,
+    done: createMatrixInboundWiring({
+      agentHost,
+      settings: createHostSettingsSurface(getHost),
+      secrets: createHostSecretReader(getHost),
+      signal: messagingMatrixAbort.signal,
+      log: (level, message, data) => log(level, message, data),
+    }).run(),
+  };
 
   // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3): the
   // Host-side redactor subscribed on the host-scope event surface, so the
@@ -413,6 +428,10 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
       await settleWithinBudget(messagingDiscord.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
       messagingMattermost.controller.abort();
       await settleWithinBudget(messagingMattermost.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
+      // The Matrix sync loop stops the same way: its long poll is aborted and
+      // awaited under the same bound.
+      messagingMatrix.controller.abort();
+      await settleWithinBudget(messagingMatrix.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
       // The outbound relay is released the same way, beside the two loops and
       // before the host is disposed: it unsubscribes at once, and the (already
       // settled) wait is bounded so a release that ever refused to settle could

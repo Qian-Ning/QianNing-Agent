@@ -473,19 +473,40 @@ export type SocketIngressAdapter = IngressAdapterCommon & {
   readonly openClient: (onMessage: (message: IngressMessage) => Promise<void>) => MessagingIngressClient;
 };
 
+/**
+ * A position a pull channel polls from.
+ *
+ * Two kinds occur in the wild and they are not interchangeable. Telegram's
+ * `offset` is a *count*: it moves forward, and a platform that answered a lower
+ * position must not move it backwards. Matrix's `since` token is *opaque*: it
+ * has no order at all, so "forward only" can only mean "the token the server
+ * answered the current token with, and nothing else". The transports therefore
+ * take the rule as a parameter rather than assuming a number; the default rule
+ * stays the count comparison every existing channel relies on.
+ */
+export type IngressCursor = number | string;
+
 /** A channel the Host asks for what is new since a cursor. */
-export type PollIngressAdapter = IngressAdapterCommon & {
+export type PollIngressAdapter<
+  TCursor extends IngressCursor = number,
+> = IngressAdapterCommon & {
   readonly kind: "poll";
   /** One poll from `cursor`; a failure is reported, never thrown. */
-  readonly poll: (cursor: number, signal?: AbortSignal) => Promise<IngressPollResult>;
+  readonly poll: (cursor: TCursor, signal?: AbortSignal) => Promise<IngressPollResult<TCursor>>;
 };
 
 /** A channel that calls in with one request per event. */
 export type WebhookIngressAdapter = IngressAdapterCommon & { readonly kind: "webhook" };
 
+/**
+ * A pull channel is admissible with either cursor kind; both instantiations are
+ * named so a channel's own adapter stays precisely typed (Telegram's count,
+ * Matrix's token) while the suite still accepts any of them.
+ */
 export type MessagingIngressAdapter =
   | SocketIngressAdapter
-  | PollIngressAdapter
+  | PollIngressAdapter<number>
+  | PollIngressAdapter<string>
   | WebhookIngressAdapter;
 
 /**
@@ -499,8 +520,8 @@ export interface MessagingIngressClient {
 }
 
 /** One poll's answer, in platform-neutral terms. */
-export type IngressPollResult =
-  | { ok: true; events: unknown[]; nextCursor: number }
+export type IngressPollResult<TCursor extends IngressCursor = number> =
+  | { ok: true; events: unknown[]; nextCursor: TCursor }
   | { ok: false; error: string; retryAfterMs?: number };
 
 /**
@@ -508,7 +529,7 @@ export type IngressPollResult =
  * `load` answers the cursor the next poll asks from, or `null` when none has
  * been stored; `save` writes the cursor a poll advanced to.
  */
-export interface IngressCursorStore {
-  load(): Promise<number | null>;
-  save(cursor: number): Promise<void>;
+export interface IngressCursorStore<TCursor extends IngressCursor = number> {
+  load(): Promise<TCursor | null>;
+  save(cursor: TCursor): Promise<void>;
 }

@@ -58,7 +58,17 @@ Linux 或 WSL 机器上的项目，即 SSH 隧道远端 Host 拓扑；#100 要�
   再经 Telegram、Slack 的出站轮询或 socket 模式，以及 Discord、Mattermost 的网关连接；需要入站回调的渠道推迟）；每个网关渠道还带有自己的回复发送路径，按平台的消息长度上限分片；把固定
   指令词汇从已关联的聊天映射到 `turn/start`、`turn/stop`、`turn/interrupt`、
   `approval/respond`，以关联主体的角色和同一 Host 策略执行，未关联聊天忽略并审计；
-  投递失败有界重试，绝不阻塞回合。
+  投递失败有界重试，绝不阻塞回合。Matrix 是第五个渠道、也是第二个拉取渠道：Host 用
+  secret store 中的访问令牌对用户自己的 homeserver 长轮询 `GET /_matrix/client/v3/sync`，
+  以 `next_batch` 作为游标。该游标是不透明且无序的，因此原样保存、只在它命名的批次应用
+  之后保存，并且只在服务器对“从已保存游标发起的轮询”给出另一个游标时前进；重启从此处
+  继续而不重放。消息在事件类型为 `m.room.message`、`msgtype` 为 `m.text` 且发送者不是
+  本账号自己的用户 ID 时才被接纳——该 ID 由 `GET /account/whoami` 给出，因为实际环境中的
+  机器人 ID 随桥接而异，只有账号自己的 ID 才是权威过滤条件。回复经
+  `PUT /rooms/{roomId}/send/m.room.message/{txnId}` 发出，按声明的 4000 字符上限分片，
+  每次尝试使用新的 transaction id，使两次发送绝不会被合并；结果未知的传输失败只报告、
+  不重试，因此已经落地的尝试不会被再次投递。端到端加密未实现：`m.room.encrypted`
+  事件会被拒绝并写入指明房间的审计记录，设置面板也用平实语言说明这一点。
 - 不排期：Gateway 与 Host link（原 R3），PI 不运营 Gateway，用户自托管并以 Host 签发的设备凭据准入，没有 Host 之外的身份源（D385）；浏览器 profile
   （原 R4），Gateway-less 场景的 Host 自签 cookie 仍需补规格条款；保留的 gRPC
   绑定（原 R5）仅在有明确消费者时交付，`.proto` 由 typebox 来源生成。

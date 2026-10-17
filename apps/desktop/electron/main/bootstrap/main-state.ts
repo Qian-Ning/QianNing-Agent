@@ -76,6 +76,7 @@ export class MainProcessState {
   messagingSlackInbound: MessagingInboundHandle | null = null;
   messagingDiscordInbound: MessagingInboundHandle | null = null;
   messagingMattermostInbound: MessagingInboundHandle | null = null;
+  messagingMatrixInbound: MessagingInboundHandle | null = null;
   messagingOutbound: MessagingOutboundRelay | null = null;
 
   quitting = false;
@@ -408,6 +409,12 @@ export class MainProcessState {
       },
       set messagingMattermostInbound(value) {
         self.messagingMattermostInbound = value;
+      },
+      get messagingMatrixInbound() {
+        return self.messagingMatrixInbound;
+      },
+      set messagingMatrixInbound(value) {
+        self.messagingMatrixInbound = value;
       },
       get messagingOutbound() {
         return self.messagingOutbound;

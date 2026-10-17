@@ -26,21 +26,26 @@
  *
  * The cursor only ever moves forward: a platform that answers a lower position
  * must not move it backwards and make the platform replay what this run has
- * already handled.
+ * already handled. For an opaque token there is no order to compare, so the rule
+ * is stated instead as "the token the server answered the current token with,
+ * and nothing else": a poll always asks from the stored token, so a token the
+ * server hands back cannot be one this run has already passed. The comparison is
+ * the `nextIsAhead` option; a count keeps the numeric default.
  */
 
 import {
   ingressErrorMessage,
   ingressAudit,
   type IngressAudit,
+  type IngressCursor,
   type IngressCursorStore,
   type IngressMessage,
   type IngressNormalise,
 } from "./messaging-ingress.js";
 
-/** One poll's answer, generic over the platform's own event unit. */
-export type PollingIngressResult<TEvent> =
-  | { ok: true; events: TEvent[]; nextCursor: number }
+/** One poll's answer, generic over the platform's own event unit and cursor. */
+export type PollingIngressResult<TEvent, TCursor extends IngressCursor = number> =
+  | { ok: true; events: TEvent[]; nextCursor: TCursor }
   | { ok: false; error: string; retryAfterMs?: number };
 
 /** How long the loop waits after a failed poll before trying again. */
@@ -48,17 +53,30 @@ export const INGRESS_POLL_FAILURE_DELAY_MS = 5_000;
 /** The least the loop waits between polls, so a fast answer cannot spin it. */
 export const INGRESS_MIN_POLL_INTERVAL_MS = 1_000;
 
-export type PollingIngressOptions<TEvent> = {
+export type PollingIngressOptions<TEvent, TCursor extends IngressCursor = number> = {
   /** One poll from `cursor`; a failure is reported in the result, never thrown. */
-  poll: (cursor: number, signal?: AbortSignal) => Promise<PollingIngressResult<TEvent>>;
+  poll: (cursor: TCursor, signal?: AbortSignal) => Promise<PollingIngressResult<TEvent, TCursor>>;
   /** Project one event of the batch onto the shared shape. */
   normalise: IngressNormalise | ((event: TEvent) => ReturnType<IngressNormalise>);
   /** Where the cursor is persisted; absent means this run only, from zero. */
-  cursor?: IngressCursorStore;
+  cursor?: IngressCursorStore<TCursor>;
   /** Where audit records go; absent means they are dropped. */
   audit?: IngressAudit;
   /** How the loop waits between polls; injectable so tests run without sleeps. */
   wait?: (ms: number) => Promise<void>;
+  /**
+   * The cursor before anything is stored. A count starts at `0`; an opaque
+   * token channel passes the empty token, which asks for "everything from now".
+   */
+  initialCursor?: TCursor;
+  /**
+   * Whether a returned cursor should replace the current one. Defaults to the
+   * count rule (`next > current`), which is what a numeric offset needs and what
+   * stops a platform lowering it. An opaque-token channel passes a rule of its
+   * own: a token has no order, so it advances only when the server answered
+   * something other than the token the poll asked from.
+   */
+  nextIsAhead?: (next: TCursor, current: TCursor) => boolean;
 };
 
 /** The shared, channel-neutral handler a batch is applied through. */
@@ -70,23 +88,33 @@ export type PollingIngressHandler = (message: IngressMessage) => Promise<void>;
  * `apply` is the routing path's handler; the transport never interprets a
  * message. A batch is applied in the platform's order and the cursor advances
  * once, after the last message of the batch.
+ *
+ * The cursor is generic over [`IngressCursor`] because two kinds of position
+ * exist: a count that moves forward (Telegram's offset) and an opaque token that
+ * has no order (Matrix's `since`). Everything else — one poll per iteration, the
+ * batch applied before the save, the save only on a move, the failure floor — is
+ * the same for both, so it stays one loop.
  */
-export class PollingIngressTransport<TEvent> {
-  private readonly options: PollingIngressOptions<TEvent>;
+export class PollingIngressTransport<TEvent, TCursor extends IngressCursor = number> {
+  private readonly options: PollingIngressOptions<TEvent, TCursor>;
   private readonly audit: IngressAudit;
   private readonly wait: (ms: number) => Promise<void>;
-  private readonly cursor: IngressCursorStore | null;
-  private offset = 0;
+  private readonly cursorStore: IngressCursorStore<TCursor> | null;
+  private readonly isAhead: (next: TCursor, current: TCursor) => boolean;
+  private offset: TCursor;
 
-  constructor(options: PollingIngressOptions<TEvent>) {
+  constructor(options: PollingIngressOptions<TEvent, TCursor>) {
     this.options = options;
     this.audit = ingressAudit(options.audit);
     this.wait = options.wait ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
-    this.cursor = options.cursor ?? null;
+    this.cursorStore = options.cursor ?? null;
+    this.offset = options.initialCursor ?? (0 as TCursor);
+    this.isAhead =
+      options.nextIsAhead ?? ((next, current) => Number(next) > Number(current));
   }
 
   /** The cursor the next poll asks from. */
-  get nextCursor(): number {
+  get nextCursor(): TCursor {
     return this.offset;
   }
 
@@ -113,7 +141,7 @@ export class PollingIngressTransport<TEvent> {
       const normalised = this.options.normalise(event);
       if (normalised.kind === "message") await apply(normalised.message);
     }
-    if (result.nextCursor > this.offset) {
+    if (this.isAhead(result.nextCursor, this.offset)) {
       this.offset = result.nextCursor;
       await this.saveCursor();
     }
@@ -148,10 +176,10 @@ export class PollingIngressTransport<TEvent> {
 
   /** Reload the persisted cursor before the first poll of a run. */
   private async loadCursor(): Promise<void> {
-    if (!this.cursor) return;
+    if (!this.cursorStore) return;
     try {
-      const saved = await this.cursor.load();
-      if (typeof saved === "number" && Number.isFinite(saved) && saved > this.offset) {
+      const saved = await this.cursorStore.load();
+      if (saved !== null && this.isAhead(saved, this.offset)) {
         this.offset = saved;
       }
     } catch {
@@ -161,9 +189,9 @@ export class PollingIngressTransport<TEvent> {
 
   /** Persist the current cursor; a failure is reported and the cursor stays. */
   private async saveCursor(): Promise<void> {
-    if (!this.cursor) return;
+    if (!this.cursorStore) return;
     try {
-      await this.cursor.save(this.offset);
+      await this.cursorStore.save(this.offset);
     } catch (error) {
       this.audit({ kind: "record-failed", eventId: "poll-cursor", error: ingressErrorMessage(error) });
     }

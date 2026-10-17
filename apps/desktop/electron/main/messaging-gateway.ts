@@ -21,7 +21,12 @@
  */
 
 /** The channels with an inbound loop in this build. */
-export type MessagingGatewayChannel = "telegram" | "slack" | "discord" | "mattermost";
+export type MessagingGatewayChannel =
+  | "telegram"
+  | "slack"
+  | "discord"
+  | "mattermost"
+  | "matrix";
 
 /** The answer the renderer reads. */
 export type MessagingGatewaySnapshot = {
@@ -30,6 +35,7 @@ export type MessagingGatewaySnapshot = {
   slack: boolean;
   discord: boolean;
   mattermost: boolean;
+  matrix: boolean;
 };
 
 /** The part of a started loop this registry needs: its lifetime. */
@@ -85,6 +91,7 @@ export class MessagingGatewayRegistry {
       slack: this.running.has("slack"),
       discord: this.running.has("discord"),
       mattermost: this.running.has("mattermost"),
+      matrix: this.running.has("matrix"),
     };
   }
 }

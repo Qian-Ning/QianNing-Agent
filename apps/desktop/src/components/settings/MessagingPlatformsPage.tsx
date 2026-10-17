@@ -602,6 +602,10 @@ function SupportedPanel({
         </a>
       </section>
 
+      {platform.noteKey ? (
+        <p className="settings-messaging-note">{t(platform.noteKey)}</p>
+      ) : null}
+
       <form
         className="settings-messaging-form"
         onSubmit={(event) => {

@@ -95,6 +95,7 @@ const GATEWAY_UP = {
   slack: true,
   discord: true,
   mattermost: true,
+  matrix: true,
 };
 const GATEWAY_DOWN = {
   booted: true,
@@ -102,6 +103,7 @@ const GATEWAY_DOWN = {
   slack: false,
   discord: false,
   mattermost: false,
+  matrix: false,
 };
 
 /** The whole catalogue, in rail order: two supported, the rest honest. */
@@ -112,13 +114,13 @@ test("the catalogue has the reference breadth and marks support honestly", () =>
   );
   assert.deepEqual(
     SUPPORTED_MESSAGING_PLATFORMS.map((entry) => entry.id),
-    ["telegram", "slack", "discord", "mattermost"],
+    ["telegram", "slack", "discord", "mattermost", "matrix"],
   );
   assert.equal(
     SUPPORTED_MESSAGING_PLATFORMS.length + UNSUPPORTED_MESSAGING_PLATFORMS.length,
     MESSAGING_PLATFORMS.length,
   );
-  assert.ok(UNSUPPORTED_MESSAGING_PLATFORMS.length >= 14);
+  assert.ok(UNSUPPORTED_MESSAGING_PLATFORMS.length >= 13);
   // Ids are unique: two rows must never share a platform.
   assert.equal(new Set(MESSAGING_PLATFORMS.map((entry) => entry.id)).size, MESSAGING_PLATFORMS.length);
 
@@ -234,6 +236,7 @@ test("enabled, setup and gateway are computed independently", () => {
         slack: false,
         discord: false,
         mattermost: false,
+        matrix: false,
       },
     ).gateway,
     "stopped",
@@ -248,11 +251,12 @@ test("fields are grouped, and every field explains itself and its blank", () => 
 
     // The credentials, the conversation and the link are always required; the
     // endpoint is required only where the platform has no public default
-    // (Mattermost is self-hosted), and recommended everywhere else.
+    // (Mattermost and Matrix are self-hosted), and recommended everywhere else.
+    const selfHosted = platform.id === "mattermost" || platform.id === "matrix";
     const requiredIds = required.map((field) => field.id);
     assert.deepEqual(
       requiredIds.filter((id) => !platform.secrets.some((slot) => slot.id === id)),
-      platform.id === "mattermost"
+      selfHosted
         ? ["destination", "subject", "roles", "endpoint"]
         : ["destination", "subject", "roles"],
       `${platform.id} required group`,
@@ -264,7 +268,7 @@ test("fields are grouped, and every field explains itself and its blank", () => 
     );
     assert.deepEqual(
       recommended.map((field) => field.id),
-      platform.id === "mattermost"
+      selfHosted
         ? ["permissionMode", "requestTimeoutMs"]
         : ["permissionMode", "endpoint", "requestTimeoutMs"],
       `${platform.id} recommended group`,
@@ -690,6 +694,7 @@ test("the gateway registry reports the loops that are actually running", async (
     slack: false,
     discord: false,
     mattermost: false,
+    matrix: false,
   });
 
   registry.markBooted();
@@ -705,6 +710,7 @@ test("the gateway registry reports the loops that are actually running", async (
     slack: false,
     discord: false,
     mattermost: false,
+    matrix: false,
   });
 
   registry.track("slack", { done: Promise.resolve() });
@@ -721,6 +727,7 @@ test("the gateway registry reports the loops that are actually running", async (
     slack: false,
     discord: false,
     mattermost: false,
+    matrix: false,
   });
 });
 
