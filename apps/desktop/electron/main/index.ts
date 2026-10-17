@@ -195,6 +195,13 @@ const askCloseBehaviorForLifecycle = (
   }
   return closeBehaviorRuntime.askCloseBehavior(window);
 };
+// The tray item is wired while the lifecycle is built (before the close-behavior
+// runtime exists), so it looks the runtime up per click. A click that arrives
+// before it exists must not quit unasked: it reads as "not confirmed".
+const confirmTrayQuitForLifecycle = (): Promise<boolean> =>
+  closeBehaviorRuntime
+    ? closeBehaviorRuntime.confirmTrayQuit()
+    : Promise.resolve(false);
 
 const workPanelRuntime = createWorkPanelRuntime({
   state: windowLifecycleState,
@@ -552,6 +559,7 @@ applicationLifecycle = createApplicationLifecycle({
   safeOpenExternal,
   showPluginLauncher: showPluginLauncherForLifecycle,
   askCloseBehavior: askCloseBehaviorForLifecycle,
+  confirmTrayQuit: confirmTrayQuitForLifecycle,
   applyCloseBehavior: applyCloseBehaviorForLifecycle,
   browserHost,
   pluginViews,
