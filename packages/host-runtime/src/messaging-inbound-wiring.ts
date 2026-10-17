@@ -580,6 +580,68 @@ function waitOrAbort(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 /**
+ * Build the wiring every channel shares: one driver, one binding store, one
+ * `run` wrapper, over the channel's own section and transport.
+ *
+ * The four factories below differ only in the section they read, the format they
+ * check and the transport they build; the driver, the binding store, the target
+ * resolver, the audit sink and the shutdown contract are the same code. That is
+ * here once, so a fifth channel adds a transport factory and a channel record,
+ * not a fifth copy of the wiring.
+ */
+function createIngressWiring(options: {
+  agentHost: MessagingInboundHostSurface;
+  settings: HostSettingsSurface;
+  signal: AbortSignal;
+  log?: MessagingInboundWiringLog;
+  /** The section and record format the channel's link is read from. */
+  channel: MessagingInboundChannel;
+  /** The transport the channel's configured factory built. */
+  transport: MessagingInboundTransport;
+  /** Where the conversation-to-session binding is written; defaults to the link's section. */
+  bindingSection?: string;
+  /** Whether the channel keeps a poll cursor (pull channels only). */
+  cursor?: boolean;
+  /** The loop's failure line, e.g. `inbound slack loop failed`. */
+  failureLabel: string;
+}): MessagingInboundWiring {
+  const section = options.bindingSection ?? options.channel.section;
+  const binding = createSettingsSessionBindingStore(options.settings, section);
+  const targets = createAgentHostTargets(options.agentHost, () => binding.load());
+  const driver = new MessagingInboundDriver({
+    agentHost: options.agentHost,
+    transport: options.transport,
+    readConfig: async () => ({
+      link: readInboundLink(
+        readSection(await options.settings.read(), options.channel.section),
+        options.channel.format,
+        options.channel.version,
+      ),
+    }),
+    targets,
+    ...(options.cursor ? { cursor: createSettingsCursorStore(options.settings) } : {}),
+    audit: createMessagingInboundAudit(options.log),
+    wait: (ms) => waitOrAbort(ms, options.signal),
+  });
+  return {
+    driver,
+    binding,
+    async run(): Promise<void> {
+      try {
+        await driver.run(options.signal);
+      } catch (error) {
+        // The driver reports its own failures and does not throw, so this is
+        // defensive: a loop that somehow throws still resolves its owner's await
+        // instead of leaving the shutdown path pending.
+        options.log?.("warn", options.failureLabel, {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+  };
+}
+
+/**
  * Build the inbound command driver from the host's own surfaces.
  *
  * `readConfig` re-reads the link from the settings section on every message, so
@@ -592,34 +654,16 @@ function waitOrAbort(ms: number, signal: AbortSignal): Promise<void> {
 export function createMessagingInboundWiring(
   options: MessagingInboundWiringOptions,
 ): MessagingInboundWiring {
-  const binding = createSettingsSessionBindingStore(options.settings);
-  const cursor = createSettingsCursorStore(options.settings);
-  const targets = createAgentHostTargets(options.agentHost, () => binding.load());
-  const driver = new MessagingInboundDriver({
+  return createIngressWiring({
     agentHost: options.agentHost,
+    settings: options.settings,
+    signal: options.signal,
+    ...(options.log ? { log: options.log } : {}),
+    channel: TELEGRAM_INBOUND_CHANNEL,
     transport: options.transport ?? createConfiguredTransport(options),
-    readConfig: async () => ({ link: readInboundLink(readSection(await options.settings.read())) }),
-    targets,
-    cursor,
-    audit: createMessagingInboundAudit(options.log),
-    wait: (ms) => waitOrAbort(ms, options.signal),
+    cursor: true,
+    failureLabel: "inbound messaging loop failed",
   });
-  return {
-    driver,
-    binding,
-    async run(): Promise<void> {
-      try {
-        await driver.run(options.signal);
-      } catch (error) {
-        // The driver reports its own failures and does not throw, so this is
-        // defensive: a loop that somehow throws still resolves its owner's
-        // await instead of leaving the shutdown path pending.
-        options.log?.("warn", "inbound messaging loop failed", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    },
-  };
 }
 
 /** The default Slack Web API base; `apps.connections.open` is appended to it. */
@@ -733,38 +777,15 @@ export type MessagingSlackWiringOptions = {
  * one routing path and one shutdown shape.
  */
 export function createSlackInboundWiring(options: MessagingSlackWiringOptions): MessagingInboundWiring {
-  const binding = createSettingsSessionBindingStore(options.settings, MESSAGING_SLACK_SECTION);
-  const targets = createAgentHostTargets(options.agentHost, () => binding.load());
-  const driver = new MessagingInboundDriver({
+  return createIngressWiring({
     agentHost: options.agentHost,
+    settings: options.settings,
+    signal: options.signal,
+    ...(options.log ? { log: options.log } : {}),
+    channel: SLACK_INBOUND_CHANNEL,
     transport: options.transport ?? createConfiguredSlackTransport(options),
-    readConfig: async () => ({
-      link: readInboundLink(
-        readSection(await options.settings.read(), MESSAGING_SLACK_SECTION),
-        MESSAGING_SLACK_FORMAT,
-        MESSAGING_SLACK_FORMAT_VERSION,
-      ),
-    }),
-    targets,
-    audit: createMessagingInboundAudit(options.log),
-    wait: (ms) => waitOrAbort(ms, options.signal),
+    failureLabel: "inbound slack loop failed",
   });
-  return {
-    driver,
-    binding,
-    async run(): Promise<void> {
-      try {
-        await driver.run(options.signal);
-      } catch (error) {
-        // The driver reports its own failures and does not throw, so this is
-        // defensive: a loop that somehow throws still resolves its owner's
-        // await instead of leaving the shutdown path pending.
-        options.log?.("warn", "inbound slack loop failed", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    },
-  };
 }
 
 /**
@@ -874,35 +895,15 @@ export type MessagingDiscordWiringOptions = {
 };
 
 export function createDiscordInboundWiring(options: MessagingDiscordWiringOptions): MessagingInboundWiring {
-  const binding = createSettingsSessionBindingStore(options.settings, MESSAGING_DISCORD_SECTION);
-  const targets = createAgentHostTargets(options.agentHost, () => binding.load());
-  const driver = new MessagingInboundDriver({
+  return createIngressWiring({
     agentHost: options.agentHost,
+    settings: options.settings,
+    signal: options.signal,
+    ...(options.log ? { log: options.log } : {}),
+    channel: DISCORD_INBOUND_CHANNEL,
     transport: options.transport ?? createConfiguredDiscordTransport(options),
-    readConfig: async () => ({
-      link: readInboundLink(
-        readSection(await options.settings.read(), MESSAGING_DISCORD_SECTION),
-        MESSAGING_DISCORD_FORMAT,
-        MESSAGING_DISCORD_FORMAT_VERSION,
-      ),
-    }),
-    targets,
-    audit: createMessagingInboundAudit(options.log),
-    wait: (ms) => waitOrAbort(ms, options.signal),
+    failureLabel: "inbound discord loop failed",
   });
-  return {
-    driver,
-    binding,
-    async run(): Promise<void> {
-      try {
-        await driver.run(options.signal);
-      } catch (error) {
-        options.log?.("warn", "inbound discord loop failed", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    },
-  };
 }
 
 /** The audit sink for the Mattermost websocket client. */
@@ -1000,35 +1001,15 @@ export type MessagingMattermostWiringOptions = {
 export function createMattermostInboundWiring(
   options: MessagingMattermostWiringOptions,
 ): MessagingInboundWiring {
-  const binding = createSettingsSessionBindingStore(options.settings, MESSAGING_MATTERMOST_SECTION);
-  const targets = createAgentHostTargets(options.agentHost, () => binding.load());
-  const driver = new MessagingInboundDriver({
+  return createIngressWiring({
     agentHost: options.agentHost,
+    settings: options.settings,
+    signal: options.signal,
+    ...(options.log ? { log: options.log } : {}),
+    channel: MATTERMOST_INBOUND_CHANNEL,
     transport: options.transport ?? createConfiguredMattermostTransport(options),
-    readConfig: async () => ({
-      link: readInboundLink(
-        readSection(await options.settings.read(), MESSAGING_MATTERMOST_SECTION),
-        MESSAGING_MATTERMOST_FORMAT,
-        MESSAGING_MATTERMOST_FORMAT_VERSION,
-      ),
-    }),
-    targets,
-    audit: createMessagingInboundAudit(options.log),
-    wait: (ms) => waitOrAbort(ms, options.signal),
+    failureLabel: "inbound mattermost loop failed",
   });
-  return {
-    driver,
-    binding,
-    async run(): Promise<void> {
-      try {
-        await driver.run(options.signal);
-      } catch (error) {
-        options.log?.("warn", "inbound mattermost loop failed", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    },
-  };
 }
 
 /** The settings surface both composition roots give the wiring. */

@@ -1,4 +1,15 @@
 import type { InboundMessage, MessagingInboundPushTransport } from "./messaging-inbound.js";
+import {
+  IngressGate,
+  ingressMessageKey,
+  ingressReconnectDelayMs,
+  type IngressAudit,
+  type IngressDeliveryResult,
+  type IngressNormalisation,
+  type SocketIngressAdapter,
+} from "./messaging-ingress.js";
+import { createSocketIngressTransport, SocketIngressClient } from "./messaging-ingress-socket.js";
+import type { IngressSocket } from "./messaging-ingress-socket.js";
 
 export {
   DISCORD_MESSAGE_LIMIT,
@@ -9,60 +20,52 @@ export {
   type DiscordSender,
   type DiscordSenderOptions,
 } from "./messaging-discord-send.js";
+import { DISCORD_MESSAGE_LIMIT } from "./messaging-discord-send.js";
 
 /**
- * The inbound Discord channel over the Gateway websocket, and the outbound send
- * path its replies use.
+ * The inbound Discord channel over the Gateway websocket — the adapter half.
  *
  * Discord's incoming direction is a *push*: the platform delivers events to a
- * websocket the client opens. The connection is one the Host *originates* to
- * Discord, so no inbound port is bound and no public callback URL is needed —
- * exactly the acceptance precondition the Telegram long poll and Slack Socket
- * Mode keep (ADR 0326). There is no listener here.
+ * websocket the Host opens, so no inbound port is bound and no public callback
+ * URL is needed — the acceptance precondition the Telegram long poll and Slack
+ * Socket Mode keep (ADR 0326). There is no listener here.
  *
- * # What this module is
+ * Everything a socket channel shares with its siblings is the shared layer's:
+ * the connection lifecycle and the reconnect discipline
+ * (`messaging-ingress-socket.ts`), and the replay-guard ordering, the audit sink
+ * and the reply chunker (`messaging-ingress.ts`). This module supplies only what
+ * is Discord's own:
  *
- * It is the client half of the inbound path and the platform's send call:
+ * - **connect** — `GET /gateway/bot` resolves the Gateway URL, the websocket is
+ *   opened, and HELLO (op 10) is answered with IDENTIFY (op 2) or RESUME (op 6);
+ * - **normalise** — [`normaliseDiscordMessage`]: one MESSAGE_CREATE payload,
+ *   filtered against bot authors and the client's own user id and against the
+ *   system message types, projected onto the shared shape, keyed on the channel
+ *   and message id;
+ * - **deliver** — `POST /channels/{id}/messages`, chunked by the shared chunker
+ *   at Discord's 2000-character limit and posted sequentially so order is
+ *   preserved (declared here where a sender is supplied);
+ * - **limit** — [`DISCORD_MESSAGE_LIMIT`].
  *
- * 1. `GET /gateway/bot` resolves the Gateway URL, then the websocket is opened
- *    and IDENTIFY (op 2) is sent with the bot token, the MESSAGE_CONTENT intent
- *    and the message intents;
- * 2. HELLO (op 10) supplies the heartbeat interval; a heartbeat (op 1) carries
- *    the last sequence number, and an unacknowledged heartbeat (no op 11) tears
- *    the socket down so the reconnect loop can resume;
- * 3. a close or a platform RECONNECT (op 7) reconnects with RESUME (op 6) using
- *    the session id and sequence the previous connection reached, so messages
- *    sent while the socket was down are replayed by Discord rather than lost;
- * 4. MESSAGE_CREATE events are normalised into the neutral [`InboundMessage`]
- *    shape, filtered against the bot's own id and bot-authored messages, and
- *    deduplicated by a restart-durable guard keyed on the channel and message
- *    id;
- * 5. replies are posted with `POST /channels/{id}/messages`, chunked at
- *    Discord's 2000-character limit, sequentially so order is preserved, and
- *    rate limits (HTTP 429 with `retry_after`) are waited out rather than
- *    hammered.
- *
- * The command vocabulary, the link, the principal and the four Host operations
- * are the existing driver's (`messaging-inbound.ts`); this module produces a
- * neutral message and hands it to that one routing path through a
- * [`MessagingInboundPushTransport`]. It performs no mapping, no admission and
- * no permission policy of its own.
+ * Heartbeat, resume and the invalid-session rule are Discord's own protocol and
+ * stay here; they are the reason `handleFrame` is this module's and not the
+ * shared layer's.
  *
  * # Trust boundary and the credential
  *
  * The bot token is a bearer credential for the Gateway handshake and the send
- * API. It travels in the IDENTIFY frame and in the `Authorization` header —
- * the platform's own locations — and it is never placed in a URL, a log line,
- * an audit entry or an error this module reports. Everything arriving over the
+ * API. It travels in the IDENTIFY frame and in the `Authorization` header — the
+ * platform's own locations — and it is never placed in a URL, a log line, an
+ * audit entry or an error this module reports. Everything arriving over the
  * socket is untrusted and is validated field by field before it reaches the
  * driver.
  *
  * # Testability without a network
  *
  * The two network seams — the `/gateway/bot` lookup and the websocket client —
- * are injected ([`DiscordGatewayLookup`], [`DiscordSocketFactory`]), and the
- * send path takes a [`DiscordFetch`]. A suite drives the client frame by frame
- * with fakes, so identify, heartbeat, resume, filtering and chunking are all
+ * are injected ([`DiscordGatewayLookup`], [`DiscordSocketFactory`]), and the send
+ * path takes a [`DiscordFetch`]. A suite drives the client frame by frame with
+ * fakes, so identify, heartbeat, resume, filtering and chunking are all
  * reproducible with no socket and no Discord account.
  */
 
@@ -136,6 +139,44 @@ export type DiscordInboundAuditEntry =
 
 export type DiscordInboundAudit = (entry: DiscordInboundAuditEntry) => void;
 
+/**
+ * The shared audit vocabulary expressed in Discord's published entry type: the
+ * id field here is `messageId`, and a malformed frame is `malformed-frame`.
+ * `heartbeat-missed` is emitted by this client alone and does not travel through
+ * the shared vocabulary.
+ */
+function discordAudit(sink?: DiscordInboundAudit): IngressAudit {
+  if (!sink) return () => {};
+  return (entry) => {
+    switch (entry.kind) {
+      case "malformed":
+        return sink({ kind: "malformed-frame", reason: entry.reason });
+      case "duplicate":
+      case "processed":
+        return sink({ kind: entry.kind, messageId: entry.eventId });
+      case "process-failed":
+      case "record-failed":
+        return sink({ kind: entry.kind, messageId: entry.eventId, error: entry.error });
+      case "auth-failed":
+      case "connect-failed":
+        return sink({ kind: entry.kind, error: entry.error });
+      case "disconnect":
+        return sink({ kind: "disconnect", reason: entry.reason });
+      case "heartbeat-missed":
+        return sink({ kind: "heartbeat-missed" });
+      case "filtered":
+        return sink({
+          kind: "filtered",
+          reason: entry.reason,
+          ...(entry.channelId ? { channelId: entry.channelId } : {}),
+        });
+      default:
+        // `identity-failed` belongs to Mattermost.
+        return;
+    }
+  };
+}
+
 /** The answer to the Gateway lookup: the WSS URL, or the platform's refusal. */
 export type DiscordGatewayResult =
   | { ok: true; url: string }
@@ -145,13 +186,7 @@ export type DiscordGatewayResult =
 export type DiscordGatewayLookup = (token: string) => Promise<DiscordGatewayResult>;
 
 /** The minimal websocket surface this module uses. */
-export interface DiscordSocket {
-  send(data: string): void;
-  close(): void;
-  onMessage(handler: (data: string) => void): void;
-  onClose(handler: (code?: number, reason?: string) => void): void;
-  onError(handler: (error: unknown) => void): void;
-}
+export type DiscordSocket = IngressSocket;
 
 /** Opens a websocket to a URL; injected so a suite needs no socket. */
 export type DiscordSocketFactory = (url: string) => DiscordSocket;
@@ -213,47 +248,67 @@ export function classifyDiscordMessage(
   return { accepted: true, message: { messageId, chatId, text } };
 }
 
-/** The replay guard's key: the channel and the message id. */
+/** The replay guard's key: the conversation and the message id. */
 export function discordHandledKey(chatId: string, messageId: string): string {
-  return `${chatId}\u0000${messageId}`;
+  return ingressMessageKey(chatId, messageId);
+}
+
+/**
+ * Project one MESSAGE_CREATE payload onto the shared shape, keyed on the channel
+ * and message id — an id is unique only within a channel, so the channel is part
+ * of the replay key.
+ */
+export function normaliseDiscordMessage(
+  payload: unknown,
+  botUserId: string | null,
+): IngressNormalisation {
+  const classification = classifyDiscordMessage(payload, botUserId);
+  if (!classification.accepted) {
+    const channelId = isRecord(payload) && typeof payload.channel_id === "string"
+      ? payload.channel_id
+      : undefined;
+    return { kind: "filtered", reason: classification.reason, ...(channelId ? { channelId } : {}) };
+  }
+  const { message } = classification;
+  return {
+    kind: "message",
+    message,
+    key: discordHandledKey(message.chatId, message.messageId),
+  };
 }
 
 /**
  * The Gateway client: handshake, heartbeat, resume, dispatch filtering, and the
- * durable guard.
+ * shared dedupe gate.
  *
- * The client is reused across reconnects by the transport below, so `sessionId`
- * and `sequence` survive a socket close: the next `connect` sends RESUME rather
- * than IDENTIFY, which is what keeps a gateway outage from losing messages. An
- * `INVALID_SESSION` with `d: false` clears both, so the following connect
- * identifies afresh.
+ * The connection lifecycle and the reconnect policy are the shared socket
+ * layer's. This class is Discord's protocol: opcodes, the heartbeat that tears a
+ * zombie connection down, and the session id and sequence that make the next
+ * connection a RESUME rather than a fresh IDENTIFY.
+ *
+ * The client is reused across reconnects by the transport, so `sessionId` and
+ * `sequence` survive a socket close. An `INVALID_SESSION` with `d: false` clears
+ * both, so the following connect identifies afresh.
  */
-export class DiscordGatewayClient {
+export class DiscordGatewayClient extends SocketIngressClient {
   private readonly options: DiscordGatewayClientOptions;
-  private readonly audit: DiscordInboundAudit;
   private readonly timers: DiscordTimers;
-  private socket: DiscordSocket | null = null;
+  private readonly gate: IngressGate;
   private sessionId: string | null = null;
   private sequence: number | null = null;
   private botUserId: string | null = null;
-  private ready = false;
-  private closed = true;
   private heartbeatHandle: unknown = null;
   private awaitingAck = false;
-  private closeWaiters: Array<() => void> = [];
 
   constructor(options: DiscordGatewayClientOptions) {
+    const audit = discordAudit(options.audit);
+    super({ audit });
     this.options = options;
-    this.audit = options.audit ?? (() => {});
+    this.gate = new IngressGate({ handled: options.handled, onMessage: options.onMessage, audit });
     this.timers = options.timers ?? {
       setInterval: (handler, ms) => setInterval(handler, ms),
       clearInterval: (handle) => clearInterval(handle as ReturnType<typeof setInterval>),
     };
-  }
-
-  /** Whether a READY or RESUMED frame has been seen on the current connection. */
-  get isReady(): boolean {
-    return this.ready;
   }
 
   /** The bot's own user id, once READY has named it. */
@@ -288,61 +343,13 @@ export class DiscordGatewayClient {
       this.audit({ kind: "auth-failed", error: gateway.error });
       throw new Error(`discord gateway lookup refused: ${gateway.error}`);
     }
-    const socket = this.options.connect(gateway.url);
-    this.closed = false;
-    this.ready = false;
     this.awaitingAck = false;
-    this.socket = socket;
-    socket.onMessage((data) => {
-      void this.handleFrame(data);
-    });
-    socket.onClose((code, reason) => {
-      this.finishClose(reason ?? (code !== undefined ? `closed (${code})` : "closed"));
-    });
-    socket.onError((error) => {
-      this.audit({ kind: "connect-failed", error: errorMessage(error) });
-      // An `error` is normally followed by `close`; if not, the wait must end
-      // anyway or the loop would sit in `waitForClose` until abort.
-      this.finishClose(errorMessage(error));
-    });
+    this.attach(this.options.connect(gateway.url));
   }
 
-  /** Resolves once the current socket closes, or `signal` aborts. */
-  waitForClose(signal?: AbortSignal): Promise<void> {
-    if (this.closed || this.socket === null) return Promise.resolve();
-    return new Promise((resolve) => {
-      let settled = false;
-      const done = () => {
-        if (settled) return;
-        settled = true;
-        signal?.removeEventListener("abort", done);
-        resolve();
-      };
-      this.closeWaiters.push(done);
-      signal?.addEventListener("abort", done, { once: true });
-    });
-  }
-
-  /** Close the socket but keep the session, so the next connect resumes. */
-  close(): void {
-    this.finishClose("closed by the caller");
-  }
-
-  private finishClose(reason: string): void {
-    if (this.closed) return;
-    this.closed = true;
-    this.ready = false;
+  /** Stop the heartbeat with the connection that owned it. */
+  protected onDisconnect(): void {
     this.stopHeartbeat();
-    this.audit({ kind: "disconnect", reason });
-    try {
-      this.socket?.close();
-    } catch {
-      // A socket that throws on close is already gone.
-    }
-    this.socket = null;
-    const waiters = this.closeWaiters;
-    this.closeWaiters = [];
-    for (const waiter of waiters) waiter();
   }
 
   /** Route one raw gateway frame by opcode. */
@@ -351,16 +358,16 @@ export class DiscordGatewayClient {
     try {
       parsed = JSON.parse(raw);
     } catch {
-      this.audit({ kind: "malformed-frame", reason: "frame is not JSON" });
+      this.audit({ kind: "malformed", reason: "frame is not JSON" });
       return;
     }
     if (!isRecord(parsed)) {
-      this.audit({ kind: "malformed-frame", reason: "frame is not an object" });
+      this.audit({ kind: "malformed", reason: "frame is not an object" });
       return;
     }
     const op = typeof parsed.op === "number" ? parsed.op : null;
     if (op === null) {
-      this.audit({ kind: "malformed-frame", reason: "frame names no opcode" });
+      this.audit({ kind: "malformed", reason: "frame names no opcode" });
       return;
     }
     if (typeof parsed.s === "number") this.sequence = parsed.s;
@@ -404,11 +411,11 @@ export class DiscordGatewayClient {
       this.sessionId = typeof data.session_id === "string" ? data.session_id : this.sessionId;
       const user = isRecord(data.user) ? data.user : null;
       if (user && typeof user.id === "string") this.botUserId = user.id;
-      this.ready = true;
+      this.markReady();
       return;
     }
     if (type === "RESUMED") {
-      this.ready = true;
+      this.markReady();
       return;
     }
     if (type === "MESSAGE_CREATE") {
@@ -463,64 +470,29 @@ export class DiscordGatewayClient {
   }
 
   private sendHeartbeat(): void {
-    if (this.socket === null) return;
+    if (!this.hasConnection) return;
     this.awaitingAck = true;
     this.send({ op: OP_HEARTBEAT, d: this.sequence });
   }
 
-  private send(frame: Record<string, unknown>): void {
-    try {
-      this.socket?.send(JSON.stringify(frame));
-    } catch {
-      // The socket is gone; the close handler drives the reconnect.
-    }
-  }
-
   /**
-   * One MESSAGE_CREATE: filter, consult the durable guard, handle, then record.
-   * The record comes after handling so a handler failure leaves the message
-   * unrecorded and a Discord replay is applied rather than lost — at-least-once
-   * with dedupe, never at-most-once with loss.
+   * One MESSAGE_CREATE: filter, then the shared gate — consult the durable
+   * guard, handle, record. The record comes after handling so a handler failure
+   * leaves the message unrecorded and a Discord replay is applied rather than
+   * lost: at-least-once with dedupe, never at-most-once with loss.
    */
   private async handleMessageCreate(payload: unknown): Promise<void> {
-    const classification = classifyDiscordMessage(payload, this.botUserId);
-    if (!classification.accepted) {
-      const channelId = isRecord(payload) && typeof payload.channel_id === "string"
-        ? payload.channel_id
-        : undefined;
-      this.audit({ kind: "filtered", reason: classification.reason, ...(channelId ? { channelId } : {}) });
+    const normalisation = normaliseDiscordMessage(payload, this.botUserId);
+    if (normalisation.kind !== "message") {
+      this.audit({
+        kind: "filtered",
+        reason: normalisation.reason,
+        ...(normalisation.channelId ? { channelId: normalisation.channelId } : {}),
+      });
       return;
     }
-    const { message } = classification;
-    const key = discordHandledKey(message.chatId, message.messageId);
-    let alreadyHandled: boolean;
-    try {
-      alreadyHandled = await this.options.handled.has(key);
-    } catch {
-      alreadyHandled = false;
-    }
-    if (alreadyHandled) {
-      this.audit({ kind: "duplicate", messageId: message.messageId });
-      return;
-    }
-    try {
-      await this.options.onMessage(message);
-    } catch (error) {
-      this.audit({ kind: "process-failed", messageId: message.messageId, error: errorMessage(error) });
-      return;
-    }
-    try {
-      await this.options.handled.record(key);
-    } catch (error) {
-      this.audit({ kind: "record-failed", messageId: message.messageId, error: errorMessage(error) });
-      return;
-    }
-    this.audit({ kind: "processed", messageId: message.messageId });
+    await this.gate.ingest(normalisation.message, normalisation.key);
   }
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /** How the production push transport reaches Discord. */
@@ -535,59 +507,60 @@ export type DiscordInboundTransportOptions = {
   wait?: (ms: number) => Promise<void>;
 };
 
-const MIN_RECONNECT_DELAY_MS = 1_000;
-const MAX_RECONNECT_DELAY_MS = 30_000;
-
 /**
- * The reconnect delay after `attempt` consecutive failures: exponential from
- * `baseMs`, capped, with equal jitter. The sequence is non-decreasing, so a
- * retry is never shorter than the one before it, which keeps a fleet from
- * hammering a down gateway in lockstep.
+ * The reconnect delay after `attempt` consecutive failures: the shared jittered,
+ * capped exponential ([`ingressReconnectDelayMs`]).
  */
 export function discordReconnectDelayMs(attempt: number, baseMs: number, maxMs: number): number {
-  const exponential = Math.min(maxMs, baseMs * 2 ** Math.min(attempt, 30));
-  const half = exponential / 2;
-  return Math.round(half + half * Math.random());
+  return ingressReconnectDelayMs(attempt, baseMs, maxMs);
 }
 
+/** What the adapter needs beyond the client's own options. */
+export type DiscordIngressAdapterOptions = Omit<DiscordGatewayClientOptions, "onMessage"> & {
+  /** The bot's own user id, when it is already known. */
+  ownUserId?: string;
+  /** The reply path, when one is supplied; the shared chunker calls it per chunk. */
+  deliver?: (chatId: string, text: string) => Promise<IngressDeliveryResult>;
+};
+
 /**
- * The production push transport.
+ * The Discord ingress adapter: the platform-specific seams and nothing else.
  *
  * One client is built for the whole run and reused across reconnects, so its
  * session id and sequence survive a close and the next connection resumes. That
  * is also why a reconnect creates no second subscription: the client keeps one
  * `onMessage` handler and one socket at a time, and the driver above sees each
- * message exactly once (the durable guard also filters a replay).
+ * message exactly once (the gate's durable guard also filters a replay).
  */
+export function createDiscordIngressAdapter(
+  options: DiscordIngressAdapterOptions,
+): SocketIngressAdapter {
+  let client: DiscordGatewayClient | null = null;
+  return {
+    platform: "discord",
+    kind: "socket",
+    messageLimit: DISCORD_MESSAGE_LIMIT,
+    normalise: (raw) => normaliseDiscordMessage(raw, client?.userId ?? options.ownUserId ?? null),
+    ...(options.deliver ? { deliver: options.deliver } : {}),
+    openClient: (onMessage) => {
+      if (!client) {
+        const { deliver: _deliver, ownUserId: _ownUserId, ...clientOptions } = options;
+        client = new DiscordGatewayClient({ ...clientOptions, onMessage });
+      }
+      return client;
+    },
+  };
+}
+
+/** The production push transport, over the shared socket transport. */
 export function createDiscordInboundPushTransport(
   options: DiscordInboundTransportOptions,
 ): MessagingInboundPushTransport {
-  const wait = options.wait ?? ((ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
-  const base = Math.max(MIN_RECONNECT_DELAY_MS, options.reconnectDelayMs ?? MIN_RECONNECT_DELAY_MS);
-  const max = Math.max(base, options.maxReconnectDelayMs ?? MAX_RECONNECT_DELAY_MS);
-  return {
-    async start(onMessage, signal) {
-      const client = new DiscordGatewayClient({ ...options.client, onMessage });
-      let failures = 0;
-      while (!signal?.aborted) {
-        let established = false;
-        try {
-          await client.connect();
-          established = true;
-          await client.waitForClose(signal);
-        } catch {
-          // A refused lookup or a failed connect: fall through to the wait.
-          // The client already audited the reason.
-        } finally {
-          client.close();
-        }
-        if (signal?.aborted) break;
-        // A connection that reached the gateway resets the backoff, so a
-        // healthy channel reconnects at the base delay.
-        if (established) failures = 0;
-        await wait(discordReconnectDelayMs(failures, base, max));
-        if (!established) failures += 1;
-      }
-    },
-  };
+  return createSocketIngressTransport(createDiscordIngressAdapter(options.client), {
+    ...(options.reconnectDelayMs !== undefined ? { reconnectDelayMs: options.reconnectDelayMs } : {}),
+    ...(options.maxReconnectDelayMs !== undefined
+      ? { maxReconnectDelayMs: options.maxReconnectDelayMs }
+      : {}),
+    ...(options.wait ? { wait: options.wait } : {}),
+  });
 }

@@ -7,6 +7,16 @@ import { classifyIpLiteral, RACP_PERMISSION_MODES, RACP_ROLES } from "@pi-deskto
 
 import type { AgentHost } from "./agent-host.js";
 import {
+  IngressClaimLog,
+  ingressMessageKey,
+  type IngressMessage,
+  type IngressNormalisation,
+  type PollIngressAdapter,
+} from "./messaging-ingress.js";
+import {
+  PollingIngressTransport,
+} from "./messaging-ingress-polling.js";
+import {
   mapMessagingCommand,
   type MessagingCommandRefusal,
   type MessagingCommandRefusalKind,
@@ -14,6 +24,9 @@ import {
   type MessagingCommandTarget,
 } from "./messaging-commands.js";
 import { RandomIds, type IdSource, type Principal } from "./ports.js";
+
+export * from "./messaging-telegram-inbound.js";
+import { normaliseTelegramUpdate } from "./messaging-telegram-inbound.js";
 
 /**
  * The inbound command path for the messaging integration (ADR 0205 D375 item 9,
@@ -178,13 +191,13 @@ import { RandomIds, type IdSource, type Principal } from "./ports.js";
  * not stop a redelivery that spans a restart — nothing here does — which is why
  * the cursor is the part that must be durable and the guard is documented as
  * best-effort per run. A *push* channel has no cursor to persist (there are no
- * offsets), so for that side the durability lives in the transport instead:
- * `messaging-slack-inbound.ts` keeps its own restart-durable replay guard, keyed
- * on the platform's own event id, and acknowledges an envelope only after the
- * message has been durably recorded there — at-least-once with dedupe, never
- * at-most-once with loss. The in-run guard above still applies to a push message
- * once it reaches [`MessagingInboundDriver::handleMessage`], because the push
- * transport hands the driver that same call.
+ * offsets), so for that side the durability lives in the shared ingress gate
+ * (`messaging-ingress.ts`): every push adapter keys it on the platform's own id
+ * and acknowledges an envelope only after the message has been durably recorded
+ * there — at-least-once with dedupe, never at-most-once with loss. The in-run
+ * claim log above still applies to a push message once it reaches
+ * [`MessagingInboundDriver::handleMessage`], because the push transport hands
+ * the driver that same call.
  *
  * The guard is bounded to [`DEFAULT_HANDLED_CAPACITY`] keys, oldest evicted
  * first: after that many messages have been accepted, a redelivery of an older
@@ -306,15 +319,12 @@ export function readInboundLink(
 /**
  * One inbound message, channel-neutral: the fields every receive path shares,
  * whatever transport delivered it.
+ *
+ * The shared shape lives in the ingress layer ([`IngressMessage`]) and is
+ * re-exported here so every channel that already imports it from this module
+ * keeps one type.
  */
-export type InboundMessage = {
-  /** The message's own id; with the conversation, the replay guard's key. */
-  messageId: string;
-  /** The conversation the message came from. */
-  chatId: string;
-  /** The message text exactly as received. */
-  text: string;
-};
+export type InboundMessage = IngressMessage;
 
 /** One inbound Telegram message: the neutral shape plus the long poll's cursor. */
 export type TelegramInboundMessage = InboundMessage & {
@@ -449,43 +459,15 @@ export type MessagingInboundOptions = {
 
 /** How many accepted messages the replay log remembers before evicting the oldest. */
 const DEFAULT_HANDLED_CAPACITY = 4096;
-/** How long the loop waits after a failed poll before trying again. */
-const POLL_FAILURE_DELAY_MS = 5_000;
-/** The least the loop waits between polls, so a fast answer cannot spin it. */
-const MIN_POLL_INTERVAL_MS = 1_000;
 
 /**
- * The driver-side replay log. Keyed on the conversation together with the
- * message id, because the platform's message id is unique per conversation and
- * not globally. Bounded, so a chatty or hostile channel cannot grow it without
- * limit; the oldest key is evicted first, which keeps the guard meaningful for
- * the window a redelivery can plausibly arrive in.
+ * The driver-side replay log is the shared layer's in-run claim log
+ * ([`IngressClaimLog`]): bounded, synchronous, and claimed before the work
+ * starts, so a redelivery arriving while the first copy is being applied is a
+ * duplicate. The restart-durable guard for a push channel is the shared
+ * ingress gate's, keyed on the platform's own event id and recorded before the
+ * platform's acknowledgement.
  */
-class HandledMessageLog {
-  private readonly seen = new Set<string>();
-  private readonly order: string[] = [];
-
-  constructor(private readonly capacity: number) {}
-
-  has(key: string): boolean {
-    return this.seen.has(key);
-  }
-
-  record(key: string): void {
-    if (this.seen.has(key)) return;
-    this.seen.add(key);
-    this.order.push(key);
-    while (this.order.length > this.capacity) {
-      const evicted = this.order.shift();
-      if (evicted !== undefined) this.seen.delete(evicted);
-    }
-  }
-}
-
-/** The guard's key: the conversation and the message id, which is unique only per chat. */
-function handledKey(chatId: string, messageId: string): string {
-  return `${chatId}\u0000${messageId}`;
-}
 
 /**
  * The inbound command driver: one linked conversation, one long-poll loop, the
@@ -498,10 +480,9 @@ export class MessagingInboundDriver {
   private readonly targets: InboundSessionDirectory;
   private readonly audit: MessagingInboundAudit;
   private readonly ids: IdSource;
-  private readonly wait: (ms: number) => Promise<void>;
-  private readonly handled: HandledMessageLog;
-  private readonly cursor: MessagingInboundCursorStore | null;
-  private offset = 0;
+  private readonly handled: IngressClaimLog;
+  /** The shared polling transport for a pull channel; absent for a push one. */
+  private readonly poller: PollingIngressTransport<InboundMessage> | null;
 
   constructor(options: MessagingInboundOptions) {
     this.agentHost = options.agentHost;
@@ -510,14 +491,40 @@ export class MessagingInboundDriver {
     this.targets = options.targets;
     this.audit = options.audit ?? (() => {});
     this.ids = options.ids ?? new RandomIds();
-    this.wait = options.wait ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
-    this.handled = new HandledMessageLog(options.handledCapacity ?? DEFAULT_HANDLED_CAPACITY);
-    this.cursor = options.cursor ?? null;
+    this.handled = new IngressClaimLog(options.handledCapacity ?? DEFAULT_HANDLED_CAPACITY);
+    // A push channel has no cursor and no poll, so it gets no polling transport.
+    // A pull channel's cursor, retry floor and platform back-off are the shared
+    // polling transport's; this class keeps only the routing decision.
+    const transport = options.transport;
+    this.poller = isPushTransport(transport)
+      ? null
+      : new PollingIngressTransport<InboundMessage>({
+          poll: async (cursor, signal) => {
+            const result = await transport.poll(cursor, signal);
+            return result.ok
+              ? { ok: true, events: result.messages, nextCursor: result.nextOffset }
+              : result;
+          },
+          normalise: (message: InboundMessage): IngressNormalisation => ({
+            kind: "message",
+            message,
+            key: ingressMessageKey(message.chatId, message.messageId),
+          }),
+          ...(options.cursor ? { cursor: options.cursor } : {}),
+          audit: (entry) => {
+            if (entry.kind === "connect-failed") {
+              this.audit({ kind: "poll-failed", error: entry.error });
+            } else if (entry.kind === "record-failed") {
+              this.audit({ kind: "cursor-save-failed", error: entry.error });
+            }
+          },
+          ...(options.wait ? { wait: options.wait } : {}),
+        });
   }
 
   /** The poll cursor: the offset the next poll asks from. */
   get nextOffset(): number {
-    return this.offset;
+    return this.poller?.nextCursor ?? 0;
   }
 
   /**
@@ -537,7 +544,7 @@ export class MessagingInboundDriver {
    * exceptions.
    */
   async handleMessage(message: InboundMessage): Promise<MessagingInboundOutcome> {
-    const key = handledKey(message.chatId, message.messageId);
+    const key = ingressMessageKey(message.chatId, message.messageId);
     if (this.handled.has(key)) {
       this.audit({ kind: "duplicate", messageId: message.messageId });
       return { kind: "duplicate", messageId: message.messageId };
@@ -639,74 +646,19 @@ export class MessagingInboundDriver {
   async pollOnce(
     signal?: AbortSignal,
   ): Promise<{ polled: boolean; outcomes: MessagingInboundOutcome[]; retryAfterMs?: number }> {
-    const transport = this.transport;
+    const poller = this.poller;
     // A push transport has no poll; a caller that reaches here with one gets a
     // no-op rather than a type error. `run` never polls a push transport.
-    if (isPushTransport(transport)) return { polled: false, outcomes: [] };
-    const result = await transport.poll(this.offset, signal);
-    if (!result.ok) {
-      this.audit({ kind: "poll-failed", error: result.error });
-      return {
-        polled: false,
-        outcomes: [],
-        ...(result.retryAfterMs !== undefined ? { retryAfterMs: result.retryAfterMs } : {}),
-      };
-    }
+    if (!poller) return { polled: false, outcomes: [] };
     const outcomes: MessagingInboundOutcome[] = [];
-    for (const message of result.messages) {
+    const result = await poller.pollOnce(async (message) => {
       outcomes.push(await this.handleMessage(message));
-    }
-    // Advance and save only after the whole batch has been applied, and only
-    // forward: a transport that answers a lower offset must not move the
-    // persisted cursor backwards and make the platform replay updates this run
-    // has already handled.
-    if (result.nextOffset > this.offset) {
-      this.offset = result.nextOffset;
-      await this.saveCursor();
-    }
-    return { polled: true, outcomes };
-  }
-
-  /**
-   * Reload the persisted poll cursor before the first poll of a run.
-   *
-   * A store that cannot be read leaves the cursor at zero, so the run starts
-   * from the beginning of whatever the platform still holds — the state a run
-   * had before a cursor store existed. A store that answers a stored position
-   * moves the cursor there, so a restart does not replay updates the previous
-   * run already confirmed.
-   */
-  private async loadCursor(): Promise<void> {
-    if (!this.cursor) return;
-    try {
-      const saved = await this.cursor.load();
-      if (typeof saved === "number" && Number.isFinite(saved) && saved > this.offset) {
-        this.offset = saved;
-      }
-    } catch {
-      // Nothing to recover here: the cursor stays where it is.
-    }
-  }
-
-  /**
-   * Persist the current cursor.
-   *
-   * A store that cannot be written is reported through the audit sink and the
-   * last good offset stays in place: the next advance retries the write, and a
-   * persistently failing store degrades to a replay from the last offset that
-   * did save, which the in-run guard and the platform's own confirmation
-   * suppress. It never advances the cursor past an unsaved batch.
-   */
-  private async saveCursor(): Promise<void> {
-    if (!this.cursor) return;
-    try {
-      await this.cursor.save(this.offset);
-    } catch (error) {
-      this.audit({
-        kind: "cursor-save-failed",
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+    }, signal);
+    return {
+      polled: result.polled,
+      outcomes,
+      ...(result.retryAfterMs !== undefined ? { retryAfterMs: result.retryAfterMs } : {}),
+    };
   }
 
   /**
@@ -736,22 +688,11 @@ export class MessagingInboundDriver {
       }
       return;
     }
-    await this.loadCursor();
-    while (!signal?.aborted) {
-      let polled = false;
-      let retryAfterMs = 0;
-      try {
-        const outcome = await this.pollOnce(signal);
-        polled = outcome.polled;
-        retryAfterMs = outcome.retryAfterMs ?? 0;
-      } catch (error) {
-        // Defensive: a transport that throws instead of returning is still a
-        // poll failure, not a Host failure.
-        this.audit({ kind: "poll-failed", error: error instanceof Error ? error.message : String(error) });
-      }
-      const floor = polled ? MIN_POLL_INTERVAL_MS : POLL_FAILURE_DELAY_MS;
-      if (!signal?.aborted) await this.wait(Math.max(floor, retryAfterMs));
-    }
+    const poller = this.poller;
+    if (!poller) return;
+    await poller.run(async (message: InboundMessage) => {
+      await this.handleMessage(message);
+    }, signal);
   }
 }
 
@@ -946,7 +887,14 @@ export function createTelegramInboundTransport(
   };
 }
 
-/** Project one poll body onto the messages it carries. */
+/**
+ * Project one poll body onto the messages it carries.
+ *
+ * A batch is projected in the platform's order: the cursor advances to the
+ * highest update id seen, and only the entries that are a plain message are
+ * returned for the transport to apply. An update that carries no message still
+ * moves the cursor, so the poll never re-offers it.
+ */
 function parseUpdates(body: unknown, offset: number): TelegramPollResult {
   if (!isRecord(body)) return { ok: false, error: "the channel response was not an object" };
   if (body.ok !== true) {
@@ -965,18 +913,11 @@ function parseUpdates(body: unknown, offset: number): TelegramPollResult {
   const messages: TelegramInboundMessage[] = [];
   let nextOffset = offset;
   for (const entry of raw) {
-    if (!isRecord(entry)) continue;
-    const updateId = typeof entry.update_id === "number" ? entry.update_id : null;
-    if (updateId === null) continue;
-    nextOffset = Math.max(nextOffset, updateId + 1);
-    const message = entry.message;
-    if (!isRecord(message)) continue;
-    const messageId = typeof message.message_id === "number" ? String(message.message_id) : "";
-    const chat = isRecord(message.chat) ? message.chat : undefined;
-    const chatId = typeof chat?.id === "number" || typeof chat?.id === "string" ? String(chat.id) : "";
-    const text = typeof message.text === "string" ? message.text : "";
-    if (!messageId || !chatId) continue;
-    messages.push({ updateId, messageId, chatId, text });
+    const projected = normaliseTelegramUpdate(entry);
+    if (projected.kind !== "update") continue;
+    nextOffset = Math.max(nextOffset, projected.updateId + 1);
+    if (projected.normalisation.kind !== "message") continue;
+    messages.push({ ...projected.normalisation.message, updateId: projected.updateId });
   }
   return { ok: true, messages, nextOffset };
 }
