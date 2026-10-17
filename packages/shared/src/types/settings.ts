@@ -12,8 +12,48 @@ import type { SpeechSettings } from "./speech.js";
 import type { ThinkingLevel } from "./models.js";
 import type { Skin } from "../skins.js";
 import type { UpdatePreference } from "./platform.js";
+import type { RacpPermissionMode, RacpRole } from "../racp.js";
 
 export type ThemePreference = "system" | "light" | "dark" | "fox" | `plugin:${string}`;
+
+/**
+ * The chat-to-principal link an inbound messaging channel carries beside its
+ * record. An absent or incomplete link leaves the conversation unlinked, and
+ * the inbound driver refuses every command from it (fail closed).
+ */
+export type MessagingInboundSettings = {
+  /** The principal an admitted command runs as. */
+  linkedPrincipal?: { subject: string; roles: RacpRole[] };
+  /** The mode a contract approval's positive decision carries. */
+  permissionMode?: RacpPermissionMode;
+  /** Telegram long-poll cursor; absent means start from zero. */
+  pollOffset?: number;
+  /** The session the linked conversation's commands act on. */
+  sessionId?: string;
+  /** Slack's restart-durable replay guard, keyed on the platform's event id. */
+  handledEventIds?: string[];
+};
+
+/**
+ * One messaging channel's stored record, inside the shared `app` settings row.
+ *
+ * Telegram's record lives under `messagingTelegram`, Slack's under
+ * `messagingSlack`; both are read by `crates/host-core/src/messaging_*.rs` for
+ * outbound delivery and by `packages/agent-host` for the inbound command path.
+ * The credential itself is never part of this record: it lives in the host's
+ * secret store under a `secret:messaging-*` ref.
+ */
+export type MessagingChannelSettings = {
+  /** This build's record format; a foreign value is refused, not half-read. */
+  format: string;
+  version: number;
+  /** The platform API base the channel posts to. */
+  endpoint: string;
+  /** The one conversation the channel sends to and accepts commands from. */
+  destination: string;
+  requestTimeoutMs?: number;
+  inbound?: MessagingInboundSettings;
+};
 
 /**
  * What closing the main window does on Windows/Linux. macOS keeps the native
@@ -201,6 +241,16 @@ export type AppSettings = {
    * how a person decides to switch it on.
    */
   remoteControlEnabled?: boolean;
+  /**
+   * Messaging channels (setting `messagingTelegram` / `messagingSlack`). Both
+   * live in this same row because every host surface reads them from it: the
+   * outbound adapter at registration and the inbound driver on each message.
+   * Absent means the channel is not configured, and the Host behaves as it did
+   * before that channel existed. The credential for either channel is a secret
+   * ref, never a field here.
+   */
+  messagingTelegram?: MessagingChannelSettings;
+  messagingSlack?: MessagingChannelSettings;
   onboardingDismissed: boolean;
 };
 

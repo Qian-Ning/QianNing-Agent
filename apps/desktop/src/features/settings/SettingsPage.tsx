@@ -23,7 +23,7 @@ import {
   IconBot,
   IconChevronLeft,
   IconDownload,
-  IconGlobe,
+  IconChat,
   IconInfo,
   IconKeyboard,
   IconPalette,
@@ -48,7 +48,7 @@ import { ProjectsPage } from "../../pages/ProjectsPage";
 import { AgentSkillsPage } from "../../components/settings/AgentSkillsPage";
 import { AgentMcpPage } from "../../components/settings/AgentMcpPage";
 import { AgentSubagentsPage } from "../../components/settings/AgentSubagentsPage";
-import { RemoteHostsPage } from "../../components/settings/RemoteHostsPage";
+import { MessagingPlatformsPage } from "../../components/settings/MessagingPlatformsPage";
 import { VoiceSettingsSection } from "./voice/VoiceSettingsSection";
 import {
   CommandShellRow,
@@ -147,8 +147,8 @@ export function SettingsPage() {
   }, [activeExtension, extensions, setSettingsTab]);
 
   // A hidden destination must not keep rendering: leave the page the rail no
-  // longer offers (for example Cloud sync or Remote Hosts after developer mode
-  // is switched off) and fall back to General.
+  // longer offers (Cloud sync is retained in the build but absent from the
+  // index) and fall back to General.
   useEffect(() => {
     if (!settings || !tabHidden) return;
     setSettingsTab("general");
@@ -243,7 +243,7 @@ export function SettingsPage() {
       import: <IconDownload size={14} />,
       projects: <IconArchive size={14} />,
       sync: <IconCloudDown size={14} />,
-      remoteHosts: <IconGlobe size={14} />,
+      messaging: <IconChat size={14} />,
       voice: <IconMic size={14} />,
       usage: <IconChartColumn size={14} />,
       about: <IconInfo size={14} />,
@@ -622,14 +622,13 @@ export function SettingsPage() {
           {tab === "mcp" && <AgentMcpPage />}
 
           {tab === "subagents" && <AgentSubagentsPage />}
+          {tab === "messaging" && <MessagingPlatformsPage />}
 
           {tab === "import" && <ImportSection />}
 
           {tab === "projects" && <ProjectsPage />}
 
           {tab === "sync" && !tabHidden && <ConfigSyncPage />}
-
-          {tab === "remoteHosts" && !tabHidden && <RemoteHostsPage />}
 
           {tab === "usage" && <UsagePage />}
 

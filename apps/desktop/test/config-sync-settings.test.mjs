@@ -3,10 +3,16 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { loadStyles } from "./helpers/styles.mjs";
 import {
+  SETTINGS_NAV,
+  searchSettings,
+} from "../src/lib/settings-search.ts";
+import {
   CONFIG_SYNC_RPC_TIMEOUT_MS,
   DEFAULT_RPC_TIMEOUT_MS,
   rpcTimeoutMs,
 } from "@pi-desktop/shared";
+
+const identity = (key) => key;
 
 const read = (relativePath) =>
   readFile(new URL(relativePath, import.meta.url), "utf8");
@@ -27,11 +33,20 @@ const progressModel = await read(
   "../src/features/settings/config-sync-progress.ts",
 );
 
-test("cloud sync rendering follows the settings visibility gate", () => {
+test("cloud sync is de-listed from the settings directory, not merely hidden", () => {
+  // The destination is gone from the directory rather than gated behind the
+  // build flag: no entry names it in any mode, and search cannot reach it.
+  // The page and its render branch are retained, and that branch keeps the
+  // visibility gate, so restoring the entry is the only change needed to
+  // bring Cloud sync back.
+  assert.equal(SETTINGS_NAV.some((entry) => entry.id === "sync"), false);
+  assert.deepEqual(
+    searchSettings("configSync.connectionTitle", identity, { developerMode: true }),
+    [],
+  );
+  assert.doesNotMatch(settingsIndex, /id: "sync"/);
+  assert.doesNotMatch(settingsIndex, /settings\.configSync\./);
   assert.match(settingsPage, /tab === "sync" && !tabHidden && <ConfigSyncPage \/>/);
-  assert.match(settingsIndex, /id: "sync"/);
-  assert.match(settingsIndex, /experimentalBadgeKey: "settings\.configSync\.experimental"/);
-  assert.match(settingsIndex, /settings\.configSync\.connectionTitle/);
 });
 
 test("cloud sync keeps credentials and vault operations on the host boundary", () => {

@@ -335,12 +335,14 @@ export function createRemoteHostsBoot(
 
   const summaryOf = (record: RemoteHostRecord): RemoteHostSummary => {
     const live = opened.find((host) => host.hostKey === record.hostKey);
+    const ssh = sshMetadataOf(record);
     return {
       hostKey: record.hostKey,
       label: record.label,
       url: live?.url ?? record.url,
       connected: live !== undefined,
       transport: transportOf(record),
+      ...(ssh ? { ssh } : {}),
     };
   };
 

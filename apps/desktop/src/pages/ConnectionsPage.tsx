@@ -14,6 +14,20 @@ import type {
 import { useAppStore } from "../stores/app-store";
 import { api } from "../lib/api";
 import {
+  hostLinkKey,
+  hostLinkOf,
+  hostLinkTone,
+  machineRows,
+  removalPlan,
+  type MachineRow,
+} from "../lib/connection-machines";
+import {
+  HostOnlyPanel,
+  MachineHostSection,
+  PairHostDialog,
+  useRemoteHosts,
+} from "../components/connections/MachineHostPanel";
+import {
   Badge,
   Button,
   Field,
@@ -23,11 +37,20 @@ import {
   SegmentedControl,
   SettingsToggle,
 } from "../components/ui";
-import { IconPlus, IconServer } from "../components/icons";
+import { IconLink, IconPlus, IconServer } from "../components/icons";
 
 /**
- * The Connections destination (ADR 0320, `04-ux/01-ui-ia.md` §3.6): the list of
- * outbound targets the user owns, and the place a changed host key is cleared.
+ * The Connections destination (ADR 0320, `04-ux/01-ui-ia.md` §3.6): one surface
+ * for a machine.
+ *
+ * A row has two layers. The *target* — the connection profile — says where the
+ * agent may work: its address, host-key policy, multiplex mode, limits and the
+ * switch that lets the agent use it. The *host* says whether our runtime is
+ * installed and running on that machine, and how its link is doing right now.
+ * They used to be two Settings pages, which made the same machine appear twice
+ * and offered two ways to add it; the target is now the only add flow, and
+ * installing the runtime is an action on it. A runtime that has no target (the
+ * no-SSH pairing path) keeps its own row so it can still be seen and removed.
  *
  * This round ships the SSH transport, so the add form offers SSH and nothing
  * else — a form that could store a serial target the host cannot dial would be
@@ -208,15 +231,22 @@ export function ConnectionsPage() {
 
   const [profiles, setProfiles] = useState<ConnectionProfileView[] | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [activity, setActivity] = useState<ConnectionActivityEntry[]>([]);
   const [editing, setEditing] = useState<Draft | null>(null);
   const [credential, setCredential] = useState("");
   const [credentialFor, setCredentialFor] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  const [pairing, setPairing] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const switchOn = settings?.remoteControlEnabled === true;
+  const {
+    hosts,
+    unavailable: hostsUnavailable,
+    live: liveLinks,
+    reload: reloadHosts,
+  } = useRemoteHosts();
 
   const load = useCallback(async () => {
     try {
@@ -233,10 +263,16 @@ export function ConnectionsPage() {
     void load();
   }, [load]);
 
-  const selected = useMemo(
-    () => profiles?.find((profile) => profile.id === selectedId) ?? null,
-    [profiles, selectedId],
+  // One row per machine: the target and its runtime, or a paired runtime on its
+  // own. Profiles keep their order; an unmatched host follows.
+  const rows = useMemo(() => machineRows(profiles ?? [], hosts), [profiles, hosts]);
+  const selectedRow = useMemo(
+    () => rows.find((row) => row.key === selectedKey) ?? null,
+    [rows, selectedKey],
   );
+  const selected = selectedRow?.profile ?? null;
+  const linkOf = (row: MachineRow) =>
+    hostLinkOf(row.host, row.host ? liveLinks[row.host.hostKey] : undefined, hostsUnavailable);
 
   useEffect(() => {
     if (!selected) {
@@ -299,7 +335,7 @@ export function ConnectionsPage() {
         if (credential !== "") {
           await api.setConnectionCredential(created.id, credential);
         }
-        setSelectedId(created.id);
+        setSelectedKey(created.id);
       }
       setCredential("");
       setCredentialFor(null);
@@ -326,10 +362,24 @@ export function ConnectionsPage() {
       await api.acceptConnectionHostKey(profile.id, fingerprint);
     }, "connections.probeFailed");
 
-  const remove = (profile: ConnectionProfileView) =>
+  // One confirmation, one action: a target and the runtime installed on it are
+  // the same machine, so leaving the registration behind would make the deleted
+  // card come back as an orphan row.
+  const remove = (row: MachineRow) =>
     run(async () => {
-      await api.deleteConnectionProfile(profile.id);
-      if (selectedId === profile.id) setSelectedId(null);
+      const plan = removalPlan(row);
+      const label = row.profile?.label ?? row.host?.label ?? "";
+      if (row.profile && plan.target) await api.deleteConnectionProfile(row.profile.id);
+      if (row.host && plan.host) await api.removeRemoteHost({ hostKey: row.host.hostKey });
+      if (selectedKey === row.key) setSelectedKey(null);
+      await reloadHosts();
+      showToast(
+        plan.target && plan.host
+          ? t("connections.removedBoth", { label })
+          : plan.host
+            ? t("connections.removedHostOnly", { label })
+            : t("connections.removedTargetOnly", { label }),
+      );
     }, "connections.deleteFailed");
 
   // The draft owns the choice, so the control below writes to something and the
@@ -393,14 +443,25 @@ export function ConnectionsPage() {
             <h1 className="page-title">{t("connections.title")}</h1>
             <p className="dest-row-meta">{t("connections.subtitle")}</p>
           </div>
-          <Button
-            variant="primary"
-            disabled={busy}
-            onClick={() => setEditing(blankDraft())}
-          >
-            <IconPlus size={14} aria-hidden />
-            {t("connections.add")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => setPairing(true)}
+              title={t("connections.hostPairBody")}
+            >
+              <IconLink size={14} aria-hidden />
+              {t("connections.hostPairEntry")}
+            </Button>
+            <Button
+              variant="primary"
+              disabled={busy}
+              onClick={() => setEditing(blankDraft())}
+            >
+              <IconPlus size={14} aria-hidden />
+              {t("connections.add")}
+            </Button>
+          </div>
         </div>
 
       {!switchOn ? (
@@ -424,7 +485,7 @@ export function ConnectionsPage() {
 
       {profiles === null ? (
         <p className="dest-row-meta" role="status">{t("connections.loading")}</p>
-      ) : profiles.length === 0 ? (
+      ) : rows.length === 0 ? (
         <div className="page-card page-empty">
           <Panel className="page-empty-icon">
             <IconServer size={18} aria-hidden className="text-text-secondary" />
@@ -444,12 +505,15 @@ export function ConnectionsPage() {
         </div>
       ) : (
         <div className="dest-list">
-          {profiles.map((profile) => {
-            const failed =
-              profile.lastProbe !== null && profile.lastProbe.ok === false;
-            const open = profile.id === selectedId && selected !== null;
+          {rows.map((row) => {
+            const profile = row.profile;
+            const host = row.host;
+            const link = linkOf(row);
+            const failed = profile?.lastProbe !== null && profile?.lastProbe.ok === false;
+            const open = row.key === selectedKey && selectedRow !== null;
+            const label = profile?.label ?? host?.label ?? "";
             return (
-              <Fragment key={profile.id}>
+              <Fragment key={row.key}>
                 <Panel className="dest-row">
                   <div className="dest-row-icon"><IconServer
                     size={16}
@@ -459,43 +523,52 @@ export function ConnectionsPage() {
                   <button
                     type="button"
                     className="min-w-0 flex-1 text-left"
-                    data-nav={`connection-${profile.id}`}
+                    data-nav={profile ? `connection-${profile.id}` : `host-${host?.hostKey}`}
                     aria-expanded={open}
                     onClick={() =>
-                      setSelectedId(open ? null : profile.id)
+                      setSelectedKey(open ? null : row.key)
                     }
                   >
                     <span className="dest-row-title w-full">
-                      <span className="truncate text-sm">{profile.label}</span>
-                      <Badge>{t(KIND_LABEL[profile.kind])}</Badge>
+                      <span className="truncate text-sm">{label}</span>
+                      {profile ? (
+                        <Badge>{t(KIND_LABEL[profile.kind])}</Badge>
+                      ) : (
+                        <Badge>{t("connections.pairedHost")}</Badge>
+                      )}
+                      <Badge tone={hostLinkTone(link)}>{t(hostLinkKey(link))}</Badge>
                       {failed ? (
                         <Badge tone="warning">{t("connections.probeFailed")}</Badge>
                       ) : null}
                     </span>
                     <span className="dest-row-meta block truncate">
-                      {summarize(profile)}
+                      {profile ? summarize(profile) : (host?.url ?? "")}
                     </span>
                   </button>
                   <span className="flex-none text-xs text-text-secondary">
-                    {profile.lastProbe === null
-                      ? t("connections.neverProbed")
-                      : profile.lastProbe.ok
-                        ? t("connections.probeOk")
-                        : t("connections.probeFailed")}
+                    {profile === undefined
+                      ? t("connections.hostNoTarget")
+                      : profile.lastProbe === null
+                        ? t("connections.neverProbed")
+                        : profile.lastProbe.ok
+                          ? t("connections.probeOk")
+                          : t("connections.probeFailed")}
                   </span>
-                  <SettingsToggle
-                    checked={profile.enabled}
-                    disabled={busy}
-                    label={profile.label}
-                    onChange={() =>
-                      void run(
-                        () => api.setConnectionEnabled(profile.id, !profile.enabled),
-                        "connections.enableFailed",
-                      )
-                    }
-                  />
+                  {profile ? (
+                    <SettingsToggle
+                      checked={profile.enabled}
+                      disabled={busy}
+                      label={profile.label}
+                      onChange={() =>
+                        void run(
+                          () => api.setConnectionEnabled(profile.id, !profile.enabled),
+                          "connections.enableFailed",
+                        )
+                      }
+                    />
+                  ) : null}
                 </Panel>
-                {open && selected ? (
+                {open && profile && selected ? (
                   <Panel className="dest-create space-y-4">
                     {selected.lastProbe !== null &&
                     selected.lastProbe.ok === false ? (
@@ -651,6 +724,13 @@ export function ConnectionsPage() {
                       </div>
                     </section>
 
+                    <MachineHostSection
+                      profile={selected}
+                      host={selectedRow?.host}
+                      link={selectedRow ? linkOf(selectedRow) : "not-installed"}
+                      onChanged={() => void reloadHosts()}
+                    />
+
                     <section className="space-y-1.5">
                       <div className="text-xs text-text-secondary">
                         {t("connections.activity")}
@@ -693,6 +773,13 @@ export function ConnectionsPage() {
                       </Button>
                     </div>
                   </Panel>
+                ) : null}
+                {open && !profile && selectedRow ? (
+                  <HostOnlyPanel
+                    row={selectedRow}
+                    link={link}
+                    onRemoved={() => void reloadHosts()}
+                  />
                 ) : null}
               </Fragment>
             );
@@ -938,35 +1025,51 @@ export function ConnectionsPage() {
         </div>
       ) : null}
 
-      {confirmingDelete ? (
-        <div
-          className="overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label={t("connections.deleteTitle")}
-        >
-          <Panel className="dialog space-y-3 p-4">
-            <div className="text-sm">{t("connections.deleteTitle")}</div>
-            <p className="text-xs text-text-secondary">{t("connections.deleteBody")}</p>
-            <div className="flex items-center justify-end gap-2">
-              <Button size="sm" onClick={() => setConfirmingDelete(null)}>
-                {t("connections.cancel")}
-              </Button>
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={busy}
-                onClick={() => {
-                  const profile = profiles?.find((row) => row.id === confirmingDelete);
-                  setConfirmingDelete(null);
-                  if (profile) void remove(profile);
-                }}
-              >
-                {t("connections.delete")}
-              </Button>
-            </div>
-          </Panel>
-        </div>
+      {confirmingDelete ? (() => {
+        const row = rows.find((entry) => entry.key === confirmingDelete);
+        const plan = row ? removalPlan(row) : { target: false, host: false };
+        const body =
+          plan.target && plan.host
+            ? "connections.deleteWithHostBody"
+            : plan.host
+              ? "connections.deleteHostOnlyBody"
+              : "connections.deleteBody";
+        return (
+          <div
+            className="overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("connections.deleteTitle")}
+          >
+            <Panel className="dialog space-y-3 p-4">
+              <div className="text-sm">{t("connections.deleteTitle")}</div>
+              <p className="text-xs text-text-secondary">{t(body)}</p>
+              <div className="flex items-center justify-end gap-2">
+                <Button size="sm" onClick={() => setConfirmingDelete(null)}>
+                  {t("connections.cancel")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={busy}
+                  onClick={() => {
+                    setConfirmingDelete(null);
+                    if (row) void remove(row);
+                  }}
+                >
+                  {t("connections.delete")}
+                </Button>
+              </div>
+            </Panel>
+          </div>
+        );
+      })() : null}
+
+      {pairing ? (
+        <PairHostDialog
+          onClose={() => setPairing(false)}
+          onPaired={() => void reloadHosts()}
+        />
       ) : null}
         </div>
       </div>

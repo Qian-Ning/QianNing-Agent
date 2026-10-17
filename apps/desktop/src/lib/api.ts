@@ -113,12 +113,7 @@ import type {
   PlanResolutionResult,
   PlanningStateEvent,
   PlansPendingResult,
-  RemoteHostBootstrapRequest,
-  RemoteHostBootstrapResult,
-  RemoteHostPairRequest,
-  RemoteHostPairResult,
-  RemoteHostStateEvent,
-  RemoteHostSummary,
+  MessagingChannelSettings,
   UpdateState,
   WindowControlAction,
   CloseBehavior,
@@ -137,6 +132,13 @@ import type {
   ConnectionProfileDraft,
   ConnectionProfileView,
   ConnectionProbeResult,
+  RemoteHostBootstrapRequest,
+  RemoteHostBootstrapResult,
+  RemoteHostPairRequest,
+  RemoteHostPairResult,
+  RemoteHostRemoveRequest,
+  RemoteHostStateEvent,
+  RemoteHostSummary,
 } from "@pi-desktop/shared";
 import {
   defaultCommandShellForPlatform,
@@ -153,6 +155,7 @@ import {
   validateNetworkProxy,
   validateSpeechSettings,
 } from "@pi-desktop/shared";
+import type { MessagingSectionKey } from "./messaging-platforms";
 
 export type ImportSource = "claude-code" | "opencode" | "codex" | "pi";
 // One definition, owned by the shared package (the host and sidecar use the
@@ -1827,28 +1830,44 @@ export const api = {
     return window.piDesktop.on(IPC.event.notificationSound, () => listener());
   },
 
-  // --- Remote hosts (R2b pairing UX) -----------------------------------------
-  /** Paired remote `pi-host` list, redacted so no device token reaches here. */
+  // --- Messaging platforms ---------------------------------------------------
+  /**
+   * Write one messaging channel's settings section (`messagingTelegram` or
+   * `messagingSlack`). The section is replaced whole, which is why the caller
+   * rebuilds it from the stored record instead of sending a patch.
+   */
+  setMessagingSection: (
+    section: MessagingSectionKey,
+    value: MessagingChannelSettings,
+  ) => invoke<{ ok: boolean }>(IPC.invoke.messagingSetSection, { section, value }),
+  /**
+   * Write one credential to the host's secret store, under a `secret:` ref.
+   * The value never crosses back: `hasSecret` answers presence only.
+   */
+  setSecret: (secretRef: string, value: string) =>
+    invoke<{ ok: boolean }>(IPC.invoke.secretsSet, { secretRef, value }),
+  /** Whether the host holds a credential under this ref; never its value. */
+  hasSecret: (secretRef: string) =>
+    invoke<{ has: boolean }>(IPC.invoke.secretsHas, secretRef),
+
+  // --- Remote host runtime ---------------------------------------------------
+  // The host layer of a machine: whether our runtime is installed and running
+  // there. The target layer (profiles above) says where the agent may work; one
+  // Connections card shows both halves, which is why these calls live beside it.
   listRemoteHosts: () =>
     invoke<{ hosts: RemoteHostSummary[] }>(IPC.invoke.remoteHostList),
-  /** Exchange `ppt1.` pairing token for a durable device token and connect. */
-  pairRemoteHost: (request: RemoteHostPairRequest) =>
-    invoke<RemoteHostPairResult>(IPC.invoke.remoteHostPair, request),
-  /**
-   * Install and pair a `pi-host` over SSH on a machine the user already
-   * reaches, then bring it online (spec §5.2). Credentials come from the
-   * user's own SSH configuration and agent.
-   */
+  /** Install and pair the runtime on a machine reachable over SSH. */
   bootstrapRemoteHost: (request: RemoteHostBootstrapRequest) =>
     invoke<RemoteHostBootstrapResult>(IPC.invoke.remoteHostBootstrap, request),
-  /** Close and drop a paired host by its stable routing key. */
-  removeRemoteHost: (hostKey: string) =>
-    invoke<{ ok: true }>(IPC.invoke.remoteHostRemove, { hostKey }),
+  /** Pair a runtime the user started themselves — the no-SSH path. */
+  pairRemoteHost: (request: RemoteHostPairRequest) =>
+    invoke<RemoteHostPairResult>(IPC.invoke.remoteHostPair, request),
+  /** Forget one host registration. The target profile is untouched. */
+  removeRemoteHost: (request: RemoteHostRemoveRequest) =>
+    invoke<{ ok: true }>(IPC.invoke.remoteHostRemove, request),
   /**
-   * Live link state of one paired host: `connecting` / `connected` /
-   * `reconnecting` / `disconnected` / `failed` (R2b stage 3b). Distinct from
-   * `remoteHostList`'s snapshot `connected` flag, which cannot say *why* a row
-   * is not usable.
+   * Live link changes for one host, pushed from main. The list snapshot is not
+   * enough: a host reconnects on its own, and the card has to follow.
    */
   onRemoteHostState: (listener: (event: RemoteHostStateEvent) => void) => {
     if (!window.piDesktop?.on) return () => undefined;
@@ -1856,6 +1875,7 @@ export const api = {
       listener(payload as RemoteHostStateEvent),
     );
   },
+
   onSessionsChanged: (
     listener: (event: {
       reason?: string;

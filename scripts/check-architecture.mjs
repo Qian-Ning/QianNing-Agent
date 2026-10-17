@@ -74,7 +74,10 @@ function trackedSourceFiles() {
   return git(["ls-files", "-co", "--exclude-standard"])
     .split("\n")
     .filter(Boolean)
-    .filter(isSourcePath);
+    .filter(isSourcePath)
+    // A tracked path removed in the working tree is not a file to measure; CI
+    // never sees one, but a local run before the deletion is staged would.
+    .filter((filePath) => existsSync(resolve(root, filePath)));
 }
 
 function locFor(filePath) {

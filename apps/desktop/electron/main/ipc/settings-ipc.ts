@@ -5,6 +5,7 @@ import {
   createHostSettingsSurface,
   SLACK_INBOUND_CHANNEL,
 } from "@pi-desktop/host-runtime";
+import { MESSAGING_SLACK_SECTION, MESSAGING_TELEGRAM_SECTION } from "@pi-desktop/agent-host";
 import type { AgentSidecar } from "../agent-sidecar";
 import type { HostProcess } from "../host-process";
 import type { IpcRegistrar } from "./types";
@@ -112,6 +113,35 @@ export function registerSettingsIpc({
     applyDeveloperMode(validatedSettings as { developerMode?: unknown } | null);
     return result;
   });
+
+  // One messaging channel's settings section, written on the host's internal
+  // call path. The section name is checked against the two channels this build
+  // ships, so the channel can never be used as a general-purpose settings
+  // writer, and the value must be an object because `settings.set` replaces the
+  // whole section with it. Nothing here decides whether the record is complete:
+  // the host reads it, refuses a foreign `format`/`version` and leaves an
+  // incomplete channel inert, which is the same gate it applies to a record
+  // written any other way.
+  handle(
+    IPC.invoke.messagingSetSection,
+    async (input: { section?: unknown; value?: unknown }) => {
+      if (!host) throw new Error("host unavailable");
+      const section = input?.section;
+      if (section !== MESSAGING_TELEGRAM_SECTION && section !== MESSAGING_SLACK_SECTION) {
+        throw Object.assign(new Error("unknown messaging settings section"), {
+          errorCode: "INVALID_PARAMS",
+        });
+      }
+      const value = input?.value;
+      if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        throw Object.assign(new Error("the messaging settings section must be an object"), {
+          errorCode: "INVALID_PARAMS",
+        });
+      }
+      await host.call("settings.set", { [section]: value });
+      return { ok: true };
+    },
+  );
 
   handle(IPC.invoke.commandShellList, async () => resolveEffectiveCommandShell());
 

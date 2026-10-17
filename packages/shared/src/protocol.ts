@@ -165,6 +165,18 @@ export const IPC = {
     settingsGet: "pi-desktop/settings/get",
     settingsSet: "pi-desktop/settings/set",
     /**
+     * Write one messaging channel's settings section (`messagingTelegram` or
+     * `messagingSlack`) on the host's internal call path.
+     *
+     * It exists so the Messaging platforms destination never round-trips the
+     * whole settings snapshot to change one channel. `settings.set` merges at
+     * the top level, so this patch replaces one section and cannot overwrite a
+     * neighbouring setting — nor re-apply the network proxy policy from a
+     * partial object, which `settingsSet` would. It only restates an existing
+     * host verb; no new store, namespace or persistence is introduced.
+     */
+    messagingSetSection: "pi-desktop/messaging/setSection",
+    /**
      * Bind the one linked messaging conversation to the session its inbound
      * commands act on (ADR 0205 D375 item 9). The conversation-to-session
      * binding lives in the shared `app` settings row; this is the host-internal
