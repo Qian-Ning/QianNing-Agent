@@ -77,6 +77,7 @@ export class MainProcessState {
   messagingDiscordInbound: MessagingInboundHandle | null = null;
   messagingMattermostInbound: MessagingInboundHandle | null = null;
   messagingMatrixInbound: MessagingInboundHandle | null = null;
+  messagingIrcInbound: MessagingInboundHandle | null = null;
   messagingOutbound: MessagingOutboundRelay | null = null;
 
   quitting = false;
@@ -415,6 +416,12 @@ export class MainProcessState {
       },
       set messagingMatrixInbound(value) {
         self.messagingMatrixInbound = value;
+      },
+      get messagingIrcInbound() {
+        return self.messagingIrcInbound;
+      },
+      set messagingIrcInbound(value) {
+        self.messagingIrcInbound = value;
       },
       get messagingOutbound() {
         return self.messagingOutbound;

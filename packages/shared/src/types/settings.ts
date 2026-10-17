@@ -63,6 +63,18 @@ export type MessagingChannelSettings = {
   endpoint: string;
   /** The one conversation the channel sends to and accepts commands from. */
   destination: string;
+  /**
+   * IRC only: the nick this client registers. IRC is the one channel whose
+   * identity is a name rather than a token, so it is part of the record and not
+   * a credential. Absent for every other channel.
+   */
+  nick?: string;
+  /**
+   * IRC only: every channel to join, comma-separated. The linked `destination`
+   * is always joined too, so a single-channel setup needs no list. Absent for
+   * every other channel.
+   */
+  channels?: string;
   requestTimeoutMs?: number;
   inbound?: MessagingInboundSettings;
 };
@@ -266,6 +278,7 @@ export type AppSettings = {
   messagingDiscord?: MessagingChannelSettings;
   messagingMattermost?: MessagingChannelSettings;
   messagingMatrix?: MessagingChannelSettings;
+  messagingIrc?: MessagingChannelSettings;
   onboardingDismissed: boolean;
 };
 

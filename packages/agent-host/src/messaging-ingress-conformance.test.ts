@@ -18,6 +18,7 @@ import { describe, expect, it } from "vitest";
 import type {
   IngressMessage,
   IngressPollResult,
+  IngressDeliveryResult,
   MessagingIngressAdapter,
 } from "./messaging-ingress.js";
 import {
@@ -50,6 +51,11 @@ import {
 } from "./messaging-matrix-inbound.js";
 import { createTelegramIngressAdapter } from "./messaging-inbound.js";
 import { WebhookIngressTransport } from "./messaging-ingress-webhook.js";
+import { createIngressRawSocketPair } from "./messaging-ingress-conformance.js";
+import {
+  createIrcIngressAdapter,
+  type IrcInboundAuditEntry,
+} from "./messaging-irc-inbound.js";
 
 // ---------------------------------------------------------------------------
 // Shared doubles
@@ -596,6 +602,191 @@ function telegramFixture(): IngressConformanceFixture {
 }
 
 // ---------------------------------------------------------------------------
+// IRC (raw socket, line protocol)
+// ---------------------------------------------------------------------------
+
+/**
+ * A fake IRC server over the conformance module's in-process byte pair: one
+ * connection per attempt, a line log of what the client wrote, and a way to send
+ * a line back. No port is bound and nothing leaves the process.
+ */
+class LineServer {
+  private readonly connections: Array<{
+    lines: string[];
+    send(line: string): void;
+    close(): void;
+  }> = [];
+
+  readonly factory = () => {
+    const pair = createIngressRawSocketPair();
+    const connection = {
+      lines: [] as string[],
+      send: (line: string) => pair.server.write(`${line}\r\n`),
+      close: () => pair.server.end(),
+    };
+    let buffer = "";
+    pair.server.onData((chunk) => {
+      buffer += chunk;
+      for (;;) {
+        const newline = buffer.indexOf("\r\n");
+        if (newline === -1) break;
+        connection.lines.push(buffer.slice(0, newline));
+        buffer = buffer.slice(newline + 2);
+      }
+    });
+    this.connections.push(connection);
+    return pair.client;
+  };
+
+  get latest() {
+    const connection = this.connections[this.connections.length - 1];
+    if (!connection) throw new Error("no IRC connection was opened");
+    return connection;
+  }
+
+  get sent(): string[] {
+    return this.latest.lines;
+  }
+
+  get count(): number {
+    return this.connections.length;
+  }
+}
+
+function ircFixture(): IngressConformanceFixture {
+  const handled = durableGuard();
+  const audit: IrcInboundAuditEntry[] = [];
+  const server = new LineServer();
+  const chunks: string[] = [];
+  const adapter = createIrcIngressAdapter({
+    endpoint: { host: "irc.conformance.test", port: 6697, tls: true },
+    nick: "pi-bot",
+    channels: ["#conformance"],
+    handled,
+    audit: (entry) => audit.push(entry),
+    connect: server.factory,
+    registrationTimeoutMs: 200,
+    onChunk: (chunk) => chunks.push(chunk),
+  });
+
+  /** Wait for the client's registration lines to arrive on the current socket. */
+  const waitForRegistration = async (): Promise<void> => {
+    for (let attempt = 0; attempt < 400; attempt += 1) {
+      const lines = server.sent;
+      if (lines.includes("NICK pi-bot") && lines.some((line) => line.startsWith("USER "))) return;
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    }
+    throw new Error("the client never sent its registration");
+  };
+
+  /** Open one registered connection and return a handle the suite can drive. */
+  const open = async (
+    onMessage: (message: IngressMessage) => Promise<void>,
+  ): Promise<IngressConformanceConnection & { client: ReturnType<typeof adapter.openClient> }> => {
+    const client = adapter.openClient(onMessage);
+    const connecting = client.connect();
+    await waitForRegistration();
+    server.latest.send(":irc.conformance.test 001 pi-bot :Welcome");
+    await connecting;
+    const connection = server.latest;
+    return {
+      client,
+      async deliver(raw) {
+        const line = typeof raw === "string" ? raw : "";
+        connection.send(line);
+        await settle();
+      },
+      drop() {
+        connection.close();
+      },
+    };
+  };
+
+  const foreignLine = ":human-conformance!u@host PRIVMSG #conformance :/start do the thing";
+
+  return {
+    adapter,
+    deliver: (text: string) => {
+      const delivery: {
+        chatId: string;
+        chunks: string[];
+        result: Promise<IngressDeliveryResult>;
+      } = {
+        chatId: "#conformance",
+        chunks: [],
+        result: Promise.resolve({ ok: false, error: "not started", sent: 0 }),
+      };
+      const before = chunks.length;
+      delivery.result = (async () => {
+        if (server.count === 0) {
+          const opening = adapter.openClient(async () => {});
+          const connecting = opening.connect();
+          await waitForRegistration();
+          server.latest.send(":irc.conformance.test 001 pi-bot :Welcome");
+          await connecting;
+        }
+        const outcome = await adapter.deliver!("#conformance", text);
+        // The chunks this send produced, read from the sender's own seam.
+        delivery.chunks = chunks.slice(before);
+        return outcome;
+      })();
+      return delivery;
+    },
+    foreign: () => ({
+      raw: {
+        channel: "#conformance",
+        nick: "human-conformance",
+        text: "/start do the thing",
+        messageId: "m-conformance",
+      },
+      frame: foreignLine,
+      expected: {
+        messageId: "m-conformance",
+        chatId: "#conformance",
+        text: "/start do the thing",
+      },
+    }),
+    // A server echoes our own PRIVMSG with *its* casing for the nick; the filter
+    // must compare case-insensitively or the bot answers itself forever.
+    own: () => ({
+      channel: "#conformance",
+      nick: "PI-BOT",
+      text: "/start from the bot",
+      messageId: "m-own",
+    }),
+    async refusedCredential() {
+      const refusedAudit: IrcInboundAuditEntry[] = [];
+      const errors: string[] = [];
+      const refusedServer = new LineServer();
+      const refused = createIrcIngressAdapter({
+        endpoint: { host: "irc.conformance.test", port: 6697, tls: true },
+        nick: "pi-bot",
+        channels: ["#conformance"],
+        handled: durableGuard(),
+        password: "irc-SECRET-server-password",
+        audit: (entry) => refusedAudit.push(entry),
+        connect: refusedServer.factory,
+        registrationTimeoutMs: 200,
+      });
+      const client = refused.openClient(async () => {});
+      const connecting = client.connect().catch((error: unknown) => {
+        errors.push(error instanceof Error ? error.message : String(error));
+      });
+      for (let attempt = 0; attempt < 400; attempt += 1) {
+        if (refusedServer.sent.some((line) => line.startsWith("PASS "))) break;
+        await new Promise((resolve) => setTimeout(resolve, 1));
+      }
+      refusedServer.latest.send(":irc.conformance.test 464 pi-bot :Password incorrect");
+      await connecting;
+      return {
+        token: "irc-SECRET-server-password",
+        observed: JSON.stringify({ refusedAudit, errors }),
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // The suite
 // ---------------------------------------------------------------------------
 
@@ -605,6 +796,7 @@ const FIXTURES: { name: string; build: () => IngressConformanceFixture }[] = [
   { name: "mattermost", build: mattermostFixture },
   { name: "telegram", build: telegramFixture },
   { name: "matrix", build: matrixFixture },
+  { name: "irc", build: ircFixture },
 ];
 
 for (const entry of FIXTURES) {

@@ -80,6 +80,7 @@ const telegram = SUPPORTED_MESSAGING_PLATFORMS.find((entry) => entry.id === "tel
 const slack = SUPPORTED_MESSAGING_PLATFORMS.find((entry) => entry.id === "slack");
 const discord = SUPPORTED_MESSAGING_PLATFORMS.find((entry) => entry.id === "discord");
 const mattermost = SUPPORTED_MESSAGING_PLATFORMS.find((entry) => entry.id === "mattermost");
+const irc = SUPPORTED_MESSAGING_PLATFORMS.find((entry) => entry.id === "irc");
 
 const TELEGRAM_RECORD = {
   format: "pi-desktop-messaging-telegram",
@@ -96,6 +97,7 @@ const GATEWAY_UP = {
   discord: true,
   mattermost: true,
   matrix: true,
+  irc: true,
 };
 const GATEWAY_DOWN = {
   booted: true,
@@ -104,9 +106,10 @@ const GATEWAY_DOWN = {
   discord: false,
   mattermost: false,
   matrix: false,
+  irc: false,
 };
 
-/** The whole catalogue, in rail order: two supported, the rest honest. */
+/** The whole catalogue, in rail order: six supported, the rest honest. */
 test("the catalogue has the reference breadth and marks support honestly", () => {
   assert.ok(
     MESSAGING_PLATFORMS.length >= 18,
@@ -114,13 +117,21 @@ test("the catalogue has the reference breadth and marks support honestly", () =>
   );
   assert.deepEqual(
     SUPPORTED_MESSAGING_PLATFORMS.map((entry) => entry.id),
-    ["telegram", "slack", "discord", "mattermost", "matrix"],
+    [
+      "telegram",
+      "slack",
+      "discord",
+      "mattermost",
+      "matrix",
+      "irc",
+    ],
   );
   assert.equal(
     SUPPORTED_MESSAGING_PLATFORMS.length + UNSUPPORTED_MESSAGING_PLATFORMS.length,
     MESSAGING_PLATFORMS.length,
   );
-  assert.ok(UNSUPPORTED_MESSAGING_PLATFORMS.length >= 13);
+  // Six of the eighteen entries are supported, so twelve are honest statements.
+  assert.ok(UNSUPPORTED_MESSAGING_PLATFORMS.length >= 12);
   // Ids are unique: two rows must never share a platform.
   assert.equal(new Set(MESSAGING_PLATFORMS.map((entry) => entry.id)).size, MESSAGING_PLATFORMS.length);
 
@@ -254,25 +265,50 @@ test("fields are grouped, and every field explains itself and its blank", () => 
     // (Mattermost and Matrix are self-hosted), and recommended everywhere else.
     const selfHosted = platform.id === "mattermost" || platform.id === "matrix";
     const requiredIds = required.map((field) => field.id);
-    assert.deepEqual(
-      requiredIds.filter((id) => !platform.secrets.some((slot) => slot.id === id)),
-      selfHosted
-        ? ["destination", "subject", "roles", "endpoint"]
-        : ["destination", "subject", "roles"],
-      `${platform.id} required group`,
+    const requiredWithoutSecrets = requiredIds.filter(
+      (id) => !platform.secrets.some((slot) => slot.id === id),
     );
-    assert.deepEqual(
-      requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
-      platform.secrets.map((slot) => slot.id),
-      `${platform.id} credential group`,
-    );
-    assert.deepEqual(
-      recommended.map((field) => field.id),
-      selfHosted
-        ? ["permissionMode", "requestTimeoutMs"]
-        : ["permissionMode", "endpoint", "requestTimeoutMs"],
-      `${platform.id} recommended group`,
-    );
+    // IRC is the one channel whose address and nick are both required and whose
+    // server password is optional: a network of independent servers has no
+    // public default, and a nick is the identity it registers.
+    if (platform.id === "irc") {
+      assert.deepEqual(requiredWithoutSecrets, [
+        "endpoint",
+        "nick",
+        "destination",
+        "subject",
+        "roles",
+      ]);
+      assert.deepEqual(
+        recommended.map((field) => field.id),
+        ["channels", "permissionMode", "requestTimeoutMs", "server-password"],
+      );
+      // The optional server password is a secret slot but never a required one.
+      assert.deepEqual(
+        requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
+        [],
+      );
+    } else {
+      assert.deepEqual(
+        requiredWithoutSecrets,
+        selfHosted
+          ? ["destination", "subject", "roles", "endpoint"]
+          : ["destination", "subject", "roles"],
+        `${platform.id} required group`,
+      );
+      assert.deepEqual(
+        requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
+        platform.secrets.map((slot) => slot.id),
+        `${platform.id} credential group`,
+      );
+      assert.deepEqual(
+        recommended.map((field) => field.id),
+        selfHosted
+          ? ["permissionMode", "requestTimeoutMs"]
+          : ["permissionMode", "endpoint", "requestTimeoutMs"],
+        `${platform.id} recommended group`,
+      );
+    }
 
     for (const field of platform.fields) {
       assert.match(field.labelKey, /^settings\.messaging\./, field.id);
@@ -695,6 +731,7 @@ test("the gateway registry reports the loops that are actually running", async (
     discord: false,
     mattermost: false,
     matrix: false,
+    irc: false,
   });
 
   registry.markBooted();
@@ -711,6 +748,7 @@ test("the gateway registry reports the loops that are actually running", async (
     discord: false,
     mattermost: false,
     matrix: false,
+    irc: false,
   });
 
   registry.track("slack", { done: Promise.resolve() });
@@ -728,6 +766,7 @@ test("the gateway registry reports the loops that are actually running", async (
     discord: false,
     mattermost: false,
     matrix: false,
+    irc: false,
   });
 });
 

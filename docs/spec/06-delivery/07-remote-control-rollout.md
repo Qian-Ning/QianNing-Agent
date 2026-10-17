@@ -207,15 +207,18 @@ inbound listener.
   summaries of `turn.completed`, `turn.failed`, `approval.requested`, and
   `input.requested` to outbound channels: webhook first, then Telegram, Slack,
   Discord and Mattermost through their outbound APIs; channels that require an
-  inbound callback are deferred. Each gateway channel also carries its own
-  reply send path, chunked at the platform's message limit.
+  inbound callback are deferred. IRC is read and answered over a single client
+  TCP/TLS connection the Host opens itself, chunked at the protocol's byte
+  budget. Each gateway channel also carries its own reply send path, chunked at
+  the platform's message limit.
 - It maps a fixed command vocabulary from a linked chat to `turn/start`,
   `turn/stop`, `turn/interrupt`, and `approval/respond`, executed under the
   linked principal's roles and the same Host policy as any client; unlinked
   chats are ignored and audited. Telegram receives commands by an outbound long
-  poll, Slack by a Socket Mode push (ADR 0326), and Discord and Mattermost by
-  their own gateway websockets — every one a connection the Host originates, so
-  none needs an inbound callback or a public endpoint.
+  poll, Slack by a Socket Mode push (ADR 0326), Discord and Mattermost by
+  their own gateway websockets, and IRC by a raw TLS socket that registers with
+  NICK/USER and answers the server's PING — every one a connection the Host
+  originates, so none needs an inbound callback or a public endpoint.
 - Matrix is the fifth channel and the second pull: the Host long-polls
   `GET /_matrix/client/v3/sync` on the user's own homeserver with an access
   token from the secret store, and the `next_batch` token is the cursor. The
