@@ -273,13 +273,13 @@ Token 用量上游**不是设置目的地**（D335 / ADR 0173）。已完成回�
 - 独立的目的地——一个导轨入口、一个页面——使用外壳的第二、第三列：平台列表是选择器，所选平台的面板是工作面。
   它不属于连接页，也不是第二个目标管理器：消息是智能体被联系到的方式，而不是它拨号的东西。
 - 列表就是参考产品自己的目录——全部三十三个平台，按产品的顺序排列——因此这一页具有真实产品的密度，
-  同时如实标明支持范围。**Telegram**、**Discord**、**Slack**、**Mattermost**、**Matrix**、**Home Assistant**、**IRC** 与 **ntfy**
-  标为“已支持”并打开可用面板。其余二十五个标为“暂不支持”，其面板既说明缺的是什么，**也说明它属于哪一类需求**：
+  同时如实标明支持范围。**Telegram**、**Discord**、**Slack**、**Mattermost**、**Matrix**、**Home Assistant**、**电子邮件**、**IRC** 与 **ntfy**
+  标为“已支持”并打开可用面板。其余二十四个标为“暂不支持”，其面板既说明缺的是什么，**也说明它属于哪一类需求**：
   只说“需要配置”而不说类型，用户无法判断这件事能不能由自己解决。五个类别覆盖了真实形态：
   **出站长连接**，在家庭网络中即可工作（SimpleX Chat、Raft、Buzz）；
   **公开 HTTPS 回调**，由平台向互联网必须可达的地址推送（Google Chat、LINE、Microsoft Teams、Microsoft Graph、
   Feishu / Lark、钉钉、两个企业微信条目、通过 Twilio 的 SMS、Webhooks）；
-  **轮询循环或本地桥接**，账号实际在手机或 Mac 上（基于 IMAP 与 SMTP 的电子邮件、BlueBubbles、
+  **轮询循环或本地桥接**，账号实际在手机或 Mac 上（BlueBubbles、
   通过手机使用 iMessage、Signal、WhatsApp 的手机绑定会话）；
   **传输方式而不是聊天渠道**，没有可绑定的会话（API 服务器、A2A、Relay）；
   以及**平台侧审批或企业入驻**（微信 / Weixin、QQ 机器人、元宝，以及 WhatsApp Cloud API——它的企业账号还需要
@@ -321,6 +321,23 @@ Token 用量上游**不是设置目的地**（D335 / ADR 0173）。已完成回�
   敏感用途请自建服务器，而不是暗示公共服务器并不具备的隐私。面板也说明用户会注意到的机制：消息不携带作者，
   因此 topic 上的每条消息都按关联主体接纳；正文上限为 4096 字节，更长的回复会按顺序拆成多条消息；
   游标只向前移动，因此重启后接着上次的位置，而不是重放整个 topic。
+- 电子邮件面板把两个方向都讲清楚。**接收**是 Host 自己发起的 IMAP-over-TLS 轮询：
+  `CAPABILITY`、`LOGIN`、`SELECT INBOX`，然后对找到的邮件发 `UID SEARCH UNSEEN` 与
+  `UID FETCH (BODY.PEEK[] UID)`。`BODY.PEEK` 不是可有可无的细节——单纯的 `BODY[]` 会清掉未读标记，
+  于是“读取邮箱”会在用户不知情的情况下把邮件标成已读。游标是**已应用的最高 UID**，一个数字，
+  只在一批邮件应用之后写入 `inbound.lastUid`；IMAP 字面量（`{123}` 后紧跟正好这么多字节）按字节解析而不是按行解析，
+  否则正文中的 CRLF 会把一条邮件从中间切断。该渠道**按间隔轮询，不保持 IDLE 连接**，面板在填写服务器地址的位置就说明这一点，
+  因此不会有人等待一个按设计晚一个轮询间隔才到达的答复。**发送**是 SMTP over TLS——`EHLO`，
+  然后 STARTTLS 或 465 上的隐式 TLS，`AUTH LOGIN`、`MAIL FROM`、`RCPT TO`、`DATA`——主题与正文是两个独立字段。
+  两者都在套接字打开之前校验：主题或收件人中出现 CR 或 LF 会被拒绝，因为那里的换行可以让一封邮件附带自己的 `RCPT TO`。
+- 发件人允许列表就是这个渠道全部的访问控制，面板说明原因而不只是要求填一个列表：只有已配置的 `From` 地址才会变成一轮对话，
+  其余一律丢弃并写入审计记录。没有它，一个对互联网开放的信箱就是智能体的远程控制器。显示名称从不参与比较——只比较地址。
+  发送路径会给每封回复打上带保留本地部分的 `Message-ID`，接收路径丢弃 `In-Reply-To` 或 `References` 指向它的邮件，
+  因此渠道不会自我应答；当允许列表包含账号自己的地址时，同一标记也正是让回复循环不可能发生的原因。
+  RFC 2047 编码的头会被解码——但本构建不认识的编码会以原始文本投递而不是被丢弃，因为丢信比显示一个读不懂的主题更糟。
+  面板在同一处说明限制：**仅纯文本**——纯 HTML 邮件，或没有 `text/plain` 部分的多部分邮件，会被拒绝并写入审计记录，
+  而不是用 base64 噪声去回复；附件完全不读取；并且**不支持 OAuth 登录**，因此需要密码或应用专用密码，
+  只提供 OAuth 的服务商无法使用。凭据是 `secret:messaging-email:password`，页面只显示它是否已保存。
 - Telegram 还提供**快速设置**。粘贴的令牌会经 `getMe` 校验，因此“机器人存在”是被确认的而不是假定的；
   `getUpdates` 会找出给它发过消息的会话，并填入数字会话 ID。两次调用都在桌面主进程中进行，目标固定为
   `https://api.telegram.org`，并禁用重定向，因为令牌位于请求路径中；返回内容只投影为 ID 与用户名，绝不是响应体，
@@ -335,7 +352,8 @@ Token 用量上游**不是设置目的地**（D335 / ADR 0173）。已完成回�
   `secret:messaging-discord:bot-token`；Mattermost 的
   `secret:messaging-mattermost:access-token`；Matrix 的
   `secret:messaging-matrix:access-token`；IRC 可选的服务器密码使用
-  `secret:messaging-irc:server-password`；ntfy 可选的访问令牌使用
+  `secret:messaging-irc:server-password`；电子邮件的邮箱密码使用
+  `secret:messaging-email:password`；ntfy 可选的访问令牌使用
   `secret:messaging-ntfy:access-token`；Slack 的
   `secret:messaging-slack:app-token` 与 `secret:messaging-slack:bot-token`，因为 Socket Mode
   连接与发送路径使用不同的平台令牌。记录本身不携带任何凭据。页面只显示引用是否存在

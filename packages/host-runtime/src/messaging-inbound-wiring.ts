@@ -86,6 +86,20 @@ import {
   type MessagingInboundPushTransport,
   type MessagingInboundTransport,
   type IngressCursorStore,
+  // The email channel: one IMAP pull, one SMTP submission.
+  MESSAGING_EMAIL_FORMAT,
+  MESSAGING_EMAIL_FORMAT_VERSION,
+  MESSAGING_EMAIL_PASSWORD_SECRET_REF,
+  MESSAGING_EMAIL_SECTION,
+  EMAIL_HANDLED_CAPACITY,
+  EMAIL_MAX_MESSAGES_PER_POLL,
+  createEmailInboundPushTransport,
+  normaliseAllowedSenders,
+  normaliseSmtpSecurity,
+  type EmailInboundAudit,
+  type ImapSocketFactory,
+  type SmtpSocketFactory,
+  type SmtpSecurity,
   type SlackInboundAudit,
   type SlackOpenConnection,
   type SlackSocketFactory,
@@ -1365,6 +1379,214 @@ export function createNtfyInboundWiring(options: MessagingNtfyWiringOptions): Me
     channel: NTFY_INBOUND_CHANNEL,
     transport: options.transport ?? createConfiguredNtfyTransport(options),
     failureLabel: "inbound ntfy loop failed",
+  });
+}
+
+/**
+ * The email channel's descriptor, selected by its own bind channel.
+ *
+ * Email is the first channel whose record names two servers: an IMAP one it
+ * polls and an SMTP one it submits to. They are separate hosts because they
+ * frequently are (a mail provider routes them to different machines), and each
+ * keeps its own port and security.
+ */
+export const EMAIL_INBOUND_CHANNEL: MessagingInboundChannel = {
+  section: MESSAGING_EMAIL_SECTION,
+  format: MESSAGING_EMAIL_FORMAT,
+  version: MESSAGING_EMAIL_FORMAT_VERSION,
+};
+
+/**
+ * The last seen UID, persisted in the channel's own settings section under
+ * `inbound.lastUid`.
+ *
+ * A UID is a positive integer that a mailbox never reuses, so it is stored as a
+ * number and compared as one. A missing, non-numeric or non-positive field
+ * reads as "no position stored", which the adapter treats as the first poll:
+ * advance to the newest unread message and answer nothing, rather than firing a
+ * turn for every message a mailbox has ever received.
+ */
+export function createSettingsEmailCursorStore(
+  settings: HostSettingsSurface,
+): IngressCursorStore<number> {
+  return {
+    async load(): Promise<number | null> {
+      const inbound = readInbound(readSection(await settings.read(), MESSAGING_EMAIL_SECTION));
+      const value = inbound?.lastUid;
+      return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
+    },
+    async save(uid: number): Promise<void> {
+      await patchSection(
+        settings,
+        (_section, inbound) => ({ ...inbound, lastUid: uid }),
+        MESSAGING_EMAIL_SECTION,
+      );
+    },
+  };
+}
+
+/** The audit sink for the IMAP poll. */
+export function createEmailInboundAudit(log?: MessagingInboundWiringLog): EmailInboundAudit {
+  if (!log) return () => {};
+  return (entry) => {
+    const level = entry.kind === "processed" || entry.kind === "duplicate" ? "info" : "warn";
+    log(level, "inbound email channel", { ...entry });
+  };
+}
+
+/** The record the transport needs, or `null` when it is not this build's. */
+type EmailWiringRecord = {
+  imap: { host: string; port: number };
+  smtp: { host: string; port: number; security: SmtpSecurity };
+  username: string;
+  from?: string;
+  allowedSenders: string[];
+  subjectPrefix?: string;
+};
+
+/**
+ * Read and validate the `messagingEmail` section.
+ *
+ * Every field here is one the adapter would otherwise fail on mid-poll, so the
+ * gate is at the door: a record with no IMAP host, no SMTP host, no username or
+ * no allowlisted sender starts nothing. The allowlist is the important one —
+ * without it the mailbox is not a channel but a hole, so an empty list is an
+ * incomplete record rather than "accept everyone".
+ */
+function readEmailRecord(settings: unknown): EmailWiringRecord | null {
+  const section = readSection(settings, MESSAGING_EMAIL_SECTION);
+  if (!section) return null;
+  if (
+    section.format !== MESSAGING_EMAIL_FORMAT ||
+    section.version !== MESSAGING_EMAIL_FORMAT_VERSION
+  ) {
+    return null;
+  }
+  const text = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
+  const port = (value: unknown, fallback: number): number => {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 && parsed <= 65_535 ? parsed : fallback;
+  };
+  const security = normaliseSmtpSecurity(section.smtpSecurity);
+  const imapHost = text(section.imapHost);
+  const smtpHost = text(section.smtpHost);
+  const username = text(section.username);
+  const allowedSenders = normaliseAllowedSenders(section.allowedSenders);
+  if (imapHost === "" || smtpHost === "" || username === "" || allowedSenders.length === 0) {
+    return null;
+  }
+  const from = text(section.from);
+  const subjectPrefix = text(section.subjectPrefix);
+  return {
+    imap: { host: imapHost, port: port(section.imapPort, 993) },
+    smtp: {
+      host: smtpHost,
+      port: port(section.smtpPort, security === "tls" ? 465 : 587),
+      security,
+    },
+    username,
+    ...(from !== "" ? { from } : {}),
+    allowedSenders,
+    ...(subjectPrefix !== "" ? { subjectPrefix } : {}),
+  };
+}
+
+/**
+ * The email transport, config-gated on the channel's record and its password.
+ *
+ * `start` reads the record and the password from the host's own surfaces and
+ * only then opens anything. With no section, an incomplete one, a foreign
+ * `format` or no stored password it returns without connecting: an install with
+ * no email channel configured starts no loop and behaves exactly as it did
+ * before this channel existed.
+ *
+ * Nothing is bound. The poll is an outbound TLS connection the Host originates,
+ * which is why this channel needs no public address and works behind NAT.
+ */
+function createConfiguredEmailTransport(
+  options: MessagingEmailWiringOptions,
+): MessagingInboundPushTransport {
+  return {
+    async start(onMessage, signal): Promise<void> {
+      let settings: unknown;
+      try {
+        settings = await options.settings.read();
+      } catch {
+        return;
+      }
+      const record = readEmailRecord(settings);
+      if (!record) return;
+      let password: string | null = null;
+      try {
+        password = await options.secrets(MESSAGING_EMAIL_PASSWORD_SECRET_REF);
+      } catch {
+        password = null;
+      }
+      const trimmed = (password ?? "").trim();
+      if (trimmed === "") {
+        // The panel says a password (ideally an app password) is required; a
+        // record without one is enabled but not set up, and the loop stays off
+        // rather than retrying a login it knows will fail.
+        options.log?.("warn", "inbound email channel has no password stored", {});
+        return;
+      }
+      await createEmailInboundPushTransport({
+        imap: record.imap,
+        smtp: record.smtp,
+        username: record.username,
+        password: trimmed,
+        ...(record.from !== undefined ? { from: record.from } : {}),
+        allowedSenders: record.allowedSenders,
+        ...(record.subjectPrefix !== undefined ? { subjectPrefix: record.subjectPrefix } : {}),
+        maxMessagesPerPoll: EMAIL_MAX_MESSAGES_PER_POLL,
+        handled: createSettingsHandledMessageStore({
+          settings: options.settings,
+          section: MESSAGING_EMAIL_SECTION,
+          capacity: EMAIL_HANDLED_CAPACITY,
+        }),
+        cursor: createSettingsEmailCursorStore(options.settings),
+        audit: createEmailInboundAudit(options.log),
+        ...(options.connect ? { connect: options.connect } : {}),
+        ...(options.connectSmtp ? { connectSmtp: options.connectSmtp } : {}),
+        ...(options.wait ? { wait: options.wait } : {}),
+      }).start(onMessage, signal);
+    },
+  };
+}
+
+/**
+ * The wiring for the inbound email channel.
+ *
+ * The same driver, binding store and target resolver as every other channel,
+ * over a poll the Host originates. The section (`messagingEmail`), the two
+ * servers it names, the sender allowlist and the one password
+ * (`secret:messaging-email:password`) are the only differences.
+ */
+export type MessagingEmailWiringOptions = {
+  agentHost: MessagingInboundHostSurface;
+  settings: HostSettingsSurface;
+  secrets: HostSecretReader;
+  signal: AbortSignal;
+  log?: MessagingInboundWiringLog;
+  /** Test seam: the IMAP connection factory, in place of the TLS one. */
+  connect?: ImapSocketFactory;
+  /** Test seam: the SMTP connection factory, in place of the TLS one. */
+  connectSmtp?: SmtpSocketFactory;
+  /** Test seam: how the poll loop waits. */
+  wait?: (ms: number) => Promise<void>;
+  /** Test seam: a push transport in place of the one built from the settings. */
+  transport?: MessagingInboundPushTransport;
+};
+
+export function createEmailInboundWiring(options: MessagingEmailWiringOptions): MessagingInboundWiring {
+  return createIngressWiring({
+    agentHost: options.agentHost,
+    settings: options.settings,
+    signal: options.signal,
+    ...(options.log ? { log: options.log } : {}),
+    channel: EMAIL_INBOUND_CHANNEL,
+    transport: options.transport ?? createConfiguredEmailTransport(options),
+    failureLabel: "inbound email loop failed",
   });
 }
 

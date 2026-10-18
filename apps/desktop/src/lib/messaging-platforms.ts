@@ -89,11 +89,12 @@ export type MessagingSectionKey =
   | "messagingMatrix"
   | "messagingIrc"
   | "messagingHomeAssistant"
-  | "messagingNtfy";
+  | "messagingNtfy"
+  | "messagingEmail";
 
 /** One credential a channel reads, and where the host keeps it. */
 export type MessagingSecretSlot = {
-  id: "app-token" | "bot-token" | "access-token" | "server-password";
+  id: "app-token" | "bot-token" | "access-token" | "server-password" | "password";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -117,7 +118,15 @@ export type MessagingFieldId =
   | "roles"
   | "permissionMode"
   | "endpoint"
-  | "requestTimeoutMs";
+  | "requestTimeoutMs"
+  | "imapHost"
+  | "imapPort"
+  | "smtpHost"
+  | "smtpPort"
+  | "smtpSecurity"
+  | "username"
+  | "allowedSenders"
+  | "subjectPrefix";
 
 /**
  * Whether a field must be filled before the channel can work at all
@@ -368,6 +377,142 @@ function homeAssistantFields(): MessagingField[] {
       endpointPlaceholderKey: "settings.messaging.endpointPlaceholderHomeAssistant",
     }),
   );
+}
+
+/**
+ * Email's one credential: the mail password, ideally an app password.
+ *
+ * It is a password, not a token, and the panel says so: a provider that only
+ * offers OAuth sign-in is unsupported by this build, because there is no token
+ * exchange here to do.
+ */
+const emailSecrets: MessagingSecretSlot[] = [
+  {
+    id: "password",
+    ref: "secret:messaging-email:password",
+    labelKey: "settings.messaging.emailPassword",
+    hintKey: "settings.messaging.emailPasswordHint",
+    placeholderKey: "settings.messaging.emailPasswordPlaceholder",
+  },
+];
+
+/**
+ * Email's fields.
+ *
+ * Email has no single "destination": the correspondent is whoever wrote, and the
+ * record holds the *allowlist* of who may write. So the required set is the two
+ * servers, the account, the allowlist and the password — nothing here has a
+ * public default, because a provider's hostnames are the provider's — plus the
+ * shared identity fields every channel needs to attribute a turn.
+ *
+ * The subject prefix is recommended rather than required: a reply without one is
+ * still a valid reply, it is just harder to filter in a mailbox.
+ */
+function emailFields(): MessagingField[] {
+  const field = (
+    id: MessagingField["id"],
+    group: MessagingField["group"],
+    labelKey: string,
+    helpKey: string,
+    placeholderKey: string | undefined,
+    consequenceKey: string,
+  ): MessagingField => ({
+    id,
+    group,
+    labelKey,
+    helpKey,
+    consequenceKey,
+    ...(placeholderKey ? { placeholderKey } : {}),
+  });
+  return [
+    ...secretFields(emailSecrets),
+    field(
+      "imapHost",
+      "required",
+      "settings.messaging.emailImapHost",
+      "settings.messaging.emailImapHostHint",
+      "settings.messaging.emailImapHostPlaceholder",
+      "settings.messaging.consequenceEmailServer",
+    ),
+    field(
+      "imapPort",
+      "required",
+      "settings.messaging.emailImapPort",
+      "settings.messaging.emailImapPortHint",
+      undefined,
+      "settings.messaging.consequenceEmailServer",
+    ),
+    field(
+      "smtpHost",
+      "required",
+      "settings.messaging.emailSmtpHost",
+      "settings.messaging.emailSmtpHostHint",
+      "settings.messaging.emailSmtpHostPlaceholder",
+      "settings.messaging.consequenceEmailServer",
+    ),
+    field(
+      "smtpPort",
+      "required",
+      "settings.messaging.emailSmtpPort",
+      "settings.messaging.emailSmtpPortHint",
+      undefined,
+      "settings.messaging.consequenceEmailServer",
+    ),
+    field(
+      "smtpSecurity",
+      "required",
+      "settings.messaging.emailSmtpSecurity",
+      "settings.messaging.emailSmtpSecurityHint",
+      undefined,
+      "settings.messaging.consequenceEmailServer",
+    ),
+    field(
+      "username",
+      "required",
+      "settings.messaging.emailUsername",
+      "settings.messaging.emailUsernameHint",
+      "settings.messaging.emailUsernamePlaceholder",
+      "settings.messaging.consequenceEmailAccount",
+    ),
+    field(
+      "allowedSenders",
+      "required",
+      "settings.messaging.emailAllowedSenders",
+      "settings.messaging.emailAllowedSendersHint",
+      "settings.messaging.emailAllowedSendersPlaceholder",
+      "settings.messaging.consequenceEmailSenders",
+    ),
+    {
+      id: "subject",
+      group: "required",
+      labelKey: "settings.messaging.subject",
+      helpKey: "settings.messaging.subjectHint",
+      placeholderKey: "settings.messaging.subjectPlaceholderEmail",
+      consequenceKey: "settings.messaging.consequenceSubject",
+    },
+    {
+      id: "roles",
+      group: "required",
+      labelKey: "settings.messaging.roles",
+      helpKey: "settings.messaging.rolesHint",
+      consequenceKey: "settings.messaging.consequenceRoles",
+    },
+    field(
+      "subjectPrefix",
+      "recommended",
+      "settings.messaging.emailSubjectPrefix",
+      "settings.messaging.emailSubjectPrefixHint",
+      "settings.messaging.emailSubjectPrefixPlaceholder",
+      "settings.messaging.consequenceEmailPrefix",
+    ),
+    {
+      id: "permissionMode",
+      group: "recommended",
+      labelKey: "settings.messaging.permissionMode",
+      helpKey: "settings.messaging.permissionModeHint",
+      consequenceKey: "settings.messaging.consequencePermissionMode",
+    },
+  ];
 }
 
 /** IRC's only optional credential: a PASS line for a password-protected server. */
@@ -750,14 +895,27 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "email",
-    support: "unsupported",
+    support: "supported",
+    section: "messagingEmail",
+    format: "pi-desktop-messaging-email",
+    version: 1,
+    // Email has no API base to default to: the provider's own hostnames are the
+    // provider's, so the two server fields are required and empty here.
+    defaultEndpoint: "",
     labelKey: "settings.messaging.platformEmail",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "bridgeOrPoll",
-    requirementKey: "settings.messaging.needsPolling",
+    blurbKey: "settings.messaging.blurbEmail",
+    noteKey: "settings.messaging.emailNote",
+    limitationKey: "settings.messaging.emailLimitations",
     guideUrl: "https://datatracker.ietf.org/doc/html/rfc9051",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepEmail1",
+      "settings.messaging.stepEmail2",
+      "settings.messaging.stepEmail3",
+      "settings.messaging.stepEmail4",
+      "settings.messaging.stepEmail5",
+    ],
+    secrets: emailSecrets,
+    fields: emailFields(),
   },
   {
     id: "sms",
@@ -1058,7 +1216,8 @@ export type MessagingGatewayChannel =
   | "matrix"
   | "irc"
   | "homeAssistant"
-  | "ntfy";
+  | "ntfy"
+  | "email";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -1076,6 +1235,7 @@ export type MessagingGatewaySnapshot = {
   irc: boolean;
   homeAssistant: boolean;
   ntfy: boolean;
+  email: boolean;
 };
 
 /** The snapshot to use before the first reply arrives: nothing is known to run. */
@@ -1089,6 +1249,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   irc: false,
   homeAssistant: false,
   ntfy: false,
+  email: false,
 };
 
 /** The catalogue ids that own a receive loop, i.e. the snapshot's channel keys. */
@@ -1121,6 +1282,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   irc: "irc",
   homeAssistant: "homeAssistant",
   ntfy: "ntfy",
+  email: "email",
 };
 
 /**
@@ -1162,6 +1324,15 @@ export type MessagingDraft = {
   roles: RacpRole[];
   permissionMode: RacpPermissionMode;
   requestTimeoutMs: string;
+  /** Email only: the two servers, the account, its sender allowlist and prefix. */
+  imapHost: string;
+  imapPort: string;
+  smtpHost: string;
+  smtpPort: string;
+  smtpSecurity: "tls" | "starttls";
+  username: string;
+  allowedSenders: string;
+  subjectPrefix: string;
   secrets: Record<string, string>;
 };
 
@@ -1196,8 +1367,48 @@ export function draftFrom(
       : "ask",
     requestTimeoutMs:
       typeof record?.requestTimeoutMs === "number" ? String(record.requestTimeoutMs) : "",
+    imapHost: trimmed(record?.imapHost),
+    imapPort: typeof record?.imapPort === "number" ? String(record.imapPort) : "",
+    smtpHost: trimmed(record?.smtpHost),
+    smtpPort: typeof record?.smtpPort === "number" ? String(record.smtpPort) : "",
+    smtpSecurity: record?.smtpSecurity === "starttls" ? "starttls" : "tls",
+    username: trimmed(record?.username),
+    allowedSenders: Array.isArray(record?.allowedSenders) ? record.allowedSenders.join(", ") : "",
+    subjectPrefix: trimmed(record?.subjectPrefix),
     secrets: {},
   };
+}
+
+/** A draft field's value as text, for the completeness checks. */
+function draftText(draft: MessagingDraft, id: MessagingField["id"]): string {
+  switch (id) {
+    case "imapHost":
+      return draft.imapHost;
+    case "imapPort":
+      return draft.imapPort;
+    case "smtpHost":
+      return draft.smtpHost;
+    case "smtpPort":
+      return draft.smtpPort;
+    case "smtpSecurity":
+      return draft.smtpSecurity;
+    case "username":
+      return draft.username;
+    case "allowedSenders":
+      return draft.allowedSenders;
+    case "subjectPrefix":
+      return draft.subjectPrefix;
+    default:
+      return "";
+  }
+}
+
+/** Split an allowlist or channel list into trimmed, non-empty entries. */
+function splitList(value: string): string[] {
+  return value
+    .split(/[,\s]+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== "");
 }
 
 /** True when the record is this build's own, not a foreign or future one. */
@@ -1227,7 +1438,18 @@ export function draftMissing(
   draft: MessagingDraft,
 ): string[] {
   const missing: string[] = [];
-  if (trimmed(draft.destination) === "") missing.push("destination");
+  if (platform.id === "email") {
+    // Email's "destination" is the sender allowlist, and every field it needs
+    // is named by the catalogue rather than assumed here. A blank one is a
+    // setup gap with its own sentence on the panel.
+    for (const field of platform.fields) {
+      if (field.group !== "required") continue;
+      if (field.id === "subject" || field.id === "roles" || field.id === "password") continue;
+      if (draftText(draft, field.id).trim() === "") missing.push(field.id);
+    }
+  } else if (trimmed(draft.destination) === "") {
+    missing.push("destination");
+  }
   if (platform.fields.some((field) => field.id === "nick") && trimmed(draft.nick) === "") {
     missing.push("nick");
   }
@@ -1290,10 +1512,21 @@ export function missingFromRecord(
   secretPresent: Record<string, boolean>,
 ): string[] {
   const missing: string[] = [];
-  if (trimmed(record.endpoint) === "" && trimmed(platform.defaultEndpoint) === "") {
-    missing.push("endpoint");
+  if (platform.id === "email") {
+    if (trimmed(record.imapHost) === "") missing.push("imapHost");
+    if (typeof record.imapPort !== "number") missing.push("imapPort");
+    if (trimmed(record.smtpHost) === "") missing.push("smtpHost");
+    if (typeof record.smtpPort !== "number") missing.push("smtpPort");
+    if (trimmed(record.username) === "") missing.push("username");
+    if (!Array.isArray(record.allowedSenders) || record.allowedSenders.length === 0) {
+      missing.push("allowedSenders");
+    }
+  } else {
+    if (trimmed(record.endpoint) === "" && trimmed(platform.defaultEndpoint) === "") {
+      missing.push("endpoint");
+    }
+    if (trimmed(record.destination) === "") missing.push("destination");
   }
-  if (trimmed(record.destination) === "") missing.push("destination");
   if (platform.fields.some((field) => field.id === "nick") && trimmed(record.nick) === "") {
     missing.push("nick");
   }
@@ -1354,6 +1587,37 @@ export function buildSectionWrite(
   const subject = trimmed(draft.subject);
   const roles = MESSAGING_ROLES.filter((role) => draft.roles.includes(role));
   const timeout = Number(trimmed(draft.requestTimeoutMs));
+  if (platform.id === "email") {
+    const imapPort = Number(trimmed(draft.imapPort));
+    const smtpPort = Number(trimmed(draft.smtpPort));
+    const allowedSenders = splitList(draft.allowedSenders).map((entry) => entry.toLowerCase());
+    return {
+      format: platform.format,
+      version: platform.version,
+      // Email has neither a single API base nor a single destination. The record
+      // type keeps both fields because every other channel has them; here they
+      // are empty and the panel never shows them.
+      endpoint: "",
+      destination: "",
+      imapHost: trimmed(draft.imapHost),
+      ...(Number.isInteger(imapPort) && imapPort > 0 ? { imapPort } : {}),
+      smtpHost: trimmed(draft.smtpHost),
+      ...(Number.isInteger(smtpPort) && smtpPort > 0 ? { smtpPort } : {}),
+      smtpSecurity: draft.smtpSecurity === "starttls" ? "starttls" : "tls",
+      username: trimmed(draft.username),
+      allowedSenders,
+      ...(trimmed(draft.subjectPrefix) !== ""
+        ? { subjectPrefix: trimmed(draft.subjectPrefix) }
+        : {}),
+      inbound: {
+        ...(existing?.inbound ?? {}),
+        ...(subject !== "" && roles.length > 0
+          ? { linkedPrincipal: { subject, roles } }
+          : {}),
+        permissionMode: draft.permissionMode,
+      },
+    };
+  }
   const inbound = {
     ...(existing?.inbound ?? {}),
     ...(subject !== "" && roles.length > 0

@@ -76,6 +76,27 @@ export type MessagingChannelSettings = {
    */
   channels?: string;
   requestTimeoutMs?: number;
+  /**
+   * Email only: the two servers this channel talks to. They are separate hosts
+   * because a mail provider often routes IMAP and SMTP to different machines,
+   * and each keeps its own port and security. Absent for every other channel.
+   */
+  imapHost?: string;
+  imapPort?: number;
+  smtpHost?: string;
+  smtpPort?: number;
+  /** `tls` is implicit TLS (465); `starttls` upgrades a plaintext connection (587). */
+  smtpSecurity?: "tls" | "starttls";
+  /** Email only: the account both directions authenticate as, and the address replies come from. */
+  username?: string;
+  from?: string;
+  /**
+   * Email only: the exact `From` addresses a message may come from. Without it
+   * a mailbox is a remote control, so an empty list is an incomplete record.
+   */
+  allowedSenders?: string[];
+  /** Email only: the prefix a reply's subject carries. */
+  subjectPrefix?: string;
   inbound?: MessagingInboundSettings;
 };
 
@@ -281,6 +302,7 @@ export type AppSettings = {
   messagingIrc?: MessagingChannelSettings;
   messagingHomeAssistant?: MessagingChannelSettings;
   messagingNtfy?: MessagingChannelSettings;
+  messagingEmail?: MessagingChannelSettings;
   onboardingDismissed: boolean;
 };
 

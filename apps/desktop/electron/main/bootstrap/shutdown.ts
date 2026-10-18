@@ -55,6 +55,7 @@ export type ShutdownDependencies = {
   getMessagingMatrixInbound: () => MessagingInboundHandle | null;
   /** The inbound ntfy long-poll loop this boot started, if any. */
   getMessagingNtfyInbound: () => MessagingInboundHandle | null;
+  getMessagingEmailInbound: () => MessagingInboundHandle | null;
   getMessagingIrcInbound: () => MessagingInboundHandle | null;
   /** The inbound Home Assistant websocket loop this boot started, if any. */
   getMessagingHomeAssistantInbound: () => MessagingInboundHandle | null;
@@ -89,6 +90,7 @@ export function registerShutdownHandlers({
   getMessagingMattermostInbound,
   getMessagingMatrixInbound,
   getMessagingNtfyInbound,
+  getMessagingEmailInbound,
   getMessagingIrcInbound,
   getMessagingHomeAssistantInbound,
   getMessagingOutbound,
@@ -208,6 +210,12 @@ export function registerShutdownHandlers({
       const messagingNtfyInbound = getMessagingNtfyInbound();
       messagingNtfyInbound?.controller.abort();
       await settleWithinBudget(messagingNtfyInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
+      // The email poll stops the same way: the IMAP session is aborted and the
+      // loop awaited under the same bound, so an unresponsive mail server
+      // cannot hold up the quit.
+      const messagingEmailInbound = getMessagingEmailInbound();
+      messagingEmailInbound?.controller.abort();
+      await settleWithinBudget(messagingEmailInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
       // The IRC socket loop stops the same way, under the same bound.
       const messagingIrcInbound = getMessagingIrcInbound();
       messagingIrcInbound?.controller.abort();

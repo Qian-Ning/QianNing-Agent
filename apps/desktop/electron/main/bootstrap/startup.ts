@@ -34,6 +34,7 @@ import {
   createMattermostInboundWiring,
   createMatrixInboundWiring,
   createNtfyInboundWiring,
+  createEmailInboundWiring,
   createHomeAssistantInboundWiring,
   createIrcInboundWiring,
   type MessagingInboundHandle,
@@ -136,6 +137,12 @@ export type StartupState = {
    * a Host with nothing configured starts no loop and polls nothing.
    */
   messagingNtfyInbound: MessagingInboundHandle | null;
+  /**
+   * The inbound email loop this boot started, with the controller that stops
+   * it. Config-gated on the channel's record and the stored password, so a Host
+   * with nothing configured starts no loop and connects to no mail server.
+   */
+  messagingEmailInbound: MessagingInboundHandle | null;
   /**
    * The outbound messaging relay this boot subscribed, with the release that
    * stops it. Shutdown releases it, bounded, before host-core is disposed. It is
@@ -548,6 +555,20 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
       });
       state.messagingNtfyInbound = { controller: ntfyController, done: ntfyWiring.run() };
       messagingGateway.track("ntfy", state.messagingNtfyInbound);
+      // The email channel: a TLS IMAP poll the Host originates and a TLS SMTP
+      // submission it opens per reply (no port is bound and no address is
+      // needed). Config-gated on its record and the stored app password; the
+      // loop deliberately polls rather than using IDLE, which the panel says.
+      const emailController = new AbortController();
+      const emailWiring = createEmailInboundWiring({
+        agentHost: state.agentHostBridge.agentHost,
+        settings: createHostSettingsSurface(getHost),
+        secrets: createHostSecretReader(getHost),
+        signal: emailController.signal,
+        log: (level, message, data) => logger.app("runtime", level, message, { data }),
+      });
+      state.messagingEmailInbound = { controller: emailController, done: emailWiring.run() };
+      messagingGateway.track("email", state.messagingEmailInbound);
     }
     // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3), beside
     // the two inbound loops: the Host-side redactor subscribed on the

@@ -7,6 +7,7 @@ import {
 } from "@pi-desktop/host-runtime";
 import {
   MESSAGING_DISCORD_SECTION,
+  MESSAGING_EMAIL_SECTION,
   MESSAGING_HOME_ASSISTANT_SECTION,
   MESSAGING_IRC_SECTION,
   MESSAGING_MATRIX_SECTION,
@@ -146,7 +147,8 @@ export function registerSettingsIpc({
         section !== MESSAGING_MATRIX_SECTION &&
         section !== MESSAGING_IRC_SECTION &&
         section !== MESSAGING_HOME_ASSISTANT_SECTION &&
-        section !== MESSAGING_NTFY_SECTION
+        section !== MESSAGING_NTFY_SECTION &&
+        section !== MESSAGING_EMAIL_SECTION
       ) {
         throw Object.assign(new Error("unknown messaging settings section"), {
           errorCode: "INVALID_PARAMS",

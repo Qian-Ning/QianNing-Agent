@@ -19,6 +19,7 @@ import {
   createMattermostInboundWiring,
   createMatrixInboundWiring,
   createNtfyInboundWiring,
+  createEmailInboundWiring,
   createHomeAssistantInboundWiring,
   createIrcInboundWiring,
   listPendingToolRequests,
@@ -381,6 +382,23 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
     }).run(),
   };
 
+  // The inbound email channel, beside the others: a TLS IMAP poll the Host
+  // originates and a TLS SMTP submission it opens per reply. No port is bound
+  // and no address is needed. Config-gated on its record and the stored app
+  // password, so a Host with no email section starts nothing and connects to no
+  // mail server. The poll is deliberately an interval, not IDLE.
+  const messagingEmailAbort = new AbortController();
+  const messagingEmail: MessagingInboundHandle = {
+    controller: messagingEmailAbort,
+    done: createEmailInboundWiring({
+      agentHost,
+      settings: createHostSettingsSurface(getHost),
+      secrets: createHostSecretReader(getHost),
+      signal: messagingEmailAbort.signal,
+      log: (level, message, data) => log(level, message, data),
+    }).run(),
+  };
+
   // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3): the
   // Host-side redactor subscribed on the host-scope event surface, so the
   // redacted summaries of terminal turn outcomes and host-owned requests reach
@@ -496,6 +514,10 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
       // The ntfy long poll stops the same way, under the same bound.
       messagingNtfy.controller.abort();
       await settleWithinBudget(messagingNtfy.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
+      // The email poll stops the same way: its IMAP session is aborted and the
+      // loop awaited under the same bound.
+      messagingEmail.controller.abort();
+      await settleWithinBudget(messagingEmail.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
       // The outbound relay is released the same way, beside the two loops and
       // before the host is disposed: it unsubscribes at once, and the (already
       // settled) wait is bounded so a release that ever refused to settle could
