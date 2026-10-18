@@ -1568,6 +1568,22 @@ export function deriveChannelState(
 }
 
 /**
+ * How the gateway may be *described*, given the channel it belongs to.
+ *
+ * `gateway` above is the loop's own fact and stays "running" | "stopped". What
+ * the UI may claim from it is narrower: a loop only starts for an enabled
+ * channel, so "stopped" on a channel that was never enabled is not breakage —
+ * it is a channel that has not been asked to run yet (`idle`). Only an enabled
+ * channel whose loop is dead is a real warning. Nothing here invents "running".
+ */
+export type MessagingGatewayDisplay = "running" | "stopped" | "idle";
+
+export function gatewayPresentation(state: MessagingChannelState): MessagingGatewayDisplay {
+  if (state.gateway === "running") return "running";
+  return state.enabled === "on" ? "stopped" : "idle";
+}
+
+/**
  * The record a save writes. It carries no credential: the token fields of the
  * draft are not read here at all, so a value typed into the form cannot reach
  * the settings row even by mistake.
