@@ -69,6 +69,19 @@ import {
   type NtfyFetch,
   type NtfyInboundAuditEntry,
 } from "./messaging-ntfy-inbound.js";
+import {
+  createEmailIngressAdapter,
+  type EmailInboundAuditEntry,
+} from "./messaging-email-inbound.js";
+import {
+  ALLOWED,
+  FakeImap,
+  FakeSmtp,
+  IMAP_TARGET,
+  PASSWORD,
+  SMTP_TARGET,
+  plainMessage,
+} from "./messaging-email-test-servers.js";
 
 // ---------------------------------------------------------------------------
 // Shared doubles
@@ -1063,6 +1076,112 @@ function ntfyFixture(): IngressConformanceFixture {
 }
 
 // ---------------------------------------------------------------------------
+// Email (IMAP poll, SMTP submission)
+// ---------------------------------------------------------------------------
+
+/** The one message the fixture's fake mailbox holds. */
+const EMAIL_FOREIGN_UID = 42;
+
+/**
+ * The email fixture.
+ *
+ * The adapter is built before any server listens, because the suite builds its
+ * fixtures synchronously; the SMTP factory resolves the fake server at the
+ * moment a send opens a connection, and the deliverer starts it first. The IMAP
+ * side is only touched by `refusedCredential`, which starts its own refusing
+ * server inside an async method.
+ */
+function emailFixture(): IngressConformanceFixture {
+  const handled = durableGuard();
+  const audit: EmailInboundAuditEntry[] = [];
+  const delivered: string[] = [];
+  let smtp: FakeSmtp | null = null;
+
+  const adapter = createEmailIngressAdapter({
+    imap: IMAP_TARGET,
+    smtp: SMTP_TARGET,
+    username: "bot@example.org",
+    password: PASSWORD,
+    allowedSenders: ALLOWED,
+    subjectPrefix: "[conformance]",
+    audit: (entry) => audit.push(entry),
+    connectSmtp: (target) => {
+      if (!smtp) throw new Error("the fake SMTP server was not started");
+      return smtp.factory(target);
+    },
+  });
+
+  const foreignSource = plainMessage({
+    from: "Alice <alice@example.org>",
+    messageId: "<m-conformance@example.org>",
+    body: "do the thing\r\nwith a second line",
+  });
+
+  return {
+    adapter,
+    deliver: (text: string) => {
+      const chunks: string[] = [];
+      const result = (async () => {
+        const server = new FakeSmtp();
+        await server.start();
+        smtp = server;
+        try {
+          const outcome = await adapter.deliver!("alice@example.org", text);
+          for (const payload of server.dataPayloads) {
+            const body = payload.slice(payload.indexOf("\r\n\r\n") + 4);
+            chunks.push(body.replace(/\r\n/g, "\n"));
+          }
+          delivered.push(...chunks);
+          return outcome;
+        } finally {
+          await server.close();
+          smtp = null;
+        }
+      })();
+      return { chatId: "alice@example.org", chunks, result };
+    },
+    foreign: () => ({
+      raw: { uid: EMAIL_FOREIGN_UID, source: foreignSource },
+      expected: {
+        messageId: "<m-conformance@example.org>",
+        chatId: "alice@example.org",
+        text: "do the thing\nwith a second line",
+      },
+    }),
+    // A message from the channel's own account, which is what a BCC or an alias
+    // delivers back into the mailbox it was sent from.
+    own: () =>
+      ({
+        uid: EMAIL_FOREIGN_UID + 1,
+        source: plainMessage({ from: "bot@example.org", messageId: "<own@example.org>" }),
+      }) as unknown,
+    async refusedCredential() {
+      const refusedAudit: EmailInboundAuditEntry[] = [];
+      const server = new FakeImap({ loginOk: false });
+      await server.start();
+      try {
+        const refused = createEmailIngressAdapter({
+          imap: IMAP_TARGET,
+          smtp: SMTP_TARGET,
+          username: "bot@example.org",
+          password: "email-SECRET-app-password",
+          allowedSenders: ALLOWED,
+          connect: server.factory,
+          audit: (entry) => refusedAudit.push(entry),
+        });
+        const polled = await refused.poll(5);
+        return {
+          token: "email-SECRET-app-password",
+          observed: JSON.stringify({ polled, refusedAudit }),
+        };
+      } finally {
+        await server.close();
+      }
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // The suite
 // ---------------------------------------------------------------------------
 
@@ -1075,6 +1194,7 @@ const FIXTURES: { name: string; build: () => IngressConformanceFixture }[] = [
   { name: "irc", build: ircFixture },
   { name: "home assistant", build: homeAssistantFixture },
   { name: "ntfy", build: ntfyFixture },
+  { name: "email", build: emailFixture },
 ];
 
 for (const entry of FIXTURES) {

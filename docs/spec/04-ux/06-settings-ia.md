@@ -663,8 +663,9 @@ system while preserving their different data ownership:
 - The list is the reference product's own catalogue — all thirty-three
   platforms, in the product's order — so the surface has a real product's
   density, and it is honest about breadth. **Telegram**, **Discord**, **Slack**,
-  **Mattermost**, **Matrix**, **Home Assistant**, **IRC** and **ntfy** are
-  marked Supported and open a working panel. The other twenty-five are marked
+  **Mattermost**, **Matrix**, **Home Assistant**, **Email**, **IRC** and
+  **ntfy** are marked Supported and open a working panel. The other twenty-four
+  are marked
   Not supported, and their panel states
   what the gap is **and what kind of requirement it is**, because "needs setup"
   without the kind does not tell a user whether they can close it themselves.
@@ -674,8 +675,8 @@ system while preserving their different data ownership:
   internet must reach (Google Chat, LINE, Microsoft Teams, Microsoft Graph,
   Feishu / Lark, DingTalk, both WeCom entries, SMS through Twilio, Webhooks); a
   **poll loop or local bridge** that owns the account on a phone or a Mac
-  (Email over IMAP and SMTP, BlueBubbles, iMessage via Phone, Signal,
-  WhatsApp's linked phone session); a **transport rather than a chat channel**,
+  (BlueBubbles, iMessage via Phone, Signal, WhatsApp's linked phone session); a
+  **transport rather than a chat channel**,
   with no conversation to link (API server, A2A, Relay); and **platform-side
   approval or business onboarding** (Weixin / WeChat, QQ Bot, Yuanbao, and
   WhatsApp Cloud API, whose business account also needs a verified sender and a
@@ -775,6 +776,42 @@ system while preserving their different data ownership:
   linked principal; a body is limited to 4096 bytes, so a longer reply is split
   across several messages in order; and the cursor moves forward only, so a
   restart continues where it stopped rather than replaying the topic.
+- Email's panel states both directions plainly. **Inbound** is an IMAP-over-TLS
+  poll the Host originates: `CAPABILITY`, `LOGIN`, `SELECT INBOX`, then
+  `UID SEARCH UNSEEN` and `UID FETCH (BODY.PEEK[] UID)` for the messages it
+  found. `BODY.PEEK` is not a nicety — plain `BODY[]` would clear the unread
+  flag, so reading a mailbox would mark mail as read behind the user's back.
+  The cursor is the **highest UID applied**, a number, saved in
+  `inbound.lastUid` only after a batch has been applied; an IMAP literal
+  (`{123}` followed by exactly that many bytes) is parsed as bytes rather than
+  as lines, because a body containing CRLF would otherwise be split in the
+  middle. The channel **polls on an interval; it does not hold an IDLE
+  connection**, and the panel says so where the server is entered, so nobody
+  waits for an answer that arrives one interval late by design. **Outbound** is
+  SMTP over TLS — `EHLO`, then STARTTLS or implicit TLS on 465, `AUTH LOGIN`,
+  `MAIL FROM`, `RCPT TO`, `DATA` — with the subject and the body as separate
+  fields. Both are validated before the socket opens: a CR or LF in the subject
+  or in a recipient is rejected, because a newline there would let a message
+  append its own `RCPT TO`.
+- The sender allowlist is the channel's whole access control, and the panel says
+  why rather than just asking for a list: only a configured `From` address
+  becomes a turn, and everything else is dropped with an audit line. Without it
+  a mailbox open to the internet would be a remote control for the agent. A
+  display name is never compared — only the address. The send path tags each
+  reply with a `Message-ID` carrying a reserved local part, and the receive path
+  drops any message whose `In-Reply-To` or `References` names it, so the channel
+  cannot answer itself; the same tag is what makes a reply loop impossible when
+  the allowlist contains the account's own address. A header that is RFC 2047
+  encoded is decoded — but a payload in an encoding this build does not know is
+  delivered as its raw text rather than dropped, because losing mail is worse
+  than showing an unreadable subject. The panel states the limits in the same
+  place: **plain text only** — an HTML-only message, or a multipart message with
+  no `text/plain` part, is refused with an audit line instead of being answered
+  with base64 noise; attachments are not read at all; and **OAuth sign-in is
+  unsupported**, so a password or app password is required and a provider that
+  only offers OAuth cannot be used. The credential is
+  `secret:messaging-email:password`, and the page shows only whether it is
+  stored.
 - Telegram also offers **Quick setup**. The pasted token is checked with
   `getMe`, so "the bot exists" is confirmed rather than assumed, and
   `getUpdates` finds the chat that has messaged it, filling the numeric chat id.
@@ -803,7 +840,8 @@ system while preserving their different data ownership:
   `secret:messaging-mattermost:access-token` for Mattermost; and
   `secret:messaging-matrix:access-token` for Matrix,
   `secret:messaging-home-assistant:access-token` for Home Assistant, and
-  `secret:messaging-irc:server-password` for IRC's optional server password, and
+  `secret:messaging-irc:server-password` for IRC's optional server password,
+  `secret:messaging-email:password` for the mail password, and
   `secret:messaging-ntfy:access-token` for ntfy's optional access token. The record
   carries no credential at all. The page shows only whether a ref is present
   ("Stored" / "Not set"), never a value, and an empty token field means "keep

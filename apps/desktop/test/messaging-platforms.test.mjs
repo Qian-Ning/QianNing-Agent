@@ -163,6 +163,7 @@ const SUPPORTED_IDS = [
   "mattermost",
   "matrix",
   "homeAssistant",
+  "email",
   "irc",
   "ntfy",
 ];
@@ -262,7 +263,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
     "whatsapp",
     "signal",
     "blueBubbles",
-    "email",
     "imessagePhone",
   ]);
   assert.deepEqual(byClass.transport, ["apiServer", "a2a", "relay"]);
@@ -483,6 +483,32 @@ test("fields are grouped, and every field explains itself and its blank", () => 
         requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
         [],
       );
+    } else if (platform.id === "email") {
+      // Email has no single conversation: the correspondent is whoever wrote,
+      // and the record's destination is the sender allowlist rather than one
+      // chat id. So the required set is the two servers, the account, the
+      // allowlist and the password — no `destination`, no `endpoint` field.
+      assert.deepEqual(requiredWithoutSecrets, [
+        "imapHost",
+        "imapPort",
+        "smtpHost",
+        "smtpPort",
+        "smtpSecurity",
+        "username",
+        "allowedSenders",
+        "subject",
+        "roles",
+      ]);
+      assert.deepEqual(
+        recommended.map((field) => field.id),
+        ["subjectPrefix", "permissionMode"],
+      );
+      assert.deepEqual(
+        requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
+        ["password"],
+        "email's credential is required, unlike ntfy's optional token",
+      );
+      assert.deepEqual(platform.secrets.map((slot) => slot.id), ["password"]);
     } else if (platform.id === "ntfy") {
       // ntfy has a public default server and an optional credential: a topic on
       // an open server needs no token, so only the topic and the link are
@@ -537,6 +563,14 @@ test("fields are grouped, and every field explains itself and its blank", () => 
 
     // Text fields carry a realistic placeholder.
     for (const id of ["destination", "subject", "endpoint", "requestTimeoutMs"]) {
+      // Email has no single conversation, no API base and no timeout field:
+      // its examples live on the two hosts and the account address instead.
+      if (
+        platform.id === "email" &&
+        (id === "destination" || id === "endpoint" || id === "requestTimeoutMs")
+      ) {
+        continue;
+      }
       const field = platform.fields.find((entry) => entry.id === id);
       assert.ok(field?.placeholderKey, `${platform.id}.${id} has no example`);
     }
@@ -953,6 +987,7 @@ test("the gateway registry reports the loops that are actually running", async (
     irc: false,
     homeAssistant: false,
     ntfy: false,
+    email: false,
   });
 
   registry.markBooted();
@@ -972,6 +1007,7 @@ test("the gateway registry reports the loops that are actually running", async (
     irc: false,
     homeAssistant: false,
     ntfy: false,
+    email: false,
   });
 
   registry.track("slack", { done: Promise.resolve() });
@@ -992,6 +1028,7 @@ test("the gateway registry reports the loops that are actually running", async (
     irc: false,
     homeAssistant: false,
     ntfy: false,
+    email: false,
   });
 });
 

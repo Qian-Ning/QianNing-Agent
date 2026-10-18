@@ -446,6 +446,46 @@ function SupportedPanel({
           />
         );
       }
+      case "imapHost":
+      case "imapPort":
+      case "smtpHost":
+      case "smtpPort":
+      case "username":
+      case "allowedSenders":
+      case "subjectPrefix": {
+        // Email's record fields: two servers, the account, the sender allowlist
+        // and the reply prefix. None of them is a credential, so each is a
+        // plain text input and lands in the settings record.
+        const numeric = field.id === "imapPort" || field.id === "smtpPort";
+        return (
+          <Input
+            id={id}
+            value={draft[field.id]}
+            aria-label={label}
+            placeholder={field.placeholderKey ? t(field.placeholderKey) : undefined}
+            disabled={saving}
+            inputMode={numeric ? "numeric" : "text"}
+            onChange={(event) =>
+              patch({ [field.id]: event.target.value } as Partial<MessagingDraft>)
+            }
+          />
+        );
+      }
+      case "smtpSecurity":
+        return (
+          <SegmentedControl
+            value={draft.smtpSecurity}
+            label={label}
+            disabled={saving}
+            onChange={(value) =>
+              patch({ smtpSecurity: value === "starttls" ? "starttls" : "tls" })
+            }
+            options={[
+              { value: "tls", label: t("settings.messaging.emailSecurityTls") },
+              { value: "starttls", label: t("settings.messaging.emailSecurityStarttls") },
+            ]}
+          />
+        );
       case "destination":
         return (
           <Input

@@ -1016,6 +1016,7 @@ registerShutdownHandlers({
   getMessagingMattermostInbound: () => mainState.messagingMattermostInbound,
   getMessagingMatrixInbound: () => mainState.messagingMatrixInbound,
   getMessagingNtfyInbound: () => mainState.messagingNtfyInbound,
+  getMessagingEmailInbound: () => mainState.messagingEmailInbound,
   getMessagingIrcInbound: () => mainState.messagingIrcInbound,
   getMessagingHomeAssistantInbound: () => mainState.messagingHomeAssistantInbound,
   getMessagingOutbound: () => mainState.messagingOutbound,
