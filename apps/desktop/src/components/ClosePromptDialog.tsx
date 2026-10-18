@@ -8,11 +8,15 @@ import { IconCircleAlert, IconPower } from "./icons";
 /**
  * The in-app quit / close prompt (D674).
  *
- * The main process used to raise a native message box for both questions, which
- * looked nothing like the app. It now asks the renderer first, over
- * `IPC.event.appQuitPrompt`, and falls back to the native dialog when no live
- * window can answer — so this host only has to draw a good one and reply
- * through `IPC.invoke.appQuitPromptAnswer`.
+ * Every quit confirmation is drawn here — the application menu, Cmd+Q, the
+ * window close that chose Quit, and the tray's Quit item. The main process asks
+ * over `IPC.event.appQuitPrompt` and, for a quit raised from the tray, restores
+ * and focuses the window first so this card is on screen. The native dialog is
+ * a last resort for a renderer that cannot answer at all, never a surface a
+ * normal quit passes through.
+ *
+ * The card owns its keyboard: Escape cancels, Enter takes the default action,
+ * Tab stays inside it, and focus returns to whatever had it before.
  */
 
 type QuitPrompt = { requestId: string; kind: "quit" | "close" };
@@ -26,6 +30,7 @@ export function ClosePromptHost() {
   const pendingRef = useRef<QuitPrompt | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const cancelRef = useRef<HTMLButtonElement | null>(null);
+  const confirmRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     const unsubscribe = api.onQuitPrompt((next) => {
@@ -44,6 +49,17 @@ export function ClosePromptHost() {
     });
     return () => {
       unsubscribe?.();
+      // A host that goes away mid-question (reload, window teardown) can no
+      // longer draw the card, and nobody is waiting for that request any more.
+      // Answering cancel releases it now instead of leaving the main process
+      // to time out and raise a native dialog over a dead renderer.
+      const pending = pendingRef.current;
+      pendingRef.current = null;
+      if (pending) {
+        void api
+          .answerQuitPrompt(pending.requestId, "cancel")
+          .catch(() => undefined);
+      }
     };
   }, []);
 
@@ -60,13 +76,25 @@ export function ClosePromptHost() {
   useEffect(() => {
     if (!prompt) return;
     const previouslyFocused = document.activeElement as HTMLElement | null;
-    // Escape cancels, and focus starts on the safe action: a stray Enter must
-    // never be the keystroke that quits the app.
-    requestAnimationFrame(() => cancelRef.current?.focus());
+    // Enter takes the default action, so the default button holds focus: the
+    // focused control is the one Enter is about to press. Escape is the way
+    // out and stays available from every control.
+    requestAnimationFrame(() => confirmRef.current?.focus());
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
         answer("cancel");
+        return;
+      }
+      if (event.key === "Enter") {
+        // A focused button keeps its own meaning, so Enter on Cancel cancels
+        // and Enter on Close to tray minimizes. Anywhere else — including the
+        // card itself after the window was restored — Enter confirms.
+        if (event.target instanceof HTMLElement && event.target.closest("button")) {
+          return;
+        }
+        event.preventDefault();
+        answer("quit");
         return;
       }
       if (event.key !== "Tab") return;
@@ -76,17 +104,35 @@ export function ClosePromptHost() {
       if (!focusable?.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
+      const active = document.activeElement;
+      if (!dialogRef.current?.contains(active)) {
+        // Focus escaped the card (the window was just restored and focused, a
+        // portal hop, a click on the page behind): pull it back in rather than
+        // letting Tab walk the app under a modal overlay.
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
+      if (event.shiftKey && active === first) {
         event.preventDefault();
         last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+      } else if (!event.shiftKey && active === last) {
         event.preventDefault();
         first.focus();
       }
     };
+    // Restoring a window from the tray hands it focus without a click, so the
+    // card has to claim it back or the first keystroke lands on the page.
+    const onWindowFocus = () => {
+      if (!dialogRef.current?.contains(document.activeElement)) {
+        confirmRef.current?.focus();
+      }
+    };
     window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("focus", onWindowFocus);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("focus", onWindowFocus);
       if (previouslyFocused?.isConnected) previouslyFocused.focus();
     };
   }, [prompt, answer]);
@@ -136,6 +182,7 @@ export function ClosePromptHost() {
             </Button>
           )}
           <Button
+            ref={confirmRef}
             type="button"
             variant="primary"
             className="quit-prompt-confirm"

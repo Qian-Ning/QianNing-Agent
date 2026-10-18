@@ -1938,13 +1938,16 @@ is `quit` to confirm exiting or `close` to pick the close behavior — and waits
 for `app/quitPrompt/answer { requestId, choice }` with `choice` `cancel`,
 `tray`, or `quit`. Only the current main window may answer, the choice is a
 closed set, and a request id Main is no longer waiting on is dropped, so a
-stale or forged answer cannot quit the app. Both paths fall back to the native
-`dialog.showMessageBox` when no live window can answer — no window, destroyed
-web contents, an automated probe (`PI_DESKTOP_BOOT_PROBE`,
-`PI_DESKTOP_SUPERVISION_PROBE`, `PI_DESKTOP_CAPTURE`), a hidden or minimized
-window the user cannot see, a send that throws, or a 20-second wait — so the
-question is never lost and a quit never hangs on a wedged renderer. Copy reuses
-the `tray.*` and `common.cancel` catalogs the native dialog used.
+stale or forged answer cannot quit the app. Every quit path — application menu,
+Cmd+Q, the tray's Quit item, and a window close that chose Quit — asks through
+that one card; a quit raised while the window sits hidden in the tray restores
+and focuses the window first so the card is on screen, and Cancel leaves it
+open and usable. Both paths fall back to the native `dialog.showMessageBox` only
+when no live window can answer — no window, destroyed web contents, an automated
+probe (`PI_DESKTOP_BOOT_PROBE`, `PI_DESKTOP_SUPERVISION_PROBE`,
+`PI_DESKTOP_CAPTURE`), a send that throws, or a 20-second wait — so the question
+is never lost and a quit never hangs on a wedged renderer. Copy reuses the
+`tray.*` and `common.cancel` catalogs the native dialog used.
 
 Maximize/unmaximize changes also emit
 `window/event/maximized`. Unknown actions fail. These Electron-only channels

@@ -96,6 +96,9 @@ export function registerShutdownHandlers({
   disposePowerSaveBlockers,
   disposeSystemProxyRelay,
 }: ShutdownDependencies): void {
+  /** True while the quit confirmation card is open, so one question owns the quit. */
+  let quitConfirmationInFlight = false;
+
   app.on("window-all-closed", () => {
     // The D216 tray is resident on every platform, so its presence says nothing
     // about whether the app should survive a closed window — the user's close
@@ -131,8 +134,16 @@ export function registerShutdownHandlers({
     // user chose "restart to update" to get here.
     const isUpdateRestart = updater.isInstallingUpdate();
     if (!state.quitConfirmed && !isAutomatedMode && !isUpdateRestart) {
+      // A second quit request while the card is open (a repeated Cmd+Q, the
+      // tray item, a menu click) must neither stack a second card nor fall
+      // through to the shutdown below unanswered: `quitConfirmed` is already
+      // latched so this branch is skipped, and it is this flag that keeps the
+      // request from reaching the shutdown.
+      if (quitConfirmationInFlight) return;
+      quitConfirmationInFlight = true;
       state.quitConfirmed = true;
       void confirmQuitDialog().then((confirmed) => {
+        quitConfirmationInFlight = false;
         if (confirmed) {
           app.quit();
         } else {

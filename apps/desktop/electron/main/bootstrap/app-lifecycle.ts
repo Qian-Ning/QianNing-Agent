@@ -275,7 +275,8 @@ export function createApplicationLifecycle({
     trayQuitPromptOpen = true;
     let confirmed = false;
     try {
-      // Answered by the OS dialog on purpose — see `confirmTrayQuit`.
+      // The app's own quit card, drawn in the restored main window — the same
+      // one every other quit path asks through `confirmQuitDialog`.
       confirmed = await confirmTrayQuit();
     } catch (error) {
       // A confirmation that cannot be asked must not quit unasked; the app

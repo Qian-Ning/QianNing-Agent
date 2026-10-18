@@ -8073,6 +8073,14 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `tray.askTitle` / `tray.askBody`, and `tray.confirmQuitTitle` /
   `tray.confirmQuitBody` carry the copy — the same keys the native dialog
   used, so no locale needed a new string.
+- **Update (2026-10-19):** the tray's Quit item no longer opts out of the card.
+  It used to go straight to the native dialog because the window sits hidden in
+  the tray; every quit confirmation now restores and focuses the window and asks
+  through the same card, and Cancel leaves that window open and usable. The
+  hidden/minimized-window bail is gone, so the native dialog answers only for a
+  destroyed window, a send that throws, an automated probe, or a renderer silent
+  for 20 seconds. The card's default button is the confirm, so Enter confirms,
+  Escape cancels, and focus is trapped in the card and restored afterwards.
 
 ## 2026-10-07 — Every command kind is labelled, and the bundled skills are ours (D675)
 
