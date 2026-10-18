@@ -1015,6 +1015,7 @@ registerShutdownHandlers({
   getMessagingDiscordInbound: () => mainState.messagingDiscordInbound,
   getMessagingMattermostInbound: () => mainState.messagingMattermostInbound,
   getMessagingMatrixInbound: () => mainState.messagingMatrixInbound,
+  getMessagingNtfyInbound: () => mainState.messagingNtfyInbound,
   getMessagingIrcInbound: () => mainState.messagingIrcInbound,
   getMessagingHomeAssistantInbound: () => mainState.messagingHomeAssistantInbound,
   getMessagingOutbound: () => mainState.messagingOutbound,

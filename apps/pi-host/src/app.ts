@@ -18,6 +18,7 @@ import {
   createDiscordInboundWiring,
   createMattermostInboundWiring,
   createMatrixInboundWiring,
+  createNtfyInboundWiring,
   createHomeAssistantInboundWiring,
   createIrcInboundWiring,
   listPendingToolRequests,
@@ -363,6 +364,23 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
     }).run(),
   };
 
+  // The inbound ntfy channel, beside the others: a `/json` long poll the Host
+  // originates (no port is bound), config-gated on its base URL and topic. One
+  // topic carries both directions; the send path tags what it publishes and the
+  // receive path drops a message carrying that tag, so the channel cannot
+  // answer itself.
+  const messagingNtfyAbort = new AbortController();
+  const messagingNtfy: MessagingInboundHandle = {
+    controller: messagingNtfyAbort,
+    done: createNtfyInboundWiring({
+      agentHost,
+      settings: createHostSettingsSurface(getHost),
+      secrets: createHostSecretReader(getHost),
+      signal: messagingNtfyAbort.signal,
+      log: (level, message, data) => log(level, message, data),
+    }).run(),
+  };
+
   // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3): the
   // Host-side redactor subscribed on the host-scope event surface, so the
   // redacted summaries of terminal turn outcomes and host-owned requests reach
@@ -475,6 +493,9 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
       // The Home Assistant websocket loop stops the same way.
       messagingHomeAssistant.controller.abort();
       await settleWithinBudget(messagingHomeAssistant.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
+      // The ntfy long poll stops the same way, under the same bound.
+      messagingNtfy.controller.abort();
+      await settleWithinBudget(messagingNtfy.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
       // The outbound relay is released the same way, beside the two loops and
       // before the host is disposed: it unsubscribes at once, and the (already
       // settled) wait is bounded so a release that ever refused to settle could

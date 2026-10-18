@@ -11,6 +11,7 @@ import {
   MESSAGING_IRC_SECTION,
   MESSAGING_MATRIX_SECTION,
   MESSAGING_MATTERMOST_SECTION,
+  MESSAGING_NTFY_SECTION,
   MESSAGING_SLACK_SECTION,
   MESSAGING_TELEGRAM_SECTION,
 } from "@pi-desktop/agent-host";
@@ -144,7 +145,8 @@ export function registerSettingsIpc({
         section !== MESSAGING_MATTERMOST_SECTION &&
         section !== MESSAGING_MATRIX_SECTION &&
         section !== MESSAGING_IRC_SECTION &&
-        section !== MESSAGING_HOME_ASSISTANT_SECTION
+        section !== MESSAGING_HOME_ASSISTANT_SECTION &&
+        section !== MESSAGING_NTFY_SECTION
       ) {
         throw Object.assign(new Error("unknown messaging settings section"), {
           errorCode: "INVALID_PARAMS",

@@ -79,6 +79,7 @@ export class MainProcessState {
   messagingMatrixInbound: MessagingInboundHandle | null = null;
   messagingIrcInbound: MessagingInboundHandle | null = null;
   messagingHomeAssistantInbound: MessagingInboundHandle | null = null;
+  messagingNtfyInbound: MessagingInboundHandle | null = null;
   messagingOutbound: MessagingOutboundRelay | null = null;
 
   quitting = false;
@@ -429,6 +430,12 @@ export class MainProcessState {
       },
       set messagingHomeAssistantInbound(value) {
         self.messagingHomeAssistantInbound = value;
+      },
+      get messagingNtfyInbound() {
+        return self.messagingNtfyInbound;
+      },
+      set messagingNtfyInbound(value) {
+        self.messagingNtfyInbound = value;
       },
       get messagingOutbound() {
         return self.messagingOutbound;

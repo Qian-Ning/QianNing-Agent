@@ -663,12 +663,13 @@ system while preserving their different data ownership:
 - The list is the reference product's own catalogue — all thirty-three
   platforms, in the product's order — so the surface has a real product's
   density, and it is honest about breadth. **Telegram**, **Discord**, **Slack**,
-  **Mattermost**, **Matrix**, **Home Assistant** and **IRC** are marked
-  Supported and open a working panel. The other twenty-six are marked Not supported, and their panel states
+  **Mattermost**, **Matrix**, **Home Assistant**, **IRC** and **ntfy** are
+  marked Supported and open a working panel. The other twenty-five are marked
+  Not supported, and their panel states
   what the gap is **and what kind of requirement it is**, because "needs setup"
   without the kind does not tell a user whether they can close it themselves.
   Five classes cover the real shapes: an **outgoing long connection**, which
-  works from a home network (ntfy, SimpleX Chat, Raft, Buzz); a
+  works from a home network (SimpleX Chat, Raft, Buzz); a
   **public HTTPS callback**, where the platform pushes into an address the
   internet must reach (Google Chat, LINE, Microsoft Teams, Microsoft Graph,
   Feishu / Lark, DingTalk, both WeCom entries, SMS through Twilio, Webhooks); a
@@ -755,21 +756,25 @@ system while preserving their different data ownership:
   is not used; only `qianning_message` events are read, and state changes,
   service calls and every other event on the bus are ignored; and replies go to
   one service, so the agent answers where it was pointed and nowhere else.
-- Home Assistant's panel is honest about a narrower channel, above the form and
-  not below it. **Outbound is real and useful**: a reply is
-  `POST /api/services/<domain>/<service>` with the long-lived access token in
-  `Authorization`, so it reaches a phone, a speaker, a script or a panel with
-  nothing but a base URL, a token and the linked service. **Inbound is the event
-  bus**, and the panel says what that means: Home Assistant has no chat window
-  that hands a third-party agent a message, so a message arrives only when one of
-  the user's own automations fires `qianning_message` with `data.text`. Until
-  that automation exists the channel sends and receives nothing, and the panel
-  says exactly that rather than implying a conversation that is not there. Its
-  limitation note states the rest in plain language: this is not a chat channel;
-  Assist is Home Assistant answering the user, so the `conversation/process` API
-  is not used; only `qianning_message` events are read, and state changes,
-  service calls and every other event on the bus are ignored; and replies go to
-  one service, so the agent answers where it was pointed and nowhere else.
+- ntfy's panel states both directions plainly. **Outbound** is
+  `POST {base}/{topic}` with the reply as the body and an optional
+  `Authorization: Bearer` header. **Inbound** is a long-lived
+  `GET {base}/{topic}/json?since=<id>` the Host opens itself, so no port is
+  bound; the server streams NDJSON and the cursor is its own message id, a
+  string, saved only after a batch has been applied. One topic carries both
+  directions and ntfy has no notion of authorship, so the send path tags every
+  message it publishes and the receive path drops messages carrying that tag:
+  without it the channel would read its own reply back as a command and answer
+  itself forever. The panel states the real limit where the topic is entered:
+  **a topic on the public ntfy.sh server is not private** — anyone who knows the
+  topic name can subscribe, read every message and post to it, because the name
+  is the whole of the access control. It recommends a long random topic name and
+  a self-hosted server for anything sensitive instead of implying a privacy the
+  public server does not offer. It also states the mechanics a user will notice:
+  messages carry no author, so every message on the topic is admitted as the
+  linked principal; a body is limited to 4096 bytes, so a longer reply is split
+  across several messages in order; and the cursor moves forward only, so a
+  restart continues where it stopped rather than replaying the topic.
 - Telegram also offers **Quick setup**. The pasted token is checked with
   `getMe`, so "the bot exists" is confirmed rather than assumed, and
   `getUpdates` finds the chat that has messaged it, filling the numeric chat id.
@@ -798,7 +803,8 @@ system while preserving their different data ownership:
   `secret:messaging-mattermost:access-token` for Mattermost; and
   `secret:messaging-matrix:access-token` for Matrix,
   `secret:messaging-home-assistant:access-token` for Home Assistant, and
-  `secret:messaging-irc:server-password` for IRC's optional server password. The record
+  `secret:messaging-irc:server-password` for IRC's optional server password, and
+  `secret:messaging-ntfy:access-token` for ntfy's optional access token. The record
   carries no credential at all. The page shows only whether a ref is present
   ("Stored" / "Not set"), never a value, and an empty token field means "keep
   the stored one".
@@ -1070,7 +1076,7 @@ system while preserving their different data ownership:
     Inline reimplementation of any shared primitive is a spec violation.
 29. Messaging platforms is a chooser plus a panel: the list carries the reference
     catalogue and marks honestly which platforms this build runs (Telegram,
-    Slack, Discord, Mattermost, Matrix, Home Assistant and IRC) and which it does
+    Slack, Discord, Mattermost, Matrix, Home Assistant, IRC and ntfy) and which it does
     not, the unsupported ones opening a statement
     rather than a form. It reports three independent states — enabled, setup and
     gateway, the last read from the running receive loops — groups fields into

@@ -62,6 +62,13 @@ import {
   HOME_ASSISTANT_WEBSOCKET_PATH,
   type HomeAssistantInboundAuditEntry,
 } from "./messaging-home-assistant-inbound.js";
+import {
+  createNtfyInboundPushTransport,
+  createNtfyIngressAdapter,
+  NTFY_OWN_TAG,
+  type NtfyFetch,
+  type NtfyInboundAuditEntry,
+} from "./messaging-ntfy-inbound.js";
 
 // ---------------------------------------------------------------------------
 // Shared doubles
@@ -940,6 +947,122 @@ function homeAssistantFixture(): IngressConformanceFixture {
 }
 
 // ---------------------------------------------------------------------------
+// ntfy (long poll over the /json ndjson stream)
+// ---------------------------------------------------------------------------
+
+/** The one message the fixture's fake ntfy has to offer. */
+const NTFY_TOPIC = "conformance-topic";
+const NTFY_FOREIGN_ID = "ntfy-conformance-1";
+
+/** A response whose body is an ndjson stream, as the real server answers. */
+function ndjsonResponse(lines: string[]): Response {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(lines.map((line) => `${line}\n`).join("")));
+      controller.close();
+    },
+  });
+  return { status: 200, ok: true, headers: new Headers(), body } as unknown as Response;
+}
+
+function ntfyFixture(): IngressConformanceFixture {
+  const delivered: string[] = [];
+  const foreignFrame = {
+    id: NTFY_FOREIGN_ID,
+    time: 1_760_000_000,
+    event: "message",
+    topic: NTFY_TOPIC,
+    message: "/start do the thing",
+  };
+  /**
+   * One fake ntfy for the poll and publish routes. A subscription from the
+   * batch's own id offers nothing (which is what a kept cursor looks like); a
+   * subscription from anywhere else offers the keepalive frame and then the
+   * message.
+   */
+  const fetchImpl = (async (input: string, init: RequestInit = {}) => {
+    const url = new URL(input);
+    if ((init.method ?? "GET") === "POST") {
+      delivered.push(String(init.body ?? ""));
+      return {
+        status: 200,
+        ok: true,
+        headers: new Headers(),
+        json: async () => ({ id: `sent-${delivered.length}` }),
+      } as unknown as Response;
+    }
+    const since = url.searchParams.get("since") ?? "";
+    if (since === NTFY_FOREIGN_ID) return ndjsonResponse([]);
+    return ndjsonResponse([
+      JSON.stringify({ id: "ka", event: "keepalive", topic: NTFY_TOPIC }),
+      JSON.stringify(foreignFrame),
+    ]);
+  }) as unknown as NtfyFetch;
+
+  const adapter = createNtfyIngressAdapter({
+    endpoint: "https://conformance.ntfy.test",
+    topic: NTFY_TOPIC,
+    fetchImpl,
+    wait: async () => {},
+  });
+
+  return {
+    adapter,
+    foreign: () => ({
+      raw: foreignFrame,
+      expected: {
+        messageId: NTFY_FOREIGN_ID,
+        chatId: NTFY_TOPIC,
+        text: "/start do the thing",
+      },
+    }),
+    own: () => ({
+      ...foreignFrame,
+      id: "ntfy-own",
+      message: "/start from the bot",
+      tags: [NTFY_OWN_TAG],
+    }),
+    longPoll: () => ({ poll: adapter.poll, normalise: adapter.normalise }),
+    deliver: (text: string) => {
+      const chunks: string[] = [];
+      const before = delivered.length;
+      const deliverer = adapter.deliver!;
+      const result = (async () => {
+        const outcome = await deliverer(NTFY_TOPIC, text);
+        chunks.push(...delivered.slice(before));
+        return outcome;
+      })();
+      return { chatId: NTFY_TOPIC, chunks, result };
+    },
+    async refusedCredential() {
+      const refusedAudit: NtfyInboundAuditEntry[] = [];
+      const controller = new AbortController();
+      const transport = createNtfyInboundPushTransport({
+        endpoint: "https://conformance.ntfy.test",
+        topic: NTFY_TOPIC,
+        token: "ntfy-SECRET-token",
+        fetchImpl: (async () =>
+          ({
+            status: 401,
+            ok: false,
+            headers: new Headers(),
+            body: null,
+          }) as unknown as Response) as unknown as NtfyFetch,
+        handled: durableGuard(),
+        cursor: { load: async () => null, save: async () => {} },
+        wait: async () => {
+          controller.abort();
+        },
+        audit: (entry) => refusedAudit.push(entry),
+      });
+      await transport.start(async () => {}, controller.signal);
+      return { token: "ntfy-SECRET-token", observed: JSON.stringify(refusedAudit) };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // The suite
 // ---------------------------------------------------------------------------
 
@@ -951,6 +1074,7 @@ const FIXTURES: { name: string; build: () => IngressConformanceFixture }[] = [
   { name: "matrix", build: matrixFixture },
   { name: "irc", build: ircFixture },
   { name: "home assistant", build: homeAssistantFixture },
+  { name: "ntfy", build: ntfyFixture },
 ];
 
 for (const entry of FIXTURES) {

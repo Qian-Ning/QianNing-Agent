@@ -273,10 +273,10 @@ Token 用量上游**不是设置目的地**（D335 / ADR 0173）。已完成回�
 - 独立的目的地——一个导轨入口、一个页面——使用外壳的第二、第三列：平台列表是选择器，所选平台的面板是工作面。
   它不属于连接页，也不是第二个目标管理器：消息是智能体被联系到的方式，而不是它拨号的东西。
 - 列表就是参考产品自己的目录——全部三十三个平台，按产品的顺序排列——因此这一页具有真实产品的密度，
-  同时如实标明支持范围。**Telegram**、**Discord**、**Slack**、**Mattermost**、**Matrix**、**Home Assistant** 与 **IRC**
-  标为“已支持”并打开可用面板。其余二十六个标为“暂不支持”，其面板既说明缺的是什么，**也说明它属于哪一类需求**：
+  同时如实标明支持范围。**Telegram**、**Discord**、**Slack**、**Mattermost**、**Matrix**、**Home Assistant**、**IRC** 与 **ntfy**
+  标为“已支持”并打开可用面板。其余二十五个标为“暂不支持”，其面板既说明缺的是什么，**也说明它属于哪一类需求**：
   只说“需要配置”而不说类型，用户无法判断这件事能不能由自己解决。五个类别覆盖了真实形态：
-  **出站长连接**，在家庭网络中即可工作（ntfy、SimpleX Chat、Raft、Buzz）；
+  **出站长连接**，在家庭网络中即可工作（SimpleX Chat、Raft、Buzz）；
   **公开 HTTPS 回调**，由平台向互联网必须可达的地址推送（Google Chat、LINE、Microsoft Teams、Microsoft Graph、
   Feishu / Lark、钉钉、两个企业微信条目、通过 Twilio 的 SMS、Webhooks）；
   **轮询循环或本地桥接**，账号实际在手机或 Mac 上（基于 IMAP 与 SMTP 的电子邮件、BlueBubbles、
@@ -312,6 +312,15 @@ Token 用量上游**不是设置目的地**（D335 / ADR 0173）。已完成回�
 - IRC 面板用平实的语言说明它的限制：**不支持 SASL，也不支持 TLS 客户端证书**。客户端以 `PASS`（仅在设置了服务器密码时）、
   `NICK` 与 `USER` 注册，用相同的令牌回应服务器的 `PING`，并加入配置的频道。注册被拒绝时按数字回复上报——
   昵称被占用是 `433`，服务器密码被拒绝是 `464`，被封禁是 `465`——而不是静默重试；面板如实说明，不假装已登录。
+- ntfy 面板把两个方向都讲清楚。**发送**是 `POST {base}/{topic}`，回复作为请求体，可选 `Authorization: Bearer` 头。
+  **接收**是 Host 自己发起的长期 `GET {base}/{topic}/json?since=<id>`，不绑定任何端口；服务器以 NDJSON 流式返回，
+  游标是服务器自己的消息 id（字符串），只在一批消息应用之后保存。同一个 topic 承载两个方向，而 ntfy 没有“作者”概念，
+  因此发送路径会给每条自己发出的消息打上标记，接收路径丢弃带该标记的消息：否则渠道会把自己刚发出的回复读回来当成指令，
+  永远自我应答。面板在填写 topic 的位置就说明真正的限制：**公共 ntfy.sh 服务器上的 topic 并不私密**——
+  任何知道 topic 名称的人都能订阅、读取每条消息并向它发帖，因为名称就是全部的访问控制。它建议使用长的随机 topic 名称，
+  敏感用途请自建服务器，而不是暗示公共服务器并不具备的隐私。面板也说明用户会注意到的机制：消息不携带作者，
+  因此 topic 上的每条消息都按关联主体接纳；正文上限为 4096 字节，更长的回复会按顺序拆成多条消息；
+  游标只向前移动，因此重启后接着上次的位置，而不是重放整个 topic。
 - Telegram 还提供**快速设置**。粘贴的令牌会经 `getMe` 校验，因此“机器人存在”是被确认的而不是假定的；
   `getUpdates` 会找出给它发过消息的会话，并填入数字会话 ID。两次调用都在桌面主进程中进行，目标固定为
   `https://api.telegram.org`，并禁用重定向，因为令牌位于请求路径中；返回内容只投影为 ID 与用户名，绝不是响应体，
@@ -326,7 +335,8 @@ Token 用量上游**不是设置目的地**（D335 / ADR 0173）。已完成回�
   `secret:messaging-discord:bot-token`；Mattermost 的
   `secret:messaging-mattermost:access-token`；Matrix 的
   `secret:messaging-matrix:access-token`；IRC 可选的服务器密码使用
-  `secret:messaging-irc:server-password`；Slack 的
+  `secret:messaging-irc:server-password`；ntfy 可选的访问令牌使用
+  `secret:messaging-ntfy:access-token`；Slack 的
   `secret:messaging-slack:app-token` 与 `secret:messaging-slack:bot-token`，因为 Socket Mode
   连接与发送路径使用不同的平台令牌。记录本身不携带任何凭据。页面只显示引用是否存在
   （“已保存”/“未设置”），从不显示值；令牌字段留空表示“保留已保存的令牌”。
@@ -499,7 +509,7 @@ Token 用量上游**不是设置目的地**（D335 / ADR 0173）。已完成回�
     默认、不可用、回退或无实际 Shell 文案，并且从不授权过时的 ID/dialect
 21. 信息页提供「问题反馈」，打开已预填版本和操作系统的 GitHub bug 表单；设置搜索可索引该行
 22. 技能页的市场视图浏览公网 HTTPS 目录、预览组装后的文档，并只通过 `skills.create` 安装；超限展开文档拒绝写入，来源角标跟随 `sourceId`；预览失败时面板给出可读原因与重试入口（安装按钮可以禁用,但不得无解释地禁用）；来源被公网策略守卫拒绝时明确说明,而不是笼统报「不可达」
-23. 消息平台是选择器加面板：列表收录参考目录，并如实标注本构建运行哪些平台（Telegram、Slack、Discord、Mattermost、Matrix 与 IRC）、
+23. 消息平台是选择器加面板：列表收录参考目录，并如实标注本构建运行哪些平台（Telegram、Slack、Discord、Mattermost、Matrix、Home Assistant、IRC 与 ntfy）、
    哪些不运行，不支持的平台打开的是说明而不是表单。它报告三个独立状态——启用、配置、网关，最后一个来自正在运行的
    接收循环——把字段分为必填与推荐并说明各自留空的后果，用带官方指南链接的步骤引导用户取得凭据，
    并把启用开关与保存放在底部。输入的凭据写入 Host secret store 中它的 `secret:` 引用——绝不写入设置行，

@@ -100,6 +100,7 @@ const GATEWAY_UP = {
   matrix: true,
   irc: true,
   homeAssistant: true,
+  ntfy: true,
 };
 const GATEWAY_DOWN = {
   booted: true,
@@ -110,6 +111,7 @@ const GATEWAY_DOWN = {
   matrix: false,
   irc: false,
   homeAssistant: false,
+  ntfy: false,
 };
 
 /**
@@ -162,9 +164,10 @@ const SUPPORTED_IDS = [
   "matrix",
   "homeAssistant",
   "irc",
+  "ntfy",
 ];
 
-/** The whole catalogue, in rail order: thirty-three, seven of them supported. */
+/** The whole catalogue, in rail order: thirty-three, eight of them supported. */
 test("the catalogue is the product's full list and marks support honestly", () => {
   assert.deepEqual(
     MESSAGING_PLATFORMS.map((entry) => entry.id),
@@ -240,7 +243,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   // a transport has no conversation at all, and approval happens off-machine.
   assert.deepEqual(byClass.longConnection, [
     "buzz",
-    "ntfy",
     "raft",
     "simplex",
   ]);
@@ -397,6 +399,52 @@ test("enabled, setup and gateway are computed independently", () => {
   );
 });
 
+/**
+ * The grid that catches a channel borrowing a sibling's gateway.
+ *
+ * The platform list comes from the catalogue, not from a hand-written array, so
+ * a channel added later is covered the moment it is marked `supported`. The
+ * snapshot is built by spreading `MESSAGING_GATEWAY_OFF` and flipping ONE key,
+ * so a platform whose id is not a snapshot key cannot pass by accident: the
+ * extra property is never read, the card stays stopped, and the expectation
+ * below fails loudly.
+ */
+test("a channel reports its own gateway, never a sibling's", () => {
+  const platforms = SUPPORTED_MESSAGING_PLATFORMS;
+  assert.ok(platforms.length >= 8, "the supported catalogue lost a channel");
+
+  // The per-channel keys the snapshot itself declares. `booted` is the host's
+  // own liveness, not a channel.
+  const channelKeys = Object.keys(MESSAGING_GATEWAY_OFF).filter((key) => key !== "booted");
+
+  for (const platform of platforms) {
+    assert.ok(
+      channelKeys.includes(platform.id),
+      `${platform.id} has no gateway key of its own in the snapshot`,
+    );
+
+    // Booted but idle: nothing may read as running.
+    assert.equal(
+      deriveChannelState(platform, undefined, {}, GATEWAY_DOWN).gateway,
+      "stopped",
+      `${platform.id} claims a running loop with every loop stopped`,
+    );
+
+    // One running loop at a time. Only the platform that owns it may report it.
+    for (const running of platforms) {
+      const snapshot = { ...GATEWAY_DOWN, [running.id]: true };
+      const expected = running.id === platform.id ? "running" : "stopped";
+      assert.equal(
+        deriveChannelState(platform, undefined, {}, snapshot).gateway,
+        expected,
+        `${platform.id} reported "${
+          deriveChannelState(platform, undefined, {}, snapshot).gateway
+        }" while only ${running.id}'s loop was running`,
+      );
+    }
+  }
+});
+
 /** Required vs recommended, and the consequence of a blank. */
 test("fields are grouped, and every field explains itself and its blank", () => {
   for (const platform of SUPPORTED_MESSAGING_PLATFORMS) {
@@ -434,6 +482,25 @@ test("fields are grouped, and every field explains itself and its blank", () => 
       assert.deepEqual(
         requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
         [],
+      );
+    } else if (platform.id === "ntfy") {
+      // ntfy has a public default server and an optional credential: a topic on
+      // an open server needs no token, so only the topic and the link are
+      // required. The token sits with the recommended fields but still has a
+      // secret slot of its own.
+      assert.deepEqual(requiredWithoutSecrets, ["destination", "subject", "roles"]);
+      assert.deepEqual(
+        recommended.map((field) => field.id),
+        ["access-token", "permissionMode", "endpoint", "requestTimeoutMs"],
+      );
+      assert.deepEqual(
+        requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
+        [],
+      );
+      assert.deepEqual(
+        platform.secrets.map((slot) => slot.id),
+        ["access-token"],
+        "ntfy's optional credential still has a slot",
       );
     } else {
       assert.deepEqual(
@@ -885,6 +952,7 @@ test("the gateway registry reports the loops that are actually running", async (
     matrix: false,
     irc: false,
     homeAssistant: false,
+    ntfy: false,
   });
 
   registry.markBooted();
@@ -903,6 +971,7 @@ test("the gateway registry reports the loops that are actually running", async (
     matrix: false,
     irc: false,
     homeAssistant: false,
+    ntfy: false,
   });
 
   registry.track("slack", { done: Promise.resolve() });
@@ -922,6 +991,7 @@ test("the gateway registry reports the loops that are actually running", async (
     matrix: false,
     irc: false,
     homeAssistant: false,
+    ntfy: false,
   });
 });
 

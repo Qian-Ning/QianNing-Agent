@@ -33,6 +33,7 @@ import {
   createDiscordInboundWiring,
   createMattermostInboundWiring,
   createMatrixInboundWiring,
+  createNtfyInboundWiring,
   createHomeAssistantInboundWiring,
   createIrcInboundWiring,
   type MessagingInboundHandle,
@@ -129,6 +130,12 @@ export type StartupState = {
    * so a Host with nothing configured starts no loop and polls nothing.
    */
   messagingMatrixInbound: MessagingInboundHandle | null;
+  /**
+   * The inbound ntfy long-poll loop this boot started, with the controller that
+   * stops it. Config-gated on the channel's record (a base URL and a topic), so
+   * a Host with nothing configured starts no loop and polls nothing.
+   */
+  messagingNtfyInbound: MessagingInboundHandle | null;
   /**
    * The outbound messaging relay this boot subscribed, with the release that
    * stops it. Shutdown releases it, bounded, before host-core is disposed. It is
@@ -527,6 +534,20 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
         done: homeAssistantWiring.run(),
       };
       messagingGateway.track("homeAssistant", state.messagingHomeAssistantInbound);
+      // The ntfy channel: a `/json` long poll the Host originates (no port is
+      // bound), config-gated on its base URL and topic. One topic carries both
+      // directions; the send path tags what it publishes and the receive path
+      // drops a message carrying that tag, so the channel cannot answer itself.
+      const ntfyController = new AbortController();
+      const ntfyWiring = createNtfyInboundWiring({
+        agentHost: state.agentHostBridge.agentHost,
+        settings: createHostSettingsSurface(getHost),
+        secrets: createHostSecretReader(getHost),
+        signal: ntfyController.signal,
+        log: (level, message, data) => logger.app("runtime", level, message, { data }),
+      });
+      state.messagingNtfyInbound = { controller: ntfyController, done: ntfyWiring.run() };
+      messagingGateway.track("ntfy", state.messagingNtfyInbound);
     }
     // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3), beside
     // the two inbound loops: the Host-side redactor subscribed on the

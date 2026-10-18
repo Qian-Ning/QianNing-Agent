@@ -53,6 +53,8 @@ export type ShutdownDependencies = {
   getMessagingMattermostInbound: () => MessagingInboundHandle | null;
   /** The inbound Matrix sync loop this boot started, if any. */
   getMessagingMatrixInbound: () => MessagingInboundHandle | null;
+  /** The inbound ntfy long-poll loop this boot started, if any. */
+  getMessagingNtfyInbound: () => MessagingInboundHandle | null;
   getMessagingIrcInbound: () => MessagingInboundHandle | null;
   /** The inbound Home Assistant websocket loop this boot started, if any. */
   getMessagingHomeAssistantInbound: () => MessagingInboundHandle | null;
@@ -86,6 +88,7 @@ export function registerShutdownHandlers({
   getMessagingDiscordInbound,
   getMessagingMattermostInbound,
   getMessagingMatrixInbound,
+  getMessagingNtfyInbound,
   getMessagingIrcInbound,
   getMessagingHomeAssistantInbound,
   getMessagingOutbound,
@@ -200,6 +203,11 @@ export function registerShutdownHandlers({
       const messagingMatrixInbound = getMessagingMatrixInbound();
       messagingMatrixInbound?.controller.abort();
       await settleWithinBudget(messagingMatrixInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
+      // The ntfy long poll stops the same way: the request is aborted and the
+      // loop awaited under the same bound.
+      const messagingNtfyInbound = getMessagingNtfyInbound();
+      messagingNtfyInbound?.controller.abort();
+      await settleWithinBudget(messagingNtfyInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
       // The IRC socket loop stops the same way, under the same bound.
       const messagingIrcInbound = getMessagingIrcInbound();
       messagingIrcInbound?.controller.abort();
