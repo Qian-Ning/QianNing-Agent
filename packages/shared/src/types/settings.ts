@@ -101,6 +101,55 @@ export type MessagingChannelSettings = {
 };
 
 /**
+ * The shared inbound-webhook receiver's own record (`messagingWebhookReceiver`).
+ *
+ * This is not a channel: it configures the one HTTP surface that the
+ * callback-shaped channels a future build adds will be served on
+ * (`/webhooks/<platform>`), and it names no product. It is absent by default and
+ * an absent section means no listener is bound, so the Host's "no inbound
+ * surface" default is unchanged until someone asks for this one.
+ *
+ * # A loopback listener is not reachable from the internet
+ *
+ * `bindAddress` defaults to `127.0.0.1`, which is deliberate: a receiver exposed
+ * by accident is worse than one that needs configuring. But every platform that
+ * calls a webhook needs a public HTTPS endpoint, and this setting does not
+ * provide one. A receiver bound to loopback cannot be reached by any of them.
+ * The deployment that works is one of:
+ *
+ * - a reverse proxy on a public host (nginx, Caddy, a cloud load balancer) that
+ *   terminates TLS and forwards to this port over the tunnel or the private
+ *   network between them;
+ * - a tunnel (Cloudflare Tunnel, ngrok, Tailscale Funnel) that publishes this
+ *   port under a public HTTPS hostname.
+ *
+ * Neither is implemented by this product: the operator supplies one, and
+ * `allowNonLoopback` is the switch that must be on before the listener will bind
+ * anything but loopback. Turning it on without a proxy or a tunnel in front
+ * publishes an unauthenticated surface to the local network, which is why it is
+ * a separate, explicit boolean rather than an inference from `bindAddress`.
+ */
+export type MessagingWebhookReceiverSettings = {
+  /** Whether a receiver listens at all; absent or false binds no port. */
+  enabled: boolean;
+  /** The port to listen on, 1–65535. */
+  port: number;
+  /** The address to bind; `127.0.0.1` unless the operator changes it. */
+  bindAddress: string;
+  /**
+   * The explicit opt-in for a non-loopback bind. Without it a wider
+   * `bindAddress` is refused, not narrowed.
+   */
+  allowNonLoopback: boolean;
+  /** The `secret:` ref of the shared signing secret, never the value. */
+  secretRef: string;
+  /** How old a signed timestamp may be, in seconds (default 300). */
+  replayWindowSeconds: number;
+  /** The largest body accepted, in bytes; larger requests are refused unread. */
+  maxBodyBytes: number;
+};
+
+/**
  * What closing the main window does on Windows/Linux. macOS keeps the native
  * Dock lifecycle and never consults this preference.
  * - `ask`: transient unset state — the first close prompts once; after a
@@ -303,6 +352,12 @@ export type AppSettings = {
   messagingHomeAssistant?: MessagingChannelSettings;
   messagingNtfy?: MessagingChannelSettings;
   messagingEmail?: MessagingChannelSettings;
+  /**
+   * The shared inbound-webhook receiver (`/webhooks/<platform>`). Not a
+   * channel: it names no product and serves whichever callback channels the
+   * build registers. Absent means no listener, which is the default.
+   */
+  messagingWebhookReceiver?: MessagingWebhookReceiverSettings;
   onboardingDismissed: boolean;
 };
 

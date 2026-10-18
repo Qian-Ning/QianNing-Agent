@@ -113,6 +113,12 @@ export type IngressAuditEntry =
   | { kind: "disconnect"; reason: string }
   | { kind: "malformed"; reason: string }
   | { kind: "filtered"; reason: string; channelId?: string }
+  /**
+   * A request the transport refused before it became an event: a stale
+   * timestamp, a delivery id already seen, a body over the cap, a path no
+   * channel is served on. The reason is a closed token, never request content.
+   */
+  | { kind: "rejected"; reason: string }
   | { kind: "heartbeat-missed" }
   | { kind: "duplicate"; eventId: string }
   | { kind: "processed"; eventId: string }

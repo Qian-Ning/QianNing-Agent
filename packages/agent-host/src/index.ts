@@ -7,6 +7,8 @@ export * from "./messaging-ingress.js";
 export * from "./messaging-ingress-socket.js";
 export * from "./messaging-ingress-polling.js";
 export * from "./messaging-ingress-webhook.js";
+export * from "./messaging-ingress-verify.js";
+export * from "./messaging-ingress-receiver.js";
 export * from "./messaging-inbound.js";
 export * from "./messaging-slack-inbound.js";
 export * from "./messaging-slack-store.js";
