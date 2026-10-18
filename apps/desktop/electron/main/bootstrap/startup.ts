@@ -25,21 +25,14 @@ import {
 } from "../media-asset-protocol";
 import { applyNetworkProxyFromAppSettings } from "../network-proxy";
 import {
-  createHostSecretReader,
   createHostSettingsSurface,
-  createMessagingInboundWiring,
   createMessagingOutboundRelay,
-  createSlackInboundWiring,
-  createDiscordInboundWiring,
-  createMattermostInboundWiring,
-  createMatrixInboundWiring,
-  createNtfyInboundWiring,
-  createEmailInboundWiring,
-  createHomeAssistantInboundWiring,
-  createIrcInboundWiring,
-  type MessagingInboundHandle,
   type MessagingOutboundRelay,
 } from "@pi-desktop/host-runtime";
+import {
+  createMessagingInboundSupervisor,
+  setMessagingInboundSupervisor,
+} from "../messaging-inbound-lifecycle";
 import { readCloseBehavior } from "../window-preferences";
 import { createAgentHostBridge, type AgentHostBridge } from "../agent-host-bridge";
 import { messagingGateway } from "../messaging-gateway";
@@ -93,61 +86,15 @@ export type StartupState = {
   desktopControl: McpControlController | null;
   mcpControl: McpControlServer | null;
   /**
-   * The inbound messaging loop this boot started, with the controller that
-   * stops it. Shutdown reads it to abort the loop and await it before
-   * host-core is disposed.
-   */
-  messagingInbound: MessagingInboundHandle | null;
-  /**
-   * The inbound Slack Socket Mode loop this boot started, with the controller
-   * that stops it. Shutdown aborts it and awaits it, bounded, beside the
-   * Telegram loop and before host-core is disposed. The transport is
-   * config-gated on the Slack app-level token: with none configured the loop
-   * resolves at once and opens nothing, so no behaviour changes.
-   */
-  messagingSlackInbound: MessagingInboundHandle | null;
-  /**
-   * The inbound Discord Gateway loop this boot started, with the controller
-   * that stops it. Config-gated on the Discord bot token: with none configured
-   * the transport starts nothing and the loop resolves at once.
-   */
-  messagingDiscordInbound: MessagingInboundHandle | null;
-  /**
-   * The inbound Mattermost websocket loop this boot started, with the
-   * controller that stops it. Config-gated on the Mattermost access token and
-   * a configured server URL: with either missing nothing is opened.
-   */
-  messagingMattermostInbound: MessagingInboundHandle | null;
-  messagingIrcInbound: MessagingInboundHandle | null;
-  /**
-   * The inbound Home Assistant websocket loop this boot started, with the
-   * controller that stops it. Config-gated on the access token and the channel
-   * record: with either missing nothing is opened.
-   */
-  messagingHomeAssistantInbound: MessagingInboundHandle | null;
-  /**
-   * The inbound Matrix sync loop this boot started, with the controller that
-   * stops it. Config-gated on the Matrix access token and the channel's record,
-   * so a Host with nothing configured starts no loop and polls nothing.
-   */
-  messagingMatrixInbound: MessagingInboundHandle | null;
-  /**
-   * The inbound ntfy long-poll loop this boot started, with the controller that
-   * stops it. Config-gated on the channel's record (a base URL and a topic), so
-   * a Host with nothing configured starts no loop and polls nothing.
-   */
-  messagingNtfyInbound: MessagingInboundHandle | null;
-  /**
-   * The inbound email loop this boot started, with the controller that stops
-   * it. Config-gated on the channel's record and the stored password, so a Host
-   * with nothing configured starts no loop and connects to no mail server.
-   */
-  messagingEmailInbound: MessagingInboundHandle | null;
-  /**
    * The outbound messaging relay this boot subscribed, with the release that
    * stops it. Shutdown releases it, bounded, before host-core is disposed. It is
    * config-gated on each channel's own settings record: with none configured
    * nothing is subscribed, so no behaviour changes.
+   *
+   * The inbound loops are not held here. They are owned by
+   * `MessagingInboundSupervisor` (`../messaging-inbound-lifecycle`), which is
+   * also the thing a settings write reaches — one owner, so shutdown and a
+   * channel being turned off cannot disagree about which loops exist.
    */
   messagingOutbound: MessagingOutboundRelay | null;
 };
@@ -426,152 +373,29 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
       applyPluginLauncherShortcut();
       applyToggleWindowShortcut();
     }
-    // The inbound messaging command path: a linked chat's commands act on the
+    // The inbound messaging command loops: a linked chat's commands act on the
     // session bound to it, through the same Agent Host the RACP handlers call.
-    // Started only once host-core answers, because the settings row and the
-    // secret store both live there; a Host with no channel configured polls
-    // nothing. The controller belongs to shutdown, which aborts it and awaits
-    // the loop before host-core is disposed.
+    // One supervisor owns every channel's loop and starts only the channels
+    // whose record can start now — a channel with no record has no loop, which
+    // is what keeps the panel's `启用` and `网关` answers from contradicting each
+    // other. The same supervisor is what a settings write reconciles
+    // (`ipc/settings-ipc.ts`), and shutdown stops every loop through it before
+    // host-core is disposed.
     if (!bootError && host && state.agentHostBridge) {
       messagingGateway.markBooted();
-      const controller = new AbortController();
-      const wiring = createMessagingInboundWiring({
+      const supervisor = createMessagingInboundSupervisor({
+        getHost,
         agentHost: state.agentHostBridge.agentHost,
-        settings: createHostSettingsSurface(getHost),
-        secrets: createHostSecretReader(getHost),
-        signal: controller.signal,
         log: (level, message, data) => logger.app("runtime", level, message, { data }),
       });
-      state.messagingInbound = { controller, done: wiring.run() };
-      // The registry is the panel's evidence for "is the gateway running": the
-      // loop's own lifetime, not a guess from the stored record.
-      messagingGateway.track("telegram", state.messagingInbound);
-    }
-    // The inbound Slack command path over Socket Mode (ADR 0326): the same
-    // driver, over an outbound WSS connection the Host originates (no port is
-    // bound). Config-gated on the Slack app-level token — with none configured
-    // the transport starts nothing and this loop resolves at once, so the
-    // default behaviour with nothing configured is unchanged. Started beside
-    // the Telegram loop; shutdown owns its controller too.
-    if (!bootError && host && state.agentHostBridge) {
-      const controller = new AbortController();
-      const wiring = createSlackInboundWiring({
-        agentHost: state.agentHostBridge.agentHost,
-        settings: createHostSettingsSurface(getHost),
-        secrets: createHostSecretReader(getHost),
-        signal: controller.signal,
-        log: (level, message, data) => logger.app("runtime", level, message, { data }),
-      });
-      state.messagingSlackInbound = { controller, done: wiring.run() };
-      messagingGateway.track("slack", state.messagingSlackInbound);
-    }
-    // The inbound Discord and Mattermost channels: the same driver again, over
-    // outbound gateway websockets the Host originates (no port is bound). Each
-    // is config-gated on its own token and record, so a Host with neither
-    // configured starts nothing and behaves as before. Shutdown owns both
-    // controllers.
-    if (!bootError && host && state.agentHostBridge) {
-      const discordController = new AbortController();
-      const discordWiring = createDiscordInboundWiring({
-        agentHost: state.agentHostBridge.agentHost,
-        settings: createHostSettingsSurface(getHost),
-        secrets: createHostSecretReader(getHost),
-        signal: discordController.signal,
-        log: (level, message, data) => logger.app("runtime", level, message, { data }),
-      });
-      state.messagingDiscordInbound = { controller: discordController, done: discordWiring.run() };
-      messagingGateway.track("discord", state.messagingDiscordInbound);
-
-      const mattermostController = new AbortController();
-      const mattermostWiring = createMattermostInboundWiring({
-        agentHost: state.agentHostBridge.agentHost,
-        settings: createHostSettingsSurface(getHost),
-        secrets: createHostSecretReader(getHost),
-        signal: mattermostController.signal,
-        log: (level, message, data) => logger.app("runtime", level, message, { data }),
-      });
-      state.messagingMattermostInbound = {
-        controller: mattermostController,
-        done: mattermostWiring.run(),
-      };
-      messagingGateway.track("mattermost", state.messagingMattermostInbound);
-
-      // Matrix pulls rather than pushes, but from this wiring's side it is the
-      // same shape: an outbound connection the Host originates (a sync long
-      // poll), config-gated on its own token and record, so nothing is polled
-      // unless the channel is configured.
-      const matrixController = new AbortController();
-      const matrixWiring = createMatrixInboundWiring({
-        agentHost: state.agentHostBridge.agentHost,
-        settings: createHostSettingsSurface(getHost),
-        secrets: createHostSecretReader(getHost),
-        signal: matrixController.signal,
-        log: (level, message, data) => logger.app("runtime", level, message, { data }),
-      });
-      state.messagingMatrixInbound = { controller: matrixController, done: matrixWiring.run() };
-      messagingGateway.track("matrix", state.messagingMatrixInbound);
-      // The IRC channel: the same driver over a raw TLS socket the Host
-      // originates (no port is bound). Config-gated on its record, nick and
-      // linked channel, so a Host with no IRC section starts nothing.
-      const ircController = new AbortController();
-      const ircWiring = createIrcInboundWiring({
-        agentHost: state.agentHostBridge.agentHost,
-        settings: createHostSettingsSurface(getHost),
-        secrets: createHostSecretReader(getHost),
-        signal: ircController.signal,
-        log: (level, message, data) => logger.app("runtime", level, message, { data }),
-      });
-      state.messagingIrcInbound = { controller: ircController, done: ircWiring.run() };
-      messagingGateway.track("irc", state.messagingIrcInbound);
-      // The Home Assistant channel: the same driver over its own websocket,
-      // which the Host originates (no port is bound). Config-gated on the
-      // long-lived access token and the channel record. Inbound is real but
-      // authored: a message arrives only from an automation that fires
-      // `qianning_message`, and the settings panel says so.
-      const homeAssistantController = new AbortController();
-      const homeAssistantWiring = createHomeAssistantInboundWiring({
-        agentHost: state.agentHostBridge.agentHost,
-        settings: createHostSettingsSurface(getHost),
-        secrets: createHostSecretReader(getHost),
-        signal: homeAssistantController.signal,
-        log: (level, message, data) => logger.app("runtime", level, message, { data }),
-      });
-      state.messagingHomeAssistantInbound = {
-        controller: homeAssistantController,
-        done: homeAssistantWiring.run(),
-      };
-      messagingGateway.track("homeAssistant", state.messagingHomeAssistantInbound);
-      // The ntfy channel: a `/json` long poll the Host originates (no port is
-      // bound), config-gated on its base URL and topic. One topic carries both
-      // directions; the send path tags what it publishes and the receive path
-      // drops a message carrying that tag, so the channel cannot answer itself.
-      const ntfyController = new AbortController();
-      const ntfyWiring = createNtfyInboundWiring({
-        agentHost: state.agentHostBridge.agentHost,
-        settings: createHostSettingsSurface(getHost),
-        secrets: createHostSecretReader(getHost),
-        signal: ntfyController.signal,
-        log: (level, message, data) => logger.app("runtime", level, message, { data }),
-      });
-      state.messagingNtfyInbound = { controller: ntfyController, done: ntfyWiring.run() };
-      messagingGateway.track("ntfy", state.messagingNtfyInbound);
-      // The email channel: a TLS IMAP poll the Host originates and a TLS SMTP
-      // submission it opens per reply (no port is bound and no address is
-      // needed). Config-gated on its record and the stored app password; the
-      // loop deliberately polls rather than using IDLE, which the panel says.
-      const emailController = new AbortController();
-      const emailWiring = createEmailInboundWiring({
-        agentHost: state.agentHostBridge.agentHost,
-        settings: createHostSettingsSurface(getHost),
-        secrets: createHostSecretReader(getHost),
-        signal: emailController.signal,
-        log: (level, message, data) => logger.app("runtime", level, message, { data }),
-      });
-      state.messagingEmailInbound = { controller: emailController, done: emailWiring.run() };
-      messagingGateway.track("email", state.messagingEmailInbound);
+      setMessagingInboundSupervisor(supervisor);
+      // Start only what the saved records say can start. A loop that a record
+      // cannot justify is not started at all, rather than started and then
+      // blamed on the panel.
+      await supervisor.reconcileAll();
     }
     // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3), beside
-    // the two inbound loops: the Host-side redactor subscribed on the
+    // the inbound loops: the Host-side redactor subscribed on the
     // host-scope surface, so redacted summaries of terminal turn outcomes and
     // host-owned requests reach the durable delivery ledger. Config-gated on
     // each channel's own settings record — with none configured nothing is
