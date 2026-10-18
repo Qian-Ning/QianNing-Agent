@@ -1381,3 +1381,65 @@ test("every shipped catalog carries the messaging strings", () => {
     }
   }
 });
+
+/**
+ * The chooser and the detail pane are two independent scroll ports.
+ *
+ * The settings page used to scroll as one surface: a wheel over the platform
+ * list carried the detail pane with it, and a long panel pushed the list out of
+ * view. The fix only works as three parts together — the ancestor stops
+ * scrolling for this destination, both columns declare a bounded scroll port,
+ * and the pane (not the window) resets its own scroll on selection — so all
+ * three are pinned here.
+ */
+test("the chooser and the detail pane are independent scroll ports", () => {
+  const styles = read("../src/styles/settings.css");
+  const block = (needle) => {
+    const start = styles.indexOf(needle);
+    assert.ok(start >= 0, `no rule for ${needle}`);
+    return styles.slice(start, styles.indexOf("}", start));
+  };
+
+  // 1. The ancestor that used to scroll this section is scoped to this
+  // destination and stops scrolling. The attribute is extension while a
+  // plugin page owns the pane, so a plugin iframe is never clipped.
+  assert.match(
+    settingsPage,
+    /className="settings-content"[\s\S]{0,140}data-settings-tab=\{activeExtension \? "extension" : tab\}/,
+  );
+  const frame = block('.settings-content[data-settings-tab="messaging"] {');
+  assert.match(frame, /overflow: hidden/, "the content pane still scrolls this section");
+  assert.match(frame, /min-height: 0/, "the frame hands its children no bounded height");
+
+  // 2. Both columns are scroll ports: bounded, shrinkable, and non-chaining.
+  for (const selector of [".settings-messaging-list", ".settings-messaging-detail"]) {
+    const column = block(`${selector} {`);
+    assert.match(column, /overflow-y: auto/, `${selector} is not a scroll port`);
+    assert.match(column, /min-height: 0/, `${selector} cannot shrink to its share of the row`);
+    assert.match(column, /overscroll-behavior-y: contain/, `${selector} chains its scroll`);
+  }
+  assert.match(
+    styles,
+    /\n\.settings-messaging \{[^}]*align-items: stretch;[^}]*min-height: 0;/s,
+    "the columns still size to their content instead of the row",
+  );
+  assert.match(
+    styles,
+    /\n\.settings-messaging-chooser \{[^}]*grid-template-rows: auto minmax\(0, 1fr\);/s,
+    "the chooser head does not keep its height above the scrolling list",
+  );
+
+  // 3. Stacked, the page scrolls again rather than showing two cramped boxes.
+  const narrow = styles.slice(styles.indexOf("@media (max-width: 860px)"));
+  assert.match(
+    narrow,
+    /\.settings-messaging-list,\n\s*\.settings-messaging-detail \{[^}]*overflow: visible/,
+    "the narrow layout kept two bounded scroll boxes",
+  );
+
+  // 4. The reset is the detail pane's own scrollTop, through the pane's ref.
+  assert.match(page, /const detailRef = useRef<HTMLElement \| null>\(null\)/);
+  assert.match(page, /ref=\{detailRef\}/);
+  assert.match(page, /detailRef\.current[\s\S]{0,80}scrollTop = 0/);
+  assert.match(page, /\}, \[selectedId\]\);/);
+});

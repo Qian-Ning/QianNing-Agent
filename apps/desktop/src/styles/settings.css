@@ -754,18 +754,62 @@
   Messaging platforms: a chooser and a work surface. The settings shell already
   owns the outer rail, so this page is the second and third column of the
   three-column layout. Surfaces, radii and type sizes come from tokens only.
+
+  The two columns scroll independently, which needs three things to line up:
+
+  - nothing above them may scroll, or a wheel gesture over an inner column
+    would hand its remainder to the page. `.settings-content` is the settings
+    scroller, so for this destination it stops scrolling and passes its full
+    height down (see the block below);
+  - every link in the chain is a flex/grid child, whose automatic minimum size
+    is `min-height: auto` — a child with content taller than its share refuses
+    to shrink, and the column grows instead of scrolling. Hence `min-height: 0`
+    at every level;
+  - `overscroll-behavior: contain` on both ports, so reaching the end of one
+    column does not chain the rest of the gesture into anything behind it.
 */
+@media (min-width: 861px) {
+  .settings-content[data-settings-tab="messaging"] {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    /* Was the section's scroller; the two columns are now, so this pane becomes
+       a frame of exactly the available height. */
+    overflow: hidden;
+  }
+
+  .settings-content[data-settings-tab="messaging"] > .settings-content-inner,
+  .settings-content[data-settings-tab="messaging"] > .settings-content-inner > .settings-content-enter {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .settings-content[data-settings-tab="messaging"] .settings-messaging {
+    min-height: 0;
+    flex: 1;
+  }
+}
+
 .settings-messaging {
   display: grid;
   grid-template-columns: minmax(190px, 250px) minmax(0, 1fr);
   gap: 18px;
-  align-items: start;
+  /* `stretch`, not `start`: each column is a scroll port now, so both take the
+     row's height instead of their own content's height. */
+  align-items: stretch;
+  min-height: 0;
 }
 
 .settings-messaging-chooser {
   display: grid;
+  /* The heading keeps its intrinsic height; the list takes what is left and is
+     the only part of this column that scrolls. */
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
   min-width: 0;
+  min-height: 0;
 }
 
 .settings-messaging-chooser-head {
@@ -782,8 +826,18 @@
 
 .settings-messaging-list {
   display: grid;
+  /* Rows are the buttons' own height; spare space stays at the bottom instead
+     of being shared out between rows. */
+  align-content: start;
+  min-height: 0;
   gap: 2px;
   padding: 4px;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  /* The 4px padding is what keeps the focus ring inside the scroll port: the
+     global ring is 1.5px at a 2px offset, so it is clipped by the padding box
+     only if the inset drops below 3.5px. */
+  scroll-padding-block: 4px;
   border: 1px solid var(--ds-border-subtle);
   border-radius: var(--radius-md-plus);
   background: var(--ds-bg-inset);
@@ -865,9 +919,19 @@
 
 .settings-messaging-detail {
   display: grid;
+  /* The detail is the second scroll port: it owns the height its column was
+     given, and its blocks stay at their own size inside it. */
+  align-content: start;
   gap: 18px;
   min-width: 0;
+  min-height: 0;
   padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  /* 20px of padding is more than the focus ring needs; scroll-padding keeps a
+     focused field clear of the port's top edge when the browser scrolls it
+     into view. */
+  scroll-padding-block: 20px;
   border: 1px solid var(--ds-border-subtle);
   border-radius: var(--radius-lg);
   background: var(--ds-tile);
@@ -1315,6 +1379,21 @@
 @media (max-width: 860px) {
   .settings-messaging {
     grid-template-columns: minmax(0, 1fr);
+    /* Stacked, two bounded ports would be two cramped boxes: the page scrolls
+       again as one surface, and each column releases its own scroll. The flex
+       frame that bounds this section only exists at 861px and up. */
+    align-items: start;
+  }
+
+  .settings-messaging-chooser {
+    grid-template-rows: auto auto;
+  }
+
+  .settings-messaging-list,
+  .settings-messaging-detail {
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
   }
 
   .settings-messaging-head {

@@ -378,7 +378,11 @@ export function SettingsPage() {
         </div>
       </aside>
 
-      <div className="settings-content" ref={contentRef}>
+      <div
+        className="settings-content"
+        ref={contentRef}
+        data-settings-tab={activeExtension ? "extension" : tab}
+      >
         <div className="settings-content-inner">
           <div className="settings-content-enter">
           <h1 className="settings-section-title">
