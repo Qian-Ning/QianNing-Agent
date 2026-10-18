@@ -54,6 +54,8 @@ export type ShutdownDependencies = {
   /** The inbound Matrix sync loop this boot started, if any. */
   getMessagingMatrixInbound: () => MessagingInboundHandle | null;
   getMessagingIrcInbound: () => MessagingInboundHandle | null;
+  /** The inbound Home Assistant websocket loop this boot started, if any. */
+  getMessagingHomeAssistantInbound: () => MessagingInboundHandle | null;
   /** The outbound messaging relay this boot subscribed, if any. */
   getMessagingOutbound: () => MessagingOutboundRelay | null;
   activeTurns: Map<string, string>;
@@ -85,6 +87,7 @@ export function registerShutdownHandlers({
   getMessagingMattermostInbound,
   getMessagingMatrixInbound,
   getMessagingIrcInbound,
+  getMessagingHomeAssistantInbound,
   getMessagingOutbound,
   activeTurns,
   persistenceOutbox,
@@ -201,6 +204,11 @@ export function registerShutdownHandlers({
       const messagingIrcInbound = getMessagingIrcInbound();
       messagingIrcInbound?.controller.abort();
       await settleWithinBudget(messagingIrcInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
+      // The Home Assistant websocket loop stops the same way, under the same
+      // bound: its socket is closed and its wait is not left running.
+      const messagingHomeAssistantInbound = getMessagingHomeAssistantInbound();
+      messagingHomeAssistantInbound?.controller.abort();
+      await settleWithinBudget(messagingHomeAssistantInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
       // The outbound messaging relay is released the same way, beside the two
       // loops and before host-core is disposed: it unsubscribes at once, and the
       // wait is bounded so a release that ever refused to settle cannot hold up

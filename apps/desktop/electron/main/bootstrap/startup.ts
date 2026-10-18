@@ -33,6 +33,7 @@ import {
   createDiscordInboundWiring,
   createMattermostInboundWiring,
   createMatrixInboundWiring,
+  createHomeAssistantInboundWiring,
   createIrcInboundWiring,
   type MessagingInboundHandle,
   type MessagingOutboundRelay,
@@ -116,6 +117,12 @@ export type StartupState = {
    */
   messagingMattermostInbound: MessagingInboundHandle | null;
   messagingIrcInbound: MessagingInboundHandle | null;
+  /**
+   * The inbound Home Assistant websocket loop this boot started, with the
+   * controller that stops it. Config-gated on the access token and the channel
+   * record: with either missing nothing is opened.
+   */
+  messagingHomeAssistantInbound: MessagingInboundHandle | null;
   /**
    * The inbound Matrix sync loop this boot started, with the controller that
    * stops it. Config-gated on the Matrix access token and the channel's record,
@@ -502,6 +509,24 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
       });
       state.messagingIrcInbound = { controller: ircController, done: ircWiring.run() };
       messagingGateway.track("irc", state.messagingIrcInbound);
+      // The Home Assistant channel: the same driver over its own websocket,
+      // which the Host originates (no port is bound). Config-gated on the
+      // long-lived access token and the channel record. Inbound is real but
+      // authored: a message arrives only from an automation that fires
+      // `qianning_message`, and the settings panel says so.
+      const homeAssistantController = new AbortController();
+      const homeAssistantWiring = createHomeAssistantInboundWiring({
+        agentHost: state.agentHostBridge.agentHost,
+        settings: createHostSettingsSurface(getHost),
+        secrets: createHostSecretReader(getHost),
+        signal: homeAssistantController.signal,
+        log: (level, message, data) => logger.app("runtime", level, message, { data }),
+      });
+      state.messagingHomeAssistantInbound = {
+        controller: homeAssistantController,
+        done: homeAssistantWiring.run(),
+      };
+      messagingGateway.track("homeAssistant", state.messagingHomeAssistantInbound);
     }
     // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3), beside
     // the two inbound loops: the Host-side redactor subscribed on the

@@ -663,12 +663,12 @@ system while preserving their different data ownership:
 - The list is the reference product's own catalogue — all thirty-three
   platforms, in the product's order — so the surface has a real product's
   density, and it is honest about breadth. **Telegram**, **Discord**, **Slack**,
-  **Mattermost**, **Matrix** and **IRC** are marked Supported and open a working
-  panel. The other twenty-seven are marked Not supported, and their panel states
+  **Mattermost**, **Matrix**, **Home Assistant** and **IRC** are marked
+  Supported and open a working panel. The other twenty-six are marked Not supported, and their panel states
   what the gap is **and what kind of requirement it is**, because "needs setup"
   without the kind does not tell a user whether they can close it themselves.
   Five classes cover the real shapes: an **outgoing long connection**, which
-  works from a home network (Home Assistant, ntfy, SimpleX Chat, Raft, Buzz); a
+  works from a home network (ntfy, SimpleX Chat, Raft, Buzz); a
   **public HTTPS callback**, where the platform pushes into an address the
   internet must reach (Google Chat, LINE, Microsoft Teams, Microsoft Graph,
   Feishu / Lark, DingTalk, both WeCom entries, SMS through Twilio, Webhooks); a
@@ -701,9 +701,12 @@ system while preserving their different data ownership:
   and the roles. **Recommended** holds the API endpoint, the approval mode and
   the request timeout, and each states the consequence of leaving it empty: the
   platform's public address and the host's ten-second default are what apply, and
-  a blank approval mode means every file change waits in the chat. Mattermost's
+  Mattermost's
   and Matrix's server URL is the same exception: both are self-hosted (Matrix
   is also federated), so neither has a public default and both are required.
+  Home Assistant's base URL is required for the same reason — the instance runs
+  on the user's own network — and so is the linked service, because the send
+  path has no other address to post to.
   IRC likewise has no public default address and additionally requires the
   nick it registers; its server password is optional and sits with the
   recommended fields, and its channel list is recommended because the linked
@@ -720,8 +723,10 @@ system while preserving their different data ownership:
   comma-separated channels to join, and the optional server password; and for
   Matrix, signing in as the account in a web client such as Element, copying
   the access token from Help & About, and taking the room id in Matrix's own
-  `!abc:server` form. Each panel links out to that platform's own setup guide
-  where the platform publishes one.
+  `!abc:server` form; and for Home Assistant, the base URL, a long-lived access
+  token from Profile → Security → Long-lived access tokens, and the
+  `domain.service` that delivers a reply. Each panel links out to that
+  platform's own setup guide where the platform publishes one.
 - Matrix's panel also carries one standing limitation in plain language:
   **encrypted rooms cannot be read yet**.
   This build holds no Matrix device keys, so `m.room.encrypted` events are
@@ -735,6 +740,36 @@ system while preserving their different data ownership:
   reported by its numeric — `433` for a taken nick, `464` for a rejected server
   password, `465` for a ban — rather than being retried silently, and the panel
   says so instead of appearing to log in.
+- Home Assistant's panel is honest about a narrower channel, above the form and
+  not below it. **Outbound is real and useful**: a reply is
+  `POST /api/services/<domain>/<service>` with the long-lived access token in
+  `Authorization`, so it reaches a phone, a speaker, a script or a panel with
+  nothing but a base URL, a token and the linked service. **Inbound is the event
+  bus**, and the panel says what that means: Home Assistant has no chat window
+  that hands a third-party agent a message, so a message arrives only when one of
+  the user's own automations fires `qianning_message` with `data.text`. Until
+  that automation exists the channel sends and receives nothing, and the panel
+  says exactly that rather than implying a conversation that is not there. Its
+  limitation note states the rest in plain language: this is not a chat channel;
+  Assist is Home Assistant answering the user, so the `conversation/process` API
+  is not used; only `qianning_message` events are read, and state changes,
+  service calls and every other event on the bus are ignored; and replies go to
+  one service, so the agent answers where it was pointed and nowhere else.
+- Home Assistant's panel is honest about a narrower channel, above the form and
+  not below it. **Outbound is real and useful**: a reply is
+  `POST /api/services/<domain>/<service>` with the long-lived access token in
+  `Authorization`, so it reaches a phone, a speaker, a script or a panel with
+  nothing but a base URL, a token and the linked service. **Inbound is the event
+  bus**, and the panel says what that means: Home Assistant has no chat window
+  that hands a third-party agent a message, so a message arrives only when one of
+  the user's own automations fires `qianning_message` with `data.text`. Until
+  that automation exists the channel sends and receives nothing, and the panel
+  says exactly that rather than implying a conversation that is not there. Its
+  limitation note states the rest in plain language: this is not a chat channel;
+  Assist is Home Assistant answering the user, so the `conversation/process` API
+  is not used; only `qianning_message` events are read, and state changes,
+  service calls and every other event on the bus are ignored; and replies go to
+  one service, so the agent answers where it was pointed and nowhere else.
 - Telegram also offers **Quick setup**. The pasted token is checked with
   `getMe`, so "the bot exists" is confirmed rather than assumed, and
   `getUpdates` finds the chat that has messaged it, filling the numeric chat id.
@@ -761,7 +796,8 @@ system while preserving their different data ownership:
   connection and the send path use different platform tokens;
   `secret:messaging-discord:bot-token` for Discord;
   `secret:messaging-mattermost:access-token` for Mattermost; and
-  `secret:messaging-matrix:access-token` for Matrix, and
+  `secret:messaging-matrix:access-token` for Matrix,
+  `secret:messaging-home-assistant:access-token` for Home Assistant, and
   `secret:messaging-irc:server-password` for IRC's optional server password. The record
   carries no credential at all. The page shows only whether a ref is present
   ("Stored" / "Not set"), never a value, and an empty token field means "keep
@@ -1034,7 +1070,8 @@ system while preserving their different data ownership:
     Inline reimplementation of any shared primitive is a spec violation.
 29. Messaging platforms is a chooser plus a panel: the list carries the reference
     catalogue and marks honestly which platforms this build runs (Telegram,
-    Slack, Discord, Mattermost, Matrix and IRC) and which it does not, the unsupported ones opening a statement
+    Slack, Discord, Mattermost, Matrix, Home Assistant and IRC) and which it does
+    not, the unsupported ones opening a statement
     rather than a form. It reports three independent states — enabled, setup and
     gateway, the last read from the running receive loops — groups fields into
     required and recommended with the consequence of each blank stated, walks

@@ -7,6 +7,9 @@ import {
 } from "@pi-desktop/host-runtime";
 import {
   MESSAGING_DISCORD_SECTION,
+  MESSAGING_HOME_ASSISTANT_SECTION,
+  MESSAGING_IRC_SECTION,
+  MESSAGING_MATRIX_SECTION,
   MESSAGING_MATTERMOST_SECTION,
   MESSAGING_SLACK_SECTION,
   MESSAGING_TELEGRAM_SECTION,
@@ -122,13 +125,13 @@ export function registerSettingsIpc({
   });
 
   // One messaging channel's settings section, written on the host's internal
-  // call path. The section name is checked against the two channels this build
-  // ships, so the channel can never be used as a general-purpose settings
-  // writer, and the value must be an object because `settings.set` replaces the
-  // whole section with it. Nothing here decides whether the record is complete:
-  // the host reads it, refuses a foreign `format`/`version` and leaves an
-  // incomplete channel inert, which is the same gate it applies to a record
-  // written any other way.
+  // call path. The section name is checked against the channels this build
+  // ships, so a channel can never be used as a general-purpose settings writer,
+  // and the value must be an object because `settings.set` replaces the whole
+  // section with it. Nothing here decides whether the record is complete: the
+  // host reads it, refuses a foreign `format`/`version` and leaves an incomplete
+  // channel inert, which is the same gate it applies to a record written any
+  // other way.
   handle(
     IPC.invoke.messagingSetSection,
     async (input: { section?: unknown; value?: unknown }) => {
@@ -138,7 +141,10 @@ export function registerSettingsIpc({
         section !== MESSAGING_TELEGRAM_SECTION &&
         section !== MESSAGING_SLACK_SECTION &&
         section !== MESSAGING_DISCORD_SECTION &&
-        section !== MESSAGING_MATTERMOST_SECTION
+        section !== MESSAGING_MATTERMOST_SECTION &&
+        section !== MESSAGING_MATRIX_SECTION &&
+        section !== MESSAGING_IRC_SECTION &&
+        section !== MESSAGING_HOME_ASSISTANT_SECTION
       ) {
         throw Object.assign(new Error("unknown messaging settings section"), {
           errorCode: "INVALID_PARAMS",

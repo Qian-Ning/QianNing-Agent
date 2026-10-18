@@ -4,6 +4,10 @@ import {
   MESSAGING_DISCORD_FORMAT,
   MESSAGING_DISCORD_FORMAT_VERSION,
   MESSAGING_DISCORD_SECTION,
+  MESSAGING_HOME_ASSISTANT_ACCESS_TOKEN_SECRET_REF,
+  MESSAGING_HOME_ASSISTANT_FORMAT,
+  MESSAGING_HOME_ASSISTANT_FORMAT_VERSION,
+  MESSAGING_HOME_ASSISTANT_SECTION,
   MESSAGING_IRC_FORMAT,
   MESSAGING_IRC_FORMAT_VERSION,
   MESSAGING_IRC_SECTION,
@@ -28,9 +32,11 @@ import {
   IRC_HANDLED_CAPACITY,
   MATTERMOST_HANDLED_CAPACITY,
   MATRIX_HANDLED_CAPACITY,
+  HOME_ASSISTANT_HANDLED_CAPACITY,
   createAgentHostTargets,
   createDiscordInboundPushTransport,
   createDiscordGatewayLookup,
+  createHomeAssistantInboundPushTransport,
   createIrcInboundPushTransport,
   createMattermostIdentityLookup,
   createMattermostInboundPushTransport,
@@ -41,15 +47,22 @@ import {
   createSlackOpenConnection,
   createTelegramInboundTransport,
   createWsDiscordSocketFactory,
+  createWsHomeAssistantSocketFactory,
   createWsMattermostSocketFactory,
   createWsSlackSocketFactory,
+  homeAssistantApiBase,
+  homeAssistantWebSocketUrl,
   mattermostWebSocketUrl,
   matrixApiBase,
   normaliseIrcChannels,
+  parseHomeAssistantService,
   readInboundLink,
   validateIrcEndpoint,
   type DiscordGatewayLookup,
   type DiscordInboundAudit,
+  type HomeAssistantFetch,
+  type HomeAssistantInboundAudit,
+  type HomeAssistantSocketFactory,
   type DiscordSocketFactory,
   type IrcSocketFactory,
   type IrcInboundAudit,
@@ -305,6 +318,13 @@ export const MATTERMOST_INBOUND_CHANNEL: MessagingInboundChannel = {
   section: MESSAGING_MATTERMOST_SECTION,
   format: MESSAGING_MATTERMOST_FORMAT,
   version: MESSAGING_MATTERMOST_FORMAT_VERSION,
+};
+
+/** The Home Assistant channel's descriptor, selected by its own bind channel. */
+export const HOME_ASSISTANT_INBOUND_CHANNEL: MessagingInboundChannel = {
+  section: MESSAGING_HOME_ASSISTANT_SECTION,
+  format: MESSAGING_HOME_ASSISTANT_FORMAT,
+  version: MESSAGING_HOME_ASSISTANT_FORMAT_VERSION,
 };
 
 /** The Matrix channel's descriptor, selected by its own bind channel. */
@@ -1300,6 +1320,148 @@ export function createIrcInboundWiring(options: MessagingIrcWiringOptions): Mess
     channel: IRC_INBOUND_CHANNEL,
     transport: options.transport ?? createConfiguredIrcTransport(options),
     failureLabel: "inbound irc loop failed",
+  });
+}
+
+/** The audit sink for the Home Assistant client: structure and ids only. */
+export function createHomeAssistantInboundAudit(
+  log?: MessagingInboundWiringLog,
+): HomeAssistantInboundAudit {
+  if (!log) return () => {};
+  return (entry) => {
+    const level = entry.kind === "processed" || entry.kind === "duplicate" ? "info" : "warn";
+    log(level, "inbound home assistant channel", { ...entry });
+  };
+}
+
+/**
+ * The Home Assistant transport, config-gated on the access token and the
+ * channel record.
+ *
+ * It reads three things from the host's own surfaces - the base URL and the
+ * linked service from the `messagingHomeAssistant` section, the long-lived
+ * access token from the secret store under
+ * `secret:messaging-home-assistant:access-token` - and only then opens the
+ * websocket. With any of them missing it returns without opening anything, so
+ * an install with no Home Assistant channel configured starts no loop and
+ * behaves exactly as it did before this channel existed.
+ *
+ * The base URL goes through the shared endpoint rule twice: once for the REST
+ * send path ([`homeAssistantApiBase`]) and once for the websocket address
+ * ([`homeAssistantWebSocketUrl`]), so a plaintext Home Assistant is accepted
+ * only on a loopback/`.local`/private-LAN host under the relaxed policy. The
+ * service name is validated before it becomes a path. No port is bound: the
+ * websocket is one the Host originates.
+ */
+function createConfiguredHomeAssistantTransport(
+  options: MessagingHomeAssistantWiringOptions,
+): MessagingInboundPushTransport {
+  return {
+    async start(onMessage, signal): Promise<void> {
+      let token: string | null = null;
+      try {
+        token = await options.secrets(MESSAGING_HOME_ASSISTANT_ACCESS_TOKEN_SECRET_REF);
+      } catch {
+        token = null;
+      }
+      if (!token || !token.trim()) return;
+      let settings: unknown;
+      try {
+        settings = await options.settings.read();
+      } catch {
+        return;
+      }
+      const record = readTransportRecord(settings, MESSAGING_HOME_ASSISTANT_SECTION);
+      if (!record.endpoint || !record.destination) return;
+      const allowInsecureHttp = allowInsecureUserEndpoints(settings);
+      const base = homeAssistantApiBase(record.endpoint, { allowInsecureHttp });
+      if (!base.ok) {
+        options.log?.("warn", "inbound home assistant channel has an unusable endpoint", {
+          error: base.error,
+        });
+        return;
+      }
+      const url = homeAssistantWebSocketUrl(record.endpoint, { allowInsecureHttp });
+      if (!url.ok) {
+        options.log?.("warn", "inbound home assistant channel has an unusable endpoint", {
+          error: url.error,
+        });
+        return;
+      }
+      const service = parseHomeAssistantService(record.destination);
+      if (!service.ok) {
+        options.log?.("warn", "inbound home assistant channel names no usable service", {
+          error: service.error,
+        });
+        return;
+      }
+      await createHomeAssistantInboundPushTransport({
+        client: {
+          base: base.base,
+          url: url.url,
+          token: token.trim(),
+          service: record.destination,
+          handled: createSettingsHandledMessageStore({
+            settings: options.settings,
+            section: MESSAGING_HOME_ASSISTANT_SECTION,
+            capacity: HOME_ASSISTANT_HANDLED_CAPACITY,
+          }),
+          audit: createHomeAssistantInboundAudit(options.log),
+          connect: options.connect ?? createWsHomeAssistantSocketFactory(),
+          ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+        },
+        ...(options.wait ? { wait: options.wait } : {}),
+      }).start(onMessage, signal);
+    },
+  };
+}
+
+/**
+ * The wiring for the inbound Home Assistant channel over its websocket.
+ *
+ * The same driver, binding store and target resolver as every other channel,
+ * over a websocket the Host originates and a REST service call for replies. The
+ * section (`messagingHomeAssistant`), the linked service it names as
+ * `destination`, and the one secret (the long-lived access token) are the only
+ * differences.
+ *
+ * # What inbound is, said plainly
+ *
+ * Home Assistant has no chat surface that hands a third-party agent a message.
+ * This channel receives messages only when an automation in the user's Home
+ * Assistant fires `qianning_message` with `data.text`. Without that automation
+ * the channel still sends - every reply goes to the linked service - and
+ * receives nothing. That is the honest shape of the integration, and the
+ * settings panel states it instead of implying a chat window that does not
+ * exist.
+ */
+export type MessagingHomeAssistantWiringOptions = {
+  agentHost: MessagingInboundHostSurface;
+  settings: HostSettingsSurface;
+  secrets: HostSecretReader;
+  signal: AbortSignal;
+  log?: MessagingInboundWiringLog;
+  /** Test seam: the websocket client factory, in place of the `ws` one. */
+  connect?: HomeAssistantSocketFactory;
+  /** Test seam: the HTTP client, in place of the platform fetch. */
+  fetchImpl?: HomeAssistantFetch;
+  /** Test seam: how the reconnect loop waits. */
+  wait?: (ms: number) => Promise<void>;
+  /** Test seam: a push transport in place of the one built from the settings. */
+  transport?: MessagingInboundPushTransport;
+};
+
+export function createHomeAssistantInboundWiring(
+  options: MessagingHomeAssistantWiringOptions,
+): MessagingInboundWiring {
+  return createIngressWiring({
+    agentHost: options.agentHost,
+    settings: options.settings,
+    signal: options.signal,
+    ...(options.log ? { log: options.log } : {}),
+    channel: HOME_ASSISTANT_INBOUND_CHANNEL,
+    transport: options.transport ?? createConfiguredHomeAssistantTransport(options),
+    failureLabel: "inbound home assistant loop failed",
   });
 }
 

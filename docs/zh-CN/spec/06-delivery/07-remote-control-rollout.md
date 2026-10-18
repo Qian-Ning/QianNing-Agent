@@ -69,6 +69,18 @@ Linux 或 WSL 机器上的项目，即 SSH 隧道远端 Host 拓扑；#100 要�
   每次尝试使用新的 transaction id，使两次发送绝不会被合并；结果未知的传输失败只报告、
   不重试，因此已经落地的尝试不会被再次投递。端到端加密未实现：`m.room.encrypted`
   事件会被拒绝并写入指明房间的审计记录，设置面板也用平实语言说明这一点。
+- Home Assistant 是第六个渠道、第三种推送，也是接收入口刻意比其他渠道更窄的一个。主机打开
+  `ws(s)://<host>/api/websocket`，按 Home Assistant 自己的握手流程进行：服务器先说话（`auth_required`），
+  长期访问令牌以 `{type:"auth",access_token}` 回答，服务器再答 `auth_ok` 或 `auth_invalid`，随后为
+  `qianning_message` 发送一次 `subscribe_events`——每次连接只发一次，且只有该订阅
+  被确认后本次连接尝试才算成功，因此被吊销的令牌会被报告为失败，而不是一个看似打开却永远收不到消息的套接字。
+  Home Assistant 没有把消息交给第三方智能体的聊天窗口（它的 Assist 流程是 Home Assistant 在回答用户，
+  而 `conversation/process` 是*发往* Home Assistant 的请求），因此接收就是事件总线，仅此而已：只有当用户的
+  某个自动化触发该事件时才会收到消息，设置面板与指南如实写明这一点，而不是含糊带过。回复以
+  `POST /api/services/<domain>/<service>` 发出，令牌放在 `Authorization` 中，按声明的 4000 字符上限分片并
+  按顺序发送；重定向被拒绝，以免持有令牌的请求被转到其他主机；401 视为拒绝，429 先等待平台给出的
+  `Retry-After`，再由共享退避重试。只读取所订阅类型的事件，智能体自身发送所产生的事件会被过滤，而不会被
+  当成消息回答。
 - 不排期：Gateway 与 Host link（原 R3），PI 不运营 Gateway，用户自托管并以 Host 签发的设备凭据准入，没有 Host 之外的身份源（D385）；浏览器 profile
   （原 R4），Gateway-less 场景的 Host 自签 cookie 仍需补规格条款；保留的 gRPC
   绑定（原 R5）仅在有明确消费者时交付，`.proto` 由 typebox 来源生成。

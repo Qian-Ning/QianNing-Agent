@@ -5,6 +5,9 @@ import {
   MESSAGING_DISCORD_BOT_TOKEN_SECRET_REF,
   MESSAGING_DISCORD_FORMAT,
   MESSAGING_DISCORD_FORMAT_VERSION,
+  MESSAGING_HOME_ASSISTANT_ACCESS_TOKEN_SECRET_REF,
+  MESSAGING_HOME_ASSISTANT_FORMAT,
+  MESSAGING_HOME_ASSISTANT_FORMAT_VERSION,
   MESSAGING_IRC_FORMAT,
   MESSAGING_IRC_FORMAT_VERSION,
   MESSAGING_IRC_SERVER_PASSWORD_SECRET_REF,
@@ -14,6 +17,7 @@ import {
   type DiscordGatewayResult,
   type DiscordSocket,
   type DiscordSocketFactory,
+  type HomeAssistantSocket,
   type MattermostSocket,
   type MattermostSocketFactory,
   type Principal,
@@ -21,6 +25,7 @@ import {
 
 import {
   createDiscordInboundWiring,
+  createHomeAssistantInboundWiring,
   createIrcInboundWiring,
   createMattermostInboundWiring,
   type HostSettingsSurface,
@@ -623,6 +628,199 @@ describe("irc inbound wiring", () => {
 
     // The password never reaches a log entry.
     expect(JSON.stringify(logs)).not.toContain("server-password-value");
+
+    controller.abort();
+    await done;
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Home Assistant: config gate, handshake, and one event into the driver
+// ---------------------------------------------------------------------------
+
+/**
+ * A fake Home Assistant socket: it speaks first, answers the `auth` frame with
+ * `auth_ok`, acknowledges the subscription, and can emit one event.
+ */
+class FakeHomeAssistantSocket implements HomeAssistantSocket {
+  readonly sent: Array<Record<string, unknown>> = [];
+  private handler: ((data: string) => void) | null = null;
+  rejectToken = false;
+
+  send(data: string): void {
+    const frame = JSON.parse(data) as Record<string, unknown>;
+    this.sent.push(frame);
+    if (frame.type === "auth") {
+      if (this.rejectToken) {
+        this.emit({ type: "auth_invalid", message: "Invalid access token or password" });
+        return;
+      }
+      this.emit({ type: "auth_ok" });
+      return;
+    }
+    if (frame.type === "subscribe_events") {
+      this.emit({ id: frame.id, type: "result", success: true, result: null });
+    }
+  }
+
+  close(): void {}
+
+  onMessage(handler: (data: string) => void): void {
+    this.handler = handler;
+    // Home Assistant speaks first.
+    this.emit({ type: "auth_required" });
+  }
+
+  onClose(): void {}
+
+  onError(): void {}
+
+  emit(frame: Record<string, unknown>): void {
+    this.handler?.(JSON.stringify(frame));
+  }
+
+  emitEvent(event: Record<string, unknown>): void {
+    this.emit({ id: 1, type: "event", event });
+  }
+}
+
+class HomeAssistantFactory {
+  readonly created: FakeHomeAssistantSocket[] = [];
+  factory = (): FakeHomeAssistantSocket => {
+    const socket = new FakeHomeAssistantSocket();
+    this.created.push(socket);
+    return socket;
+  };
+  get last(): FakeHomeAssistantSocket {
+    const socket = this.created[this.created.length - 1];
+    if (!socket) throw new Error("no Home Assistant connection was opened");
+    return socket;
+  }
+}
+
+function homeAssistantSection(extra: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    ...section(
+      MESSAGING_HOME_ASSISTANT_FORMAT,
+      MESSAGING_HOME_ASSISTANT_FORMAT_VERSION,
+      "notify.persistent_notification",
+    ),
+    endpoint: "https://ha.example.test",
+    ...extra,
+  };
+}
+
+describe("home assistant inbound wiring", () => {
+  it("opens no connection without a section, a token, or a service", async () => {
+    const cases: Array<{ row: Record<string, unknown>; token: string | null }> = [
+      { row: {}, token: "ha-token" },
+      { row: { messagingHomeAssistant: homeAssistantSection() }, token: null },
+      {
+        row: { messagingHomeAssistant: homeAssistantSection({ destination: "" }) },
+        token: "ha-token",
+      },
+      {
+        row: { messagingHomeAssistant: homeAssistantSection({ destination: "notify" }) },
+        token: "ha-token",
+      },
+    ];
+    for (const entry of cases) {
+      const factory = new HomeAssistantFactory();
+      const controller = new AbortController();
+      const wiring = createHomeAssistantInboundWiring({
+        agentHost: stubHost([]),
+        settings: memorySettings(entry.row),
+        secrets: async () => entry.token,
+        signal: controller.signal,
+        connect: factory.factory,
+        wait: async () => {},
+      });
+      const done = wiring.run();
+      await settle();
+      expect(factory.created).toHaveLength(0);
+      controller.abort();
+      await done;
+    }
+  });
+
+  it("refuses a plaintext public endpoint without the relaxed policy", async () => {
+    const factory = new HomeAssistantFactory();
+    const logs: Array<{ level: string; message: string; data?: Record<string, unknown> }> = [];
+    const controller = new AbortController();
+    const wiring = createHomeAssistantInboundWiring({
+      agentHost: stubHost([]),
+      settings: memorySettings({
+        messagingHomeAssistant: homeAssistantSection({ endpoint: "http://ha.example.test:8123" }),
+      }),
+      secrets: async () => "ha-token",
+      signal: controller.signal,
+      connect: factory.factory,
+      wait: async () => {},
+      log: (level, message, data) => logs.push({ level, message, data }),
+    });
+    const done = wiring.run();
+    await settle();
+    expect(factory.created).toHaveLength(0);
+    expect(logs.some((entry) => entry.level === "warn")).toBe(true);
+    controller.abort();
+    await done;
+  });
+
+  it("handshakes, subscribes, and routes one event into a turn", async () => {
+    const routed: Routed[] = [];
+    const factory = new HomeAssistantFactory();
+    const logs: Array<{ level: string; message: string; data?: Record<string, unknown> }> = [];
+    const controller = new AbortController();
+    const secretsAsked: string[] = [];
+    const wiring = createHomeAssistantInboundWiring({
+      agentHost: stubHost(routed),
+      settings: memorySettings({ messagingHomeAssistant: homeAssistantSection() }),
+      secrets: async (ref) => {
+        secretsAsked.push(ref);
+        return "ha-SECRET-token";
+      },
+      signal: controller.signal,
+      connect: factory.factory,
+      wait: async () => {},
+      log: (level, message, data) => logs.push({ level, message, data }),
+    });
+    const done = wiring.run();
+    await settle();
+
+    expect(factory.created).toHaveLength(1);
+    const socket = factory.last;
+    expect(socket.sent[0]).toEqual({ type: "auth", access_token: "ha-SECRET-token" });
+    expect(socket.sent[1]).toEqual({
+      id: 1,
+      type: "subscribe_events",
+      event_type: "qianning_message",
+    });
+    expect(secretsAsked).toContain(MESSAGING_HOME_ASSISTANT_ACCESS_TOKEN_SECRET_REF);
+
+    socket.emitEvent({
+      event_type: "qianning_message",
+      data: { text: "/start hi" },
+      context: { id: "01JEVENT" },
+    });
+    await settle();
+    expect(routed).toEqual([{ operation: "turn/start", sessionId: SESSION_ID, text: "hi" }]);
+
+    // The same event redelivered is not a second command.
+    socket.emitEvent({
+      event_type: "qianning_message",
+      data: { text: "/start hi" },
+      context: { id: "01JEVENT" },
+    });
+    await settle();
+    expect(routed).toHaveLength(1);
+
+    // An event of another type is not a message.
+    socket.emitEvent({ event_type: "state_changed", data: { text: "/start other" } });
+    await settle();
+    expect(routed).toHaveLength(1);
+
+    // The token never reaches a log entry.
+    expect(JSON.stringify(logs)).not.toContain("ha-SECRET-token");
 
     controller.abort();
     await done;
