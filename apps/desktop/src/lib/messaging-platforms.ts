@@ -31,34 +31,53 @@ import type {
  *
  * # The catalogue is honest about breadth
  *
- * The list carries every platform the reference product lists, because a user
- * comparing the two should be able to see what exists. Only the six with a
- * send path and a receive path in this build (Telegram, Slack, Discord,
- * Mattermost, Matrix and IRC) are `supported`; the rest render a panel that
- * says so plainly and names the capability that is missing. An unsupported entry has no
- * section, no format and no credentials, so there is nothing for a form to write
- * and nothing the host would read.
+ * The list carries all thirty-three platforms the reference product lists, in
+ * the product's own order, because a user comparing the two should be able to
+ * find a platform where they expect it. Only the six with a send path and a
+ * receive path in this build (Telegram, Slack, Discord, Mattermost, Matrix and
+ * IRC) are `supported`; the other twenty-seven each carry a `requirementClass`
+ * — an outgoing long connection, a public callback, a poll or bridge, a
+ * transport rather than a chat channel, or platform-side approval — and the
+ * sentence that names the specific capability this build lacks. The panel says
+ * both plainly. An unsupported entry has no section, no format and no
+ * credentials, so there is nothing for a form to write and nothing the host
+ * would read.
  */
 
 export type MessagingPlatformId =
   | "telegram"
-  | "slack"
-  | "whatsapp"
   | "discord"
-  | "googleChat"
-  | "signal"
-  | "imessage"
-  | "irc"
-  | "teams"
-  | "matrix"
-  | "line"
-  | "feishu"
+  | "slack"
   | "mattermost"
-  | "nextcloudTalk"
-  | "nostr"
-  | "twitch"
-  | "zalo"
-  | "webchat";
+  | "matrix"
+  | "whatsapp"
+  | "signal"
+  | "blueBubbles"
+  | "homeAssistant"
+  | "email"
+  | "sms"
+  | "dingtalk"
+  | "feishu"
+  | "googleChat"
+  | "wecomGroup"
+  | "wecomApp"
+  | "weixin"
+  | "qqBot"
+  | "yuanbao"
+  | "apiServer"
+  | "webhooks"
+  | "a2a"
+  | "buzz"
+  | "imessagePhone"
+  | "irc"
+  | "line"
+  | "microsoftGraph"
+  | "teams"
+  | "ntfy"
+  | "raft"
+  | "relay"
+  | "simplex"
+  | "whatsappCloud";
 
 /** The one settings section key each channel's record lives under, inside `app`. */
 export type MessagingSectionKey =
@@ -115,8 +134,12 @@ type PlatformBase = {
   id: MessagingPlatformId;
   labelKey: string;
   blurbKey: string;
-  /** The platform's own setup documentation. */
-  guideUrl: string;
+  /**
+   * The platform's own setup documentation, where it publishes one this build
+   * can point at. Entries without a public page omit it: the panel then shows
+   * no outbound link rather than one that goes somewhere else.
+   */
+  guideUrl?: string;
   /** The numbered walkthrough that gets the user its credentials. */
   credentialStepKeys: readonly string[];
 };
@@ -146,8 +169,46 @@ export type SupportedMessagingPlatform = PlatformBase & {
   limitationKey?: string;
 };
 
+/**
+ * What an unsupported platform is missing, as a class rather than a sentence.
+ *
+ * "Needs setup" without the kind of setup is useless: a channel reached over an
+ * outgoing socket can be wired from a home network, while one that only pushes
+ * into a callback URL needs an address the internet can reach. The five classes
+ * are the real shapes of the gap, and each entry states its own class next to
+ * its own requirement sentence.
+ *
+ * - `longConnection` — an outgoing long connection to the platform's own
+ *   servers, which works from a home network behind NAT.
+ * - `publicCallback` — the platform pushes events into a public HTTPS endpoint,
+ *   so the machine has to be reachable from the internet.
+ * - `bridgeOrPoll` — a polling loop, or a bridge process paired with a phone or
+ *   a Mac that owns the account.
+ * - `transport` — a wire protocol rather than a chat network, so there is no
+ *   conversation to link.
+ * - `platformApproval` — the platform has to approve the app or a business
+ *   account before any credential is issued.
+ */
+export type MessagingRequirementClass =
+  | "longConnection"
+  | "publicCallback"
+  | "bridgeOrPoll"
+  | "transport"
+  | "platformApproval";
+
+/** The five class labels, as the unsupported panel renders them. */
+export const MESSAGING_REQUIREMENT_CLASS_KEYS: Record<MessagingRequirementClass, string> = {
+  longConnection: "settings.messaging.requirementClassLongConnection",
+  publicCallback: "settings.messaging.requirementClassPublicCallback",
+  bridgeOrPoll: "settings.messaging.requirementClassBridge",
+  transport: "settings.messaging.requirementClassTransport",
+  platformApproval: "settings.messaging.requirementClassApproval",
+};
+
 export type UnsupportedMessagingPlatform = PlatformBase & {
   support: "unsupported";
+  /** What kind of thing this build lacks, so the gap is placed, not just named. */
+  requirementClass: MessagingRequirementClass;
   /** The capability this build lacks; the panel names it. */
   requirementKey: string;
   secrets: [];
@@ -396,9 +457,22 @@ const slackSecrets: MessagingSecretSlot[] = [
 ];
 
 /**
- * The platforms whose send and receive paths both exist in this build, followed
- * by every platform the reference product lists that this build does not ship.
- * The supported ones come first so a beginner meets them before the catalogue.
+ * Every platform the product lists, in the product's own order.
+ *
+ * The list is the catalogue, not a promise: the six entries with `support:
+ * "supported"` are the channels whose send and receive paths exist in this
+ * build. Each of the other twenty-seven carries the sentence that says what it
+ * would take, and the class that sentence belongs to, so a user comparing this
+ * page with the product can see both what exists and what the gap is.
+ */
+/**
+ * Every platform the product lists, in the product's own order.
+ *
+ * The list is the catalogue, not a promise: the six entries with `support:
+ * "supported"` are the channels whose send and receive paths exist in this
+ * build. Each of the other twenty-seven carries the sentence that says what it
+ * would take, and the class that sentence belongs to, so a user comparing this
+ * page with the product can see both what exists and what the gap is.
  */
 export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   {
@@ -427,32 +501,6 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
     }),
   },
   {
-    id: "slack",
-    support: "supported",
-    section: "messagingSlack",
-    format: "pi-desktop-messaging-slack",
-    version: 1,
-    defaultEndpoint: "https://slack.com",
-    labelKey: "settings.messaging.platformSlack",
-    blurbKey: "settings.messaging.blurbSlack",
-    guideUrl: "https://api.slack.com/apis/socket-mode",
-    credentialStepKeys: [
-      "settings.messaging.stepSlack1",
-      "settings.messaging.stepSlack2",
-      "settings.messaging.stepSlack3",
-      "settings.messaging.stepSlack4",
-      "settings.messaging.stepSlack5",
-    ],
-    secrets: slackSecrets,
-    fields: channelFields({
-      secrets: slackSecrets,
-      destinationLabelKey: "settings.messaging.channelId",
-      destinationHelpKey: "settings.messaging.channelIdHelp",
-      destinationPlaceholderKey: "settings.messaging.channelIdPlaceholder",
-      subjectPlaceholderKey: "settings.messaging.subjectPlaceholderSlack",
-    }),
-  },
-  {
     id: "discord",
     support: "supported",
     section: "messagingDiscord",
@@ -477,6 +525,32 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
       destinationPlaceholderKey: "settings.messaging.discordChannelIdPlaceholder",
       subjectPlaceholderKey: "settings.messaging.subjectPlaceholderDiscord",
       endpointPlaceholderKey: "settings.messaging.endpointPlaceholderDiscord",
+    }),
+  },
+  {
+    id: "slack",
+    support: "supported",
+    section: "messagingSlack",
+    format: "pi-desktop-messaging-slack",
+    version: 1,
+    defaultEndpoint: "https://slack.com",
+    labelKey: "settings.messaging.platformSlack",
+    blurbKey: "settings.messaging.blurbSlack",
+    guideUrl: "https://api.slack.com/apis/socket-mode",
+    credentialStepKeys: [
+      "settings.messaging.stepSlack1",
+      "settings.messaging.stepSlack2",
+      "settings.messaging.stepSlack3",
+      "settings.messaging.stepSlack4",
+      "settings.messaging.stepSlack5",
+    ],
+    secrets: slackSecrets,
+    fields: channelFields({
+      secrets: slackSecrets,
+      destinationLabelKey: "settings.messaging.channelId",
+      destinationHelpKey: "settings.messaging.channelIdHelp",
+      destinationPlaceholderKey: "settings.messaging.channelIdPlaceholder",
+      subjectPlaceholderKey: "settings.messaging.subjectPlaceholderSlack",
     }),
   },
   {
@@ -521,6 +595,214 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
     fields: matrixFields(),
   },
   {
+    id: "whatsapp",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformWhatsapp",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "bridgeOrPoll",
+    requirementKey: "settings.messaging.needsQrPairing",
+    guideUrl: "https://developers.facebook.com/docs/whatsapp",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "signal",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformSignal",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "bridgeOrPoll",
+    requirementKey: "settings.messaging.needsBridge",
+    guideUrl: "https://github.com/AsamK/signal-cli",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "blueBubbles",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformBlueBubbles",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "bridgeOrPoll",
+    requirementKey: "settings.messaging.needsLocalBridge",
+    guideUrl: "https://bluebubbles.app/",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "homeAssistant",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformHomeAssistant",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "longConnection",
+    requirementKey: "settings.messaging.needsSocket",
+    guideUrl: "https://developers.home-assistant.io/docs/api/websocket/",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "email",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformEmail",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "bridgeOrPoll",
+    requirementKey: "settings.messaging.needsPolling",
+    guideUrl: "https://datatracker.ietf.org/doc/html/rfc9051",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "sms",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformSms",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "publicCallback",
+    requirementKey: "settings.messaging.needsWebhook",
+    guideUrl: "https://www.twilio.com/docs/messaging",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "dingtalk",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformDingtalk",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "publicCallback",
+    requirementKey: "settings.messaging.needsWebhook",
+    guideUrl: "https://open.dingtalk.com/document/",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "feishu",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformFeishu",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "publicCallback",
+    requirementKey: "settings.messaging.needsWebhook",
+    guideUrl: "https://open.feishu.cn/document/",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "googleChat",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformGoogleChat",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "publicCallback",
+    requirementKey: "settings.messaging.needsWebhook",
+    guideUrl: "https://developers.google.com/chat",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "wecomGroup",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformWecomGroup",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "publicCallback",
+    requirementKey: "settings.messaging.needsWebhook",
+    guideUrl: "https://developer.work.weixin.qq.com/document/path/91770",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "wecomApp",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformWecomApp",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "publicCallback",
+    requirementKey: "settings.messaging.needsWebhook",
+    guideUrl: "https://developer.work.weixin.qq.com/document/",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "weixin",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformWeixin",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "platformApproval",
+    requirementKey: "settings.messaging.needsPlatformApproval",
+    guideUrl: "https://developers.weixin.qq.com/doc/offiaccount/Getting_Started/Overview.html",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "qqBot",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformQqBot",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "platformApproval",
+    requirementKey: "settings.messaging.needsPlatformApproval",
+    guideUrl: "https://bot.q.qq.com/wiki/",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "yuanbao",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformYuanbao",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "platformApproval",
+    requirementKey: "settings.messaging.needsPlatformApproval",
+    guideUrl: "https://yuanbao.tencent.com/",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "apiServer",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformApiServer",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "transport",
+    requirementKey: "settings.messaging.needsTransport",
+    guideUrl: "https://www.rfc-editor.org/rfc/rfc9110",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "webhooks",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformWebhooks",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "publicCallback",
+    requirementKey: "settings.messaging.needsWebhook",
+    guideUrl: "https://www.standardwebhooks.com/",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "a2a",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformA2a",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "transport",
+    requirementKey: "settings.messaging.needsTransport",
+    guideUrl: "https://a2a-protocol.org/",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "buzz",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformBuzz",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "longConnection",
+    requirementKey: "settings.messaging.needsSocket",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
+    id: "imessagePhone",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformImessagePhone",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "bridgeOrPoll",
+    requirementKey: "settings.messaging.needsBridge",
+    guideUrl: "https://support.apple.com/guide/messages/welcome/mac",
+    credentialStepKeys: [],
+    secrets: [],
+  },
+  {
     id: "irc",
     support: "supported",
     section: "messagingIrc",
@@ -543,43 +825,25 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
     limitationKey: "settings.messaging.ircLimitations",
   },
   {
-    id: "whatsapp",
+    id: "line",
     support: "unsupported",
-    labelKey: "settings.messaging.platformWhatsapp",
+    labelKey: "settings.messaging.platformLine",
     blurbKey: "settings.messaging.blurbUnsupported",
-    guideUrl: "https://developers.facebook.com/docs/whatsapp",
-    credentialStepKeys: [],
-    requirementKey: "settings.messaging.needsQrPairing",
-    secrets: [],
-  },
-  {
-    id: "googleChat",
-    support: "unsupported",
-    labelKey: "settings.messaging.platformGoogleChat",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    guideUrl: "https://developers.google.com/chat",
-    credentialStepKeys: [],
+    requirementClass: "publicCallback",
     requirementKey: "settings.messaging.needsWebhook",
+    guideUrl: "https://developers.line.biz/en/docs/messaging-api/",
+    credentialStepKeys: [],
     secrets: [],
   },
   {
-    id: "signal",
+    id: "microsoftGraph",
     support: "unsupported",
-    labelKey: "settings.messaging.platformSignal",
+    labelKey: "settings.messaging.platformMicrosoftGraph",
     blurbKey: "settings.messaging.blurbUnsupported",
-    guideUrl: "https://github.com/AsamK/signal-cli",
+    requirementClass: "publicCallback",
+    requirementKey: "settings.messaging.needsWebhook",
+    guideUrl: "https://learn.microsoft.com/graph/",
     credentialStepKeys: [],
-    requirementKey: "settings.messaging.needsBridge",
-    secrets: [],
-  },
-  {
-    id: "imessage",
-    support: "unsupported",
-    labelKey: "settings.messaging.platformImessage",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    guideUrl: "https://support.apple.com/guide/messages/welcome/mac",
-    credentialStepKeys: [],
-    requirementKey: "settings.messaging.needsBridge",
     secrets: [],
   },
   {
@@ -587,79 +851,63 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
     support: "unsupported",
     labelKey: "settings.messaging.platformTeams",
     blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "publicCallback",
+    requirementKey: "settings.messaging.needsWebhook",
     guideUrl: "https://learn.microsoft.com/microsoftteams/platform/bots/what-are-bots",
     credentialStepKeys: [],
-    requirementKey: "settings.messaging.needsWebhook",
     secrets: [],
   },
   {
-    id: "line",
+    id: "ntfy",
     support: "unsupported",
-    labelKey: "settings.messaging.platformLine",
+    labelKey: "settings.messaging.platformNtfy",
     blurbKey: "settings.messaging.blurbUnsupported",
-    guideUrl: "https://developers.line.biz/en/docs/messaging-api/",
-    credentialStepKeys: [],
-    requirementKey: "settings.messaging.needsWebhook",
-    secrets: [],
-  },
-  {
-    id: "feishu",
-    support: "unsupported",
-    labelKey: "settings.messaging.platformFeishu",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    guideUrl: "https://open.feishu.cn/document/",
-    credentialStepKeys: [],
-    requirementKey: "settings.messaging.needsWebhook",
-    secrets: [],
-  },
-  {
-    id: "nextcloudTalk",
-    support: "unsupported",
-    labelKey: "settings.messaging.platformNextcloudTalk",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    guideUrl: "https://nextcloud-talk.readthedocs.io/en/latest/",
-    credentialStepKeys: [],
-    requirementKey: "settings.messaging.needsWebhook",
-    secrets: [],
-  },
-  {
-    id: "nostr",
-    support: "unsupported",
-    labelKey: "settings.messaging.platformNostr",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    guideUrl: "https://github.com/nostr-protocol/nips",
-    credentialStepKeys: [],
+    requirementClass: "longConnection",
     requirementKey: "settings.messaging.needsSocket",
+    guideUrl: "https://docs.ntfy.sh/subscribe/phone/",
+    credentialStepKeys: [],
     secrets: [],
   },
   {
-    id: "twitch",
+    id: "raft",
     support: "unsupported",
-    labelKey: "settings.messaging.platformTwitch",
+    labelKey: "settings.messaging.platformRaft",
     blurbKey: "settings.messaging.blurbUnsupported",
-    guideUrl: "https://dev.twitch.tv/docs/chat/",
-    credentialStepKeys: [],
+    requirementClass: "longConnection",
     requirementKey: "settings.messaging.needsSocket",
+    credentialStepKeys: [],
     secrets: [],
   },
   {
-    id: "zalo",
+    id: "relay",
     support: "unsupported",
-    labelKey: "settings.messaging.platformZalo",
+    labelKey: "settings.messaging.platformRelay",
     blurbKey: "settings.messaging.blurbUnsupported",
-    guideUrl: "https://developers.zalo.me/docs/api/official-account-api",
+    requirementClass: "transport",
+    requirementKey: "settings.messaging.needsTransport",
     credentialStepKeys: [],
-    requirementKey: "settings.messaging.needsWebhook",
     secrets: [],
   },
   {
-    id: "webchat",
+    id: "simplex",
     support: "unsupported",
-    labelKey: "settings.messaging.platformWebchat",
+    labelKey: "settings.messaging.platformSimplex",
     blurbKey: "settings.messaging.blurbUnsupported",
-    guideUrl: "https://developer.mozilla.org/en-US/docs/Web/API/WebSocket",
+    requirementClass: "longConnection",
+    requirementKey: "settings.messaging.needsSocket",
+    guideUrl: "https://simplex.chat/docs/",
     credentialStepKeys: [],
-    requirementKey: "settings.messaging.needsWebhook",
+    secrets: [],
+  },
+  {
+    id: "whatsappCloud",
+    support: "unsupported",
+    labelKey: "settings.messaging.platformWhatsappCloud",
+    blurbKey: "settings.messaging.blurbUnsupported",
+    requirementClass: "platformApproval",
+    requirementKey: "settings.messaging.needsBusinessAccount",
+    guideUrl: "https://developers.facebook.com/docs/whatsapp/cloud-api",
+    credentialStepKeys: [],
     secrets: [],
   },
 ];

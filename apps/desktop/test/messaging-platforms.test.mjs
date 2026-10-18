@@ -35,6 +35,7 @@ import {
   MESSAGING_MIN_TIMEOUT_MS,
   MESSAGING_PERMISSION_MODES,
   MESSAGING_PLATFORMS,
+  MESSAGING_REQUIREMENT_CLASS_KEYS,
   MESSAGING_ROLES,
   SUPPORTED_MESSAGING_PLATFORMS,
   UNSUPPORTED_MESSAGING_PLATFORMS,
@@ -109,36 +110,78 @@ const GATEWAY_DOWN = {
   irc: false,
 };
 
-/** The whole catalogue, in rail order: six supported, the rest honest. */
-test("the catalogue has the reference breadth and marks support honestly", () => {
-  assert.ok(
-    MESSAGING_PLATFORMS.length >= 18,
-    `expected a full catalogue, saw ${MESSAGING_PLATFORMS.length}`,
-  );
+/**
+ * The product's own catalogue, in the product's order. This is the spec: the
+ * page mirrors the product, so the list is asserted verbatim rather than
+ * measured against a number someone tuned.
+ */
+const CATALOGUE_IDS = [
+  "telegram",
+  "discord",
+  "slack",
+  "mattermost",
+  "matrix",
+  "whatsapp",
+  "signal",
+  "blueBubbles",
+  "homeAssistant",
+  "email",
+  "sms",
+  "dingtalk",
+  "feishu",
+  "googleChat",
+  "wecomGroup",
+  "wecomApp",
+  "weixin",
+  "qqBot",
+  "yuanbao",
+  "apiServer",
+  "webhooks",
+  "a2a",
+  "buzz",
+  "imessagePhone",
+  "irc",
+  "line",
+  "microsoftGraph",
+  "teams",
+  "ntfy",
+  "raft",
+  "relay",
+  "simplex",
+  "whatsappCloud",
+];
+
+/** The channels whose send and receive paths exist in this build. */
+const SUPPORTED_IDS = ["telegram", "discord", "slack", "mattermost", "matrix", "irc"];
+
+/** The whole catalogue, in rail order: thirty-three, six of them supported. */
+test("the catalogue is the product's full list and marks support honestly", () => {
   assert.deepEqual(
-    SUPPORTED_MESSAGING_PLATFORMS.map((entry) => entry.id),
-    [
-      "telegram",
-      "slack",
-      "discord",
-      "mattermost",
-      "matrix",
-      "irc",
-    ],
+    MESSAGING_PLATFORMS.map((entry) => entry.id),
+    CATALOGUE_IDS,
+    "the catalogue is not the product's list in the product's order",
+  );
+  assert.deepEqual(SUPPORTED_MESSAGING_PLATFORMS.map((entry) => entry.id), SUPPORTED_IDS);
+
+  // The split is derived from the entries, not from a tuned constant: every id
+  // in the catalogue is either one of the six supported or one honest absence.
+  assert.deepEqual(
+    UNSUPPORTED_MESSAGING_PLATFORMS.map((entry) => entry.id),
+    CATALOGUE_IDS.filter((id) => !SUPPORTED_IDS.includes(id)),
   );
   assert.equal(
-    SUPPORTED_MESSAGING_PLATFORMS.length + UNSUPPORTED_MESSAGING_PLATFORMS.length,
-    MESSAGING_PLATFORMS.length,
+    UNSUPPORTED_MESSAGING_PLATFORMS.length,
+    MESSAGING_PLATFORMS.length - SUPPORTED_MESSAGING_PLATFORMS.length,
   );
-  // Six of the eighteen entries are supported, so twelve are honest statements.
-  assert.ok(UNSUPPORTED_MESSAGING_PLATFORMS.length >= 12);
   // Ids are unique: two rows must never share a platform.
   assert.equal(new Set(MESSAGING_PLATFORMS.map((entry) => entry.id)).size, MESSAGING_PLATFORMS.length);
 
   for (const platform of MESSAGING_PLATFORMS) {
     assert.ok(platform.labelKey.startsWith("settings.messaging.platform"), platform.id);
-    assert.match(platform.guideUrl, /^https:\/\//, `${platform.id} has no https guide`);
     assert.match(platform.blurbKey, /^settings\.messaging\./, platform.id);
+    if (platform.guideUrl !== undefined) {
+      assert.match(platform.guideUrl, /^https:\/\//, `${platform.id} has a non-https guide`);
+    }
   }
 
   for (const platform of SUPPORTED_MESSAGING_PLATFORMS) {
@@ -153,13 +196,101 @@ test("the catalogue has the reference breadth and marks support honestly", () =>
     }
   }
 
-  // The unsupported rows carry a capability, and nothing a form could write.
+  // The unsupported rows carry a capability and a class, and nothing a form
+  // could write.
   for (const platform of UNSUPPORTED_MESSAGING_PLATFORMS) {
-    assert.match(platform.requirementKey, /^settings\.messaging\.needs/, platform.id);
+    assert.ok(
+      platform.requirementKey.startsWith("settings.messaging.needs"),
+      `${platform.id} has no requirement sentence`,
+    );
+    assert.ok(
+      MESSAGING_REQUIREMENT_CLASS_KEYS[platform.requirementClass],
+      `${platform.id} has no requirement class`,
+    );
     assert.deepEqual(platform.secrets, [], `${platform.id} claims a credential`);
-    assert.deepEqual(platform.credentialStepKeys, []);
+    assert.deepEqual(platform.credentialStepKeys, [], `${platform.id} claims a walkthrough`);
+  }
+});
+
+/** What an unsupported platform lacks is placed in a real class, not just named. */
+test("every unsupported platform is grouped by the kind of work it needs", () => {
+  const byClass = {};
+  for (const platform of MESSAGING_PLATFORMS) {
+    if (platform.support === "supported") continue;
+    byClass[platform.requirementClass] = [
+      ...(byClass[platform.requirementClass] ?? []),
+      platform.id,
+    ];
+  }
+
+  // The split follows reachability: an outgoing long connection works from a
+  // home network, a callback does not, a bridge owns the account on a phone,
+  // a transport has no conversation at all, and approval happens off-machine.
+  assert.deepEqual(byClass.longConnection, [
+    "homeAssistant",
+    "buzz",
+    "ntfy",
+    "raft",
+    "simplex",
+  ]);
+  assert.deepEqual(byClass.publicCallback, [
+    "sms",
+    "dingtalk",
+    "feishu",
+    "googleChat",
+    "wecomGroup",
+    "wecomApp",
+    "webhooks",
+    "line",
+    "microsoftGraph",
+    "teams",
+  ]);
+  assert.deepEqual(byClass.bridgeOrPoll, [
+    "whatsapp",
+    "signal",
+    "blueBubbles",
+    "email",
+    "imessagePhone",
+  ]);
+  assert.deepEqual(byClass.transport, ["apiServer", "a2a", "relay"]);
+  assert.deepEqual(byClass.platformApproval, [
+    "weixin",
+    "qqBot",
+    "yuanbao",
+    "whatsappCloud",
+  ]);
+
+  // No class is decorative and no class is invented.
+  assert.deepEqual(
+    Object.keys(byClass).sort(),
+    Object.keys(MESSAGING_REQUIREMENT_CLASS_KEYS).sort(),
+  );
+});
+
+/** An unsupported platform must never expose something a form could save. */
+test("no unsupported platform exposes a credential or a field", () => {
+  for (const platform of UNSUPPORTED_MESSAGING_PLATFORMS) {
+    // There is no form to build: no fields, no credential slots, no section,
+    // no record format and no endpoint to fall back to.
+    assert.equal("fields" in platform, false, `${platform.id} exposes fields`);
+    assert.deepEqual(platform.secrets, [], `${platform.id} exposes a credential slot`);
     assert.equal("section" in platform, false, `${platform.id} names a settings section`);
     assert.equal("format" in platform, false, `${platform.id} names a record format`);
+    assert.equal("defaultEndpoint" in platform, false, `${platform.id} names an endpoint`);
+  }
+
+  // The negative side of the same invariant: every supported channel does carry
+  // the credential field its slot names, so the assertion above is not passing
+  // because fields vanished everywhere.
+  for (const platform of SUPPORTED_MESSAGING_PLATFORMS) {
+    const credentialFields = platform.fields.filter((field) =>
+      platform.secrets.some((slot) => slot.id === field.id),
+    );
+    assert.deepEqual(
+      credentialFields.map((field) => field.id),
+      platform.secrets.map((slot) => slot.id),
+      `${platform.id} lost a credential field`,
+    );
   }
 });
 
@@ -705,6 +836,11 @@ test("an unsupported platform opens a statement, not a form", () => {
     assert.equal(panel.includes(control), false, `the unsupported panel rendered ${control}`);
   }
   assert.ok(panel.includes("unsupportedNeeds"), "the panel does not name what is missing");
+  assert.ok(
+    panel.includes("MESSAGING_REQUIREMENT_CLASS_KEYS"),
+    "the panel does not place the requirement in its class",
+  );
+  assert.ok(panel.includes("requirementType"), "the panel does not label the requirement class");
   assert.ok(panel.includes("unsupportedNoForm"), "the panel does not say why there is no form");
 });
 

@@ -660,16 +660,29 @@ system while preserving their different data ownership:
   platform's panel is the work. It is not part of Connections and is not a
   second target manager: messaging is how the agent is reached, not something it
   dials.
-- The list carries the reference product's catalogue, so the surface has a real
-  product's density, and it is honest about breadth. **Telegram**, **Slack**,
-  **Discord**, **Mattermost**, **Matrix** and **IRC** are marked Supported and
-  open a working panel. Every other entry is marked Not
-  supported and opens a panel that says so in words and names the capability
-  this build lacks — a QR pairing flow for a linked phone session, an outbound
-  socket client for a gateway protocol, a public webhook receiver, a local
-  bridge process, or a client sync loop. An unsupported platform renders no
-  form: this build stores no section, format or credential for it, so a field
-  could only pretend to save something.
+- The list is the reference product's own catalogue — all thirty-three
+  platforms, in the product's order — so the surface has a real product's
+  density, and it is honest about breadth. **Telegram**, **Discord**, **Slack**,
+  **Mattermost**, **Matrix** and **IRC** are marked Supported and open a working
+  panel. The other twenty-seven are marked Not supported, and their panel states
+  what the gap is **and what kind of requirement it is**, because "needs setup"
+  without the kind does not tell a user whether they can close it themselves.
+  Five classes cover the real shapes: an **outgoing long connection**, which
+  works from a home network (Home Assistant, ntfy, SimpleX Chat, Raft, Buzz); a
+  **public HTTPS callback**, where the platform pushes into an address the
+  internet must reach (Google Chat, LINE, Microsoft Teams, Microsoft Graph,
+  Feishu / Lark, DingTalk, both WeCom entries, SMS through Twilio, Webhooks); a
+  **poll loop or local bridge** that owns the account on a phone or a Mac
+  (Email over IMAP and SMTP, BlueBubbles, iMessage via Phone, Signal,
+  WhatsApp's linked phone session); a **transport rather than a chat channel**,
+  with no conversation to link (API server, A2A, Relay); and **platform-side
+  approval or business onboarding** (Weixin / WeChat, QQ Bot, Yuanbao, and
+  WhatsApp Cloud API, whose business account also needs a verified sender and a
+  public callback). An unsupported platform renders no form: this build stores
+  no section, format or credential for it, so a field could only pretend to save
+  something, and the panel says that as well. Where the platform publishes setup
+  documentation the panel links to it; where it does not, no outbound link is
+  shown rather than a link to somewhere else.
 - Three state dimensions are computed independently and never merged into one
   badge. **Enabled**: is a record of this build stored? It reads `off` when no
   section exists and `unreadable` when the stored `format`/`version` is not one
@@ -707,8 +720,8 @@ system while preserving their different data ownership:
   comma-separated channels to join, and the optional server password; and for
   Matrix, signing in as the account in a web client such as Element, copying
   the access token from Help & About, and taking the room id in Matrix's own
-  `!abc:server` form. Each panel links out to that platform's official setup
-  guide.
+  `!abc:server` form. Each panel links out to that platform's own setup guide
+  where the platform publishes one.
 - Matrix's panel also carries one standing limitation in plain language:
   **encrypted rooms cannot be read yet**.
   This build holds no Matrix device keys, so `m.room.encrypted` events are
