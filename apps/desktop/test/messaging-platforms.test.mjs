@@ -65,6 +65,7 @@ const api = read("../src/lib/api.ts");
 const protocol = read("../../../packages/shared/src/protocol.ts");
 const settingsIpc = read("../electron/main/ipc/settings-ipc.ts");
 const startup = read("../electron/main/bootstrap/startup.ts");
+const inboundLifecycle = read("../electron/main/messaging-inbound-lifecycle.ts");
 const settingsSearch = read("../src/lib/settings-search.ts");
 const page = read("../src/components/settings/MessagingPlatformsPage.tsx");
 const probeModule = read("../electron/main/messaging-telegram-probe.ts");
@@ -1239,19 +1240,61 @@ test("the section write is narrow, allowlisted, and can clear the section", () =
   assert.doesNotMatch(api, /getSecret|readSecret/);
 });
 
-test("the composition root registers the loops the panel reports on", () => {
-  assert.match(startup, /messagingGateway\.track\("telegram", state\.messagingInbound\)/);
-  assert.match(startup, /messagingGateway\.track\("slack", state\.messagingSlackInbound\)/);
-  assert.match(startup, /messagingGateway\.track\("discord", state\.messagingDiscordInbound\)/);
-  assert.match(
-    startup,
-    /messagingGateway\.track\("mattermost", state\.messagingMattermostInbound\)/,
-  );
-  assert.match(
-    startup,
-    /messagingGateway\.track\("homeAssistant", state\.messagingHomeAssistantInbound\)/,
-  );
+test("the composition root hands every loop to the one supervisor the panel's gateway reads", () => {
+  // The loops are owned by `MessagingInboundSupervisor`, which tracks them in
+  // the same registry the IPC handler answers the panel from. Startup builds no
+  // loop of its own: a loop outside the supervisor is a loop no settings write
+  // can stop, which is how a channel reported `已关闭` kept its gateway running.
+  assert.match(startup, /createMessagingInboundSupervisor\(/);
+  assert.match(startup, /setMessagingInboundSupervisor\(supervisor\)/);
   assert.match(startup, /messagingGateway\.markBooted\(\)/);
+  assert.doesNotMatch(startup, /new AbortController\(/);
+  assert.doesNotMatch(startup, /messagingGateway\.track\(/);
+
+  // Every channel that has an inbound loop is in the one starter map, so the
+  // teardown applies to all of them and not only the channel that was observed.
+  for (const channel of [
+    "telegram",
+    "slack",
+    "discord",
+    "mattermost",
+    "matrix",
+    "irc",
+    "homeAssistant",
+    "ntfy",
+    "email",
+  ]) {
+    assert.match(
+      inboundLifecycle,
+      new RegExp(`^\\s*${channel}: \\(signal\\) => create`, "m"),
+      `${channel} has no starter, so its loop would have no owner`,
+    );
+  }
+  // The readiness the supervisor starts from reads the same two host surfaces
+  // the transports read, and the registry is the one the renderer polls.
+  assert.match(inboundLifecycle, /createMessagingInboundReadiness\(\{ settings, secrets \}\)/);
+  assert.match(inboundLifecycle, /gateway: messagingGateway/);
+});
+
+test("a messaging settings write reconciles that channel's loop", () => {
+  // The settings path is the only thing that can remove a record, so it is the
+  // path that must stop the loop. Both branches of the section write — the
+  // clear (a channel turned off) and the replace (an edited record) — reconcile
+  // after the write has landed at the host.
+  const sectionWrite = settingsIpc.slice(
+    settingsIpc.indexOf("IPC.invoke.messagingSetSection"),
+    settingsIpc.indexOf("IPC.invoke.messagingGateway"),
+  );
+  assert.ok(sectionWrite.length > 0, "the messaging section write handler is missing");
+  assert.equal(
+    (sectionWrite.match(/await reconcileMessagingChannelSection\(section\)/g) ?? []).length,
+    2,
+    "both the clear and the replace must reconcile the channel",
+  );
+  // The general settings save round-trips the messaging sections, so it
+  // reconciles the channels whose sections were in the write.
+  assert.match(settingsIpc, /messagingChannelForSection\(key\)/);
+  assert.match(settingsIpc, /await reconcileAllMessagingChannels\(\)/);
 });
 
 /** Every catalog carries the messaging strings. */

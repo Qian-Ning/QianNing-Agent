@@ -24,7 +24,7 @@ import type { AgentSidecar } from "../agent-sidecar";
 import type { AgentHostBridge } from "../agent-host-bridge";
 import type { McpControlController, McpControlServer } from "../mcp-control";
 import type { BackendRouter } from "../remote/backend-router";
-import type { MessagingInboundHandle, MessagingOutboundRelay } from "@pi-desktop/host-runtime";
+import type { MessagingOutboundRelay } from "@pi-desktop/host-runtime";
 
 export type MenuRendererReadyGate = {
   window: BrowserWindow;
@@ -72,15 +72,6 @@ export class MainProcessState {
   agentHostBridge: AgentHostBridge | null = null;
   desktopControl: McpControlController | null = null;
   backendRouter: BackendRouter | null = null;
-  messagingInbound: MessagingInboundHandle | null = null;
-  messagingSlackInbound: MessagingInboundHandle | null = null;
-  messagingDiscordInbound: MessagingInboundHandle | null = null;
-  messagingMattermostInbound: MessagingInboundHandle | null = null;
-  messagingMatrixInbound: MessagingInboundHandle | null = null;
-  messagingIrcInbound: MessagingInboundHandle | null = null;
-  messagingHomeAssistantInbound: MessagingInboundHandle | null = null;
-  messagingNtfyInbound: MessagingInboundHandle | null = null;
-  messagingEmailInbound: MessagingInboundHandle | null = null;
   messagingOutbound: MessagingOutboundRelay | null = null;
 
   quitting = false;
@@ -389,60 +380,6 @@ export class MainProcessState {
       },
       set mcpControl(value) {
         self.mcpControl = value;
-      },
-      get messagingInbound() {
-        return self.messagingInbound;
-      },
-      set messagingInbound(value) {
-        self.messagingInbound = value;
-      },
-      get messagingSlackInbound() {
-        return self.messagingSlackInbound;
-      },
-      set messagingSlackInbound(value) {
-        self.messagingSlackInbound = value;
-      },
-      get messagingDiscordInbound() {
-        return self.messagingDiscordInbound;
-      },
-      set messagingDiscordInbound(value) {
-        self.messagingDiscordInbound = value;
-      },
-      get messagingMattermostInbound() {
-        return self.messagingMattermostInbound;
-      },
-      set messagingMattermostInbound(value) {
-        self.messagingMattermostInbound = value;
-      },
-      get messagingMatrixInbound() {
-        return self.messagingMatrixInbound;
-      },
-      set messagingMatrixInbound(value) {
-        self.messagingMatrixInbound = value;
-      },
-      get messagingIrcInbound() {
-        return self.messagingIrcInbound;
-      },
-      set messagingIrcInbound(value) {
-        self.messagingIrcInbound = value;
-      },
-      get messagingHomeAssistantInbound() {
-        return self.messagingHomeAssistantInbound;
-      },
-      set messagingHomeAssistantInbound(value) {
-        self.messagingHomeAssistantInbound = value;
-      },
-      get messagingNtfyInbound() {
-        return self.messagingNtfyInbound;
-      },
-      set messagingNtfyInbound(value) {
-        self.messagingNtfyInbound = value;
-      },
-      get messagingEmailInbound() {
-        return self.messagingEmailInbound;
-      },
-      set messagingEmailInbound(value) {
-        self.messagingEmailInbound = value;
       },
       get messagingOutbound() {
         return self.messagingOutbound;

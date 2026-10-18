@@ -3,7 +3,7 @@ import type { CloseBehavior } from "@pi-desktop/shared";
 import type { AgentSidecar } from "../agent-sidecar";
 import type { BrowserHost } from "../browser-host";
 import type { HostProcess } from "../host-process";
-import { settleWithinBudget, type InflightCheckpointer, type MessagingInboundHandle, type MessagingOutboundRelay } from "@pi-desktop/host-runtime";
+import { settleWithinBudget, type InflightCheckpointer, type MessagingOutboundRelay } from "@pi-desktop/host-runtime";
 import type { Logger } from "../logger";
 import type { PersistenceOutbox } from "../persistence-outbox";
 import type { PluginPanelHost } from "../plugin-panel-host";
@@ -43,22 +43,17 @@ export type ShutdownDependencies = {
   getHost: () => HostProcess | null;
   getSidecar: () => AgentSidecar | null;
   getMcpControl: () => McpControlServer | null;
-  /** The inbound messaging loop this boot started, if any. */
-  getMessagingInbound: () => MessagingInboundHandle | null;
-  /** The inbound Slack Socket Mode loop this boot started, if any. */
-  getMessagingSlackInbound: () => MessagingInboundHandle | null;
-  /** The inbound Discord Gateway loop this boot started, if any. */
-  getMessagingDiscordInbound: () => MessagingInboundHandle | null;
-  /** The inbound Mattermost websocket loop this boot started, if any. */
-  getMessagingMattermostInbound: () => MessagingInboundHandle | null;
-  /** The inbound Matrix sync loop this boot started, if any. */
-  getMessagingMatrixInbound: () => MessagingInboundHandle | null;
-  /** The inbound ntfy long-poll loop this boot started, if any. */
-  getMessagingNtfyInbound: () => MessagingInboundHandle | null;
-  getMessagingEmailInbound: () => MessagingInboundHandle | null;
-  getMessagingIrcInbound: () => MessagingInboundHandle | null;
-  /** The inbound Home Assistant websocket loop this boot started, if any. */
-  getMessagingHomeAssistantInbound: () => MessagingInboundHandle | null;
+  /**
+   * Stop every inbound messaging loop this boot started.
+   *
+   * One call rather than one getter per channel: the loops are owned by
+   * `MessagingInboundSupervisor` (`../messaging-inbound-lifecycle`), the same
+   * owner a settings write reconciles, so shutdown cannot stop a handle that
+   * was replaced when a channel's record was re-saved. The supervisor aborts
+   * each loop and waits for it, bounded per channel, before host-core is
+   * disposed.
+   */
+  stopMessagingInbound: () => Promise<void>;
   /** The outbound messaging relay this boot subscribed, if any. */
   getMessagingOutbound: () => MessagingOutboundRelay | null;
   activeTurns: Map<string, string>;
@@ -84,15 +79,7 @@ export function registerShutdownHandlers({
   getHost,
   getSidecar,
   getMcpControl,
-  getMessagingInbound,
-  getMessagingSlackInbound,
-  getMessagingDiscordInbound,
-  getMessagingMattermostInbound,
-  getMessagingMatrixInbound,
-  getMessagingNtfyInbound,
-  getMessagingEmailInbound,
-  getMessagingIrcInbound,
-  getMessagingHomeAssistantInbound,
+  stopMessagingInbound,
   getMessagingOutbound,
   activeTurns,
   persistenceOutbox,
@@ -173,62 +160,16 @@ export function registerShutdownHandlers({
       state.toggleWindowAccelerator = null;
     }
     state.shutdownPromise = (async () => {
-      // Stop the inbound messaging loop first: it reads and writes the settings
-      // row through the local host-core, and this shutdown owns its controller,
-      // so it is aborted and awaited before the host is disposed. The loop
-      // re-checks the signal between iterations, so the abort ends it as soon as
-      // the current iteration returns — but a single in-flight iteration is one
-      // host RPC, whose own deadline is far longer than a quit may wait. The
-      // wait is therefore bounded, the way the provider wait below is; giving up
-      // on the wait does not hold up the rest of shutdown.
-      const messagingInbound = getMessagingInbound();
-      messagingInbound?.controller.abort();
-      await settleWithinBudget(messagingInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
-      // The Slack Socket Mode loop is stopped the same way, beside the Telegram
-      // loop and before host-core is disposed: the same bounded wait, so a
-      // hung connection cannot hold up the quit.
-      const messagingSlackInbound = getMessagingSlackInbound();
-      messagingSlackInbound?.controller.abort();
-      await settleWithinBudget(messagingSlackInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
-      // The Discord and Mattermost gateway loops stop the same way, before
-      // host-core is disposed: each is aborted and awaited under the same
-      // bound, so a socket that will not settle cannot hold up the quit.
-      const messagingDiscordInbound = getMessagingDiscordInbound();
-      messagingDiscordInbound?.controller.abort();
-      await settleWithinBudget(messagingDiscordInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
-      const messagingMattermostInbound = getMessagingMattermostInbound();
-      messagingMattermostInbound?.controller.abort();
-      await settleWithinBudget(messagingMattermostInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
-      // The Matrix sync loop stops the same way: its long poll is aborted and
-      // awaited under the same bound, so a homeserver that will not answer
-      // cannot hold up the quit.
-      const messagingMatrixInbound = getMessagingMatrixInbound();
-      messagingMatrixInbound?.controller.abort();
-      await settleWithinBudget(messagingMatrixInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
-      // The ntfy long poll stops the same way: the request is aborted and the
-      // loop awaited under the same bound.
-      const messagingNtfyInbound = getMessagingNtfyInbound();
-      messagingNtfyInbound?.controller.abort();
-      await settleWithinBudget(messagingNtfyInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
-      // The email poll stops the same way: the IMAP session is aborted and the
-      // loop awaited under the same bound, so an unresponsive mail server
-      // cannot hold up the quit.
-      const messagingEmailInbound = getMessagingEmailInbound();
-      messagingEmailInbound?.controller.abort();
-      await settleWithinBudget(messagingEmailInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
-      // The IRC socket loop stops the same way, under the same bound.
-      const messagingIrcInbound = getMessagingIrcInbound();
-      messagingIrcInbound?.controller.abort();
-      await settleWithinBudget(messagingIrcInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
-      // The Home Assistant websocket loop stops the same way, under the same
-      // bound: its socket is closed and its wait is not left running.
-      const messagingHomeAssistantInbound = getMessagingHomeAssistantInbound();
-      messagingHomeAssistantInbound?.controller.abort();
-      await settleWithinBudget(messagingHomeAssistantInbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);
-      // The outbound messaging relay is released the same way, beside the two
-      // loops and before host-core is disposed: it unsubscribes at once, and the
-      // wait is bounded so a release that ever refused to settle cannot hold up
-      // the quit.
+      // Stop every inbound messaging loop first: each reads and writes the
+      // settings row through the local host-core, and this shutdown owns them
+      // through the supervisor, so they are aborted and awaited before the host
+      // is disposed. The supervisor bounds each wait, so a loop stuck on a host
+      // RPC cannot hold up the quit; a loop that does not settle is left
+      // reported as running rather than claimed stopped.
+      await stopMessagingInbound();
+      // The outbound messaging relay is released the same way, before host-core
+      // is disposed: it unsubscribes at once, and the wait is bounded so a
+      // release that ever refused to settle cannot hold up the quit.
       const messagingOutbound = getMessagingOutbound();
       messagingOutbound?.stop();
       await settleWithinBudget(messagingOutbound?.done, QUIT_MESSAGING_INBOUND_BUDGET_MS);

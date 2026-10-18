@@ -3,6 +3,7 @@ import {
   bindMessagingInboundSession,
   createHostSessionOwnerWriter,
   createHostSettingsSurface,
+  messagingChannelForSection,
   SLACK_INBOUND_CHANNEL,
 } from "@pi-desktop/host-runtime";
 import {
@@ -17,6 +18,10 @@ import {
   MESSAGING_SLACK_SECTION,
   MESSAGING_TELEGRAM_SECTION,
 } from "@pi-desktop/agent-host";
+import {
+  reconcileAllMessagingChannels,
+  reconcileMessagingChannelSection,
+} from "../messaging-inbound-lifecycle";
 import { messagingGateway } from "../messaging-gateway";
 import { discoverTelegramChats, probeTelegramBot } from "../messaging-telegram-probe";
 import type { AgentSidecar } from "../agent-sidecar";
@@ -89,6 +94,19 @@ export function registerSettingsIpc({
     if (!host) throw new Error("host unavailable");
     const validatedSettings = validateSettingsWrite(settings);
     const result = await host.call("settings.set", validatedSettings);
+    // A general settings save round-trips the renderer's settings snapshot,
+    // which includes the messaging sections, so a channel's record can change
+    // here and not only through its own channel. Reconcile when one was in the
+    // write: a loop whose record no longer justifies it is stopped, and one
+    // whose record became startable is started. Idempotent, so a save that
+    // leaves a record alone leaves its loop alone.
+    if (
+      typeof validatedSettings === "object" &&
+      validatedSettings !== null &&
+      Object.keys(validatedSettings).some((key) => messagingChannelForSection(key) !== null)
+    ) {
+      await reconcileAllMessagingChannels();
+    }
     const updatePreference = (validatedSettings as { updatePreference?: unknown })
       .updatePreference;
     if (updatePreference === "automatic" || updatePreference === "manual") {
@@ -168,6 +186,10 @@ export function registerSettingsIpc({
       // refs, so turning the channel back on needs no retyping.
       if (value === null) {
         await host.call("settings.set", { [section]: null });
+        // The record is gone, so the loop it configured is gone with it. Turning
+        // a channel off used to hide it while its transport kept its socket and
+        // its credential, which is the `已关闭` / `运行中` pair this closes.
+        await reconcileMessagingChannelSection(section);
         return { ok: true };
       }
       if (typeof value !== "object" || Array.isArray(value)) {
@@ -176,6 +198,11 @@ export function registerSettingsIpc({
         });
       }
       await host.call("settings.set", { [section]: value });
+      // The record was replaced. Every push transport reads it once, at start,
+      // so the new record only takes effect through a fresh loop — and a record
+      // that can no longer start (a required field or a secret removed) leaves
+      // no loop running at all.
+      await reconcileMessagingChannelSection(section);
       return { ok: true };
     },
   );

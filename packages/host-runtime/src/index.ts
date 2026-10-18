@@ -12,6 +12,8 @@ export * from "./turn-events.js";
 export * from "./runtime-service.js";
 export * from "./plan-dispatch.js";
 export * from "./messaging-inbound-wiring.js";
+export * from "./messaging-gateway-registry.js";
+export * from "./messaging-inbound-supervisor.js";
 export * from "./messaging-outbound-relay.js";
 export * from "./workspace-files.js";
 export * from "./workspace-diff.js";

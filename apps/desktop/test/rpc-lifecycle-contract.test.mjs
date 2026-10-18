@@ -248,32 +248,34 @@ test("app quit waits for one idempotent teardown before allowing the follow-up q
   );
   assert.match(shutdownSource, /void state\.shutdownPromise\.then\(releaseQuit, releaseQuit\)/);
 
-  // The inbound messaging loop is aborted, and its stop is bounded, before
-  // host-core is disposed: the loop reads and writes the settings row through
-  // the host it must not outlive. Pinned as an ordering over identifiers, not
-  // as an exact block, so it survives a refactor that keeps the contract and
-  // fails one that moves the wait after disposal.
-  const inboundAbortAt = shutdownSource.indexOf("messagingInbound?.controller.abort()");
-  const inboundBoundAt = shutdownSource.indexOf("settleWithinBudget(");
+  // Every inbound messaging loop is stopped through the one supervisor that owns
+  // them, before host-core is disposed: the loops read and write the settings row
+  // through the host they must not outlive. Pinned as an ordering over
+  // identifiers, not as an exact block, so it survives a refactor that keeps the
+  // contract and fails one that moves the stop after disposal.
+  //
+  // The supervisor, not this module, holds the per-channel handles: a channel
+  // whose record is re-saved during the session has a different loop by quit
+  // time, and a handle captured at boot would stop the wrong one (or none).
+  const inboundStopAt = shutdownSource.indexOf("await stopMessagingInbound()");
   const hostDisposeAt = shutdownSource.indexOf("getHost()?.dispose()");
-  assert.ok(inboundAbortAt >= 0, "a quit must abort the inbound messaging loop");
-  assert.ok(inboundBoundAt >= 0, "a quit must bound its wait for the inbound messaging loop");
+  assert.ok(
+    inboundStopAt >= 0,
+    "a quit must stop the inbound messaging loops through their supervisor",
+  );
   assert.ok(hostDisposeAt >= 0, "the host is disposed during shutdown");
   assert.ok(
-    inboundAbortAt < hostDisposeAt && inboundBoundAt < hostDisposeAt,
-    "the inbound loop must be aborted and its bounded wait run before host-core is disposed",
+    inboundStopAt < hostDisposeAt,
+    "the inbound loops must be stopped before host-core is disposed",
   );
-
-  // The inbound Slack Socket Mode loop (ADR 0326) is stopped the same way,
-  // beside the Telegram loop and before host-core is disposed.
-  const slackAbortAt = shutdownSource.indexOf("messagingSlackInbound?.controller.abort()");
-  const slackBoundAt = shutdownSource.lastIndexOf("settleWithinBudget(messagingSlackInbound?.done");
-  assert.ok(slackAbortAt >= 0, "a quit must abort the inbound Slack loop");
-  assert.ok(slackBoundAt >= 0, "a quit must bound its wait for the inbound Slack loop");
-  assert.ok(
-    slackAbortAt < hostDisposeAt && slackBoundAt < hostDisposeAt,
-    "the Slack inbound loop must be aborted and its bounded wait run before host-core is disposed",
+  assert.doesNotMatch(
+    shutdownSource,
+    /messagingInbound\?\.controller\.abort\(\)/,
+    "shutdown must not keep its own copy of a loop handle",
   );
+  // The bounded wait lives in the supervisor, so a loop stuck on a host RPC
+  // cannot hold up the quit.
+  assert.match(shutdownModuleSource, /stopMessagingInbound: \(\) => Promise<void>/);
 });
 
 test("settings writes validate without applying read defaults", () => {

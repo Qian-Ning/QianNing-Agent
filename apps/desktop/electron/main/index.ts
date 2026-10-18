@@ -78,6 +78,10 @@ import { createLauncher } from "./bootstrap/launcher";
 import { createWorkPanelRuntime } from "./bootstrap/work-panel";
 import { createCloseBehaviorRuntime } from "./bootstrap/close-behavior";
 import { registerShutdownHandlers } from "./bootstrap/shutdown";
+import {
+  getMessagingInboundSupervisor,
+  setMessagingInboundSupervisor,
+} from "./messaging-inbound-lifecycle";
 import { stripWinLongPrefix } from "./path-utils";
 
 // A closed stdout/stderr (Linux AppImage, GUI launch without a TTY) must not
@@ -1010,15 +1014,13 @@ registerShutdownHandlers({
   getHost,
   getSidecar,
   getMcpControl: () => mainState.mcpControl,
-  getMessagingInbound: () => mainState.messagingInbound,
-  getMessagingSlackInbound: () => mainState.messagingSlackInbound,
-  getMessagingDiscordInbound: () => mainState.messagingDiscordInbound,
-  getMessagingMattermostInbound: () => mainState.messagingMattermostInbound,
-  getMessagingMatrixInbound: () => mainState.messagingMatrixInbound,
-  getMessagingNtfyInbound: () => mainState.messagingNtfyInbound,
-  getMessagingEmailInbound: () => mainState.messagingEmailInbound,
-  getMessagingIrcInbound: () => mainState.messagingIrcInbound,
-  getMessagingHomeAssistantInbound: () => mainState.messagingHomeAssistantInbound,
+  // Every inbound loop is owned by the supervisor, so shutdown stops them
+  // through it rather than through nine handles captured at boot: a channel
+  // whose record was re-saved has a different loop by the time the app quits.
+  stopMessagingInbound: async () => {
+    await getMessagingInboundSupervisor()?.stopAll();
+    setMessagingInboundSupervisor(null);
+  },
   getMessagingOutbound: () => mainState.messagingOutbound,
   activeTurns,
   persistenceOutbox,
