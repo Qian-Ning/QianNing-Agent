@@ -266,8 +266,8 @@ export type AppSettings = {
    */
   remoteControlEnabled?: boolean;
   /**
-   * Messaging channels (setting `messagingTelegram` / `messagingSlack`). Both
-   * live in this same row because every host surface reads them from it: the
+   * Messaging channels (`messagingTelegram` through `messagingHomeAssistant`).
+   * All of them live in this same row because every host surface reads them from it: the
    * outbound adapter at registration and the inbound driver on each message.
    * Absent means the channel is not configured, and the Host behaves as it did
    * before that channel existed. The credential for either channel is a secret
@@ -279,6 +279,7 @@ export type AppSettings = {
   messagingMattermost?: MessagingChannelSettings;
   messagingMatrix?: MessagingChannelSettings;
   messagingIrc?: MessagingChannelSettings;
+  messagingHomeAssistant?: MessagingChannelSettings;
   onboardingDismissed: boolean;
 };
 

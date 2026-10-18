@@ -99,6 +99,7 @@ const GATEWAY_UP = {
   mattermost: true,
   matrix: true,
   irc: true,
+  homeAssistant: true,
 };
 const GATEWAY_DOWN = {
   booted: true,
@@ -108,6 +109,7 @@ const GATEWAY_DOWN = {
   mattermost: false,
   matrix: false,
   irc: false,
+  homeAssistant: false,
 };
 
 /**
@@ -152,9 +154,17 @@ const CATALOGUE_IDS = [
 ];
 
 /** The channels whose send and receive paths exist in this build. */
-const SUPPORTED_IDS = ["telegram", "discord", "slack", "mattermost", "matrix", "irc"];
+const SUPPORTED_IDS = [
+  "telegram",
+  "discord",
+  "slack",
+  "mattermost",
+  "matrix",
+  "homeAssistant",
+  "irc",
+];
 
-/** The whole catalogue, in rail order: thirty-three, six of them supported. */
+/** The whole catalogue, in rail order: thirty-three, seven of them supported. */
 test("the catalogue is the product's full list and marks support honestly", () => {
   assert.deepEqual(
     MESSAGING_PLATFORMS.map((entry) => entry.id),
@@ -164,7 +174,7 @@ test("the catalogue is the product's full list and marks support honestly", () =
   assert.deepEqual(SUPPORTED_MESSAGING_PLATFORMS.map((entry) => entry.id), SUPPORTED_IDS);
 
   // The split is derived from the entries, not from a tuned constant: every id
-  // in the catalogue is either one of the six supported or one honest absence.
+  // in the catalogue is either one of the seven supported or one honest absence.
   assert.deepEqual(
     UNSUPPORTED_MESSAGING_PLATFORMS.map((entry) => entry.id),
     CATALOGUE_IDS.filter((id) => !SUPPORTED_IDS.includes(id)),
@@ -191,7 +201,9 @@ test("the catalogue is the product's full list and marks support honestly", () =
       assert.match(key, /^settings\.messaging\.step/, key);
     }
     for (const slot of platform.secrets) {
-      assert.match(slot.ref, /^secret:messaging-[a-z]+:[a-z-]+$/, slot.ref);
+      // A channel name may be hyphenated (home-assistant), so the middle
+      // segment allows hyphens as the runtime refs always have.
+      assert.match(slot.ref, /^secret:messaging-[a-z-]+:[a-z-]+$/, slot.ref);
       assert.match(slot.placeholderKey, /^settings\.messaging\./, slot.ref);
     }
   }
@@ -227,7 +239,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   // home network, a callback does not, a bridge owns the account on a phone,
   // a transport has no conversation at all, and approval happens off-machine.
   assert.deepEqual(byClass.longConnection, [
-    "homeAssistant",
     "buzz",
     "ntfy",
     "raft",
@@ -379,6 +390,7 @@ test("enabled, setup and gateway are computed independently", () => {
         discord: false,
         mattermost: false,
         matrix: false,
+        homeAssistant: false,
       },
     ).gateway,
     "stopped",
@@ -393,8 +405,12 @@ test("fields are grouped, and every field explains itself and its blank", () => 
 
     // The credentials, the conversation and the link are always required; the
     // endpoint is required only where the platform has no public default
-    // (Mattermost and Matrix are self-hosted), and recommended everywhere else.
-    const selfHosted = platform.id === "mattermost" || platform.id === "matrix";
+    // (Mattermost and Matrix are self-hosted; Home Assistant runs on the user's
+    // own network), and recommended everywhere else.
+    const selfHosted =
+      platform.id === "mattermost" ||
+      platform.id === "matrix" ||
+      platform.id === "homeAssistant";
     const requiredIds = required.map((field) => field.id);
     const requiredWithoutSecrets = requiredIds.filter(
       (id) => !platform.secrets.some((slot) => slot.id === id),
@@ -868,6 +884,7 @@ test("the gateway registry reports the loops that are actually running", async (
     mattermost: false,
     matrix: false,
     irc: false,
+    homeAssistant: false,
   });
 
   registry.markBooted();
@@ -885,6 +902,7 @@ test("the gateway registry reports the loops that are actually running", async (
     mattermost: false,
     matrix: false,
     irc: false,
+    homeAssistant: false,
   });
 
   registry.track("slack", { done: Promise.resolve() });
@@ -903,6 +921,7 @@ test("the gateway registry reports the loops that are actually running", async (
     mattermost: false,
     matrix: false,
     irc: false,
+    homeAssistant: false,
   });
 });
 
@@ -1053,6 +1072,7 @@ test("the section write is narrow, allowlisted, and can clear the section", () =
   assert.match(settingsIpc, /section !== MESSAGING_SLACK_SECTION/);
   assert.match(settingsIpc, /section !== MESSAGING_DISCORD_SECTION/);
   assert.match(settingsIpc, /section !== MESSAGING_MATTERMOST_SECTION/);
+  assert.match(settingsIpc, /section !== MESSAGING_HOME_ASSISTANT_SECTION/);
   assert.match(settingsIpc, /host\.call\("settings\.set", \{ \[section\]: value \}\)/);
   assert.match(api, /\bsetMessagingSection:/);
   assert.match(api, /\bsetSecret:/);
@@ -1068,6 +1088,10 @@ test("the composition root registers the loops the panel reports on", () => {
   assert.match(
     startup,
     /messagingGateway\.track\("mattermost", state\.messagingMattermostInbound\)/,
+  );
+  assert.match(
+    startup,
+    /messagingGateway\.track\("homeAssistant", state\.messagingHomeAssistantInbound\)/,
   );
   assert.match(startup, /messagingGateway\.markBooted\(\)/);
 });

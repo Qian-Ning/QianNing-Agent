@@ -33,9 +33,10 @@ import type {
  *
  * The list carries all thirty-three platforms the reference product lists, in
  * the product's own order, because a user comparing the two should be able to
- * find a platform where they expect it. Only the six with a send path and a
- * receive path in this build (Telegram, Slack, Discord, Mattermost, Matrix and
- * IRC) are `supported`; the other twenty-seven each carry a `requirementClass`
+ * find a platform where they expect it. Only the seven with a send path and a
+ * receive path in this build (Telegram, Slack, Discord, Mattermost, Matrix,
+ * Home Assistant and IRC) are `supported`; the other twenty-six each carry a
+ * `requirementClass`
  * — an outgoing long connection, a public callback, a poll or bridge, a
  * transport rather than a chat channel, or platform-side approval — and the
  * sentence that names the specific capability this build lacks. The panel says
@@ -86,7 +87,8 @@ export type MessagingSectionKey =
   | "messagingDiscord"
   | "messagingMattermost"
   | "messagingMatrix"
-  | "messagingIrc";
+  | "messagingIrc"
+  | "messagingHomeAssistant";
 
 /** One credential a channel reads, and where the host keeps it. */
 export type MessagingSecretSlot = {
@@ -289,19 +291,11 @@ function channelFields(platform: {
 }
 
 /**
- * Mattermost's fields. Its base URL is required, not recommended: the product
- * is self-hosted, so there is no public address to fall back to. The rest of the
- * panel is the shared shape.
+ * The shared fields with the endpoint promoted to the required group, for the
+ * channels that have no public address to fall back to: a self-hosted or
+ * federated server, and Home Assistant on the user's own network.
  */
-function mattermostFields(): MessagingField[] {
-  const shared = channelFields({
-    secrets: mattermostSecrets,
-    destinationLabelKey: "settings.messaging.mattermostChannel",
-    destinationHelpKey: "settings.messaging.mattermostChannelHelp",
-    destinationPlaceholderKey: "settings.messaging.mattermostChannelPlaceholder",
-    subjectPlaceholderKey: "settings.messaging.subjectPlaceholderMattermost",
-    endpointPlaceholderKey: "settings.messaging.endpointPlaceholderMattermost",
-  });
+function withRequiredEndpoint(shared: MessagingField[]): MessagingField[] {
   const endpoint = shared.find((field) => field.id === "endpoint");
   if (!endpoint) return shared;
   const rest = shared.filter((field) => field.id !== "endpoint");
@@ -313,27 +307,60 @@ function mattermostFields(): MessagingField[] {
 }
 
 /**
+ * Mattermost's fields. Its base URL is required, not recommended: the product
+ * is self-hosted, so there is no public address to fall back to. The rest of the
+ * panel is the shared shape.
+ */
+function mattermostFields(): MessagingField[] {
+  return withRequiredEndpoint(
+    channelFields({
+      secrets: mattermostSecrets,
+      destinationLabelKey: "settings.messaging.mattermostChannel",
+      destinationHelpKey: "settings.messaging.mattermostChannelHelp",
+      destinationPlaceholderKey: "settings.messaging.mattermostChannelPlaceholder",
+      subjectPlaceholderKey: "settings.messaging.subjectPlaceholderMattermost",
+      endpointPlaceholderKey: "settings.messaging.endpointPlaceholderMattermost",
+    }),
+  );
+}
+
+/**
  * Matrix's fields. Its homeserver URL is required for the same reason
  * Mattermost's is: the product is self-hosted or federated, so there is no
  * public address to fall back to. The rest of the panel is the shared shape.
  */
 function matrixFields(): MessagingField[] {
-  const shared = channelFields({
-    secrets: matrixSecrets,
-    destinationLabelKey: "settings.messaging.matrixRoom",
-    destinationHelpKey: "settings.messaging.matrixRoomHelp",
-    destinationPlaceholderKey: "settings.messaging.matrixRoomPlaceholder",
-    subjectPlaceholderKey: "settings.messaging.subjectPlaceholderMatrix",
-    endpointPlaceholderKey: "settings.messaging.endpointPlaceholderMatrix",
-  });
-  const endpoint = shared.find((field) => field.id === "endpoint");
-  if (!endpoint) return shared;
-  const rest = shared.filter((field) => field.id !== "endpoint");
-  return [
-    ...rest.filter((field) => field.group === "required"),
-    { ...endpoint, group: "required" as const },
-    ...rest.filter((field) => field.group === "recommended"),
-  ];
+  return withRequiredEndpoint(
+    channelFields({
+      secrets: matrixSecrets,
+      destinationLabelKey: "settings.messaging.matrixRoom",
+      destinationHelpKey: "settings.messaging.matrixRoomHelp",
+      destinationPlaceholderKey: "settings.messaging.matrixRoomPlaceholder",
+      subjectPlaceholderKey: "settings.messaging.subjectPlaceholderMatrix",
+      endpointPlaceholderKey: "settings.messaging.endpointPlaceholderMatrix",
+    }),
+  );
+}
+
+/**
+ * Home Assistant's fields.
+ *
+ * The base URL is required: a Home Assistant instance lives on the user's own
+ * network, so there is no public address to fall back to. The linked service is
+ * required and is written as `domain.service`, because that is what the send
+ * path posts to. The rest of the panel is the shared shape.
+ */
+function homeAssistantFields(): MessagingField[] {
+  return withRequiredEndpoint(
+    channelFields({
+      secrets: homeAssistantSecrets,
+      destinationLabelKey: "settings.messaging.homeAssistantService",
+      destinationHelpKey: "settings.messaging.homeAssistantServiceHelp",
+      destinationPlaceholderKey: "settings.messaging.homeAssistantServicePlaceholder",
+      subjectPlaceholderKey: "settings.messaging.subjectPlaceholderHomeAssistant",
+      endpointPlaceholderKey: "settings.messaging.endpointPlaceholderHomeAssistant",
+    }),
+  );
 }
 
 /** IRC's only optional credential: a PASS line for a password-protected server. */
@@ -439,6 +466,16 @@ const matrixSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const homeAssistantSecrets: MessagingSecretSlot[] = [
+  {
+    id: "access-token",
+    ref: "secret:messaging-home-assistant:access-token",
+    labelKey: "settings.messaging.homeAssistantAccessToken",
+    hintKey: "settings.messaging.homeAssistantAccessTokenHint",
+    placeholderKey: "settings.messaging.homeAssistantTokenPlaceholder",
+  },
+];
+
 const slackSecrets: MessagingSecretSlot[] = [
   {
     id: "app-token",
@@ -459,9 +496,9 @@ const slackSecrets: MessagingSecretSlot[] = [
 /**
  * Every platform the product lists, in the product's own order.
  *
- * The list is the catalogue, not a promise: the six entries with `support:
+ * The list is the catalogue, not a promise: the seven entries with `support:
  * "supported"` are the channels whose send and receive paths exist in this
- * build. Each of the other twenty-seven carries the sentence that says what it
+ * build. Each of the other twenty-six carries the sentence that says what it
  * would take, and the class that sentence belongs to, so a user comparing this
  * page with the product can see both what exists and what the gap is.
  */
@@ -629,14 +666,26 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "homeAssistant",
-    support: "unsupported",
+    support: "supported",
+    section: "messagingHomeAssistant",
+    format: "pi-desktop-messaging-home-assistant",
+    version: 1,
+    // Home Assistant runs on the user's own network: no public default.
+    defaultEndpoint: "",
     labelKey: "settings.messaging.platformHomeAssistant",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "longConnection",
-    requirementKey: "settings.messaging.needsSocket",
+    blurbKey: "settings.messaging.blurbHomeAssistant",
+    noteKey: "settings.messaging.homeAssistantInboundNote",
+    limitationKey: "settings.messaging.homeAssistantLimitations",
     guideUrl: "https://developers.home-assistant.io/docs/api/websocket/",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepHomeAssistant1",
+      "settings.messaging.stepHomeAssistant2",
+      "settings.messaging.stepHomeAssistant3",
+      "settings.messaging.stepHomeAssistant4",
+      "settings.messaging.stepHomeAssistant5",
+    ],
+    secrets: homeAssistantSecrets,
+    fields: homeAssistantFields(),
   },
   {
     id: "email",
@@ -934,7 +983,8 @@ export type MessagingGatewayChannel =
   | "discord"
   | "mattermost"
   | "matrix"
-  | "irc";
+  | "irc"
+  | "homeAssistant";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -950,6 +1000,7 @@ export type MessagingGatewaySnapshot = {
   mattermost: boolean;
   matrix: boolean;
   irc: boolean;
+  homeAssistant: boolean;
 };
 
 /** The snapshot to use before the first reply arrives: nothing is known to run. */
@@ -961,6 +1012,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   mattermost: false,
   matrix: false,
   irc: false,
+  homeAssistant: false,
 };
 
 /** The link roles the inbound driver accepts, in `RACP_ROLES` order. */
@@ -1163,7 +1215,9 @@ export function deriveChannelState(
           ? "mattermost"
           : platform.id === "irc"
             ? "irc"
-            : "telegram";
+            : platform.id === "homeAssistant"
+              ? "homeAssistant"
+              : "telegram";
   const gatewayState: MessagingGatewayState =
     gateway.booted && gateway[channel] ? "running" : "stopped";
   return { enabled, setup, gateway: gatewayState, missing };

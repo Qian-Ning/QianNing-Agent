@@ -236,6 +236,26 @@ inbound listener.
   posted twice. End-to-end encryption is not implemented: an `m.room.encrypted`
   event is refused with an audit line naming the room, and the settings panel
   says so in plain language.
+- Home Assistant is the sixth channel and the third push, and it is the one
+  whose inbound half is deliberately narrower than the others. The Host opens
+  `ws(s)://<host>/api/websocket` and drives Home Assistant's own handshake:
+  the server speaks first (`auth_required`), the long-lived access token is
+  answered as `{type:"auth",access_token}`, the server answers `auth_ok` or
+  `auth_invalid`, and `subscribe_events` for `qianning_message` is sent once per
+  connection — the connection attempt resolves only once that subscription is
+  acknowledged, so a revoked token is a reported failure rather than a socket
+  that looks open and never receives anything. Home Assistant has no chat window
+  that hands a third-party agent a message (its Assist pipeline is Home
+  Assistant answering the user, and `conversation/process` is a request *into*
+  Home Assistant), so inbound is the event bus and nothing more: a message
+  arrives when one of the user's automations fires the event, which is stated
+  in the panel and the guide rather than papered over. Replies are
+  `POST /api/services/<domain>/<service>` with the token in `Authorization`,
+  chunked at a declared 4000-character limit and posted sequentially; redirects
+  are refused so the bearer token cannot be bounced to another host, a 401 is a
+  refusal and a 429 waits the platform's `Retry-After` before the shared
+  backoff retries it. Only events of the subscribed type are read, and an event
+  the assistant's own outbound produced is filtered rather than answered.
 - It never blocks a turn: delivery failures are logged and retried with a
   bound, and the Host runs the same whether the adapter is configured or not.
 

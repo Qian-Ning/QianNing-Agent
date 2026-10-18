@@ -14,6 +14,10 @@ import type {
   MattermostSocket,
   MattermostSocketFactory,
 } from "./messaging-mattermost-inbound.js";
+import type {
+  HomeAssistantSocket,
+  HomeAssistantSocketFactory,
+} from "./messaging-home-assistant-inbound.js";
 
 /**
  * The production network seams for the two gateway channels (Discord and
@@ -32,7 +36,9 @@ import type {
  */
 
 /** A websocket factory over `ws`, shaped for either channel's client. */
-function wsSocketFactory<T extends DiscordSocket | MattermostSocket>(): (url: string) => T {
+function wsSocketFactory<T extends DiscordSocket | MattermostSocket | HomeAssistantSocket>(): (
+  url: string,
+) => T {
   return (url: string): T => {
     const socket = new WebSocket(url);
     const wrapper = {
@@ -66,6 +72,11 @@ export function createWsDiscordSocketFactory(): DiscordSocketFactory {
 /** The production websocket client for the Mattermost API. */
 export function createWsMattermostSocketFactory(): MattermostSocketFactory {
   return wsSocketFactory<MattermostSocket>();
+}
+
+/** The production websocket client for Home Assistant's `/api/websocket`. */
+export function createWsHomeAssistantSocketFactory(): HomeAssistantSocketFactory {
+  return wsSocketFactory<HomeAssistantSocket>();
 }
 
 export type DiscordGatewayLookupOptions = {

@@ -56,6 +56,12 @@ import {
   createIrcIngressAdapter,
   type IrcInboundAuditEntry,
 } from "./messaging-irc-inbound.js";
+import {
+  createHomeAssistantIngressAdapter,
+  HOME_ASSISTANT_EVENT_TYPE,
+  HOME_ASSISTANT_WEBSOCKET_PATH,
+  type HomeAssistantInboundAuditEntry,
+} from "./messaging-home-assistant-inbound.js";
 
 // ---------------------------------------------------------------------------
 // Shared doubles
@@ -787,6 +793,153 @@ function ircFixture(): IngressConformanceFixture {
 }
 
 // ---------------------------------------------------------------------------
+// Home Assistant (websocket, event bus)
+// ---------------------------------------------------------------------------
+
+/**
+ * A fake Home Assistant over the shared frame-level socket double.
+ *
+ * The greeting is driven by the fixture rather than by the double, because the
+ * shared `FakeSocket` is a frame sink: the fixture emits `auth_required`,
+ * `auth_ok` and the subscription result in Home Assistant's own order, which is
+ * the ordering under test.
+ */
+function homeAssistantFixture(): IngressConformanceFixture {
+  const handled = durableGuard();
+  const audit: HomeAssistantInboundAuditEntry[] = [];
+  const delivered: string[] = [];
+  let socket: FakeSocket | null = null;
+  const fetchImpl = (async (_url: string, init: RequestInit) => {
+    const body = JSON.parse(String(init.body)) as { message?: string };
+    delivered.push(body.message ?? "");
+    return {
+      status: 200,
+      ok: true,
+      headers: new Headers(),
+      json: async () => ({}),
+    } as unknown as Response;
+  }) as unknown as typeof fetch;
+
+  const adapter = createHomeAssistantIngressAdapter({
+    base: "https://conformance.ha.test",
+    url: `wss://conformance.ha.test${HOME_ASSISTANT_WEBSOCKET_PATH}`,
+    token: "ha-conformance-token",
+    service: "notify.persistent_notification",
+    handled,
+    audit: (entry) => audit.push(entry),
+    connect: () => {
+      socket = new FakeSocket();
+      return socket;
+    },
+    fetchImpl,
+  });
+
+  /** Drive Home Assistant's handshake on the socket the client just opened. */
+  const handshake = async (current: FakeSocket, connecting: Promise<void>): Promise<void> => {
+    current.emit({ type: "auth_required", ha_version: "2024.1.0" });
+    await settle();
+    current.emit({ type: "auth_ok", ha_version: "2024.1.0" });
+    await settle();
+    current.emit({ id: 1, type: "result", success: true, result: null });
+    await connecting;
+    await settle();
+  };
+
+  const open = async (
+    onMessage: (message: IngressMessage) => Promise<void>,
+  ): Promise<IngressConformanceConnection> => {
+    const client = adapter.openClient(onMessage);
+    const connecting = client.connect();
+    const connection = socket as FakeSocket;
+    await handshake(connection, connecting);
+    return {
+      async deliver(raw) {
+        connection.emit({ id: 1, type: "event", event: raw });
+        await settle();
+      },
+      drop() {
+        connection.serverClose();
+      },
+    };
+  };
+
+  const foreignEvent = {
+    event_type: HOME_ASSISTANT_EVENT_TYPE,
+    data: { text: "/start do the thing" },
+    origin: "LOCAL",
+    time_fired: "2026-10-18T10:00:00.000000+00:00",
+    context: { id: "01JCONFORMANCE", parent_id: null, user_id: "user-1" },
+  };
+
+  return {
+    adapter,
+    deliver: (text: string) => {
+      const chunks: string[] = [];
+      const before = delivered.length;
+      const deliverer = adapter.deliver!;
+      const result = (async () => {
+        const outcome = await deliverer("notify.persistent_notification", text);
+        chunks.push(...delivered.slice(before));
+        return outcome;
+      })();
+      return { chatId: "notify.persistent_notification", chunks, result };
+    },
+    foreign: () => ({
+      raw: foreignEvent,
+      expected: {
+        messageId: "01JCONFORMANCE",
+        chatId: "notify.persistent_notification",
+        text: "/start do the thing",
+      },
+    }),
+    // An echo of this assistant's own outbound message: the marker a user's
+    // automation carries when it re-fires a reply it just received.
+    own: () => ({
+      ...foreignEvent,
+      data: { text: "/start from the bot", source: "qianning" },
+      context: { id: "01JOWN" },
+    }),
+    async reconnect(): Promise<IngressReconnectProbe> {
+      const messages: IngressMessage[] = [];
+      const record = async (message: IngressMessage) => {
+        messages.push(message);
+      };
+      return { first: await open(record), reconnect: () => open(record), messages: () => messages };
+    },
+    async refusedCredential() {
+      const refusedAudit: HomeAssistantInboundAuditEntry[] = [];
+      const errors: string[] = [];
+      let refusedSocket: FakeSocket | null = null;
+      const refused = createHomeAssistantIngressAdapter({
+        base: "https://conformance.ha.test",
+        url: `wss://conformance.ha.test${HOME_ASSISTANT_WEBSOCKET_PATH}`,
+        token: "ha-SECRET-token",
+        service: "notify.persistent_notification",
+        handled: durableGuard(),
+        audit: (entry) => refusedAudit.push(entry),
+        connect: () => {
+          refusedSocket = new FakeSocket();
+          return refusedSocket;
+        },
+        fetchImpl,
+      });
+      const client = refused.openClient(async () => {});
+      const connecting = client.connect().catch((error: unknown) => {
+        errors.push(error instanceof Error ? error.message : String(error));
+      });
+      const current = refusedSocket as FakeSocket | null;
+      if (current) {
+        current.emit({ type: "auth_required" });
+        await settle();
+        current.emit({ type: "auth_invalid", message: "Invalid access token or password" });
+      }
+      await connecting;
+      return { token: "ha-SECRET-token", observed: JSON.stringify({ refusedAudit, errors }) };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // The suite
 // ---------------------------------------------------------------------------
 
@@ -797,6 +950,7 @@ const FIXTURES: { name: string; build: () => IngressConformanceFixture }[] = [
   { name: "telegram", build: telegramFixture },
   { name: "matrix", build: matrixFixture },
   { name: "irc", build: ircFixture },
+  { name: "home assistant", build: homeAssistantFixture },
 ];
 
 for (const entry of FIXTURES) {

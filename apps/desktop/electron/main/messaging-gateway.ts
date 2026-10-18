@@ -27,7 +27,8 @@ export type MessagingGatewayChannel =
   | "discord"
   | "mattermost"
   | "matrix"
-  | "irc";
+  | "irc"
+  | "homeAssistant";
 
 /** The answer the renderer reads. */
 export type MessagingGatewaySnapshot = {
@@ -38,6 +39,7 @@ export type MessagingGatewaySnapshot = {
   mattermost: boolean;
   matrix: boolean;
   irc: boolean;
+  homeAssistant: boolean;
 };
 
 /** The part of a started loop this registry needs: its lifetime. */
@@ -95,6 +97,7 @@ export class MessagingGatewayRegistry {
       mattermost: this.running.has("mattermost"),
       matrix: this.running.has("matrix"),
       irc: this.running.has("irc"),
+      homeAssistant: this.running.has("homeAssistant"),
     };
   }
 }
