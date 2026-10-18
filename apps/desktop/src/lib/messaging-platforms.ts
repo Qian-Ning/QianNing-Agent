@@ -88,7 +88,8 @@ export type MessagingSectionKey =
   | "messagingMattermost"
   | "messagingMatrix"
   | "messagingIrc"
-  | "messagingHomeAssistant";
+  | "messagingHomeAssistant"
+  | "messagingNtfy";
 
 /** One credential a channel reads, and where the host keeps it. */
 export type MessagingSecretSlot = {
@@ -99,6 +100,12 @@ export type MessagingSecretSlot = {
   hintKey: string;
   /** An example shaped like the real value, never a real one. */
   placeholderKey: string;
+  /**
+   * Whether the credential may be absent on a working channel. ntfy is the
+   * case: a topic on an open or self-hosted server needs no token, so a record
+   * without one is complete rather than a setup gap. Absent means required.
+   */
+  optional?: boolean;
 };
 
 export type MessagingFieldId =
@@ -423,6 +430,60 @@ function ircFields(): MessagingField[] {
       placeholderKey: "settings.messaging.ircServerPasswordPlaceholder",
       consequenceKey: "settings.messaging.consequenceIrcServerPassword",
     },
+  ];
+}
+
+/** ntfy's one credential, optional: a protected topic needs it, an open one does not. */
+const ntfySecrets: MessagingSecretSlot[] = [
+  {
+    id: "access-token",
+    ref: "secret:messaging-ntfy:access-token",
+    labelKey: "settings.messaging.ntfyAccessToken",
+    hintKey: "settings.messaging.ntfyAccessTokenHint",
+    placeholderKey: "settings.messaging.ntfyTokenPlaceholder",
+    optional: true,
+  },
+];
+
+/**
+ * ntfy's fields.
+ *
+ * The topic is the conversation, so it is required. The server URL is
+ * recommended: ntfy's public server is a real default, and a self-hosted server
+ * is entered over it. The access token is recommended rather than required
+ * because a topic on an open server needs none — but leaving it blank on a
+ * server that requires one means the poll is refused, which the field's own
+ * consequence sentence says.
+ */
+function ntfyFields(): MessagingField[] {
+  const shared = channelFields({
+    secrets: [],
+    destinationLabelKey: "settings.messaging.ntfyTopic",
+    destinationHelpKey: "settings.messaging.ntfyTopicHelp",
+    destinationPlaceholderKey: "settings.messaging.ntfyTopicPlaceholder",
+    subjectPlaceholderKey: "settings.messaging.subjectPlaceholderNtfy",
+    endpointPlaceholderKey: "settings.messaging.endpointPlaceholderNtfy",
+  });
+  const field = (id: MessagingFieldId | "access-token"): MessagingField[] => {
+    const found = shared.find((entry) => entry.id === id);
+    return found ? [found] : [];
+  };
+  const destination = shared.find((entry) => entry.id === "destination");
+  return [
+    ...(destination ? [{ ...destination, consequenceKey: "settings.messaging.consequenceNtfyTopic" }] : []),
+    ...field("subject"),
+    ...field("roles"),
+    {
+      id: "access-token" as const,
+      group: "recommended" as const,
+      labelKey: "settings.messaging.ntfyAccessToken",
+      helpKey: "settings.messaging.ntfyAccessTokenHint",
+      placeholderKey: "settings.messaging.ntfyTokenPlaceholder",
+      consequenceKey: "settings.messaging.consequenceNtfyToken",
+    },
+    ...field("permissionMode"),
+    ...field("endpoint"),
+    ...field("requestTimeoutMs"),
   ];
 }
 
@@ -908,14 +969,26 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "ntfy",
-    support: "unsupported",
+    support: "supported",
+    section: "messagingNtfy",
+    format: "pi-desktop-messaging-ntfy",
+    version: 1,
+    // ntfy's public server is a real default; a self-hosted server replaces it.
+    defaultEndpoint: "https://ntfy.sh",
     labelKey: "settings.messaging.platformNtfy",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "longConnection",
-    requirementKey: "settings.messaging.needsSocket",
-    guideUrl: "https://docs.ntfy.sh/subscribe/phone/",
-    credentialStepKeys: [],
-    secrets: [],
+    blurbKey: "settings.messaging.blurbNtfy",
+    noteKey: "settings.messaging.ntfyPublicTopicNote",
+    limitationKey: "settings.messaging.ntfyLimitations",
+    guideUrl: "https://docs.ntfy.sh/subscribe/api/",
+    credentialStepKeys: [
+      "settings.messaging.stepNtfy1",
+      "settings.messaging.stepNtfy2",
+      "settings.messaging.stepNtfy3",
+      "settings.messaging.stepNtfy4",
+      "settings.messaging.stepNtfy5",
+    ],
+    secrets: ntfySecrets,
+    fields: ntfyFields(),
   },
   {
     id: "raft",
@@ -984,7 +1057,8 @@ export type MessagingGatewayChannel =
   | "mattermost"
   | "matrix"
   | "irc"
-  | "homeAssistant";
+  | "homeAssistant"
+  | "ntfy";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -1001,6 +1075,7 @@ export type MessagingGatewaySnapshot = {
   matrix: boolean;
   irc: boolean;
   homeAssistant: boolean;
+  ntfy: boolean;
 };
 
 /** The snapshot to use before the first reply arrives: nothing is known to run. */
@@ -1013,7 +1088,50 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   matrix: false,
   irc: false,
   homeAssistant: false,
+  ntfy: false,
 };
+
+/** The catalogue ids that own a receive loop, i.e. the snapshot's channel keys. */
+type GatewayBackedPlatformId = Extract<MessagingPlatformId, MessagingGatewayChannel>;
+
+/**
+ * Which snapshot key each platform's loop is filed under.
+ *
+ * `MessagingGatewaySnapshot` is already keyed per channel, so a channel's state
+ * is a lookup on its own key — not a chain of `id === …` comparisons whose final
+ * `else` is free to answer with whichever channel happened to be written last.
+ * Matrix did exactly that: it had no branch of its own and fell through to
+ * Telegram's flag, so a running Matrix loop made the Matrix card report another
+ * channel's state. A table has no tail to fall into.
+ *
+ * The mapping is stated rather than assumed (`id` doubles as the key) because
+ * the two vocabularies are separate types and either side may be renamed alone.
+ * It is typed exhaustively over the gateway-backed ids, so a channel added to
+ * `MessagingGatewayChannel` without an entry here stops compiling, and the test
+ * that walks `SUPPORTED_MESSAGING_PLATFORMS` catches a catalogue channel with
+ * no entry at all.
+ */
+const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, MessagingGatewayChannel>> &
+  Record<GatewayBackedPlatformId, MessagingGatewayChannel> = {
+  telegram: "telegram",
+  slack: "slack",
+  discord: "discord",
+  mattermost: "mattermost",
+  matrix: "matrix",
+  irc: "irc",
+  homeAssistant: "homeAssistant",
+  ntfy: "ntfy",
+};
+
+/**
+ * The snapshot key a platform's loop is filed under, or `null` when this build
+ * has no loop for it. `null` is answered as "not running", never as a sibling's
+ * flag: a channel with no key of its own has no loop to report, and `stopped`
+ * is the honest reading of that — running is the claim that needs evidence.
+ */
+function gatewayChannelFor(id: MessagingPlatformId): MessagingGatewayChannel | null {
+  return GATEWAY_CHANNEL_BY_PLATFORM[id] ?? null;
+}
 
 /** The link roles the inbound driver accepts, in `RACP_ROLES` order. */
 export const MESSAGING_ROLES: RacpRole[] = ["viewer", "controller", "approver", "owner"];
@@ -1184,6 +1302,8 @@ export function missingFromRecord(
     missing.push("link");
   }
   for (const slot of platform.secrets) {
+    // An optional credential is not a setup gap: ntfy's topic may be open.
+    if (slot.optional === true) continue;
     if (secretPresent[slot.ref] !== true) missing.push(slot.id);
   }
   return missing;
@@ -1206,20 +1326,11 @@ export function deriveChannelState(
       : missing.length > 0
         ? "incomplete"
         : "complete";
-  const channel: MessagingGatewayChannel =
-    platform.id === "slack"
-      ? "slack"
-      : platform.id === "discord"
-        ? "discord"
-        : platform.id === "mattermost"
-          ? "mattermost"
-          : platform.id === "irc"
-            ? "irc"
-            : platform.id === "homeAssistant"
-              ? "homeAssistant"
-              : "telegram";
+  // The channel's own key: one lookup, and a platform with no key of its own
+  // reads as stopped instead of inheriting the last branch's flag.
+  const channel = gatewayChannelFor(platform.id);
   const gatewayState: MessagingGatewayState =
-    gateway.booted && gateway[channel] ? "running" : "stopped";
+    channel !== null && gateway.booted && gateway[channel] === true ? "running" : "stopped";
   return { enabled, setup, gateway: gatewayState, missing };
 }
 

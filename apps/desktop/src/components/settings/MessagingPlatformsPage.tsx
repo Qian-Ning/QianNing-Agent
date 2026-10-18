@@ -698,6 +698,7 @@ function missingLabelKey(id: string, platform: SupportedMessagingPlatform): stri
       if (platform.id === "slack") return "settings.messaging.channelId";
       if (platform.id === "discord") return "settings.messaging.discordChannelId";
       if (platform.id === "mattermost") return "settings.messaging.mattermostChannel";
+      if (platform.id === "ntfy") return "settings.messaging.ntfyTopic";
       return "settings.messaging.chatId";
     case "link":
       return "settings.messaging.link";

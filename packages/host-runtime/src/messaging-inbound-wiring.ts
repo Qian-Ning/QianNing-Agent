@@ -20,6 +20,10 @@ import {
   MESSAGING_MATRIX_FORMAT,
   MESSAGING_MATRIX_FORMAT_VERSION,
   MESSAGING_MATRIX_SECTION,
+  MESSAGING_NTFY_ACCESS_TOKEN_SECRET_REF,
+  MESSAGING_NTFY_FORMAT,
+  MESSAGING_NTFY_FORMAT_VERSION,
+  MESSAGING_NTFY_SECTION,
   MESSAGING_SLACK_APP_TOKEN_SECRET_REF,
   MESSAGING_SLACK_FORMAT,
   MESSAGING_SLACK_FORMAT_VERSION,
@@ -32,6 +36,7 @@ import {
   IRC_HANDLED_CAPACITY,
   MATTERMOST_HANDLED_CAPACITY,
   MATRIX_HANDLED_CAPACITY,
+  NTFY_HANDLED_CAPACITY,
   HOME_ASSISTANT_HANDLED_CAPACITY,
   createAgentHostTargets,
   createDiscordInboundPushTransport,
@@ -41,6 +46,8 @@ import {
   createMattermostIdentityLookup,
   createMattermostInboundPushTransport,
   createMatrixInboundPushTransport,
+  createNtfyInboundPushTransport,
+  ntfyApiBase,
   createSettingsHandledMessageStore,
   createSettingsSlackHandledStore,
   createSlackInboundPushTransport,
@@ -71,6 +78,8 @@ import {
   type MattermostSocketFactory,
   type MatrixIdentityLookup,
   type MatrixInboundAudit,
+  type NtfyFetch,
+  type NtfyInboundAudit,
   type MessagingInboundAudit,
   type MessagingInboundAuditEntry,
   type MessagingInboundCursorStore,
@@ -1197,6 +1206,165 @@ export function createMatrixInboundWiring(
     channel: MATRIX_INBOUND_CHANNEL,
     transport: options.transport ?? createConfiguredMatrixTransport(options),
     failureLabel: "inbound matrix loop failed",
+  });
+}
+
+/** The ntfy channel's descriptor, selected by its own bind channel. */
+export const NTFY_INBOUND_CHANNEL: MessagingInboundChannel = {
+  section: MESSAGING_NTFY_SECTION,
+  format: MESSAGING_NTFY_FORMAT,
+  version: MESSAGING_NTFY_FORMAT_VERSION,
+};
+
+/**
+ * The cursor, persisted in the channel's own settings section under
+ * `inbound.sinceId`.
+ *
+ * ntfy's `since=<id>` is an opaque message id with no order, so it is stored
+ * verbatim and read back verbatim: nothing parses it or derives anything from
+ * it. A missing, non-string or blank field reads as "no position stored", which
+ * asks the server for what is published from now on; a write that fails leaves
+ * the last good id in place, and the shared transport only ever writes an id a
+ * poll from the stored one answered with.
+ *
+ * The cost is the same as the Telegram cursor's: a save is a `settings.set`, so
+ * it re-applies the network proxy policy and re-pins the plugin market channel
+ * and locale (host-core's `settings.set`). It is issued only when the id
+ * actually moved, which is a message rate, not a poll rate.
+ */
+export function createSettingsNtfyCursorStore(
+  settings: HostSettingsSurface,
+): IngressCursorStore<string> {
+  return {
+    async load(): Promise<string | null> {
+      const inbound = readInbound(readSection(await settings.read(), MESSAGING_NTFY_SECTION));
+      const value = inbound?.sinceId;
+      return typeof value === "string" && value.trim() ? value.trim() : null;
+    },
+    async save(id: string): Promise<void> {
+      await patchSection(
+        settings,
+        (_section, inbound) => ({ ...inbound, sinceId: id }),
+        MESSAGING_NTFY_SECTION,
+      );
+    },
+  };
+}
+
+/** The audit sink for the ntfy long poll. */
+export function createNtfyInboundAudit(log?: MessagingInboundWiringLog): NtfyInboundAudit {
+  if (!log) return () => {};
+  return (entry) => {
+    const level = entry.kind === "processed" || entry.kind === "duplicate" ? "info" : "warn";
+    log(level, "inbound ntfy channel", { ...entry });
+  };
+}
+
+/**
+ * The ntfy transport, config-gated on the channel's record.
+ *
+ * `start` reads the topic and the server's base URL from the `messagingNtfy`
+ * section and the optional access token from the host's secret store under
+ * `secret:messaging-ntfy:access-token`, and only then starts the long poll. With
+ * no section, no topic or no usable base URL it returns without asking for
+ * anything: an install with no ntfy channel configured starts no loop and
+ * behaves exactly as it did before this channel existed.
+ *
+ * The token is optional because a topic on a public server may be open. That is
+ * also why the panel says, in plain language, that a public topic is readable
+ * by anyone who knows its name: the token protects a topic only when the server
+ * requires it, and a self-hosted server is the honest recommendation.
+ *
+ * The base URL goes through the shared endpoint rule, so a plaintext server is
+ * accepted only on a loopback or private-LAN host under the relaxed policy, and
+ * the token never enters a URL.
+ */
+function createConfiguredNtfyTransport(
+  options: MessagingNtfyWiringOptions,
+): MessagingInboundPushTransport {
+  return {
+    async start(onMessage, signal): Promise<void> {
+      let settings: unknown;
+      try {
+        settings = await options.settings.read();
+      } catch {
+        return;
+      }
+      const record = readTransportRecord(settings, MESSAGING_NTFY_SECTION);
+      if (!record.endpoint || !record.destination) return;
+      const base = ntfyApiBase(record.endpoint, {
+        allowInsecureHttp: allowInsecureUserEndpoints(settings),
+      });
+      if (!base.ok) {
+        options.log?.("warn", "inbound ntfy channel has an unusable endpoint", {
+          error: base.error,
+        });
+        return;
+      }
+      let token: string | null = null;
+      try {
+        token = await options.secrets(MESSAGING_NTFY_ACCESS_TOKEN_SECRET_REF);
+      } catch {
+        token = null;
+      }
+      await createNtfyInboundPushTransport({
+        endpoint: record.endpoint,
+        topic: record.destination,
+        ...(token && token.trim() ? { token: token.trim() } : {}),
+        handled: createSettingsHandledMessageStore({
+          settings: options.settings,
+          section: MESSAGING_NTFY_SECTION,
+          capacity: NTFY_HANDLED_CAPACITY,
+        }),
+        cursor: createSettingsNtfyCursorStore(options.settings),
+        allowInsecureHttp: allowInsecureUserEndpoints(settings),
+        audit: createNtfyInboundAudit(options.log),
+        ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+        ...(options.wait ? { wait: options.wait } : {}),
+      }).start(onMessage, signal);
+    },
+  };
+}
+
+/**
+ * The wiring for the inbound ntfy channel over its `/json` long poll.
+ *
+ * The same driver, binding store and target resolver as every other channel,
+ * over a poll the Host originates. The section (`messagingNtfy`), the topic it
+ * names as `destination`, and the one optional secret (the access token) are
+ * the only differences.
+ *
+ * # The echo loop, and why the receive path can share a topic with the send path
+ *
+ * ntfy has no notion of authorship, so a channel that publishes to the topic it
+ * reads would take its own reply back as a command. The send path tags every
+ * message it posts and this receive path drops a message carrying that tag (see
+ * `messaging-ntfy-send.ts`); the adapter is built with both directions on the
+ * same topic, which is what makes one topic a usable conversation.
+ */
+export type MessagingNtfyWiringOptions = {
+  agentHost: MessagingInboundHostSurface;
+  settings: HostSettingsSurface;
+  secrets: HostSecretReader;
+  signal: AbortSignal;
+  log?: MessagingInboundWiringLog;
+  /** Test seam: the HTTP client, in place of the platform fetch. */
+  fetchImpl?: NtfyFetch;
+  /** Test seam: how the long-poll loop waits. */
+  wait?: (ms: number) => Promise<void>;
+  /** Test seam: a push transport in place of the one built from the settings. */
+  transport?: MessagingInboundPushTransport;
+};
+
+export function createNtfyInboundWiring(options: MessagingNtfyWiringOptions): MessagingInboundWiring {
+  return createIngressWiring({
+    agentHost: options.agentHost,
+    settings: options.settings,
+    signal: options.signal,
+    ...(options.log ? { log: options.log } : {}),
+    channel: NTFY_INBOUND_CHANNEL,
+    transport: options.transport ?? createConfiguredNtfyTransport(options),
+    failureLabel: "inbound ntfy loop failed",
   });
 }
 

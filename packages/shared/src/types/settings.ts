@@ -280,6 +280,7 @@ export type AppSettings = {
   messagingMatrix?: MessagingChannelSettings;
   messagingIrc?: MessagingChannelSettings;
   messagingHomeAssistant?: MessagingChannelSettings;
+  messagingNtfy?: MessagingChannelSettings;
   onboardingDismissed: boolean;
 };
 
