@@ -7,6 +7,7 @@ import {
   MESSAGING_GATEWAY_OFF,
   MESSAGING_PERMISSION_MODES,
   MESSAGING_PLATFORMS,
+  MESSAGING_REQUIREMENT_CLASS_KEYS,
   MESSAGING_ROLES,
   SUPPORTED_MESSAGING_PLATFORMS,
   canSave,
@@ -65,11 +66,12 @@ import {
  *
  * # Breadth
  *
- * The catalogue lists the platforms the reference product lists. Telegram,
- * Slack, Discord, Mattermost and IRC have an adapter in this build; every other
- * entry opens a panel that says so and names the capability that is missing. No dead form is rendered:
- * an unsupported platform has no section, no format and no credentials, so
- * there is nothing a form could write.
+ * The catalogue lists all thirty-three platforms the reference product lists,
+ * in the product's own order. Telegram, Slack, Discord, Mattermost, Matrix and
+ * IRC have an adapter in this build; every other entry opens a panel that says
+ * so, names the capability that is missing, and names the class that capability
+ * belongs to. No dead form is rendered: an unsupported platform has no section,
+ * no format and no credentials, so there is nothing a form could write.
  *
  * # Credentials
  *
@@ -862,6 +864,10 @@ function UnsupportedPanel({ platform }: { platform: MessagingPlatform }) {
   const name = t(platform.labelKey);
   const requirement =
     platform.support === "unsupported" ? t(platform.requirementKey) : "";
+  const requirementClass =
+    platform.support === "unsupported"
+      ? MESSAGING_REQUIREMENT_CLASS_KEYS[platform.requirementClass]
+      : "";
   return (
     <div className="settings-messaging-unsupported" data-panel="unsupported">
       <p className="settings-messaging-unsupported-body">
@@ -870,17 +876,24 @@ function UnsupportedPanel({ platform }: { platform: MessagingPlatform }) {
       <p className="settings-messaging-unsupported-needs">
         {t("settings.messaging.unsupportedNeeds", { platform: name, requirement })}
       </p>
+      <p className="settings-messaging-unsupported-class">
+        {t("settings.messaging.requirementType", {
+          requirementClass: t(requirementClass),
+        })}
+      </p>
       <p className="settings-messaging-unsupported-note">
         {t("settings.messaging.unsupportedNoForm", { platform: name })}
       </p>
-      <a
-        className="settings-messaging-guide"
-        href={platform.guideUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {t("settings.messaging.unsupportedGuide", { platform: name })}
-      </a>
+      {platform.guideUrl ? (
+        <a
+          className="settings-messaging-guide"
+          href={platform.guideUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {t("settings.messaging.unsupportedGuide", { platform: name })}
+        </a>
+      ) : null}
     </div>
   );
 }

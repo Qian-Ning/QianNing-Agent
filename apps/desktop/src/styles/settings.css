@@ -1159,10 +1159,17 @@
 }
 
 .settings-messaging-unsupported-needs,
+.settings-messaging-unsupported-class,
 .settings-messaging-unsupported-note {
   color: var(--ds-text-secondary);
   font-size: var(--text-sm);
   line-height: var(--leading-body);
+}
+
+/* The class a requirement belongs to: a quieter line, so the specific
+   requirement above it stays the sentence a user reads first. */
+.settings-messaging-unsupported-class {
+  color: var(--ds-text-muted);
 }
 
 .settings-messaging-unsupported-note {
