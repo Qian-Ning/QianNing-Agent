@@ -6,6 +6,7 @@ import {
   SLACK_INBOUND_CHANNEL,
 } from "@pi-desktop/host-runtime";
 import {
+  INGRESS_WEBHOOK_RECEIVER_SECTION,
   MESSAGING_DISCORD_SECTION,
   MESSAGING_EMAIL_SECTION,
   MESSAGING_HOME_ASSISTANT_SECTION,
@@ -148,7 +149,13 @@ export function registerSettingsIpc({
         section !== MESSAGING_IRC_SECTION &&
         section !== MESSAGING_HOME_ASSISTANT_SECTION &&
         section !== MESSAGING_NTFY_SECTION &&
-        section !== MESSAGING_EMAIL_SECTION
+        section !== MESSAGING_EMAIL_SECTION &&
+        // Not a channel, and named no product: the shared inbound-webhook
+        // receiver's own configuration. It belongs here because it is the same
+        // host-internal write path, and it is safe on it because the record
+        // carries a `secret:` ref — there is no field a secret value could be
+        // written into.
+        section !== INGRESS_WEBHOOK_RECEIVER_SECTION
       ) {
         throw Object.assign(new Error("unknown messaging settings section"), {
           errorCode: "INVALID_PARAMS",

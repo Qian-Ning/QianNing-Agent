@@ -18,10 +18,18 @@
  * The reply body is the platform's acknowledgement spelling, supplied by the
  * adapter's normalisation where the platform needs one; the transport's own
  * `ack` shape is a plain `{ challenge }` echo or an empty 200.
+ *
+ * The HTTP surface this transport is called from is
+ * [`IngressWebhookReceiver`](./messaging-ingress-receiver.js): it owns the
+ * port, verifies the raw bytes, enforces the replay window and answers before
+ * this `handle` resolves. `handle` itself stays awaitable and ordering-exact —
+ * authenticate, parse, project, gate, then answer — which is what the receiver
+ * relies on when it decides not to await it.
  */
 
 import {
   IngressGate,
+  ingressAudit,
   type IngressAudit,
   type IngressHandledStore,
   type IngressMessage,
@@ -62,6 +70,7 @@ export type WebhookIngressOptions = {
 export class WebhookIngressTransport {
   private readonly adapter: WebhookIngressAdapter;
   private readonly gate: IngressGate;
+  private readonly audit: IngressAudit;
 
   constructor(adapter: WebhookIngressAdapter, options: WebhookIngressOptions) {
     this.adapter = adapter;
@@ -70,6 +79,7 @@ export class WebhookIngressTransport {
       onMessage: options.onMessage,
       ...(options.audit ? { audit: options.audit } : {}),
     });
+    this.audit = ingressAudit(options.audit);
   }
 
   /** The platform's message limit, for a caller that needs to chunk a reply. */
@@ -83,12 +93,18 @@ export class WebhookIngressTransport {
     try {
       raw = JSON.parse(request.body);
     } catch {
+      this.audit({ kind: "malformed", reason: "the body is not JSON" });
       return { status: 400 };
     }
     const normalisation = this.adapter.normalise(raw);
     if (normalisation.kind !== "message") {
       // A filtered or malformed event is answered 200: the platform should not
       // redeliver something this channel will never act on.
+      this.audit({
+        kind: "filtered",
+        reason: normalisation.reason,
+        ...(normalisation.channelId ? { channelId: normalisation.channelId } : {}),
+      });
       return { status: 200 };
     }
     const outcome = await this.gate.ingest(normalisation.message, normalisation.key);

@@ -13,7 +13,8 @@
  * is what makes the suite evidence rather than decoration.
  */
 
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
+import { request as httpRequest } from "node:http";
 
 import type {
   IngressMessage,
@@ -51,6 +52,14 @@ import {
 } from "./messaging-matrix-inbound.js";
 import { createTelegramIngressAdapter } from "./messaging-inbound.js";
 import { WebhookIngressTransport } from "./messaging-ingress-webhook.js";
+import {
+  IngressWebhookReceiver,
+  type IngressWebhookAddress,
+} from "./messaging-ingress-receiver.js";
+import {
+  createHmacTimestampVerifier,
+  signIngressWebhookBody,
+} from "./messaging-ingress-verify.js";
 import { createIngressRawSocketPair } from "./messaging-ingress-conformance.js";
 import {
   createIrcIngressAdapter,
@@ -1195,11 +1204,18 @@ const FIXTURES: { name: string; build: () => IngressConformanceFixture }[] = [
   { name: "home assistant", build: homeAssistantFixture },
   { name: "ntfy", build: ntfyFixture },
   { name: "email", build: emailFixture },
+  // The generic callback platform: no product, no adapter of its own. It exists
+  // so the receiver's own guarantees are part of the shared suite and every
+  // callback platform after it inherits them.
+  { name: "generic webhook", build: genericWebhookFixture },
 ];
 
 for (const entry of FIXTURES) {
   describe(`${entry.name} ingress conformance`, () => {
     const fixture = entry.build();
+    afterAll(async () => {
+      await fixture.dispose?.();
+    });
     for (const scenario of ingressConformanceScenarios(fixture)) {
       it(scenario.name, scenario.run);
     }
@@ -1228,6 +1244,115 @@ function hookAdapter() {
         message: { messageId: event.id, chatId: event.chat, text: event.text },
         key: event.id,
       };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The generic callback platform
+// ---------------------------------------------------------------------------
+
+const GENERIC_WEBHOOK_PATH = "generic-webhook";
+const GENERIC_WEBHOOK_SECRET = "generic-webhook-conformance-secret";
+
+/** One signed POST through the real receiver; the answer's status is the result. */
+function webhookPost(
+  port: number,
+  path: string,
+  body: Buffer,
+  headers: Record<string, string>,
+): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(
+      {
+        host: "127.0.0.1",
+        port,
+        path,
+        method: "POST",
+        headers: { ...headers, "content-length": String(body.length) },
+      },
+      (res) => {
+        res.resume();
+        res.on("end", () => resolve(res.statusCode ?? 0));
+      },
+    );
+    req.on("error", reject);
+    req.end(body);
+  });
+}
+
+/**
+ * The generic callback platform the receiver is proved with: no product, no
+ * credential, one JSON event and the shared HMAC scheme.
+ *
+ * Each handle a scenario opens gets its own receiver and its own durable guard,
+ * on port `0` so the suite never collides with a port CI already holds. Sharing
+ * one receiver across scenarios would make an earlier scenario's message key
+ * visible to a later one and turn the replay assertion into a test of the
+ * group's ordering rather than of the receiver. `dispose` closes them all.
+ */
+function genericWebhookFixture(): IngressConformanceFixture {
+  const receivers: IngressWebhookReceiver[] = [];
+  let deliveries = 0;
+
+  return {
+    adapter: hookAdapter(),
+    foreign: () => ({
+      raw: {
+        kind: "message",
+        id: "generic-1",
+        chat: "generic-chat",
+        text: "hello from the platform",
+        from: "human",
+      },
+      expected: {
+        messageId: "generic-1",
+        chatId: "generic-chat",
+        text: "hello from the platform",
+      },
+    }),
+    own: () => ({ kind: "message", id: "generic-own", chat: "generic-chat", text: "mine", from: "bot" }),
+    webhook() {
+      const messages: IngressMessage[] = [];
+      const receiver = new IngressWebhookReceiver({
+        platforms: {
+          [GENERIC_WEBHOOK_PATH]: {
+            verifier: createHmacTimestampVerifier({ secret: GENERIC_WEBHOOK_SECRET }),
+            adapter: hookAdapter(),
+            onMessage: async (message) => {
+              messages.push(message);
+            },
+          },
+        },
+        handled: durableGuard(),
+        port: 0,
+      });
+      receivers.push(receiver);
+      let bound: IngressWebhookAddress | null = null;
+      return {
+        platform: GENERIC_WEBHOOK_PATH,
+        async deliver(raw, options = {}) {
+          bound ??= await receiver.start();
+          deliveries += 1;
+          const body = Buffer.from(JSON.stringify(raw));
+          const timestamp = String(options.timestamp ?? Math.floor(Date.now() / 1000));
+          const status = await webhookPost(bound.port, `/webhooks/${GENERIC_WEBHOOK_PATH}`, body, {
+            "content-type": "application/json",
+            "x-webhook-timestamp": timestamp,
+            "x-webhook-signature": signIngressWebhookBody(GENERIC_WEBHOOK_SECRET, timestamp, body),
+            "x-webhook-delivery": options.deliveryId ?? `delivery-${deliveries}`,
+          });
+          return { status };
+        },
+        async settled() {
+          for (let i = 0; i < 8; i += 1) await new Promise<void>((resolve) => setImmediate(resolve));
+        },
+        messages: () => messages,
+      };
+    },
+    async dispose() {
+      for (const receiver of receivers) await receiver.stop();
+      receivers.length = 0;
     },
   };
 }

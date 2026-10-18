@@ -159,6 +159,34 @@ export type IngressCredentialRefusal = {
 };
 
 /**
+ * A callback channel's half of the receiver scenarios.
+ *
+ * The receiver is the real one ([`IngressWebhookReceiver`]), listening on a
+ * loopback port the test allocated by asking for port `0`, and signing with the
+ * generic HMAC scheme unless the platform's fixture proves its own. The suite
+ * supplies the assertions, so the ten callback platforms share one set of
+ * guarantees rather than ten copies of "did the signature check work".
+ *
+ * `settled` exists because the receiver answers before the turn runs: the
+ * response is not the turn's completion, and a scenario that checked
+ * `messages()` right after `deliver` would be asserting the opposite of the
+ * ordering this receiver is built for.
+ */
+export type IngressWebhookFixture = {
+  /** The platform's own path segment under `/webhooks/`. */
+  platform: string;
+  /** One signed POST, as the platform would send it. */
+  deliver(
+    raw: unknown,
+    options?: { timestamp?: number; deliveryId?: string },
+  ): Promise<{ status: number }>;
+  /** Let the accepted delivery's turn settle, without waiting on a wall clock. */
+  settled(): Promise<void>;
+  /** Every message this handle's receiver has routed, since the handle opened. */
+  messages(): IngressMessage[];
+};
+
+/**
  * A long-poll channel's own half of the cursor scenarios.
  *
  * A long poll is a pull like Telegram's, but its cursor is an opaque token with
@@ -186,6 +214,13 @@ export type IngressConformanceFixture = {
   reconnect?(): Promise<IngressReconnectProbe>;
   /** A long-poll channel's opaque-token half: its poll and its projection. */
   longPoll?(): IngressLongPollFixture;
+  /** A callback channel's live receiver, where the channel is served by one. */
+  webhook?(): IngressWebhookFixture;
+  /**
+   * Release anything the fixture started that outlives one scenario — a live
+   * receiver, a socket. The suite file calls it after the group.
+   */
+  dispose?(): Promise<void>;
   /** A refused credential, where the channel holds one. */
   refusedCredential?(): Promise<IngressCredentialRefusal>;
   /**
@@ -525,6 +560,60 @@ export function ingressConformanceScenarios(
           throw new Error("the routing path failed");
         });
         assert.deepEqual(saved, [], "a batch that was not applied must not advance the token");
+      },
+    });
+  }
+
+  if (fixture.webhook) {
+    const webhook = fixture.webhook.bind(fixture);
+    scenarios.push({
+      name: "a signed delivery through the receiver produces exactly one turn",
+      async run() {
+        const { raw, expected } = fixture.foreign();
+        const delivery = webhook();
+        const response = await delivery.deliver(raw, { deliveryId: "conformance-once" });
+        assert.equal(response.status, 200, "an authentic delivery must be acknowledged");
+        await delivery.settled();
+        assert.deepEqual(delivery.messages(), [expected]);
+      },
+    });
+    scenarios.push({
+      name: "a replayed delivery id produces no second turn",
+      async run() {
+        const { raw } = fixture.foreign();
+        const delivery = webhook();
+        const first = await delivery.deliver(raw, { deliveryId: "conformance-replay" });
+        await delivery.settled();
+        const second = await delivery.deliver(raw, { deliveryId: "conformance-replay" });
+        await delivery.settled();
+        assert.equal(first.status, 200);
+        assert.equal(
+          second.status,
+          200,
+          "a replay is acknowledged, not refused: the platform must stop retrying",
+        );
+        assert.equal(
+          delivery.messages().length,
+          1,
+          "a replayed delivery id must not become a second turn",
+        );
+      },
+    });
+    scenarios.push({
+      name: "a stale timestamp is rejected and becomes no turn",
+      async run() {
+        const { raw } = fixture.foreign();
+        const delivery = webhook();
+        // A day old is outside every sane window; a fixture whose receiver
+        // accepted it would have a window of a day or more.
+        const stale = Math.floor(Date.now() / 1000) - 86_400;
+        const response = await delivery.deliver(raw, {
+          timestamp: stale,
+          deliveryId: "conformance-stale",
+        });
+        await delivery.settled();
+        assert.equal(response.status, 401, "a timestamp outside the window must be refused");
+        assert.deepEqual(delivery.messages(), []);
       },
     });
   }
