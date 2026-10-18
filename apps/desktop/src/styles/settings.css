@@ -900,10 +900,37 @@
   gap: 8px;
 }
 
-.settings-messaging-head .settings-messaging-head-action {
-  flex: 0 0 auto;
-  min-width: 6.5rem;
-  white-space: nowrap;
+/*
+  The header's enable control: a real switch plus the sentence that names the
+  other position. The switch alone would say "off"; the note is what tells a
+  reader who has only ever seen "Enable now" that turning it off is a thing the
+  page can do.
+*/
+.settings-messaging-head-enable {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.settings-messaging-head-enable-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  max-width: 17rem;
+}
+
+.settings-messaging-head-enable-state {
+  color: var(--ds-text-primary);
+  font-size: var(--text-xs-plus);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-compact);
+}
+
+.settings-messaging-head-enable-note {
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact-plus);
 }
 
 .settings-messaging-head-hint {
@@ -1018,19 +1045,46 @@
   font-weight: var(--font-weight-medium);
 }
 
+/*
+  A guide link leaves the app, so it has to look like a link before it is read:
+  the interactive accent rather than body ink, an underline that is always
+  there, an external marker after the label, and a focus ring. Colour alone is
+  never the affordance — the underline and the marker carry it too — which also
+  covers themes where `--ds-accent` resolves to plain ink.
+*/
 .settings-messaging-guide {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   justify-self: start;
-  color: var(--ds-text-secondary);
+  border-radius: var(--radius-3xs);
+  color: var(--ds-accent);
   font-size: var(--text-sm);
   text-decoration: underline;
-  text-decoration-color: var(--ds-border-strong);
+  text-decoration-color: color-mix(in oklab, var(--ds-accent) 45%, transparent);
+  text-decoration-thickness: 1px;
   text-underline-offset: 3px;
+  transition:
+    color var(--motion-duration-fast) var(--motion-ease-out),
+    text-decoration-color var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.settings-messaging-guide:focus-visible {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: 2px;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .settings-messaging-guide:hover {
-    color: var(--ds-text-primary);
+    color: var(--ds-accent-hover);
+    text-decoration-color: currentColor;
   }
+}
+
+/* The marker that says the destination is outside the app. */
+.settings-messaging-guide-mark {
+  flex: 0 0 auto;
+  opacity: 0.75;
 }
 
 .settings-messaging-quick {

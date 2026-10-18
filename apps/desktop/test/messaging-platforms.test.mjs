@@ -1004,29 +1004,85 @@ test("the panel carries the walkthrough, the groups and the footer action", () =
 });
 
 /**
- * The header shortcut is a shortcut, not a second form: it lives in the
- * component that owns the draft, and it persists through the same `onSave` the
- * footer's submit uses.
+ * The header control is a two-way affordance, not a one-way button: it is a
+ * switch whose checked state IS the stored state, and flipping it persists
+ * through the same `onSave` the footer's submit uses.
+ *
+ * An earlier version rendered a button that named only the direction that was
+ * possible (`enableNow` / `disableNow`). On a channel with no record that is
+ * always "Enable now", which twice read to a user as "this channel cannot be
+ * turned off". The switch plus the note that names the other position is the
+ * fix, so this test pins the switch rather than the old labels.
  */
-test("the header's quick enable action persists through the panel's submit path", () => {
+test("the header's enable switch is two-way and persists through the panel's submit path", () => {
   const detail = page.slice(
     page.indexOf("function MessagingDetail"),
     page.indexOf("function SupportedPanel"),
   );
   assert.ok(detail.length > 0, "the detail component is missing");
-  assert.ok(detail.includes("settings.messaging.enableNow"), "no quick enable label");
-  assert.ok(detail.includes("settings.messaging.disableNow"), "no quick disable label");
+  assert.ok(detail.includes("<SettingsToggle"), "the header has no switch");
+  assert.match(detail, /checked=\{storedOn\}/, "the switch does not show the stored state");
+  assert.ok(detail.includes("settings.messaging.headerSwitchLabel"), "the switch has no name");
+  // Both positions are named, and the note for the current one says what the
+  // other one does — that sentence is what makes the control read as two-way.
+  assert.ok(detail.includes("settings.messaging.headerOnNote"), "no note for the on state");
+  assert.ok(detail.includes("settings.messaging.headerOffNote"), "no note for the off state");
+  assert.ok(
+    detail.includes("settings.messaging.headerOffBlockedNote"),
+    "the blocked off state does not explain itself",
+  );
+  // The one-way button labels are gone from the header.
+  assert.equal(detail.includes("settings.messaging.enableNow"), false);
+  assert.equal(detail.includes("settings.messaging.disableNow"), false);
   assert.match(detail, /await onSave\(draft, next\)/);
   // Enabling is gated on the draft's required fields and says why; disabling is
   // not gated, so it stays available on a channel that is already on.
   assert.ok(detail.includes("settings.messaging.quickEnableBlocked"));
   assert.match(detail, /storedOn \|\| ready/);
+  assert.match(detail, /if \(next && blockedReason !== null\) return;/);
+  // A blocked enable disables the switch instead of letting it appear to move.
+  assert.match(detail, /disabled=\{!storedOn && blockedReason !== null\}/);
   // One draft and one enabled flag for both controls.
   assert.equal((page.match(/useState<MessagingDraft>/g) ?? []).length, 1);
   assert.equal((page.match(/useState\(true\)/g) ?? []).length, 1);
 });
 
-/** The gateway registry: the loop's lifetime is the signal. */
+/**
+ * Every anchor on this page leaves the app, so every one of them has to look
+ * clickable before it is read: the shared guide class, the external marker, and
+ * the stylesheet rules that carry colour, underline, focus ring and hover.
+ *
+ * The count assertion is deliberate. Adding an anchor without the affordance is
+ * the regression this test exists to catch, so a new anchor has to be looked at
+ * here rather than silently inheriting plain-prose styling.
+ */
+test("every guide link on the page carries the link affordance", () => {
+  const anchors = page.match(/<a\b[\s\S]*?<\/a>/g) ?? [];
+  assert.equal(anchors.length, 2, "a new anchor needs the guide-link affordance");
+  for (const anchor of anchors) {
+    assert.ok(
+      anchor.includes('className="settings-messaging-guide"'),
+      "an anchor does not use the guide link class",
+    );
+    assert.ok(anchor.includes("settings-messaging-guide-mark"), "an anchor has no external marker");
+    assert.ok(anchor.includes("settings.messaging.guideExternal"), "the marker is not named");
+    assert.ok(anchor.includes('target="_blank"'), "an anchor does not leave the app");
+  }
+
+  const styles = read("../src/styles/settings.css");
+  const rules = styles.slice(
+    styles.indexOf(".settings-messaging-guide {"),
+    styles.indexOf(".settings-messaging-quick {"),
+  );
+  assert.match(rules, /color: var\(--ds-accent\)/, "the link does not use the interactive colour");
+  assert.match(rules, /text-decoration: underline/, "the link has no underline");
+  assert.match(rules, /:focus-visible \{\s*\n\s*outline: 2px solid var\(--ds-focus\)/, "no focus ring");
+  assert.match(rules, /@media \(hover: hover\) and \(pointer: fine\)/, "hover is not pointer-gated");
+  assert.equal(/color:\s*#/.test(rules), false, "the link rules carry a raw colour literal");
+});
+
+/**
+ * The gateway registry: the loop's lifetime is the signal. */
 test("the gateway registry reports the loops that are actually running", async () => {
   const registry = new MessagingGatewayRegistry();
   assert.deepEqual(registry.snapshot(), {

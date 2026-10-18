@@ -42,6 +42,7 @@ import {
   SettingsToggle,
   cx,
 } from "../ui";
+import { IconExternal } from "../icons";
 
 /**
  * Settings ▸ Messaging platforms.
@@ -379,13 +380,21 @@ function DetailHeader({
 }
 
 /**
- * The selected channel: its header, and the one draft both the header's quick
- * action and the footer's Save write through.
+ * The selected channel: its header, and the one draft both the header's switch
+ * and the footer's Save write through.
  *
  * The draft and the enable intent live here, above both controls, because a
  * quick action that flipped its own copy of the flag would either lose the
  * form's edits or persist something the page never showed. One state, one
- * submit path; the header action is a shortcut, not a second form.
+ * submit path; the header control is a shortcut, not a second form.
+ *
+ * The header control is a switch, not a button that names one direction. A
+ * button can only ever offer the direction that is possible, which reads as
+ * "there is no way back" to anyone who looks at it once and sees only "Enable
+ * now" on a channel they cannot yet use. A switch whose checked state IS the
+ * stored state says both things at once: here is where the channel is, and the
+ * other position is one click away. Flipping it still goes through `onSave`,
+ * the same call the footer's submit makes.
  */
 function MessagingDetail({
   platform,
@@ -425,13 +434,25 @@ function MessagingDetail({
           t("settings.messaging.timeoutInvalid");
 
   const runQuickAction = async () => {
-    if (saving || blockedReason !== null) return;
+    if (saving) return;
     const next = !storedOn;
+    // Turning on is the only direction the draft can block: it writes the form,
+    // so a missing required field would produce a record the channel cannot use.
+    if (next && blockedReason !== null) return;
     // The footer toggle follows what this click persisted, not the other way
     // round: it is the same flag the save just wrote.
     setEnabled(next);
     await onSave(draft, next);
   };
+
+  // The switch is the stored state, so it is truthful after the save re-reads
+  // settings; the note next to it always names the other position, which is
+  // what makes the control read as two-way rather than one-way.
+  const switchNote = storedOn
+    ? t("settings.messaging.headerOnNote")
+    : blockedReason !== null
+      ? t("settings.messaging.headerOffBlockedNote")
+      : t("settings.messaging.headerOffNote");
 
   return (
     <>
@@ -439,21 +460,23 @@ function MessagingDetail({
         platform={platform}
         hint={blockedReason}
         action={
-          <Button
-            type="button"
-            size="sm"
-            variant={storedOn ? "secondary" : "primary"}
-            className="settings-messaging-head-action"
-            disabled={saving || blockedReason !== null}
-            title={blockedReason ?? undefined}
-            onClick={() => void runQuickAction()}
-          >
-            {saving
-              ? t("settings.messaging.saving")
-              : storedOn
-                ? t("settings.messaging.disableNow")
-                : t("settings.messaging.enableNow")}
-          </Button>
+          <div className="settings-messaging-head-enable">
+            <SettingsToggle
+              checked={storedOn}
+              busy={saving}
+              disabled={!storedOn && blockedReason !== null}
+              label={t("settings.messaging.headerSwitchLabel", {
+                platform: t(platform.labelKey),
+              })}
+              onChange={() => void runQuickAction()}
+            />
+            <span className="settings-messaging-head-enable-copy">
+              <span className="settings-messaging-head-enable-state">
+                {t(storedOn ? "settings.messaging.enabledOn" : "settings.messaging.enabledOff")}
+              </span>
+              <span className="settings-messaging-head-enable-note">{switchNote}</span>
+            </span>
+          </div>
         }
       />
       <SupportedPanel
@@ -799,8 +822,10 @@ function SupportedPanel({
           href={platform.guideUrl}
           target="_blank"
           rel="noopener noreferrer"
+          title={t("settings.messaging.guideExternal")}
         >
           {t("settings.messaging.guideLink", { platform: t(platform.labelKey) })}
+          <IconExternal size={12} aria-hidden="true" className="settings-messaging-guide-mark" />
         </a>
       </section>
 
@@ -1093,8 +1118,10 @@ function UnsupportedPanel({ platform }: { platform: MessagingPlatform }) {
             href={platform.guideUrl}
             target="_blank"
             rel="noopener noreferrer"
+            title={t("settings.messaging.guideExternal")}
           >
             {t("settings.messaging.unsupportedGuide", { platform: name })}
+            <IconExternal size={12} aria-hidden="true" className="settings-messaging-guide-mark" />
           </a>
         ) : null}
       </div>
