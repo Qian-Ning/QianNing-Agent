@@ -30,6 +30,17 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
       {
+        version: "1.0.0",
+        date: "2026-10-19",
+        highlights: [
+        "Nine messaging channels now connect the app to real services, in both directions: Telegram, Slack, Discord, Mattermost, Matrix, IRC, Home Assistant, ntfy and email each send a turn's answer out and take the next message back, over a transport the product actually speaks rather than a webhook that only knows summaries. A credential is never part of a stored record — it goes to the host's secret store under its own reference, and turning a channel off clears its configuration while leaving the token where it was. The page lists all thirty-three platforms the product's catalogue covers; the twenty-four this build cannot run yet say which kind of work they need — an outgoing long connection, a public callback endpoint, a poll or local bridge, a transport that is not a chat channel at all, or platform-side approval — because “not supported” without the reason is not a fact a user can act on.",
+        "Eighty-three built-in skills ship inside the application, up from three, and the app discovers them in the resource directory instead of a hand-maintained list, so a skill that is installed is a skill that is offered. They cover the work this product is actually used for — documents someone hands you, images and sound, reading a system and finding out why it breaks, and maintaining a product you did not write — and each one carries a provenance note checked in CI, rather than borrowed text with no stated origin.",
+        "A remote session is now as complete as a local one. Its terminal is carried over the relay, its workspace is resolved on the host that owns the files, and the connection comes back by itself after a drop: the sessions and terminals being watched are resubscribed from the cursor each stream holds, instead of replaying a backlog the desktop never had. Desktop tools are relayed into a remote session too, with one deliberate refusal — a plugin tool that needs the workspace or the filesystem is rejected because the two machines do not share one, and its reason reaches the client instead of being swallowed. A failing tool is a failed tool, never a failed turn.",
+        "Who may act on a session is now a fact the host enforces, not a role a caller can claim. Sessions carry an owner, and a session-addressed operation is admitted once on the path every caller shares when the principal holds the owner role or is that owner; a session with no recorded owner is reached through the owner role, so every existing session behaves exactly as before. Two real holes were reproduced and closed on the way: turn and approval operations resolved their session from an in-memory index that invented state for any id, and a terminal re-attach was authorised against the session the caller named rather than the one the terminal belongs to. The remote protocol gained no operation, parameter or error code, and the two residuals that remain are written down as accepted rather than implied to be closed.",
+        "Settings stopped describing the same machine twice. Connections and Remote Hosts were two layers of one subject — where the agent may work, and whether our host runtime is running there — so they are now one card per machine, with a single add flow, one delete that names what it removed, and the live connection state on the same row. Cloud sync left the navigation without being deleted. The messaging page is its own subject and reports three things that fail for three different reasons — enabled, still needs setup, gateway running — each derived from stored state rather than inferred from the others, which is what stops a channel looking healthy because a sibling's loop happens to be up.",
+        ],
+      },
+      {
         version: "0.20.0",
         date: "2026-10-10",
         highlights: [
@@ -1049,6 +1060,17 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
       {
+        version: "1.0.0",
+        date: "2026-10-19",
+        highlights: [
+        "九个消息渠道现在真的连上了真实服务，而且是双向的：Telegram、Slack、Discord、Mattermost、Matrix、IRC、Home Assistant、ntfy 和邮件，每一个都能把一轮回答发出去、把下一条消息收回来，走的是产品自己实现的传输，而不是一个只懂摘要的 webhook。凭据从不进入存储的记录 —— 它按自己的引用写进宿主的密钥库，关掉一个渠道只会清掉它的配置，令牌还留在原处。页面列出产品目录覆盖的全部三十三个平台；这个版本还跑不了的二十四个，会说明自己缺的是哪一类能力 —— 一条对外的长连接、一个公网回调地址、一轮轮询或本地桥接、一种根本不是聊天渠道的传输，还是平台侧的审核 —— 因为只说「暂不支持」而不说原因，是用户没法据以行动的事实。",
+        "应用内置八十三项技能，此前只有三项；而且应用改为从资源目录里发现它们，不再依赖一份手工维护的清单，所以装上的技能就是会被提供的技能。它们覆盖的正是这个产品被真正用到的活儿 —— 别人交到你手上的文档、图片与声音、读懂一台机器并找出它为什么坏、以及维护一份不是你写的产品 —— 每一项都带有来源说明，并在 CI 里校验，而不是没有出处的转载文字。",
+        "远程会话现在和本地的一样完整。它的终端经由中继承载，工作区在真正持有文件的那台主机上解析，连接断开后会自己回来：正在看的会话与终端按每条流自己持有的游标重新订阅，而不是重放一份桌面端从来没有过的积压。桌面端的工具也会被中继进远程会话，并带一条刻意的拒绝：需要工作区或文件系统的插件工具会被拒绝，因为两台机器并不共享同一个文件系统，拒绝的理由会回到客户端而不是被吞掉。一个工具失败就是一个工具失败，永远不会变成一轮会话失败。",
+        "谁可以操作一个会话，现在是宿主强制执行的事实，而不是调用方可以自称的角色。会话带有归属者，凡是针对会话的操作，都在所有调用方共用的那条路径上被裁决一次：主体持有 owner 角色，或者本身就是归属者，才被放行；没有记录归属者的会话通过 owner 角色抵达，于是所有既有会话的行为和从前完全一致。顺带复现并堵上了两个真实的漏洞：turn 与审批操作此前从一份内存索引里解析会话，而那份索引会为任何 id 凭空造出状态；终端的重新附着此前按调用方点名的会话授权，而不是按终端自己所属的会话。远程协议没有新增任何操作、参数或错误码，仍然存在的两处残余被写进记录、标为已接受，而不是被说成已经关闭。",
+        "设置不再把同一台机器描述两遍。连接与远程主机本来就是同一件事的两层 —— 代理可以在哪里干活，以及我们的宿主运行时是否正在那台机器上跑 —— 所以现在每台机器一张卡片：一套新增流程、一次删除并说明删掉了什么、以及行上实时显示连接状态。云同步从导航里拿掉了，但没有被删除。消息平台是它自己的主题，报告三件因为三种不同原因才会失败的事 —— 是否启用、是否仍然缺少配置、网关是否在运行 —— 每一项都来自存储状态，而不是从另外两项推出来，这才让一个渠道不会因为隔壁渠道的循环恰好活着而显得健康。",
+        ],
+      },
+      {
         version: "0.20.0",
         date: "2026-10-10",
         highlights: [
@@ -2067,6 +2089,17 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+      {
+        version: "1.0.0",
+        date: "2026-10-19",
+        highlights: [
+        "九個訊息頻道現在真的連上了真實服務，而且是雙向的：Telegram、Slack、Discord、Mattermost、Matrix、IRC、Home Assistant、ntfy 和郵件，每一個都能把一輪回答發出去、把下一條訊息收回來，走的是產品自己實作的傳輸，而不是一個只懂摘要的 webhook。憑據從不進入儲存的紀錄 —— 它按自己的引用寫進宿主的金鑰庫，關掉一個頻道只會清掉它的設定，令牌還留在原處。頁面列出產品目錄涵蓋的全部三十三個平台；這個版本還跑不了的二十四個，會說明自己缺的是哪一類能力 —— 一條對外的長連線、一個公網回調位址、一輪輪詢或本機橋接、一種根本不是聊天頻道的傳輸，還是平台側的審核 —— 因為只說「暫不支援」而不說原因，是用戶沒法據以行動的事實。",
+        "應用內建八十三項技能，此前只有三項；而且應用改為從資源目錄裡發現它們，不再依賴一份手工維護的清單，所以裝上的技能就是會被提供的技能。它們涵蓋的正是這個產品被真正用到的活 —— 別人交到你手上的文件、圖片與聲音、讀懂一台機器並找出它為什麼壞、以及維護一份不是你寫的產品 —— 每一項都帶有來源說明，並在 CI 裡檢查，而不是沒有出處的轉載文字。",
+        "遠端會話現在和本機的一樣完整。它的終端經由中繼承載，工作區在真正持有檔案的那台主機上解析，連線斷開後會自己回來：正在看的會話與終端按每條串流自己持有的游標重新訂閱，而不是重放一份桌面端從來沒有過的積壓。桌面端的工具也會被中繼進遠端會話，並帶一條刻意的拒絕：需要工作區或檔案系統的外掛工具會被拒絕，因為兩台機器並不共享同一個檔案系統，拒絕的理由會回到客戶端而不是被吞掉。一個工具失敗就是一個工具失敗，永遠不會變成一輪會話失敗。",
+        "誰可以操作一個會話，現在是宿主強制執行的事實，而不是調用方可以自稱的角色。會話帶有歸屬者，凡是針對會話的操作，都在所有調用方共用的那條路徑上被裁決一次：主體持有 owner 角色，或者本身就是歸屬者，才被放行；沒有紀錄歸屬者的會話透過 owner 角色抵達，於是所有既有會話的行為和從前完全一致。順帶複現並堵上了兩個真實的漏洞：turn 與審批操作此前從一份記憶體索引裡解析會話，而那份索引會為任何 id 憑空造出狀態；終端的重新附著此前按調用方點名的會話授權，而不是按終端自己所屬的會話。遠端協議沒有新增任何操作、參數或錯誤碼，仍然存在的兩處殘餘被寫進紀錄、標為已接受，而不是被說成已經關閉。",
+        "設定不再把同一台機器描述兩遍。連線與遠端主機本來就是同一件事的兩層 —— 代理可以在哪裡幹活，以及我們的宿主執行時是否正在那台機器上跑 —— 所以現在每台機器一張卡片：一套新增流程、一次刪除並說明刪掉了什麼、以及列上即時顯示連線狀態。雲同步從導覽裡拿掉了，但沒有被刪除。訊息平台是它自己的主題，報告三件因為三種不同原因才會失敗的事 —— 是否啟用、是否仍然缺少設定、網關是否在執行 —— 每一項都來自儲存狀態，而不是從另外兩項推出來，這才讓一個頻道不會因為隔孫頻道的迴圈恰好活著而顯得健康。",
+        ],
+      },
       {
         version: "0.20.0",
         date: "2026-10-10",
