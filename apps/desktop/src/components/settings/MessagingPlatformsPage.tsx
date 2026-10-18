@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import type { MessagingChannelSettings } from "@pi-desktop/shared";
 import { useAppStore } from "../../stores/app-store";
@@ -181,8 +189,20 @@ export function MessagingPlatformsPage() {
   const [secretPresent, setSecretPresent] = useState<Record<string, boolean>>({});
   const [gateway, setGateway] = useState<MessagingGatewaySnapshot>(MESSAGING_GATEWAY_OFF);
   const [saving, setSaving] = useState(false);
+  const detailRef = useRef<HTMLElement | null>(null);
 
   const platform = useMemo(() => platformById(selectedId), [selectedId]);
+
+  /**
+   * The detail pane is its own scroll port (settings.css), so the page, not the
+   * window, owns its scroll position: selecting another platform starts that
+   * platform at the top instead of wherever the previous one was left. A layout
+   * effect, because resetting after paint would show the old offset first.
+   */
+  useLayoutEffect(() => {
+    const node = detailRef.current;
+    if (node) node.scrollTop = 0;
+  }, [selectedId]);
 
   /**
    * Presence only: `secrets.has` answers whether the host holds a credential
@@ -324,6 +344,7 @@ export function MessagingPlatformsPage() {
       </div>
 
       <section
+        ref={detailRef}
         className="settings-messaging-detail"
         role="tabpanel"
         aria-label={t(platform.labelKey)}
