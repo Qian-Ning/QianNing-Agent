@@ -45,6 +45,7 @@ import {
   draftFrom,
   draftMissing,
   fieldsInGroup,
+  gatewayPresentation,
   isOwnRecord,
   isTimeoutValid,
   planSecretWrites,
@@ -305,6 +306,33 @@ test("no unsupported platform exposes a credential or a field", () => {
       `${platform.id} lost a credential field`,
     );
   }
+});
+
+/**
+ * A loop only starts for an enabled channel, so "not running" is only a warning
+ * when the channel was actually asked to run.
+ */
+test("the gateway is a warning only for an enabled channel whose loop is dead", () => {
+  const storedOn = deriveChannelState(telegram, TELEGRAM_RECORD, TELEGRAM_SECRET, GATEWAY_DOWN);
+  const neverEnabled = deriveChannelState(telegram, undefined, {}, GATEWAY_DOWN);
+  const running = deriveChannelState(telegram, TELEGRAM_RECORD, TELEGRAM_SECRET, GATEWAY_UP);
+
+  // The fact is untouched: no loop is running in either stopped case.
+  assert.equal(storedOn.gateway, "stopped");
+  assert.equal(neverEnabled.gateway, "stopped");
+  // What the page may claim differs: a channel that was never enabled is idle.
+  assert.equal(gatewayPresentation(storedOn), "stopped");
+  assert.equal(gatewayPresentation(neverEnabled), "idle");
+  assert.equal(gatewayPresentation(running), "running");
+  // An unreadable record is not "enabled", so it is not a false alarm either.
+  const unreadable = deriveChannelState(
+    telegram,
+    { ...TELEGRAM_RECORD, format: "pi-desktop-messaging-slack" },
+    TELEGRAM_SECRET,
+    GATEWAY_DOWN,
+  );
+  assert.equal(unreadable.enabled, "unreadable");
+  assert.equal(gatewayPresentation(unreadable), "idle");
 });
 
 /** The three dimensions, each from its own evidence. */
@@ -972,6 +1000,29 @@ test("the panel carries the walkthrough, the groups and the footer action", () =
   assert.ok(page.includes("field.consequenceKey"), "per-field consequence is not rendered");
   assert.ok(page.includes("<SettingsToggle"), "no enable toggle");
   assert.ok(page.includes("<TelegramQuickSetup"), "Telegram has no quick setup");
+});
+
+/**
+ * The header shortcut is a shortcut, not a second form: it lives in the
+ * component that owns the draft, and it persists through the same `onSave` the
+ * footer's submit uses.
+ */
+test("the header's quick enable action persists through the panel's submit path", () => {
+  const detail = page.slice(
+    page.indexOf("function MessagingDetail"),
+    page.indexOf("function SupportedPanel"),
+  );
+  assert.ok(detail.length > 0, "the detail component is missing");
+  assert.ok(detail.includes("settings.messaging.enableNow"), "no quick enable label");
+  assert.ok(detail.includes("settings.messaging.disableNow"), "no quick disable label");
+  assert.match(detail, /await onSave\(draft, next\)/);
+  // Enabling is gated on the draft's required fields and says why; disabling is
+  // not gated, so it stays available on a channel that is already on.
+  assert.ok(detail.includes("settings.messaging.quickEnableBlocked"));
+  assert.match(detail, /storedOn \|\| ready/);
+  // One draft and one enabled flag for both controls.
+  assert.equal((page.match(/useState<MessagingDraft>/g) ?? []).length, 1);
+  assert.equal((page.match(/useState\(true\)/g) ?? []).length, 1);
 });
 
 /** The gateway registry: the loop's lifetime is the signal. */

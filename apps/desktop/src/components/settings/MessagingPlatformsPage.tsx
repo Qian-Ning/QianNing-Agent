@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { MessagingChannelSettings } from "@pi-desktop/shared";
 import { useAppStore } from "../../stores/app-store";
@@ -13,7 +13,9 @@ import {
   canSave,
   deriveChannelState,
   draftFrom,
+  draftMissing,
   fieldsInGroup,
+  gatewayPresentation,
   isTimeoutValid,
   platformById,
   saveMessagingPlatform,
@@ -21,8 +23,8 @@ import {
   type MessagingDraft,
   type MessagingEnabledState,
   type MessagingField,
+  type MessagingGatewayDisplay,
   type MessagingGatewaySnapshot,
-  type MessagingGatewayState,
   type MessagingPlatform,
   type MessagingPlatformId,
   type MessagingSetupState,
@@ -94,9 +96,21 @@ const SETUP_KEY: Record<MessagingSetupState, string> = {
   unknown: "settings.messaging.setupUnknown",
 };
 
-const GATEWAY_KEY: Record<MessagingGatewayState, string> = {
+/**
+ * The gateway answer as the page phrases it, from the one derived state. The
+ * display type is `idle` for a channel that was never enabled, and `stopped`
+ * (the warning) only when an enabled channel's loop is genuinely dead.
+ */
+const GATEWAY_KEY: Record<MessagingGatewayDisplay, string> = {
   running: "settings.messaging.gatewayRunning",
   stopped: "settings.messaging.gatewayStopped",
+  idle: "settings.messaging.gatewayIdle",
+};
+
+const GATEWAY_NOTE_KEY: Record<MessagingGatewayDisplay, string> = {
+  running: "settings.messaging.gatewayRunningNote",
+  stopped: "settings.messaging.gatewayStoppedNote",
+  idle: "settings.messaging.gatewayIdleNote",
 };
 
 function enabledTone(value: MessagingEnabledState): "neutral" | "success" | "warning" | "error" {
@@ -112,13 +126,16 @@ function setupTone(value: MessagingSetupState): "neutral" | "success" | "warning
   return "neutral";
 }
 
-function gatewayTone(value: MessagingGatewayState): "neutral" | "success" | "warning" {
-  return value === "running" ? "success" : "warning";
+function gatewayTone(display: MessagingGatewayDisplay): "neutral" | "success" | "warning" {
+  if (display === "running") return "success";
+  if (display === "stopped") return "warning";
+  return "neutral";
 }
 
 /** One dot per state dimension in the rail row: dense, but never collapsed. */
 function StatePips({ state }: { state: MessagingChannelState }) {
   const { t } = useTranslation();
+  const gateway = gatewayPresentation(state);
   const pips = [
     {
       key: "enabled",
@@ -134,8 +151,8 @@ function StatePips({ state }: { state: MessagingChannelState }) {
     },
     {
       key: "gateway",
-      value: GATEWAY_KEY[state.gateway],
-      tone: state.gateway === "running" ? "on" : "off",
+      value: GATEWAY_KEY[gateway],
+      tone: gateway === "running" ? "on" : gateway === "stopped" ? "warn" : "off",
       label: t("settings.messaging.stateGateway"),
     },
   ];
@@ -311,22 +328,8 @@ export function MessagingPlatformsPage() {
         aria-label={t(platform.labelKey)}
         data-support={platform.support}
       >
-        <header className="settings-messaging-head">
-          <div className="settings-messaging-head-copy">
-            <h3 className="settings-card-heading">{t(platform.labelKey)}</h3>
-            <p className="settings-messaging-blurb">{t(platform.blurbKey)}</p>
-          </div>
-          <Badge tone={platform.support === "supported" ? "neutral" : "warning"}>
-            {t(
-              platform.support === "supported"
-                ? "settings.messaging.supportSupported"
-                : "settings.messaging.supportUnsupported",
-            )}
-          </Badge>
-        </header>
-
         {platform.support === "supported" ? (
-          <SupportedPanel
+          <MessagingDetail
             key={platform.id}
             platform={platform}
             record={settings?.[platform.section] as MessagingChannelSettings | undefined}
@@ -340,6 +343,131 @@ export function MessagingPlatformsPage() {
         )}
       </section>
     </div>
+  );
+}
+
+/** The detail header: what the platform is, how it is supported, and the action. */
+function DetailHeader({
+  platform,
+  action,
+  hint,
+}: {
+  platform: MessagingPlatform;
+  action?: ReactNode;
+  hint?: string | null;
+}) {
+  const { t } = useTranslation();
+  return (
+    <header className="settings-messaging-head">
+      <div className="settings-messaging-head-copy">
+        <h3 className="settings-card-heading">{t(platform.labelKey)}</h3>
+        <p className="settings-messaging-blurb">{t(platform.blurbKey)}</p>
+      </div>
+      <div className="settings-messaging-head-actions">
+        <Badge tone={platform.support === "supported" ? "neutral" : "warning"}>
+          {t(
+            platform.support === "supported"
+              ? "settings.messaging.supportSupported"
+              : "settings.messaging.supportUnsupported",
+          )}
+        </Badge>
+        {action}
+      </div>
+      {hint ? <p className="settings-messaging-head-hint">{hint}</p> : null}
+    </header>
+  );
+}
+
+/**
+ * The selected channel: its header, and the one draft both the header's quick
+ * action and the footer's Save write through.
+ *
+ * The draft and the enable intent live here, above both controls, because a
+ * quick action that flipped its own copy of the flag would either lose the
+ * form's edits or persist something the page never showed. One state, one
+ * submit path; the header action is a shortcut, not a second form.
+ */
+function MessagingDetail({
+  platform,
+  record,
+  secretPresent,
+  gateway,
+  saving,
+  onSave,
+}: {
+  platform: SupportedMessagingPlatform;
+  record: MessagingChannelSettings | undefined;
+  secretPresent: Record<string, boolean>;
+  gateway: MessagingGatewaySnapshot;
+  saving: boolean;
+  onSave: (draft: MessagingDraft, enabled: boolean) => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const [draft, setDraft] = useState<MessagingDraft>(() => draftFrom(platform, record));
+  // The toggle is the intent of THIS save. It starts on because a channel with
+  // no record is the one being set up; turning it off is how an existing one is
+  // removed. The state strip still reports the stored truth until Save.
+  const [enabled, setEnabled] = useState(true);
+  const state = deriveChannelState(platform, record, secretPresent, gateway);
+  const storedOn = state.enabled === "on";
+  const missing = draftMissing(platform, draft);
+  const ready = missing.length === 0 && isTimeoutValid(draft);
+  // Enabling needs the fields this draft would store. Disabling never does, so
+  // the action stays available on a channel that is already on.
+  const blockedReason =
+    storedOn || ready
+      ? null
+      : missing.length > 0
+        ? t("settings.messaging.quickEnableBlocked", {
+            fields: missing.map((id) => t(missingLabelKey(id, platform))).join(", "),
+          })
+        : // The only reason left is the timeout field, which has its own sentence.
+          t("settings.messaging.timeoutInvalid");
+
+  const runQuickAction = async () => {
+    if (saving || blockedReason !== null) return;
+    const next = !storedOn;
+    // The footer toggle follows what this click persisted, not the other way
+    // round: it is the same flag the save just wrote.
+    setEnabled(next);
+    await onSave(draft, next);
+  };
+
+  return (
+    <>
+      <DetailHeader
+        platform={platform}
+        hint={blockedReason}
+        action={
+          <Button
+            type="button"
+            size="sm"
+            variant={storedOn ? "secondary" : "primary"}
+            className="settings-messaging-head-action"
+            disabled={saving || blockedReason !== null}
+            title={blockedReason ?? undefined}
+            onClick={() => void runQuickAction()}
+          >
+            {saving
+              ? t("settings.messaging.saving")
+              : storedOn
+                ? t("settings.messaging.disableNow")
+                : t("settings.messaging.enableNow")}
+          </Button>
+        }
+      />
+      <SupportedPanel
+        platform={platform}
+        state={state}
+        draft={draft}
+        enabled={enabled}
+        saving={saving}
+        secretPresent={secretPresent}
+        onDraftChange={(next) => setDraft((current) => ({ ...current, ...next }))}
+        onEnabledChange={() => setEnabled((current) => !current)}
+        onSave={onSave}
+      />
+    </>
   );
 }
 
@@ -367,32 +495,33 @@ function StateRow({
 
 function SupportedPanel({
   platform,
-  record,
-  secretPresent,
-  gateway,
+  state,
+  draft,
+  enabled,
   saving,
+  secretPresent,
+  onDraftChange,
+  onEnabledChange,
   onSave,
 }: {
   platform: SupportedMessagingPlatform;
-  record: MessagingChannelSettings | undefined;
-  secretPresent: Record<string, boolean>;
-  gateway: MessagingGatewaySnapshot;
+  state: MessagingChannelState;
+  draft: MessagingDraft;
+  enabled: boolean;
   saving: boolean;
+  secretPresent: Record<string, boolean>;
+  onDraftChange: (next: Partial<MessagingDraft>) => void;
+  onEnabledChange: () => void;
   onSave: (draft: MessagingDraft, enabled: boolean) => Promise<void>;
 }) {
   const { t } = useTranslation();
-  const [draft, setDraft] = useState<MessagingDraft>(() => draftFrom(platform, record));
-  const state = deriveChannelState(platform, record, secretPresent, gateway);
-  // The toggle is the intent of THIS save. It starts on because a channel with
-  // no record is the one being set up; turning it off is how an existing one is
-  // removed. The state strip still reports the stored truth until Save.
-  const [enabled, setEnabled] = useState(true);
   const timeoutValid = isTimeoutValid(draft);
   const ready = canSave(platform, draft);
+  const gateway = gatewayPresentation(state);
   const required = fieldsInGroup(platform, "required");
   const recommended = fieldsInGroup(platform, "recommended");
 
-  const patch = (next: Partial<MessagingDraft>) => setDraft({ ...draft, ...next });
+  const patch = onDraftChange;
 
   const fieldControl = (field: MessagingField) => {
     const id = `messaging-${platform.id}-${field.id}`;
@@ -425,6 +554,11 @@ function SupportedPanel({
                 : t("settings.messaging.secretMissing")}
               <span className="settings-messaging-secret-ref">{slot.ref}</span>
             </span>
+            <p className="settings-messaging-secret-hint">
+              {secretPresent[slot.ref]
+                ? t("settings.messaging.secretStoredHint")
+                : t("settings.messaging.secretNotStoredHint")}
+            </p>
           </div>
         );
       }
@@ -624,9 +758,9 @@ function SupportedPanel({
         />
         <StateRow
           labelKey="settings.messaging.stateGateway"
-          valueKey={GATEWAY_KEY[state.gateway]}
-          tone={gatewayTone(state.gateway)}
-          noteKey="settings.messaging.stateGatewayNote"
+          valueKey={GATEWAY_KEY[gateway]}
+          tone={gatewayTone(gateway)}
+          noteKey={GATEWAY_NOTE_KEY[gateway]}
         />
       </div>
 
@@ -645,7 +779,7 @@ function SupportedPanel({
       {platform.id === "telegram" ? (
         <TelegramQuickSetup
           disabled={saving}
-          onApply={(next) => setDraft((current) => ({ ...current, ...next }))}
+          onApply={(next) => onDraftChange(next)}
         />
       ) : null}
 
@@ -705,18 +839,30 @@ function SupportedPanel({
               checked={enabled}
               busy={saving}
               label={t("settings.messaging.enableToggle", { platform: t(platform.labelKey) })}
-              onChange={() => setEnabled((current) => !current)}
+              onChange={onEnabledChange}
             />
             <div className="settings-messaging-enable-copy">
-              <span className="settings-messaging-enable-title">
-                {t(enabled ? "settings.messaging.enabledOn" : "settings.messaging.enabledOff")}
+              {/* The title names the setting; the badge next to it shows the
+                  state this save would write. A state string is not a name. */}
+              <span className="settings-messaging-enable-heading">
+                <span className="settings-messaging-enable-title">
+                  {t("settings.messaging.enableTitle")}
+                </span>
+                <Badge tone={enabled ? "success" : "neutral"}>
+                  {t(enabled ? "settings.messaging.enabledOn" : "settings.messaging.enabledOff")}
+                </Badge>
               </span>
               <span className="settings-messaging-enable-note">
                 {t("settings.messaging.enableNote")}
               </span>
             </div>
           </div>
-          <Button type="submit" variant="primary" disabled={saving || (enabled && !ready)}>
+          <Button
+            type="submit"
+            variant="primary"
+            className="settings-messaging-footer-action"
+            disabled={saving || (enabled && !ready)}
+          >
             {saving
               ? t("settings.messaging.saving")
               : enabled
@@ -752,6 +898,20 @@ function missingLabelKey(id: string, platform: SupportedMessagingPlatform): stri
       return "settings.messaging.ircNick";
     case "channels":
       return "settings.messaging.ircChannels";
+    case "imapHost":
+      return "settings.messaging.emailImapHost";
+    case "imapPort":
+      return "settings.messaging.emailImapPort";
+    case "smtpHost":
+      return "settings.messaging.emailSmtpHost";
+    case "smtpPort":
+      return "settings.messaging.emailSmtpPort";
+    case "username":
+      return "settings.messaging.emailUsername";
+    case "allowedSenders":
+      return "settings.messaging.emailAllowedSenders";
+    case "password":
+      return "settings.messaging.emailPassword";
     default:
       return "settings.messaging.botToken";
   }
@@ -910,31 +1070,34 @@ function UnsupportedPanel({ platform }: { platform: MessagingPlatform }) {
       ? MESSAGING_REQUIREMENT_CLASS_KEYS[platform.requirementClass]
       : "";
   return (
-    <div className="settings-messaging-unsupported" data-panel="unsupported">
-      <p className="settings-messaging-unsupported-body">
-        {t("settings.messaging.unsupportedBody", { platform: name })}
-      </p>
-      <p className="settings-messaging-unsupported-needs">
-        {t("settings.messaging.unsupportedNeeds", { platform: name, requirement })}
-      </p>
-      <p className="settings-messaging-unsupported-class">
-        {t("settings.messaging.requirementType", {
-          requirementClass: t(requirementClass),
-        })}
-      </p>
-      <p className="settings-messaging-unsupported-note">
-        {t("settings.messaging.unsupportedNoForm", { platform: name })}
-      </p>
-      {platform.guideUrl ? (
-        <a
-          className="settings-messaging-guide"
-          href={platform.guideUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {t("settings.messaging.unsupportedGuide", { platform: name })}
-        </a>
-      ) : null}
-    </div>
+    <>
+      <DetailHeader platform={platform} />
+      <div className="settings-messaging-unsupported" data-panel="unsupported">
+        <p className="settings-messaging-unsupported-body">
+          {t("settings.messaging.unsupportedBody", { platform: name })}
+        </p>
+        <p className="settings-messaging-unsupported-needs">
+          {t("settings.messaging.unsupportedNeeds", { platform: name, requirement })}
+        </p>
+        <p className="settings-messaging-unsupported-class">
+          {t("settings.messaging.requirementType", {
+            requirementClass: t(requirementClass),
+          })}
+        </p>
+        <p className="settings-messaging-unsupported-note">
+          {t("settings.messaging.unsupportedNoForm", { platform: name })}
+        </p>
+        {platform.guideUrl ? (
+          <a
+            className="settings-messaging-guide"
+            href={platform.guideUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t("settings.messaging.unsupportedGuide", { platform: name })}
+          </a>
+        ) : null}
+      </div>
+    </>
   );
 }
