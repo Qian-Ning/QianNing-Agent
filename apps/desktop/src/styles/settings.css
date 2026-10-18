@@ -758,20 +758,20 @@
 .settings-messaging {
   display: grid;
   grid-template-columns: minmax(190px, 250px) minmax(0, 1fr);
-  gap: 16px;
+  gap: 18px;
   align-items: start;
 }
 
 .settings-messaging-chooser {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
 .settings-messaging-chooser-head {
   display: grid;
-  gap: 2px;
-  padding: 0 4px;
+  gap: 3px;
+  padding: 0 2px;
 }
 
 .settings-messaging-chooser-note {
@@ -783,6 +783,10 @@
 .settings-messaging-list {
   display: grid;
   gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md-plus);
+  background: var(--ds-bg-inset);
 }
 
 .settings-messaging-item {
@@ -790,9 +794,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 9px 10px;
   border: 1px solid transparent;
-  border-radius: var(--radius-md-plus);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--ds-text-secondary);
   text-align: left;
@@ -807,6 +811,7 @@
 
 .settings-messaging-item.active {
   background: var(--ds-settings-nav-active);
+  border-color: var(--ds-border-subtle);
   color: var(--ds-text-primary);
 }
 
@@ -860,18 +865,24 @@
 
 .settings-messaging-detail {
   display: grid;
-  gap: 16px;
+  gap: 18px;
   min-width: 0;
-  padding: 16px;
-  border-radius: var(--radius-md-plus);
+  padding: 20px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-lg);
   background: var(--ds-tile);
 }
 
+/*
+  The header is a two-column grid rather than a flex row: the action cluster
+  keeps its intrinsic width, the title and blurb take the rest, and the blocked
+  reason sits under both, spanning the full width.
+*/
 .settings-messaging-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 16px;
+  align-items: start;
 }
 
 .settings-messaging-head-copy {
@@ -882,10 +893,31 @@
   margin-bottom: 2px;
 }
 
+.settings-messaging-head-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-messaging-head .settings-messaging-head-action {
+  flex: 0 0 auto;
+  min-width: 6.5rem;
+  white-space: nowrap;
+}
+
+.settings-messaging-head-hint {
+  grid-column: 1 / -1;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact);
+}
+
 .settings-messaging-blurb {
+  max-width: 68ch;
   color: var(--ds-text-secondary);
   font-size: var(--text-sm);
-  line-height: var(--leading-compact);
+  line-height: var(--leading-compact-plus);
 }
 
 .settings-messaging-note {
@@ -898,20 +930,40 @@
   line-height: var(--leading-compact);
 }
 
+/* A limit of this build, stated once. Quieter than the note above it: it is a
+   boundary a user has to work around, not an instruction to follow. */
+.settings-messaging-limitation {
+  padding: 10px 12px;
+  border-left: 2px solid var(--ds-border-strong);
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact-plus);
+}
+
 /* Three answers side by side, each with the evidence it was read from. */
 .settings-messaging-states {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
+  align-items: stretch;
 }
 
+/*
+  Each card is the same height and shares one padding rhythm, so the three read
+  as a row of equal answers instead of three boxes of different sizes. The note
+  is pushed to the bottom edge, which is what makes a short and a long note
+  line up rather than leaving ragged white space under one of them.
+*/
 .settings-messaging-state {
-  display: grid;
-  gap: 4px;
-  justify-items: start;
-  padding: 10px 12px;
-  border-radius: var(--radius-md-plus);
-  background: var(--ds-bg-inset);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--ds-bg-primary);
 }
 
 .settings-messaging-state-label {
@@ -923,9 +975,10 @@
 }
 
 .settings-messaging-state-note {
+  margin-top: auto;
   color: var(--ds-text-muted);
   font-size: var(--text-xs-plus);
-  line-height: var(--leading-compact);
+  line-height: var(--leading-compact-plus);
 }
 
 .settings-messaging-missing {
@@ -945,7 +998,7 @@
 .settings-messaging-steps {
   display: grid;
   gap: 10px;
-  padding: 14px 16px;
+  padding: 16px 18px;
   border-radius: var(--radius-md-plus);
   background: var(--ds-bg-inset);
 }
@@ -983,7 +1036,7 @@
 .settings-messaging-quick {
   display: grid;
   gap: 8px;
-  padding: 14px 16px;
+  padding: 16px 18px;
   border: 1px dashed var(--ds-border-default);
   border-radius: var(--radius-md-plus);
 }
@@ -1022,12 +1075,12 @@
 
 .settings-messaging-form {
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 
 .settings-messaging-group {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -1055,8 +1108,8 @@
 
 .settings-messaging-field {
   display: grid;
-  gap: 5px;
-  padding: 12px 14px;
+  gap: 6px;
+  padding: 14px 16px;
   border: 1px solid var(--ds-border-subtle);
   border-radius: var(--radius-md-plus);
   background: var(--ds-bg-primary);
@@ -1102,31 +1155,60 @@
   font-size: var(--text-xs-plus);
 }
 
+/* The box holds a placeholder, never a stored value, so the line under it says
+   which of the two this is instead of leaving "Not set" beside a masked field. */
+.settings-messaging-secret-hint {
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact-plus);
+}
+
 .settings-messaging-secret-ref {
   color: var(--ds-text-faint);
   font-family: var(--font-mono);
   font-size: var(--text-xs-plus);
 }
 
+/*
+  The action keeps its own width. The enable block on its left grows and wraps
+  its note; a button that is allowed to shrink is a button that renders one
+  character per line, which is what "保/存" used to be.
+*/
 .settings-messaging-footer {
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding-top: 14px;
+  gap: 20px;
+  padding-top: 16px;
   border-top: 1px solid var(--ds-border-subtle);
+}
+
+.settings-messaging-footer .settings-messaging-footer-action {
+  flex: 0 0 auto;
+  min-width: 7rem;
+  white-space: nowrap;
 }
 
 .settings-messaging-enable {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
 
 .settings-messaging-enable-copy {
   display: grid;
-  gap: 2px;
+  gap: 3px;
+  min-width: 0;
+}
+
+.settings-messaging-enable-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -1139,7 +1221,7 @@
 .settings-messaging-enable-note {
   color: var(--ds-text-muted);
   font-size: var(--text-xs-plus);
-  line-height: var(--leading-compact);
+  line-height: var(--leading-compact-plus);
 }
 
 /* An unsupported platform: a statement, never a form. */
@@ -1147,7 +1229,7 @@
   display: grid;
   gap: 10px;
   max-width: 560px;
-  padding: 16px;
+  padding: 18px;
   border: 1px dashed var(--ds-border-default);
   border-radius: var(--radius-md-plus);
 }
@@ -1181,6 +1263,14 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .settings-messaging-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-messaging-head-actions {
+    justify-content: flex-start;
+  }
+
   .settings-messaging-states {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1188,6 +1278,10 @@
   .settings-messaging-footer {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .settings-messaging-footer .settings-messaging-footer-action {
+    align-self: flex-start;
   }
 }
 

@@ -207,11 +207,15 @@
 
 .badge {
   display: inline-flex;
+  /* A badge is a label, never a column of characters: in a tight flex row the
+     neighbours must shorten, not the word inside the pill. */
+  flex: 0 0 auto;
   align-items: center;
   border-radius: var(--radius-full);
   padding: 2px 8px;
   font-size: var(--text-xs);
   line-height: var(--leading-normal);
+  white-space: nowrap;
 }
 .badge-neutral {
   background: color-mix(in oklab, var(--ds-text-primary) 8%, transparent);
