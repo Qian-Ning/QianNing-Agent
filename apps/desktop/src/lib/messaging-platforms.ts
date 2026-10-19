@@ -33,10 +33,10 @@ import type {
  *
  * The list carries all thirty-three platforms the reference product lists, in
  * the product's own order, because a user comparing the two should be able to
- * find a platform where they expect it. Only the seven with a send path and a
+ * find a platform where they expect it. Only the ten with a send path and a
  * receive path in this build (Telegram, Slack, Discord, Mattermost, Matrix,
- * Home Assistant and IRC) are `supported`; the other twenty-six each carry a
- * `requirementClass`
+ * Home Assistant, IRC, ntfy, Email and Signal) are `supported`; the other
+ * twenty-three each carry a `requirementClass`
  * — an outgoing long connection, a public callback, a poll or bridge, a
  * transport rather than a chat channel, or platform-side approval — and the
  * sentence that names the specific capability this build lacks. The panel says
@@ -90,7 +90,8 @@ export type MessagingSectionKey =
   | "messagingIrc"
   | "messagingHomeAssistant"
   | "messagingNtfy"
-  | "messagingEmail";
+  | "messagingEmail"
+  | "messagingSignal";
 
 /** One credential a channel reads, and where the host keeps it. */
 export type MessagingSecretSlot = {
@@ -126,7 +127,8 @@ export type MessagingFieldId =
   | "smtpSecurity"
   | "username"
   | "allowedSenders"
-  | "subjectPrefix";
+  | "subjectPrefix"
+  | "account";
 
 /**
  * Whether a field must be filled before the channel can work at all
@@ -515,6 +517,108 @@ function emailFields(): MessagingField[] {
   ];
 }
 
+/**
+ * Signal's one credential, optional: a bearer token for a bridge that asks for
+ * one. The documented default bridge binds loopback and has none, so leaving
+ * this empty is the normal case rather than a setup gap.
+ */
+const signalSecrets: MessagingSecretSlot[] = [
+  {
+    id: "access-token",
+    ref: "secret:messaging-signal:token",
+    labelKey: "settings.messaging.signalToken",
+    hintKey: "settings.messaging.signalTokenHint",
+    placeholderKey: "settings.messaging.signalTokenPlaceholder",
+    optional: true,
+  },
+];
+
+/**
+ * Signal's fields.
+ *
+ * Two values are the whole setup: the address the bridge answers on, and the
+ * account it is registered for. There is no "destination" — a reply goes to
+ * whoever wrote, exactly as with email — so the record's destination stays
+ * empty and the panel never shows it. The token is optional because a bridge on
+ * loopback normally has none.
+ */
+function signalFields(): MessagingField[] {
+  const field = (
+    id: MessagingField["id"],
+    group: MessagingField["group"],
+    labelKey: string,
+    helpKey: string,
+    placeholderKey: string | undefined,
+    consequenceKey: string,
+  ): MessagingField => ({
+    id,
+    group,
+    labelKey,
+    helpKey,
+    consequenceKey,
+    ...(placeholderKey ? { placeholderKey } : {}),
+  });
+  return [
+    field(
+      "endpoint",
+      "required",
+      "settings.messaging.signalBridgeUrl",
+      "settings.messaging.signalBridgeUrlHint",
+      "settings.messaging.signalBridgeUrlPlaceholder",
+      "settings.messaging.consequenceSignalBridge",
+    ),
+    field(
+      "account",
+      "required",
+      "settings.messaging.signalAccount",
+      "settings.messaging.signalAccountHint",
+      "settings.messaging.signalAccountPlaceholder",
+      "settings.messaging.consequenceSignalAccount",
+    ),
+    field(
+      "allowedSenders",
+      "required",
+      "settings.messaging.signalAllowedSenders",
+      "settings.messaging.signalAllowedSendersHint",
+      "settings.messaging.signalAllowedSendersPlaceholder",
+      "settings.messaging.consequenceSignalSenders",
+    ),
+    {
+      id: "subject",
+      group: "required",
+      labelKey: "settings.messaging.subject",
+      helpKey: "settings.messaging.subjectHint",
+      placeholderKey: "settings.messaging.subjectPlaceholderSignal",
+      consequenceKey: "settings.messaging.consequenceSubject",
+    },
+    {
+      id: "roles",
+      group: "required",
+      labelKey: "settings.messaging.roles",
+      helpKey: "settings.messaging.rolesHint",
+      consequenceKey: "settings.messaging.consequenceRoles",
+    },
+    {
+      // The bridge token is optional and belongs with the recommended fields:
+      // a listener on loopback normally has none, so showing it as required
+      // would make a working channel look unconfigured.
+      id: "access-token",
+      group: "recommended",
+      labelKey: "settings.messaging.signalToken",
+      helpKey: "settings.messaging.signalTokenHint",
+      placeholderKey: "settings.messaging.signalTokenPlaceholder",
+      consequenceKey: "settings.messaging.consequenceSignalToken",
+    },
+    {
+      id: "permissionMode",
+      group: "recommended",
+      labelKey: "settings.messaging.permissionMode",
+      helpKey: "settings.messaging.permissionModeHint",
+      consequenceKey: "settings.messaging.consequencePermissionMode",
+    },
+  ];
+}
+
 /** IRC's only optional credential: a PASS line for a password-protected server. */
 const ircSecrets: MessagingSecretSlot[] = [
   {
@@ -850,14 +954,25 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "signal",
-    support: "unsupported",
+    support: "supported",
+    section: "messagingSignal",
+    format: "pi-desktop-messaging-signal",
+    version: 1,
+    // A bridge on this machine: the documented default listener.
+    defaultEndpoint: "http://127.0.0.1:8080",
     labelKey: "settings.messaging.platformSignal",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "bridgeOrPoll",
-    requirementKey: "settings.messaging.needsBridge",
-    guideUrl: "https://github.com/AsamK/signal-cli",
-    credentialStepKeys: [],
-    secrets: [],
+    blurbKey: "settings.messaging.blurbSignal",
+    noteKey: "settings.messaging.signalNote",
+    limitationKey: "settings.messaging.signalLimitations",
+    credentialStepKeys: [
+      "settings.messaging.stepSignal1",
+      "settings.messaging.stepSignal2",
+      "settings.messaging.stepSignal3",
+      "settings.messaging.stepSignal4",
+      "settings.messaging.stepSignal5",
+    ],
+    secrets: signalSecrets,
+    fields: signalFields(),
   },
   {
     id: "blueBubbles",
@@ -1217,7 +1332,8 @@ export type MessagingGatewayChannel =
   | "irc"
   | "homeAssistant"
   | "ntfy"
-  | "email";
+  | "email"
+  | "signal";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -1236,6 +1352,7 @@ export type MessagingGatewaySnapshot = {
   homeAssistant: boolean;
   ntfy: boolean;
   email: boolean;
+  signal: boolean;
 };
 
 /** The snapshot to use before the first reply arrives: nothing is known to run. */
@@ -1250,6 +1367,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   homeAssistant: false,
   ntfy: false,
   email: false,
+  signal: false,
 };
 
 /** The catalogue ids that own a receive loop, i.e. the snapshot's channel keys. */
@@ -1283,6 +1401,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   homeAssistant: "homeAssistant",
   ntfy: "ntfy",
   email: "email",
+  signal: "signal",
 };
 
 /**
@@ -1324,7 +1443,7 @@ export type MessagingDraft = {
   roles: RacpRole[];
   permissionMode: RacpPermissionMode;
   requestTimeoutMs: string;
-  /** Email only: the two servers, the account, its sender allowlist and prefix. */
+  /** Email and Signal: the servers or account, its sender allowlist and prefix. */
   imapHost: string;
   imapPort: string;
   smtpHost: string;
@@ -1333,6 +1452,8 @@ export type MessagingDraft = {
   username: string;
   allowedSenders: string;
   subjectPrefix: string;
+  /** Signal only: the account the bridge is registered for. */
+  account: string;
   secrets: Record<string, string>;
 };
 
@@ -1375,6 +1496,7 @@ export function draftFrom(
     username: trimmed(record?.username),
     allowedSenders: Array.isArray(record?.allowedSenders) ? record.allowedSenders.join(", ") : "",
     subjectPrefix: trimmed(record?.subjectPrefix),
+    account: trimmed(record?.account),
     secrets: {},
   };
 }
@@ -1396,8 +1518,12 @@ function draftText(draft: MessagingDraft, id: MessagingField["id"]): string {
       return draft.username;
     case "allowedSenders":
       return draft.allowedSenders;
+    case "endpoint":
+      return draft.endpoint;
     case "subjectPrefix":
       return draft.subjectPrefix;
+    case "account":
+      return draft.account;
     default:
       return "";
   }
@@ -1409,6 +1535,16 @@ function splitList(value: string): string[] {
     .split(/[,\s]+/)
     .map((entry) => entry.trim())
     .filter((entry) => entry !== "");
+}
+
+/**
+ * The allowlist a save writes: trimmed, lowered, and without repeats.
+ *
+ * Lowering is not cosmetic — the channel compares case-insensitively, so the
+ * record should not depend on how the same UUID was typed twice.
+ */
+function allowlistFromDraft(draft: MessagingDraft): string[] {
+  return [...new Set(splitList(draft.allowedSenders).map((entry) => entry.toLowerCase()))];
 }
 
 /** True when the record is this build's own, not a foreign or future one. */
@@ -1438,14 +1574,22 @@ export function draftMissing(
   draft: MessagingDraft,
 ): string[] {
   const missing: string[] = [];
-  if (platform.id === "email") {
-    // Email's "destination" is the sender allowlist, and every field it needs
-    // is named by the catalogue rather than assumed here. A blank one is a
-    // setup gap with its own sentence on the panel.
+  if (platform.id === "email" || platform.id === "signal") {
+    // These two channels have no single "destination": email's destination is
+    // its sender allowlist, and Signal's is whoever wrote. Every field they
+    // need is named by the catalogue rather than assumed here, and a credential
+    // is checked by presence (below), not by this function.
     for (const field of platform.fields) {
       if (field.group !== "required") continue;
-      if (field.id === "subject" || field.id === "roles" || field.id === "password") continue;
-      if (draftText(draft, field.id).trim() === "") missing.push(field.id);
+      if (field.id === "subject" || field.id === "roles") continue;
+      if (platform.secrets.some((slot) => slot.id === field.id)) continue;
+      // An allowlist is filled only when at least one identity survives the
+      // split: a field of commas and spaces is blank, not four entries.
+      const filled =
+        field.id === "allowedSenders"
+          ? splitList(draft.allowedSenders).length > 0
+          : draftText(draft, field.id).trim() !== "";
+      if (!filled) missing.push(field.id);
     }
   } else if (trimmed(draft.destination) === "") {
     missing.push("destination");
@@ -1518,6 +1662,13 @@ export function missingFromRecord(
     if (trimmed(record.smtpHost) === "") missing.push("smtpHost");
     if (typeof record.smtpPort !== "number") missing.push("smtpPort");
     if (trimmed(record.username) === "") missing.push("username");
+    if (!Array.isArray(record.allowedSenders) || record.allowedSenders.length === 0) {
+      missing.push("allowedSenders");
+    }
+  } else if (platform.id === "signal") {
+    if (trimmed(record.endpoint) === "") missing.push("endpoint");
+    if (trimmed(record.account) === "") missing.push("account");
+    // Fail closed: a record with no allowed sender is incomplete, not open.
     if (!Array.isArray(record.allowedSenders) || record.allowedSenders.length === 0) {
       missing.push("allowedSenders");
     }
@@ -1606,7 +1757,7 @@ export function buildSectionWrite(
   if (platform.id === "email") {
     const imapPort = Number(trimmed(draft.imapPort));
     const smtpPort = Number(trimmed(draft.smtpPort));
-    const allowedSenders = splitList(draft.allowedSenders).map((entry) => entry.toLowerCase());
+    const allowedSenders = allowlistFromDraft(draft);
     return {
       format: platform.format,
       version: platform.version,
@@ -1625,6 +1776,27 @@ export function buildSectionWrite(
       ...(trimmed(draft.subjectPrefix) !== ""
         ? { subjectPrefix: trimmed(draft.subjectPrefix) }
         : {}),
+      inbound: {
+        ...(existing?.inbound ?? {}),
+        ...(subject !== "" && roles.length > 0
+          ? { linkedPrincipal: { subject, roles } }
+          : {}),
+        permissionMode: draft.permissionMode,
+      },
+    };
+  }
+  if (platform.id === "signal") {
+    // Signal has no destination either: a reply goes to whoever wrote. The
+    // record carries the bridge address, the account and the senders it may
+    // obey, and nothing the form does not own is dropped — the inbound
+    // high-water mark and the session binding survive an edit.
+    return {
+      format: platform.format,
+      version: platform.version,
+      endpoint: endpoint || platform.defaultEndpoint,
+      destination: "",
+      account: trimmed(draft.account),
+      allowedSenders: allowlistFromDraft(draft),
       inbound: {
         ...(existing?.inbound ?? {}),
         ...(subject !== "" && roles.length > 0

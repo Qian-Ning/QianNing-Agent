@@ -24,6 +24,8 @@ export * from "./messaging-matrix-send.js";
 export * from "./messaging-ntfy-inbound.js";
 export * from "./messaging-ntfy-send.js";
 export * from "./messaging-email-inbound.js";
+export * from "./messaging-signal-client.js";
+export * from "./messaging-signal-inbound.js";
 export * from "./messaging-home-assistant-inbound.js";
 export * from "./messaging-handled-store.js";
 export * from "./messaging-push-sockets.js";

@@ -78,6 +78,9 @@ import {
   MESSAGING_SLACK_FORMAT,
   MESSAGING_SLACK_FORMAT_VERSION,
   MESSAGING_SLACK_SECTION,
+  MESSAGING_SIGNAL_FORMAT,
+  MESSAGING_SIGNAL_FORMAT_VERSION,
+  MESSAGING_SIGNAL_SECTION,
   MESSAGING_TELEGRAM_FORMAT,
   MESSAGING_TELEGRAM_FORMAT_VERSION,
   MESSAGING_TELEGRAM_SECTION,
@@ -197,6 +200,17 @@ export const MESSAGING_INBOUND_START_GATES: Record<MessagingGatewayChannel, Mess
     // reachable by anyone, which is why the email transport refuses to start.
     fields: ["imapHost", "smtpHost", "username", "allowedSenders"],
     secrets: [MESSAGING_EMAIL_PASSWORD_SECRET_REF],
+  },
+  // Signal is a bridge the user runs, so the account and its address are the
+  // record's two required values. The bridge token is optional: a listener on
+  // loopback normally has none, and requiring one would keep a working channel
+  // from starting.
+  signal: {
+    section: MESSAGING_SIGNAL_SECTION,
+    format: MESSAGING_SIGNAL_FORMAT,
+    version: MESSAGING_SIGNAL_FORMAT_VERSION,
+    fields: ["endpoint", "account"],
+    secrets: [],
   },
 };
 

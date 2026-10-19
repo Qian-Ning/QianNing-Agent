@@ -375,6 +375,47 @@ describe("messaging inbound supervisor", () => {
   });
 });
 
+describe("the Signal channel's supervisor gate", () => {
+  it("starts the loop from its record and stops it when the record is cleared", async () => {
+    const deps = harness(["signal"], {
+      records: recordPatch("signal", validRecord("signal")),
+    });
+
+    await deps.supervisor.start("signal");
+    expect(deps.supervisor.isRunning("signal")).toBe(true);
+    expect(deps.registry.snapshot().signal).toBe(true);
+    expect(loop(deps, "signal").starts).toBe(1);
+
+    // The panel's enable toggle clears the section rather than editing it.
+    await deps.settings.write(recordPatch("signal", null));
+    await deps.supervisor.reconcile("signal");
+
+    expect(loop(deps, "signal").aborts, "the poll loop must be stopped, not hidden").toBe(1);
+    expect(deps.supervisor.isRunning("signal")).toBe(false);
+    expect(deps.registry.snapshot().signal).toBe(false);
+  });
+
+  it("starts nothing while the record names no account", async () => {
+    const gate = MESSAGING_INBOUND_START_GATES.signal;
+    const withoutAccount = { ...validRecord("signal") };
+    delete withoutAccount.account;
+    const deps = harness(["signal"], { records: recordPatch("signal", withoutAccount) });
+
+    await deps.supervisor.reconcileAll();
+
+    expect(readMessagingInboundRecordState("signal", recordPatch("signal", withoutAccount))).toBe(
+      "incomplete",
+    );
+    expect(loop(deps, "signal").starts).toBe(0);
+    expect(deps.supervisor.isRunning("signal")).toBe(false);
+    expect(deps.registry.snapshot().signal).toBe(false);
+    expect(gate.fields).toEqual(["endpoint", "account"]);
+    // The bridge token is optional, so readiness must not require one: a
+    // listener on loopback normally has none.
+    expect(gate.secrets).toEqual([]);
+  });
+});
+
 describe("inbound record readiness", () => {
   it("names every channel's section back to its channel", () => {
     for (const channel of ALL_CHANNELS) {

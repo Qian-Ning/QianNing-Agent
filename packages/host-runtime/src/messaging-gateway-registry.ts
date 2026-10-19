@@ -36,7 +36,8 @@ export type MessagingGatewayChannel =
   | "irc"
   | "homeAssistant"
   | "ntfy"
-  | "email";
+  | "email"
+  | "signal";
 
 /** The answer the renderer reads. */
 export type MessagingGatewaySnapshot = {
@@ -50,6 +51,7 @@ export type MessagingGatewaySnapshot = {
   homeAssistant: boolean;
   ntfy: boolean;
   email: boolean;
+  signal: boolean;
 };
 
 /** The part of a started loop this registry needs: its lifetime. */
@@ -124,6 +126,7 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
       homeAssistant: this.running.has("homeAssistant"),
       ntfy: this.running.has("ntfy"),
       email: this.running.has("email"),
+      signal: this.running.has("signal"),
     };
   }
 }

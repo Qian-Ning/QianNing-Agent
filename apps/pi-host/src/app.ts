@@ -20,6 +20,7 @@ import {
   createMatrixInboundWiring,
   createNtfyInboundWiring,
   createEmailInboundWiring,
+  createSignalInboundWiring,
   createHomeAssistantInboundWiring,
   createIrcInboundWiring,
   listPendingToolRequests,
@@ -399,6 +400,24 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
     }).run(),
   };
 
+  // The inbound Signal channel, beside the others: a JSON-RPC poll the Host
+  // originates against a signal-cli bridge the user runs on this machine or
+  // their own network. Nothing is bound and no webhook exists. Config-gated on
+  // the channel record, so a Host with no Signal section starts nothing and
+  // makes no HTTP call to a bridge. The receive call is a long poll; it is not
+  // a push path, and the panel says so.
+  const messagingSignalAbort = new AbortController();
+  const messagingSignal: MessagingInboundHandle = {
+    controller: messagingSignalAbort,
+    done: createSignalInboundWiring({
+      agentHost,
+      settings: createHostSettingsSurface(getHost),
+      secrets: createHostSecretReader(getHost),
+      signal: messagingSignalAbort.signal,
+      log: (level, message, data) => log(level, message, data),
+    }).run(),
+  };
+
   // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3): the
   // Host-side redactor subscribed on the host-scope event surface, so the
   // redacted summaries of terminal turn outcomes and host-owned requests reach
@@ -518,6 +537,10 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
       // loop awaited under the same bound.
       messagingEmail.controller.abort();
       await settleWithinBudget(messagingEmail.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
+      // The Signal long poll stops the same way: the in-flight receive is
+      // aborted, so a bridge holding the call open cannot delay the stop.
+      messagingSignal.controller.abort();
+      await settleWithinBudget(messagingSignal.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
       // The outbound relay is released the same way, beside the two loops and
       // before the host is disposed: it unsubscribes at once, and the (already
       // settled) wait is bounded so a release that ever refused to settle could
