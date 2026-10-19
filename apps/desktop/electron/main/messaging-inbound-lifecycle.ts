@@ -33,6 +33,7 @@ import {
   createMessagingInboundWiring,
   createNtfyInboundWiring,
   createSlackInboundWiring,
+  createSignalInboundWiring,
   messagingChannelForSection,
   type HostRpc,
   type MessagingInboundHostSurface,
@@ -82,6 +83,7 @@ export function createMessagingInboundSupervisor(
       homeAssistant: (signal) => createHomeAssistantInboundWiring({ ...common, signal }),
       ntfy: (signal) => createNtfyInboundWiring({ ...common, signal }),
       email: (signal) => createEmailInboundWiring({ ...common, signal }),
+      signal: (signal) => createSignalInboundWiring({ ...common, signal }),
     },
   });
 }

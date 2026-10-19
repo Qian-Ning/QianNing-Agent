@@ -91,12 +91,19 @@ export type MessagingChannelSettings = {
   username?: string;
   from?: string;
   /**
-   * Email only: the exact `From` addresses a message may come from. Without it
-   * a mailbox is a remote control, so an empty list is an incomplete record.
+   * Email and Signal: the exact senders a message may come from. Without it a
+   * mailbox or a number is a remote control, so an empty list is an incomplete
+   * record — and is read as "nobody", never as "everybody".
    */
   allowedSenders?: string[];
   /** Email only: the prefix a reply's subject carries. */
   subjectPrefix?: string;
+  /**
+   * Signal only: the account the signal-cli bridge is registered for, e.g.
+   * `+15551234567`. It is the identity replies are sent as and the identity
+   * whose own echo is dropped on receive. One account per record.
+   */
+  account?: string;
   inbound?: MessagingInboundSettings;
 };
 
@@ -352,6 +359,7 @@ export type AppSettings = {
   messagingHomeAssistant?: MessagingChannelSettings;
   messagingNtfy?: MessagingChannelSettings;
   messagingEmail?: MessagingChannelSettings;
+  messagingSignal?: MessagingChannelSettings;
   /**
    * The shared inbound-webhook receiver (`/webhooks/<platform>`). Not a
    * channel: it names no product and serves whichever callback channels the

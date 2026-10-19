@@ -15,6 +15,7 @@ import {
   MESSAGING_MATRIX_SECTION,
   MESSAGING_MATTERMOST_SECTION,
   MESSAGING_NTFY_SECTION,
+  MESSAGING_SIGNAL_SECTION,
   MESSAGING_SLACK_SECTION,
   MESSAGING_TELEGRAM_SECTION,
 } from "@pi-desktop/agent-host";
@@ -168,6 +169,7 @@ export function registerSettingsIpc({
         section !== MESSAGING_HOME_ASSISTANT_SECTION &&
         section !== MESSAGING_NTFY_SECTION &&
         section !== MESSAGING_EMAIL_SECTION &&
+        section !== MESSAGING_SIGNAL_SECTION &&
         // Not a channel, and named no product: the shared inbound-webhook
         // receiver's own configuration. It belongs here because it is the same
         // host-internal write path, and it is safe on it because the record

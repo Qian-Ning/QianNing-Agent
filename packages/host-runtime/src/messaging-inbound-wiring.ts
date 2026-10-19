@@ -100,6 +100,18 @@ import {
   type ImapSocketFactory,
   type SmtpSocketFactory,
   type SmtpSecurity,
+  // The Signal channel: a JSON-RPC client over a local signal-cli bridge.
+  MESSAGING_SIGNAL_FORMAT,
+  MESSAGING_SIGNAL_FORMAT_VERSION,
+  MESSAGING_SIGNAL_SECTION,
+  MESSAGING_SIGNAL_TOKEN_SECRET_REF,
+  SIGNAL_DEFAULT_BRIDGE_URL,
+  SIGNAL_HANDLED_CAPACITY,
+  SIGNAL_MAX_ENVELOPES_PER_POLL,
+  createSignalInboundPushTransport,
+  normaliseSignalSenders,
+  type SignalFetch,
+  type SignalInboundAudit,
   type SlackInboundAudit,
   type SlackOpenConnection,
   type SlackSocketFactory,
@@ -1587,6 +1599,175 @@ export function createEmailInboundWiring(options: MessagingEmailWiringOptions): 
     channel: EMAIL_INBOUND_CHANNEL,
     transport: options.transport ?? createConfiguredEmailTransport(options),
     failureLabel: "inbound email loop failed",
+  });
+}
+
+/** The Signal channel's descriptor, selected by its own bind channel. */
+export const SIGNAL_INBOUND_CHANNEL: MessagingInboundChannel = {
+  section: MESSAGING_SIGNAL_SECTION,
+  format: MESSAGING_SIGNAL_FORMAT,
+  version: MESSAGING_SIGNAL_FORMAT_VERSION,
+};
+
+/**
+ * The newest envelope timestamp, persisted in the channel's own settings section
+ * under `inbound.lastTimestamp`.
+ *
+ * A high-water mark, not a resume position: signal-cli's `receive` has no
+ * "since" parameter and drains its own queue, so there is nothing to ask from.
+ * The value is written so an operator — and the next reader of this file — can
+ * see where the channel got to; the adapter deliberately does not discard
+ * older-looking envelopes by it, because their timestamps come from the
+ * sender's clock.
+ */
+export function createSettingsSignalCursorStore(
+  settings: HostSettingsSurface,
+): IngressCursorStore<number> {
+  return {
+    async load(): Promise<number | null> {
+      const inbound = readInbound(readSection(await settings.read(), MESSAGING_SIGNAL_SECTION));
+      const value = inbound?.lastTimestamp;
+      return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+    },
+    async save(timestamp: number): Promise<void> {
+      await patchSection(
+        settings,
+        (_section, inbound) => ({ ...inbound, lastTimestamp: timestamp }),
+        MESSAGING_SIGNAL_SECTION,
+      );
+    },
+  };
+}
+
+/** The audit sink for the Signal poll. */
+export function createSignalInboundAudit(log?: MessagingInboundWiringLog): SignalInboundAudit {
+  if (!log) return () => {};
+  return (entry) => {
+    const level = entry.kind === "processed" || entry.kind === "duplicate" ? "info" : "warn";
+    log(level, "inbound signal channel", { ...entry });
+  };
+}
+
+/** The record the transport needs, or `null` when it is not this build's. */
+type SignalWiringRecord = {
+  bridgeUrl: string;
+  account: string;
+  allowedSenders: string[];
+};
+
+/**
+ * Read and validate the `messagingSignal` section.
+ *
+ * Three fields are the whole gate: the bridge's address, the account the bridge
+ * is registered for, and the senders allowed to command it. Without the account
+ * there is nothing to receive for; without the address there is no bridge to
+ * ask; without a single allowed sender the channel would be a remote control
+ * that anyone with the number could press, so the record is treated as
+ * incomplete — exactly as the email channel treats an empty allowlist. The token
+ * is optional — a bridge on loopback normally has none — so it is read from the
+ * secret store only when the caller has one.
+ */
+function readSignalRecord(settings: unknown): SignalWiringRecord | null {
+  const section = readSection(settings, MESSAGING_SIGNAL_SECTION);
+  if (!section) return null;
+  if (
+    section.format !== MESSAGING_SIGNAL_FORMAT ||
+    section.version !== MESSAGING_SIGNAL_FORMAT_VERSION
+  ) {
+    return null;
+  }
+  const text = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
+  const account = text(section.account);
+  const bridgeUrl = text(section.endpoint) || SIGNAL_DEFAULT_BRIDGE_URL;
+  const allowedSenders = normaliseSignalSenders(section.allowedSenders);
+  if (account === "" || allowedSenders.length === 0) return null;
+  return { bridgeUrl, account, allowedSenders };
+}
+
+/**
+ * The Signal transport, config-gated on the channel's record.
+ *
+ * `start` reads the record (and, when stored, the bridge token) from the host's
+ * own surfaces and only then polls anything. With no section, an incomplete one
+ * or a foreign `format` it returns without a single HTTP call: an install with
+ * no Signal bridge configured starts no loop and behaves exactly as it did
+ * before this channel existed.
+ *
+ * Nothing is bound. The receive call is one outbound HTTP request the Host
+ * originates to the bridge the user runs, which is why this channel needs no
+ * public address, no webhook and no port.
+ */
+function createConfiguredSignalTransport(
+  options: MessagingSignalWiringOptions,
+): MessagingInboundPushTransport {
+  return {
+    async start(onMessage, signal): Promise<void> {
+      let settings: unknown;
+      try {
+        settings = await options.settings.read();
+      } catch {
+        return;
+      }
+      const record = readSignalRecord(settings);
+      if (!record) return;
+      let token: string | null = null;
+      try {
+        token = await options.secrets(MESSAGING_SIGNAL_TOKEN_SECRET_REF);
+      } catch {
+        token = null;
+      }
+      const trimmed = (token ?? "").trim();
+      await createSignalInboundPushTransport({
+        bridgeUrl: record.bridgeUrl,
+        account: record.account,
+        allowedSenders: record.allowedSenders,
+        ...(trimmed !== "" ? { token: trimmed } : {}),
+        maxEnvelopesPerPoll: SIGNAL_MAX_ENVELOPES_PER_POLL,
+        handled: createSettingsHandledMessageStore({
+          settings: options.settings,
+          section: MESSAGING_SIGNAL_SECTION,
+          capacity: SIGNAL_HANDLED_CAPACITY,
+        }),
+        cursor: createSettingsSignalCursorStore(options.settings),
+        audit: createSignalInboundAudit(options.log),
+        ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+        ...(options.wait ? { wait: options.wait } : {}),
+      }).start(onMessage, signal);
+    },
+  };
+}
+
+/**
+ * The wiring for the inbound Signal channel.
+ *
+ * The same driver, binding store and target resolver as every other channel,
+ * over a poll the Host originates against a bridge the user runs. The section
+ * (`messagingSignal`), the bridge URL, the account and the optional bridge token
+ * (`secret:messaging-signal:token`) are the only differences.
+ */
+export type MessagingSignalWiringOptions = {
+  agentHost: MessagingInboundHostSurface;
+  settings: HostSettingsSurface;
+  secrets: HostSecretReader;
+  signal: AbortSignal;
+  log?: MessagingInboundWiringLog;
+  /** Test seam: the HTTP call, so a suite can drive a loopback fake bridge. */
+  fetchImpl?: SignalFetch;
+  /** Test seam: how the poll loop waits. */
+  wait?: (ms: number) => Promise<void>;
+  /** Test seam: a push transport in place of the one built from the settings. */
+  transport?: MessagingInboundPushTransport;
+};
+
+export function createSignalInboundWiring(options: MessagingSignalWiringOptions): MessagingInboundWiring {
+  return createIngressWiring({
+    agentHost: options.agentHost,
+    settings: options.settings,
+    signal: options.signal,
+    ...(options.log ? { log: options.log } : {}),
+    channel: SIGNAL_INBOUND_CHANNEL,
+    transport: options.transport ?? createConfiguredSignalTransport(options),
+    failureLabel: "inbound signal loop failed",
   });
 }
 

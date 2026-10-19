@@ -630,10 +630,12 @@ function SupportedPanel({
       case "smtpPort":
       case "username":
       case "allowedSenders":
+      case "account":
       case "subjectPrefix": {
-        // Email's record fields: two servers, the account, the sender allowlist
-        // and the reply prefix. None of them is a credential, so each is a
-        // plain text input and lands in the settings record.
+        // Email's record fields — two servers, the account, the sender allowlist
+        // and the reply prefix — and Signal's account and its own allowlist.
+        // None of them is a credential, so each is a plain text input and lands
+        // in the settings record.
         const numeric = field.id === "imapPort" || field.id === "smtpPort";
         return (
           <Input
@@ -759,6 +761,7 @@ function SupportedPanel({
       "destination",
       "subject",
       "endpoint",
+      "account",
       "requestTimeoutMs",
     ].includes(field.id);
     const consequenceKey = field.id === "requestTimeoutMs" && !timeoutValid
@@ -958,6 +961,8 @@ function missingLabelKey(id: string, platform: SupportedMessagingPlatform): stri
       return "settings.messaging.emailAllowedSenders";
     case "password":
       return "settings.messaging.emailPassword";
+    case "account":
+      return "settings.messaging.signalAccount";
     default:
       return "settings.messaging.botToken";
   }

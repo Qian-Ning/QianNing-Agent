@@ -83,6 +83,16 @@ import {
   type EmailInboundAuditEntry,
 } from "./messaging-email-inbound.js";
 import {
+  createSignalIngressAdapter,
+  signalMessageId,
+  type SignalInboundAuditEntry,
+} from "./messaging-signal-inbound.js";
+import {
+  FakeSignalBridge,
+  signalEnvelope,
+  signalOwnSyncEnvelope,
+} from "./messaging-signal-test-servers.js";
+import {
   ALLOWED,
   FakeImap,
   FakeSmtp,
@@ -1191,6 +1201,103 @@ function emailFixture(): IngressConformanceFixture {
 }
 
 // ---------------------------------------------------------------------------
+// Signal (signal-cli bridge)
+// ---------------------------------------------------------------------------
+
+/** The account and correspondent the Signal fixture speaks as and with. */
+const SIGNAL_ACCOUNT = "+15550000000";
+const SIGNAL_CORRESPONDENT = "+15551110000";
+const SIGNAL_FOREIGN_TIMESTAMP = 1_760_000_000_900;
+
+/**
+ * The Signal fixture: the adapter over a real loopback signal-cli bridge.
+ *
+ * The bridge is started on first use, because the suite builds its fixtures
+ * synchronously and only the send scenario needs a listener. The foreign and own
+ * events are pure projections, so the scenarios that only call `normalise` work
+ * before anything is listening.
+ */
+function signalFixture(): IngressConformanceFixture {
+  const audit: SignalInboundAuditEntry[] = [];
+  const bridge = new FakeSignalBridge();
+  let started: Promise<void> | null = null;
+  const ensureStarted = async (): Promise<void> => {
+    started ??= bridge.start();
+    await started;
+  };
+
+  const adapter = createSignalIngressAdapter({
+    // Never dialled by the projection scenarios; the send scenario builds its
+    // own adapter once the fake has a port.
+    bridgeUrl: "http://127.0.0.1:1",
+    account: SIGNAL_ACCOUNT,
+    allowedSenders: [SIGNAL_CORRESPONDENT],
+    receiveTimeoutS: 1,
+    audit: (entry) => audit.push(entry),
+  });
+
+  const foreignText = "run the conformance suite";
+  const foreignEnvelope = signalEnvelope({
+    from: SIGNAL_CORRESPONDENT,
+    text: foreignText,
+    timestamp: SIGNAL_FOREIGN_TIMESTAMP,
+    account: SIGNAL_ACCOUNT,
+  });
+
+  return {
+    adapter,
+    foreign: () => ({
+      raw: foreignEnvelope,
+      expected: {
+        messageId: signalMessageId(SIGNAL_FOREIGN_TIMESTAMP, SIGNAL_CORRESPONDENT, foreignText),
+        chatId: SIGNAL_CORRESPONDENT,
+        text: foreignText,
+      },
+    }),
+    // What the bridge hands back for a message this channel itself sent.
+    own: () => signalOwnSyncEnvelope({ text: "the channel's own reply" }),
+    deliver: (text: string) => {
+      const chunks: string[] = [];
+      const result = (async () => {
+        await ensureStarted();
+        const deliverer = createSignalIngressAdapter({
+          bridgeUrl: bridge.url,
+          account: SIGNAL_ACCOUNT,
+          allowedSenders: [SIGNAL_CORRESPONDENT],
+          receiveTimeoutS: 1,
+        });
+        const before = bridge.sent.length;
+        const outcome = await deliverer.deliver(SIGNAL_CORRESPONDENT, text);
+        for (const send of bridge.sent.slice(before)) chunks.push(send.message);
+        return outcome;
+      })();
+      return { chatId: SIGNAL_CORRESPONDENT, chunks, result };
+    },
+    async refusedCredential() {
+      await ensureStarted();
+      bridge.requiredToken = "signal-conformance-token";
+      const refusedAudit: SignalInboundAuditEntry[] = [];
+      const refused = createSignalIngressAdapter({
+        bridgeUrl: bridge.url,
+        account: SIGNAL_ACCOUNT,
+        allowedSenders: [SIGNAL_CORRESPONDENT],
+        token: "signal-SECRET-wrong-token",
+        receiveTimeoutS: 1,
+        audit: (entry) => refusedAudit.push(entry),
+      });
+      const polled = await refused.poll(0);
+      return {
+        token: "signal-SECRET-wrong-token",
+        observed: JSON.stringify({ polled, refusedAudit }),
+      };
+    },
+    async dispose() {
+      if (started) await bridge.close();
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // The suite
 // ---------------------------------------------------------------------------
 
@@ -1204,6 +1311,7 @@ const FIXTURES: { name: string; build: () => IngressConformanceFixture }[] = [
   { name: "home assistant", build: homeAssistantFixture },
   { name: "ntfy", build: ntfyFixture },
   { name: "email", build: emailFixture },
+  { name: "signal", build: signalFixture },
   // The generic callback platform: no product, no adapter of its own. It exists
   // so the receiver's own guarantees are part of the shared suite and every
   // callback platform after it inherits them.

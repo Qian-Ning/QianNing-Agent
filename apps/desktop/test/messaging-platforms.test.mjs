@@ -52,6 +52,7 @@ import {
   saveMessagingPlatform,
 } from "../src/lib/messaging-platforms.ts";
 import { MessagingGatewayRegistry } from "../electron/main/messaging-gateway.ts";
+import { en } from "../../../packages/i18n/src/locales/en/index.ts";
 import {
   discoverTelegramChats,
   isTelegramTokenShaped,
@@ -103,6 +104,7 @@ const GATEWAY_UP = {
   irc: true,
   homeAssistant: true,
   ntfy: true,
+  signal: true,
 };
 const GATEWAY_DOWN = {
   booted: true,
@@ -114,6 +116,7 @@ const GATEWAY_DOWN = {
   irc: false,
   homeAssistant: false,
   ntfy: false,
+  signal: false,
 };
 
 /**
@@ -164,13 +167,14 @@ const SUPPORTED_IDS = [
   "slack",
   "mattermost",
   "matrix",
+  "signal",
   "homeAssistant",
   "email",
   "irc",
   "ntfy",
 ];
 
-/** The whole catalogue, in rail order: thirty-three, eight of them supported. */
+/** The whole catalogue, in rail order: thirty-three, ten of them supported. */
 test("the catalogue is the product's full list and marks support honestly", () => {
   assert.deepEqual(
     MESSAGING_PLATFORMS.map((entry) => entry.id),
@@ -263,7 +267,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   ]);
   assert.deepEqual(byClass.bridgeOrPoll, [
     "whatsapp",
-    "signal",
     "blueBubbles",
     "imessagePhone",
   ]);
@@ -538,6 +541,32 @@ test("fields are grouped, and every field explains itself and its blank", () => 
         "email's credential is required, unlike ntfy's optional token",
       );
       assert.deepEqual(platform.secrets.map((slot) => slot.id), ["password"]);
+    } else if (platform.id === "signal") {
+      // Signal has no single conversation either: a reply goes to whoever
+      // wrote. The required values are the bridge's address, the account it is
+      // registered for and the senders it may obey; the bridge token is
+      // optional — a listener on loopback normally has none — so it sits with
+      // the recommended fields.
+      assert.deepEqual(requiredWithoutSecrets, [
+        "endpoint",
+        "account",
+        "allowedSenders",
+        "subject",
+        "roles",
+      ]);
+      assert.deepEqual(
+        recommended.map((field) => field.id),
+        ["access-token", "permissionMode"],
+      );
+      assert.deepEqual(
+        requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
+        [],
+      );
+      assert.deepEqual(
+        platform.secrets.map((slot) => slot.id),
+        ["access-token"],
+        "Signal's optional bridge token still has a slot",
+      );
     } else if (platform.id === "ntfy") {
       // ntfy has a public default server and an optional credential: a topic on
       // an open server needs no token, so only the topic and the link are
@@ -600,10 +629,61 @@ test("fields are grouped, and every field explains itself and its blank", () => 
       ) {
         continue;
       }
+      if (platform.id === "signal" && (id === "destination" || id === "requestTimeoutMs")) {
+        continue;
+      }
       const field = platform.fields.find((entry) => entry.id === id);
       assert.ok(field?.placeholderKey, `${platform.id}.${id} has no example`);
     }
   }
+});
+
+/**
+ * Signal's allowlist is the one field that decides whether the channel obeys
+ * anyone at all. The panel must refuse to save without it, write it trimmed and
+ * lowered, treat a stored record without it as incomplete, and say plainly that
+ * an empty list lets nobody in.
+ */
+test("Signal's sender allowlist is required, normalised, and explained as fail-closed", () => {
+  const signal = SUPPORTED_MESSAGING_PLATFORMS.find((platform) => platform.id === "signal");
+
+  const field = signal.fields.find((entry) => entry.id === "allowedSenders");
+  assert.ok(field, "Signal has no sender allowlist field");
+  assert.equal(field.group, "required", "an allowlist that can be skipped protects nobody");
+  for (const key of [field.labelKey, field.helpKey, field.placeholderKey, field.consequenceKey]) {
+    assert.match(key, /^settings\.messaging\./, `${field.id} names a missing key`);
+  }
+
+  const draft = {
+    ...draftFrom(signal, null),
+    endpoint: "http://127.0.0.1:8080",
+    account: "+15550000000",
+    subject: "signal:ops",
+    roles: ["controller"],
+  };
+  assert.equal(canSave(signal, { ...draft, allowedSenders: "" }), false);
+  assert.equal(canSave(signal, { ...draft, allowedSenders: "  ,   " }), false);
+  assert.equal(canSave(signal, { ...draft, allowedSenders: "+15550000002" }), true);
+
+  const record = buildSectionWrite(
+    signal,
+    { ...draft, allowedSenders: " +15550000002 , 0f2a-uuid , +15550000002 " },
+    null,
+  );
+  assert.deepEqual(record.allowedSenders, ["+15550000002", "0f2a-uuid"]);
+  assert.equal(record.destination, "", "Signal still has no single destination");
+
+  // A stored record from before the field existed is incomplete, not open.
+  const { allowedSenders: _omitted, ...legacy } = record;
+  const state = deriveChannelState(signal, legacy, {}, MESSAGING_GATEWAY_OFF);
+  assert.equal(state.setup, "incomplete");
+  assert.ok(state.missing.includes("allowedSenders"));
+
+  // The copy states the fail-closed rule, in words a person reads once.
+  assert.match(en.settings.messaging.consequenceSignalSenders, /empty list allows nobody/i);
+  assert.match(en.settings.messaging.signalAllowedSendersHint, /group/i);
+  assert.match(en.settings.messaging.signalAllowedSendersHint, /sent it, not the group/i);
+  assert.match(en.settings.messaging.signalLimitations, /empty list refuses everyone/i);
 });
 
 /** The record shape is the host's, not an invention of the form. */
@@ -1096,6 +1176,7 @@ test("the gateway registry reports the loops that are actually running", async (
     homeAssistant: false,
     ntfy: false,
     email: false,
+    signal: false,
   });
 
   registry.markBooted();
@@ -1116,6 +1197,7 @@ test("the gateway registry reports the loops that are actually running", async (
     homeAssistant: false,
     ntfy: false,
     email: false,
+    signal: false,
   });
 
   registry.track("slack", { done: Promise.resolve() });
@@ -1137,6 +1219,7 @@ test("the gateway registry reports the loops that are actually running", async (
     homeAssistant: false,
     ntfy: false,
     email: false,
+    signal: false,
   });
 });
 
@@ -1319,6 +1402,7 @@ test("the composition root hands every loop to the one supervisor the panel's ga
     "homeAssistant",
     "ntfy",
     "email",
+    "signal",
   ]) {
     assert.match(
       inboundLifecycle,
