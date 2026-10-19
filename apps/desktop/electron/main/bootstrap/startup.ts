@@ -386,6 +386,7 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
       const supervisor = createMessagingInboundSupervisor({
         getHost,
         agentHost: state.agentHostBridge.agentHost,
+        apiServerTurns: state.agentHostBridge.agentHost,
         log: (level, message, data) => logger.app("runtime", level, message, { data }),
       });
       setMessagingInboundSupervisor(supervisor);

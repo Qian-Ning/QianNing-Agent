@@ -104,6 +104,45 @@ export type MessagingChannelSettings = {
    * whose own echo is dropped on receive. One account per record.
    */
   account?: string;
+  /**
+   * The local API channel only: whether its listener may run at all. The other
+   * channels treat the presence of their section as "configured"; this one
+   * carries the flag because a single boolean is what the enable toggle writes
+   * and because a record with `enabled: false` must start nothing while its
+   * port and token stay remembered. Absent for every other channel.
+   */
+  enabled?: boolean;
+  /**
+   * The local API channel only: the TCP port its listener binds, and the
+   * address it binds on. The address defaults to `127.0.0.1` when absent; a
+   * non-loopback address is refused when the channel starts, because the
+   * listener speaks plain HTTP. Absent for every other channel.
+   */
+  port?: number;
+  bindAddress?: string;
+  /**
+   * The local API channel only: whether a non-loopback bind was explicitly
+   * opted into. It exists so a record written by hand can say so, and so the
+   * refusal can distinguish "no opt-in" from "opt-in, but plain HTTP". The
+   * panel never offers it: there is nothing to opt into in this build. Absent
+   * for every other channel.
+   */
+  allowNonLoopback?: boolean;
+  /**
+   * The local API channel only: the `secret:` ref its bearer token is read
+   * from, never the token. Absent means the channel's own fixed ref. Absent for
+   * every other channel.
+   */
+  tokenSecretRef?: string;
+  /**
+   * The local API channel only: the largest request body accepted, in bytes,
+   * and how many requests may be in flight at once. Both are bounds, not
+   * preferences: a request over the cap is refused unread, and one over the
+   * count is refused rather than queued. Absent for every other channel, and a
+   * missing or unusable value falls back to the build's own default.
+   */
+  maxBodyBytes?: number;
+  maxConcurrent?: number;
   inbound?: MessagingInboundSettings;
 };
 
@@ -360,6 +399,13 @@ export type AppSettings = {
   messagingNtfy?: MessagingChannelSettings;
   messagingEmail?: MessagingChannelSettings;
   messagingSignal?: MessagingChannelSettings;
+  /**
+   * The local API channel: one loopback listener another program on this
+   * machine can post a message to. Off by default — an absent section binds no
+   * port — and its bearer token lives in the secret store under its own ref,
+   * never here.
+   */
+  messagingApiServer?: MessagingChannelSettings;
   /**
    * The shared inbound-webhook receiver (`/webhooks/<platform>`). Not a
    * channel: it names no product and serves whichever callback channels the

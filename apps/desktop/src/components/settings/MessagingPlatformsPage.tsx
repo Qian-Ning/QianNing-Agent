@@ -12,6 +12,7 @@ import type { MessagingChannelSettings } from "@pi-desktop/shared";
 import { useAppStore } from "../../stores/app-store";
 import { api } from "../../lib/api";
 import {
+  API_SERVER_TOKEN_SECRET_REF,
   MESSAGING_GATEWAY_OFF,
   MESSAGING_PERMISSION_MODES,
   MESSAGING_PLATFORMS,
@@ -24,6 +25,8 @@ import {
   draftMissing,
   fieldsInGroup,
   gatewayPresentation,
+  generateApiServerToken,
+  isLoopbackBindAddress,
   isTimeoutValid,
   platformById,
   saveMessagingPlatform,
@@ -247,7 +250,7 @@ export function MessagingPlatformsPage() {
     target: SupportedMessagingPlatform,
     draft: MessagingDraft,
     enabled: boolean,
-  ) => {
+  ): Promise<boolean> => {
     setSaving(true);
     try {
       await saveMessagingPlatform(
@@ -275,10 +278,12 @@ export function MessagingPlatformsPage() {
         }),
         { variant: "info" },
       );
+      return true;
     } catch {
       showToast(t("settings.messaging.saveFailed", { platform: t(target.labelKey) }), {
         variant: "error",
       });
+      return false;
     } finally {
       setSaving(false);
     }
@@ -430,7 +435,7 @@ function MessagingDetail({
   secretPresent: Record<string, boolean>;
   gateway: MessagingGatewaySnapshot;
   saving: boolean;
-  onSave: (draft: MessagingDraft, enabled: boolean) => Promise<void>;
+  onSave: (draft: MessagingDraft, enabled: boolean) => Promise<boolean>;
 }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState<MessagingDraft>(() => draftFrom(platform, record));
@@ -438,6 +443,38 @@ function MessagingDetail({
   // no record is the one being set up; turning it off is how an existing one is
   // removed. The state strip still reports the stored truth until Save.
   const [enabled, setEnabled] = useState(true);
+
+  /**
+   * The local API's token is generated here, once, when the channel has none.
+   *
+   * There is nothing on a platform dashboard to copy it from, and the token is
+   * the whole credential — so the app makes it, the card shows it until it is
+   * saved, and the stored value is never read back. `replace` in the card makes
+   * a new one; leaving the field alone keeps the stored one.
+   */
+  useEffect(() => {
+    if (platform.id !== "apiServer") return;
+    if (secretPresent[API_SERVER_TOKEN_SECRET_REF] === true) return;
+    setDraft((current) =>
+      (current.secrets["api-token"] ?? "") !== ""
+        ? current
+        : { ...current, secrets: { ...current.secrets, "api-token": generateApiServerToken() } },
+    );
+  }, [platform.id, secretPresent]);
+
+  /**
+   * Save, then forget anything typed into a credential field.
+   *
+   * A successful save means the secret store holds the value, so the form no
+   * longer needs it — that is what makes the local API's token shown once rather
+   * than kept on screen. A failed save keeps it, so the retry writes the same
+   * token instead of a second one.
+   */
+  const submit = async (nextEnabled: boolean): Promise<boolean> => {
+    const saved = await onSave(draft, nextEnabled);
+    if (saved) setDraft((current) => ({ ...current, secrets: {} }));
+    return saved;
+  };
   const state = deriveChannelState(platform, record, secretPresent, gateway);
   const storedOn = state.enabled === "on";
   const missing = draftMissing(platform, draft);
@@ -463,7 +500,7 @@ function MessagingDetail({
     // The footer toggle follows what this click persisted, not the other way
     // round: it is the same flag the save just wrote.
     setEnabled(next);
-    await onSave(draft, next);
+    await submit(next);
   };
 
   // The switch is the stored state, so it is truthful after the save re-reads
@@ -507,9 +544,10 @@ function MessagingDetail({
         enabled={enabled}
         saving={saving}
         secretPresent={secretPresent}
+        gatewayError={platform.id === "apiServer" ? gateway.apiServerError : null}
         onDraftChange={(next) => setDraft((current) => ({ ...current, ...next }))}
         onEnabledChange={() => setEnabled((current) => !current)}
-        onSave={onSave}
+        onSave={submit}
       />
     </>
   );
@@ -544,6 +582,7 @@ function SupportedPanel({
   enabled,
   saving,
   secretPresent,
+  gatewayError,
   onDraftChange,
   onEnabledChange,
   onSave,
@@ -554,9 +593,11 @@ function SupportedPanel({
   enabled: boolean;
   saving: boolean;
   secretPresent: Record<string, boolean>;
+  /** Why the main process could not bind this channel's listener, if it could not. */
+  gatewayError: string | null;
   onDraftChange: (next: Partial<MessagingDraft>) => void;
   onEnabledChange: () => void;
-  onSave: (draft: MessagingDraft, enabled: boolean) => Promise<void>;
+  onSave: (enabled: boolean) => Promise<boolean>;
 }) {
   const { t } = useTranslation();
   const timeoutValid = isTimeoutValid(draft);
@@ -571,6 +612,47 @@ function SupportedPanel({
     const id = `messaging-${platform.id}-${field.id}`;
     const label = t(field.labelKey);
     switch (field.id) {
+      case "api-token": {
+        // The one credential this app makes for the user. It is shown in full
+        // exactly while it is not stored yet — that is the only moment it can be
+        // copied — and the card replaces it rather than displaying the stored
+        // value, which the renderer cannot read anyway.
+        const slot = platform.secrets.find((entry) => entry.id === field.id);
+        if (!slot) return null;
+        const pending = draft.secrets[slot.id] ?? "";
+        const stored = secretPresent[slot.ref] === true;
+        return (
+          <div className="settings-messaging-secret">
+            {pending === "" ? (
+              <p className="settings-messaging-field-help">
+                {stored
+                  ? t("settings.messaging.apiServerTokenStored")
+                  : t("settings.messaging.secretMissing")}
+              </p>
+            ) : (
+              <>
+                <code className="settings-messaging-token" data-api-server-token="">
+                  {pending}
+                </code>
+                <p className="settings-messaging-secret-hint">
+                  {t("settings.messaging.apiServerTokenShownOnce")}
+                </p>
+              </>
+            )}
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={saving}
+              onClick={() =>
+                patch({ secrets: { ...draft.secrets, [slot.id]: generateApiServerToken() } })
+              }
+            >
+              {t("settings.messaging.apiServerTokenReplace")}
+            </Button>
+            <span className="settings-messaging-secret-ref">{slot.ref}</span>
+          </div>
+        );
+      }
       case "bot-token":
       case "app-token":
       case "access-token":
@@ -631,12 +713,14 @@ function SupportedPanel({
       case "username":
       case "allowedSenders":
       case "account":
-      case "subjectPrefix": {
+      case "subjectPrefix":
+      case "port":
+      case "bindAddress": {
         // Email's record fields — two servers, the account, the sender allowlist
-        // and the reply prefix — and Signal's account and its own allowlist.
-        // None of them is a credential, so each is a plain text input and lands
-        // in the settings record.
-        const numeric = field.id === "imapPort" || field.id === "smtpPort";
+        // and the reply prefix — Signal's account and its own allowlist, and the
+        // local API's port and bind address. None of them is a credential, so
+        // each is a plain text input and lands in the settings record.
+        const numeric = field.id === "imapPort" || field.id === "smtpPort" || field.id === "port";
         return (
           <Input
             id={id}
@@ -763,6 +847,8 @@ function SupportedPanel({
       "endpoint",
       "account",
       "requestTimeoutMs",
+      "port",
+      "bindAddress",
     ].includes(field.id);
     const consequenceKey = field.id === "requestTimeoutMs" && !timeoutValid
       ? "settings.messaging.timeoutInvalid"
@@ -815,6 +901,23 @@ function SupportedPanel({
         <p className="settings-messaging-limitation">{t(platform.limitationKey)}</p>
       ) : null}
 
+      {/* A port already taken is the one failure a person can fix here, so it is
+          shown with the operating system's own reason instead of a generic
+          "stopped". Nothing else in the panel reports a bind failure. */}
+      {platform.id === "apiServer" && gatewayError ? (
+        <p className="settings-messaging-missing" role="alert" data-api-server-bind-error="">
+          {t("settings.messaging.apiServerBindFailed", { reason: gatewayError })}
+        </p>
+      ) : null}
+
+      {/* The listener speaks plain HTTP, so a wider bind cannot work at all: the
+          card says so while the address is typed, not after a failed start. */}
+      {platform.id === "apiServer" && !isLoopbackBindAddress(draft.bindAddress) ? (
+        <p className="settings-messaging-limitation" role="status">
+          {t("settings.messaging.apiServerNonLoopbackWarning", { address: draft.bindAddress })}
+        </p>
+      ) : null}
+
       {state.setup === "incomplete" ? (
         <p className="settings-messaging-missing" role="status">
           {t("settings.messaging.missing", {
@@ -841,16 +944,18 @@ function SupportedPanel({
             </li>
           ))}
         </ol>
-        <a
-          className="settings-messaging-guide"
-          href={platform.guideUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={t("settings.messaging.guideExternal")}
-        >
-          {t("settings.messaging.guideLink", { platform: t(platform.labelKey) })}
-          <IconExternal size={12} aria-hidden="true" className="settings-messaging-guide-mark" />
-        </a>
+        {platform.guideUrl ? (
+          <a
+            className="settings-messaging-guide"
+            href={platform.guideUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={t("settings.messaging.guideExternal")}
+          >
+            {t("settings.messaging.guideLink", { platform: t(platform.labelKey) })}
+            <IconExternal size={12} aria-hidden="true" className="settings-messaging-guide-mark" />
+          </a>
+        ) : null}
       </section>
 
       {platform.noteKey ? (
@@ -862,7 +967,7 @@ function SupportedPanel({
         onSubmit={(event) => {
           event.preventDefault();
           if (saving || (enabled && !ready)) return;
-          void onSave(draft, enabled);
+          void onSave(enabled);
         }}
       >
         <fieldset className="settings-messaging-group" disabled={saving}>
@@ -963,6 +1068,12 @@ function missingLabelKey(id: string, platform: SupportedMessagingPlatform): stri
       return "settings.messaging.emailPassword";
     case "account":
       return "settings.messaging.signalAccount";
+    case "api-token":
+      return "settings.messaging.apiServerToken";
+    case "port":
+      return "settings.messaging.apiServerPort";
+    case "bindAddress":
+      return "settings.messaging.apiServerBindAddress";
     default:
       return "settings.messaging.botToken";
   }

@@ -37,7 +37,8 @@ export type MessagingGatewayChannel =
   | "homeAssistant"
   | "ntfy"
   | "email"
-  | "signal";
+  | "signal"
+  | "apiServer";
 
 /** The answer the renderer reads. */
 export type MessagingGatewaySnapshot = {
@@ -52,6 +53,15 @@ export type MessagingGatewaySnapshot = {
   ntfy: boolean;
   email: boolean;
   signal: boolean;
+  apiServer: boolean;
+  /**
+   * Why the local API channel is not listening, when its start failed for a
+   * reason a person can act on — most often a port already taken. `null` for
+   * every other channel's state: the other transports report their failures
+   * through the audit sink and retry, while a bind failure is a fact about the
+   * record that will not fix itself.
+   */
+  apiServerError: string | null;
 };
 
 /** The part of a started loop this registry needs: its lifetime. */
@@ -67,6 +77,14 @@ export type MessagingGatewayHandle = {
 export type MessagingGatewayPort = {
   track(channel: MessagingGatewayChannel, handle: MessagingGatewayHandle | null | undefined): void;
   untrack(channel: MessagingGatewayChannel): void;
+  /**
+   * Record that a channel could not be brought up, with the reason a person
+   * needs to fix it. Optional: a composition root (or a test) that has no
+   * place to show a reason simply does not implement it.
+   */
+  fail?(channel: MessagingGatewayChannel, reason: string): void;
+  /** Drop a previously recorded failure, once the channel starts. */
+  clearFailure?(channel: MessagingGatewayChannel): void;
 };
 
 /**
@@ -82,6 +100,7 @@ export type MessagingGatewayPort = {
 export class MessagingGatewayRegistry implements MessagingGatewayPort {
   private booted = false;
   private readonly running = new Set<MessagingGatewayChannel>();
+  private apiServerFailure: string | null = null;
 
   /** Record that host-core and the Agent Host came up. Idempotent. */
   markBooted(): void {
@@ -114,6 +133,29 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
     this.running.delete(channel);
   }
 
+  /**
+   * Record why a channel could not start.
+   *
+   * Only the local API channel has a place in the snapshot for this: its
+   * failure is a bind failure, which no amount of waiting fixes, while every
+   * other transport retries and reports through the audit sink. A failure for
+   * any other channel is still accepted (a caller should not have to know
+   * which channel has a slot) and kept out of the snapshot.
+   */
+  fail(channel: MessagingGatewayChannel, reason: string): void {
+    if (channel !== "apiServer") return;
+    // The loop is gone — a bind failure ends it — so the running mark must go
+    // with it: "running" beside a bind error would be the same contradiction the
+    // disabled/running pair was.
+    this.running.delete(channel);
+    this.apiServerFailure = reason;
+  }
+
+  clearFailure(channel: MessagingGatewayChannel): void {
+    if (channel !== "apiServer") return;
+    this.apiServerFailure = null;
+  }
+
   snapshot(): MessagingGatewaySnapshot {
     return {
       booted: this.booted,
@@ -127,6 +169,8 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
       ntfy: this.running.has("ntfy"),
       email: this.running.has("email"),
       signal: this.running.has("signal"),
+      apiServer: this.running.has("apiServer"),
+      apiServerError: this.apiServerFailure,
     };
   }
 }

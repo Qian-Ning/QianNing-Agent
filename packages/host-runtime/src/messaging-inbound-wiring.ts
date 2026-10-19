@@ -116,9 +116,23 @@ import {
   type SlackOpenConnection,
   type SlackSocketFactory,
   type TelegramPollResult,
+  // The local API channel: one loopback listener, one reply seam.
+  MESSAGING_API_SERVER_PRINCIPAL,
+  MESSAGING_API_SERVER_SECTION,
+  createAgentTurnReply,
+  createApiServerEndpoint,
+  readApiServerSettings,
+  type ApiServerAuditEntry,
+  type ApiServerEndpoint,
+  type ApiServerTurnSurface,
 } from "@pi-desktop/agent-host";
+
 import type { AgentHost } from "@pi-desktop/agent-host";
 import { allowInsecureUserEndpoints, ErrorCodes } from "@pi-desktop/shared";
+
+// The reply seam's turn surface, re-exported: the composition roots name it when
+// they hand the local API channel its Agent Host.
+export type { ApiServerTurnSurface } from "@pi-desktop/agent-host";
 
 import { requireHostRpc, type HostRpc } from "./host-ports.js";
 
@@ -2034,6 +2048,198 @@ export function createHomeAssistantInboundWiring(
     transport: options.transport ?? createConfiguredHomeAssistantTransport(options),
     failureLabel: "inbound home assistant loop failed",
   });
+}
+
+/**
+ * The local API channel's wiring.
+ *
+ * Every other channel in this module polls or holds a socket, so its wiring is
+ * a transport wrapped in the shared driver. This one is the reverse: it binds a
+ * listener, and the caller arrives instead of being polled for. The pieces are
+ * therefore the listener (`@pi-desktop/agent-host`'s endpoint), the reply seam
+ * over the Agent Host, and the lifecycle the supervisor already owns — no
+ * driver, no cursor, no binding store.
+ *
+ * # Nothing binds unless the record says so
+ *
+ * `run` re-reads the settings row itself, and an absent, disabled or foreign
+ * record returns before a socket exists. The supervisor's start gate has
+ * already refused the same cases before calling a starter at all; this second
+ * read is what makes a hand-called wiring (or a test) unable to bind a port it
+ * has no record for.
+ *
+ * # The token is the identity
+ *
+ * There is one credential, read from the secret store under the record's ref,
+ * and no caller list beside it. The principal a turn runs as is therefore fixed
+ * (`MESSAGING_API_SERVER_PRINCIPAL`): the holder of this machine's token is the
+ * operator, which is what makes a local program's message land in a session the
+ * desktop already owns. A second allowlist would be a second identity mechanism
+ * that disagrees with the first the moment either is edited.
+ *
+ * # Failure is reported, not retried
+ *
+ * A bind failure — a port already taken, an address this build refuses — is a
+ * fact about the record, and retrying it every reconcile would only repeat the
+ * same error. `onFailure` carries the operating system's own reason to the
+ * gateway registry, which is what the card shows, and `run` resolves: the
+ * supervisor then holds no loop for the channel, so the snapshot cannot claim a
+ * listener that never bound.
+ *
+ * # Stop
+ *
+ * The signal aborts, the listener closes and its connections with it, and only
+ * then does `run` resolve — which is the supervisor's evidence that the port is
+ * free before it reports the channel stopped.
+ */
+export type MessagingApiServerWiringOptions = {
+  /** The Agent Host surface a turn is started and followed through. */
+  agentHost: ApiServerTurnSurface;
+  settings: HostSettingsSurface;
+  secrets: HostSecretReader;
+  signal: AbortSignal;
+  log?: MessagingInboundWiringLog;
+  /** The listener bound; the root clears any recorded failure. */
+  onListening?: (address: { host: string; port: number }) => void;
+  /** The listener could not bind, or has no credential to authenticate with. */
+  onFailure?: (reason: string) => void;
+};
+
+/** A started local API channel: the listener, and the loop the supervisor owns. */
+export type MessagingApiServerWiring = {
+  /** The bound listener, or `null` before `run` and after it returns. */
+  readonly endpoint: ApiServerEndpoint | null;
+  run(): Promise<void>;
+};
+
+/** The audit sink: structure and ids only — never message text, never a token. */
+export function createApiServerChannelAudit(
+  log?: MessagingInboundWiringLog,
+): (entry: ApiServerAuditEntry) => void {
+  if (!log) return () => {};
+  return (entry) => {
+    switch (entry.kind) {
+      case "started":
+        log("info", "local API channel listening", { host: entry.host, port: entry.port });
+        return;
+      case "stopped":
+        log("info", "local API channel stopped", {});
+        return;
+      case "answered":
+        log("info", "local API channel answered", {
+          conversationId: entry.conversationId,
+          messageLength: entry.messageLength,
+          replyLength: entry.replyLength,
+        });
+        return;
+      case "bind-failed":
+        log("warn", "local API channel could not bind", {
+          host: entry.host,
+          port: entry.port,
+          error: entry.error,
+        });
+        return;
+      case "reply-failed":
+        log("warn", "local API channel reply failed", { error: entry.error });
+        return;
+      case "rejected":
+        log("warn", "local API channel refused a request", { reason: entry.reason });
+        return;
+    }
+  };
+}
+
+/** The session the record is bound to, or `null` when it names none. */
+function readBoundSessionId(settings: unknown): string | null {
+  const section = readSection(settings, MESSAGING_API_SERVER_SECTION);
+  const inbound = readInbound(section);
+  const value = inbound?.sessionId;
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+}
+
+/**
+ * Build the local API channel's wiring, without binding anything.
+ *
+ * The record is read inside `run`, not here, because a starter is called
+ * synchronously by the supervisor and the settings row is a host RPC: reading it
+ * in the factory would make the factory async and the loop's start order
+ * unclear. `run` therefore owns the whole sequence — record, token, bind, wait
+ * for the stop signal, close — and resolves only once nothing is listening.
+ */
+export function createApiServerInboundWiring(
+  options: MessagingApiServerWiringOptions,
+): MessagingApiServerWiring {
+  let endpoint: ApiServerEndpoint | null = null;
+
+  const sessionFor = async (): Promise<string | null> => {
+    try {
+      return readBoundSessionId(await options.settings.read());
+    } catch {
+      return null;
+    }
+  };
+
+  return {
+    get endpoint() {
+      return endpoint;
+    },
+    async run(): Promise<void> {
+      let settings: unknown;
+      try {
+        settings = await options.settings.read();
+      } catch {
+        // Cannot tell what the record says: bind nothing, and change no state.
+        return;
+      }
+      const record = readApiServerSettings(settings);
+      if (!record) return;
+      let token: string | null = null;
+      try {
+        token = await options.secrets(record.tokenSecretRef);
+      } catch {
+        token = null;
+      }
+      if (!token || token.trim() === "") {
+        // Fail closed before a port exists: an unauthenticated local listener is
+        // a way into the agent for every process on the machine.
+        options.onFailure?.("no token is stored for the local API channel");
+        return;
+      }
+
+      const listener = createApiServerEndpoint({
+        settings: record,
+        token: token.trim(),
+        reply: createAgentTurnReply({
+          agentHost: options.agentHost,
+          principal: MESSAGING_API_SERVER_PRINCIPAL,
+          sessionFor,
+          timeoutMs: record.requestTimeoutMs,
+        }),
+        audit: createApiServerChannelAudit(options.log),
+      });
+      endpoint = listener;
+      try {
+        await listener.start();
+      } catch (error) {
+        endpoint = null;
+        options.onFailure?.(error instanceof Error ? error.message : String(error));
+        return;
+      }
+      const bound = listener.address() ?? { host: record.bindAddress, port: record.port };
+      options.onListening?.(bound);
+      if (!options.signal.aborted) {
+        await new Promise<void>((resolve) => {
+          const onAbort = (): void => {
+            options.signal.removeEventListener("abort", onAbort);
+            resolve();
+          };
+          options.signal.addEventListener("abort", onAbort, { once: true });
+        });
+      }
+      await listener.stop();
+      endpoint = null;
+    },
+  };
 }
 
 /** The settings surface both composition roots give the wiring. */

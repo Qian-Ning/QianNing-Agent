@@ -48,6 +48,10 @@
  */
 
 import {
+  MESSAGING_API_SERVER_FORMAT,
+  MESSAGING_API_SERVER_FORMAT_VERSION,
+  MESSAGING_API_SERVER_SECTION,
+  MESSAGING_API_SERVER_TOKEN_SECRET_REF,
   MESSAGING_DISCORD_BOT_TOKEN_SECRET_REF,
   MESSAGING_DISCORD_FORMAT,
   MESSAGING_DISCORD_FORMAT_VERSION,
@@ -211,6 +215,17 @@ export const MESSAGING_INBOUND_START_GATES: Record<MessagingGatewayChannel, Mess
     version: MESSAGING_SIGNAL_FORMAT_VERSION,
     fields: ["endpoint", "account"],
     secrets: [],
+  },
+  // The local API channel's record must name a port and its token must exist,
+  // because the transport refuses to bind without either. The record's linked
+  // identity and its bound session are checked by the transport itself: they
+  // live inside `inbound`, which this table reads only as a top-level field.
+  apiServer: {
+    section: MESSAGING_API_SERVER_SECTION,
+    format: MESSAGING_API_SERVER_FORMAT,
+    version: MESSAGING_API_SERVER_FORMAT_VERSION,
+    fields: ["port"],
+    secrets: [MESSAGING_API_SERVER_TOKEN_SECRET_REF],
   },
 };
 

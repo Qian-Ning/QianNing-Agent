@@ -8,6 +8,7 @@ import {
 } from "@pi-desktop/host-runtime";
 import {
   INGRESS_WEBHOOK_RECEIVER_SECTION,
+  MESSAGING_API_SERVER_SECTION,
   MESSAGING_DISCORD_SECTION,
   MESSAGING_EMAIL_SECTION,
   MESSAGING_HOME_ASSISTANT_SECTION,
@@ -170,6 +171,7 @@ export function registerSettingsIpc({
         section !== MESSAGING_NTFY_SECTION &&
         section !== MESSAGING_EMAIL_SECTION &&
         section !== MESSAGING_SIGNAL_SECTION &&
+        section !== MESSAGING_API_SERVER_SECTION &&
         // Not a channel, and named no product: the shared inbound-webhook
         // receiver's own configuration. It belongs here because it is the same
         // host-internal write path, and it is safe on it because the record

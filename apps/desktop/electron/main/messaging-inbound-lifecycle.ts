@@ -21,6 +21,7 @@
 
 import {
   MessagingInboundSupervisor,
+  createApiServerInboundWiring,
   createDiscordInboundWiring,
   createEmailInboundWiring,
   createHomeAssistantInboundWiring,
@@ -35,6 +36,7 @@ import {
   createSlackInboundWiring,
   createSignalInboundWiring,
   messagingChannelForSection,
+  type ApiServerTurnSurface,
   type HostRpc,
   type MessagingInboundHostSurface,
   type MessagingInboundWiringLog,
@@ -47,6 +49,12 @@ export type MessagingInboundLifecycleOptions = {
   getHost: () => HostRpc | null;
   /** The Agent Host the inbound commands are applied through. */
   agentHost: MessagingInboundHostSurface;
+  /**
+   * The Agent Host as the local API's reply seam drives it: it starts one turn
+   * and follows that session's event stream. The same object as `agentHost`;
+   * named separately because the two channels need different slices of it.
+   */
+  apiServerTurns: ApiServerTurnSurface;
   log?: MessagingInboundWiringLog;
 };
 
@@ -84,6 +92,19 @@ export function createMessagingInboundSupervisor(
       ntfy: (signal) => createNtfyInboundWiring({ ...common, signal }),
       email: (signal) => createEmailInboundWiring({ ...common, signal }),
       signal: (signal) => createSignalInboundWiring({ ...common, signal }),
+      // The local API channel is the one loop that binds a port. Its start gate
+      // is the record plus the stored token; a bind failure is reported to the
+      // registry, which is what the card shows, rather than retried silently.
+      apiServer: (signal) =>
+        createApiServerInboundWiring({
+          agentHost: options.apiServerTurns,
+          settings,
+          secrets,
+          signal,
+          onListening: () => messagingGateway.clearFailure("apiServer"),
+          onFailure: (reason) => messagingGateway.fail("apiServer", reason),
+          ...(options.log ? { log: options.log } : {}),
+        }),
     },
   });
 }
