@@ -1,4 +1,4 @@
-import { dialog, type BrowserWindow } from "electron";
+import { app, dialog, type BrowserWindow } from "electron";
 import { catalogs, resolveLocale } from "@pi-desktop/i18n";
 import { IPC, type CloseBehavior } from "@pi-desktop/shared";
 import {
@@ -14,15 +14,6 @@ export type CloseBehaviorDependencies = {
   createTray: () => void;
 };
 
-/**
- * Where a quit confirmation is drawn. `auto` prefers the app's own prompt in a
- * live main window and falls back to the native dialog; `native` goes straight
- * to the OS dialog, for a quit that was raised from outside the window (the
- * tray item), where restoring the window just to ask a question would undo the
- * minimize the user asked for.
- */
-export type QuitPromptSurface = "auto" | "native";
-
 /** What the user picked in an in-app quit / close prompt (D674). */
 export type QuitPromptChoice = "cancel" | "tray" | "quit";
 /** `quit` confirms exiting the app; `close` picks the window-close behavior. */
@@ -31,8 +22,13 @@ export type QuitPromptKind = "quit" | "close";
 /**
  * How long the main process waits for the renderer before falling back to the
  * native dialog. The prompt is drawn by a live renderer, so this only elapses
- * when that renderer is wedged mid-shutdown — the timeout keeps a quit from
- * hanging forever on a window that cannot answer.
+ * when that renderer is wedged — the timeout keeps a quit from hanging forever
+ * on a window that cannot answer.
+ *
+ * Deliberately generous: the window may have been restored from the tray a
+ * moment earlier, and a slow repaint or a lazily resumed page must not be
+ * mistaken for a dead one and replaced by the very OS dialog this change
+ * removes. Only a renderer that is genuinely stuck ever reaches the bound.
  */
 const QUIT_PROMPT_TIMEOUT_MS = 20_000;
 
@@ -71,10 +67,33 @@ export function createCloseBehaviorRuntime({
   };
 
   /**
-   * Ask the renderer to show the app's own dialog (D674) instead of the native
-   * message box. Returns null when there is no live window, the app runs in an
-   * automated probe, or the renderer does not answer in time — every one of
-   * those falls back to the native dialog, so the prompt can never vanish.
+   * Bring the window that will draw the prompt in front of the user. A quit
+   * raised from the tray arrives while the main window is hidden: a hidden
+   * window can neither paint the card nor take the keystrokes that answer it,
+   * so it is restored and focused first. Cancelling leaves it on screen — the
+   * app is running again, and a window that was shown to ask a question must
+   * not be left claiming to be hidden.
+   */
+  const presentPromptWindow = (window: BrowserWindow): void => {
+    try {
+      if (window.isMinimized()) window.restore();
+      if (!window.isVisible()) window.show();
+      // macOS keeps a window behind the other apps unless the app itself is
+      // activated, and a card nobody can see is the problem being fixed.
+      if (process.platform === "darwin") app.focus({ steal: true });
+      window.focus();
+    } catch {
+      // The window died between the checks and these calls; the send below
+      // fails the same way, and the caller falls back to the native dialog.
+    }
+  };
+
+  /**
+   * Ask the renderer to show the app's own dialog (D674). Returns null only
+   * when the renderer provably cannot answer — no window, a destroyed window
+   * or webContents, an automated probe — or when it stays silent past
+   * `QUIT_PROMPT_TIMEOUT_MS`. Every other case, including a quit raised from
+   * the tray while the window is hidden, is drawn by the app.
    */
   const askRenderer = (
     kind: QuitPromptKind,
@@ -91,9 +110,7 @@ export function createCloseBehaviorRuntime({
     ) {
       return Promise.resolve(null);
     }
-    // A window the user cannot see cannot show the question, and waiting on it
-    // would turn a tray quit into twenty silent seconds: ask natively instead.
-    if (!window.isVisible() || window.isMinimized()) return Promise.resolve(null);
+    presentPromptWindow(window);
     const requestId = `quit-prompt-${++promptSequence}`;
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
@@ -145,6 +162,11 @@ export function createCloseBehaviorRuntime({
     return response === 1 ? "tray" : response === 2 ? "quit" : null;
   };
 
+  /**
+   * The last-resort OS dialog. Reachable only when `askRenderer` returned null:
+   * no live renderer at all, or one that stayed silent past the timeout. No
+   * normal quit path takes this route — see `confirmQuitDialog`.
+   */
   const askNativeQuit = async (): Promise<boolean> => {
     const labels = catalogs[resolveLocale(getLocale())];
     const parent =
@@ -167,28 +189,28 @@ export function createCloseBehaviorRuntime({
     return response === 1;
   };
 
-  const confirmQuitDialog = async (
-    surface: QuitPromptSurface = "auto",
-  ): Promise<boolean> => {
-    if (surface === "auto") {
-      const answered = await askRenderer("quit");
-      if (answered) return answered === "quit";
-    }
+  /**
+   * The one quit confirmation every entry point shares: the tray's Quit item,
+   * the window close that chose Quit, the application menu and Cmd+Q. It is
+   * always the app's own card; the native dialog answers only when the renderer
+   * provably cannot (no live window) or stops answering past the timeout.
+   */
+  const confirmQuitDialog = async (): Promise<boolean> => {
+    const answered = await askRenderer("quit");
+    if (answered) return answered === "quit";
     return askNativeQuit();
   };
 
   /**
-   * The tray's Quit item, deliberately answered by the OS dialog.
+   * The tray's Quit item, answered by the same card as every other quit.
    *
-   * A tray quit is raised outside the window, and the window in question is the
-   * one the user put away in the tray: the renderer cannot draw the question
-   * while it is hidden, so asking it there would only mean waiting out
-   * `QUIT_PROMPT_TIMEOUT_MS` before the same native dialog appears. Restoring
-   * the window to show the app's own card would undo the minimize the user just
-   * asked for, so this path picks the native dialog on purpose rather than
-   * relying on the hidden-window fallback.
+   * A tray quit is raised outside the window, usually while the window sits
+   * hidden in the tray. The card is still drawn there: `askRenderer` restores
+   * and focuses the window so it can be seen and answered, and a cancelled
+   * quit leaves that window open and usable rather than re-hiding it behind
+   * the question.
    */
-  const confirmTrayQuit = (): Promise<boolean> => confirmQuitDialog("native");
+  const confirmTrayQuit = (): Promise<boolean> => confirmQuitDialog();
 
   return {
     applyCloseBehavior,

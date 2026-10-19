@@ -2028,12 +2028,17 @@ uid.
   body, and cancel / close to tray / quit. 3) Dismiss it with Escape and
   confirm the window stays open. 4) Trigger an explicit quit (application menu,
   or Quit in the close question) and confirm the in-app confirmation, then
-  choose Cancel. 5) Quit for real.
+  choose Cancel. 5) Quit from the tray icon while the window is hidden. 6) Quit
+  for real.
 - **Expected**: Both questions are drawn by the renderer in the product's own
-  styling with localized copy; Escape and a backdrop click mean Cancel; focus
-  starts on Cancel, so Enter alone cannot quit. No native message box appears
-  while a live window can answer, and an answered Quit exits the app. A prompt
-  no window can answer falls back to the native dialog instead of hanging.
+  styling with localized copy; Escape and a backdrop click mean Cancel; Enter
+  takes the card's default action (its confirm button holds focus, and a
+  focused Cancel still cancels). No native message box appears while a live
+  window can answer — including a tray quit, which restores and focuses the
+  window so the card is on screen and leaves it usable if the user cancels. An
+  answered Quit exits the app exactly once. Only a window no renderer can draw
+  in (destroyed) or a renderer silent for the timeout falls back to the native
+  dialog instead of hanging.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md` (§13b),
   `08-meta/decisions-log.md` (D674)
 - **Acceptance**: A (startup/lifecycle), Localization, Quality

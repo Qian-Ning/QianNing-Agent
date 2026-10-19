@@ -102,20 +102,35 @@ const settled = () => new Promise((resolve) => setImmediate(resolve));
 
 function fakeWindow({ visible = false, minimized = false } = {}) {
   const sent = [];
-  return {
+  const window = {
     sent,
+    visible,
+    minimized,
+    showed: 0,
+    focused: 0,
     isDestroyed: () => false,
-    isVisible: () => visible,
-    isMinimized: () => minimized,
-    show() {},
-    focus() {},
-    restore() {},
-    hide() {},
+    isVisible: () => window.visible,
+    isMinimized: () => window.minimized,
+    show() {
+      window.visible = true;
+      window.showed += 1;
+    },
+    focus() {
+      window.focused += 1;
+    },
+    restore() {
+      window.minimized = false;
+      window.visible = true;
+    },
+    hide() {
+      window.visible = false;
+    },
     webContents: {
       isDestroyed: () => false,
       send: (channel, payload) => sent.push({ channel, payload }),
     },
   };
+  return window;
 }
 
 /**
@@ -295,22 +310,25 @@ test("the close-behaviour question is not reached on the tray quit path", async 
   assert.equal(harness.closeBehaviorCalls.length, 0);
 });
 
-test("the tray quit confirmation is the native dialog, deliberately", async (t) => {
-  // The window is hidden in the tray, so the renderer cannot draw the question
-  // and `askRenderer` would have to time out before the same native dialog
-  // appeared. `confirmTrayQuit` therefore takes the native dialog on purpose —
-  // even for a window that *could* draw it, which is the case below. If it went
-  // back through `confirmQuitDialog()`'s auto surface, the promise would stay
-  // pending here (the renderer is asked and never answers) and this fails.
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  const window = fakeWindow({ visible: true, minimized: false });
+/**
+ * The tray item wired to the real confirmation runtime, so the assertions
+ * describe the app's menu → runtime → renderer path rather than a stub.
+ */
+function realConfirmationHarness({ window = fakeWindow({ visible: false }) } = {}) {
   const runtime = createCloseBehaviorRuntime({
-    state: { mainWindow: window, closeBehavior: "ask" },
+    state: { mainWindow: window, closeBehavior: "tray" },
     dataDir: appRoot,
     getLocale: () => "en",
     createTray: () => {},
   });
+  const harness = trayHarness({ window, confirm: () => runtime.confirmTrayQuit() });
+  return { ...harness, runtime };
+}
 
+const QUIT_PROMPT_CHANNEL = "pi-desktop/app/event/quitPrompt";
+
+/** Record every native message box, so "never asked" is observable. */
+async function withoutNativeDialog(run) {
   const shown = [];
   const original = dialog.showMessageBox;
   dialog.showMessageBox = async (...args) => {
@@ -318,25 +336,66 @@ test("the tray quit confirmation is the native dialog, deliberately", async (t) 
     return { response: 1 };
   };
   try {
-    const answer = await Promise.race([
-      runtime.confirmTrayQuit().then((value) => ({ value })),
-      settled().then(() => ({ pending: true })),
-    ]);
-
-    assert.deepEqual(answer, { value: true }, "the native dialog answers without waiting on the renderer");
-    assert.equal(window.sent.length, 0, "the renderer is never asked to draw a tray quit");
-    assert.equal(shown.length, 1);
-    const [parent, options] = shown[0].length === 2
-      ? shown[0]
-      : [undefined, shown[0][0]];
-    assert.equal(parent, window, "the dialog is parented to the main window");
-    assert.equal(options.title, labels.confirmQuitTitle);
-    assert.equal(options.detail, labels.confirmQuitBody);
-    assert.deepEqual(options.buttons, [catalogs.en.common.cancel, labels.confirmQuit]);
-    assert.equal(options.defaultId, 0, "Cancel is the default: an accidental Enter keeps the app");
+    return await run(shown);
   } finally {
     dialog.showMessageBox = original;
   }
+}
+
+test("the tray Quit item draws the app's card, restoring a hidden window", async () => {
+  // This is the path that used to opt out on purpose: the window is hidden in
+  // the tray, so the card could not be seen. It is restored instead, and the
+  // OS dialog is never asked — asserted on the real menu wiring.
+  const harness = realConfirmationHarness();
+  const { window, runtime, menu } = harness;
+  assert.equal(window.isVisible(), false);
+
+  await withoutNativeDialog(async (shown) => {
+    trayQuitItem(menu).click();
+    await settled();
+
+    assert.equal(shown.length, 0, "the tray quit must not raise the native dialog");
+    assert.equal(window.isVisible(), true, "the window is restored so the card can be seen");
+    assert.equal(window.focused > 0, true, "the restored window takes the keystrokes");
+    assert.equal(window.sent.length, 1, "the renderer is asked exactly once");
+    assert.equal(window.sent[0].channel, QUIT_PROMPT_CHANNEL);
+    assert.equal(window.sent[0].payload.kind, "quit");
+    assert.equal(quitCalls.length, 0, "nothing quits before the card is answered");
+
+    runtime.answerQuitPrompt(window.sent[0].payload.requestId, "quit");
+    await settled();
+  });
+
+  assert.equal(quitCalls.length, 1, "confirming the card quits the app once");
+  assert.equal(harness.state.quitConfirmed, true);
+});
+
+test("cancelling the tray card leaves the restored window open and usable", async () => {
+  const harness = realConfirmationHarness();
+  const { window, runtime, menu } = harness;
+
+  await withoutNativeDialog(async (shown) => {
+    trayQuitItem(menu).click();
+    await settled();
+    runtime.answerQuitPrompt(window.sent[0].payload.requestId, "cancel");
+    await settled();
+    assert.equal(shown.length, 0);
+  });
+
+  assert.equal(quitCalls.length, 0, "Cancel must not quit");
+  assert.equal(harness.state.quitConfirmed, false, "a cancelled quit asks again next time");
+  // The window was shown for the question and stays shown: re-hiding it would
+  // leave the user with an app that looks closed while it is running.
+  assert.equal(window.isVisible(), true, "cancel leaves the app usable on screen");
+
+  trayQuitItem(menu).click();
+  await settled();
+  assert.equal(window.sent.length, 2, "the next tray quit asks a fresh question");
+  assert.notEqual(
+    window.sent[1].payload.requestId,
+    window.sent[0].payload.requestId,
+    "one request id per question",
+  );
 });
 
 test("the tray Quit item is not wired straight to app.quit", async () => {

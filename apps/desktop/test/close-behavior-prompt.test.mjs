@@ -42,14 +42,36 @@ test("both quit questions are drawn by the renderer first", () => {
     quit.indexOf('askRenderer("quit")') < quit.indexOf("askNativeQuit()"),
     "the quit confirmation must ask the renderer before the native dialog",
   );
-  // The default surface still prefers the renderer; only a caller that names the
-  // native surface (the tray item) skips it.
-  assert.match(quit, /surface: QuitPromptSurface = "auto"/);
+  // There is one surface now: no caller can opt out of the app's card, and the
+  // tray item goes through the same confirmation as every other quit.
+  assert.doesNotMatch(
+    closeBehaviorSource,
+    /QuitPromptSurface|confirmQuitDialog\("native"\)/,
+    "the native surface is not selectable any more",
+  );
+  const tray = bodyOf(closeBehaviorSource, "const confirmTrayQuit =");
+  assert.match(tray, /confirmQuitDialog\(\)/);
   assert.ok(
     closeBehaviorSource.indexOf("const askNativeQuit = async") <
       closeBehaviorSource.indexOf("const confirmTrayQuit ="),
-    "the native dialog is one implementation, asked by both surfaces",
+    "the native dialog is one fallback implementation behind the card",
   );
+});
+
+test("a hidden window is shown so it can draw the card, not skipped", () => {
+  const ask = bodyOf(closeBehaviorSource, "const askRenderer =");
+  // A tray quit arrives with the window hidden: restore it instead of treating
+  // it as a renderer that cannot answer.
+  assert.doesNotMatch(ask, /!window\.isVisible\(\)\s*\|\|\s*window\.isMinimized\(\)/);
+  assert.match(ask, /presentPromptWindow\(window\);/);
+  assert.ok(
+    ask.indexOf("presentPromptWindow(window);") < ask.indexOf("webContents.send"),
+    "the window has to be on screen before the renderer is asked",
+  );
+  const present = bodyOf(closeBehaviorSource, "const presentPromptWindow =");
+  assert.match(present, /if \(window\.isMinimized\(\)\) window\.restore\(\);/);
+  assert.match(present, /if \(!window\.isVisible\(\)\) window\.show\(\);/);
+  assert.match(present, /window\.focus\(\);/);
 });
 
 test("the prompt can never vanish when the renderer cannot answer", () => {
@@ -58,10 +80,9 @@ test("the prompt can never vanish when the renderer cannot answer", () => {
   assert.match(ask, /if \([\s\S]*?!window \|\|[\s\S]*?window\.isDestroyed\(\)[\s\S]*?window\.webContents\.isDestroyed\(\)[\s\S]*?\) \{\s*\n\s*return Promise\.resolve\(null\);/);
   // Automated probes must never wait on a prompt no human is watching.
   assert.match(ask, /isAutomatedMode\(\)/);
-  // A hidden or minimized window cannot show it either, so a tray quit must not
-  // stall for the full timeout before the native dialog appears.
-  assert.match(ask, /if \(!window\.isVisible\(\) \|\| window\.isMinimized\(\)\) return Promise\.resolve\(null\);/);
   // A wedged renderer resolves to the native fallback instead of hanging quit.
+  // The bound is generous, so a window restored from the tray that is slow to
+  // repaint is not mistaken for one that cannot answer.
   assert.match(closeBehaviorSource, /const QUIT_PROMPT_TIMEOUT_MS = 20_000;/);
   assert.match(ask, /setTimeout\(\(\) => \{[\s\S]*?resolve\(null\);/);
   // Giving up also withdraws the card it asked for: otherwise the native dialog
@@ -129,15 +150,20 @@ test("the main process validates the answer before trusting it", () => {
   assert.match(appIpcSource, /answerQuitPrompt\(\s*answer\.requestId,\s*answer\.choice,?\s*\)/);
 });
 
-test("the renderer host answers, and its safe action is the default", () => {
+test("the renderer host answers, and its default action is the confirm", () => {
   assert.match(dialogSource, /api\.onQuitPrompt\(/);
   assert.match(dialogSource, /api\.answerQuitPrompt\(/);
-  // Escape and a backdrop click cancel; focus starts on Cancel, because a stray
-  // Enter must not be the keystroke that quits the app.
+  // Escape cancels from anywhere; Enter takes the default action, so focus
+  // starts on the default button (the card's confirm) rather than Cancel.
   assert.match(dialogSource, /event\.key === "Escape"/);
+  assert.match(dialogSource, /event\.key === "Enter"/);
   assert.match(dialogSource, /event\.target === event\.currentTarget/);
-  assert.match(dialogSource, /cancelRef\.current\?\.focus\(\)/);
-  assert.match(dialogSource, /ref=\{cancelRef\}[\s\S]{0,120}variant="ghost"/);
+  assert.match(dialogSource, /confirmRef\.current\?\.focus\(\)/);
+  assert.match(dialogSource, /ref=\{confirmRef\}/);
+  // Tab never leaves the card, and focus is pulled back if it escaped.
+  assert.match(dialogSource, /event\.key !== "Tab"/);
+  assert.match(dialogSource, /!dialogRef\.current\?\.contains\(active\)/);
+  assert.match(dialogSource, /previouslyFocused\?\.isConnected\) previouslyFocused\.focus\(\)/);
   assert.match(dialogSource, /role="dialog"/);
   assert.match(dialogSource, /aria-modal="true"/);
   // The three answers are the three the native dialog offered.
