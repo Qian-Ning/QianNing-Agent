@@ -806,20 +806,15 @@ const slackSecrets: MessagingSecretSlot[] = [
 /**
  * Every platform the product lists, in the product's own order.
  *
- * The list is the catalogue, not a promise: the seven entries with `support:
- * "supported"` are the channels whose send and receive paths exist in this
- * build. Each of the other twenty-six carries the sentence that says what it
- * would take, and the class that sentence belongs to, so a user comparing this
- * page with the product can see both what exists and what the gap is.
- */
-/**
- * Every platform the product lists, in the product's own order.
+ * The list is the catalogue, not a promise: an entry marked `support:
+ * "supported"` is a channel whose send and receive paths exist in this build.
+ * Every other entry carries the sentence that says what it would take, and the
+ * class that sentence belongs to, so a user comparing this page with the
+ * product can see both what exists and what the gap is.
  *
- * The list is the catalogue, not a promise: the six entries with `support:
- * "supported"` are the channels whose send and receive paths exist in this
- * build. Each of the other twenty-seven carries the sentence that says what it
- * would take, and the class that sentence belongs to, so a user comparing this
- * page with the product can see both what exists and what the gap is.
+ * Counts are deliberately not written down here. They were, twice, in two
+ * copies of this comment, and both had drifted by the time anyone read them.
+ * `SUPPORTED_MESSAGING_PLATFORMS` is the answer; a sentence is not.
  */
 export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   {
