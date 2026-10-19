@@ -8,6 +8,7 @@ import {
   RuntimeService,
   RuntimeSupervisor,
   createHeadlessLaunchResolver,
+  createApiServerInboundWiring,
   createHostQueueStore,
   createHostSecretReader,
   createHostSessionPort,
@@ -418,6 +419,22 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
     }).run(),
   };
 
+  // The local API channel, beside the others: the one loop in this root that
+  // binds a port. Off unless its record exists and is enabled, and its bearer
+  // token must be in the secret store or it refuses to bind. It is stopped like
+  // the rest: abort, then a bounded wait for `run` to close the listener.
+  const messagingApiServerAbort = new AbortController();
+  const messagingApiServer: MessagingInboundHandle = {
+    controller: messagingApiServerAbort,
+    done: createApiServerInboundWiring({
+      agentHost,
+      settings: createHostSettingsSurface(getHost),
+      secrets: createHostSecretReader(getHost),
+      signal: messagingApiServerAbort.signal,
+      log: (level, message, data) => log(level, message, data),
+    }).run(),
+  };
+
   // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3): the
   // Host-side redactor subscribed on the host-scope event surface, so the
   // redacted summaries of terminal turn outcomes and host-owned requests reach
@@ -541,6 +558,10 @@ export async function startPiHost(config: PiHostConfig, options: { log?: HostLog
       // aborted, so a bridge holding the call open cannot delay the stop.
       messagingSignal.controller.abort();
       await settleWithinBudget(messagingSignal.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
+      // The local API listener stops the same way. Its `run` closes the socket
+      // before it resolves, so the bounded wait is also when the port is freed.
+      messagingApiServer.controller.abort();
+      await settleWithinBudget(messagingApiServer.done, MESSAGING_INBOUND_STOP_BUDGET_MS);
       // The outbound relay is released the same way, beside the two loops and
       // before the host is disposed: it unsubscribes at once, and the (already
       // settled) wait is bounded so a release that ever refused to settle could

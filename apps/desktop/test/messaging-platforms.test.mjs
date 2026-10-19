@@ -170,11 +170,12 @@ const SUPPORTED_IDS = [
   "signal",
   "homeAssistant",
   "email",
+  "apiServer",
   "irc",
   "ntfy",
 ];
 
-/** The whole catalogue, in rail order: thirty-three, ten of them supported. */
+/** The whole catalogue, in rail order: thirty-three, eleven of them supported. */
 test("the catalogue is the product's full list and marks support honestly", () => {
   assert.deepEqual(
     MESSAGING_PLATFORMS.map((entry) => entry.id),
@@ -184,7 +185,7 @@ test("the catalogue is the product's full list and marks support honestly", () =
   assert.deepEqual(SUPPORTED_MESSAGING_PLATFORMS.map((entry) => entry.id), SUPPORTED_IDS);
 
   // The split is derived from the entries, not from a tuned constant: every id
-  // in the catalogue is either one of the seven supported or one honest absence.
+  // in the catalogue is either one of the supported or one honest absence.
   assert.deepEqual(
     UNSUPPORTED_MESSAGING_PLATFORMS.map((entry) => entry.id),
     CATALOGUE_IDS.filter((id) => !SUPPORTED_IDS.includes(id)),
@@ -270,7 +271,10 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
     "blueBubbles",
     "imessagePhone",
   ]);
-  assert.deepEqual(byClass.transport, ["apiServer", "a2a", "relay"]);
+  // apiServer left this class when its listener shipped: it is a supported
+  // channel now, not an honest absence, so the transport class is the two
+  // protocols still lacking a local endpoint.
+  assert.deepEqual(byClass.transport, ["a2a", "relay"]);
   assert.deepEqual(byClass.platformApproval, [
     "weixin",
     "qqBot",
@@ -586,6 +590,19 @@ test("fields are grouped, and every field explains itself and its blank", () => 
         ["access-token"],
         "ntfy's optional credential still has a slot",
       );
+    } else if (platform.id === "apiServer") {
+      // The local API is a listener, not a chat peer: no destination, subject or
+      // role list, because the bearer token is the whole identity and the caller
+      // names the conversation. What the record must carry is where it binds, and
+      // its token is required — a loopback listener with no token is a way into
+      // the agent for every process on the machine.
+      assert.deepEqual(requiredWithoutSecrets, ["port", "bindAddress"]);
+      assert.deepEqual(recommended.map((field) => field.id), ["requestTimeoutMs"]);
+      assert.deepEqual(
+        requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
+        ["api-token"],
+        "the local API's token is required, unlike ntfy's optional one",
+      );
     } else {
       assert.deepEqual(
         requiredWithoutSecrets,
@@ -630,6 +647,14 @@ test("fields are grouped, and every field explains itself and its blank", () => 
         continue;
       }
       if (platform.id === "signal" && (id === "destination" || id === "requestTimeoutMs")) {
+        continue;
+      }
+      // The local API has none of the conversation fields: its address is a bind
+      // address on this machine, not a peer, and it has no endpoint or link.
+      if (
+        platform.id === "apiServer" &&
+        (id === "destination" || id === "subject" || id === "endpoint")
+      ) {
         continue;
       }
       const field = platform.fields.find((entry) => entry.id === id);
@@ -1114,7 +1139,10 @@ test("the header's enable switch is two-way and persists through the panel's sub
   // The one-way button labels are gone from the header.
   assert.equal(detail.includes("settings.messaging.enableNow"), false);
   assert.equal(detail.includes("settings.messaging.disableNow"), false);
-  assert.match(detail, /await onSave\(draft, next\)/);
+  // The switch and the footer save through the same `submit`, which hands the
+  // draft and the toggle's direction to `onSave` — the persistence the old
+  // one-way button also had, under the flag's current name.
+  assert.match(detail, /await onSave\(draft, nextEnabled\)/);
   // Enabling is gated on the draft's required fields and says why; disabling is
   // not gated, so it stays available on a channel that is already on.
   assert.ok(detail.includes("settings.messaging.quickEnableBlocked"));
@@ -1162,22 +1190,17 @@ test("every guide link on the page carries the link affordance", () => {
 });
 
 /**
- * The gateway registry: the loop's lifetime is the signal. */
+ * The gateway registry: the loop's lifetime is the signal.
+ *
+ * The expected shape is `MESSAGING_GATEWAY_OFF` — the export the panel itself
+ * renders before the first reply — rather than a fourth hand-written copy of the
+ * channel keys. The snapshot is asserted exactly, so a channel the registry
+ * invents or drops still fails; a channel added to the snapshot type shows up
+ * here without editing the literals again.
+ */
 test("the gateway registry reports the loops that are actually running", async () => {
   const registry = new MessagingGatewayRegistry();
-  assert.deepEqual(registry.snapshot(), {
-    booted: false,
-    telegram: false,
-    slack: false,
-    discord: false,
-    mattermost: false,
-    matrix: false,
-    irc: false,
-    homeAssistant: false,
-    ntfy: false,
-    email: false,
-    signal: false,
-  });
+  assert.deepEqual(registry.snapshot(), { ...MESSAGING_GATEWAY_OFF });
 
   registry.markBooted();
   let finishTelegram;
@@ -1187,17 +1210,9 @@ test("the gateway registry reports the loops that are actually running", async (
   registry.track("telegram", { done: telegramDone });
   registry.track("slack", null);
   assert.deepEqual(registry.snapshot(), {
+    ...MESSAGING_GATEWAY_OFF,
     booted: true,
     telegram: true,
-    slack: false,
-    discord: false,
-    mattermost: false,
-    matrix: false,
-    irc: false,
-    homeAssistant: false,
-    ntfy: false,
-    email: false,
-    signal: false,
   });
 
   registry.track("slack", { done: Promise.resolve() });
@@ -1208,19 +1223,7 @@ test("the gateway registry reports the loops that are actually running", async (
   finishTelegram();
   await Promise.resolve();
   await Promise.resolve();
-  assert.deepEqual(registry.snapshot(), {
-    booted: true,
-    telegram: false,
-    slack: false,
-    discord: false,
-    mattermost: false,
-    matrix: false,
-    irc: false,
-    homeAssistant: false,
-    ntfy: false,
-    email: false,
-    signal: false,
-  });
+  assert.deepEqual(registry.snapshot(), { ...MESSAGING_GATEWAY_OFF, booted: true });
 });
 
 /** The quick setup probe: a constant host, typed failures, no token back. */

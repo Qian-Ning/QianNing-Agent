@@ -1288,6 +1288,24 @@
 }
 
 /*
+  The generated bearer token, shown once. It is selectable as a whole (the reason
+  it is a block rather than inline text): copying it is the only way the value
+  leaves this card, since the stored one is never read back.
+*/
+.settings-messaging-token {
+  display: block;
+  padding: 6px 8px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--radius-sm);
+  background: var(--ds-surface-sunken);
+  color: var(--ds-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs-plus);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+/*
   The action keeps its own width. The enable block on its left grows and wraps
   its note; a button that is allowed to shrink is a button that renders one
   character per line, which is what "保/存" used to be.
