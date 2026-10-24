@@ -506,6 +506,18 @@ export const IPC = {
     terminalInput: "pi-desktop/terminal/input",
     terminalResize: "pi-desktop/terminal/resize",
     terminalClose: "pi-desktop/terminal/close",
+    /**
+     * Read-only session visualization surface (ADR 0327). The renderer lists
+     * the visualizations an agent turn wrote to a session and reads one
+     * artifact's content to render it in the transcript inside a no-script
+     * sandbox iframe. Writing is deliberately not exposed here: artifacts are
+     * written only by the agent runtime through host-core's
+     * `WriteInlineVisualization` tool path, so a renderer compromise cannot
+     * plant content — it can at most read back what the agent already wrote
+     * to that session.
+     */
+    inlineVizList: "pi-desktop/inlineViz/list",
+    inlineVizRead: "pi-desktop/inlineViz/read",
   },
   event: {
     pluginChanged: "pi-desktop/event/pluginChanged",

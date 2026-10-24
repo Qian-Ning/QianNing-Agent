@@ -323,6 +323,19 @@ export const es = {
     referenceUnavailable: "Sesión no disponible",
     sessionMissing: "Esa sesión ya no existe",
   },
+  inlineViz: {
+    "showPreview": "Mostrar vista previa",
+    "hidePreview": "Ocultar vista previa",
+    "loading": "Cargando…",
+    "loadFailed": "No se pudo cargar la vista previa",
+    kind: {
+      "html": "HTML",
+      "svg": "SVG",
+      "json": "JSON",
+      "csv": "CSV",
+      "text": "Texto",
+    },
+  },
   "chat": {
     "tableActions": "Acciones de tabla",
     "copyTableMarkdown": "Copiar tabla como Markdown",
@@ -1889,6 +1902,8 @@ sklm: {
     "infiniteProviderRetryDesc": "Reintenta los errores de red y temporales hasta que la solicitud tenga éxito. Puedes detener el turno; el uso de la API puede continuar.",
     "smoothStreaming": "Transmisión suave",
     "smoothStreamingDesc": "Libera el texto transmitido carácter por carácter para un efecto de máquina de escribir. Se desactiva automáticamente cuando el sistema prefiere movimiento reducido.",
+    "inlineVisualizations": "Visualizaciones en línea",
+    "inlineVisualizationsDesc": "Permite que el agente adjunte artefactos renderizados — gráficos, diagramas, tablas, salida formateada — a una conversación y los muestre en línea en la transcripción. Desactivado por defecto; el contenido se guarda con la sesión y se muestra en un entorno aislado estricto sin scripts.",
     "preventScreenSleep": "Evitar suspensión de pantalla",
     "preventScreenSleepDesc": "Mantiene la pantalla encendida mientras la aplicación está en ejecución. Usa las API de gestión de energía del sistema en todas las plataformas.",
     "linkOpenTarget": "Destino al abrir enlaces",

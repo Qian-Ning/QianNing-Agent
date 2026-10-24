@@ -1,4 +1,5 @@
 import { GeneratedImages } from "./GeneratedImages";
+import { InlineVisualizationCard } from "./InlineVisualizationCard";
 import "../../../styles/generated-images.css";
 import {
   Fragment,
@@ -592,6 +593,7 @@ export const ToolRow = memo(function ToolRow({
         </div>
       ) : null}
       {!imagesInTurn && <GeneratedImages message={message} />}
+      {inlineOpen && <InlineVisualizationCard message={message} />}
       {inlineOpen && delegate ? (
         <SubagentRunRows
           run={delegate}

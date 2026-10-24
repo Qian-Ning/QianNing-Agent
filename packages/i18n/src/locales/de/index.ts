@@ -323,6 +323,19 @@ export const de = {
     referenceUnavailable: "Sitzung nicht verfügbar",
     sessionMissing: "Diese Sitzung existiert nicht mehr",
   },
+  inlineViz: {
+    "showPreview": "Vorschau anzeigen",
+    "hidePreview": "Vorschau ausblenden",
+    "loading": "Wird geladen…",
+    "loadFailed": "Vorschau konnte nicht geladen werden",
+    kind: {
+      "html": "HTML",
+      "svg": "SVG",
+      "json": "JSON",
+      "csv": "CSV",
+      "text": "Text",
+    },
+  },
   "chat": {
     "tableActions": "Tabellenaktionen",
     "copyTableMarkdown": "Tabelle als Markdown kopieren",
@@ -1889,6 +1902,8 @@ sklm: {
     "infiniteProviderRetryDesc": "Netzwerk- und vorübergehende Anbieterfehler werden bis zum Erfolg wiederholt. Du kannst den Lauf weiterhin stoppen; der API-Verbrauch kann fortlaufen.",
     "smoothStreaming": "Sanftes Streaming",
     "smoothStreamingDesc": "Gibt gestreamten Text zeichenweise aus, um einen Schreibmaschineneffekt zu erzeugen. Wird automatisch deaktiviert, wenn das System reduzierte Bewegung bevorzugt.",
+    "inlineVisualizations": "Inline-Visualisierungen",
+    "inlineVisualizationsDesc": "Dem Agenten erlauben, gerenderte Artefakte — Diagramme, Tabellen, formatierte Ausgaben — an eine Unterhaltung anzuhängen und sie direkt im Transkript anzuzeigen. Standardmäßig deaktiviert; der Inhalt wird mit der Sitzung gespeichert und in einer strengen Sandbox ohne Skripte angezeigt.",
     "preventScreenSleep": "Bildschirmsperre verhindern",
     "preventScreenSleepDesc": "Hält das Display wach, solange die App läuft. Nutzt plattformübergreifend die System-Energieverwaltung.",
     "linkOpenTarget": "Ziel für Link-Öffnung",

@@ -326,6 +326,19 @@ export const zhCN = {
     referenceUnavailable: "会话不可用",
     sessionMissing: "该会话已不存在",
   },
+  inlineViz: {
+    showPreview: "显示预览",
+    hidePreview: "隐藏预览",
+    loading: "正在加载…",
+    loadFailed: "无法加载预览",
+    kind: {
+      html: "HTML",
+      svg: "SVG",
+      json: "JSON",
+      csv: "CSV",
+      text: "文本",
+    },
+  },
   chat: {
     tableActions: "表格操作",
     copyTableMarkdown: "复制表格为 Markdown",
@@ -1877,6 +1890,8 @@ sklm: {
     infiniteProviderRetryDesc: "网络或临时服务故障会一直重试直到成功。仍可随时停止，但开启后可能持续消耗 API 用量。",
     smoothStreaming: "平滑流式显示",
     smoothStreamingDesc: "将流式文本逐字释放，产生打字机效果。系统开启“减少动态效果”时自动禁用。",
+    inlineVisualizations: "内联可视化",
+    inlineVisualizationsDesc: "允许智能体将渲染后的工件（图表、示意图、表格、格式化输出）附加到对话中，并在对话记录中内联显示。默认关闭；内容随会话存储，并在禁用脚本的严格沙箱中显示。",
     preventScreenSleep: "阻止屏幕休眠",
     preventScreenSleepDesc: "应用运行时保持屏幕常亮，跨平台使用系统电源管理接口。",
     linkOpenTarget: "链接打开位置",

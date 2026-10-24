@@ -77,3 +77,4 @@ export * from "./window-chrome.js";
 export * from "./native-web-search.js";
 export * from "./native-web-search-transport.js";
 export * from "./header-value.js";
+export * from "./inline-viz.js";
