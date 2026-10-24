@@ -97,6 +97,7 @@ stdio 与 Tokio 的动态阻塞池隔离，因此后一种情况
 | `AGENT_NOT_FOUND` | 不 | 会话丢失 |
 | `TURN_NOT_FOUND` | 不 | 使 id 无效 |
 | `TURN_ABORTED` | 不 | 回合被 user/system 中止 |
+| `TURN_ABORT_FAILED` | 不 | 中止请求被拒绝或未完成，回合以失败结算，而不是被报告为已停止 |
 | `AGENT_SIDECAR_CRASHED` | 不 | Node agent sidecar 进程在回合中途死亡；所属回合以中止收尾并使用此代码，而不是无关的 Plan 审批代码（issue #1077） |
 | `AGENT_SIDECAR_OOM` | 不 | sidecar 在 JavaScript 堆触及配置上限后死亡，依据其 stderr 尾部的 V8 致命错误横幅判定；在输入缩小之前，同一回合会以同样方式失败（issue #1077） |
 | `MODEL_NOT_CONFIGURED` | 不 | 未选择可用模型，或提供商因未知而拒绝所选模型 |
