@@ -10,6 +10,7 @@ import {
   buildProviderModel,
   copilotRequestHeaders,
   createProviderModels,
+  providerMayForwardThinkingLevel,
   providerRequestFetch,
   runtimeBaseUrlForApi,
   type RuntimeProviderConfig,
@@ -733,13 +734,16 @@ describe("createProviderModels auth resolution", () => {
 });
 
 describe("explicit extended thinking levels", () => {
-  it("sends enabled xhigh and max values instead of clamping them to high", async () => {
+  it("sends enabled xhigh and max values instead of clamping them to high on the official endpoint", async () => {
     const thinkingLevels = ["off", "low", "medium", "high", "xhigh", "max"] as const;
     const configuredModel = modelConfigWithBinding(
       {
         source: "generic",
         name: "Explicit reasoning model",
-        baseUrl: "https://api.acme.test/v1",
+        // The official OpenAI-compatible default endpoint: the resolved
+        // baseUrl equals the wire-style default, so the thinking level is
+        // still forwarded and the extended values pass through un-clamped.
+        baseUrl: "https://api.openai.com/v1",
         reasoning: true,
         supportedThinkingLevels: ["low", "medium", "high"],
         thinkingLevelMap: { xhigh: null, max: null },
@@ -756,6 +760,7 @@ describe("explicit extended thinking levels", () => {
     );
     const provider: RuntimeProviderConfig = {
       ...keyedProvider,
+      baseUrl: "https://api.openai.com/v1",
       supportsReasoning: true,
       supportedThinkingLevels: [...thinkingLevels],
       modelConfig: configuredModel,
@@ -789,6 +794,175 @@ describe("explicit extended thinking levels", () => {
       "xhigh",
       "max",
     ]);
+  });
+});
+
+describe("reasoning_effort endpoint gating", () => {
+  // pi-ai's openai-completions adapter assumes every UNKNOWN endpoint supports
+  // `reasoning_effort` (its per-endpoint detection only opts out a handful of
+  // vendors), so a user's custom OpenAI-compatible gateway can receive a body
+  // field it rejects or ignores. Our layer must withhold the field from every
+  // endpoint that is not a known official one.
+  function reasoningProvider(baseUrl: string): RuntimeProviderConfig {
+    return {
+      ...keyedProvider,
+      id: "gated-reasoning",
+      name: "Gated reasoning",
+      baseUrl,
+      supportsReasoning: true,
+      supportedThinkingLevels: ["off", "low", "medium", "high"],
+      modelConfig: {
+        ...genericModelConfig("gated-model", baseUrl),
+        reasoning: true,
+        supportedThinkingLevels: ["off", "low", "medium", "high"],
+      },
+    };
+  }
+
+  async function sendReasoningRequest(
+    provider: RuntimeProviderConfig,
+    reasoning: "low" | "medium" | "high" | "xhigh" | "max",
+  ): Promise<Record<string, unknown>> {
+    const requests: Record<string, unknown>[] = [];
+    const fetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return new Response(
+        JSON.stringify({ choices: [{ delta: { content: "ok" }, finish_reason: "stop" }] }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+    const model = buildProviderModel(provider);
+    await createProviderModels(provider, model)
+      .streamSimple(
+        model,
+        {
+          systemPrompt: "system",
+          messages: [{ role: "user", content: "hello", timestamp: Date.now() }],
+          tools: [],
+        },
+        { reasoning, fetch },
+      )
+      .result();
+    return requests[0];
+  }
+
+  it("withholds reasoning_effort from a custom OpenAI-compatible endpoint", async () => {
+    const request = await sendReasoningRequest(
+      reasoningProvider("https://api.acme.test/v1"),
+      "high",
+    );
+    expect(request).not.toHaveProperty("reasoning_effort");
+  });
+
+  it("still sends reasoning_effort to a known official host even when the URL differs from the default", async () => {
+    const request = await sendReasoningRequest(
+      reasoningProvider("https://api.deepseek.com/v1"),
+      "high",
+    );
+    expect(request.reasoning_effort).toBe("high");
+  });
+
+  it("forces supportsReasoningEffort off in the built model compat for a custom endpoint", () => {
+    const model = buildProviderModel(
+      reasoningProvider("https://api.acme.test/v1"),
+    ) as unknown as { compat: { supportsReasoningEffort?: boolean } };
+    expect(model.compat.supportsReasoningEffort).toBe(false);
+  });
+
+  it("leaves pi-ai's own detection in charge on an official endpoint", () => {
+    // DeepSeek's official host is one pi-ai detects as reasoning_effort
+    // capable; our gate must not override that (only the negative is forced).
+    const model = buildProviderModel(
+      reasoningProvider("https://api.deepseek.com"),
+    ) as unknown as { compat: { supportsReasoningEffort?: boolean } };
+    expect(model.compat.supportsReasoningEffort).toBeUndefined();
+  });
+});
+
+describe("providerMayForwardThinkingLevel", () => {
+  it("allows the wire-style default endpoint when the user did not override it", () => {
+    expect(
+      providerMayForwardThinkingLevel({ ...keyedProvider, baseUrl: undefined }),
+    ).toBe(true);
+  });
+
+  it("allows a catalog model on its own catalog baseUrl without an override", () => {
+    const provider: RuntimeProviderConfig = {
+      ...keyedProvider,
+      baseUrl: undefined,
+      modelConfig: {
+        source: "models.dev",
+        name: "DeepSeek reasoning",
+        baseUrl: "https://api.deepseek.com",
+        reasoning: true,
+        input: ["text"],
+        contextWindow: 128_000,
+        maxTokens: 8_192,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      },
+    };
+    expect(providerMayForwardThinkingLevel(provider)).toBe(true);
+  });
+
+  it("allows a known official host even when the URL differs from the default", () => {
+    expect(
+      providerMayForwardThinkingLevel({
+        ...keyedProvider,
+        baseUrl: "https://api.deepseek.com/v1",
+      }),
+    ).toBe(true);
+    expect(
+      providerMayForwardThinkingLevel({
+        ...keyedProvider,
+        baseUrl: "https://api.openai.com",
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects custom endpoints, look-alike hosts, and a generic model's own endpoint", () => {
+    expect(providerMayForwardThinkingLevel(keyedProvider)).toBe(false);
+    expect(
+      providerMayForwardThinkingLevel({
+        ...keyedProvider,
+        baseUrl: "https://api.deepseek.com.evil.example/v1",
+      }),
+    ).toBe(false);
+    expect(
+      providerMayForwardThinkingLevel({
+        ...keyedProvider,
+        baseUrl: "https://evil-api.deepseek.com/v1",
+      }),
+    ).toBe(false);
+    // A generic model carries the user's own endpoint in its baseUrl; that is
+    // never the vendor default.
+    expect(
+      providerMayForwardThinkingLevel({
+        ...keyedProvider,
+        baseUrl: undefined,
+        modelConfig: {
+          ...genericModelConfig("gated-model", "https://api.acme.test/v1"),
+          reasoning: true,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects a catalog model whose endpoint the user overrode with a gateway", () => {
+    const provider: RuntimeProviderConfig = {
+      ...keyedProvider,
+      baseUrl: "https://gateway.example/v1",
+      modelConfig: {
+        source: "models.dev",
+        name: "DeepSeek reasoning",
+        baseUrl: "https://api.deepseek.com",
+        reasoning: true,
+        input: ["text"],
+        contextWindow: 128_000,
+        maxTokens: 8_192,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      },
+    };
+    expect(providerMayForwardThinkingLevel(provider)).toBe(false);
   });
 });
 
