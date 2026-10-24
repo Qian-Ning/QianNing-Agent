@@ -1016,7 +1016,11 @@ export class NativePiSessionService {
   }
 
   async abort(id: string): Promise<{ ok: boolean }> {
-    await this.runtimes.get(id)?.abort();
+    const runtime = this.runtimes.get(id);
+    // Answering `ok` without an await made "the abort was accepted" and "there
+    // was no such session" the same answer, which the caller cannot act on.
+    if (!runtime) return { ok: false };
+    await runtime.abort();
     return { ok: true };
   }
 

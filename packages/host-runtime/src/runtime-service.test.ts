@@ -64,6 +64,10 @@ class FakeSidecar implements RuntimeSidecarLink {
   running = false;
   /** Error `agent.compact` answers with; `null` accepts the compaction. */
   compactError: Error | null = null;
+  /** What `agent.abort` answers; `{ok:false}` means the runtime refused. */
+  abortAnswer: { ok: boolean; aborted?: boolean } = { ok: true };
+  /** When set, `agent.abort` throws instead of answering. */
+  abortError: Error | null = null;
   /** Runs inside a failing `agent.compact`, e.g. to persist a checkpoint. */
   beforeCompact: (() => void) | null = null;
 
@@ -83,7 +87,8 @@ class FakeSidecar implements RuntimeSidecarLink {
         if (this.compactError) throw this.compactError;
         return { accepted: true } as T;
       case "agent.abort":
-        return { ok: true } as T;
+        if (this.abortError) throw this.abortError;
+        return this.abortAnswer as T;
       case "agent.stop":
         return { requested: this.running } as T;
       case "agent.getStatus":
@@ -274,6 +279,44 @@ describe("RuntimeService prompt lifecycle", () => {
     expect(ends).toHaveLength(1);
     expect(ends[0]?.params).toMatchObject({ status: "aborted", errorCode: "TURN_ABORTED" });
     expect(ended).toHaveLength(1);
+    expect(ended[0]?.reason).toBe("aborted");
+  });
+
+  it("does not call a turn aborted when the cancel request throws", async () => {
+    const { host, sidecar, service, ended } = build();
+    await service.prompt({ sessionId: "s1", content: "hello", effectivePermissionMode: "ask", principal: owner });
+    sidecar.abortError = new Error("sidecar did not answer");
+    await service.abort("s1");
+    await settle();
+    const ends = host.calls.filter((call) => call.method === "session.endTurn");
+    // The claim has to be settled once - a turn left running forever is the
+    // other way to lie - but it must not be settled as an abort.
+    expect(ends).toHaveLength(1);
+    expect(ends[0]?.params).toMatchObject({ status: "error", errorCode: "TURN_ABORT_FAILED" });
+    expect(ended[0]?.reason).not.toBe("aborted");
+  });
+
+  it("does not call a turn aborted when the runtime refuses the cancel", async () => {
+    const { host, sidecar, service, ended } = build();
+    await service.prompt({ sessionId: "s1", content: "hello", effectivePermissionMode: "ask", principal: owner });
+    sidecar.abortAnswer = { ok: false, aborted: false };
+    await service.abort("s1");
+    await settle();
+    const ends = host.calls.filter((call) => call.method === "session.endTurn");
+    expect(ends).toHaveLength(1);
+    expect(ends[0]?.params).toMatchObject({ status: "error", errorCode: "TURN_ABORT_FAILED" });
+    expect(ended[0]?.reason).not.toBe("aborted");
+  });
+
+  it("still settles an accepted abort exactly once", async () => {
+    const { host, sidecar, service, ended } = build();
+    await service.prompt({ sessionId: "s1", content: "hello", effectivePermissionMode: "ask", principal: owner });
+    sidecar.abortAnswer = { ok: true, aborted: true };
+    await service.abort("s1");
+    await settle();
+    const ends = host.calls.filter((call) => call.method === "session.endTurn");
+    expect(ends).toHaveLength(1);
+    expect(ends[0]?.params).toMatchObject({ status: "aborted", errorCode: "TURN_ABORTED" });
     expect(ended[0]?.reason).toBe("aborted");
   });
 
