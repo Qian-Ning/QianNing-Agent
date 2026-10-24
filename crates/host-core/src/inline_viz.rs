@@ -272,7 +272,11 @@ mod tests {
         assert_eq!(artifact.content, "<svg/>");
         assert_eq!(artifact.meta, meta);
 
-        // Newest first.
+        // Newest first. The sync point separates the two created_at values:
+        // back-to-back writes can land in the same millisecond, where the
+        // tie-break is by id and the write order is not observable. The
+        // contract being proven is newest-first, not a tie order.
+        std::thread::sleep(std::time::Duration::from_millis(10));
         let second = write(dir.path(), "s1", "Notes", "text", "hello").unwrap();
         let listed = list(dir.path(), "s1").unwrap();
         assert_eq!(
