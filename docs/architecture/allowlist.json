@@ -9,8 +9,8 @@
       "max": 1192
     },
     "packages/agent-runtime/src/native-pi-session.ts": {
-      "reason": "Native Pi discovery, immutable projection, guarded continuation, and fork publication share one sidecar-private source boundary; split by lifecycle once the native adapter contract stabilises without widening path ownership.",
-      "max": 1166
+      "reason": "Native Pi discovery, immutable projection, guarded continuation, and fork publication share one sidecar-private source boundary; split by lifecycle once the native adapter contract stabilises without widening path ownership. Moved from 1166 to 1170 when an abort of an unknown session stopped answering `ok`: the guard that reports a missing session costs four lines, and compressing it into one expression would have made the check harder to read than the ceiling is worth.",
+      "max": 1170
     },
     "packages/agent-host/src/messaging-inbound.test.ts": {
       "reason": "Regression coverage for the inbound command path keeps the link, routing, replay guard, poll-cursor durability, poll-loop and endpoint-rule contracts in one suite beside the module they exercise, because each contract is a facet of the same receive loop; the ceiling moved from 983 to 1127 when the crash-window ordering, the backwards-cursor guard, the audited cursor-save failure, the guard record-point ordering and the IPv4-mapped-literal refusals each gained a case. It moved from 1127 to 1147 for the session-ownership work (ADR 0325): the fixture session records the linked principal as its owner, mirroring the post-bind state a real bound conversation has, and one case proves the linked principal is refused while the row is unowned and admitted once it owns the session. Both are facets of the same routing contract this suite already owns.",

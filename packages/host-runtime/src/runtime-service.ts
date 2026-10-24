@@ -428,13 +428,33 @@ export class RuntimeService implements RuntimePort {
     // while, and a terminal event arriving in that window must not settle the
     // turn as completed.
     this.lockAbortReason(sessionId, abortedTurnId);
+    // ...but the lock is a claim about the outcome, so it may only stand if the
+    // abort was actually accepted. A refusal or a failed RPC clears it again
+    // below, because `finishTurn` prefers the locked reason over the status it
+    // is given and would otherwise restate a failure as an abort.
+    let accepted = false;
+    let failure: unknown;
     try {
-      await sidecar.call("agent.abort", { sessionId, ...(turnId ? { turnId } : {}) });
-    } finally {
-      if (abortedTurnId) {
-        await this.finishTurn(sessionId, "aborted", "TURN_ABORTED", { turnId: abortedTurnId });
-      }
+      const answer = await sidecar.call<{ ok?: boolean; aborted?: boolean }>("agent.abort", {
+        sessionId,
+        ...(turnId ? { turnId } : {}),
+      });
+      accepted = answer?.ok !== false && answer?.aborted !== false;
+    } catch (error) {
+      failure = error;
     }
+    if (!abortedTurnId) return;
+    if (accepted) {
+      await this.finishTurn(sessionId, "aborted", "TURN_ABORTED", { turnId: abortedTurnId });
+      return;
+    }
+    this.pendingAbortReasons.delete(turnKey(sessionId.trim(), abortedTurnId.trim()));
+    this.options.log("warn", "abort was not accepted, settling the turn as failed", {
+      sessionId,
+      turnId: abortedTurnId,
+      ...(failure instanceof Error ? { error: failure.message } : {}),
+    });
+    await this.finishTurn(sessionId, "error", "TURN_ABORT_FAILED", { turnId: abortedTurnId });
   }
 
   async respondInput(resolution: AskToolResolution): Promise<void> {
