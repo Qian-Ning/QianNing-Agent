@@ -219,7 +219,11 @@ describe("subagent model fallback over real transport", () => {
       onModelChange: (_, level) => changes.push(level) });
     expect(result.thinkingLevel).toBe("high");
     expect(changes).toEqual(["high"]);
-    expect(f.requests[1].reasoning_effort).toBe("high");
+    // The fixture endpoint is a custom localhost server, so the wire carries
+    // no reasoning_effort (endpoint gating): the re-clamp is proven by the
+    // agent-level level and change report above, and by the official-endpoint
+    // wire assertions in provider-binding.test.ts.
+    expect(f.requests[1].reasoning_effort).toBeUndefined();
   });
   it("does not retry a host tool failure through another model", async () => {
     const f = await fixture({ editFirst: true });

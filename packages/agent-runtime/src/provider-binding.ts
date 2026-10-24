@@ -202,6 +202,63 @@ function providerRequestTransport(provider: RuntimeProviderConfig) {
 }
 
 /**
+ * Official hosts that may receive an OpenAI-style `reasoning_effort` body
+ * field even when the resolved baseUrl differs textually from the wire-style
+ * default (an extra `/v1`, a trailing slash, or a port). These are the hosts
+ * pi-ai's own detection already admits; the whitelist only stops a harmless
+ * URL variant of an official endpoint from being misread as a custom gateway.
+ */
+const OFFICIAL_REASONING_HOSTS = new Set(["api.openai.com", "api.deepseek.com"]);
+
+/** URL comparison that ignores casing and trailing slashes only. */
+function normalizedEndpointUrl(value: string): string {
+  return value.trim().toLowerCase().replace(/\/+$/, "");
+}
+
+function officialReasoningHost(baseUrl: string | undefined): boolean {
+  if (!baseUrl) return false;
+  try {
+    return OFFICIAL_REASONING_HOSTS.has(new URL(baseUrl).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether a provider row may forward the session's thinking level to its
+ * endpoint as an OpenAI-style `reasoning_effort` body field.
+ *
+ * pi-ai's openai-completions adapter assumes every UNKNOWN endpoint supports
+ * `reasoning_effort` (its per-endpoint detection only opts out a handful of
+ * vendors), so a user's custom OpenAI-compatible gateway can receive a field
+ * it rejects or ignores. Gate at our layer: an official endpoint — the
+ * resolved baseUrl equal to the vendor default (the catalog baseUrl for a
+ * catalog-backed model, the wire-style default otherwise), or a resolved host
+ * that is known official — may receive the level; any custom, overridden, or
+ * unknown endpoint may not.
+ *
+ * Only the negative is ever forced: official endpoints keep pi-ai's own
+ * per-endpoint detection (which legitimately excludes e.g. Z.ai), and an
+ * explicit catalog compat override still applies there.
+ */
+export function providerMayForwardThinkingLevel(provider: RuntimeProviderConfig): boolean {
+  const transport = providerRequestTransport(provider);
+  const binding = apiBindingForStyle(transport.apiStyle);
+  const catalogBaseUrl = provider.modelConfig?.baseUrl;
+  // A generic model carries the user's own endpoint in its baseUrl, so only a
+  // catalog-backed model can pin the vendor default.
+  const vendorDefault =
+    catalogBaseUrl && provider.modelConfig?.source !== "generic"
+      ? catalogBaseUrl
+      : binding.defaultBaseUrl;
+  const resolvedBaseUrl = transport.baseUrl ?? vendorDefault;
+  if (normalizedEndpointUrl(resolvedBaseUrl) === normalizedEndpointUrl(vendorDefault)) {
+    return true;
+  }
+  return officialReasoningHost(resolvedBaseUrl);
+}
+
+/**
  * The desktop stores OAuth accounts under local row UUIDs, while pi-ai's
  * native Copilot model records carry the required client identity headers.
  * Preserve those transport defaults without changing the row identity used by
@@ -339,6 +396,16 @@ export function buildProviderModel(
           ...(zhipuCompat ?? {}),
           ...(deepseekCompat ?? {}),
           supportsDeveloperRole: catalogModel.compat?.supportsDeveloperRole === true,
+          // Gate the OpenAI-style `reasoning_effort` body field at our layer:
+          // pi-ai's adapter assumes every unknown endpoint supports it, so a
+          // user's custom OpenAI-compatible gateway could receive a field it
+          // rejects or ignores. Only official endpoints may receive the
+          // thinking level; custom or overridden endpoints get none. The
+          // negative is forced after the catalog spread so no catalog record
+          // can re-enable the field for a custom endpoint.
+          ...(providerMayForwardThinkingLevel(provider)
+            ? {}
+            : { supportsReasoningEffort: false }),
         }
       : binding.api === "anthropic-messages" &&
           (catalogModel.thinkingProtocol === "adaptive" || autoAdaptiveThinking)
