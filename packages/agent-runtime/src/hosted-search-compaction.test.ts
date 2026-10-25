@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { LocalRequestError } from "@earendil-works/pi-ai";
-import type { Api, AssistantMessage, HostedSearchContent, Message } from "@earendil-works/pi-ai";
-import { hostedSearchReplayProjection } from "@earendil-works/pi-ai/utils/hosted-search";
+import {
+  hostedSearchReplayProjection,
+  LocalRequestError,
+  type HostedSearchContent,
+} from "./pi-ai-hosted-search/content.js";
+import type { Api, AssistantMessage, Message } from "@earendil-works/pi-ai";
 import { serializeConversation } from "./pi-runtime-messages.js";
 
 function assistant(

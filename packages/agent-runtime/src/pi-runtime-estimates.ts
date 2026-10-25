@@ -4,8 +4,7 @@ import {
   estimateMessageTokens as estimateProviderMessageTokens,
   getLastAssistantUsageInfo,
 } from "@earendil-works/pi-ai/utils/estimate";
-import { LocalRequestError } from "@earendil-works/pi-ai";
-import { validateHostedSearchMessages } from "@earendil-works/pi-ai/utils/hosted-search";
+import { LocalRequestError, validateHostedSearchMessages } from "./pi-ai-hosted-search/content.js";
 import type { Api, Message, Model } from "@earendil-works/pi-ai";
 
 /** Keep character caps aligned with pi-ai 1.1.0's text-token estimator. */
@@ -34,6 +33,38 @@ function textAndImageChars(content: unknown): number {
   return chars;
 }
 
+/** Whether an assistant message carries search blocks from a different model. */
+function isCrossModelSearch(message: AgentMessage, model: Model<Api>): boolean {
+  const source = message as { provider?: unknown; api?: unknown; model?: unknown; content?: unknown };
+  const sameModel =
+    source.provider === model.provider &&
+    source.api === model.api &&
+    source.model === model.id;
+  if (sameModel) return false;
+  const content = source.content;
+  return Array.isArray(content) &&
+    (content as unknown[]).some(
+      (block) =>
+        typeof block === "object" &&
+        block !== null &&
+        (block as { type?: unknown }).type === "hostedSearch",
+    );
+}
+
+/** Return an assistant message with its search blocks removed. */
+function dropHostedSearch(message: Message): Message {
+  if (!Array.isArray(message.content)) return message;
+  return {
+    ...message,
+    content: (message.content as unknown[]).filter(
+      (block) =>
+        typeof block !== "object" ||
+        block === null ||
+        (block as { type?: unknown }).type !== "hostedSearch",
+    ),
+  } as Message;
+}
+
 /** Provider messages use pi-ai's estimator; desktop-only rows keep their legacy heuristic. */
 export function estimateTokens(
   message: AgentMessage,
@@ -44,7 +75,21 @@ export function estimateTokens(
     case "user":
     case "assistant":
     case "toolResult":
-      return estimateProviderMessageTokens(message as unknown as Message, model);
+      // pi-ai 1.4.0's estimator is model-agnostic: hosted-search replay is
+      // decided in our own payload builder, not inside the estimate.
+      // A search block is charged only when the target model will replay it.
+      // The Responses adapter replays a `web_search_call` item solely for the
+      // model that produced it, so a block from a different model costs the
+      // budget nothing — the wire will not carry it.
+      if (
+        message.role === "assistant" &&
+        model &&
+        "api" in model &&
+        isCrossModelSearch(message, model)
+      ) {
+        return estimateProviderMessageTokens(dropHostedSearch(message as Message));
+      }
+      return estimateProviderMessageTokens(message as unknown as Message);
     case "custom":
       return Math.ceil(textAndImageChars((message as { content?: unknown }).content) / 4);
     case "bashExecution": {

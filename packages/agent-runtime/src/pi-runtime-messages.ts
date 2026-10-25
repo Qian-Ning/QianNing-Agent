@@ -1,5 +1,5 @@
 import type { Message } from "@earendil-works/pi-ai";
-import { hostedSearchReplayProjection } from "@earendil-works/pi-ai/utils/hosted-search";
+import { hostedSearchReplayProjection } from "./pi-ai-hosted-search/content.js";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 
 export type CompactionSummaryMessage = {

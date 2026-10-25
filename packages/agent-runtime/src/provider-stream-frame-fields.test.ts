@@ -1,24 +1,22 @@
 import { describe, expect, it } from "vitest";
-import {
-  AssistantMessageFrameEncoder,
-  type AssistantMessageEventStream,
-  type AssistantMessageFrame,
-  type Model,
-} from "@earendil-works/pi-ai";
+import type { AssistantMessageEventStream, Model } from "@earendil-works/pi-ai";
 import { stream as streamAnthropic } from "@earendil-works/pi-ai/api/anthropic-messages";
 import { stream as streamOpenAIResponses } from "@earendil-works/pi-ai/api/openai-responses";
 
 // A gateway that re-serializes provider events with `omitempty` (Go) or drops
 // `undefined` (JS) sends a delta event whose string field is simply absent
-// instead of `""`. Issue #883: the assistant message frame encoder read
-// `.length` off that missing field, threw a bare TypeError, and the runtime
-// reported it as a retriable provider failure that then reproduced on every
-// later turn of the session — a fork inherited it and a new session was clean.
+// instead of `""`. Issue #883: reading `.length` off that missing field threw a
+// bare TypeError, and the runtime reported it as a retriable provider failure
+// that then reproduced on every later turn of the session.
 //
-// These tests drive the real stream decoders with a stubbed transport and feed
-// every event through the real frame encoder, because that pair is where the
-// failure lived. They guard `patches/@earendil-works__pi-ai@1.1.0.patch`; if
-// the patch is dropped, they fail again.
+// pi-ai 1.4.0 no longer ships the frame encoder where the original throw lived,
+// so these tests now assert the guarantee that matters to a session: an omitted
+// delta field must not fail the stream. The delta event may still be emitted,
+// but the settled text must not become the literal "undefined".
+//
+// Adapter-level hardening for thinking and partial-json deltas lives in
+// `patches/@earendil-works__pi-ai@1.4.0.patch`; this file guards the decode path
+// those deltas travel through.
 
 const context = {
   messages: [
@@ -70,31 +68,28 @@ function fetchReturning(body: string): typeof fetch {
 type Outcome = {
   error: Error | undefined;
   eventTypes: string[];
-  frames: AssistantMessageFrame[];
+  settled: string;
 };
 
-/** Decode the stub body and run every decoder event through the frame encoder. */
+/** Decode the stub body and record what the stream emitted before it settled. */
 async function drive(stream: AssistantMessageEventStream): Promise<Outcome> {
-  const encoder = new AssistantMessageFrameEncoder();
   const eventTypes: string[] = [];
-  const frames: AssistantMessageFrame[] = [];
   try {
-    for await (const event of stream) {
-      eventTypes.push(event.type);
-      const frame = encoder.encode(event);
-      if (frame !== undefined) frames.push(frame);
-    }
-    await stream.result();
+    for await (const event of stream) eventTypes.push(event.type);
+    const message = await stream.result();
+    const settled = message.content
+      .map((block) => (block.type === "text" ? block.text : ""))
+      .join("");
+    return { error: undefined, eventTypes, settled };
   } catch (error) {
-    return { error: error as Error, eventTypes, frames };
+    return { error: error as Error, eventTypes, settled: "" };
   }
-  return { error: undefined, eventTypes, frames };
 }
 
 const anthropic = <T extends { type: string }>(events: readonly T[]) =>
   drive(
     streamAnthropic(anthropicModel, context as never, {
-      apiKey: "sk-test",
+      apiKey: "test",
       fetch: fetchReturning(sse(events)),
     }),
   );
@@ -102,28 +97,10 @@ const anthropic = <T extends { type: string }>(events: readonly T[]) =>
 const responses = <T extends { type: string }>(events: readonly T[]) =>
   drive(
     streamOpenAIResponses(responsesModel, context as never, {
-      apiKey: "sk-test",
+      apiKey: "test",
       fetch: fetchReturning(sse(events)),
     }),
   );
-
-/** Every delta a persisted frame claims, in order. */
-function frameDeltas(frames: AssistantMessageFrame[]): string[] {
-  return frames.flatMap((frame) =>
-    frame.type === "text_delta" ||
-    frame.type === "thinking_delta" ||
-    frame.type === "toolcall_delta"
-      ? [frame.delta]
-      : [],
-  );
-}
-
-function settledText(frames: AssistantMessageFrame[]): string | undefined {
-  for (const frame of frames) {
-    if (frame.type === "text_end") return frame.content;
-  }
-  return undefined;
-}
 
 const anthropicHead = [
   {
@@ -189,7 +166,7 @@ const responsesCompleted = {
   output_index: 0,
 };
 
-describe("provider stream frames with an omitted empty string field (issue #883)", () => {
+describe("provider stream deltas with an omitted empty string field (issue #883)", () => {
   describe("Anthropic Messages", () => {
     it("streams a text delta whose field is present", async () => {
       const outcome = await anthropic([
@@ -199,28 +176,26 @@ describe("provider stream frames with an omitted empty string field (issue #883)
       ]);
 
       expect(outcome.error).toBeUndefined();
-      expect(frameDeltas(outcome.frames)).toEqual(["hi"]);
-      expect(settledText(outcome.frames)).toBe("hi");
+      expect(outcome.settled).toBe("hi");
     });
 
-    it("drops a text delta whose field the upstream omitted", async () => {
+    it("survives a text delta whose field the upstream omitted", async () => {
       const outcome = await anthropic([
         ...anthropicHead,
         { type: "content_block_delta", index: 0, delta: { type: "text_delta" } },
         ...anthropicTail,
       ]);
 
+      // The regression was a TypeError escaping the decode loop. Whatever the
+      // decoder decides to do with the empty delta, it must not fail the turn.
       expect(outcome.error).toBeUndefined();
-      // The decoder still emitted the delta event; the encoder skipped it rather
-      // than reading `.length` off `undefined`.
       expect(outcome.eventTypes).toContain("text_delta");
-      expect(frameDeltas(outcome.frames)).toEqual([]);
       // The dropped field can only have been the empty string, so the settled
       // text stays empty instead of becoming the literal "undefined".
-      expect(settledText(outcome.frames)).toBe("");
+      expect(outcome.settled).toBe("");
     });
 
-    it("drops a thinking delta whose field the upstream omitted", async () => {
+    it("survives a thinking delta whose field the upstream omitted", async () => {
       const outcome = await anthropic([
         anthropicHead[0],
         {
@@ -234,10 +209,9 @@ describe("provider stream frames with an omitted empty string field (issue #883)
 
       expect(outcome.error).toBeUndefined();
       expect(outcome.eventTypes).toContain("thinking_delta");
-      expect(frameDeltas(outcome.frames)).toEqual([]);
     });
 
-    it("drops an input_json delta whose field the upstream omitted", async () => {
+    it("survives an input_json delta whose field the upstream omitted", async () => {
       const outcome = await anthropic([
         anthropicHead[0],
         {
@@ -253,7 +227,6 @@ describe("provider stream frames with an omitted empty string field (issue #883)
 
       expect(outcome.error).toBeUndefined();
       expect(outcome.eventTypes).toContain("toolcall_delta");
-      expect(frameDeltas(outcome.frames)).toEqual([]);
     });
   });
 
@@ -272,10 +245,10 @@ describe("provider stream frames with an omitted empty string field (issue #883)
       ]);
 
       expect(outcome.error).toBeUndefined();
-      expect(frameDeltas(outcome.frames)).toEqual(["hi"]);
+      expect(outcome.settled).toBe("hi");
     });
 
-    it("drops a text delta whose field the upstream omitted", async () => {
+    it("survives a text delta whose field the upstream omitted", async () => {
       const outcome = await responses([
         ...responsesHead,
         {
@@ -289,7 +262,6 @@ describe("provider stream frames with an omitted empty string field (issue #883)
 
       expect(outcome.error).toBeUndefined();
       expect(outcome.eventTypes).toContain("text_delta");
-      expect(frameDeltas(outcome.frames)).toEqual([]);
     });
   });
 });

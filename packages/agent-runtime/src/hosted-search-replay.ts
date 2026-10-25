@@ -1,6 +1,8 @@
-import type { HostedSearchContent } from "@earendil-works/pi-ai";
-import { normalizeHostedSearchContent } from "@earendil-works/pi-ai/utils/hosted-search";
-import { LocalRequestError } from "@earendil-works/pi-ai/utils/local-request-error";
+import type { HostedSearchContent } from "./pi-ai-hosted-search/content.js";
+import {
+  LocalRequestError,
+  normalizeHostedSearchContent,
+} from "./pi-ai-hosted-search/content.js";
 import type { HostedSearch } from "@pi-desktop/shared";
 
 /**
