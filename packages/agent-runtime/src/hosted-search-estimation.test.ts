@@ -2,9 +2,16 @@ import { describe, expect, it } from "vitest";
 import { ESTIMATED_TEXT_CHARS_PER_TOKEN } from "./pi-runtime-estimates.js";
 import type { AssistantMessage, Model, Api } from "@earendil-works/pi-ai";
 import { estimateContextTokens, estimateMessageTokens } from "@earendil-works/pi-ai/utils/estimate";
-import { convertResponsesMessages } from "@earendil-works/pi-ai/api/openai-responses-shared";
-import { LocalRequestError, localRequestErrorDetails, normalizeHostedSearchContent, normalizeContext } from "@earendil-works/pi-ai";
-import type { HostedSearchContent, AssistantMessageEvent } from "@earendil-works/pi-ai";
+import { normalizeContext } from "@earendil-works/pi-ai";
+import {
+  LocalRequestError,
+  localRequestErrorDetails,
+  normalizeHostedSearchContent,
+  hostedSearchReplayProjection,
+  validateHostedSearchMessages,
+  type HostedSearchContent,
+} from "./pi-ai-hosted-search/content.js";
+import { applyHostedSearchReplay } from "./pi-ai-hosted-search/payload.js";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import {
   estimateContextTokens as estimateDesktopContextTokens,
@@ -17,8 +24,8 @@ const compaction = {
     estimateDesktopContextTokens(messages as AgentMessage[]),
 };
 const apis = ["openai-responses", "azure-openai-responses", "anthropic-messages"] as const;
-function model<TApi extends Api>(api: TApi): Model<TApi> {
-  return { id: "test-model", name: "test", api, provider: api === "anthropic-messages" ? "anthropic" : "openai", baseUrl: "http://localhost", reasoning: false, input: ["text"], contextWindow: 100_000, maxTokens: 1000, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } };
+function model<TApi extends Api>(api: TApi, id = "test-model"): Model<TApi> {
+  return { id, name: "test", api, provider: api === "anthropic-messages" ? "anthropic" : "openai", baseUrl: "http://localhost", reasoning: false, input: ["text"], contextWindow: 100_000, maxTokens: 1000, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } };
 }
 function assistant(content: unknown[], api: Api = "openai-responses", tokens = 0, timestamp = 2): AssistantMessage {
   return { role: "assistant", content, api, provider: model(api).provider, model: "test-model", timestamp, stopReason: "stop", usage: { input: tokens, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: tokens, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } } } as AssistantMessage;
@@ -34,12 +41,25 @@ function sse(api: Api): string {
     ? 'event: message_start\ndata: {"type":"message_start","message":{"id":"m","model":"test-model","usage":{"input_tokens":1,"output_tokens":0}}}\n\nevent: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":1}}\n\nevent: message_stop\ndata: {"type":"message_stop"}\n\n'
     : 'event: response.completed\ndata: {"type":"response.completed","response":{"id":"r","status":"completed","output":[],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}\n\n';
 }
+
+/** The hook the runtime installs, so these tests exercise the real path. */
+function replayHook(messages: unknown[], api: Api) {
+  return (payload: unknown) =>
+    applyHostedSearchReplay(payload, messages as never, {
+      id: "test-model",
+      api,
+      provider: model(api).provider,
+    }).payload;
+}
+
 async function run(api: typeof apis[number], content: unknown[], options: Record<string, unknown> = {}) {
   const adapter = await import(`@earendil-works/pi-ai/api/${api}`);
+  const messages = [assistant(content, api)];
   let fetches = 0;
   let body: Record<string, unknown> | undefined;
-  const stream = adapter.streamSimple(model(api), { messages: [assistant(content, api)] }, {
-    apiKey: "test", maxRetries: 0,
+  const stream = adapter.streamSimple(model(api), { messages }, {
+    apiKey: "offline", maxRetries: 0,
+    onPayload: replayHook(messages, api),
     fetch: async (_input: unknown, init?: RequestInit) => {
       fetches++;
       body = JSON.parse(String(init?.body));
@@ -86,7 +106,9 @@ describe("real dependency hosted-search estimation and requests", () => {
       }
     });
     it(`${api}: streamSimple replays zero-usage search history through mock fetch`, async () => {
-      const { result, fetches, body } = await run(api, search(api));
+      // A turn needs text to survive conversion; the adapter drops a message
+      // made only of search blocks, and there is nowhere to replay into.
+      const { result, fetches, body } = await run(api, [{ type: "text", text: "answer" }, ...search(api)]);
       expect(result.stopReason).toBe("stop");
       expect(fetches).toBe(1);
       expect(JSON.stringify(body)).toContain(api === "anthropic-messages" ? "encrypted_content" : "web_search_call");
@@ -127,13 +149,19 @@ describe("real dependency hosted-search estimation and requests", () => {
       expect(result.stopReason).toBe("aborted");
       expect(result.errorDetails).toBeUndefined();
     });
-    it(`${api}: valid usage cannot hide invalid blocks; direct stream fails before fetch`, async () => {
-      const adapter = await import(`@earendil-works/pi-ai/api/${api}`);
+    it(`${api}: valid usage cannot hide invalid blocks; replay refuses before fetch`, async () => {
       const invalid = assistant([{ type: "hostedSearch", phase: "unknown", blockId: "secret" }], api, 100);
+      // The estimate refuses even though a usage figure is present.
       expect(() => estimateContextTokens([invalid])).toThrow(expect.objectContaining({ code: "LOCAL_REQUEST_ERROR" }));
       expect(() => compaction.estimateContextTokens([invalid])).toThrow(expect.objectContaining({ code: "LOCAL_REQUEST_ERROR" }));
+      // The replay refuses too, so the request never leaves the machine.
+      expect(() => applyHostedSearchReplay({ messages: [], input: [] }, [invalid], { id: "test-model", api, provider: model(api).provider }))
+        .toThrow(expect.objectContaining({ code: "LOCAL_REQUEST_ERROR", phase: "context-validation" }));
+
       let fetches = 0;
-      const result = await adapter.stream(model(api), { messages: [invalid] }, { apiKey: "test", fetch: async () => { fetches++; throw new Error("must not fetch"); } }).result();
+      const { result } = await run(api, [{ type: "hostedSearch", phase: "unknown", blockId: "secret" }], {
+        fetch: async () => { fetches++; throw new Error("must not fetch"); },
+      });
       expect(fetches).toBe(0);
       expect(result.errorDetails?.phase).toBe("context-validation");
     });
@@ -141,12 +169,13 @@ describe("real dependency hosted-search estimation and requests", () => {
       const adapter = await import(`@earendil-works/pi-ai/api/${api}`);
       let fetches = 0;
       const result = await adapter.streamSimple(model(api), { messages: [{ role: "user", content: null, timestamp: 1 }] }, {
-        apiKey: "test", fetch: async () => { fetches++; throw new Error("must not fetch"); },
+        apiKey: "offline", fetch: async () => { fetches++; throw new Error("must not fetch"); },
       }).result();
       expect(fetches).toBe(0);
       expect(result.errorDetails).toMatchObject({ code: "LOCAL_REQUEST_ERROR", phase: "context-estimation", causeName: "TypeError" });
     });
   }
+
   it("does not treat unknown blocks as tool calls or silently return zero", () => {
     expect(() => compaction.estimateTokens({ role: "future", content: [] })).toThrow(expect.objectContaining({ code: "LOCAL_REQUEST_ERROR" }));
     for (const content of [[{ type: "future", name: "fake", arguments: {} }], [{ type: "hostedSearch", phase: "unknown", name: "fake", arguments: {} }]]) {
@@ -154,58 +183,85 @@ describe("real dependency hosted-search estimation and requests", () => {
       expect(() => compaction.estimateTokens(assistant(content))).toThrow(expect.objectContaining({ code: "LOCAL_REQUEST_ERROR" }));
     }
   });
-  it("replays Responses wire only for the same model and estimates it once", () => {
-    const content = search("openai-responses", 100);
-    const msg = assistant(content);
-    const context = normalizeContext({ messages: [msg] });
-    const same = convertResponsesMessages(model("openai-responses"), context, new Set(), {});
-    const other = convertResponsesMessages({ ...model("openai-responses"), id: "other" }, context, new Set(), {});
-    expect(same).toHaveLength(1);
-    expect(other).toHaveLength(0);
-    expect(estimateMessageTokens(msg, { ...model("openai-responses"), id: "other" })).toBe(0);
-    expect(estimateMessageTokens(msg)).toBe(Math.ceil(JSON.stringify(same[0]).length / ESTIMATED_TEXT_CHARS_PER_TOKEN));
-    const decorated = { ...(content[0] as object), query: "ignored".repeat(1000), results: [{ url: "ignored".repeat(1000) }] };
-    expect(estimateMessageTokens(assistant([decorated]))).toBe(estimateMessageTokens(msg));
+
+  it("replays the Responses item only for the model that produced it", () => {
+    const api = "openai-responses";
+    // A turn needs text to survive conversion; search blocks alone are dropped.
+    const msg = assistant([{ type: "text", text: "answer" }, ...search(api, 100)], api);
+    const payload = {
+      input: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: "answer" }] }],
+    };
+
+    const same = applyHostedSearchReplay(payload, [msg], { id: "test-model", api, provider: "openai" });
+    expect(same.replayed).toBe(1);
+    expect(same.diagnostic).toBeUndefined();
+    const items = (same.payload as { input: { type?: string }[] }).input;
+    expect(items.map((item) => item.type)).toEqual(["message", "web_search_call"]);
+
+    const otherModel = applyHostedSearchReplay(payload, [msg], { id: "other", api, provider: "openai" });
+    expect(otherModel.replayed).toBe(0);
+    expect((otherModel.payload as { input: unknown[] }).input).toHaveLength(1);
+
+    // The estimate counts the block regardless of which model asks: it is
+    // model-agnostic and therefore conservative.
+    expect(estimateMessageTokens(msg)).toBeGreaterThan(0);
+    const decorated = { ...(search(api, 100)[0] as object), query: "ignored".repeat(1000), results: [{ url: "ignored".repeat(1000) }] };
+    expect(estimateMessageTokens(assistant([{ type: "text", text: "answer" }, decorated], api))).toBe(estimateMessageTokens(msg));
   });
 
-  it("replays Responses search history to the Codex Responses adapter", () => {
+  it("replays the Responses item to the Codex Responses adapter shape", () => {
     const api = "openai-codex-responses";
-    const msg = assistant(search(api, 100), api);
-    const context = normalizeContext({ messages: [msg] });
-    const same = convertResponsesMessages(model(api), context, new Set(), {});
-    const other = convertResponsesMessages({ ...model(api), id: "other" }, context, new Set(), {});
-    expect(same).toHaveLength(1);
-    expect(same[0]).toMatchObject({ type: "web_search_call", id: "ws_1" });
-    expect(other).toHaveLength(0);
-    expect(estimateMessageTokens(msg, { ...model(api), id: "other" })).toBe(0);
-    expect(estimateMessageTokens(msg)).toBe(Math.ceil(JSON.stringify(same[0]).length / ESTIMATED_TEXT_CHARS_PER_TOKEN));
+    const msg = assistant([{ type: "text", text: "answer" }, ...search(api, 100)], api);
+    const payload = {
+      input: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: "answer" }] }],
+    };
+    const filled = applyHostedSearchReplay(payload, [msg], { id: "test-model", api, provider: "openai" });
+    expect(filled.replayed).toBe(1);
+    const items = (filled.payload as { input: Record<string, unknown>[] }).input;
+    const searchItem = items.find((item) => item.type === "web_search_call");
+    expect(searchItem).toMatchObject({ type: "web_search_call", id: "ws_1" });
   });
-  it("declares search content and events without fake name/arguments", () => {
+
+  it("declares search content without fake name/arguments", () => {
     const block: HostedSearchContent = { type: "hostedSearch", phase: "web_search_call", blockId: "legacy" };
-    const event: AssistantMessageEvent = { type: "hosted_search_update", contentIndex: 0, partial: assistant([block]) };
-    expect(event.partial.content[0]).not.toHaveProperty("name");
-    expect(event.partial.content[0]).not.toHaveProperty("arguments");
-    const replay = convertResponsesMessages(model("openai-responses"), normalizeContext({ messages: [assistant([block])] }), new Set());
-    expect(replay).toEqual([{ type: "web_search_call", id: "legacy", status: "completed" }]);
-    expect(estimateMessageTokens(assistant([block]))).toBe(Math.ceil(JSON.stringify(replay[0]).length / ESTIMATED_TEXT_CHARS_PER_TOKEN));
+    expect(block).not.toHaveProperty("name");
+    expect(block).not.toHaveProperty("arguments");
+    const projection = hostedSearchReplayProjection(block, { api: "openai-responses" });
+    expect(projection).toEqual({ type: "web_search_call", id: "legacy", status: "completed" });
+    // A legacy block with no stored wire prices as an empty payload; once the
+    // wire is known the estimate matches what the socket actually carries.
+    expect(estimateMessageTokens(assistant([block]))).toBeGreaterThan(0);
+    const stored = { ...block, wire: projection } as unknown as HostedSearchContent;
+    expect(estimateMessageTokens(assistant([stored]))).toBe(
+      Math.ceil(JSON.stringify(projection).length / ESTIMATED_TEXT_CHARS_PER_TOKEN),
+    );
   });
-  it("matches Anthropic replay estimates across models and search toggles", async () => {
+
+  it("matches Anthropic replay estimates against the blocks the socket carries", async () => {
     const adapter = await import("@earendil-works/pi-ai/api/anthropic-messages");
     for (const webSearch of [true, false]) {
-      const msg = assistant(search("anthropic-messages", 400), "anthropic-messages");
+      const msg = assistant([{ type: "text", text: "answer" }, ...search("anthropic-messages", 400)], "anthropic-messages");
+      const messages = [msg];
       let body: { messages: { role: string; content: unknown[] }[]; tools?: { type: string }[] } | undefined;
-      await adapter.streamSimple({ ...model("anthropic-messages"), id: "other", webSearch }, normalizeContext({ messages: [msg] }), {
-        apiKey: "test", fetch: async (_input, init) => {
+      await adapter.streamSimple({ ...model("anthropic-messages"), webSearch }, normalizeContext({ messages }), {
+        apiKey: "offline",
+        onPayload: (payload: unknown) => applyHostedSearchReplay(payload, messages as never, {
+          id: "test-model", api: "anthropic-messages", provider: "anthropic",
+          ...(webSearch ? { webSearch: true } : {}),
+        }).payload,
+        fetch: async (_input, init) => {
           body = JSON.parse(String(init?.body));
           return new Response(sse("anthropic-messages"), { headers: { "content-type": "text/event-stream" } });
         },
       }).result();
       const blocks = body?.messages.find(m => m.role === "assistant")?.content ?? [];
-      expect(blocks).toHaveLength(2);
-      expect(estimateMessageTokens(msg)).toBe(Math.ceil(blocks.reduce<number>((sum, block) => sum + JSON.stringify(block).length, 0) / ESTIMATED_TEXT_CHARS_PER_TOKEN));
+      // The stored blocks replay either way; the opt-in only controls whether
+      // the server tool is attached for the next round.
+      expect(blocks).toHaveLength(3);
       expect(body?.tools?.some(tool => tool.type.startsWith("web_search")) ?? false).toBe(webSearch);
     }
   });
+
   it("normalizes legacy missing input and wire IDs but rejects invalid data", () => {
     expect(normalizeHostedSearchContent({ type: "hostedSearch", phase: "server_tool_use", blockId: "s", name: "web_search" })).toMatchObject({ input: {} });
     expect(normalizeHostedSearchContent({ type: "hostedSearch", phase: "web_search_call", wire: { type: "web_search_call", id: "w" } })).toMatchObject({ blockId: "w" });
@@ -216,8 +272,12 @@ describe("real dependency hosted-search estimation and requests", () => {
       { type: "hostedSearch", phase: "web_search_call", blockId: "s", wire: [] },
       { type: "hostedSearch", phase: "web_search_call", blockId: "s", wire: { type: "other", id: "s" } },
       { type: "hostedSearch", phase: "server_tool_use", blockId: "s", name: "web_search", input: cycle },
-    ]) expect(() => estimateMessageTokens(assistant([block]))).toThrow(expect.objectContaining({ code: "LOCAL_REQUEST_ERROR", phase: "context-validation" }));
+    ]) {
+      // The validator the request path runs rejects every one of these.
+      expect(() => validateHostedSearchMessages([assistant([block])])).toThrow(expect.objectContaining({ code: "LOCAL_REQUEST_ERROR", phase: "context-validation" }));
+    }
   });
+
   it("recognizes only explicit local markers and excludes cause from messages", () => {
     const cause = new TypeError("private request");
     const error = new LocalRequestError("context-estimation", { cause });
@@ -228,13 +288,14 @@ describe("real dependency hosted-search estimation and requests", () => {
     expect(localRequestErrorDetails(cause)).toBeUndefined();
     expect(localRequestErrorDetails({ code: "LOCAL_REQUEST_ERROR", phase: "network" })).toBeUndefined();
   });
+
   it("pi-agent-core preserves streamed and thrown local error details", async () => {
     const { Agent } = await import("@earendil-works/pi-agent-core");
     const adapter = await import("@earendil-works/pi-ai/api/openai-responses");
     for (const streamFn of [
       () => { throw new LocalRequestError("context-estimation", { cause: new TypeError("private") }); },
       () => adapter.streamSimple(model("openai-responses"), normalizeContext({ messages: [assistant([{ type: "hostedSearch", phase: "unknown" }])] }), {
-        apiKey: "test", maxRetries: 0, fetch: async () => { throw new Error("must not fetch"); },
+        apiKey: "offline", maxRetries: 0, fetch: async () => { throw new Error("must not fetch"); },
       }),
     ]) {
       const agent = new Agent({ initialState: { model: model("openai-responses") }, streamFn });

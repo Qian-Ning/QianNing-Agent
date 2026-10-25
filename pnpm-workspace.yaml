@@ -24,16 +24,16 @@ minimumReleaseAgeExclude:
 # version. Drop each one once its parent ships a release that resolves the
 # patched version on its own.
 overrides:
-  # pi-coding-agent 1.1.0 imports `MCP_TYPESCRIPT_PREAMBLE` and
-  # `mcpStructuredContentSchema` from pi-codemode's declarations, which the
-  # 1.2.0 satellites renamed. Pin the release group whole — the equivalent of
-  # upstream's frozen lockfile — and drop these once pi-coding-agent resolves a
-  # compatible satellite set on its own.
-  '@earendil-works/chord': 1.1.0
-  '@earendil-works/pi-codemode': 1.1.0
-  '@earendil-works/pi-mcp': 1.1.0
-  '@earendil-works/pi-telemetry': 1.1.0
-  '@earendil-works/pi-tui': 1.1.0
+  # The Pi packages are a release group: the core packages import symbols from
+  # the satellites (`MCP_TYPESCRIPT_PREAMBLE`, `mcpStructuredContentSchema`,
+  # `NOOP_TELEMETRY_METRICS`) that are only declared by the matching release.
+  # Pin the whole group to the core version so a partial bump cannot leave the
+  # imports dangling — this is the equivalent of upstream's frozen lockfile.
+  '@earendil-works/chord': 1.4.0
+  '@earendil-works/pi-codemode': 1.4.0
+  '@earendil-works/pi-mcp': 1.4.0
+  '@earendil-works/pi-telemetry': 1.4.0
+  '@earendil-works/pi-tui': 1.4.0
   # Tailwind's CSS optimizer in 4.3.3 emits a false warning for the valid
   # Custom Highlight API selector `::highlight()`. The parser fix ships in
   # lightningcss 1.33.0.
@@ -58,9 +58,8 @@ overrides:
   # `docs:dev` (serves 200); drop it for vitepress 2 once that ships stable.
   vite@5: '>=6.4.3 <7'
 patchedDependencies:
-  '@earendil-works/pi-agent-core@1.1.0': patches/@earendil-works__pi-agent-core@1.1.0.patch
-  '@earendil-works/pi-ai@1.1.0': patches/@earendil-works__pi-ai@1.1.0.patch
-  '@earendil-works/pi-coding-agent@1.1.0': patches/@earendil-works__pi-coding-agent@1.1.0.patch
+  '@earendil-works/pi-agent-core@1.4.0': patches/@earendil-works__pi-agent-core@1.4.0.patch
+  '@earendil-works/pi-ai@1.4.0': patches/@earendil-works__pi-ai@1.4.0.patch
 # pnpm defaults to `lowest-direct`, which makes a plain `pnpm update` resolve
 # every range to its floor — silently downgrading dependencies instead of
 # refreshing them. Pin the intent: `pnpm update` means "newest within range".

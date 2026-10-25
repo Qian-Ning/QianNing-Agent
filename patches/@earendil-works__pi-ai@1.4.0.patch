@@ -1,0 +1,971 @@
+diff --git a/dist/api/anthropic-messages.js b/dist/api/anthropic-messages.js
+index 841da89..9950912 100644
+--- a/dist/api/anthropic-messages.js
++++ b/dist/api/anthropic-messages.js
+@@ -8,6 +8,8 @@ import { getIdentityHeaders } from "../utils/identity.js";
+ import { parseJsonWithRepair, parseStreamingJson, parseToolCallArguments } from "../utils/json-parse.js";
+ import { getProviderEnvValue } from "../utils/provider-env.js";
+ import { retryProviderRequest } from "../utils/provider-retry.js";
++import { asLocalRequestError, localRequestErrorDetails } from "../utils/local-request-error.js";
++import { withLocalRequestErrors } from "../utils/local-request-stream.js";
+ import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
+ import { getSystemMessageText, renderSystemMessageUpdate } from "../utils/text.js";
+ import { getCurrentTools, getInitialSystemMessage, resolveTranscript, } from "../utils/transcript.js";
+@@ -395,6 +397,7 @@ export const stream = (model, context, options) => {
+             stopReason: "pending",
+             timestamp: Date.now(),
+         };
++        let preparingRequest = true;
+         try {
+             let client;
+             let isOAuth;
+@@ -441,6 +444,7 @@ export const stream = (model, context, options) => {
+                     params = { ...nextParams, stream: true };
+                 }
+                 try {
++                    preparingRequest = false;
+                     response = await retryProviderRequest(() => client.beta.messages.create(params, requestOptions).asResponse(), {
+                         maxRetries: options?.maxRetries,
+                         maxRetryDelayMs: options?.maxRetryDelayMs,
+@@ -558,11 +562,11 @@ export const stream = (model, context, options) => {
+                         const index = blocks.findIndex((b) => b.index === event.index);
+                         const block = blocks[index];
+                         if (block && block.type === "text") {
+-                            block.text += event.delta.text;
++                            block.text += event.delta.text ?? "";
+                             stream.push({
+                                 type: "text_delta",
+                                 contentIndex: index,
+-                                delta: event.delta.text,
++                                delta: event.delta.text ?? "",
+                                 partial: output,
+                             });
+                         }
+@@ -571,11 +575,11 @@ export const stream = (model, context, options) => {
+                         const index = blocks.findIndex((b) => b.index === event.index);
+                         const block = blocks[index];
+                         if (block && block.type === "thinking") {
+-                            block.thinking += event.delta.thinking;
++                            block.thinking += event.delta.thinking ?? "";
+                             stream.push({
+                                 type: "thinking_delta",
+                                 contentIndex: index,
+-                                delta: event.delta.thinking,
++                                delta: event.delta.thinking ?? "",
+                                 partial: output,
+                             });
+                         }
+@@ -708,6 +712,11 @@ export const stream = (model, context, options) => {
+             stream.end();
+         }
+         catch (error) {
++            if (preparingRequest && !options?.signal?.aborted)
++                error = asLocalRequestError(error, "request-preparation");
++            const errorDetails = options?.signal?.aborted ? undefined : localRequestErrorDetails(error);
++            if (errorDetails)
++                output.errorDetails = errorDetails;
+             for (const block of output.content) {
+                 delete block.index;
+                 // partialJson is only a streaming scratch buffer; never persist it.
+@@ -715,6 +724,8 @@ export const stream = (model, context, options) => {
+             }
+             output.stopReason = options?.signal?.aborted ? "aborted" : "error";
+             output.errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
++                    if (errorDetails)
++                        output.errorMessage = errorDetails.message;
+             stream.push({ type: "error", reason: output.stopReason, error: output });
+             stream.end();
+         }
+@@ -742,7 +753,7 @@ function mapThinkingLevelToEffort(model, level) {
+             return "high";
+     }
+ }
+-export const streamSimple = (model, context, options) => {
++export const streamSimple = (model, context, options) => withLocalRequestErrors(model, options, () => {
+     if (!getAnthropicFederation(model, options?.apiKey, options?.headers, options?.env)) {
+         assertRequestAuth(model.provider, options?.apiKey, options?.headers);
+     }
+@@ -776,7 +787,7 @@ export const streamSimple = (model, context, options) => {
+         thinkingEnabled: true,
+         thinkingBudgetTokens: Math.min(adjusted.thinkingBudget, Math.max(0, maxTokens - 1024)),
+     });
+-};
++});
+ function isOAuthToken(apiKey) {
+     return apiKey.includes("sk-ant-oat");
+ }
+diff --git a/dist/api/azure-openai-responses.js b/dist/api/azure-openai-responses.js
+index c88f27e..0ab011b 100644
+--- a/dist/api/azure-openai-responses.js
++++ b/dist/api/azure-openai-responses.js
+@@ -5,6 +5,8 @@ import { AssistantMessageEventStream } from "../utils/event-stream.js";
+ import { headersToRecord } from "../utils/headers.js";
+ import { getIdentityHeaders } from "../utils/identity.js";
+ import { retryProviderRequest } from "../utils/provider-retry.js";
++import { asLocalRequestError, localRequestErrorDetails } from "../utils/local-request-error.js";
++import { withLocalRequestErrors } from "../utils/local-request-stream.js";
+ import { getDeclaredTools, resolveTranscript, resolveTranscriptTools } from "../utils/transcript.js";
+ import { resolveAzureConfig, resolveDeploymentName } from "./azure-openai-config.js";
+ import { createGrammarToolInputProperties } from "./constrained-sampling.js";
+@@ -43,6 +45,7 @@ export const stream = (model, context, options) => {
+             stopReason: "pending",
+             timestamp: Date.now(),
+         };
++        let preparingRequest = true;
+         try {
+             // Create Azure OpenAI client
+             const apiKey = options?.apiKey;
+@@ -61,6 +64,7 @@ export const stream = (model, context, options) => {
+                 ...(options?.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
+                 maxRetries: 0,
+             };
++            preparingRequest = false;
+             const { data: openaiStream, response } = await retryProviderRequest(() => client.responses.create(params, requestOptions).withResponse(), {
+                 maxRetries: options?.maxRetries,
+                 maxRetryDelayMs: options?.maxRetryDelayMs,
+@@ -85,6 +89,11 @@ export const stream = (model, context, options) => {
+             stream.end();
+         }
+         catch (error) {
++            if (preparingRequest && !options?.signal?.aborted)
++                error = asLocalRequestError(error, "request-preparation");
++            const errorDetails = options?.signal?.aborted ? undefined : localRequestErrorDetails(error);
++            if (errorDetails)
++                output.errorDetails = errorDetails;
+             for (const block of output.content) {
+                 delete block.index;
+                 // Streaming scratch buffers are only used during parsing; never persist them.
+@@ -93,13 +102,15 @@ export const stream = (model, context, options) => {
+             }
+             output.stopReason = options?.signal?.aborted ? "aborted" : "error";
+             output.errorMessage = formatAzureOpenAIError(error);
++                    if (errorDetails)
++                        output.errorMessage = errorDetails.message;
+             stream.push({ type: "error", reason: output.stopReason, error: output });
+             stream.end();
+         }
+     })();
+     return stream;
+ };
+-export const streamSimple = (model, context, options) => {
++export const streamSimple = (model, context, options) => withLocalRequestErrors(model, options, () => {
+     const apiKey = options?.apiKey;
+     if (!apiKey) {
+         throw new Error(`No API key for provider: ${model.provider}`);
+@@ -114,7 +125,7 @@ export const streamSimple = (model, context, options) => {
+         ...base,
+         reasoningEffort,
+     });
+-};
++});
+ function createClient(model, apiKey, options) {
+     const headers = { ...getIdentityHeaders(model, options?.identity), ...model.headers };
+     if (options?.headers) {
+diff --git a/dist/api/mistral-conversations.js b/dist/api/mistral-conversations.js
+index 193e8e4..2b8b2f7 100644
+--- a/dist/api/mistral-conversations.js
++++ b/dist/api/mistral-conversations.js
+@@ -674,6 +674,11 @@ function toChatMessages(messages, supportsImages) {
+                     }
+                     continue;
+                 }
++                // A hosted-search block is not a client tool call: replaying it
++                // here would invent a `web_search` function the model never
++                // invoked, and Mistral would answer the fabricated call.
++                if (block.type !== "toolCall")
++                    continue;
+                 toolCalls.push({
+                     id: block.id,
+                     type: "function",
+diff --git a/dist/api/openai-completions.js b/dist/api/openai-completions.js
+index 793ed0a..6809bec 100644
+--- a/dist/api/openai-completions.js
++++ b/dist/api/openai-completions.js
+@@ -8,6 +8,8 @@ import { getIdentityHeaders } from "../utils/identity.js";
+ import { parseStreamingJson, parseToolCallArguments } from "../utils/json-parse.js";
+ import { getProviderEnvValue } from "../utils/provider-env.js";
+ import { retryProviderRequest } from "../utils/provider-retry.js";
++import { asLocalRequestError, localRequestErrorDetails } from "../utils/local-request-error.js";
++import { withLocalRequestErrors } from "../utils/local-request-stream.js";
+ import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
+ import { getSystemMessageText, renderSystemMessageUpdate } from "../utils/text.js";
+ import { getDeclaredTools, resolveTranscript, resolveTranscriptTools, } from "../utils/transcript.js";
+@@ -177,6 +179,7 @@ export const stream = (model, context, options) => {
+                 block.thinkingSignature = JSON.stringify(streamedReasoningDetails);
+             }
+         };
++        let preparingRequest = true;
+         try {
+             const apiKey = getClientApiKey(model.provider, options?.apiKey, options?.headers);
+             const compat = getCompat(model);
+@@ -194,6 +197,7 @@ export const stream = (model, context, options) => {
+                 ...(options?.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
+                 maxRetries: 0,
+             };
++            preparingRequest = false;
+             const { data: openaiStream, response } = await retryProviderRequest(() => client.chat.completions.create(params, requestOptions).withResponse(), {
+                 maxRetries: options?.maxRetries,
+                 maxRetryDelayMs: options?.maxRetryDelayMs,
+@@ -491,6 +495,11 @@ export const stream = (model, context, options) => {
+             stream.end();
+         }
+         catch (error) {
++            if (preparingRequest && !options?.signal?.aborted)
++                error = asLocalRequestError(error, "request-preparation");
++            const errorDetails = options?.signal?.aborted ? undefined : localRequestErrorDetails(error);
++            if (errorDetails)
++                output.errorDetails = errorDetails;
+             for (const block of output.content) {
+                 if (block.type === "thinking") {
+                     applyStreamedReasoningDetails(block);
+@@ -511,13 +520,15 @@ export const stream = (model, context, options) => {
+             if (rawMetadata && !output.errorMessage.includes(String(rawMetadata))) {
+                 output.errorMessage += `\n${rawMetadata}`;
+             }
++                    if (errorDetails)
++                        output.errorMessage = errorDetails.message;
+             stream.push({ type: "error", reason: output.stopReason, error: output });
+             stream.end();
+         }
+     })();
+     return stream;
+ };
+-export const streamSimple = (model, context, options) => {
++export const streamSimple = (model, context, options) => withLocalRequestErrors(model, options, () => {
+     getClientApiKey(model.provider, options?.apiKey, options?.headers);
+     const base = {
+         ...buildBaseOptions(model, context, options, options?.apiKey),
+@@ -530,7 +541,7 @@ export const streamSimple = (model, context, options) => {
+         reasoningEffort,
+         thinkingBudgets: options?.thinkingBudgets,
+     });
+-};
++});
+ function createClient(model, context, apiKey, optionsHeaders, identity, fetch, sessionId, compat = getCompat(model)) {
+     const headers = { ...getIdentityHeaders(model, identity), ...model.headers };
+     if (model.provider === "github-copilot") {
+@@ -1052,11 +1063,6 @@ export function convertMessages(model, context, compat, options) {
+             if (preservedReasoningDetails) {
+                 assistantMsg.reasoning_details = preservedReasoningDetails;
+             }
+-            if (compat.requiresReasoningContentOnAssistantMessages &&
+-                model.reasoning &&
+-                assistantMsg.reasoning_content === undefined) {
+-                assistantMsg.reasoning_content = "";
+-            }
+             // Skip assistant messages that have no content and no tool calls.
+             // Some providers require "either content or tool_calls, but not none".
+             // Other providers also don't accept empty assistant messages.
+@@ -1134,6 +1140,41 @@ export function convertMessages(model, context, compat, options) {
+         }
+         lastRole = msg.role;
+     }
++    // DeepSeek-style endpoints reject a history in which only some assistant
++    // messages carry a reasoning field, while all-or-none is accepted. Prefer
++    // the field already present on the history (reasoning_content,
++    // reasoning_text, or reasoning). Relayed models outside the catalogue are
++    // often not flagged `reasoning`, so this pass also covers them (#223).
++    // Official DeepSeek accepts ""; OpenCode/third-party relays that require a
++    // real echo set requiresNonEmptyReasoningReplay and receive a documented
++    // placeholder instead of a silent empty string (#296).
++    // Placeholder text must match DEEPSEEK_REASONING_REPLAY_PLACEHOLDER in
++    // @pi-desktop/shared provider-presets.
++    const reasoningFields = ["reasoning_content", "reasoning_text", "reasoning"];
++    if (compat.requiresReasoningContentOnAssistantMessages) {
++        let activeField;
++        for (const field of reasoningFields) {
++            if (params.some((m) => m.role === "assistant" &&
++                typeof m[field] === "string" &&
++                m[field].length > 0)) {
++                activeField = field;
++                break;
++            }
++        }
++        if (!activeField && model.reasoning) {
++            activeField = "reasoning_content";
++        }
++        if (activeField) {
++            const fill = compat.requiresNonEmptyReasoningReplay
++                ? "[reasoning not retained for this turn]"
++                : "";
++            for (const m of params) {
++                if (m.role === "assistant" && m[activeField] === undefined) {
++                    m[activeField] = fill;
++                }
++            }
++        }
++    }
+     return params;
+ }
+ function convertTools(tools, compat) {
+@@ -1347,6 +1388,7 @@ function getCompat(model) {
+         sendSessionAffinityHeaders: model.compat.sendSessionAffinityHeaders ?? detected.sendSessionAffinityHeaders,
+         sessionAffinityFormat: model.compat.sessionAffinityFormat ?? detected.sessionAffinityFormat,
+         supportsLongCacheRetention: model.compat.supportsLongCacheRetention ?? detected.supportsLongCacheRetention,
++        requiresNonEmptyReasoningReplay: model.compat.requiresNonEmptyReasoningReplay ?? detected.requiresNonEmptyReasoningReplay,
+         vllmPriority: model.compat.vllmPriority,
+     };
+ }
+diff --git a/dist/api/openai-responses-shared.js b/dist/api/openai-responses-shared.js
+index b7b27ca..a3c81e7 100644
+--- a/dist/api/openai-responses-shared.js
++++ b/dist/api/openai-responses-shared.js
+@@ -552,11 +552,11 @@ export async function processResponsesStream(openaiStream, output, stream, model
+             const slot = getSlot(event.output_index, "thinking");
+             if (!slot)
+                 continue;
+-            slot.block.thinking += event.delta;
++            slot.block.thinking += event.delta ?? "";
+             stream.push({
+                 type: "thinking_delta",
+                 contentIndex: slot.contentIndex,
+-                delta: event.delta,
++                delta: event.delta ?? "",
+                 partial: output,
+             });
+         }
+@@ -576,11 +576,11 @@ export async function processResponsesStream(openaiStream, output, stream, model
+             const slot = getSlot(event.output_index, "thinking");
+             if (!slot)
+                 continue;
+-            slot.block.thinking += event.delta;
++            slot.block.thinking += event.delta ?? "";
+             stream.push({
+                 type: "thinking_delta",
+                 contentIndex: slot.contentIndex,
+-                delta: event.delta,
++                delta: event.delta ?? "",
+                 partial: output,
+             });
+         }
+@@ -612,9 +612,9 @@ export async function processResponsesStream(openaiStream, output, stream, model
+             const slot = getSlot(event.output_index, "toolCall");
+             if (!slot || slot.block.partialJson === undefined)
+                 continue;
+-            slot.block.partialJson += event.delta;
++            slot.block.partialJson += event.delta ?? "";
+             slot.block.arguments = parseStreamingJson(slot.block.partialJson);
+-            pushToolCallDelta(slot, event.delta);
++            pushToolCallDelta(slot, event.delta ?? "");
+         }
+         else if (event.type === "response.function_call_arguments.done") {
+             const slot = getSlot(event.output_index, "toolCall");
+@@ -703,6 +703,10 @@ export async function processResponsesStream(openaiStream, output, stream, model
+         }
+         else if (event.type === "response.completed" || event.type === "response.incomplete") {
+             finalizeResponse(event.response);
++            // The response is fully delivered: stop consuming the stream so the
++            // request does not hang when the server (or a reverse proxy) never
++            // closes the connection after the terminal event.
++            break;
+         }
+         else if (event.type === "error") {
+             throw new Error(`Error Code ${event.code}: ${event.message}` || "Unknown error");
+diff --git a/dist/api/openai-responses.js b/dist/api/openai-responses.js
+index b418bfb..b310052 100644
+--- a/dist/api/openai-responses.js
++++ b/dist/api/openai-responses.js
+@@ -6,6 +6,8 @@ import { headersToRecord } from "../utils/headers.js";
+ import { getIdentityHeaders } from "../utils/identity.js";
+ import { getProviderEnvValue } from "../utils/provider-env.js";
+ import { retryProviderRequest } from "../utils/provider-retry.js";
++import { asLocalRequestError, localRequestErrorDetails } from "../utils/local-request-error.js";
++import { withLocalRequestErrors } from "../utils/local-request-stream.js";
+ import { getDeclaredTools, resolveTranscript, resolveTranscriptTools } from "../utils/transcript.js";
+ import { createGrammarToolInputProperties } from "./constrained-sampling.js";
+ import { buildCopilotDynamicHeaders, hasCopilotVisionInput } from "./github-copilot-headers.js";
+@@ -129,6 +131,7 @@ export const stream = (model, context, options) => {
+             stopReason: "pending",
+             timestamp: Date.now(),
+         };
++        let preparingRequest = true;
+         try {
+             // Create OpenAI client
+             const apiKey = getClientApiKey(model.provider, options?.apiKey, options?.headers);
+@@ -146,6 +149,7 @@ export const stream = (model, context, options) => {
+                 ...(options?.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
+                 maxRetries: 0,
+             };
++            preparingRequest = false;
+             const { data: openaiStream, response } = await retryProviderRequest(() => client.responses.create(params, requestOptions).withResponse(), {
+                 maxRetries: options?.maxRetries,
+                 maxRetryDelayMs: options?.maxRetryDelayMs,
+@@ -172,6 +176,11 @@ export const stream = (model, context, options) => {
+             stream.end();
+         }
+         catch (error) {
++            if (preparingRequest && !options?.signal?.aborted)
++                error = asLocalRequestError(error, "request-preparation");
++            const errorDetails = options?.signal?.aborted ? undefined : localRequestErrorDetails(error);
++            if (errorDetails)
++                output.errorDetails = errorDetails;
+             for (const block of output.content) {
+                 delete block.index;
+                 // Streaming scratch buffers are only used during parsing; never persist them.
+@@ -191,13 +200,15 @@ export const stream = (model, context, options) => {
+             else {
+                 output.errorMessage = errorMessage;
+             }
++                    if (errorDetails)
++                        output.errorMessage = errorDetails.message;
+             stream.push({ type: "error", reason: output.stopReason, error: output });
+             stream.end();
+         }
+     })();
+     return stream;
+ };
+-export const streamSimple = (model, context, options) => {
++export const streamSimple = (model, context, options) => withLocalRequestErrors(model, options, () => {
+     getClientApiKey(model.provider, options?.apiKey, options?.headers);
+     const base = {
+         ...buildBaseOptions(model, context, options, options?.apiKey),
+@@ -209,7 +220,7 @@ export const streamSimple = (model, context, options) => {
+         ...base,
+         reasoningEffort,
+     });
+-};
++});
+ function createClient(model, context, apiKey, optionsHeaders, identity, fetch, sessionId) {
+     const compat = getCompat(model);
+     const headers = { ...getIdentityHeaders(model, identity), ...model.headers };
+diff --git a/dist/api/transform-messages.js b/dist/api/transform-messages.js
+index 6a364cb..afcc87e 100644
+--- a/dist/api/transform-messages.js
++++ b/dist/api/transform-messages.js
+@@ -89,18 +89,25 @@ export function transformMessages(messages, model, normalizeToolCallId) {
+                 assistantMsg.model === model.id;
+             const transformedContent = assistantMsg.content.flatMap((block) => {
+                 if (block.type === "thinking") {
+-                    // Thinking from another model is dropped. Signatures and encrypted reasoning are
+-                    // only valid for the model that produced them, and sending readable thinking as
+-                    // plain text makes the new model treat it as part of the visible reply.
+-                    if (!isSameModel)
+-                        return [];
+-                    // Keep redacted and signed blocks even if the thinking text is empty
+-                    // (OpenAI encrypted reasoning); they are needed for replay.
+-                    if (block.redacted || block.thinkingSignature)
++                    // Redacted thinking is opaque encrypted content, only valid for the same model.
++                    // Drop it for cross-model to avoid API errors.
++                    if (block.redacted) {
++                        return isSameModel ? block : [];
++                    }
++                    // For same model: keep thinking blocks with signatures (needed for replay)
++                    // even if the thinking text is empty (OpenAI encrypted reasoning)
++                    if (isSameModel && block.thinkingSignature)
+                         return block;
++                    // Skip empty thinking blocks, convert others to plain text so a restored
++                    // session keeps the reasoning that produced an answer (issue on 1.4.0).
+                     if (!block.thinking || block.thinking.trim() === "")
+                         return [];
+-                    return block;
++                    if (isSameModel)
++                        return block;
++                    return {
++                        type: "text",
++                        text: block.thinking,
++                    };
+                 }
+                 if (block.type === "text") {
+                     if (isSameModel)
+diff --git a/dist/auth/oauth/anthropic.js b/dist/auth/oauth/anthropic.js
+index 0823512..47cee13 100644
+--- a/dist/auth/oauth/anthropic.js
++++ b/dist/auth/oauth/anthropic.js
+@@ -5,6 +5,7 @@
+  * It is only intended for CLI use, not browser environments.
+  */
+ import { getProviderEnvValue } from "../../utils/provider-env.js";
++import { formatUserAgent } from "../../utils/identity.js";
+ import { startOAuthCallbackServer, waitForCallbackOrManualInput } from "./callback-server.js";
+ import { generatePKCE } from "./pkce.js";
+ const decode = (s) => atob(s);
+@@ -66,21 +67,95 @@ function formatErrorDetails(error) {
+     }
+     return String(error);
+ }
+-async function postJson(url, body, signal) {
+-    const response = await fetch(url, {
+-        method: "POST",
+-        headers: {
+-            "Content-Type": "application/json",
+-            Accept: "application/json",
+-        },
+-        body: JSON.stringify(body),
+-        signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
++class AnthropicOAuthTokenError extends Error {
++    constructor(status, code, grantType) {
++        const recovery = grantType === "authorization_code"
++            ? "Wait, close this dialog, and start a new sign-in attempt."
++            : "Wait before retrying. If the problem continues, sign in again.";
++        const reason = code === "invalid_grant"
++            ? "Anthropic rejected the authorization grant. Please sign in again."
++            : code === "invalid_response"
++                ? `Anthropic returned an invalid token response. ${recovery}`
++                : status === 429
++                    ? `Anthropic token requests are rate limited. ${recovery}`
++                    : `Anthropic token request failed (HTTP ${status}). ${recovery}`;
++        super(reason);
++        this.name = "AnthropicOAuthTokenError";
++        this.status = status;
++        this.code = code;
++    }
++}
++function tokenRetryDelay(header, attempt) {
++    const fallback = 1000 * 2 ** attempt;
++    const value = header?.trim();
++    if (!value || value.length > 128)
++        return fallback;
++    const serverDelay = /^\d+$/.test(value)
++        ? Number(value) * 1000
++        : /^[A-Za-z]{3}, /.test(value)
++            ? Date.parse(value) - Date.now()
++            : NaN;
++    return Number.isNaN(serverDelay) ? fallback : Math.max(fallback, serverDelay);
++}
++function waitForTokenRetry(delay, signal) {
++    signal.throwIfAborted();
++    return new Promise((resolve, reject) => {
++        const timer = setTimeout(() => {
++            signal.removeEventListener("abort", abort);
++            resolve();
++        }, delay);
++        const abort = () => {
++            clearTimeout(timer);
++            signal.removeEventListener("abort", abort);
++            reject(signal.reason);
++        };
++        signal.addEventListener("abort", abort, { once: true });
+     });
+-    const responseBody = await response.text();
+-    if (!response.ok) {
+-        throw new Error(`HTTP request failed. status=${response.status}; url=${url}; body=${responseBody}`);
++}
++async function postJson(url, body, signal) {
++    // Keep one deadline for all attempts, including response bodies and waits.
++    // The caller's signal can impose an earlier refresh deadline or cancellation.
++    const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(30_000)]);
++    const deadline = performance.now() + 30_000;
++    const serialized = JSON.stringify(body);
++    for (let attempt = 0; ; attempt++) {
++        requestSignal.throwIfAborted();
++        const response = await fetch(url, {
++            method: "POST",
++            headers: {
++                "Content-Type": "application/json",
++                Accept: "application/json",
++                // Always identify the client. Electron's main-process fetch
++                // (net.fetch) otherwise sends Chromium's browser User-Agent,
++                // and the token endpoint answers browser or claude-code/ UAs
++                // with a permanent 429 rate_limit_error (issue #1337).
++                "User-Agent": formatUserAgent(),
++            },
++            body: serialized,
++            signal: requestSignal,
++        });
++        const responseBody = await response.text();
++        if (response.ok)
++            return responseBody;
++        // Never put a token endpoint's response body in an error or log.
++        let invalidGrant = false;
++        try {
++            const data = JSON.parse(responseBody);
++            invalidGrant = data?.error === "invalid_grant" || data?.error?.type === "invalid_grant";
++        }
++        catch { /* Non-JSON errors are reported by status only. */ }
++        const failure = new AnthropicOAuthTokenError(response.status,
++            invalidGrant ? "invalid_grant" : response.status === 429 ? "rate_limited" : "http_error",
++            body.grant_type);
++        // Only an explicit rate-limit rejection is replayed. Network errors,
++        // 5xx and invalid_grant may follow a consumed/rotated grant: do not retry.
++        if (response.status !== 429 || invalidGrant || attempt >= 2)
++            throw failure;
++        const delay = tokenRetryDelay(response.headers.get("Retry-After"), attempt);
++        if (delay >= deadline - performance.now())
++            throw failure; // Never shorten the server's requested wait.
++        await waitForTokenRetry(delay, requestSignal);
+     }
+-    return responseBody;
+ }
+ async function exchangeAuthorizationCode(code, state, verifier, redirectUri, signal) {
+     let responseBody;
+@@ -95,6 +170,8 @@ async function exchangeAuthorizationCode(code, state, verifier, redirectUri, sig
+         }, signal);
+     }
+     catch (error) {
++        if (error instanceof AnthropicOAuthTokenError || error?.name === "AbortError" || error?.name === "TimeoutError")
++            throw error;
+         throw new Error(`Token exchange request failed. url=${TOKEN_URL}; redirect_uri=${redirectUri}; response_type=authorization_code; details=${formatErrorDetails(error)}`);
+     }
+     let tokenData;
+@@ -102,7 +179,7 @@ async function exchangeAuthorizationCode(code, state, verifier, redirectUri, sig
+         tokenData = JSON.parse(responseBody);
+     }
+     catch (error) {
+-        throw new Error(`Token exchange returned invalid JSON. url=${TOKEN_URL}; body=${responseBody}; details=${formatErrorDetails(error)}`);
++        throw new AnthropicOAuthTokenError(0, "invalid_response", "authorization_code");
+     }
+     return {
+         type: "oauth",
+@@ -213,6 +290,8 @@ async function refreshAnthropicToken(refreshToken, signal) {
+         }, signal);
+     }
+     catch (error) {
++        if (error instanceof AnthropicOAuthTokenError || error?.name === "AbortError" || error?.name === "TimeoutError")
++            throw error;
+         throw new Error(`Anthropic token refresh request failed. url=${TOKEN_URL}; details=${formatErrorDetails(error)}`);
+     }
+     let data;
+@@ -220,7 +299,7 @@ async function refreshAnthropicToken(refreshToken, signal) {
+         data = JSON.parse(responseBody);
+     }
+     catch (error) {
+-        throw new Error(`Anthropic token refresh returned invalid JSON. url=${TOKEN_URL}; body=${responseBody}; details=${formatErrorDetails(error)}`);
++        throw new AnthropicOAuthTokenError(0, "invalid_response", "refresh_token");
+     }
+     return {
+         type: "oauth",
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index 226fa3e..aee6ea1 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -24,6 +24,7 @@ export * from "./session-resources.ts";
+ export * from "./types.ts";
+ export * from "./utils/diagnostics.ts";
+ export * from "./utils/event-stream.ts";
++export * from "./utils/local-request-error.ts";
+ export * from "./utils/identity.ts";
+ export * from "./utils/json-parse.ts";
+ export * from "./utils/overflow.ts";
+diff --git a/dist/index.js b/dist/index.js
+index d8d81e8..068d8ba 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -11,6 +11,7 @@ export * from "./session-resources.js";
+ export * from "./types.js";
+ export * from "./utils/diagnostics.js";
+ export * from "./utils/event-stream.js";
++export * from "./utils/local-request-error.js";
+ export * from "./utils/identity.js";
+ export * from "./utils/json-parse.js";
+ export * from "./utils/overflow.js";
+diff --git a/dist/providers/data/deepseek.json b/dist/providers/data/deepseek.json
+index 1443bb5..5fc0625 100644
+--- a/dist/providers/data/deepseek.json
++++ b/dist/providers/data/deepseek.json
+@@ -1 +1 @@
+-{"openai-completions":{"chat:deepseek-flash":{"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"thinkingLevelMap":{"minimal":null,"low":"low","medium":null,"high":"high","max":"max"},"input":["text","image"],"cost":{"input":0.3,"output":1.2,"cacheRead":0.006,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true},"inputLimits":{"images":{"resize":{"maxWidth":2000,"maxHeight":2000,"maxBytes":4718592,"jpegQuality":80}}},"type":"chat"},"chat:deepseek-v4-pro":{"id":"deepseek-v4-pro","name":"DeepSeek V4 Pro","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"input":["text"],"cost":{"input":1.32,"output":3.96,"cacheRead":0.044,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"thinkingLevelMap":{"minimal":null,"low":null,"medium":null,"high":"high","max":"max"},"type":"chat"}}}
++{"openai-completions":{"chat:deepseek-flash":{"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"thinkingLevelMap":{"minimal":null,"low":"low","medium":null,"high":"high","max":"max"},"input":["text","image"],"cost":{"input":0.3,"output":1.2,"cacheRead":0.006,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"inputLimits":{"images":{"resize":{"maxWidth":2000,"maxHeight":2000,"maxBytes":4718592,"jpegQuality":80}}},"type":"chat"},"chat:deepseek-v4-pro":{"id":"deepseek-v4-pro","name":"DeepSeek V4 Pro","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"input":["text"],"cost":{"input":1.32,"output":3.96,"cacheRead":0.044,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"thinkingLevelMap":{"minimal":null,"low":null,"medium":null,"high":"high","max":"max"},"type":"chat"}}}
+diff --git a/dist/types.d.ts b/dist/types.d.ts
+index e92eefd..10c6018 100644
+--- a/dist/types.d.ts
++++ b/dist/types.d.ts
+@@ -282,6 +282,30 @@ export interface ToolCall {
+      */
+     argumentsError?: string;
+ }
++export interface HostedSearchCitation {
++    url: string;
++    title?: string;
++}
++export type HostedSearchContent = {
++    type: "hostedSearch";
++    phase: "server_tool_use";
++    blockId: string;
++    name: string;
++    input: JsonObject;
++} | {
++    type: "hostedSearch";
++    phase: "web_search_tool_result";
++    blockId: string;
++    isError?: boolean;
++    wire: JsonObject;
++} | {
++    type: "hostedSearch";
++    phase: "web_search_call";
++    blockId: string;
++    status?: string;
++    /** Legacy records without wire replay the minimal completed search item. */
++    wire?: JsonObject;
++};
+ export interface Usage {
+     input: number;
+     output: number;
+@@ -367,7 +391,7 @@ export interface UserMessage {
+ }
+ export interface AssistantMessage {
+     role: "assistant";
+-    content: (TextContent | ThinkingContent | ToolCall)[];
++    content: (TextContent | ThinkingContent | ToolCall | HostedSearchContent)[];
+     api: Api;
+     provider: ProviderId;
+     model: string;
+@@ -382,6 +406,8 @@ export interface AssistantMessage {
+     stopReason: StopReason;
+     deferred?: DeferredHandle;
+     errorMessage?: string;
++    errorDetails?: import("./utils/local-request-error.ts").LocalRequestErrorDetails;
++    hostedSearchCitations?: HostedSearchCitation[];
+     rawStopReason?: string;
+     /**
+      * Provider indication of whether the model explicitly ended its turn.
+@@ -617,6 +643,10 @@ export type AssistantMessageEvent = {
+     contentIndex: number;
+     toolCall: ToolCall;
+     partial: AssistantMessage;
++} | {
++    type: "hosted_search_update";
++    contentIndex: number;
++    partial: AssistantMessage;
+ } | {
+     type: "done";
+     reason: Extract<StopReason, "stop" | "length" | "toolUse" | "deferred">;
+@@ -648,6 +678,8 @@ export interface Model<TApi extends Api> extends BaseModel<TApi> {
+      */
+     type?: "chat";
+     reasoning: boolean;
++    /** Opt in to hosted search on the Anthropic/Responses adapters. */
++    webSearch?: boolean;
+     /**
+      * Maps pi thinking levels to provider/model-specific values.
+      * Missing keys use provider defaults. null marks a level as unsupported.
+diff --git a/dist/utils/estimate.d.ts b/dist/utils/estimate.d.ts
+index 6dcca6e..f0ef822 100644
+--- a/dist/utils/estimate.d.ts
++++ b/dist/utils/estimate.d.ts
+@@ -11,6 +11,7 @@ export interface ContextUsageEstimate {
+ }
+ export declare function calculateContextTokens(usage: Usage): number;
+ export declare function estimateTextTokens(text: string): number;
++export declare function getLastAssistantUsageInfo(messages: readonly { role: string; timestamp: number }[]): { usage: Usage; index: number } | undefined;
+ export declare function estimateTextAndImageContentTokens(content: string | Array<TextContent | ImageContent>): number;
+ export declare function estimateMessageTokens(message: Message): number;
+ export declare function estimateContextTokens(context: TranscriptContext | readonly Message[]): ContextUsageEstimate;
+diff --git a/dist/utils/estimate.js b/dist/utils/estimate.js
+index 45be26d..68e64b0 100644
+--- a/dist/utils/estimate.js
++++ b/dist/utils/estimate.js
+@@ -1,6 +1,23 @@
+ import { getSystemMessageText } from "./text.js";
++import { LocalRequestError, prepareLocalRequest } from "./local-request-error.js";
+ const CHARS_PER_TOKEN = 3.5;
+ const ESTIMATED_IMAGE_CHARS = 4800;
++const HOSTED_SEARCH_PHASES = ["server_tool_use", "web_search_tool_result", "web_search_call"];
++/**
++ * A hosted-search block has no `name` and no `arguments`; only its phase
++ * decides which wire payload it replays. An unknown phase is malformed
++ * history, and counting it as a tool call would both crash the estimator and
++ * silently overstate the budget.
++ */
++function validateHostedSearchBlocks(content) {
++    for (const block of content) {
++        if (block.type !== "hostedSearch")
++            continue;
++        if (!HOSTED_SEARCH_PHASES.includes(block.phase))
++            throw new LocalRequestError("context-validation");
++    }
++}
++
+ export function calculateContextTokens(usage) {
+     return usage.totalTokens || usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
+ }
+@@ -16,8 +33,15 @@ function estimateTextAndImageContentChars(content) {
+     if (typeof content === "string")
+         return content.length;
+     let chars = 0;
+-    for (const block of content)
+-        chars += block.type === "text" ? block.text.length : ESTIMATED_IMAGE_CHARS;
++    for (const block of content) {
++        // Only text and images can be priced here; anything else is malformed.
++        if (block.type === "text")
++            chars += block.text.length;
++        else if (block.type === "image")
++            chars += ESTIMATED_IMAGE_CHARS;
++        else
++            throw new LocalRequestError("context-validation");
++    }
+     return chars;
+ }
+ export function estimateTextTokens(text) {
+@@ -37,6 +61,7 @@ export function estimateMessageTokens(message) {
+         return estimateTextAndImageContentTokens(message.content);
+     if (message.role === "toolResult")
+         return estimateTextAndImageContentTokens(message.content);
++    validateHostedSearchBlocks(message.content);
+     for (const block of message.content) {
+         if (block.type === "text") {
+             chars += block.text.length;
+@@ -44,26 +69,49 @@ export function estimateMessageTokens(message) {
+         else if (block.type === "thinking") {
+             chars += block.thinking.length;
+         }
+-        else {
++        else if (block.type === "hostedSearch") {
++            // Search blocks are not tool calls: a result block carries no `name`
++            // and a server_tool_use carries no `arguments`. Count the payload
++            // that would be replayed instead of dereferencing fields that are
++            // absent, which used to throw and take compaction down with it.
++            chars += safeJsonStringify(block.wire ?? block.input ?? {}).length;
++        }
++        else if (block.type === "toolCall") {
+             chars += block.name.length + safeJsonStringify(block.arguments).length;
+         }
++        else {
++            // An unknown block cannot be priced. Falling through to the tool
++            // shape would either throw a TypeError or, when the block happens
++            // to carry `name` and `arguments`, silently count a block nothing
++            // knows how to send.
++            throw new LocalRequestError("context-validation");
++        }
+     }
+     return Math.ceil(chars / CHARS_PER_TOKEN);
+ }
+-function getLastAssistantUsageInfo(messages) {
++export function getLastAssistantUsageInfo(messages) {
+     let latestPrefixTimestamp = Number.NEGATIVE_INFINITY;
+     let usageInfo;
+     for (let i = 0; i < messages.length; i++) {
+         const message = messages[i];
++        // A missing or non-finite timestamp can neither establish a prefix nor
++        // anchor usage: `Math.max` would turn every later comparison into NaN.
++        // Zero and equal timestamps keep their meaning; nothing is invented.
++        if (!Number.isFinite(message.timestamp))
++            throw new LocalRequestError("context-validation");
+         if (message.role === "assistant") {
+             const assistant = message;
+             // A newer prefix message was inserted after this response (for example, a
+             // compaction summary), so its usage cannot describe the current prefix.
+             const usageAppliesToPrefix = assistant.timestamp >= latestPrefixTimestamp;
++            const usageTokens = assistant.usage
++                ? calculateContextTokens(assistant.usage)
++                : Number.NaN;
+             if (usageAppliesToPrefix &&
+                 assistant.stopReason !== "aborted" &&
+                 assistant.stopReason !== "error" &&
+-                calculateContextTokens(assistant.usage) > 0) {
++                Number.isFinite(usageTokens) &&
++                usageTokens > 0) {
+                 usageInfo = { usage: assistant.usage, index: i };
+             }
+         }
+@@ -72,7 +120,16 @@ function getLastAssistantUsageInfo(messages) {
+     return usageInfo;
+ }
+ export function estimateContextTokens(context) {
++    return prepareLocalRequest("context-estimation", () => estimateContextTokensUnsafe(context));
++}
++function estimateContextTokensUnsafe(context) {
+     const messages = "messages" in context ? context.messages : context;
++    // A recorded usage figure describes the prefix, not the blocks in it, so
++    // the fast path must not be able to hide malformed search history.
++    for (const message of messages) {
++        if (message.role === "assistant")
++            validateHostedSearchBlocks(message.content);
++    }
+     const usageInfo = getLastAssistantUsageInfo(messages);
+     if (usageInfo) {
+         const usageTokens = calculateContextTokens(usageInfo.usage);
+diff --git a/dist/utils/local-request-error.d.ts b/dist/utils/local-request-error.d.ts
+new file mode 100644
+index 0000000..a72f65b
+--- /dev/null
++++ b/dist/utils/local-request-error.d.ts
+@@ -0,0 +1,15 @@
++export type LocalRequestErrorPhase = "context-validation" | "context-estimation" | "request-preparation";
++export interface LocalRequestErrorDetails {
++    code: "LOCAL_REQUEST_ERROR";
++    phase: LocalRequestErrorPhase;
++    message: string;
++    causeName?: string;
++}
++export declare class LocalRequestError extends Error {
++    readonly code: "LOCAL_REQUEST_ERROR";
++    readonly phase: LocalRequestErrorPhase;
++    constructor(phase: LocalRequestErrorPhase, options?: ErrorOptions);
++}
++export declare function localRequestErrorDetails(error: unknown): LocalRequestErrorDetails | undefined;
++export declare function asLocalRequestError(error: unknown, phase: LocalRequestErrorPhase): unknown;
++export declare function prepareLocalRequest<T>(phase: LocalRequestErrorPhase, prepare: () => T): T;
+diff --git a/dist/utils/local-request-error.js b/dist/utils/local-request-error.js
+new file mode 100644
+index 0000000..4d276dd
+--- /dev/null
++++ b/dist/utils/local-request-error.js
+@@ -0,0 +1,38 @@
++const messages = {
++    "context-validation": "Local request context validation failed",
++    "context-estimation": "Local request context estimation failed",
++    "request-preparation": "Local request preparation failed",
++};
++export class LocalRequestError extends Error {
++    code = "LOCAL_REQUEST_ERROR";
++    constructor(phase, options) {
++        // Expose only fixed descriptions; retain original data and underlying errors in cause.
++        super(messages[phase], options);
++        this.name = "LocalRequestError";
++        this.phase = phase;
++    }
++}
++export function localRequestErrorDetails(error) {
++    // Explicit markers work across packages/realms; never infer origin from TypeError, text, or absent responses.
++    if (!error || typeof error !== "object" || error.code !== "LOCAL_REQUEST_ERROR" ||
++        !Object.hasOwn(messages, error.phase))
++        return undefined;
++    return {
++        code: "LOCAL_REQUEST_ERROR",
++        phase: error.phase,
++        message: messages[error.phase],
++        ...(error.cause instanceof Error ? { causeName: error.cause.name } :
++            typeof error.causeName === "string" ? { causeName: error.causeName } : {}),
++    };
++}
++export function asLocalRequestError(error, phase) {
++    return localRequestErrorDetails(error) ? error : new LocalRequestError(phase, { cause: error });
++}
++export function prepareLocalRequest(phase, prepare) {
++    try {
++        return prepare();
++    }
++    catch (error) {
++        throw asLocalRequestError(error, phase);
++    }
++}
+diff --git a/dist/utils/local-request-stream.d.ts b/dist/utils/local-request-stream.d.ts
+new file mode 100644
+index 0000000..879b78c
+--- /dev/null
++++ b/dist/utils/local-request-stream.d.ts
+@@ -0,0 +1,3 @@
++import type { Api, AssistantMessageEventStream, Model } from "../types.ts";
++/** Guard synchronous adapter setup without classifying transport errors. */
++export declare function withLocalRequestErrors(model: Model<Api>, options: { signal?: AbortSignal } | undefined, prepare: () => AssistantMessageEventStream): AssistantMessageEventStream;
+diff --git a/dist/utils/local-request-stream.js b/dist/utils/local-request-stream.js
+new file mode 100644
+index 0000000..d5eddc3
+--- /dev/null
++++ b/dist/utils/local-request-stream.js
+@@ -0,0 +1,25 @@
++import { AssistantMessageEventStream } from "./event-stream.js";
++import { asLocalRequestError, localRequestErrorDetails } from "./local-request-error.js";
++export function withLocalRequestErrors(model, options, prepare) {
++    try {
++        return prepare();
++    }
++    catch (error) {
++        // Only synchronous setup/buildBaseOptions is wrapped; network and response
++        // parsing stay with the adapter's own error handling.
++        const details = localRequestErrorDetails(asLocalRequestError(error, "request-preparation"));
++        const aborted = options?.signal?.aborted === true;
++        const message = {
++            role: "assistant", content: [], api: model.api, provider: model.provider, model: model.id,
++            usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0,
++                cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
++            stopReason: aborted ? "aborted" : "error", timestamp: Date.now(),
++            errorMessage: aborted ? "Request was aborted" : details.message,
++            ...(aborted ? {} : { errorDetails: details }),
++        };
++        const stream = new AssistantMessageEventStream();
++        stream.push({ type: "error", reason: message.stopReason, error: message });
++        stream.end();
++        return stream;
++    }
++}

@@ -25,25 +25,19 @@ function parseArgs(argv) {
 }
 
 const root = parseArgs(process.argv.slice(2));
-const targetVersion = "1.1.0";
+const targetVersion = "1.4.0";
 const entries = [
   {
     name: "@earendil-works/pi-agent-core",
     patch: `patches/@earendil-works__pi-agent-core@${targetVersion}.patch`,
     packagePath: "packages/agent-runtime/node_modules/@earendil-works/pi-agent-core",
-    markers: ["hosted_search_update", "localRequestErrorDetails"],
+    markers: ["localRequestErrorDetails"],
   },
   {
     name: "@earendil-works/pi-ai",
     patch: `patches/@earendil-works__pi-ai@${targetVersion}.patch`,
     packagePath: "packages/agent-runtime/node_modules/@earendil-works/pi-ai",
     markers: ["hostedSearch", "withLocalRequestErrors", "AnthropicOAuthTokenError", "Retry-After"],
-  },
-  {
-    name: "@earendil-works/pi-coding-agent",
-    patch: `patches/@earendil-works__pi-coding-agent@${targetVersion}.patch`,
-    packagePath: "packages/agent-runtime/node_modules/@earendil-works/pi-coding-agent",
-    markers: ["hostedSearchReplayProjection", "estimateProjectedContextTokens"],
   },
 ];
 const workspace = readFileSync(join(root, "pnpm-workspace.yaml"), "utf8");
@@ -92,23 +86,30 @@ if (
 ) {
   throw new Error("Pi AI patch must scope mid-conversation system support to the published DeepSeek Flash endpoint");
 }
-for (const declarationPath of [
+for (const touchedPath of [
+  "dist/index.js",
   "dist/index.d.ts",
   "dist/types.d.ts",
-  "dist/utils/assistant-message-frame.d.ts",
+  "dist/utils/estimate.js",
   "dist/utils/estimate.d.ts",
-  "dist/utils/hosted-search.d.ts",
+  "dist/utils/local-request-error.js",
   "dist/utils/local-request-error.d.ts",
+  "dist/utils/local-request-stream.js",
   "dist/utils/local-request-stream.d.ts",
 ]) {
-  if (!piAiPatch.includes(`diff --git a/${declarationPath} `)) {
-    throw new Error(`Pi AI patch is missing the audited declaration file ${declarationPath}`);
+  if (!piAiPatch.includes(`diff --git a/${touchedPath} `)) {
+    throw new Error(`Pi AI patch is missing the audited file ${touchedPath}`);
   }
 }
 
-const codingAgentPatch = readFileSync(join(root, entries[2].patch), "utf8");
-if (!codingAgentPatch.includes("+export declare function estimateProjectedContextTokens(")) {
-  throw new Error("Pi coding-agent runtime estimator declaration is missing from its patch");
+// Upstream removed hosted search, so its token estimator's assistant-content
+// fallback assumes every non-text block is a tool call and reads `block.name`.
+// A stored search result has no `name`, which threw a TypeError and took
+// compaction's estimate down with it. Losing this branch is a crash, not a
+// cosmetic regression, so it is audited here rather than left to a test that
+// may not exercise a persisted transcript.
+if (!piAiPatch.includes('block.type === "hostedSearch"')) {
+  throw new Error("Pi AI patch is missing the hosted-search token estimate branch");
 }
 
-process.stdout.write(`All three Pi ${targetVersion} patches are mapped, locked, installed, and contain the audited contracts.\n`);
+process.stdout.write(`All Pi ${targetVersion} patches are mapped, locked, installed, and contain the audited contracts.\n`);

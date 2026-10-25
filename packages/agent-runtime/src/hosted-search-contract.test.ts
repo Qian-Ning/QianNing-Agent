@@ -1,529 +1,172 @@
 import { Buffer } from "node:buffer";
 import { describe, expect, it } from "vitest";
 
-import type { AssistantMessage } from "@earendil-works/pi-ai";
+import { createHostedSearchCapture } from "./pi-ai-hosted-search/capture.js";
+import { applyHostedSearchReplay } from "./pi-ai-hosted-search/payload.js";
 
 /**
- * Contract tests for the pi-ai hosted web search patch.
+ * Contract tests for the hosted web search module.
  *
- * The patch (patches/@earendil-works__pi-ai@1.1.0.patch) teaches the
- * anthropic-messages and openai-responses adapters to attach the provider
- * hosted web search tool when the model record opts in, to extract the search
- * blocks and citations from the stream, and to replay the search items on
- * later turns. These tests drive the exported stream processor with
- * synthetic provider events — including malformed ones — so the extraction
- * contract is locked without hitting a real provider.
+ * pi-ai 1.4.0 has no hosted-search support: its adapters neither attach the
+ * provider's server tool, keep the blocks a response carries, nor replay them
+ * on a later turn. `pi-ai-hosted-search` does all three through the public
+ * hooks, and these tests pin that contract — capture from raw provider events,
+ * replay onto the request body, and the request parameters that make a provider
+ * actually run a search — without hitting a real provider.
  */
 
 type AnyRecord = Record<string, unknown>;
 
-async function processEvents(events: AnyRecord[]): Promise<{
-  output: AssistantMessage & {
-    hostedSearchCitations?: { url: string; title?: string }[];
-  };
-  stream: AnyRecord[];
-}> {
-  const { processResponsesStream } = await import("@earendil-works/pi-ai/api/openai-responses-shared");
-  const output = {
-    role: "assistant",
-    content: [],
-    api: "openai-responses",
-    provider: "openai",
-    model: "gpt-test",
-    usage: {
-      input: 0,
-      output: 0,
-      cacheRead: 0,
-      cacheWrite: 0,
-      totalTokens: 0,
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-    },
-    stopReason: "pending",
-    timestamp: Date.now(),
-  };
-  const stream: AnyRecord[] = [];
-  const model = {
-    id: "gpt-test",
-    api: "openai-responses",
-    provider: "openai",
-    reasoning: false,
-    input: ["text"],
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: 128_000,
-    maxTokens: 8_192,
-  } as never;
-  const sink = {
-    push: (event: AnyRecord) => stream.push(event),
-  } as unknown as Parameters<typeof processResponsesStream>[2];
-  const asyncEvents = (async function* () {
-    for (const event of events) yield event;
-  })();
-  await processResponsesStream(
-    asyncEvents as never,
-    output as unknown as AssistantMessage,
-    sink,
-    model,
-    {},
-  );
-  return { output: output as unknown as AssistantMessage & {
-    hostedSearchCitations?: { url: string; title?: string }[];
-  }, stream };
-}
+describe("hosted search: responses stream capture", () => {
+  it("captures a web_search_call as a hostedSearch content block", () => {
+    const capture = createHostedSearchCapture();
+    capture.observe(
+      { type: "response.output_item.added", output_index: 1, item: { type: "web_search_call", id: "ws_1", status: "in_progress", action: { type: "search", query: "pi-desktop release notes" } } },
+      "openai-responses",
+    );
+    capture.observe(
+      { type: "response.web_search_call.completed", output_index: 1, item: { type: "web_search_call", id: "ws_1", status: "completed", action: { type: "search", query: "pi-desktop release notes" } } },
+      "openai-responses",
+    );
+    capture.observe(
+      { type: "response.output_item.done", output_index: 1, item: { type: "web_search_call", id: "ws_1", status: "completed", action: { type: "search", query: "pi-desktop release notes" } } },
+      "openai-responses",
+    );
 
-describe("pi-ai hosted web search: responses stream extraction", () => {
-  it("captures a web_search_call as a hostedSearch content block", async () => {
-    const { output } = await processEvents([
-      {
-        type: "response.created",
-        response: { id: "resp_1" },
-      },
-      {
-        type: "response.output_item.added",
-        output_index: 0,
-        item: {
-          type: "web_search_call",
-          id: "ws_1",
-          status: "in_progress",
-          action: { type: "search", query: "pi-desktop release notes" },
-        },
-      },
-      {
-        type: "response.output_item.added",
-        output_index: 1,
-        item: { type: "message", id: "msg_1", role: "assistant" },
-      },
-      {
-        type: "response.output_text.delta",
-        output_index: 1,
-        delta: "Found it.",
-      },
-      {
-        type: "response.output_text.annotation.added",
-        output_index: 1,
-        annotation: {
-          type: "url_citation",
-          url: "https://example.com/release",
-          title: "Release notes",
-          start_index: 0,
-          end_index: 5,
-        },
-      },
-      {
-        type: "response.output_item.done",
-        output_index: 0,
-        item: {
-          type: "web_search_call",
-          id: "ws_1",
-          status: "completed",
-          action: { type: "search", query: "pi-desktop release notes" },
-        },
-      },
-      {
-        type: "response.output_item.done",
-        output_index: 1,
-        item: {
-          type: "message",
-          id: "msg_1",
-          role: "assistant",
-          status: "completed",
-          content: [{ type: "output_text", text: "Found it.", annotations: [] }],
-        },
-      },
-      {
-        type: "response.completed",
-        response: { id: "resp_1", usage: {} },
-      },
-    ]);
-
-    const search = output.content.find(
-      (block) => ((block ?? {}) as unknown as AnyRecord).type === "hostedSearch",
-    ) as unknown as AnyRecord | undefined;
-    expect(search).toBeDefined();
-    expect(search?.phase).toBe("web_search_call");
-    expect(search?.status).toBe("completed");
-    expect((((search ?? {}) as AnyRecord).wire as AnyRecord)?.action).toMatchObject({
+    expect(capture.blocks).toHaveLength(1);
+    const entry = capture.blocks[0]!;
+    expect(entry.index).toBe(1);
+    expect(entry.block).toMatchObject({
+      type: "hostedSearch",
+      phase: "web_search_call",
+      blockId: "ws_1",
+      status: "completed",
+    });
+    expect((entry.block as { wire?: AnyRecord }).wire?.action).toEqual({
       type: "search",
       query: "pi-desktop release notes",
     });
-
-    const citations = (output as unknown as AnyRecord).hostedSearchCitations as
-    AnyRecord[] | undefined;
-    expect(citations).toEqual([
-      { url: "https://example.com/release", title: "Release notes" },
-    ]);
   });
 
-  it("ignores malformed annotations and unknown web_search_call shapes", async () => {
-    const { output } = await processEvents([
-      {
-        type: "response.output_text.annotation.added",
-        output_index: 0,
-        // Missing url: dropped rather than crashing the turn.
-        annotation: { type: "url_citation", title: "no url" },
-      },
-      {
-        type: "response.output_text.annotation.added",
-        output_index: 0,
-        annotation: { type: "something_else", url: "https://example.com" },
-      },
-      {
-        type: "response.web_search_call.completed",
-        // No item payload: nothing to slot, and no error.
-        output_index: 3,
-      },
-      {
-        type: "response.output_item.added",
-        output_index: 0,
-        item: { type: "message", id: "msg_1", role: "assistant" },
-      },
-      {
-        type: "response.output_item.done",
-        output_index: 0,
-        item: {
-          type: "message",
-          id: "msg_1",
-          role: "assistant",
-          status: "completed",
-          content: [{ type: "output_text", text: "ok", annotations: [] }],
-        },
-      },
-      {
-        type: "response.completed",
-        response: { id: "resp_2", usage: {} },
-      },
-    ]);
+  it("ignores malformed annotations and unknown web_search_call shapes", () => {
+    const capture = createHostedSearchCapture();
+    for (const event of [
+      // Missing url: dropped rather than crashing the turn.
+      { type: "response.output_text.annotation.added", output_index: 0, annotation: { type: "url_citation", title: "no url" } },
+      { type: "response.output_text.annotation.added", output_index: 0, annotation: { type: "something_else", url: "https://example.com" } },
+      // No item payload: nothing to slot, and no error.
+      { type: "response.web_search_call.completed", output_index: 3 },
+      // A call without an id cannot round-trip, so it is not captured.
+      { type: "response.output_item.added", output_index: 4, item: { type: "web_search_call", status: "in_progress" } },
+      // Not a search item at all.
+      { type: "response.output_item.done", output_index: 5, item: { type: "message", id: "msg_1" } },
+      // A valid citation survives.
+      { type: "response.output_text.annotation.added", output_index: 0, annotation: { type: "url_citation", url: "https://example.com/doc", title: "Doc" } },
+    ]) {
+      capture.observe(event, "openai-responses");
+    }
 
-    expect((output as unknown as AnyRecord).hostedSearchCitations).toBeUndefined();
-    expect(
-      output.content.filter((b) => ((b ?? {}) as unknown as AnyRecord).type === "hostedSearch"),
-    ).toHaveLength(0);
-    expect(
-      output.content.find((b) => ((b ?? {}) as unknown as AnyRecord).type === "text"),
-    ).toMatchObject({ text: "ok" });
+    expect(capture.blocks).toHaveLength(0);
+    expect(capture.citations).toEqual([{ url: "https://example.com/doc", title: "Doc" }]);
   });
 });
 
-describe("pi-ai hosted web search: responses message replay", () => {
+describe("hosted search: responses replay", () => {
   it("replays a hostedSearch block as a web_search_call output item", async () => {
-    const { convertResponsesMessages } = await import("@earendil-works/pi-ai/api/openai-responses-shared");
+    const { streamSimple } = await import("@earendil-works/pi-ai/api/openai-responses");
     const model = {
-      id: "gpt-test",
-      api: "openai-responses",
-      provider: "openai",
-      input: ["text"],
-    } as unknown as Parameters<typeof convertResponsesMessages>[1];
-    const context = {
-      messages: [
-        {
-          role: "user",
-          content: "search for the release notes",
-        },
-        {
-          role: "assistant",
-          content: [
-            {
-              type: "hostedSearch",
-              phase: "web_search_call",
-              blockId: "ws_1",
+      id: "gpt-test", api: "openai-responses", provider: "openai",
+      reasoning: false, input: ["text"],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 128_000, maxTokens: 8_192, baseUrl: "http://localhost/v1",
+    };
+    const messages = [
+      { role: "user" as const, content: "search for the release notes", timestamp: 1 },
+      {
+        role: "assistant" as const,
+        content: [
+          { type: "text", text: "Found it." },
+          {
+            type: "hostedSearch" as const,
+            phase: "web_search_call" as const,
+            blockId: "ws_1",
+            status: "completed",
+            wire: {
+              type: "web_search_call",
+              id: "ws_1",
               status: "completed",
-              wire: {
-                type: "web_search_call",
-                id: "ws_1",
-                status: "completed",
-                action: { type: "search", query: "pi-desktop release notes" },
-              },
+              action: { type: "search", query: "pi-desktop release notes" },
             },
-            { type: "text", text: "Found it." },
-          ],
-          api: "openai-responses",
-          provider: "openai",
-          model: "gpt-test",
-        },
-      ],
-    } as unknown as Parameters<typeof convertResponsesMessages>[2];
+          },
+        ],
+        api: "openai-responses", provider: "openai", model: "gpt-test",
+        timestamp: 2, stopReason: "stop" as const,
+        usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+      },
+    ];
 
-    const replay = convertResponsesMessages(
-      model as never,
-      context as never,
-      new Set<string>(),
-      {},
-    ) as unknown as AnyRecord[];
+    let sent: AnyRecord | undefined;
+    const sse =
+      "event: response.completed\n" +
+      'data: {"type":"response.completed","response":{"id":"r1","status":"completed","output":[],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}\n\n';
+    const stream = streamSimple(model as never, { messages } as never, {
+      apiKey: "offline",
+      onPayload: (payload: unknown) => {
+        const filled = applyHostedSearchReplay(payload, messages as never, {
+          id: "gpt-test", api: "openai-responses", provider: "openai",
+        });
+        expect(filled.diagnostic).toBeUndefined();
+        sent = filled.payload as AnyRecord;
+        return filled.payload;
+      },
+      fetch: (async () =>
+        new Response(sse, { status: 200, headers: { "content-type": "text/event-stream" } })) as never,
+    } as never);
 
-    const searchItem = replay.find(
-      (item) => item.type === "web_search_call",
-    ) as unknown as AnyRecord | undefined;
+    expect((await stream.result()).stopReason).toBe("stop");
+
+    const items = (sent?.input ?? []) as AnyRecord[];
+    const searchItem = items.find((item) => item.type === "web_search_call");
     expect(searchItem).toBeDefined();
     expect(searchItem?.id).toBe("ws_1");
     expect(searchItem?.status).toBe("completed");
-    expect((searchItem?.action as AnyRecord)?.query).toBe(
-      "pi-desktop release notes",
-    );
-  });
-
-  it("replays an Anthropic search error with its error block type", async () => {
-    const { streamSimple } = await import("@earendil-works/pi-ai/api/anthropic-messages");
-    let request: AnyRecord | undefined;
-    const context = {
-      messages: [
-        { role: "user", content: "search again", timestamp: 1 },
-        {
-          role: "assistant",
-          content: [
-            {
-              type: "hostedSearch",
-              phase: "server_tool_use",
-              blockId: "srv_1",
-              name: "web_search",
-              input: { query: "release notes" },
-            },
-            {
-              type: "hostedSearch",
-              phase: "web_search_tool_result",
-              blockId: "srv_1",
-              isError: true,
-              wire: {
-                type: "web_search_tool_result_error",
-                tool_use_id: "srv_1",
-                content: "search unavailable",
-              },
-            },
-          ],
-          api: "anthropic-messages",
-          provider: "anthropic",
-          model: "claude-test",
-          timestamp: 2,
-          usage: {
-            input: 1,
-            output: 1,
-            cacheRead: 0,
-            cacheWrite: 0,
-            totalTokens: 2,
-            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-          },
-        },
-      ],
-    };
-    const sse =
-      'event: message_start\ndata: {"type":"message_start","message":{"id":"m","type":"message","role":"assistant","content":[],"model":"claude-test","stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":1,"output_tokens":0}}}\n\n' +
-      'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":1}}\n\n' +
-      'event: message_stop\ndata: {"type":"message_stop"}\n\n';
-    const stream = streamSimple(
-      {
-        id: "claude-test",
-        api: "anthropic-messages",
-        provider: "anthropic",
-        reasoning: false,
-        input: ["text"],
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 100_000,
-        maxTokens: 1_000,
-        baseUrl: "http://localhost",
-      } as never,
-      context as never,
-      {
-        apiKey: "test",
-        fetch: (async (_input: RequestInfo | URL, init?: RequestInit) => {
-          request = JSON.parse(String(init?.body));
-          return new Response(sse, {
-            status: 200,
-            headers: { "content-type": "text/event-stream" },
-          });
-        }) as never,
-      } as never,
-    );
-    await stream.result();
-    const messages = Array.isArray(request?.messages)
-      ? (request.messages as AnyRecord[])
-      : [];
-    const assistant = messages.find(
-      (message: AnyRecord) => message.role === "assistant",
-    );
-    expect(assistant?.content).toEqual([
-      { type: "server_tool_use", id: "srv_1", name: "web_search", input: { query: "release notes" } },
-      {
-        type: "web_search_tool_result_error",
-        tool_use_id: "srv_1",
-        content: "search unavailable",
-      },
-    ]);
+    expect((searchItem?.action as AnyRecord)?.query).toBe("pi-desktop release notes");
   });
 });
 
-describe("pi-ai hosted web search: streaming progress events", () => {
-  it("emits hosted_search_update as each round starts and finishes", async () => {
-    const { output, stream } = await processEvents([
-      { type: "response.created", response: { id: "resp_1" } },
-      {
-        type: "response.output_item.added",
-        output_index: 0,
-        item: {
-          type: "web_search_call",
-          id: "ws_1",
-          status: "in_progress",
-          action: { type: "search", query: "first query" },
-        },
-      },
-      {
-        type: "response.output_item.added",
-        output_index: 1,
-        item: {
-          type: "web_search_call",
-          id: "ws_2",
-          status: "in_progress",
-          action: { type: "search", query: "second query" },
-        },
-      },
-      {
-        type: "response.output_item.done",
-        output_index: 0,
-        item: {
-          type: "web_search_call",
-          id: "ws_1",
-          status: "completed",
-          action: { type: "search", query: "first query" },
-        },
-      },
-      {
-        type: "response.output_item.done",
-        output_index: 1,
-        item: {
-          type: "web_search_call",
-          id: "ws_2",
-          status: "completed",
-          action: { type: "search", query: "second query" },
-        },
-      },
-      { type: "response.completed", response: { id: "resp_1", usage: {} } },
-    ]);
-
-    // Each round is its own block, in provider order.
-    const blocks = output.content.filter(
-      (block) => ((block ?? {}) as unknown as AnyRecord).type === "hostedSearch",
-    ) as unknown as AnyRecord[];
-    expect(blocks).toHaveLength(2);
-    expect(blocks[0]?.blockId).toBe("ws_1");
-    expect(blocks[1]?.blockId).toBe("ws_2");
-    expect(blocks[0]?.status).toBe("completed");
-    expect(blocks[1]?.status).toBe("completed");
-
-    // Two starts + two finishes: progress reaches the consumer per round.
-    const updates = stream.filter((event) => event.type === "hosted_search_update");
-    expect(updates).toHaveLength(4);
-    expect(updates.map((event) => event.contentIndex)).toEqual([0, 1, 0, 1]);
-  });
-});
-
-describe("pi-agent-core hosted web search forwarding", () => {
-  it("forwards hosted_search_update as message_update", async () => {
-    // Locks the agent-loop patch (patches/@earendil-works__pi-agent-core@1.1.0.patch):
-    // without it the loop's switch drops the event and search rounds render only
-    // after the whole turn finishes.
-    const { agentLoop } = await import("@earendil-works/pi-agent-core");
-
-    const partial = {
-      role: "assistant",
-      content: [
-        {
-          type: "hostedSearch",
-          phase: "web_search_call",
-          blockId: "ws_1",
-          status: "in_progress",
-          wire: { type: "web_search_call", id: "ws_1", status: "in_progress" },
-        },
-      ],
-      api: "openai-responses",
-      provider: "openai",
-      model: "gpt-test",
-      stopReason: "pending",
-      usage: {},
-      timestamp: Date.now(),
-    };
-    const finalMessage = {
-      ...partial,
-      stopReason: "stop",
-      content: [
-        { ...partial.content[0], status: "completed" },
-        { type: "text", text: "done" },
-      ],
-    };
-    const streamEvents = [
-      { type: "start", partial },
-      { type: "hosted_search_update", contentIndex: 0, partial },
-      { type: "done" },
-    ];
-    const streamFn = () => {
-      const iterable = (async function* () {
-        for (const event of streamEvents) yield event;
-      })();
-      return Object.assign(iterable, {
-        result: async () => finalMessage,
-      });
-    };
-
-    const emitted: AnyRecord[] = [];
-    const agentStream = agentLoop(
-      [{ role: "user", content: "search please", timestamp: Date.now() }],
-      { messages: [{ role: "system", content: "", timestamp: Date.now() }], tools: [] },
-      {
-        model: {
-          id: "gpt-test",
-          api: "openai-responses",
-          provider: "openai",
-        },
-        convertToLlm: async (messages: unknown) => messages,
-      } as never,
-      new AbortController().signal,
-      streamFn as never,
-    );
-    for await (const event of agentStream as AsyncIterable<AnyRecord>) {
-      emitted.push(event);
-    }
-
-    const updates = emitted.filter((event) => event.type === "message_update");
-    expect(updates).toHaveLength(1);
-    const message = updates[0]?.message as AnyRecord;
-    expect((message.content as AnyRecord[])[0]).toMatchObject({
-      type: "hostedSearch",
-      blockId: "ws_1",
-    });
-    expect(emitted.some((event) => event.type === "message_end")).toBe(true);
-  });
-});
-
-describe("pi-ai hosted web search: request params", () => {
+describe("hosted search: request params", () => {
   async function captureParams(model: AnyRecord, options: AnyRecord = {}): Promise<AnyRecord> {
     const { streamSimple } = await import("@earendil-works/pi-ai/api/openai-responses");
+    const resolved = {
+      id: "kimi-k2.8",
+      api: "openai-responses",
+      provider: "self",
+      reasoning: true,
+      input: ["text"],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 128_000,
+      maxTokens: 8_192,
+      baseUrl: "http://localhost/v1",
+      ...model,
+    };
     let payload: AnyRecord | undefined;
     const sse =
       "event: response.completed\n" +
       'data: {"type":"response.completed","response":{"id":"r1","status":"completed","output":[],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}\n\n';
-    const stream = streamSimple(
-      {
-        id: "kimi-k2.8",
-        api: "openai-responses",
-        provider: "self",
-        reasoning: true,
-        input: ["text"],
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 128_000,
-        maxTokens: 8_192,
-        baseUrl: "http://localhost/v1",
-        ...model,
-      } as never,
-      { messages: [] } as never,
-      {
-        apiKey: "test",
-        onPayload: (params: AnyRecord) => {
-          payload = params;
-        },
-        fetch: (async () =>
-          new Response(sse, {
-            status: 200,
-            headers: { "content-type": "text/event-stream" },
-          })) as never,
-        ...options,
-      } as never,
-    );
+    const stream = streamSimple(resolved as never, { messages: [] } as never, {
+      apiKey: "offline",
+      onPayload: (params: unknown) => {
+        const filled = applyHostedSearchReplay(params, [], {
+          id: resolved.id, api: resolved.api, provider: resolved.provider,
+          ...((resolved as { webSearch?: boolean }).webSearch === true ? { webSearch: true } : {}),
+        });
+        payload = filled.payload as AnyRecord;
+        return filled.payload;
+      },
+      fetch: (async () =>
+        new Response(sse, { status: 200, headers: { "content-type": "text/event-stream" } })) as never,
+      ...options,
+    } as never);
     const result = await stream.result();
     expect(result.stopReason).toBe("stop");
     expect(payload).toBeDefined();
@@ -552,49 +195,54 @@ describe("pi-ai hosted web search: request params", () => {
     expect((params.reasoning as AnyRecord)?.effort).toBe("high");
   });
 
+  it("leaves the request untouched when the model does not opt in", async () => {
+    const params = await captureParams({ webSearch: false }, { reasoning: "high" });
+    expect(params.tools).toBeUndefined();
+    expect(params.include).toEqual(["reasoning.encrypted_content"]);
+  });
 });
 
-describe("pi-ai Codex hosted web search: request params", () => {
+describe("hosted search: Codex request params", () => {
   async function captureCodexParams(webSearch: boolean): Promise<AnyRecord> {
     const { stream: streamCodex } = await import("@earendil-works/pi-ai/api/openai-codex-responses");
-    let payload: AnyRecord | undefined;
-    let fetches = 0;
+    const resolved = {
+      id: "gpt-codex-test",
+      api: "openai-codex-responses",
+      provider: "openai-codex",
+      reasoning: true,
+      input: ["text"],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 128_000,
+      maxTokens: 8_192,
+      baseUrl: "http://127.0.0.1:43123",
+      webSearch,
+    };
     const authPayload = Buffer.from(JSON.stringify({
       "https://api.openai.com/auth": { chatgpt_account_id: "offline-test-account" },
     })).toString("base64");
-    const stream = streamCodex(
-      {
-        id: "gpt-codex-test",
-        api: "openai-codex-responses",
-        provider: "openai-codex",
-        reasoning: true,
-        input: ["text"],
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 128_000,
-        maxTokens: 8_192,
-        baseUrl: "http://127.0.0.1:43123",
-        webSearch,
-      } as never,
-      { messages: [] } as never,
-      {
-        apiKey: `e30.${authPayload}.offline-signature`,
-        transport: "sse",
-        onPayload: (body: AnyRecord) => {
-          payload = body;
-          throw new Error("stop after offline payload capture");
-        },
-        fetch: async () => {
-          fetches++;
-          throw new Error("the payload test must not make a request");
-        },
-      } as never,
-    );
+    let payload: AnyRecord | undefined;
+    let fetches = 0;
+    const stream = streamCodex(resolved as never, { messages: [] } as never, {
+      apiKey: `e30.${authPayload}.offline-signature`,
+      transport: "sse",
+      onPayload: (body: unknown) => {
+        const filled = applyHostedSearchReplay(body, [], {
+          id: resolved.id, api: resolved.api, provider: resolved.provider,
+          ...(webSearch ? { webSearch: true } : {}),
+        });
+        payload = filled.payload as AnyRecord;
+        throw new Error("stop after offline payload capture");
+      },
+      fetch: async () => {
+        fetches += 1;
+        throw new Error("the payload test must not make a request");
+      },
+    } as never);
     expect((await stream.result()).stopReason).toBe("error");
     expect(fetches).toBe(0);
     expect(payload).toBeDefined();
     return payload!;
   }
-
 
   it("attaches hosted search to Codex Responses only when enabled", async () => {
     const enabled = await captureCodexParams(true);

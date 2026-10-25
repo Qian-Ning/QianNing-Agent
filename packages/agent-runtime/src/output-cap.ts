@@ -28,7 +28,7 @@ import type { Api } from "@earendil-works/pi-ai";
 import {
   hostedSearchReplayProjection,
   type HostedSearchReplayOptions,
-} from "@earendil-works/pi-ai/utils/hosted-search";
+} from "./pi-ai-hosted-search/content.js";
 
 /** Structural view of the request context; assignable from pi-ai's `Context`. */
 export type OutputCapContext = {

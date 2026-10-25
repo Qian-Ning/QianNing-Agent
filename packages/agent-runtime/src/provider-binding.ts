@@ -1,4 +1,5 @@
 import { transcriptCompat } from "./transcript-compat.js";
+import { installHostedSearch } from "./hosted-search-stream.js";
 /**
  * Provider/model wiring shared by the session runtime and its subagents.
  *
@@ -473,6 +474,9 @@ export function createProviderModels(
       api: apiBindingForProviderModel(provider).adapter(),
     }),
   );
+  // Hosted search rides the adapter call every consumer already makes, so the
+  // session runtime, one-shot completion, and subagents all keep the feature.
+  installHostedSearch(models);
   return models;
 }
 /** Build a pi-ai model collection for a trusted extension-owned agent. */
