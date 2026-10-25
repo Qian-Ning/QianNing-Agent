@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentSession, ModelRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
 import { createAssistantMessageEventStream, type AssistantMessage } from "@earendil-works/pi-ai";
-import { NativePiSessionService } from "./native-pi-session.js";
+import { NATIVE_PI_SESSION_PREFIX, NativePiSessionService } from "./native-pi-session.js";
 import {
   acquireNativePiSessionLease,
   guardNativePiSessionManager,
@@ -1188,5 +1188,18 @@ describe("native settlement and reclaim boundaries", () => {
     writeFileSync(lockPath, JSON.stringify({ ...record, pid: 2147483647 }));
     writeFileSync(f.file, f.text.replace('"hello"', '"changed"'));
     expect((await service.list())[0].readOnlyReason).toBe("busy");
+  });
+
+  it("reports that it aborted nothing when no runtime is open for the id", async () => {
+    const f = fixture();
+    const service = new NativePiSessionService({ agentDir: f.agentDir, sessionRoot: f.sessionRoot });
+    try {
+      // The caller named a session this process never opened, so there is no
+      // runtime whose turn could have been stopped. Answering `ok` here would
+      // make "the abort was accepted" and "there was nothing to abort" the
+      // same answer, which the caller cannot act on -- the reason
+      // RuntimeService settles a refused stop as TURN_ABORT_FAILED.
+      await expect(service.abort(`${NATIVE_PI_SESSION_PREFIX}missing`)).resolves.toEqual({ ok: false });
+    } finally { service.disposeAll(); }
   });
 });

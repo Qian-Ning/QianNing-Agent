@@ -5,8 +5,8 @@
       "max": 2073
     },
     "packages/agent-runtime/src/native-pi-session.test.ts": {
-      "reason": "Native Pi continuation regression coverage is kept with the source boundary while the protocol and fixture contract stabilise; split by lifecycle once the native adapter surface settles.",
-      "max": 1192
+      "reason": "Native Pi continuation regression coverage is kept with the source boundary while the protocol and fixture contract stabilise; split by lifecycle once the native adapter surface settles. Moved from 1192 to 1205 when the unknown-session abort answer got a regression test: the check was fixed but unguarded, and the guard costs thirteen lines of fixture setup and intent.",
+      "max": 1205
     },
     "packages/agent-runtime/src/native-pi-session.ts": {
       "reason": "Native Pi discovery, immutable projection, guarded continuation, and fork publication share one sidecar-private source boundary; split by lifecycle once the native adapter contract stabilises without widening path ownership. Moved from 1166 to 1170 when an abort of an unknown session stopped answering `ok`: the guard that reports a missing session costs four lines, and compressing it into one expression would have made the check harder to read than the ceiling is worth.",
