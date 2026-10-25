@@ -30,6 +30,7 @@ import {
   commandTitleRepeatsName,
 } from "../composer/command-labels";
 import { userMessageMenuItems } from "./menu-items";
+import { SaveAsVisualizationButton } from "./SaveAsVisualizationButton";
 import { SessionMessageOrigin } from "./SessionMessageOrigin";
 import {
   CopyButton,
@@ -160,6 +161,7 @@ export const MessageRow = memo(function MessageRow({
   const isSessionMessage = Boolean(message.sessionMessage);
   const editableUserMessage = isUser && !isSessionMessage;
   const workspaceRoot = useAppStore((s) => s.workspace?.path);
+  const activeSessionId = useAppStore((s) => s.activeSessionId);
   const openFileRef = useOpenChatFileRef();
   // Slash prompts are stored expanded; editing works on the typed form so the
   // resent turn re-expands the template (D123).
@@ -419,6 +421,12 @@ export const MessageRow = memo(function MessageRow({
               </div>
             ) : null}
             {hasAnswer ? <CopyButton text={message.content} label={copyLabel} /> : null}
+            {hasAnswer ? (
+              <SaveAsVisualizationButton
+                content={message.content}
+                sessionId={activeSessionId}
+              />
+            ) : null}
             {editableUserMessage ? (
               <TooltipButton
                 className="copy-btn icon"

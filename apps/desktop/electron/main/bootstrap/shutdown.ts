@@ -15,6 +15,7 @@ import type { McpControlServer } from "../mcp-control";
 import type { McpOAuthManager } from "../mcp-oauth";
 import { getActiveRemoteHostsBoot, setActiveRemoteHostsBoot } from "./remote-hosts";
 import { uninstallMediaAssetProtocol } from "../media-asset-protocol";
+import { uninstallInlineVizProtocol } from "../inline-viz-protocol";
 
 const QUIT_TURN_SETTLE_BUDGET_MS = 2_000;
 
@@ -159,6 +160,9 @@ export function registerShutdownHandlers({
     // disposals; the scheme itself was reserved before ready and cannot be
     // un-reserved (ADR 0322).
     uninstallMediaAssetProtocol();
+    // Release the session-visualization request handler the same way; the
+    // scheme itself was reserved before ready (ADR 0328).
+    uninstallInlineVizProtocol();
     disposePowerSaveBlockers();
     state.tray?.destroy();
     state.tray = null;

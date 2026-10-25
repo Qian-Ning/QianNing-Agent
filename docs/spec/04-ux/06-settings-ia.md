@@ -264,11 +264,24 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   recording a navigation hop; a missing session falls back to the OS
   browser. Workspace HTML preview, BrowserPreview, OAuth, and Feedback
   keep their existing destinations. Context
-  usage display controls whether the composer toolbar context ring and its
-  popover lead with the remaining or the used capacity figure; the default
-  is remaining. The threshold controls when a text-only paste becomes a
-  temporary session-scratch file; it defaults to 600 characters and accepts
-  integer values from 1 through 1,000,000.
+     usage display controls whether the composer toolbar context ring and its
+     popover lead with the remaining or the used capacity figure; the default
+     is remaining. The threshold controls when a text-only paste becomes a
+     temporary session-scratch file; it defaults to 600 characters and accepts
+     integer values from 1 through 1,000,000.
+   - **Inline visualizations** (`AppSettings.inlineVisualizations`) is off by
+     default and gates both halves of the surface: the agent is offered
+     `WriteInlineVisualization`, and the transcript renders an artifact card
+     (ADR 0327). A second switch, **Scripted previews**
+     (`AppSettings.inlineVizScriptedPreviews`), appears only while the first is
+     on and is off by default. When both are on, an `html` artifact's preview
+     frame uses `sandbox="allow-scripts"` — never `allow-same-origin` — under a
+     network-closed CSP, so bundled chart code can draw without reaching the
+     renderer, IPC, storage, or network; every other kind stays on the
+     no-script path, and a scripted preview carries a visible Scripted badge
+     (ADR 0328). The transcript's answer actions gain **Save as visualization**,
+     which writes that answer into its session as a `text` artifact through the
+     bounded, audited `inlineViz.write` channel (ADR 0328).
 - **Prompt enhancement** is not part of this build. The editable prompt scope
   is the per-conversation system prompt; no separate draft-rewriting action,
   Settings card, host bridge, or Settings search entry is provided.

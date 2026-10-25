@@ -41,6 +41,7 @@ Let the agent get things done, but stay under control by default.
 | `SkillCreate` | high | Create a user skill in the local skill library; host-core validates the name, derives the id, and stores it |
 | `Bash` | high | Execute commands |
 | `asktool` | low | Ask one or more user questions and return the submitted answers as tool output |
+| `WriteInlineVisualization` | low | Store a static artifact (html/svg/json/csv/text, ≤512 KiB) in the running session's visualization root and return its reference; offered only while the inline-visualizations setting is on (ADR 0327). The same root also accepts a bounded, audited renderer-side write through `inlineViz.write` when the user saves an answer themselves (ADR 0328) |
 
 > Names may be fine-tuned during implementation, but semantics stay consistent.
 

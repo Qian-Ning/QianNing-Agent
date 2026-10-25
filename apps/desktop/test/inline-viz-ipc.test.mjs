@@ -28,7 +28,11 @@ function captureRegistrar(host) {
   };
 }
 
-const INLINE_VIZ_CHANNELS = [IPC.invoke.inlineVizList, IPC.invoke.inlineVizRead];
+const INLINE_VIZ_CHANNELS = [
+  IPC.invoke.inlineVizList,
+  IPC.invoke.inlineVizRead,
+  IPC.invoke.inlineVizWrite,
+];
 
 const meta = {
   id: "viz-1",
@@ -38,12 +42,13 @@ const meta = {
   createdAt: "2026-10-25T00:00:00.000Z",
 };
 
-test("both inline-viz channels are exposed to the preload gate", () => {
+test("all three inline-viz channels are exposed to the preload gate", () => {
   for (const channel of INLINE_VIZ_CHANNELS) {
     assert.equal(IPC_WHITELIST.has(channel), true, `${channel} must be in the IPC whitelist`);
   }
-  // Read-only surface: no write channel exists (ADR 0327).
-  assert.equal("inlineVizWrite" in IPC.invoke, false);
+  // The write channel exists only for the user-driven save (ADR 0328); the
+  // agent keeps writing through tools.execute, not through IPC.
+  assert.equal("inlineVizWrite" in IPC.invoke, true);
 });
 
 test("list forwards to host-core inlineViz.list and returns the metas", async () => {
@@ -92,14 +97,54 @@ test("malformed arguments are rejected before the host is called", async () => {
     [IPC.invoke.inlineVizList, [undefined]],
     [IPC.invoke.inlineVizRead, ["s", ""]],
     [IPC.invoke.inlineVizRead, ["", "viz"]],
+    // Write: session, shape, and each field are validated at the boundary.
+    [IPC.invoke.inlineVizWrite, [undefined, { title: "t", kind: "text", content: "c" }]],
+    [IPC.invoke.inlineVizWrite, ["", { title: "t", kind: "text", content: "c" }]],
+    [IPC.invoke.inlineVizWrite, ["s", null]],
+    [IPC.invoke.inlineVizWrite, ["s", ["t"]]],
+    [IPC.invoke.inlineVizWrite, ["s", { title: "", kind: "text", content: "c" }]],
+    [IPC.invoke.inlineVizWrite, ["s", { title: "t", kind: "pdf", content: "c" }]],
+    [IPC.invoke.inlineVizWrite, ["s", { title: "t", kind: "text", content: 42 }]],
   ]) {
     await assert.rejects(
-      handlers.get(channel)(...args),
+      handlers.get(channel)({}, ...args),
       (error) => error.errorCode === "INVALID_ARGUMENT",
       `${channel}(${JSON.stringify(args)}) must reject before the host call`,
     );
   }
   assert.equal(called, false);
+});
+
+test("write forwards only the three validated fields to host-core", async () => {
+  const calls = [];
+  const host = {
+    call: async (method, params) => {
+      calls.push([method, params]);
+      return { visualization: meta };
+    },
+  };
+  const { handlers, registrar, getHost } = captureRegistrar(host);
+  registerInlineVizIpc({ registrar, getHost });
+  const handler = handlers.get(IPC.invoke.inlineVizWrite);
+  const result = await handler({}, "session-1", {
+    title: "Usage chart",
+    kind: "text",
+    content: "# Usage\n42 calls",
+    // An extra field a compromised renderer might smuggle must not survive.
+    sessionId: "some-other-session",
+  });
+  assert.deepEqual(result, meta);
+  assert.deepEqual(calls, [
+    [
+      "inlineViz.write",
+      {
+        sessionId: "session-1",
+        title: "Usage chart",
+        kind: "text",
+        content: "# Usage\n42 calls",
+      },
+    ],
+  ]);
 });
 
 test("a missing host refuses with HOST_UNAVAILABLE", async () => {

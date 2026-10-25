@@ -328,6 +328,9 @@ export const zhCN = {
   },
   inlineViz: {
     showPreview: "显示预览",
+    scriptedBadge: "脚本",
+    saveAsVisualization: "保存为可视化",
+    savedAsVisualization: "已保存为可视化",
     hidePreview: "隐藏预览",
     loading: "正在加载…",
     loadFailed: "无法加载预览",
@@ -1892,6 +1895,8 @@ sklm: {
     smoothStreamingDesc: "将流式文本逐字释放，产生打字机效果。系统开启“减少动态效果”时自动禁用。",
     inlineVisualizations: "内联可视化",
     inlineVisualizationsDesc: "允许智能体将渲染后的工件（图表、示意图、表格、格式化输出）附加到对话中，并在对话记录中内联显示。默认关闭；内容随会话存储，并在禁用脚本的严格沙箱中显示。",
+    inlineVizScriptedPreviews: "脚本化预览",
+    inlineVizScriptedPreviewsDesc: "允许 HTML 可视化在预览中运行自带的就地脚本，以便随附的图表代码绘制。脚本没有同源权限，也无法访问网络。默认关闭。",
     preventScreenSleep: "阻止屏幕休眠",
     preventScreenSleepDesc: "应用运行时保持屏幕常亮，跨平台使用系统电源管理接口。",
     linkOpenTarget: "链接打开位置",

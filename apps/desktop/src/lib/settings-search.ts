@@ -115,6 +115,8 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
       "settings.smoothStreamingDesc",
       "settings.inlineVisualizations",
       "settings.inlineVisualizationsDesc",
+      "settings.inlineVizScriptedPreviews",
+      "settings.inlineVizScriptedPreviewsDesc",
       "settings.thinkingDisplayMode",
       "settings.thinkingDisplayDetailed",
       "settings.thinkingDisplayCompact",

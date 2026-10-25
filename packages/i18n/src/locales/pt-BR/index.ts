@@ -324,6 +324,9 @@ export const ptBR = {
   },
   inlineViz: {
     showPreview: "Mostrar pré-visualização",
+    scriptedBadge: "Script",
+    saveAsVisualization: "Salvar como visualização",
+    savedAsVisualization: "Salvo como visualização",
     hidePreview: "Ocultar pré-visualização",
     loading: "Carregando…",
     loadFailed: "Não foi possível carregar a pré-visualização",
@@ -1870,6 +1873,8 @@ export const ptBR = {
     smoothStreamingDesc: "Exibe o texto recebido caractere por caractere, criando um efeito de máquina de escrever. É desativada automaticamente quando o sistema está configurado para reduzir animações.",
     inlineVisualizations: "Visualizações em linha",
     inlineVisualizationsDesc: "Permite que o agente anexe artefatos renderizados — gráficos, diagramas, tabelas, saída formatada — a uma conversa e os exiba em linha na transcrição. Desativado por padrão; o conteúdo é armazenado com a sessão e exibido em um sandbox rígido, sem scripts.",
+    inlineVizScriptedPreviews: "Pré-visualizações com script",
+    inlineVizScriptedPreviewsDesc: "Permite que visualizações HTML executem seu próprio código embutido na pré-visualização, para que o código de gráfico incluído possa desenhar. Os scripts rodam sem acesso à mesma origem e sem rede. Desativado por padrão.",
     preventScreenSleep: "Impedir suspensão da tela",
     preventScreenSleepDesc: "Mantém a tela ligada enquanto o app está em execução. Usa as APIs de gerenciamento de energia do sistema em todas as plataformas.",
     linkOpenTarget: "Destino ao abrir links",

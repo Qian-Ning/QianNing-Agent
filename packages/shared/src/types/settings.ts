@@ -238,6 +238,17 @@ export type AppSettings = {
    * with the session regardless of this switch.
    */
   inlineVisualizations?: boolean;
+  /**
+   * Opt-in scripted previews (ADR 0328), a second switch beside
+   * `inlineVisualizations`. When true, an html artifact's preview iframe is
+   * granted `allow-scripts` — never `allow-same-origin` — and its document
+   * carries a CSP that keeps scripts inline-only and blocks every network
+   * request, so a chart library bundled into the artifact can run without
+   * the preview being able to reach the app's origin or the outside world.
+   * Absent and false keep previews static: the empty sandbox wins regardless
+   * of what the artifact contains.
+   */
+  inlineVizScriptedPreviews?: boolean;
   /** Configured command shell for the agent Bash protocol tool. */
   defaultCommandShell?: CommandShellId;
 

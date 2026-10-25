@@ -334,6 +334,9 @@ export const tr = {
   },
   inlineViz: {
     showPreview: "Önizlemeyi göster",
+    scriptedBadge: "Betik",
+    saveAsVisualization: "Görselleştirme olarak kaydet",
+    savedAsVisualization: "Görselleştirme olarak kaydedildi",
     hidePreview: "Önizlemeyi gizle",
     loading: "Yükleniyor…",
     loadFailed: "Önizleme yüklenemedi",
@@ -1904,6 +1907,8 @@ sklm: {
     smoothStreamingDesc: "Akan metni daktilo efekti için karakter karakter gösterir. Sistem hareket azaltmayı tercih ettiğinde otomatik devre dışı kalır.",
     inlineVisualizations: "Satır içi görselleştirmeler",
     inlineVisualizationsDesc: "Aracının işlenmiş nesneleri — çizelgeler, diyagramlar, tablolar, biçimlendirilmiş çıktı — bir konuşmaya eklemesine ve bunları konuşma dökümünde satır içi göstermesine izin verir. Varsayılan olarak kapalıdır; içerik oturumla birlikte saklanır ve komut dosyaları devre dışı olan katı bir kum havuzunda gösterilir.",
+    inlineVizScriptedPreviews: "Betikli önizlemeler",
+    inlineVizScriptedPreviewsDesc: "HTML görselleştirmelerinin önizlemede kendi satır içi kodlarını çalıştırmasına izin verir; böylece paketlenmiş grafik kodu çizebilir. Betikler aynı köken erişimi ve ağ olmadan çalışır. Varsayılan olarak kapalı.",
     preventScreenSleep: "Ekran uykusunu engelle",
     preventScreenSleepDesc: "Uygulama çalışırken ekranı açık tutar. Tüm platformlarda sistem güç yönetimi API'lerini kullanır.",
     linkOpenTarget: "Bağlantı açma hedefi",
