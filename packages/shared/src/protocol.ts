@@ -518,6 +518,15 @@ export const IPC = {
      */
     inlineVizList: "pi-desktop/inlineViz/list",
     inlineVizRead: "pi-desktop/inlineViz/read",
+    /**
+     * Renderer-side write (ADR 0328). The transcript's "save as visualization"
+     * affordance persists a bounded snippet into the session visualization
+     * root. Unlike the agent tool this crosses the renderer boundary, so the
+     * electron main treats it as untrusted input: the same shape, size, and
+     * kind validation applies, the session must exist, and host-core records
+     * a `tool_execute`-shaped audit row for every accepted write.
+     */
+    inlineVizWrite: "pi-desktop/inlineViz/write",
   },
   event: {
     pluginChanged: "pi-desktop/event/pluginChanged",

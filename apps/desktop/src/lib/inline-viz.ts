@@ -67,3 +67,37 @@ export function srcDocFor(kind: InlineVisualizationKind, content: string): strin
     .replace(/>/g, "&gt;");
   return `<!doctype html><meta charset="utf-8"><body style="margin:0"><pre>${escaped}</pre></body>`;
 }
+
+/**
+ * The CSP injected into a scripted html preview (ADR 0328). Scripts stay
+ * inline-only — the artifact ships its own chart code — and every other
+ * origin is closed: no network fetches, no remote images, no frames. This is
+ * what makes `allow-scripts` survivable: the scripts can run but cannot send
+ * anything anywhere.
+ */
+export const SCRIPTED_PREVIEW_CSP =
+  "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:;";
+
+/**
+ * The document for a scripted html preview: the artifact wrapped in a CSP
+ * meta so its inline scripts run inside a closed network sandbox. Applied
+ * only when the user allowed scripted previews; the static path never
+ * injects anything into the artifact.
+ */
+export function scriptedSrcDocFor(content: string): string {
+  return `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${SCRIPTED_PREVIEW_CSP}">${content}`;
+}
+
+/**
+ * The sandbox attribute for a preview iframe. The empty string grants
+ * nothing and is the contract for every non-scripted preview (ADR 0327);
+ * `allow-scripts` alone — never with `allow-same-origin` — is the scripted
+ * upgrade (ADR 0328): the artifact's scripts run, but the frame has no
+ * origin, so it cannot touch the renderer, IPC, or storage.
+ */
+export function sandboxAttrFor(options: {
+  kind: InlineVisualizationKind;
+  scriptedAllowed: boolean;
+}): string {
+  return options.scriptedAllowed && options.kind === "html" ? "allow-scripts" : "";
+}

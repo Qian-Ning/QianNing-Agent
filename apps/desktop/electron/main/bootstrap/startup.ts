@@ -23,6 +23,10 @@ import {
   installMediaAssetProtocol,
   registerMediaAssetScheme,
 } from "../media-asset-protocol";
+import {
+  installInlineVizProtocol,
+  registerInlineVizScheme,
+} from "../inline-viz-protocol";
 import { applyNetworkProxyFromAppSettings } from "../network-proxy";
 import {
   createHostSettingsSurface,
@@ -157,6 +161,10 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
   // Reserve the media-library scheme in the same pre-ready window (ADR 0322): it
   // maps the library root into the renderer so a finished clip can play in place.
   registerMediaAssetScheme();
+  // Reserve the session-visualization scheme in the same pre-ready window
+  // (ADR 0328): it streams inline-visualization artifacts into the preview
+  // iframe under the network-closed CSP.
+  registerInlineVizScheme();
   // Crashpad ships with Electron, so the reporter needs no native dependency.
   // Dumps stay local (`uploadToServer: false`) under the installation data
   // directory so a `PI_DESKTOP_DATA_DIR` profile does not share them. Started
@@ -232,6 +240,10 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
     // Serve the media library over its confined scheme so the workbench can play
     // a finished clip; reserved in `registerApplicationStartup` (ADR 0322).
     installMediaAssetProtocol(dataDir);
+    // Serve session visualizations over their confined scheme so the preview
+    // iframe streams an artifact without the srcDoc round trip; reserved in
+    // `registerApplicationStartup` (ADR 0328).
+    installInlineVizProtocol(dataDir);
     // Load the close-behavior preference before the first window exists: the
     // close handler reads `closeBehavior` synchronously, and a window created
     // while it still held the "ask" default would prompt a user who already

@@ -334,6 +334,9 @@ export const ko = {
   },
   inlineViz: {
     showPreview: "미리 보기 표시",
+    scriptedBadge: "스크립트",
+    saveAsVisualization: "시각화로 저장",
+    savedAsVisualization: "시각화로 저장됨",
     hidePreview: "미리 보기 숨기기",
     loading: "불러오는 중…",
     loadFailed: "미리 보기를 불러올 수 없습니다",
@@ -1914,6 +1917,8 @@ sklm: {
     smoothStreamingDesc: "스트리밍 텍스트를 한 글자씩 타자기 효과로 표시합니다. 시스템에서 동작 줄이기를 선호하면 자동으로 비활성화됩니다.",
     inlineVisualizations: "인라인 시각화",
     inlineVisualizationsDesc: "에이전트가 렌더링된 아티팩트(차트, 다이어그램, 표, 형식화된 출력)를 대화에 첨부하고 대화록에 인라인으로 표시할 수 있도록 허용합니다. 기본적으로 꺼져 있으며, 콘텐츠는 세션과 함께 저장되고 스크립트가 비활성화된 엄격한 샌드박스에서 표시됩니다.",
+    inlineVizScriptedPreviews: "스크립트 미리보기",
+    inlineVizScriptedPreviewsDesc: "HTML 시각화가 미리보기 안에서 자체 인라인 스크립트를 실행하도록 허용합니다. 함께 포함된 차트 코드가 그려질 수 있습니다. 스크립트는 동일 출처 권한과 네트워크 없이 실행됩니다. 기본값은 꺼짐입니다.",
     preventScreenSleep: "화면 절전 방지",
     preventScreenSleepDesc: "앱이 실행되는 동안 화면이 꺼지지 않도록 합니다. 모든 플랫폼에서 시스템 전원 관리 API를 사용합니다.",
     linkOpenTarget: "링크 열기 위치",

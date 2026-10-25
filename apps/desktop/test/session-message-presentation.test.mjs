@@ -60,6 +60,9 @@ function loadComponent(name, extras = {}) {
     "../../../components/ui": { TooltipButton },
     "./shared": shared,
     "./menu-items": { userMessageMenuItems: () => [] },
+    // The answer's save-as-visualization control is independent of message
+    // presentation; a null component keeps this suite about the row's shape.
+    "./SaveAsVisualizationButton": { SaveAsVisualizationButton: () => null },
     "./TranscriptMenu": {
       useTranscriptMenu: () => () => {},
       useChatTextActions: () => ({ copyText: () => {}, selectText: () => {} }),

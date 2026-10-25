@@ -47,6 +47,7 @@ import type {
   ComposerPasteFile,
   ComposerPastedFile,
   InlineVisualizationArtifact,
+  InlineVisualizationKind,
   InlineVisualizationMeta,
   FsChatRefResolveResult,
   FsEntry,
@@ -1072,6 +1073,15 @@ export const api = {
       IPC.invoke.inlineVizRead,
       sessionId,
       visualizationId,
+    ),
+  writeInlineVisualization: (
+    sessionId: string,
+    input: { title: string; kind: InlineVisualizationKind; content: string },
+  ) =>
+    invoke<InlineVisualizationMeta>(
+      IPC.invoke.inlineVizWrite,
+      sessionId,
+      input,
     ),
   replaceSessionMessages: (sessionId: string, messages: UiMessage[]) =>
     invoke(IPC.invoke.sessionReplaceMessages, { sessionId, messages }),

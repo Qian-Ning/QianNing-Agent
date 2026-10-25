@@ -328,6 +328,9 @@ export const zhTW = {
   },
   inlineViz: {
     showPreview: "顯示預覽",
+    scriptedBadge: "腳本",
+    saveAsVisualization: "儲存為視覺化",
+    savedAsVisualization: "已儲存為視覺化",
     hidePreview: "隱藏預覽",
     loading: "正在載入…",
     loadFailed: "無法載入預覽",
@@ -1892,6 +1895,8 @@ sklm: {
     smoothStreamingDesc: "將串流文字逐字釋放，產生打字機效果。系統開啟「減少動態效果」時自動停用。",
     inlineVisualizations: "內嵌視覺化",
     inlineVisualizationsDesc: "允許智慧代理將轉譯後的工件（圖表、示意圖、表格、格式化輸出）附加到對話中，並在對話記錄中內嵌顯示。預設關閉；內容隨工作階段儲存，並在停用指令碼的嚴格沙箱中顯示。",
+    inlineVizScriptedPreviews: "腳本化預覽",
+    inlineVizScriptedPreviewsDesc: "允許 HTML 視覺化在預覽中執行自帶的內嵌腳本，以便隨附的圖表程式碼繪製。腳本沒有同源權限，也無法存取網路。預設關閉。",
     preventScreenSleep: "防止螢幕休眠",
     preventScreenSleepDesc: "應用程式執行時保持螢幕常亮，跨平台使用系統電源管理介面。",
     linkOpenTarget: "連結開啟位置",

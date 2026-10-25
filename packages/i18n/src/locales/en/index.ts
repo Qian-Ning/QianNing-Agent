@@ -333,6 +333,9 @@ export const en = {
   },
   inlineViz: {
     showPreview: "Show preview",
+    scriptedBadge: "Scripted",
+    saveAsVisualization: "Save as visualization",
+    savedAsVisualization: "Saved as visualization",
     hidePreview: "Hide preview",
     loading: "Loading…",
     loadFailed: "Couldn't load the preview",
@@ -1917,6 +1920,8 @@ sklm: {
     smoothStreamingDesc: "Release streamed text character by character for a typewriter effect. Automatically disabled when the system prefers reduced motion.",
     inlineVisualizations: "Inline visualizations",
     inlineVisualizationsDesc: "Let the agent attach rendered artifacts — charts, diagrams, tables, formatted output — to a conversation and show them inline in the transcript. Off by default; content is stored with the session and shown in a strict sandbox with scripts disabled.",
+    inlineVizScriptedPreviews: "Scripted previews",
+    inlineVizScriptedPreviewsDesc: "Allow HTML visualizations to run their own inline scripts inside the preview so bundled chart code can draw. Scripts run without same-origin access and cannot reach the network. Off by default.",
     preventScreenSleep: "Prevent screen sleep",
     preventScreenSleepDesc: "Keep the display awake while the app is running. Uses system power management APIs on all platforms.",
     linkOpenTarget: "Link open destination",

@@ -605,6 +605,20 @@ export function SettingsPage() {
                     })}
                   />
                 </SettingsRow>
+                {settings.inlineVisualizations === true ? (
+                  <SettingsRow
+                    title={t("settings.inlineVizScriptedPreviews")}
+                    description={t("settings.inlineVizScriptedPreviewsDesc")}
+                  >
+                    <SettingsToggle
+                      checked={settings.inlineVizScriptedPreviews === true}
+                      label={t("settings.inlineVizScriptedPreviews")}
+                      onChange={() => void saveSettings({
+                        inlineVizScriptedPreviews: settings.inlineVizScriptedPreviews !== true,
+                      })}
+                    />
+                  </SettingsRow>
+                ) : null}
                 <LargePasteThresholdRow
                   settings={settings}
                   saveSettings={saveSettings}

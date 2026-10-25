@@ -325,6 +325,9 @@ export const de = {
   },
   inlineViz: {
     "showPreview": "Vorschau anzeigen",
+    scriptedBadge: "Skript",
+    saveAsVisualization: "Als Visualisierung speichern",
+    savedAsVisualization: "Als Visualisierung gespeichert",
     "hidePreview": "Vorschau ausblenden",
     "loading": "Wird geladen…",
     "loadFailed": "Vorschau konnte nicht geladen werden",
@@ -1903,6 +1906,8 @@ sklm: {
     "smoothStreaming": "Sanftes Streaming",
     "smoothStreamingDesc": "Gibt gestreamten Text zeichenweise aus, um einen Schreibmaschineneffekt zu erzeugen. Wird automatisch deaktiviert, wenn das System reduzierte Bewegung bevorzugt.",
     "inlineVisualizations": "Inline-Visualisierungen",
+    inlineVizScriptedPreviews: "Skriptgestützte Vorschauen",
+    inlineVizScriptedPreviewsDesc: "Erlaubt HTML-Visualisierungen, ihren eigenen Inline-Code in der Vorschau auszuführen, damit mitgelieferter Diagrammcode zeichnen kann. Skripte laufen ohne Same-Origin-Zugriff und ohne Netzwerk. Standardmäßig aus.",
     "inlineVisualizationsDesc": "Dem Agenten erlauben, gerenderte Artefakte — Diagramme, Tabellen, formatierte Ausgaben — an eine Unterhaltung anzuhängen und sie direkt im Transkript anzuzeigen. Standardmäßig deaktiviert; der Inhalt wird mit der Sitzung gespeichert und in einer strengen Sandbox ohne Skripte angezeigt.",
     "preventScreenSleep": "Bildschirmsperre verhindern",
     "preventScreenSleepDesc": "Hält das Display wach, solange die App läuft. Nutzt plattformübergreifend die System-Energieverwaltung.",

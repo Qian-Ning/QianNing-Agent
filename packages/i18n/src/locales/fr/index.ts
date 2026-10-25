@@ -325,6 +325,9 @@ export const fr = {
   },
   inlineViz: {
     "showPreview": "Afficher l'aperçu",
+    scriptedBadge: "Script",
+    saveAsVisualization: "Enregistrer comme visualisation",
+    savedAsVisualization: "Enregistré comme visualisation",
     "hidePreview": "Masquer l'aperçu",
     "loading": "Chargement…",
     "loadFailed": "Impossible de charger l'aperçu",
@@ -1903,6 +1906,8 @@ sklm: {
     "smoothStreaming": "Streaming fluide",
     "smoothStreamingDesc": "Libère le texte diffusé caractère par caractère pour un effet machine à écrire. Automatiquement désactivé lorsque le système préfère un mouvement réduit.",
     "inlineVisualizations": "Visualisations en ligne",
+    inlineVizScriptedPreviews: "Aperçus avec scripts",
+    inlineVizScriptedPreviewsDesc: "Autorise les visualisations HTML à exécuter leur propre code en ligne dans l'aperçu. Les scripts s'exécutent sans accès à la même origine ni au réseau. Désactivé par défaut.",
     "inlineVisualizationsDesc": "Permet à l'agent d'attacher des artefacts rendus — graphiques, diagrammes, tableaux, sorties formatées — à une conversation et de les afficher en ligne dans la transcription. Désactivé par défaut ; le contenu est stocké avec la session et affiché dans un bac à sable strict sans scripts.",
     "preventScreenSleep": "Empêcher la mise en veille",
     "preventScreenSleepDesc": "Garde l'écran allumé tant que l'application est ouverte. Utilise les API de gestion d'énergie du système sur toutes les plateformes.",
