@@ -332,6 +332,19 @@ export const tr = {
     referenceUnavailable: "Oturum kullanılamıyor",
     sessionMissing: "Bu oturum artık mevcut değil",
   },
+  inlineViz: {
+    showPreview: "Önizlemeyi göster",
+    hidePreview: "Önizlemeyi gizle",
+    loading: "Yükleniyor…",
+    loadFailed: "Önizleme yüklenemedi",
+    kind: {
+      html: "HTML",
+      svg: "SVG",
+      json: "JSON",
+      csv: "CSV",
+      text: "Metin",
+    },
+  },
   chat: {
     tableActions: "Tablo işlemleri",
     copyTableMarkdown: "Tabloyu Markdown olarak kopyala",
@@ -1889,6 +1902,8 @@ sklm: {
     infiniteProviderRetryDesc: "Ağ ve geçici sağlayıcı hataları istek başarılı olana kadar yeniden denenir. Çalışmayı yine durdurabilirsiniz; açıkken API kullanımı sürebilir.",
     smoothStreaming: "Düzgün akış",
     smoothStreamingDesc: "Akan metni daktilo efekti için karakter karakter gösterir. Sistem hareket azaltmayı tercih ettiğinde otomatik devre dışı kalır.",
+    inlineVisualizations: "Satır içi görselleştirmeler",
+    inlineVisualizationsDesc: "Aracının işlenmiş nesneleri — çizelgeler, diyagramlar, tablolar, biçimlendirilmiş çıktı — bir konuşmaya eklemesine ve bunları konuşma dökümünde satır içi göstermesine izin verir. Varsayılan olarak kapalıdır; içerik oturumla birlikte saklanır ve komut dosyaları devre dışı olan katı bir kum havuzunda gösterilir.",
     preventScreenSleep: "Ekran uykusunu engelle",
     preventScreenSleepDesc: "Uygulama çalışırken ekranı açık tutar. Tüm platformlarda sistem güç yönetimi API'lerini kullanır.",
     linkOpenTarget: "Bağlantı açma hedefi",

@@ -332,6 +332,19 @@ export const ko = {
     referenceUnavailable: "세션을 사용할 수 없음",
     sessionMissing: "해당 세션이 더 이상 존재하지 않습니다",
   },
+  inlineViz: {
+    showPreview: "미리 보기 표시",
+    hidePreview: "미리 보기 숨기기",
+    loading: "불러오는 중…",
+    loadFailed: "미리 보기를 불러올 수 없습니다",
+    kind: {
+      html: "HTML",
+      svg: "SVG",
+      json: "JSON",
+      csv: "CSV",
+      text: "텍스트",
+    },
+  },
   chat: {
     tableActions: "표 작업",
     copyTableMarkdown: "표를 Markdown으로 복사",
@@ -1899,6 +1912,8 @@ sklm: {
     infiniteProviderRetryDesc: "네트워크 및 일시적인 제공자 오류가 성공할 때까지 계속 재시도됩니다. 언제든 중지할 수 있지만 API 사용량이 계속 발생할 수 있습니다.",
     smoothStreaming: "부드러운 스트리밍",
     smoothStreamingDesc: "스트리밍 텍스트를 한 글자씩 타자기 효과로 표시합니다. 시스템에서 동작 줄이기를 선호하면 자동으로 비활성화됩니다.",
+    inlineVisualizations: "인라인 시각화",
+    inlineVisualizationsDesc: "에이전트가 렌더링된 아티팩트(차트, 다이어그램, 표, 형식화된 출력)를 대화에 첨부하고 대화록에 인라인으로 표시할 수 있도록 허용합니다. 기본적으로 꺼져 있으며, 콘텐츠는 세션과 함께 저장되고 스크립트가 비활성화된 엄격한 샌드박스에서 표시됩니다.",
     preventScreenSleep: "화면 절전 방지",
     preventScreenSleepDesc: "앱이 실행되는 동안 화면이 꺼지지 않도록 합니다. 모든 플랫폼에서 시스템 전원 관리 API를 사용합니다.",
     linkOpenTarget: "링크 열기 위치",

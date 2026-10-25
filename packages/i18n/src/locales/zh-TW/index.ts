@@ -326,6 +326,19 @@ export const zhTW = {
     referenceUnavailable: "對話無法使用",
     sessionMissing: "該對話已不存在",
   },
+  inlineViz: {
+    showPreview: "顯示預覽",
+    hidePreview: "隱藏預覽",
+    loading: "正在載入…",
+    loadFailed: "無法載入預覽",
+    kind: {
+      html: "HTML",
+      svg: "SVG",
+      json: "JSON",
+      csv: "CSV",
+      text: "文字",
+    },
+  },
   chat: {
     tableActions: "表格操作",
     copyTableMarkdown: "複製表格為 Markdown",
@@ -1877,6 +1890,8 @@ sklm: {
     infiniteProviderRetryDesc: "網路或暫時性服務故障會持續重試直到成功。仍可隨時停止，但開啟後可能持續消耗 API 用量。",
     smoothStreaming: "平滑串流顯示",
     smoothStreamingDesc: "將串流文字逐字釋放，產生打字機效果。系統開啟「減少動態效果」時自動停用。",
+    inlineVisualizations: "內嵌視覺化",
+    inlineVisualizationsDesc: "允許智慧代理將轉譯後的工件（圖表、示意圖、表格、格式化輸出）附加到對話中，並在對話記錄中內嵌顯示。預設關閉；內容隨工作階段儲存，並在停用指令碼的嚴格沙箱中顯示。",
     preventScreenSleep: "防止螢幕休眠",
     preventScreenSleepDesc: "應用程式執行時保持螢幕常亮，跨平台使用系統電源管理介面。",
     linkOpenTarget: "連結開啟位置",

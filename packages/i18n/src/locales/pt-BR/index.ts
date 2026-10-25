@@ -322,6 +322,19 @@ export const ptBR = {
     referenceUnavailable: "Sessão indisponível",
     sessionMissing: "Essa sessão não existe mais"
   },
+  inlineViz: {
+    showPreview: "Mostrar pré-visualização",
+    hidePreview: "Ocultar pré-visualização",
+    loading: "Carregando…",
+    loadFailed: "Não foi possível carregar a pré-visualização",
+    kind: {
+      html: "HTML",
+      svg: "SVG",
+      json: "JSON",
+      csv: "CSV",
+      text: "Texto",
+    },
+  },
   chat: {
     tableActions: "Ações da tabela",
     copyTableMarkdown: "Copiar tabela como Markdown",
@@ -1855,6 +1868,8 @@ export const ptBR = {
     infiniteProviderRetryDesc: "Continua tentando indefinidamente em caso de falhas temporárias de rede ou do provedor. Ainda é possível interromper a rodada; enquanto esta opção estiver ativada, o consumo e os custos da API podem continuar.",
     smoothStreaming: "Exibição gradual",
     smoothStreamingDesc: "Exibe o texto recebido caractere por caractere, criando um efeito de máquina de escrever. É desativada automaticamente quando o sistema está configurado para reduzir animações.",
+    inlineVisualizations: "Visualizações em linha",
+    inlineVisualizationsDesc: "Permite que o agente anexe artefatos renderizados — gráficos, diagramas, tabelas, saída formatada — a uma conversa e os exiba em linha na transcrição. Desativado por padrão; o conteúdo é armazenado com a sessão e exibido em um sandbox rígido, sem scripts.",
     preventScreenSleep: "Impedir suspensão da tela",
     preventScreenSleepDesc: "Mantém a tela ligada enquanto o app está em execução. Usa as APIs de gerenciamento de energia do sistema em todas as plataformas.",
     linkOpenTarget: "Destino ao abrir links",

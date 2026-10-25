@@ -8,6 +8,8 @@ mod computer_tool;
 mod config_sync_rpc;
 mod connection_rpc;
 mod connection_tool;
+mod inline_viz_rpc;
+mod inline_viz_tool;
 mod keyboard_rpc;
 mod market_rpc;
 mod mcp_rpc;
@@ -48,6 +50,7 @@ use serde_json::{json, Value};
 use tokio::sync::{mpsc, oneshot, Mutex, Semaphore};
 
 use crate::agent_capabilities::CapabilityLevel;
+use crate::inline_viz;
 use crate::plans;
 use crate::providers;
 use crate::review;
@@ -636,6 +639,7 @@ fn permission_parent_param(params: &Value) -> Result<Option<String>, JsonRpcErro
 fn drop_session_side_data(st: &AppState, id: &str) {
     scratch::remove_session_dir(&st.data_dir, id);
     review::remove_session(&st.data_dir, id);
+    inline_viz::remove_session(&st.data_dir, id);
     st.hashline.drop_session(id);
 }
 
@@ -1667,6 +1671,10 @@ async fn handle_request(
 
         method if method.starts_with("artifacts.") => {
             return artifacts_rpc::handle(&state, method, params).await;
+        }
+
+        method if method.starts_with("inlineViz.") => {
+            return inline_viz_rpc::handle(&state, method, params).await;
         }
 
         method if method.starts_with("plans.") => {

@@ -53,6 +53,12 @@ describe("Plan protocol contracts", () => {
     expect(IPC_WHITELIST.has(IPC.event.windowWorkPanelResize)).toBe(true);
     expect(IPC.invoke.appOpenFeedback).toBe("pi-desktop/app/openFeedback");
     expect(IPC_WHITELIST.has(IPC.invoke.appOpenFeedback)).toBe(true);
+    // Inline visualizations are read-only renderer channels (ADR 0327): the
+    // renderer lists and reads session artifacts, but never writes them.
+    expect(IPC.invoke.inlineVizList).toBe("pi-desktop/inlineViz/list");
+    expect(IPC_WHITELIST.has(IPC.invoke.inlineVizList)).toBe(true);
+    expect(IPC.invoke.inlineVizRead).toBe("pi-desktop/inlineViz/read");
+    expect(IPC_WHITELIST.has(IPC.invoke.inlineVizRead)).toBe(true);
     expect(IPC.invoke.fsOpen).toBe("pi-desktop/fs/open");
     expect(IPC_WHITELIST.has(IPC.invoke.fsOpen)).toBe(true);
     expect(IPC.invoke.statsGetTokenUsageHistory).toBe(

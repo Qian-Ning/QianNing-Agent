@@ -4,7 +4,10 @@ use super::{
     requires_external_path_permission, resolve_tool_workspace_for_call, shell_changed_result,
     shell_failure_result, wait_for_bash_cancellation,
 };
-use super::{computer_rpc, computer_tool, connection_rpc, connection_tool, scheduled_tools};
+use super::{
+    computer_rpc, computer_tool, connection_rpc, connection_tool, inline_viz_rpc, inline_viz_tool,
+    scheduled_tools,
+};
 use super::{rpc_err, AppState, JsonRpcError};
 use crate::permissions::PermissionDecision;
 use crate::permissions::PermissionEvaluationParams;
@@ -39,6 +42,13 @@ pub(super) async fn handle(
                 // door read the same predicate (D659).
                 if connection_rpc::switch_enabled(state).await {
                     items.extend(connection_tool::definitions());
+                }
+                // Inline visualizations are opt-in (ADR 0327): the tool is
+                // only offered while the Settings switch is on. The runtime
+                // mirrors this listing per delivery, so flipping the toggle
+                // applies to the next message without a new session.
+                if inline_viz_rpc::enabled(state).await {
+                    items.extend(inline_viz_tool::definitions());
                 }
             }
             Ok(json!({ "tools": definitions }))
@@ -553,6 +563,9 @@ pub(super) async fn handle(
                 } else if scheduled_tools::recognizes(&p.tool_name) {
                     let st = state.lock().await;
                     scheduled_tools::execute(&st, &p)
+                } else if inline_viz_tool::recognizes(&p.tool_name) {
+                    let st = state.lock().await;
+                    inline_viz_tool::execute(&st, &p)
                 } else {
                     tools::execute_tool_with_path_access(
                         ws_path.as_deref(),

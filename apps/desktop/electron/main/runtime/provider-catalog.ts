@@ -193,6 +193,8 @@ export function createProviderCatalogRuntime({
       ...(value as T),
       infiniteProviderRetry: (value as T & { infiniteProviderRetry?: unknown })
         .infiniteProviderRetry === true,
+      inlineVisualizations: (value as T & { inlineVisualizations?: unknown })
+        .inlineVisualizations === true,
       keepAwakeWhileRunning: (value as T & { keepAwakeWhileRunning?: unknown })
         .keepAwakeWhileRunning === true,
       defaultCommandShell: isCommandShellId(value.defaultCommandShell)

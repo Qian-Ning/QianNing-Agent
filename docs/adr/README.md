@@ -356,3 +356,4 @@ Each ADR includes:
 | chronological-system-transcript | [Preserve chronological model system state](chronological-system-transcript.md) | Accepted |
 | 0325 | [Give sessions persisted ownership and enforce it at the Agent Host](0325-session-ownership-at-the-agent-host.md) | Accepted for implementation (per-session scoped roles deferred) |
 | 0326 | [Deliver Slack inbound over Socket Mode](0326-slack-inbound-socket-mode.md) | Accepted for implementation |
+| 0327 | [Session-owned inline visualizations rendered in a no-script sandbox](0327-inline-visualizations.md) | Accepted for implementation |

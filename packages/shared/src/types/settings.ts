@@ -229,6 +229,15 @@ export type AppSettings = {
   infiniteProviderRetry?: boolean;
   /** Prevent idle system sleep while this desktop app runs; off when absent. */
   keepAwakeWhileRunning?: boolean;
+  /**
+   * Opt-in inline visualizations (ADR 0327). When true, the transcript can
+   * render artifacts an agent turn wrote through the
+   * `WriteInlineVisualization` tool inside a strict no-script sandbox iframe.
+   * Absent and false keep the feature off: the tool is not offered to the
+   * model and no card renders. The content itself is host-owned and removed
+   * with the session regardless of this switch.
+   */
+  inlineVisualizations?: boolean;
   /** Configured command shell for the agent Bash protocol tool. */
   defaultCommandShell?: CommandShellId;
 

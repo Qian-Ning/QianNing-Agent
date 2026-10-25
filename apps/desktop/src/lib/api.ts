@@ -46,6 +46,8 @@ import type {
   ComposerCommand,
   ComposerPasteFile,
   ComposerPastedFile,
+  InlineVisualizationArtifact,
+  InlineVisualizationMeta,
   FsChatRefResolveResult,
   FsEntry,
   FsImageDataUrlResult,
@@ -1062,6 +1064,14 @@ export const api = {
     invoke<{ sessionId: string; prompt: string; task: ScheduledTask }>(
       IPC.invoke.scheduledRun,
       id,
+    ),
+  listInlineVisualizations: (sessionId: string) =>
+    invoke<InlineVisualizationMeta[]>(IPC.invoke.inlineVizList, sessionId),
+  readInlineVisualization: (sessionId: string, visualizationId: string) =>
+    invoke<InlineVisualizationArtifact>(
+      IPC.invoke.inlineVizRead,
+      sessionId,
+      visualizationId,
     ),
   replaceSessionMessages: (sessionId: string, messages: UiMessage[]) =>
     invoke(IPC.invoke.sessionReplaceMessages, { sessionId, messages }),

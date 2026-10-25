@@ -11,6 +11,11 @@ import {
   skillCreateParameters,
 } from "./skill-authoring/tool.js";
 import { scheduledToolParameters, scheduledToolDescriptions } from "./scheduled-tools.js";
+import {
+  WRITE_INLINE_VIZ_NAME,
+  writeInlineVisualizationDescription,
+  writeInlineVisualizationParameters,
+} from "./inline-viz-tool.js";
 import { withPiFileOpToolNames } from "./pi-file-ops.js";
 import { randomUUID } from "node:crypto";
 import {
@@ -886,6 +891,13 @@ export type AgentRuntimeOptions = {
   thinkingLevel: SessionThinkingLevel;
   /** Persisted opt-in for retrying transient provider failures until success. */
   infiniteProviderRetry?: boolean;
+  /**
+   * Persisted opt-in for inline visualizations (ADR 0327). When true, the
+   * model is offered `WriteInlineVisualization` so it can attach rendered
+   * artifacts to the conversation; the renderer gates the cards on the same
+   * setting.
+   */
+  inlineVisualizations?: boolean;
   /**
    * The persona this run answers with, already resolved by the launch: the
    * conversation's own prompt, else the app-wide one, else absent for the
@@ -1775,6 +1787,8 @@ export class DesktopAgentRuntime {
   private providerRateLimitRetryAttempt = 0;
   /** Opt-in mode removes only the retry-count ceiling; abort and backoff stay intact. */
   private infiniteProviderRetry = false;
+  /** Persisted opt-in for inline visualizations; gates the tool declaration. */
+  private inlineVisualizations = false;
   private activeProviderRetryAttempt = 0;
   private providerRetryInProgress = false;
   private suppressProviderRetryRunEnd = false;
@@ -1871,6 +1885,7 @@ export class DesktopAgentRuntime {
     this.provider = opts.provider;
     this.thinkingLevel = clampThinkingLevel(opts.provider, opts.thinkingLevel);
     this.infiniteProviderRetry = opts.infiniteProviderRetry === true;
+    this.inlineVisualizations = opts.inlineVisualizations === true;
     this.host = opts.host;
     this.hostCloseUnsubscribe = this.host.onClose?.(() => {
       this.cleanupActiveToolProgress();
@@ -2197,6 +2212,19 @@ Call TaskWait only when your next step genuinely depends on that report and noth
   setInfiniteProviderRetry(enabled: boolean): void {
     if (this.disposed) throw new Error("runtime disposed");
     this.infiniteProviderRetry = enabled;
+  }
+
+  /**
+   * Update the inline-visualizations opt-in without rebuilding an idle
+   * runtime. Flipping the Settings toggle then adds or removes the
+   * `WriteInlineVisualization` declaration for the next delivery.
+   */
+  setInlineVisualizations(enabled: boolean): void {
+    if (this.disposed) throw new Error("runtime disposed");
+    if (this.inlineVisualizations === enabled) return;
+    this.inlineVisualizations = enabled;
+    this.rebuildToolCatalog();
+    this.setAgentTools(this.activeTools());
   }
 
   /** Refresh catalog instructions without changing the running session owner. */
@@ -3032,6 +3060,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
     const describe = (toolName: string): string => {
       if (toolName === "GenerateImages") return imageGenerationDescription;
       if (toolName === "SkillCreate") return skillCreateDescription;
+      if (toolName === WRITE_INLINE_VIZ_NAME) return writeInlineVisualizationDescription;
       if (scheduledToolDescriptions[toolName]) return scheduledToolDescriptions[toolName];
       switch (toolName) {
         case "BrowserPreview":
@@ -3085,6 +3114,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
     // stopped being readable.
     const parameters: Record<string, Parameters<typeof Type.Object>[0]> = {
       GenerateImages: imageGenerationParameters,
+      WriteInlineVisualization: writeInlineVisualizationParameters,
       Read: {
         path: pathParam(
           "Existing regular file only, never a directory; workspace-relative or explicitly approved.",
@@ -3601,6 +3631,10 @@ Call TaskWait only when your next step genuinely depends on that report and noth
         : ["Read", "Glob", "Grep", "BrowserPreview", "Bash"];
     if (this.mode === "agent") {
       tools.push("PluginScaffold", "PluginPack", "GenerateImages", "SkillCreate", ...Object.keys(scheduledToolParameters));
+      // Inline visualizations are opt-in (ADR 0327): the declaration exists
+      // only while the persisted switch is on, and host-core mirrors the same
+      // gate in its own `tools.list`.
+      if (this.inlineVisualizations) tools.push(WRITE_INLINE_VIZ_NAME);
     }
     const builtins = tools.map(exec);
     this.hostToolExecutor = exec;

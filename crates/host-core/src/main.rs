@@ -7,6 +7,7 @@ mod config_sync;
 mod connection;
 mod db;
 mod delivery_ledger;
+mod inline_viz;
 mod keyboard;
 mod mcp_servers;
 mod messaging_adapter;
@@ -117,6 +118,7 @@ async fn main() -> anyhow::Result<()> {
             let live: std::collections::HashSet<String> = list.into_iter().map(|s| s.id).collect();
             scratch::sweep(&data_dir, &live);
             review::sweep(&data_dir, &live);
+            inline_viz::sweep(&data_dir, &live);
         }
     }
     rpc::serve(state).await

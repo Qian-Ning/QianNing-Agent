@@ -91,6 +91,8 @@ type RuntimeParams = {
   turnId?: string;
   thinkingLevel?: SessionThinkingLevel;
   infiniteProviderRetry?: boolean;
+  /** Opt-in inline visualizations (ADR 0327); gates the tool declaration. */
+  inlineVisualizations?: boolean;
   provider: RuntimeProviderConfig;
   commandShell: CommandShellOption;
   pluginTools?: PluginToolDef[];
@@ -230,6 +232,7 @@ async function runtimeFor(
     reusable.setPluginSkills(pluginSkills);
     reusable.setCompactionSettings(params.compactionSettings);
     reusable.setInfiniteProviderRetry(params.infiniteProviderRetry === true);
+    reusable.setInlineVisualizations(params.inlineVisualizations === true);
     reusable.setMode(mode);
     // The host owns the capability switch, so re-read its catalogue on every
     // delivery: flipping the Settings toggle then applies to the next message
@@ -282,6 +285,7 @@ async function runtimeFor(
     commandShell: params.commandShell,
     thinkingLevel,
     infiniteProviderRetry: params.infiniteProviderRetry === true,
+    inlineVisualizations: params.inlineVisualizations === true,
     history,
     compaction,
     compactionSettings: params.compactionSettings,
