@@ -643,6 +643,12 @@ jobs:
         # matches the machine.
         run: node scripts/merge-mac-update-feed.mjs dist
 
+      - name: Audit the staged asset set
+        # `dist` is exactly what the upload is about to publish. A matrix entry
+        # that failed leaves a hole here, before anything reaches the release
+        # page, instead of in a published release that is missing a platform.
+        run: node scripts/check-release-assets.mjs --version "${GITHUB_REF_NAME#v}" --dir dist
+
       # Re-publishing a tag — after a repaired commit, or after a build failed
       # halfway — lands on the release that is already there, and
       # `action-gh-release` merges rather than replaces: an asset the new run
@@ -680,3 +686,15 @@ jobs:
           files: dist/*
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-') }}
+
+      - name: Audit the published asset set
+        # Re-read the release after uploading. The staged audit proves what the
+        # build produced; this proves what actually attached — an asset can
+        # still fail to upload while the action reports success.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --json assets --jq '.assets[].name' > published-assets.txt
+          node scripts/check-release-assets.mjs --version "${TAG#v}" --assets-from published-assets.txt

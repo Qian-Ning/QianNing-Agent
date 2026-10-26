@@ -354,6 +354,15 @@ electron-updater 解析 macOS 通道文件名的方式是 `latest` + `-mac`，�
 的那一条。只发布带架构后缀的更新源会让每台 Mac 都拿到 404、检查更新失败，而另外两个平台却正常；合并脚本
 在这种情况会直接让运行失败，而不是发布一份残缺的更新源。
 
+### 4.9 发布资产核对
+
+构建矩阵中的某一条通道失败时，发布仍会继续。发布作业全绿并不代表每个平台都产出了工件，因此发布集要对着声明集核对两遍：
+
+- **发布前**：合并 macOS 更新源之后，`node scripts/check-release-assets.mjs --version "${GITHUB_REF_NAME#v}" --dir dist` 读取即将上传的目录，缺件会在任何内容到达发布页之前让作业失败。这也是唯一读取更新源内容的检查：每份 `latest*.yml` 声明的版本必须等于标签版本。
+- **发布后**：上传完成后，作业用 `gh release view --json assets` 重新读取发布，并以 `--assets-from` 跑同一个脚本。工件可能在动作返回成功的情况下仍未挂上，因此「用户和更新器实际看到的内容」与「构建产出的内容」分开验证。
+
+声明清单由 `scripts/check-release-assets.mjs` 的 `expectedAssets` 持有：Windows 的 NSIS、便携版与 zip；macOS 两个架构的 DMG 与 ZIP 及其 blockmap；AppImage、deb、rpm 与 Linux ASAR；pi-host 包及其校验和；以及三份更新源。多余的资产允许存在（按架构的 macOS 更新源是中间产物），缺少一个不行。在 `apps/desktop/package.json` 中增加目标或改名 artifactName 模板时，清单要在同一次提交里更新；否则下一次发布会核对失败——这正是它该给出的信号。
+
 ## 5. 验证门
 
 未配置签名配置的仓库产出的 ad-hoc 产物不视为通过 Gatekeeper（见 §4.5）。签名标签发布必须通过以下签名、公证和装订检查，否则工作流失败。

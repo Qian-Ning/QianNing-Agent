@@ -55,6 +55,7 @@
     "test:e2e:subagent-models": "node scripts/e2e-subagent-models.mjs",
     "check:marketplace": "node scripts/check-marketplace-catalog.mjs",
     "check:release-docs": "node scripts/check-release-docs.mjs",
+    "check:release-assets": "node scripts/check-release-assets.mjs",
     "check:agent-policy": "node scripts/check-agent-policy-sync.mjs",
     "check:skill-provenance": "node scripts/check-skill-provenance.mjs",
     "check:pr-base": "node scripts/check-pr-base-main.mjs",
