@@ -88,6 +88,10 @@ import {
   MESSAGING_TELEGRAM_FORMAT,
   MESSAGING_TELEGRAM_FORMAT_VERSION,
   MESSAGING_TELEGRAM_SECTION,
+  MESSAGING_WEBHOOK_INBOUND_FORMAT,
+  MESSAGING_WEBHOOK_INBOUND_VERSION,
+  INGRESS_WEBHOOK_RECEIVER_SECTION,
+  INGRESS_WEBHOOK_SECRET_REF,
 } from "@pi-desktop/agent-host";
 
 import type { MessagingGatewayChannel } from "./messaging-gateway-registry.js";
@@ -227,6 +231,24 @@ export const MESSAGING_INBOUND_START_GATES: Record<MessagingGatewayChannel, Mess
     fields: ["port"],
     secrets: [MESSAGING_API_SERVER_TOKEN_SECRET_REF],
   },
+  // The shared inbound-webhook receiver is the other channel that binds a port,
+  // so its record must name the port this build's field carries and its signing
+  // secret must exist: the receiver refuses to authenticate a request without
+  // one, and a listener that accepts unsigned requests is not a remote control
+  // the panel should ever present as started. The record's `enabled` flag is
+  // its panel switch: the wiring's own reader answers to it, so this gate looks
+  // only at the port, the binding and the secret the same way apiServer's does.
+  //
+  // The binding is a start condition, not a per-event one: the receiver answers
+  // its HTTP request before the turn is started, so a receiver that listens with
+  // no session to act on would accept events it can only drop.
+  webhookReceiver: {
+    section: INGRESS_WEBHOOK_RECEIVER_SECTION,
+    format: MESSAGING_WEBHOOK_INBOUND_FORMAT,
+    version: MESSAGING_WEBHOOK_INBOUND_VERSION,
+    fields: ["port", "inbound.sessionId"],
+    secrets: [INGRESS_WEBHOOK_SECRET_REF],
+  },
 };
 
 /** The channel whose record lives in `section`, or `null` for a non-channel. */
@@ -247,6 +269,24 @@ function hasValue(value: unknown): boolean {
   if (typeof value === "number") return Number.isFinite(value);
   if (Array.isArray(value)) return value.length > 0;
   return false;
+}
+
+/**
+ * A field the gate reads, at a dotted path inside the section.
+ *
+ * Every channel but the webhook receiver keeps its fields at the section's top
+ * level, so a plain name is the common case. The receiver's binding lives at
+ * `inbound.sessionId` — beside the record's own facts rather than inside them,
+ * the way every channel's binding does — so the gate reads one path form and no
+ * channel needs a second gate of its own.
+ */
+function gateValue(section: Record<string, unknown>, field: string): unknown {
+  let current: unknown = section;
+  for (const part of field.split(".")) {
+    if (!isRecord(current)) return undefined;
+    current = current[part];
+  }
+  return current;
 }
 
 /**
@@ -273,7 +313,7 @@ export function readMessagingInboundRecordState(
   const section = isRecord(settings) ? settings[gate.section] : null;
   if (!isRecord(section)) return "absent";
   if (section.format !== gate.format || section.version !== gate.version) return "foreign";
-  if (!gate.fields.every((field) => hasValue(section[field]))) return "incomplete";
+  if (!gate.fields.every((field) => hasValue(gateValue(section, field)))) return "incomplete";
   return "ready";
 }
 

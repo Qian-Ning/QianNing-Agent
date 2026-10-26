@@ -35,11 +35,13 @@ import {
   createNtfyInboundWiring,
   createSlackInboundWiring,
   createSignalInboundWiring,
+  createWebhookReceiverWiring,
   messagingChannelForSection,
   type ApiServerTurnSurface,
   type HostRpc,
   type MessagingInboundHostSurface,
   type MessagingInboundWiringLog,
+  type WebhookTurnSurface,
 } from "@pi-desktop/host-runtime";
 
 import { messagingGateway } from "./messaging-gateway";
@@ -55,6 +57,13 @@ export type MessagingInboundLifecycleOptions = {
    * named separately because the two channels need different slices of it.
    */
   apiServerTurns: ApiServerTurnSurface;
+  /**
+   * The Agent Host as the webhook receiver's delivery path drives it: one
+   * `startTurn` per accepted event, with no reply followed back. The same
+   * object as `agentHost`; named separately because the three channels need
+   * different slices of it.
+   */
+  webhookTurns: WebhookTurnSurface;
   log?: MessagingInboundWiringLog;
 };
 
@@ -105,7 +114,21 @@ export function createMessagingInboundSupervisor(
           onFailure: (reason) => messagingGateway.fail("apiServer", reason),
           ...(options.log ? { log: options.log } : {}),
         }),
-    },
+      // The shared webhook receiver is the other listener that binds a port.
+      // Same contract as the local API channel: the record plus the stored
+      // signing secret decide whether it starts, and a bind failure is shown
+      // on the card instead of being retried silently.
+      webhookReceiver: (signal) =>
+        createWebhookReceiverWiring({
+          agentHost: options.webhookTurns,
+          settings,
+          secrets,
+          signal,
+          onListening: () => messagingGateway.clearFailure("webhookReceiver"),
+          onFailure: (reason) => messagingGateway.fail("webhookReceiver", reason),
+          ...(options.log ? { log: options.log } : {}),
+        }),
+      },
   });
 }
 

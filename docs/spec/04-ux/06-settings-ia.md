@@ -676,9 +676,9 @@ system while preserving their different data ownership:
 - The list is the reference product's own catalogue — all thirty-three
   platforms, in the product's order — so the surface has a real product's
   density, and it is honest about breadth. **Telegram**, **Discord**, **Slack**,
-  **Mattermost**, **Matrix**, **Home Assistant**, **Email**, **IRC** and
-  **ntfy** are marked Supported and open a working panel. The other twenty-four
-  are marked
+  **Mattermost**, **Matrix**, **Home Assistant**, **Email**, **IRC**, **ntfy**,
+  **Signal**, **API server** and **Webhooks** are marked Supported and open a
+  working panel. The other twenty-one are marked
   Not supported, and their panel states
   what the gap is **and what kind of requirement it is**, because "needs setup"
   without the kind does not tell a user whether they can close it themselves.
@@ -686,11 +686,11 @@ system while preserving their different data ownership:
   works from a home network (SimpleX Chat, Raft, Buzz); a
   **public HTTPS callback**, where the platform pushes into an address the
   internet must reach (Google Chat, LINE, Microsoft Teams, Microsoft Graph,
-  Feishu / Lark, DingTalk, both WeCom entries, SMS through Twilio, Webhooks); a
+  Feishu / Lark, DingTalk, both WeCom entries, SMS through Twilio); a
   **poll loop or local bridge** that owns the account on a phone or a Mac
-  (BlueBubbles, iMessage via Phone, Signal, WhatsApp's linked phone session); a
+  (BlueBubbles, iMessage via Phone, WhatsApp's linked phone session); a
   **transport rather than a chat channel**,
-  with no conversation to link (API server, A2A, Relay); and **platform-side
+  with no conversation to link (A2A, Relay); and **platform-side
   approval or business onboarding** (Weixin / WeChat, QQ Bot, Yuanbao, and
   WhatsApp Cloud API, whose business account also needs a verified sender and a
   public callback). An unsupported platform renders no form: this build stores
@@ -698,6 +698,12 @@ system while preserving their different data ownership:
   something, and the panel says that as well. Where the platform publishes setup
   documentation the panel links to it; where it does not, no outbound link is
   shown rather than a link to somewhere else.
+- Webhooks is the one supported channel whose endpoint this build owns rather
+  than dials: the panel names a loopback port and one session, the sender signs
+  each request with the shared secret, and an accepted event starts a turn on
+  that session. The session is a start condition — a record without one never
+  listens — because the receiver answers its HTTP request before the turn runs,
+  so a listener with nothing to act on could only accept events it must drop.
 - Three state dimensions are computed independently and never merged into one
   badge. **Enabled**: is a record of this build stored? It reads `off` when no
   section exists and `unreadable` when the stored `format`/`version` is not one

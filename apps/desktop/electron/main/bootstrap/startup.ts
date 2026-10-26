@@ -399,6 +399,7 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
         getHost,
         agentHost: state.agentHostBridge.agentHost,
         apiServerTurns: state.agentHostBridge.agentHost,
+        webhookTurns: state.agentHostBridge.agentHost,
         log: (level, message, data) => logger.app("runtime", level, message, { data }),
       });
       setMessagingInboundSupervisor(supervisor);

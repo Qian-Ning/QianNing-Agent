@@ -43,7 +43,19 @@ function validRecord(channel: MessagingGatewayChannel): Record<string, unknown> 
   const gate = MESSAGING_INBOUND_START_GATES[channel];
   const record: Record<string, unknown> = { format: gate.format, version: gate.version };
   for (const field of gate.fields) {
-    record[field] = field === "allowedSenders" ? ["owner@example.com"] : `value-for-${field}`;
+    const value = field === "allowedSenders" ? ["owner@example.com"] : `value-for-${field}`;
+    // A gate field may name a nested path (`inbound.sessionId`), so the fixture
+    // writes the record the same way the gate reads it.
+    const path = field.split(".");
+    let target = record;
+    for (const part of path.slice(0, -1)) {
+      const next = target[part];
+      const nested =
+        typeof next === "object" && next !== null ? (next as Record<string, unknown>) : {};
+      target[part] = nested;
+      target = nested;
+    }
+    target[path[path.length - 1]] = value;
   }
   return record;
 }
@@ -421,7 +433,30 @@ describe("inbound record readiness", () => {
     for (const channel of ALL_CHANNELS) {
       expect(messagingChannelForSection(MESSAGING_INBOUND_START_GATES[channel].section)).toBe(channel);
     }
-    expect(messagingChannelForSection("ingressWebhookReceiver")).toBeNull();
+    expect(messagingChannelForSection("messagingSomethingElse")).toBeNull();
+  });
+
+  it("keeps a webhook receiver with no bound session from listening", () => {
+    // The receiver answers its HTTP request before the turn starts, so a
+    // listener with no session to act on would accept events it can only drop.
+    // The binding is therefore a start condition, read at `inbound.sessionId`.
+    const gate = MESSAGING_INBOUND_START_GATES.webhookReceiver;
+    const base = { format: gate.format, version: gate.version, port: 8787, bindAddress: "127.0.0.1" };
+    const section = (inbound: unknown): Record<string, unknown> => ({
+      [gate.section]: inbound === undefined ? base : { ...base, inbound },
+    });
+
+    expect(gate.fields).toEqual(["port", "inbound.sessionId"]);
+    expect(readMessagingInboundRecordState("webhookReceiver", section(undefined))).toBe(
+      "incomplete",
+    );
+    expect(readMessagingInboundRecordState("webhookReceiver", section({}))).toBe("incomplete");
+    expect(readMessagingInboundRecordState("webhookReceiver", section({ sessionId: "  " }))).toBe(
+      "incomplete",
+    );
+    expect(readMessagingInboundRecordState("webhookReceiver", section({ sessionId: "s-1" }))).toBe(
+      "ready",
+    );
   });
 
   it("reads absent, foreign, incomplete and ready records apart", () => {

@@ -117,7 +117,11 @@ test("the allowlist names exactly the sections the catalogue supports", () => {
   assert.ok(throwAt > start, "the section guard is gone");
   const guard = source.slice(start, throwAt);
   const identifiers = [
-    ...new Set([...guard.matchAll(/MESSAGING_[A-Z0-9_]+_SECTION/g)].map((m) => m[0])),
+    // Any exported `*_SECTION` constant the guard names: the channels' own
+    // `MESSAGING_*_SECTION`, and the shared receiver's
+    // `INGRESS_WEBHOOK_RECEIVER_SECTION`, which is not a channel's name but is
+    // accepted on the same path.
+    ...new Set([...guard.matchAll(/[A-Z][A-Z0-9_]*_SECTION/g)].map((m) => m[0])),
   ];
   assert.ok(identifiers.length > 0, "the guard names no section constants");
 

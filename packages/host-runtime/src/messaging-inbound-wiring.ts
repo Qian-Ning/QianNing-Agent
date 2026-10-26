@@ -125,6 +125,23 @@ import {
   type ApiServerAuditEntry,
   type ApiServerEndpoint,
   type ApiServerTurnSurface,
+  // The shared inbound-webhook receiver: one loopback listener, one bound
+  // session, and the generic Standard Webhooks channel served on it.
+  INGRESS_WEBHOOK_RECEIVER_SECTION,
+  IngressWebhookReceiver,
+  MESSAGING_WEBHOOK_INBOUND_FORMAT,
+  MESSAGING_WEBHOOK_INBOUND_VERSION,
+  MESSAGING_WEBHOOK_PRINCIPAL,
+  RandomIds,
+  WEBHOOK_HANDLED_CAPACITY,
+  WEBHOOK_INBOUND_PLATFORM,
+  createGenericWebhookAdapter,
+  createWebhookInboundVerifier,
+  readIngressWebhookReceiverSettings,
+  type IngressAuditEntry,
+  type IngressMessage,
+  type IngressWebhookAddress,
+  type IngressWebhookReceiverOptions,
 } from "@pi-desktop/agent-host";
 
 import type { AgentHost } from "@pi-desktop/agent-host";
@@ -2238,6 +2255,193 @@ export function createApiServerInboundWiring(
       }
       await listener.stop();
       endpoint = null;
+    },
+  };
+}
+
+/**
+ * The webhook receiver channel's audit sink: structured ids only, never message
+ * text and never the signing secret. The receiver's vocabulary is the shared
+ * ingress one, so the level decision is the same every push channel makes: a
+ * handled or duplicate event is informational, everything else a warning.
+ */
+export function createWebhookReceiverAudit(
+  log?: MessagingInboundWiringLog,
+): (entry: IngressAuditEntry) => void {
+  if (!log) return () => {};
+  return (entry) => {
+    const level = entry.kind === "processed" || entry.kind === "duplicate" ? "info" : "warn";
+    log(level, "inbound webhook receiver", { ...entry });
+  };
+}
+
+/**
+ * The Agent Host slice the webhook receiver's delivery path drives.
+ *
+ * One method, `startTurn`: the receiver answers its own HTTP request before the
+ * turn runs to completion, so unlike the local API channel there is no seam
+ * that follows the session's event stream back to a caller. Nothing waits on
+ * the answer, which is exactly what a webhook callback is.
+ */
+export type WebhookTurnSurface = Pick<AgentHost, "startTurn">;
+
+export type MessagingWebhookReceiverWiringOptions = {
+  agentHost: WebhookTurnSurface;
+  settings: HostSettingsSurface;
+  secrets: HostSecretReader;
+  signal: AbortSignal;
+  log?: MessagingInboundWiringLog;
+  /** Called with the address actually bound, once the receiver is listening. */
+  onListening?: (address: IngressWebhookAddress) => void;
+  /** Called when the receiver could not start, with the reason a person needs. */
+  onFailure?: (reason: string) => void;
+  /** Test seam: a receiver factory in place of the one the wiring builds. */
+  createReceiver?: (options: IngressWebhookReceiverOptions) => IngressWebhookReceiver;
+};
+
+export type MessagingWebhookReceiverWiring = {
+  /** The address the receiver is bound to, or `null` while it is not listening. */
+  readonly address: IngressWebhookAddress | null;
+  /** Run the receiver until the owner's signal aborts; resolves then, never rejects. */
+  run(): Promise<void>;
+};
+
+/**
+ * Build the webhook receiver's wiring, without binding anything.
+ *
+ * The receiver is the shared HTTP surface (`/webhooks/<platform>`) that this
+ * build serves the one generic channel on; the wiring owns its lifetime exactly
+ * the way `createApiServerInboundWiring` owns the local API's — record, secret,
+ * bind, wait for the stop signal, close — because it is the same shape of
+ * channel: one port-bound listener whose start is a fact about the record
+ * rather than a retryable failure. The record is read inside `run` for the same
+ * reason every starter is.
+ *
+ * Delivery is fire-and-forget on purpose. An accepted event starts a turn on
+ * the session the record is bound to and the request is answered before that
+ * turn completes; a sender that wants the answer waits on its own side, not on
+ * this channel's response.
+ *
+ * The binding is therefore a *start* condition rather than a per-event one: the
+ * supervisor's gate requires `inbound.sessionId`, so a receiver with nothing to
+ * act on never listens, and a sender gets a refused connection instead of a 200
+ * for an event nobody will run. `deliver` still checks it — the record can be
+ * rewritten while the loop runs — and a missing binding throws, which the gate
+ * audits as a failed delivery and leaves unrecorded rather than swallowing.
+ */
+export function createWebhookReceiverWiring(
+  options: MessagingWebhookReceiverWiringOptions,
+): MessagingWebhookReceiverWiring {
+  let receiver: IngressWebhookReceiver | null = null;
+  const ids = new RandomIds();
+
+  const sessionFor = async (): Promise<string | null> => {
+    try {
+      const section = readSection(await options.settings.read(), INGRESS_WEBHOOK_RECEIVER_SECTION);
+      const value = readInbound(section)?.sessionId;
+      return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const deliver = async (message: IngressMessage): Promise<void> => {
+    const sessionId = await sessionFor();
+    if (!sessionId) {
+      throw new Error("the webhook channel has no session bound");
+    }
+    await options.agentHost.startTurn(MESSAGING_WEBHOOK_PRINCIPAL, {
+      sessionId,
+      admission: "queue",
+      input: { text: message.text },
+      context: { requestId: ids.next("webhook") },
+    });
+  };
+
+  return {
+    get address(): IngressWebhookAddress | null {
+      return receiver?.address() ?? null;
+    },
+    async run(): Promise<void> {
+      let settings: unknown;
+      try {
+        settings = await options.settings.read();
+      } catch {
+        // Cannot tell what the record says: bind nothing, and change no state.
+        return;
+      }
+      const section = readSection(settings, INGRESS_WEBHOOK_RECEIVER_SECTION);
+      if (!section) return;
+      if (
+        section.format !== MESSAGING_WEBHOOK_INBOUND_FORMAT ||
+        section.version !== MESSAGING_WEBHOOK_INBOUND_VERSION
+      ) {
+        // A record written by a different build: the start gate says the same
+        // thing, so this is keeping the wiring's own read honest.
+        return;
+      }
+      const record = readIngressWebhookReceiverSettings(settings);
+      if (!record) return;
+      let secret: string | null = null;
+      try {
+        secret = await options.secrets(record.secretRef);
+      } catch {
+        secret = null;
+      }
+      if (!secret || secret.trim() === "") {
+        // Fail closed before a port exists: a receiver that authenticates
+        // nobody is a way into the agent for every process that can reach it.
+        options.onFailure?.("no signing secret is stored for the webhook receiver");
+        return;
+      }
+
+      const pathSegment =
+        typeof section.path === "string" && section.path.trim() !== ""
+          ? section.path.trim()
+          : WEBHOOK_INBOUND_PLATFORM;
+      const create = options.createReceiver ?? ((o) => new IngressWebhookReceiver(o));
+      const built = create({
+        platforms: {
+          [pathSegment]: {
+            verifier: createWebhookInboundVerifier(secret.trim()),
+            adapter: createGenericWebhookAdapter(),
+            onMessage: deliver,
+          },
+        },
+        handled: createSettingsHandledMessageStore({
+          settings: options.settings,
+          section: INGRESS_WEBHOOK_RECEIVER_SECTION,
+          capacity: WEBHOOK_HANDLED_CAPACITY,
+          field: "handledEventIds",
+        }),
+        port: record.port,
+        host: record.bindAddress,
+        allowNonLoopback: record.allowNonLoopback,
+        maxBodyBytes: record.maxBodyBytes,
+        replayWindowMs: record.replayWindowMs,
+        audit: createWebhookReceiverAudit(options.log),
+      });
+      receiver = built;
+      let bound: IngressWebhookAddress;
+      try {
+        bound = await built.start();
+      } catch (error) {
+        receiver = null;
+        options.onFailure?.(error instanceof Error ? error.message : String(error));
+        return;
+      }
+      options.onListening?.(bound);
+      if (!options.signal.aborted) {
+        await new Promise<void>((resolve) => {
+          const onAbort = (): void => {
+            options.signal.removeEventListener("abort", onAbort);
+            resolve();
+          };
+          options.signal.addEventListener("abort", onAbort, { once: true });
+        });
+      }
+      await built.stop();
+      receiver = null;
     },
   };
 }
