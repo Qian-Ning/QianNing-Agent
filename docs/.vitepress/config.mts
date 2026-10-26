@@ -1,9 +1,34 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { defineConfig, type DefaultTheme } from 'vitepress'
+import { defineConfig, type DefaultTheme, type UserConfig } from 'vitepress'
 
 const docsRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+
+type DocsMarkdownHook = NonNullable<NonNullable<UserConfig['markdown']>['config']>
+type DocsMarkdown = Parameters<DocsMarkdownHook>[0]
+
+/**
+ * VitePress compiles `{{ … }}` as a Vue interpolation, even inside a code span,
+ * so a documented template placeholder such as `{{draft}}` renders as an empty
+ * string. Emitting the braces as character references keeps the literal text:
+ * the compiler ignores them and the browser renders the two braces.
+ */
+function literalMustache(md: DocsMarkdown) {
+  const escape = (html: string) => html.replace(/\{\{/g, '&#123;&#123;').replace(/\}\}/g, '&#125;&#125;')
+
+  const renderInlineCode = md.renderer.rules.code_inline
+  md.renderer.rules.code_inline = (tokens, index, options, env, self) => {
+    const html = renderInlineCode
+      ? renderInlineCode(tokens, index, options, env, self)
+      : `<code>${md.utils.escapeHtml(tokens[index]!.content)}</code>`
+    return escape(html)
+  }
+
+  const renderText = md.renderer.rules.text ?? ((tokens, index) => md.utils.escapeHtml(tokens[index]!.content))
+  md.renderer.rules.text = (tokens, index, options, env, self) =>
+    escape(renderText(tokens, index, options, env, self))
+}
 
 type Locale = 'en' | 'zh-CN'
 
@@ -212,6 +237,7 @@ export default defineConfig({
     html: false,
     lineNumbers: true,
     theme: { light: 'github-light', dark: 'github-dark' },
+    config: literalMustache,
   },
   themeConfig: {
     logo: '/app-icon.png',
