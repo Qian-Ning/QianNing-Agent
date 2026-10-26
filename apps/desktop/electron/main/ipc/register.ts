@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { dialog, type BrowserWindow, type IpcMain, type IpcMainInvokeEvent } from "electron";
 import { err, ErrorCodes, IPC, ok, type Result } from "@pi-desktop/shared";
 import type { AgentHostBridge } from "../agent-host-bridge";
+import type { RemoteListener } from "@pi-desktop/host-runtime";
 import type { AgentSidecar } from "../agent-sidecar";
 import type { HostProcess } from "../host-process";
 import { ROUTE_LOCAL, type BackendRouter } from "../remote/backend-router";
@@ -30,6 +31,7 @@ import { registerRemoteHostIpc } from "./remote-host-ipc";
 import { registerTerminalIpc } from "./terminal-ipc";
 import { registerInlineVizIpc } from "./inline-viz-ipc";
 import { registerRedactionIpc } from "./redaction-ipc";
+import { registerRemoteIpc } from "./remote-ipc";
 import { fetchSkillMarketDocument, searchSkillMarket } from "../skill-market-catalog";
 import { registerWindowIpc } from "./window-ipc";
 import { createComposerTemplateLoader, registerWorkspaceIpc } from "./workspace-ipc";
@@ -51,6 +53,7 @@ export type RegisterIpcDependencies = {
   taskbarUnreadBadge: ReturnType<typeof createTaskbarUnreadBadge>;
   getSidecar: () => AgentSidecar | null;
   getAgentHostBridge: () => AgentHostBridge | null;
+  getRemoteListener: () => RemoteListener | null;
   /**
    * Resolves the remote backend router once it exists. Renderer IPC calls whose
    * session is owned by a paired remote host are forwarded through it; every
@@ -90,6 +93,7 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
     getHost,
     getSidecar,
     getAgentHostBridge,
+    getRemoteListener,
     getBackendRouter,
     getNotificationViewingSessionId,
     setNotificationViewingSessionId,
@@ -382,6 +386,7 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
     },
   });
   registerRedactionIpc({ registrar, getSidecar });
+  registerRemoteIpc({ registrar, getListener: getRemoteListener });
   registerAgentIpc({
     registrar,
     getHost,

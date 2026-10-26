@@ -24,7 +24,7 @@ import type { AgentSidecar } from "../agent-sidecar";
 import type { AgentHostBridge } from "../agent-host-bridge";
 import type { McpControlController, McpControlServer } from "../mcp-control";
 import type { BackendRouter } from "../remote/backend-router";
-import type { MessagingOutboundRelay } from "@pi-desktop/host-runtime";
+import type { MessagingOutboundRelay, RemoteListener } from "@pi-desktop/host-runtime";
 
 export type MenuRendererReadyGate = {
   window: BrowserWindow;
@@ -70,6 +70,8 @@ export class MainProcessState {
   sidecar: AgentSidecar | null = null;
   mcpControl: McpControlServer | null = null;
   agentHostBridge: AgentHostBridge | null = null;
+  /** Constructed at startup, listening only after the user enables remote access. */
+  remoteListener: RemoteListener | null = null;
   desktopControl: McpControlController | null = null;
   backendRouter: BackendRouter | null = null;
   messagingOutbound: MessagingOutboundRelay | null = null;
@@ -284,6 +286,12 @@ export class MainProcessState {
       set agentHostBridge(value) {
         self.agentHostBridge = value;
       },
+      get remoteListener() {
+        return self.remoteListener;
+      },
+      set remoteListener(value) {
+        self.remoteListener = value;
+      },
     };
 
     this.applicationLifecycleState = {
@@ -362,6 +370,12 @@ export class MainProcessState {
       },
       set agentHostBridge(value) {
         self.agentHostBridge = value;
+      },
+      get remoteListener() {
+        return self.remoteListener;
+      },
+      set remoteListener(value) {
+        self.remoteListener = value;
       },
       get backendRouter() {
         return self.backendRouter;

@@ -145,6 +145,8 @@ import type {
   RemoteHostRemoveRequest,
   RemoteHostStateEvent,
   RemoteHostSummary,
+  RemoteAccessStatus,
+  RemoteIssuedDevice,
 } from "@pi-desktop/shared";
 import {
   defaultCommandShellForPlatform,
@@ -743,6 +745,15 @@ export const api = {
   /** Row count for the redaction settings row; never returns a value. */
   getRedactionStatus: () => invoke<RedactionTableStatus>(IPC.invoke.redactionStatus),
   clearRedactionTable: () => invoke<RedactionClearResult>(IPC.invoke.redactionClear),
+  /** Remote access (ADR 0333): the listener state plus its paired devices. */
+  getRemoteAccess: () => invoke<RemoteAccessStatus>(IPC.invoke.remoteStatus),
+  enableRemoteAccess: () => invoke<RemoteAccessStatus>(IPC.invoke.remoteEnable),
+  disableRemoteAccess: () => invoke<RemoteAccessStatus>(IPC.invoke.remoteDisable),
+  /** The only call that ever returns a token; the Host keeps just its hash. */
+  issueRemoteDevice: (label: string) =>
+    invoke<RemoteIssuedDevice>(IPC.invoke.remoteIssueDevice, { label }),
+  revokeRemoteDevice: (deviceId: string) =>
+    invoke<{ revoked: boolean }>(IPC.invoke.remoteRevokeDevice, { deviceId }),
   setSettings: (settings: AppSettings) =>
     invoke(IPC.invoke.settingsSet, validateSettingsWrite(settings)),
   /**

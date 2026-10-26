@@ -995,6 +995,15 @@ system while preserving their different data ownership:
 - Activating a project or project session returns to chat; archive and close
   actions keep Project archive open even when the active workspace changes
 
+### Remote access
+
+A card below the advanced rows, for the loopback RACP-HTTP listener (ADR 0333).
+Off by default; when on it names the address it is listening on. Below it, an
+issued-device list with a revoke action, and a label field with an issue button.
+An issued token appears once and is never read back — the Host stores only its
+hash — so the row is gone when the page is left, and the copy tells the user to
+paste it now.
+
 ### Info
 - app/host/protocol versions + open logs
 - **Report a problem** row: one action opens the GitHub bug issue form in

@@ -865,6 +865,7 @@ function registerIpc() {
     getHost,
     getSidecar,
     getAgentHostBridge: () => mainState.agentHostBridge,
+    getRemoteListener: () => mainState.remoteListener,
     getBackendRouter: () => startupState.backendRouter,
     // The in-app quit / close prompt the renderer draws answers back through
     // this channel (D674); a null runtime drops the answer, which leaves the
