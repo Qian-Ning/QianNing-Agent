@@ -527,6 +527,14 @@ export const IPC = {
      * a `tool_execute`-shaped audit row for every accepted write.
      */
     inlineVizWrite: "pi-desktop/inlineViz/write",
+    /**
+     * The outbound-redaction table (ADR 0332). Both reach the sidecar that owns
+     * the table: reading the file from main would miss a turn that has not
+     * flushed yet, and deleting it would let a live turn write its snapshot
+     * back, so a clear the user asked for would silently undo itself.
+     */
+    redactionStatus: "pi-desktop/redaction/status",
+    redactionClear: "pi-desktop/redaction/clear",
   },
   event: {
     pluginChanged: "pi-desktop/event/pluginChanged",

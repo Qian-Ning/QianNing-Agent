@@ -237,6 +237,22 @@ export type RedactionSettings = {
   enabled?: boolean;
 };
 
+/**
+ * What the redaction settings row shows. Deliberately no plaintext and no token
+ * text: a panel that listed the values would be a second copy of the secret
+ * store inside a process the renderer can reach.
+ */
+export type RedactionTableStatus = {
+  /** False when the switch is off, or when no turn has opened a table yet. */
+  enabled: boolean;
+  count: number;
+  /** Epoch millis of the oldest and newest row, for "since …" copy. */
+  oldest: number | null;
+  newest: number | null;
+};
+
+export type RedactionClearResult = { cleared: number };
+
 export type AppSettings = {
   imageGeneration?: import("../image-generation.js").ImageGenerationBinding | null;
   /** All models marked for image generation; absent falls back to imageGeneration. */

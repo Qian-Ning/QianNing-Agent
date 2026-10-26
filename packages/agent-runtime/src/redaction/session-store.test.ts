@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { openMappingStore } from "./session-store.js";
+import { openMappingStore, resetMappingStores } from "./session-store.js";
 
 const dirs: string[] = [];
 const stores: ReturnType<typeof openMappingStore>[] = [];
@@ -24,6 +24,7 @@ afterEach(async () => {
     const store = await pending;
     await store.flush();
   }
+  resetMappingStores();
   await Promise.all(
     dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })),
   );
@@ -42,7 +43,11 @@ describe("openMappingStore", () => {
     const token = first.getOrInsert("PHONE", "13812345678");
     await first.flush();
 
+    // Drop the cached instance so this really reads the file back rather than
+    // handing out the object that already holds the mapping.
+    resetMappingStores();
     const second = await open(dir);
+    expect(second).not.toBe(first);
     expect(second.lookup(token)).toBe("13812345678");
   });
 
@@ -52,6 +57,25 @@ describe("openMappingStore", () => {
     const store = await open(dir);
     expect(store.size()).toBe(0);
     expect(store.getOrInsert("PHONE", "13812345678")).toMatch(/^1[3-9][0-9]{9}$/);
+  });
+
+  it("hands the same table to every caller for one directory", async () => {
+    const dir = await tempDir();
+    const first = await open(dir);
+    const second = await open(dir);
+    expect(second).toBe(first);
+  });
+
+  it("clears the live table, not only the file", async () => {
+    const dir = await tempDir();
+    const store = await open(dir);
+    const stand = store.getOrInsert("PHONE", "13812345678");
+    await store.clear();
+    // The settings surface calls this between turns; the next prompt must not
+    // keep restoring a stand-in the user just removed.
+    expect(store.size()).toBe(0);
+    expect(store.isDisplay(stand)).toBe(false);
+    expect(store.restoreDisplays(stand)).toBe(stand);
   });
 
   it("writes the table beside the session directory it was given", async () => {

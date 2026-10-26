@@ -51,6 +51,13 @@ type RuntimeMap = Map<string, DesktopAgentRuntime>;
 const runtimes: RuntimeMap = new Map();
 const hostProxy = new ParentHostProxy();
 const testRuntimeIds = new WeakMap<DesktopAgentRuntime, string>();
+/**
+ * The directory the operator pointed redaction at, remembered from the last
+ * prompt. The table is a per-turn detail of the request, but the settings
+ * surface has to reach the same table between turns, and only a prompt carries
+ * the path.
+ */
+let lastRedactionDir: string | undefined;
 function testRuntimeIdentity(sessionId: string) {
   if (process.env.PI_DESKTOP_PLAN_UI_PROBE !== "1") {
     throw Object.assign(new Error("test runtime identity RPC is unavailable"), {
@@ -388,6 +395,19 @@ async function handle(method: string, params: any): Promise<unknown> {
     }
     case "sidecar.health":
       return { ok: true, runtimes: runtimes.size };
+    case "redaction.status": {
+      if (!lastRedactionDir) return { enabled: false, count: 0, oldest: null, newest: null };
+      const store = await openMappingStore(lastRedactionDir);
+      return { enabled: true, ...store.stats() };
+    }
+    case "redaction.clear": {
+      if (!lastRedactionDir) return { cleared: 0 };
+      const store = await openMappingStore(lastRedactionDir);
+      const cleared = store.size();
+      await store.clear();
+      await store.flush();
+      return { cleared };
+    }
     case "native.session.list":
       return { sessions: await nativePiService().list() };
     case "native.session.search":
@@ -416,6 +436,9 @@ async function handle(method: string, params: any): Promise<unknown> {
     case "agent.prompt": {
       const sessionId = String(params.sessionId);
       const content = String(params.content ?? "");
+      if (typeof params.redaction?.dir === "string" && params.redaction.dir) {
+        lastRedactionDir = params.redaction.dir;
+      }
       if (sessionId.startsWith(NATIVE_PI_SESSION_PREFIX)) {
         return nativePiService().prompt(sessionId, content, (envelope) =>
           notify("native.agent.event", envelope),

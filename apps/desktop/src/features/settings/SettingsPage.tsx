@@ -4,6 +4,7 @@ import type {
   AppSettings,
   GlobalPermissionMode,
   PluginScenicThemesDestinationMeta,
+  RedactionTableStatus,
   ShortcutPlatform,
 } from "@pi-desktop/shared";
 import { useAppStore } from "../../stores/app-store";
@@ -109,6 +110,8 @@ export function SettingsPage() {
   const [settingsRecoveryFailed, setSettingsRecoveryFailed] = useState(false);
   const [extensions, setExtensions] = useState<PluginScenicThemesDestinationMeta[]>([]);
   const [activeExtension, setActiveExtension] = useState<PluginScenicThemesDestinationMeta | null>(null);
+  const [redactionTable, setRedactionTable] = useState<RedactionTableStatus | null>(null);
+  const [clearingRedactionTable, setClearingRedactionTable] = useState(false);
   const seenSettingsTabNonce = useRef(settingsTabNonce);
   // setSettingsTab means "show this built-in category", even when the tab id
   // does not change. Dismiss a plugin page before paint; an anchor-only deep
@@ -171,6 +174,38 @@ export function SettingsPage() {
     if (settings) return;
     void recoverSettings();
   }, [settings, recoverSettings]);
+
+  // The count is read when the switch is on and after every clear. It is not a
+  // live subscription: the table only changes on a turn, and a settings page
+  // that polled would keep the sidecar busy for nothing.
+  useEffect(() => {
+    if (settings?.redaction?.enabled !== true) {
+      setRedactionTable(null);
+      return;
+    }
+    let cancelled = false;
+    void api
+      .getRedactionStatus()
+      .then((status) => {
+        if (!cancelled) setRedactionTable(status);
+      })
+      .catch(() => {
+        if (!cancelled) setRedactionTable(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [settings?.redaction?.enabled]);
+
+  const clearRedactionTable = useCallback(async () => {
+    setClearingRedactionTable(true);
+    try {
+      await api.clearRedactionTable();
+      setRedactionTable(await api.getRedactionStatus());
+    } finally {
+      setClearingRedactionTable(false);
+    }
+  }, []);
 
   // Arriving from the global search dialog: scroll to and flash the row
   // whose title matches the pending anchor key. This runs after the
@@ -617,6 +652,20 @@ export function SettingsPage() {
                     })}
                   />
                 </SettingsRow>
+                {settings.redaction?.enabled === true ? (
+                  <SettingsRow
+                    title={t("settings.redactionTable")}
+                    description={t("settings.redactionTableDesc", { n: redactionTable?.count ?? 0 })}
+                  >
+                    <Button
+                      variant="secondary"
+                      onClick={() => void clearRedactionTable()}
+                      disabled={clearingRedactionTable || (redactionTable?.count ?? 0) === 0}
+                    >
+                      {t("settings.redactionClear")}
+                    </Button>
+                  </SettingsRow>
+                ) : null}
                 {settings.inlineVisualizations === true ? (
                   <SettingsRow
                     title={t("settings.inlineVizScriptedPreviews")}

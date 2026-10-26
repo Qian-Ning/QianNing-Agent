@@ -29,6 +29,7 @@ import { registerAgentImportIpc } from "./agent-import-ipc";
 import { registerRemoteHostIpc } from "./remote-host-ipc";
 import { registerTerminalIpc } from "./terminal-ipc";
 import { registerInlineVizIpc } from "./inline-viz-ipc";
+import { registerRedactionIpc } from "./redaction-ipc";
 import { fetchSkillMarketDocument, searchSkillMarket } from "../skill-market-catalog";
 import { registerWindowIpc } from "./window-ipc";
 import { createComposerTemplateLoader, registerWorkspaceIpc } from "./workspace-ipc";
@@ -380,6 +381,7 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
       return currentSidecar.call<{ handled: boolean }>("extensions.command.run", input);
     },
   });
+  registerRedactionIpc({ registrar, getSidecar });
   registerAgentIpc({
     registrar,
     getHost,
