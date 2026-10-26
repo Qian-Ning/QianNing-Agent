@@ -77,6 +77,19 @@ const HTML = `<!doctype html>
     border: 1px solid var(--line); border-radius: 10px; padding: 12px;
   }
   .error { color: var(--danger); margin: 8px 0; }
+  .approvals {
+    position: fixed; left: 0; right: 0; bottom: calc(64px + env(safe-area-inset-bottom));
+    padding: 0 14px; display: flex; flex-direction: column; gap: 8px; z-index: 3;
+  }
+  .approval {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.18);
+  }
+  .approval h3 { margin: 0 0 4px; font-size: 14px; }
+  .approval p { margin: 0 0 10px; color: var(--muted); font-size: 13px; white-space: pre-wrap; }
+  .approval .actions { display: flex; gap: 8px; }
+  .approval .actions button { flex: 1; padding: 9px 10px; font-size: 14px; }
+  .approval .deny { background: transparent; color: var(--danger); border: 1px solid var(--line); }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
   .dot.live { background: #2ecc71; }
 </style>
@@ -87,7 +100,7 @@ const HTML = `<!doctype html>
 (function () {
   var TOKEN_KEY = "racp.token";
   var app = document.getElementById("app");
-  var state = { view: "loading", sessions: [], sessionId: null, messages: [], error: null, busy: false };
+  var state = { view: "loading", sessions: [], sessionId: null, messages: [], approvals: [], error: null, busy: false };
   var stream = null;
 
   function token() { return localStorage.getItem(TOKEN_KEY) || ""; }
@@ -180,6 +193,7 @@ const HTML = `<!doctype html>
       '<main id="log">' + (messages || '<div class="empty">No messages yet.</div>') +
         (state.error ? '<p class="error">' + esc(state.error) + '</p>' : '') +
       '</main>' +
+      '<div class="approvals" id="approvals">' + renderApprovals() + '</div>' +
       '<div class="composer">' +
         '<textarea id="text" rows="1" placeholder="Message…"></textarea>' +
         '<button id="send"' + (state.busy ? " disabled" : "") + '>Send</button>' +
@@ -195,9 +209,54 @@ const HTML = `<!doctype html>
       field.value = "";
       submit(text);
     });
+    Array.prototype.forEach.call(document.querySelectorAll(".approval button"), function (node) {
+      node.addEventListener("click", function () {
+        respond(node.getAttribute("data-id"), node.getAttribute("data-decision"), Number(node.getAttribute("data-revision")));
+      });
+    });
     var log = document.getElementById("log");
     log.scrollTop = log.scrollHeight;
     window.scrollTo(0, document.body.scrollHeight);
+  }
+
+  function renderApprovals() {
+    return state.approvals.map(function (approval) {
+      var title = approval.title || approval.toolName || "Approval required";
+      var detail = approval.summary || approval.question || "";
+      var risk = approval.risk ? "  ·  " + approval.risk + " risk" : "";
+      return '<div class="approval">' +
+        '<h3>' + esc(title) + esc(risk) + '</h3>' +
+        '<p>' + esc(detail) + '</p>' +
+        '<div class="actions">' +
+          '<button data-id="' + esc(approval.id) + '" data-decision="allow-once" data-revision="' + esc(approval.revision) + '">Allow once</button>' +
+          '<button data-id="' + esc(approval.id) + '" data-decision="allow-session" data-revision="' + esc(approval.revision) + '">Allow session</button>' +
+          '<button class="deny" data-id="' + esc(approval.id) + '" data-decision="deny" data-revision="' + esc(approval.revision) + '">Deny</button>' +
+        '</div></div>';
+    }).join("");
+  }
+
+  function respond(approvalId, decision, revision) {
+    state.busy = true;
+    render();
+    call("/v1/approvals/" + encodeURIComponent(approvalId) + ":respond", {
+      method: "POST",
+      body: {
+        approvalId: approvalId,
+        decision: decision,
+        context: {
+          requestId: "mobile_" + Date.now(),
+          idempotencyKey: "approval:" + approvalId + ":" + decision,
+          expectedRevision: revision,
+        },
+      },
+    }).then(function () {
+      state.approvals = state.approvals.filter(function (a) { return a.id !== approvalId; });
+    }).catch(function (error) {
+      state.error = error.message;
+    }).then(function () {
+      state.busy = false;
+      render();
+    });
   }
 
   function loadSessions() {
@@ -232,6 +291,7 @@ const HTML = `<!doctype html>
     closeStream();
     state.sessionId = sessionId;
     state.messages = [];
+    state.approvals = [];
     state.view = "chat";
     state.busy = false;
     render();
@@ -307,6 +367,19 @@ const HTML = `<!doctype html>
     var kind = params.kind || "";
     // The Host is authoritative for transcript state, so a completed item simply
     // re-reads history instead of merging deltas client-side.
+    if (kind === "approval.requested") {
+      var request = (params.payload && params.payload.approval) || params.payload || {};
+      if (!request.id) return;
+      var known = state.approvals.some(function (a) { return a.id === request.id; });
+      if (!known) { state.approvals = state.approvals.concat([request]); render(); }
+      return;
+    }
+    if (kind === "approval.resolved") {
+      var resolved = (params.payload && params.payload.approval) || params.payload || {};
+      state.approvals = state.approvals.filter(function (a) { return a.id !== resolved.id; });
+      render();
+      return;
+    }
     if (kind.indexOf("item.") === 0 || kind.indexOf("turn.") === 0) loadHistory().catch(function () {});
   }
 
