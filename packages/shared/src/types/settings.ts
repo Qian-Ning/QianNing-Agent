@@ -525,6 +525,11 @@ export type RemoteAccessStatus = {
   running: boolean;
   host?: string;
   port?: number;
+  /** `https` only when the listener was started for the local network. */
+  protocol?: "http" | "https";
+  /** The address a phone should open, when the Host can derive one. */
+  url?: string;
+  exposure?: "loopback" | "lan";
   pairedDevices: number;
   devices: RemoteDeviceSummary[];
 };

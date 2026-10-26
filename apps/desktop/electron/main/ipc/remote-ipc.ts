@@ -56,12 +56,20 @@ export function registerRemoteIpc({ registrar, getListener }: RemoteIpcDependenc
 
   registrar.handle(IPC.invoke.remoteStatus, status);
 
-  registrar.handle(IPC.invoke.remoteEnable, async (): Promise<RemoteAccessStatus> => {
-    const listener = getListener();
-    if (!listener) throw new Error("the remote listener is unavailable");
-    await listener.start();
-    return status();
-  });
+  registrar.handle(
+    IPC.invoke.remoteEnable,
+    async (input: { exposure?: "loopback" | "lan" } | undefined): Promise<RemoteAccessStatus> => {
+      const listener = getListener();
+      if (!listener) throw new Error("the remote listener is unavailable");
+      // The mode is chosen when the user turns this on, so a listener already
+      // running under the other mode is restarted rather than silently kept.
+      const exposure = input?.exposure === "lan" ? "lan" : "loopback";
+      const current = await listener.status();
+      if (current.running && current.exposure !== exposure) await listener.stop();
+      await listener.start(exposure);
+      return status();
+    },
+  );
 
   registrar.handle(IPC.invoke.remoteDisable, async (): Promise<RemoteAccessStatus> => {
     const listener = getListener();

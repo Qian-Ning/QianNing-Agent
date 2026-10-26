@@ -997,12 +997,20 @@ system while preserving their different data ownership:
 
 ### Remote access
 
-A card below the advanced rows, for the loopback RACP-HTTP listener (ADR 0333).
-Off by default; when on it names the address it is listening on. Below it, an
-issued-device list with a revoke action, and a label field with an issue button.
-An issued token appears once and is never read back — the Host stores only its
-hash — so the row is gone when the page is left, and the copy tells the user to
-paste it now.
+A card below the advanced rows, for the RACP-HTTP listener (ADR 0333). Off by
+default, and turning it on is a choice between two modes: **this machine only**
+(loopback, plaintext) and **local network** (every interface, HTTPS with a
+certificate the Host mints). The card names the address it is listening on, and
+in network mode the `https://` URL to open on a phone.
+
+Below it, an issued-device list with a revoke action, and a label field with an
+issue button. An issued token appears once and is never read back — the Host
+stores only its hash — so the row is gone when the page is left, and the copy
+tells the user to paste it now.
+
+Network mode is the one that can fail for environmental reasons: a machine with
+no non-loopback IPv4 address cannot serve one, and the error says so rather than
+silently falling back to loopback.
 
 ### Info
 - app/host/protocol versions + open logs

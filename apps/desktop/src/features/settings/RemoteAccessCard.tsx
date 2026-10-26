@@ -43,18 +43,29 @@ export function RemoteAccessCard() {
     };
   }, []);
 
-  const toggle = useCallback(async () => {
+  const start = useCallback(async (exposure: "loopback" | "lan") => {
     setBusy(true);
     setError(null);
     try {
-      const next = status?.running ? await api.disableRemoteAccess() : await api.enableRemoteAccess();
-      setStatus(next);
+      setStatus(await api.enableRemoteAccess(exposure));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setBusy(false);
     }
-  }, [status?.running]);
+  }, []);
+
+  const stop = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setStatus(await api.disableRemoteAccess());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
 
   const issue = useCallback(async () => {
     const trimmed = label.trim();
@@ -97,10 +108,31 @@ export function RemoteAccessCard() {
         description={t("settings.remoteAccessEnableDesc")}
         detail={running ? t("settings.remoteAccessListening", { host: status?.host, port: status?.port }) : t("settings.remoteAccessOff")}
       >
-        <Button variant={running ? "secondary" : "primary"} onClick={() => void toggle()} disabled={busy}>
-          {running ? t("settings.remoteAccessDisable") : t("settings.remoteAccessEnableAction")}
-        </Button>
+        {running ? (
+          <Button variant="secondary" onClick={() => void stop()} disabled={busy}>
+            {t("settings.remoteAccessDisable")}
+          </Button>
+        ) : (
+          <>
+            <Button variant="primary" onClick={() => void start("lan")} disabled={busy}>
+              {t("settings.remoteModeLan")}
+            </Button>
+            <Button variant="secondary" onClick={() => void start("loopback")} disabled={busy}>
+              {t("settings.remoteModeLoopback")}
+            </Button>
+          </>
+        )}
       </SettingsRow>
+
+      {running && status?.url ? (
+        <SettingsRow
+          title={t("settings.remoteUrlTitle")}
+          description={t("settings.remoteUrlDesc")}
+          detail={status.exposure === "lan" ? t("settings.remoteModeLan") : t("settings.remoteModeLoopback")}
+        >
+          <code data-testid="remote-url">{status.url}</code>
+        </SettingsRow>
+      ) : null}
 
       <SettingsRow
         title={t("settings.remoteDevices")}

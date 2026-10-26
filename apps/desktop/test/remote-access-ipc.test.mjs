@@ -40,16 +40,27 @@ function fakeListener({ running = false } = {}) {
     },
   ];
   let started = running;
+  let exposure = "loopback";
+  const calls = [];
   return {
     devices,
+    calls,
     async status() {
-      return { running: started, ...(started ? { host: "127.0.0.1", port: 51234 } : {}), pairedDevices: 1 };
+      return {
+        running: started,
+        ...(started ? { host: exposure === "lan" ? "0.0.0.0" : "127.0.0.1", port: 51234 } : {}),
+        exposure,
+        pairedDevices: 1,
+      };
     },
-    async start() {
+    async start(requested) {
+      calls.push(["start", requested]);
       started = true;
-      return { host: "127.0.0.1", port: 51234 };
+      exposure = requested;
+      return { host: "127.0.0.1", port: 51234, protocol: requested === "lan" ? "https" : "http" };
     },
     async stop() {
+      calls.push(["stop"]);
       started = false;
     },
     async listDevices() {
@@ -105,4 +116,29 @@ test("a token comes back only from the issue channel", async () => {
   assert.equal(JSON.stringify(status).includes("pdt1.secret"), false);
 
   await assert.rejects(handlers.get(IPC.invoke.remoteIssueDevice)({ label: "   " }));
+});
+
+test("choosing the local network starts a LAN listener, not a loopback one", async () => {
+  const listener = fakeListener();
+  const handlers = harness(listener);
+  const status = await handlers.get(IPC.invoke.remoteEnable)({ exposure: "lan" });
+
+  assert.deepEqual(listener.calls, [["start", "lan"]]);
+  assert.equal(status.exposure, "lan");
+});
+
+test("switching modes stops the old bind first", async () => {
+  const listener = fakeListener({ running: true });
+  const handlers = harness(listener);
+  await handlers.get(IPC.invoke.remoteEnable)({ exposure: "lan" });
+
+  assert.deepEqual(listener.calls, [["stop"], ["start", "lan"]]);
+});
+
+test("enabling with no argument keeps today's loopback behaviour", async () => {
+  const listener = fakeListener();
+  const handlers = harness(listener);
+  await handlers.get(IPC.invoke.remoteEnable)(undefined);
+
+  assert.deepEqual(listener.calls, [["start", "loopback"]]);
 });
