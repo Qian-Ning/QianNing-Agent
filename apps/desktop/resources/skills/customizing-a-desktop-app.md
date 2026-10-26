@@ -1,6 +1,6 @@
 ---
 name: customizing-a-desktop-app
-description: an installed desktop application you did not write has to be changed, and the change must survive an update without breaking the copy users already run
+description: an installed desktop app you did not write has to change, and the change must survive an update
 ---
 
 # Changing a desktop application you did not write

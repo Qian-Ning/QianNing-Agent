@@ -148,6 +148,129 @@ export type BuiltinSkillInput = {
 };
 
 /**
+ * Catalog headings for the shipped skills, keyed by document file name.
+ *
+ * The per-session catalog carries every entry's name and description, so one
+ * flat list of eighty-odd lines reads as noise and the model skims past it.
+ * Grouping is presentation only — the prompt renderer prints one heading per
+ * group and advertises every entry either way — but it gives the model a small
+ * set of topics to scan before it commits to loading a body.
+ *
+ * A new document that is not listed here still ships: it falls into `Other`,
+ * so forgetting this table costs a tidy catalog, never a missing skill. Keep
+ * the description in a new document within `BUILTIN_SKILL_DESCRIPTION_LIMIT`
+ * characters; `builtin-skill-gating.test.mjs` enforces both.
+ */
+const BUILTIN_SKILL_GROUPS: Readonly<Record<string, string>> = {
+  // Debugging
+  "node-inspect-debugger.md": "Debugging",
+  "python-debugpy.md": "Debugging",
+  "systematic-debugging.md": "Debugging",
+  "performance-investigation.md": "Debugging",
+  "model-output-evaluation.md": "Debugging",
+  "user-feedback-and-bug-reports.md": "Debugging",
+  "incident-postmortem.md": "Debugging",
+  "spike.md": "Debugging",
+  // Delivery
+  "architecture-decision-records.md": "Delivery",
+  "build-and-release.md": "Delivery",
+  "docs-code-sync.md": "Delivery",
+  "doc-comments-and-api-docs.md": "Delivery",
+  "release-verification.md": "Delivery",
+  "technical-runbook.md": "Delivery",
+  "writing-a-technical-proposal.md": "Delivery",
+  // Engineering
+  "api-contract-design.md": "Engineering",
+  "async-lifecycle-and-cancellation.md": "Engineering",
+  "caching-correctness.md": "Engineering",
+  "configuration-and-defaults.md": "Engineering",
+  "data-modeling.md": "Engineering",
+  "database-migration-safety.md": "Engineering",
+  "dependency-evaluation.md": "Engineering",
+  "error-handling-design.md": "Engineering",
+  "feature-flags-and-rollout.md": "Engineering",
+  "file-and-path-handling.md": "Engineering",
+  "git-hygiene-and-history.md": "Engineering",
+  "keeping-a-suite-fast.md": "Engineering",
+  "localization-and-i18n.md": "Engineering",
+  "logging-and-observability.md": "Engineering",
+  "naming-and-terminology.md": "Engineering",
+  "red-green-refactor.md": "Engineering",
+  "safe-refactor.md": "Engineering",
+  "secrets-and-credentials.md": "Engineering",
+  "serialization-and-encoding.md": "Engineering",
+  "shell-scripts-and-portability.md": "Engineering",
+  "test-data-and-fixtures.md": "Engineering",
+  "time-zones-and-dates.md": "Engineering",
+  "unicode-and-text.md": "Engineering",
+  "working-with-legacy-code.md": "Engineering",
+  // Media & Documents
+  "architecture-diagram.md": "Media & Documents",
+  "ascii-video.md": "Media & Documents",
+  "audio-visualization.md": "Media & Documents",
+  "generative-sketches.md": "Media & Documents",
+  "html-artifact-verification.md": "Media & Documents",
+  "image-generation.md": "Media & Documents",
+  "math-animation.md": "Media & Documents",
+  "video-generation.md": "Media & Documents",
+  "docx.md": "Media & Documents",
+  "pdf.md": "Media & Documents",
+  "powerpoint.md": "Media & Documents",
+  "xlsx.md": "Media & Documents",
+  // Product
+  "accessibility-and-keyboard.md": "Product",
+  "adding-a-channel.md": "Product",
+  "builtin-skill-authoring.md": "Product",
+  "customizing-a-desktop-app.md": "Product",
+  "dogfood.md": "Product",
+  "plugin-development.md": "Product",
+  // Research
+  "document-to-action-items.md": "Research",
+  "email-inbox-triage.md": "Research",
+  "grounded-citations.md": "Research",
+  "meeting-action-items.md": "Research",
+  "research-source-evaluation.md": "Research",
+  // Review
+  "code-reading.md": "Review",
+  "codebase-inspection.md": "Review",
+  "pre-commit-review.md": "Review",
+  "reviewing-someone-elses-code.md": "Review",
+  // Working with the User
+  "explaining-and-teaching.md": "Working with the User",
+  "explaining-with-diagrams.md": "Working with the User",
+  "handling-interruptions.md": "Working with the User",
+  "handling-money-and-numbers.md": "Working with the User",
+  "handling-vague-requests.md": "Working with the User",
+  "prompt-and-instruction-design.md": "Working with the User",
+  "time-and-estimates.md": "Working with the User",
+  "trade-off-analysis.md": "Working with the User",
+  // Writing
+  "character-interiority.md": "Writing",
+  "chinese-novel-writing.md": "Writing",
+  "dialogue-craft.md": "Writing",
+  "editing-machine-draft-prose.md": "Writing",
+  "long-form-fiction-structure.md": "Writing",
+  "pacing-and-tension.md": "Writing",
+  "revising-your-own-draft.md": "Writing",
+  "songwriting.md": "Writing",
+  "worldbuilding-consistency.md": "Writing",
+};
+
+/** Group a document without a table entry lands in — still advertised, just untidier. */
+export const BUILTIN_SKILL_FALLBACK_GROUP = "Other";
+
+/**
+ * Catalog descriptions stay short enough that eighty of them are cheap to
+ * advertise: the catalog rides in every session's system prompt, and the body
+ * is what carries the detail. Measured in characters of the frontmatter value.
+ */
+export const BUILTIN_SKILL_DESCRIPTION_LIMIT = 120;
+
+function builtinSkillGroupForFile(file: string): string {
+  return BUILTIN_SKILL_GROUPS[file] ?? BUILTIN_SKILL_FALLBACK_GROUP;
+}
+
+/**
  * Whether a shipped capability is usable in this session.
  *
  * The model pays context for every advertised entry, and a capability skill
@@ -177,7 +300,13 @@ export function builtinSkills(input: BuiltinSkillInput): PluginSkillDef[] {
     const raw = readBuiltinSkill(file);
     if (!raw?.raw.trim()) return [];
     const parsed = parseSkillFrontmatter(raw.raw);
-    return parsed.body ? [{ id, name: parsed.name ?? id, description: parsed.description }] : [];
+    if (!parsed.body) return [];
+    return [{
+      id,
+      name: parsed.name ?? id,
+      description: parsed.description,
+      group: builtinSkillGroupForFile(file),
+    }];
   });
 }
 

@@ -86,3 +86,39 @@ test("the session catalog is wired to the configured generation models", async (
   assert.doesNotMatch(composer, /imageGenerationAvailable/);
   assert.doesNotMatch(composer, /videoGenerationAvailable/);
 });
+
+test("every shipped skill carries a catalog group and a short description", async () => {
+  // The catalog advertises all eighty-odd entries in every session, so the two
+  // presentation budgets are part of shipping a document: a long description or
+  // a missing group turns the list back into noise and quietly costs trigger
+  // accuracy. Both are enforced here rather than left to review.
+  const {
+    builtinSkills,
+    BUILTIN_SKILL_DESCRIPTION_LIMIT,
+    BUILTIN_SKILL_FALLBACK_GROUP,
+  } = await loadBuiltinSkills();
+  const catalog = builtinSkills({});
+
+  assert.ok(catalog.length >= 80, `catalog shrank to ${catalog.length} entries`);
+
+  const ungrouped = catalog.filter((skill) => !skill.group).map((skill) => skill.id);
+  assert.deepEqual(ungrouped, [], "these skills have no group heading");
+
+  const fellBack = catalog
+    .filter((skill) => skill.group === BUILTIN_SKILL_FALLBACK_GROUP)
+    .map((skill) => skill.id);
+  assert.deepEqual(fellBack, [], "add these documents to BUILTIN_SKILL_GROUPS");
+
+  const overBudget = catalog
+    .filter((skill) => (skill.description ?? "").length > BUILTIN_SKILL_DESCRIPTION_LIMIT)
+    .map((skill) => `${skill.id} (${(skill.description ?? "").length})`);
+  assert.deepEqual(
+    overBudget,
+    [],
+    `descriptions must stay within ${BUILTIN_SKILL_DESCRIPTION_LIMIT} characters`,
+  );
+
+  // A handful of topics, not one heading per document.
+  const groups = new Set(catalog.map((skill) => skill.group));
+  assert.ok(groups.size <= 12, `the catalog splintered into ${groups.size} groups`);
+});

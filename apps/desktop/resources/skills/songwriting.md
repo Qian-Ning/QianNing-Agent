@@ -1,6 +1,6 @@
 ---
 name: songwriting
-description: lyrics and a song structure are being written or revised, and the lines have to sit on a melody rather than only look right on the page
+description: lyrics and song structure are being written or revised, and the lines have to sit on a melody, not just the page
 ---
 
 # Writing a song that can be sung

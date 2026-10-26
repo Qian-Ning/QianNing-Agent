@@ -1,6 +1,6 @@
 ---
 name: math-animation
-description: an algorithm or an equation has to be explained as a short animation and the result has to be a file that plays correctly everywhere
+description: an algorithm or equation has to be explained as a short animation, rendered to a file that plays everywhere
 ---
 
 # Animating an explanation

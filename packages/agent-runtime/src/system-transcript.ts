@@ -9,7 +9,7 @@ import {
   toToolDeclaration,
 } from "@earendil-works/pi-ai";
 
-import { SKILL_SECTION_PREFIX } from "./plugin-skills-prompt.js";
+import { SKILL_GROUP_SECTION_PREFIX, SKILL_SECTION_PREFIX } from "./plugin-skills-prompt.js";
 
 function systemMessages(messages: readonly AgentMessage[]): SystemMessage[] {
   return messages.filter((message): message is SystemMessage => message.role === "system");
@@ -32,13 +32,28 @@ function currentSystemMessage(messages: readonly AgentMessage[]): SystemMessage 
   };
 }
 
-/** Desktop-owned sections retain their order ahead of extension sections. */
+/** Transient budget section, dropped when a checkpoint folds the transcript. */
 export const CONTEXT_BUDGET_SECTION = "context_budget";
 
+function isSkillSection(name: string): boolean {
+  return name.startsWith(SKILL_SECTION_PREFIX) || name.startsWith(SKILL_GROUP_SECTION_PREFIX);
+}
+
+/**
+ * Desktop-owned sections retain their order ahead of extension sections.
+ *
+ * A grouped catalog is listed in insertion order: the renderer puts each group
+ * heading directly before its entries, and sorting the keys would separate a
+ * heading from the skills it introduces. Without headings there is no grouping
+ * to protect, so entries keep the historical id order — callers may hand the
+ * sections over in any order and still get the same prompt.
+ */
 function desktopSectionNames(sections: Record<string, unknown>): string[] {
-  return ["runtime", TOOL_ACTIVATION_SECTION, "skills", ...Object.keys(sections)
-    .filter((name) => name.startsWith(SKILL_SECTION_PREFIX))
-    .sort((a, b) => a.localeCompare(b)), "context"];
+  const skillNames = Object.keys(sections).filter(isSkillSection);
+  const ordered = skillNames.some((name) => name.startsWith(SKILL_GROUP_SECTION_PREFIX))
+    ? skillNames
+    : [...skillNames].sort((a, b) => a.localeCompare(b));
+  return ["runtime", TOOL_ACTIVATION_SECTION, "skills", ...ordered, "context"];
 }
 
 export function systemPromptContent(messages: readonly AgentMessage[]): string {
@@ -55,8 +70,16 @@ export function syncSystemSections(
   desired: Record<string, string>,
 ): AgentMessage[] {
   const current = getCurrentSystemMessage(messages)?.sections ?? {};
+  // Order follows the state being applied: the catalog renderer emits entries
+  // in the order the model should read them, so its key order is the contract.
+  // Keys that exist only in the current state are being revoked; they keep no
+  // render position, so they are recorded just ahead of `context`.
+  const names = desktopSectionNames(desired);
+  for (const name of Object.keys(current)) {
+    if (isSkillSection(name) && !(name in desired)) names.splice(names.length - 1, 0, name);
+  }
   const sections: Record<string, string | null> = {};
-  for (const name of desktopSectionNames({ ...current, ...desired })) {
+  for (const name of names) {
     const next = desired[name] ?? null;
     if ((current[name] ?? null) !== next) sections[name] = next;
   }

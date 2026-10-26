@@ -1,6 +1,6 @@
 ---
 name: imagegen
-description: Generate or edit raster images, illustrations, photos, banners, and project assets with the configured image model. Supports reference images, edits of earlier results, variants, and batches. Prefer existing code-native tools for SVG/CSS edits.
+description: Generate or edit raster images, illustrations, and assets with the configured image model — prefer code for vectors
 ---
 
 # Image generation

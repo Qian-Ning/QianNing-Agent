@@ -1,6 +1,6 @@
 ---
 name: audio-visualization
-description: a spectrogram, mel view, or chroma plot has to be made from an audio file and read accurately enough to say something true about the signal
+description: a spectrogram, mel view, or chroma plot has to be read accurately enough to say something true about the signal
 ---
 
 # Looking at sound

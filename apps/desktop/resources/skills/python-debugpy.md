@@ -1,6 +1,6 @@
 ---
 name: python-debugpy
-description: a Python process raises, returns the wrong value, or hangs - step it with the standard debugger or attach debugpy to a process you cannot restart
+description: a Python process raises, returns a wrong value, or hangs — step it, or attach debugpy to a process you cannot restart
 ---
 
 # Debugging Python at a breakpoint

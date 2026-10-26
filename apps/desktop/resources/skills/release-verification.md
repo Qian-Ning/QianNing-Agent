@@ -1,6 +1,6 @@
 ---
 name: release-verification
-description: a release is about to be tagged and the artefact, the tag, and the tree that was tested have to be proven to be the same thing
+description: a release is about to be tagged — prove the artefact, the tag, and the tested tree are the same thing
 ---
 
 # Verifying a release before the tag goes out

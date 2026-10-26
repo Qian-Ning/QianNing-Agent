@@ -1,6 +1,6 @@
 ---
 name: ascii-video
-description: video or audio has to be turned into ASCII frames that play in a terminal, and the output still has to be small enough to store
+description: video or audio has to become ASCII frames that play in a terminal and stay small enough to store
 ---
 
 # Turning a clip into text
