@@ -107,4 +107,23 @@ describe("desktop remote listener", () => {
     await expect(fetch(`${base}/v1/sessions`, { headers: { authorization: `Bearer ${device.token}` } })).rejects.toThrow();
     expect((await listener.status()).running).toBe(false);
   });
+
+  it("reports the mode it is serving, not the one it was constructed with", async () => {
+    const listener = createRemoteListener({
+      dataDir: await dataDir(),
+      agentHost,
+      serverVersion: "2.1.0",
+      getHost: () => fakeHost(),
+      compact: async () => ({ accepted: true }),
+      isBusy: () => false,
+      log: () => undefined,
+      // Constructed for the network, started for loopback: status must follow
+      // the socket, not the option, or the settings card names the wrong mode.
+      exposure: "lan",
+    });
+    listeners.push(listener);
+
+    await listener.start("loopback");
+    expect((await listener.status()).exposure).toBe("loopback");
+  });
 });

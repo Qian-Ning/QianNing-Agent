@@ -119,6 +119,13 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
   let binding: HttpBinding | null = null;
   let server: RacpServer | null = null;
   let publicUrl: string | null = null;
+  /**
+   * The mode the listener is actually serving. `options.exposure` is only the
+   * default: `start(exposure)` overrides it, and a status that reported the
+   * constructor's value would tell the settings card the wrong mode while a
+   * LAN socket was open.
+   */
+  let activeExposure: "loopback" | "lan" | null = null;
 
   const hostId = async (): Promise<string> => {
     const path = join(remoteDir, "host-id");
@@ -147,7 +154,7 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
               url: publicUrl ?? undefined,
             }
           : {}),
-        exposure: options.exposure ?? "loopback",
+        exposure: activeExposure ?? options.exposure ?? "loopback",
         pairedDevices: devices.filter((device) => !device.revokedAt).length,
       };
     },
@@ -196,6 +203,7 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
         log: options.log,
       });
       publicUrl = tls ? `https://${addresses[0]}:${binding.address.port}` : null;
+      activeExposure = exposure;
       options.log("info", "remote listener started", { ...binding.address, exposure });
       return binding.address;
     },
@@ -208,6 +216,7 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
       server?.close();
       server = null;
       publicUrl = null;
+      activeExposure = null;
       options.log("info", "remote listener stopped");
     },
 
