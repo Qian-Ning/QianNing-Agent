@@ -29,6 +29,18 @@ export type ChangelogEntry = {
 };
 
 const enEntries: ChangelogEntry[] = [
+  {
+    version: "2.0.0",
+    date: "2026-10-26",
+    highlights: [
+      "Three ways into messaging that are not another chat adapter. Signal connects an encrypted channel where the rule about who may speak is the product's, not the transport's. A local messaging endpoint accepts a token that is the whole identity, so automation without a chat client can open a session. And a shared inbound webhook gives every supported platform one public address, `/webhooks/<platform>`, signed with a timestamp and a delivery id and answered before the turn starts, so a slow answer never loses a message.",
+      "Inline visualizations. An agent can leave a bounded HTML, SVG, JSON, CSV or text artifact in the transcript as a card. The feature is off by default and the preview runs in a sandbox with no scripts and no access to the app. A second switch allows the artifact's own scripts — still an opaque origin, still no network — and Save as visual keeps a finished answer as an artifact without asking the model to write it again.",
+      "Skills are now delivered, not merely advertised. The catalog is grouped, every description fits a 120-character budget, and a conservative lexical match can preload at most one body with the first prompt. A group whose every member needs an unconfigured model stays out of the list entirely, and `pnpm skills:usage` reports the local load counts that turn the next pruning round into an evidence question.",
+      "A turn is aborted only when the abort was accepted. A cancel that threw, timed out or was refused used to settle the turn as stopped while the work continued; settlement now follows the answer, and a failed request ends with its own error code. Aborting a session the runtime does not know no longer reports success for doing nothing.",
+      "Hosted web search runs on the 1.4.0 kernel again. pi-ai 1.4.0 dropped the provider's server tool, so the runtime restores the search blocks, their replay and the adapter binding through public hooks instead of patching the adapter. The same upgrade fixes the Responses stream breaking after its terminal event and cross-model thinking folding on session restore.",
+      "Smaller corrections. The quit question belongs to the app and now appears from the tray too. A custom OpenAI-compatible endpoint no longer receives `reasoning_effort` it never declared support for.",
+    ],
+  },
       {
         version: "1.0.0",
         date: "2026-10-19",
@@ -1059,6 +1071,18 @@ const enEntries: ChangelogEntry[] = [
 ];
 
 const zhCNEntries: ChangelogEntry[] = [
+  {
+    version: "2.0.0",
+    date: "2026-10-26",
+    highlights: [
+      "消息平台多了三条不是「又一个聊天适配器」的入口。Signal 接入的是加密通道，谁能在这段对话里说话由产品自己判断，而不是交给传输层。本地消息端点用一个 token 就是全部身份，没有聊天客户端的自动化也能开会话。共享的入站 webhook 给每个受支持的平台一个公开地址 `/webhooks/<platform>`，带时间戳与投递 id 签名，并且在回合开始前就回 200——答案再慢也不会丢消息。",
+      "内联可视化：agent 可以把一段有界的 HTML、SVG、JSON、CSV 或文本产物留在对话里，渲染成卡片。默认关闭，预览跑在没有脚本、也够不到应用本身的沙箱里。第二个开关才允许产物自带的脚本——仍然是不透明源、仍然禁网——「保存为可视」让一条已完成的回答直接成为产物，不必让模型再写一遍。",
+      "技能从「被广告」变成「被送达」。目录按组呈现，每条描述压进 120 字符预算；保守的词法匹配最多把一份正文随首轮一起带入。整组成员都依赖未配置模型时，这一组完全不进列表；`pnpm skills:usage` 读本地加载计数，下一轮裁剪就有据可依。",
+      "只有 abort 被接受，回合才算中止。取消请求抛错、超时或被拒时，过去仍会把回合结算成「已停止」，而工作还在继续；现在结算跟随真正的答复，请求失败就以自己的错误码结束。中止一个 runtime 并不认识的会话，也不会再把「什么都没做」报成成功。",
+      "托管网页搜索回到 1.4.0 内核。pi-ai 1.4.0 去掉了 provider 的 server tool，runtime 用公共 hook 恢复搜索块、回放与适配器绑定，而不是去打补丁。同一次升级还修好了 Responses 流在终止事件之后断裂，以及会话恢复时跨模型思考被折叠的问题。",
+      "一些小修正。退出确认归应用自己管，现在从托盘退出也会问。自定义的 OpenAI 兼容端点不再收到它从未声明支持的 `reasoning_effort`。",
+    ],
+  },
       {
         version: "1.0.0",
         date: "2026-10-19",
@@ -2089,6 +2113,18 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.0.0",
+    date: "2026-10-26",
+    highlights: [
+      "訊息平台多了三條不是「又一個聊天轉接器」的入口。Signal 接入的是加密頻道，誰能在這段對話裡說話由產品自己判斷，而不是交給傳輸層。本機訊息端點用一個 token 就是全部身分，沒有聊天用戶端也能讓自動化開啟工作階段。共用的入站 webhook 給每個受支援的平台一個公開位址 `/webhooks/<platform>`，帶時間戳與投遞 id 簽章，並且在回合開始前就回 200——答案再慢也不會掉訊息。",
+      "內嵌視覺化：agent 可以把一段有界的 HTML、SVG、JSON、CSV 或文字產物留在對話裡，渲染成卡片。預設關閉，預覽跑在沒有指令碼、也碰不到應用程式本身的沙箱裡。第二個開關才允許產物自帶的指令碼——仍然是不透明來源、仍然禁止網路——「儲存為視覺化」讓一條完成的回答直接成為產物，不必讓模型再寫一次。",
+      "技能從「被廣告」變成「被送達」。目錄按群組呈現，每條描述壓進 120 字元預算；保守的詞法比對最多把一份正文隨首輪一起帶入。整組成員都依賴未設定的模型時，這一組完全不進清單；`pnpm skills:usage` 讀取本機載入次數，下一輪裁剪就有依據。",
+      "只有 abort 被接受，回合才算中止。取消請求拋錯、逾時或被拒時，過去仍會把回合結算成「已停止」，而工作還在繼續；現在結算跟隨真正的答覆，請求失敗就以自己的錯誤碼結束。中止一個 runtime 並不認識的工作階段，也不會再把「什麼都沒做」報成成功。",
+      "託管的網頁搜尋回到 1.4.0 核心。pi-ai 1.4.0 移除了 provider 的 server tool，runtime 用公開 hook 還原搜尋區塊、回放與轉接器綁定，而不是去補丁。同一次升級也修好了 Responses 串流在終止事件之後中斷，以及工作階段還原時跨模型思考被折疊的問題。",
+      "一些小修正。結束確認歸應用程式自己管，現在從系統匣結束也會問。自訂的 OpenAI 相容端點不再收到它從未宣告支援的 `reasoning_effort`。",
+    ],
+  },
       {
         version: "1.0.0",
         date: "2026-10-19",

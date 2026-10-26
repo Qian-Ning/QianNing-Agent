@@ -2,6 +2,18 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "2.0.0",
+    date: "2026-10-26",
+    highlights: [
+      "Trois nouvelles entrées dans la messagerie qui ne sont pas un adaptateur de plus. Signal relie un canal chiffré où la règle de qui peut parler appartient au produit, pas au transport. Un point de terminaison local accepte un jeton qui est toute l'identité, pour qu'une automatisation sans client de chat puisse ouvrir une session. Et un webhook entrant partagé donne à chaque plateforme prise en charge une adresse publique, `/webhooks/<platform>`, signée par horodatage et identifiant de livraison et répondue avant le début du tour, pour qu'une réponse lente ne perde pas de message.",
+      "Visualisations en ligne : un agent peut laisser un artefact borné — HTML, SVG, JSON, CSV ou texte — dans la transcription, sous forme de carte. Désactivé par défaut, l'aperçu tourne dans un bac à sable sans scripts et sans accès à l'application. Un second interrupteur autorise les scripts de l'artefact — toujours une origine opaque, toujours sans réseau — et « Enregistrer comme visuel » conserve une réponse terminée sans demander au modèle de la réécrire.",
+      "Les skills sont désormais livrées, pas seulement annoncées. Le catalogue est groupé, chaque description tient dans un budget de 120 caractères, et une correspondance lexicale prudente peut précharger au plus un corps avec le premier message. Un groupe dont tous les membres dépendent d'un modèle non configuré disparaît entièrement, et `pnpm skills:usage` lit les compteurs locaux de chargement qui font du prochain élagage une question de preuves.",
+      "Un tour n'est interrompu que si l'interruption a été acceptée. Une annulation qui échouait, expirait ou était refusée clôturait le tour comme arrêté alors que le travail continuait ; la clôture suit désormais la réponse, et une requête en échec se termine avec son propre code d'erreur. Interrompre une session que la runtime ne connaît pas ne signale plus un succès pour n'avoir rien fait.",
+      "La recherche web hébergée tourne de nouveau sur le noyau 1.4.0. pi-ai 1.4.0 a retiré l'outil serveur du fournisseur ; la runtime restaure les blocs de recherche, leur rejeu et la liaison d'adaptateur via des hooks publics au lieu de corriger l'adaptateur. La même mise à niveau corrige la rupture du flux Responses après son événement terminal et le repliement de la réflexion entre modèles à la restauration d'une session.",
+      "Corrections plus petites. La question à la fermeture appartient à l'application et apparaît désormais aussi depuis la zone de notification. Un point de terminaison compatible OpenAI ne reçoit plus `reasoning_effort` qu'il n'a jamais déclaré prendre en charge.",
+    ],
+  },
+  {
     version: "1.0.0",
     date: "2026-10-19",
     highlights: [

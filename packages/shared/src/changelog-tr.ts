@@ -2,6 +2,18 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.0.0",
+    date: "2026-10-26",
+    highlights: [
+      "Mesajlaşmaya başka bir sohbet adaptörü olmayan üç yeni giriş geldi. Signal, kimin konuşabileceği kuralının taşıyıcıya değil ürüne ait olduğu şifreli bir kanal bağlar. Yerel mesajlaşma uç noktası, kimliğin tamamı olan bir token kabul eder; böylece sohbet istemcisi olmayan otomasyon da oturum açabilir. Paylaşılan gelen webhook, desteklenen her platforma genel bir adres verir — `/webhooks/<platform>` — zaman damgası ve teslim kimliğiyle imzalanır ve tur başlamadan yanıtlanır, böylece yavaş bir yanıt mesaj kaybetmez.",
+      "Satır içi görselleştirmeler: ajan sınırlı bir HTML, SVG, JSON, CSV veya metin çıktısını konuşma geçmişinde kart olarak bırakabilir. Varsayılan olarak kapalıdır ve önizleme betiksiz, uygulamaya erişimi olmayan bir korumalı alanda çalışır. İkinci anahtar çıktının kendi betiklerine izin verir — yine opak kaynak, yine ağ yok — ve 'Görsel olarak kaydet', bitmiş bir yanıtı modelden yeniden yazmasını istemeden çıktıya dönüştürür.",
+      "Yetenekler artık yalnızca duyurulmuyor, teslim ediliyor. Katalog gruplanmış, her açıklama 120 karakterlik bütçeye sığıyor ve temkinli bir sözlüksel eşleşme ilk mesajla en fazla bir gövdeyi önceden yükleyebiliyor. Üyelerinin tamamı yapılandırılmamış bir model gerektiren grup listeden tamamen çıkıyor ve `pnpm skills:usage` yerel yükleme sayılarını okur; bu da bir sonraki budama turunu kanıt sorusuna çevirir.",
+      "Bir tur ancak iptal kabul edildiğinde iptal edilir. Hata veren, zaman aşımına uğrayan veya reddedilen bir iptal, iş sürerken turu 'durdu' diye kapatıyordu; artık kapanış yanıtı izler ve başarısız istek kendi hata koduyla biter. Çalışma zamanının tanımadığı bir oturumu iptal etmek, hiçbir şey yapmadan başarı bildirmez.",
+      "Barındırılan web araması yeniden 1.4.0 çekirdeğinde çalışıyor. pi-ai 1.4.0 sağlayıcının sunucu aracını kaldırdı; çalışma zamanı adaptörü yamalamak yerine arama bloklarını, yeniden oynatmayı ve adaptör bağlamasını genel kancalarla geri getiriyor. Aynı yükseltme, Responses akışının terminal olayından sonra kopmasını ve oturum geri yüklenirken modeller arası düşünmenin katlanmasını da düzeltiyor.",
+      "Küçük düzeltmeler. Çıkış sorusu uygulamaya ait ve artık tepsi üzerinden de soruluyor. Kendi OpenAI uyumlu uç nokta, hiç beyan etmediği `reasoning_effort` değerini artık almıyor.",
+    ],
+  },
+  {
     version: "1.0.0",
     date: "2026-10-19",
     highlights: [

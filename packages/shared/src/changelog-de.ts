@@ -2,6 +2,18 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "2.0.0",
+    date: "2026-10-26",
+    highlights: [
+      "Drei neue Wege in die Messaging-Schicht, die kein weiterer Chat-Adapter sind. Signal verbindet einen verschlüsselten Kanal, in dem das Produkt entscheidet, wer sprechen darf, nicht der Transport. Ein lokaler Messaging-Endpunkt akzeptiert ein Token, das die gesamte Identität ist, sodass Automatisierung ohne Chat-Client eine Sitzung öffnen kann. Und ein gemeinsamer eingehender Webhook gibt jeder unterstützten Plattform eine öffentliche Adresse, `/webhooks/<platform>`, signiert mit Zeitstempel und Delivery-ID und beantwortet, bevor der Turn beginnt, damit eine langsame Antwort keine Nachricht verliert.",
+      "Inline-Visualisierungen: Ein Agent kann ein begrenztes HTML-, SVG-, JSON-, CSV- oder Textartefakt als Karte im Verlauf hinterlassen. Standardmäßig aus, und die Vorschau läuft in einer Sandbox ohne Skripte und ohne Zugriff auf die App. Ein zweiter Schalter erlaubt die Skripte des Artefakts — weiterhin undurchsichtiger Ursprung, weiterhin ohne Netz — und „Als Visualisierung speichern“ macht aus einer fertigen Antwort ein Artefakt, ohne das Modell um eine zweite Fassung zu bitten.",
+      "Skills werden jetzt geliefert, nicht nur beworben. Der Katalog ist gruppiert, jede Beschreibung passt in ein Budget von 120 Zeichen, und ein vorsichtiger lexikalischer Abgleich kann höchstens einen Text mit der ersten Nachricht vorladen. Eine Gruppe, deren Mitglieder alle ein nicht konfiguriertes Modell brauchen, fehlt ganz, und `pnpm skills:usage` liest die lokalen Ladezahlen, die aus der nächsten Kürzungsrunde eine Frage von Belegen machen.",
+      "Ein Turn gilt nur dann als abgebrochen, wenn der Abbruch angenommen wurde. Ein Abbruch, der warf, zu spät kam oder abgelehnt wurde, meldete den Turn früher als gestoppt, während die Arbeit weiterlief; jetzt folgt der Abschluss der Antwort, und ein fehlgeschlagener Aufruf endet mit eigenem Fehlercode. Eine Sitzung abzubrechen, die die Runtime nicht kennt, meldet nicht mehr Erfolg fürs Nichtstun.",
+      "Die gehostete Websuche läuft wieder auf dem 1.4.0-Kernel. pi-ai 1.4.0 hat das Server-Tool des Anbieters entfernt; die Runtime stellt Suchblöcke, ihr Replay und die Adapter-Bindung über öffentliche Hooks wieder her, statt den Adapter zu patchen. Dasselbe Update behebt den Abbruch des Responses-Streams nach dem Terminal-Event und das Zusammenfalten von Denkschritten verschiedener Modelle beim Wiederherstellen einer Sitzung.",
+      "Kleinere Korrekturen. Die Frage beim Beenden gehört der App und erscheint jetzt auch aus dem Tray. Ein eigener OpenAI-kompatibler Endpunkt erhält kein `reasoning_effort` mehr, dessen Unterstützung er nie erklärt hat.",
+    ],
+  },
+  {
     version: "1.0.0",
     date: "2026-10-19",
     highlights: [
