@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "2.1.0",
+    date: "2026-10-27",
+    highlights: [
+      "Mascaramento de saída, desativado por padrão. Quando ativado, uma requisição que levaria uma chave de API, uma string de conexão ou um número de documento chega ao modelo com um marcador tipado, e um telefone chega como outro número da mesma forma — não há nada para o modelo reagir, e o valor real é restaurado antes de a resposta ser lida. Uma reescrita que falha faz a requisição falhar em vez de enviá-la sem máscara.",
+      "A linha abaixo do interruptor informa quantos valores estão guardados e permite apagá-los. Apagar é imediato, não pode ser desfeito e não reescreve mensagens que já mostram um substituto.",
+    ],
+  },
+
+  {
     version: "2.0.0",
     date: "2026-10-26",
     highlights: [
