@@ -226,6 +226,17 @@ export type MessagingWebhookReceiverSettings = {
  */
 export type CloseBehavior = "ask" | "tray" | "quit";
 
+/** Outbound redaction (ADR 0332). */
+export type RedactionSettings = {
+  /**
+   * Only an explicit `true` enables it. The switch is off by default because a
+   * rule that fires on ordinary code changes what the model reads; the mapping
+   * table is also a plaintext secret store on disk, so enabling it is a
+   * deliberate choice rather than a default.
+   */
+  enabled?: boolean;
+};
+
 export type AppSettings = {
   imageGeneration?: import("../image-generation.js").ImageGenerationBinding | null;
   /** All models marked for image generation; absent falls back to imageGeneration. */
@@ -270,6 +281,12 @@ export type AppSettings = {
    * of what the artifact contains.
    */
   inlineVizScriptedPreviews?: boolean;
+  /**
+   * Outbound redaction (ADR 0332). When enabled, secrets matched by the built-in
+   * rule table are replaced with typed placeholders before a provider request
+   * leaves the machine, and restored in the reply. Absent and false keep it off.
+   */
+  redaction?: RedactionSettings;
   /** Configured command shell for the agent Bash protocol tool. */
   defaultCommandShell?: CommandShellId;
 

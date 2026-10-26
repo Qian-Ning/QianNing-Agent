@@ -45,8 +45,10 @@ install it on the model registry before hosted search is installed.
    contain a quote.
 6. **Failure is closed.** If the rewrite throws, the request fails and the
    provider never receives the body.
-7. **The feature is off by default.** The runtime accepts a redaction binding;
-   enabling it, and the settings surface that controls it, land separately.
+7. **The feature is off by default.** The runtime accepts a redaction binding,
+   the settings page exposes one switch (`AppSettings.redaction.enabled`), and an
+   absent or false value launches no binding: the sidecar never opens the table
+   and the request stays verbatim.
 
 ## Consequences
 
@@ -74,9 +76,9 @@ install it on the model registry before hosted search is installed.
 
 ### Follow-ups
 
-- Settings surface and enable/disable toggle.
 - A dry-run preview that shows what would be replaced without sending.
 - Per-rule toggles once real-project false-positive data exists.
+- Surface the table size, and a way to clear it, on the same settings row.
 
 ## Alternatives
 

@@ -11,6 +11,7 @@ import {
   resolveBindingLimits,
   trustedExtensionAgentKeyFromProviderId,
   type CommandShellCatalog,
+  type AppSettings,
   type McpServerRecord,
   type ModelBinding,
   type Mode,
@@ -78,6 +79,20 @@ export type SessionLaunchRuntimeDependencies = {
   };
   normalizeThinkingLevel: (value: unknown) => SessionThinkingLevel;
 };
+
+/**
+ * Redaction parameters for one session launch.
+ *
+ * Off unless the operator turned it on: an absent or false setting produces no
+ * binding, so the sidecar never opens a token table and the request stays
+ * verbatim.
+ */
+export function redactionLaunchParams(
+  settings: AppSettings,
+  dataDir: string,
+): { dir: string } | undefined {
+  return settings.redaction?.enabled === true ? { dir: join(dataDir, "redaction") } : undefined;
+}
 
 export function createSessionLaunchRuntime({
   runtimeState,
@@ -632,6 +647,7 @@ export function createSessionLaunchRuntime({
         thinkingLevel,
         infiniteProviderRetry: settings.infiniteProviderRetry === true,
         inlineVisualizations: settings.inlineVisualizations === true,
+        redaction: redactionLaunchParams(settings, dataDir),
         commandShell,
         scratchDir: join(dataDir, "scratch", sessionId),
         attachmentsDir: join(dataDir, "attachments"),

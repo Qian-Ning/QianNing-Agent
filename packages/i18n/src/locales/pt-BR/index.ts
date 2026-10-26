@@ -1891,6 +1891,8 @@ export const ptBR = {
     enterToSendDesc: "Desativado: pressione ⌘/Ctrl+Enter para enviar.",
     infiniteProviderRetry: "Tentar novamente até obter sucesso",
     infiniteProviderRetryDesc: "Continua tentando indefinidamente em caso de falhas temporárias de rede ou do provedor. Ainda é possível interromper a rodada; enquanto esta opção estiver ativada, o consumo e os custos da API podem continuar.",
+    redaction: "Ocultar segredos antes de enviar",
+    redactionDesc: "Substitui chaves, strings de conexão e telefones por marcadores antes que a requisição saia deste computador, e os restaura na resposta. Desativado por padrão.",
     smoothStreaming: "Exibição gradual",
     smoothStreamingDesc: "Exibe o texto recebido caractere por caractere, criando um efeito de máquina de escrever. É desativada automaticamente quando o sistema está configurado para reduzir animações.",
     inlineVisualizations: "Visualizações em linha",

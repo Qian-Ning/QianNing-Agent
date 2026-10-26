@@ -1925,6 +1925,8 @@ sklm: {
     "enterToSendDesc": "Désactivé : appuyez sur ⌘/Ctrl+Entrée pour envoyer.",
     "infiniteProviderRetry": "Réessayer jusqu’à réussite",
     "infiniteProviderRetryDesc": "Réessaie les erreurs réseau et temporaires jusqu’à la réussite. Vous pouvez toujours arrêter le tour ; la consommation d’API peut continuer.",
+    "redaction": "Masquer les secrets avant l'envoi",
+    "redactionDesc": "Remplace les clés, chaînes de connexion et numéros de téléphone par des jetons avant que la requête ne quitte cet ordinateur, puis les restaure dans la réponse. Désactivé par défaut.",
     "smoothStreaming": "Streaming fluide",
     "smoothStreamingDesc": "Libère le texte diffusé caractère par caractère pour un effet machine à écrire. Automatiquement désactivé lorsque le système préfère un mouvement réduit.",
     "inlineVisualizations": "Visualisations en ligne",
