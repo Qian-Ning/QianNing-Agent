@@ -360,3 +360,4 @@ Each ADR includes:
 | 0328 | [Scripted previews, a session-artifact scheme, and a user-driven write](0328-inline-viz-advanced.md) | Accepted for implementation |
 | 0329 | [The shared inbound-webhook receiver as a messaging channel](0329-messaging-webhook-receiver.md) | Accepted for implementation |
 | 0330 | [Grouped skill catalog with a description budget](0330-skill-catalog-groups.md) | Accepted |
+| 0331 | [First-turn skill preload, local load counts, and a generation group gate](0331-skill-delivery-tuning.md) | Accepted |

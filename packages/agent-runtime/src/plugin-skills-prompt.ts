@@ -22,6 +22,34 @@ export const SKILL_SECTION_PREFIX = "skill:";
 /** The section key a group heading occupies, namespaced so it cannot collide with a skill id. */
 export const SKILL_GROUP_SECTION_PREFIX = "skill-group:";
 
+/** Section holding a skill body the host matched to the session's first prompt. */
+export const SKILL_PRELOAD_SECTION = "skill-preload";
+
+/** A skill body the host matched to the first prompt. */
+export type PreloadedSkill = {
+  id: string;
+  name: string;
+  body: string;
+};
+
+/**
+ * Render a preloaded body as its own system section.
+ *
+ * The heading states why the document is here, so a model reading a long
+ * instruction block knows it answered the first message rather than arriving by
+ * accident. The section is revocable like any other, which keeps transcript
+ * rebuilds and idle refreshes honest.
+ */
+export function preloadedSkillSection(skill: PreloadedSkill): string {
+  return [
+    `# Preloaded skill: ${skill.name}`,
+    "",
+    `The first message matches the \`${skill.id}\` skill, so its instructions are included below. Follow them unless the task turns out to be about something else.`,
+    "",
+    skill.body.trim(),
+  ].join("\n");
+}
+
 function skillEntry(skill: PluginSkillDef): string {
   const description = skill.description?.trim();
   return `- \`${skill.id}\` — ${skill.name}${description ? `: ${description}` : ""}`;

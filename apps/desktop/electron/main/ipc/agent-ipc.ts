@@ -4,6 +4,7 @@ import { expandSlashInvocation, summarizeSessionTitle, summarizeSessionContext, 
 import { OAUTH_AUTH_KIND, type VendorOAuth } from "../oauth";
 import { appendPromptFallbackPaths, durableUserMessageId, preparePromptAttachments, type PreparedPromptAttachment } from "../prompt-attachments";
 import { executionFromResponse, resolveSessionMessageInput } from "@pi-desktop/host-runtime";
+import { resolvePreloadedSkill } from "../skill-preload";
 import type { AgentExtensionBridge } from "../agent-extensions";
 import type { AgentHostBridge } from "../agent-host-bridge";
 import type { AgentSidecar } from "../agent-sidecar";
@@ -529,6 +530,14 @@ export function registerAgentIpc({
       event: { type: "message_end", message: userMessage },
     } satisfies AgentEventEnvelope);
 
+    // One conservative match against the catalogue. The runtime keeps it only
+    // when this is the session's first turn, so a resumed conversation never
+    // inherits an assumption made from a single message.
+    const preloadedSkill = resolvePreloadedSkill(
+      modelContent,
+      launch.sidecarParams.pluginSkills ?? [],
+    );
+
     let result: { accepted: boolean; turnId: string };
     try {
       result = await sidecar.call<{ accepted: boolean; turnId: string }>(
@@ -539,6 +548,7 @@ export function registerAgentIpc({
           // Rust. The runtime must not replace it with a provider-local UUID.
           turnId: durableTurnId,
           content: modelContent,
+          ...(preloadedSkill ? { preloadedSkill } : {}),
           ...(sessionMessage ? { sessionMessage: sessionMessage.origin } : {}),
           attachments: preparedAttachments
             .filter((attachment) => attachment.inlineData)

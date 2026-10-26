@@ -201,8 +201,11 @@ import { projectMemoryPrompt } from "./project-memory-prompt.js";
 import {
   pluginSkillsPrompt,
   pluginSkillsPromptSections,
+  preloadedSkillSection,
+  SKILL_PRELOAD_SECTION,
   SKILL_TOOL_NAME,
   type PluginSkillDef,
+  type PreloadedSkill,
 } from "./plugin-skills-prompt.js";
 import { pluginSkillsDigest } from "./plugin-skills.js";
 import {
@@ -930,6 +933,15 @@ export type AgentRuntimeOptions = {
   pluginTools?: PluginToolDef[];
   /** Plugin skills advertised in the system prompt and loaded via `Skill`. */
   pluginSkills?: PluginSkillDef[];
+  /**
+   * A skill body the host matched to the first prompt.
+   *
+   * It rides in the system prompt from the first turn, so the common case
+   * costs no discovery round trip. The host supplies it per prompt; a runtime
+   * that already holds turn history ignores it, because a resumed session has
+   * its own conversation to judge against and a first-message match is stale.
+   */
+  preloadedSkill?: PreloadedSkill;
   /** Trusted extensions enabled for this session (D387); loaded by
    * `loadTrustedExtensions()` before the first prompt. */
   trustedExtensions?: TrustedExtensionSpec[];
@@ -1659,6 +1671,8 @@ export class DesktopAgentRuntime {
   private currentAssistant?: UiMessage;
   private pluginTools: PluginToolDef[];
   private pluginSkills: PluginSkillDef[];
+  /** Skill body matched to the session's first prompt, if the host supplied one. */
+  private preloadedSkill?: PreloadedSkill;
   private trustedExtensionSpecs: TrustedExtensionSpec[];
   private extensionRunner?: TrustedExtensionRunner;
   private extensionSessionName?: string;
@@ -1894,6 +1908,13 @@ export class DesktopAgentRuntime {
     this.onEvent = (envelope) => this.streamSink.push(envelope);
     this.pluginTools = opts.pluginTools ?? [];
     this.pluginSkills = [...(opts.pluginSkills ?? [])].sort((left, right) => left.id.localeCompare(right.id));
+    // A preload answers the first prompt. Restored history means a first prompt
+    // already happened; the host's match then belongs to a later message and the
+    // model has the whole conversation to judge by.
+    const hasTurnHistory = (opts.history ?? []).some(
+      (message) => message.role === "user" || message.role === "assistant",
+    );
+    this.preloadedSkill = hasTurnHistory ? undefined : opts.preloadedSkill;
     this.trustedExtensionSpecs = opts.trustedExtensions ?? [];
     this.subagents = opts.subagents ?? [];
     this.subagentProviders = opts.subagentProviders ?? {};
@@ -2239,6 +2260,23 @@ Call TaskWait only when your next step genuinely depends on that report and noth
     this.setAgentSystemPrompt(this.composeSystemPrompt());
   }
 
+  /**
+   * Attach a skill body the host matched to the first prompt.
+   *
+   * A runtime reused across prompts may be offered a match on every prompt; the
+   * first one wins, and a runtime that already has turns ignores the offer. This
+   * never throws during an active turn — a late offer is simply dropped.
+   */
+  setPreloadedSkill(skill: PreloadedSkill): void {
+    if (this.disposed || this.preloadedSkill || this.getStatus().isRunning) return;
+    const hasTurnHistory = this.liveSessionContext().messages.some(
+      (message) => message.role === "user" || message.role === "assistant",
+    );
+    if (hasTurnHistory) return;
+    this.preloadedSkill = skill;
+    this.setAgentSystemPrompt(this.composeSystemPrompt());
+  }
+
   /** Switch the planning state on this Agent without creating another Agent. */
   setMode(mode: Mode): void {
     if (this.disposed) throw new Error("runtime disposed");
@@ -2326,6 +2364,9 @@ Call TaskWait only when your next step genuinely depends on that report and noth
         [TOOL_ACTIVATION_SECTION]: toolActivationSection(this.declarationPolicy.key, this.activeDeferredToolNames),
       } : {}),
       ...pluginSkillsPromptSections(this.pluginSkills),
+      ...(this.preloadedSkill
+        ? { [SKILL_PRELOAD_SECTION]: preloadedSkillSection(this.preloadedSkill) }
+        : {}),
       context: composeModeSystemPrompt(this.mode, [
         ...(optionalToolsPrompt ? [optionalToolsPrompt] : []),
         ...(rootsPrompt ? [rootsPrompt] : []),

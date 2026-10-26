@@ -58,6 +58,35 @@ test("an unconfigured capability drops only its own skill", async () => {
   assert.ok(!bothOff.includes("qianning/videogen"));
 });
 
+test("the generation group disappears with its last entry", async () => {
+  // A heading over zero entries is pure catalog cost. The group gate is the
+  // upstream switch: it drops the whole set before per-entry gating runs.
+  const { builtinSkills } = await loadBuiltinSkills();
+
+  const bothOff = builtinSkills({
+    imageGenerationAvailable: false,
+    videoGenerationAvailable: false,
+  });
+  assert.ok(!bothOff.some((skill) => skill.group === "Generation"));
+
+  const imageOnly = builtinSkills({
+    imageGenerationAvailable: true,
+    videoGenerationAvailable: false,
+  });
+  assert.deepEqual(
+    imageOnly.filter((skill) => skill.group === "Generation").map((skill) => skill.id),
+    ["qianning/imagegen"],
+  );
+
+  // An unknown signal keeps the group: the composer's slash list must still
+  // show every built-in skill to a human.
+  const unknown = builtinSkills({});
+  assert.deepEqual(
+    unknown.filter((skill) => skill.group === "Generation").map((skill) => skill.id),
+    ["qianning/imagegen", "qianning/videogen"],
+  );
+});
+
 test("gating the catalog does not make the skill unloadable", async () => {
   // The entry disappears from the advertisement; the body still resolves, so a
   // transcript or an earlier turn that named the id keeps working.

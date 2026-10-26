@@ -173,6 +173,7 @@ function createRuntime(
     subagentProviders: Record<string, RuntimeProviderConfig>;
     subagentModelKeys: string[];
     pluginSkills: import("./plugin-skills-prompt.js").PluginSkillDef[];
+    preloadedSkill: import("./plugin-skills-prompt.js").PreloadedSkill;
     commandShell: CommandShellOption;
     turnId: string;
     host: { call: ReturnType<typeof vi.fn>; onNotification?: ReturnType<typeof vi.fn> };
@@ -201,6 +202,7 @@ function createRuntime(
     workspaceRootsGuide: overrides.workspaceRootsGuide,
     projectMemory: overrides.projectMemory,
     pluginSkills: overrides.pluginSkills,
+    preloadedSkill: overrides.preloadedSkill,
     onEvent: overrides.onEvent ?? vi.fn(),
   });
 }
@@ -6600,6 +6602,50 @@ describe("DesktopAgentRuntime plugin skills (D174)", () => {
 
     const prompt = (runtime as any).agent.state.systemPrompt;
     expect(prompt).toContain("# Skills");
+
+    await runtime.dispose();
+  });
+
+  it("preloads a matched skill body for the first turn only", async () => {
+    const preloadedSkill = {
+      id: "qianning/release-verification",
+      name: "Release verification",
+      body: "PROVE THE ARTEFACT",
+    };
+
+    const fresh = createRuntime({ pluginSkills, preloadedSkill });
+    expect((fresh as any).agent.state.systemPrompt).toContain(
+      "# Preloaded skill: Release verification",
+    );
+    expect((fresh as any).agent.state.systemPrompt).toContain("PROVE THE ARTEFACT");
+    await fresh.dispose();
+
+    // A resumed session already had a first prompt; the host's match is stale.
+    const resumed = createRuntime({
+      pluginSkills,
+      preloadedSkill,
+      history: [
+        {
+          id: "old-user",
+          role: "user",
+          content: "earlier task",
+          createdAt: new Date().toISOString(),
+          status: "complete",
+        },
+      ],
+    });
+    expect((resumed as any).agent.state.systemPrompt).not.toContain("PROVE THE ARTEFACT");
+    await resumed.dispose();
+  });
+
+  it("accepts one late preload offer and ignores the rest", async () => {
+    const runtime = createRuntime({ pluginSkills });
+
+    runtime.setPreloadedSkill({ id: "qianning/first", name: "First", body: "FIRST BODY" });
+    expect((runtime as any).agent.state.systemPrompt).toContain("FIRST BODY");
+
+    runtime.setPreloadedSkill({ id: "qianning/second", name: "Second", body: "SECOND BODY" });
+    expect((runtime as any).agent.state.systemPrompt).not.toContain("SECOND BODY");
 
     await runtime.dispose();
   });

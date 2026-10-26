@@ -9,7 +9,7 @@ import {
   toToolDeclaration,
 } from "@earendil-works/pi-ai";
 
-import { SKILL_GROUP_SECTION_PREFIX, SKILL_SECTION_PREFIX } from "./plugin-skills-prompt.js";
+import { SKILL_GROUP_SECTION_PREFIX, SKILL_PRELOAD_SECTION, SKILL_SECTION_PREFIX } from "./plugin-skills-prompt.js";
 
 function systemMessages(messages: readonly AgentMessage[]): SystemMessage[] {
   return messages.filter((message): message is SystemMessage => message.role === "system");
@@ -53,7 +53,7 @@ function desktopSectionNames(sections: Record<string, unknown>): string[] {
   const ordered = skillNames.some((name) => name.startsWith(SKILL_GROUP_SECTION_PREFIX))
     ? skillNames
     : [...skillNames].sort((a, b) => a.localeCompare(b));
-  return ["runtime", TOOL_ACTIVATION_SECTION, "skills", ...ordered, "context"];
+  return ["runtime", TOOL_ACTIVATION_SECTION, "skills", ...ordered, SKILL_PRELOAD_SECTION, "context"];
 }
 
 export function systemPromptContent(messages: readonly AgentMessage[]): string {

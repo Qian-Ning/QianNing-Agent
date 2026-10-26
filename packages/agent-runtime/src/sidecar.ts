@@ -17,7 +17,7 @@ import {
   type RuntimePromptAttachment,
   type RuntimeProviderConfig,
 } from "./runtime.js";
-import type { PluginSkillDef } from "./plugin-skills-prompt.js";
+import type { PluginSkillDef, PreloadedSkill } from "./plugin-skills-prompt.js";
 import type { SessionMessageOrigin, TrustedExtensionSpec } from "@pi-desktop/shared";
 import {
   normalizeSupportedThinkingLevels,
@@ -97,6 +97,8 @@ type RuntimeParams = {
   commandShell: CommandShellOption;
   pluginTools?: PluginToolDef[];
   pluginSkills?: PluginSkillDef[];
+  /** Body the host matched to this prompt; the runtime keeps it only for a first turn. */
+  preloadedSkill?: PreloadedSkill;
   /** Trusted extensions enabled for this session (D387). */
   trustedExtensions?: TrustedExtensionSpec[];
   /** Delegates this session may spawn through `Task` (ADR 0062). */
@@ -230,6 +232,7 @@ async function runtimeFor(
   }
   if (reusable) {
     reusable.setPluginSkills(pluginSkills);
+    if (params.preloadedSkill) reusable.setPreloadedSkill(params.preloadedSkill);
     reusable.setCompactionSettings(params.compactionSettings);
     reusable.setInfiniteProviderRetry(params.infiniteProviderRetry === true);
     reusable.setInlineVisualizations(params.inlineVisualizations === true);
@@ -295,6 +298,7 @@ async function runtimeFor(
     subagents,
     subagentProviders,
     subagentModelKeys,
+    ...(params.preloadedSkill ? { preloadedSkill: params.preloadedSkill } : {}),
     projectPath: params.projectPath,
     systemPrompt: params.systemPrompt,
     projectMemory: params.projectMemory,

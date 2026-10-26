@@ -210,6 +210,22 @@ These are project policy rather than format rules, and they are enforced (§10):
   `Other`, and the gating test reports it as a missing entry.
 - **The body ends with its own final instruction**, not with a promise of further
   work or a sentence that describes the document.
+- **A matched document may ride the first prompt.** The host scores the first
+  user message against the advertised catalog with a lexical matcher and, when a
+  single document clears both the score and the margin, appends its body as the
+  `skill-preload` system section. The runtime refuses the offer once the session
+  has turn history, so a resumed conversation is never handed a body chosen from
+  one sentence. Bodies above `SKILL_PRELOAD_MAX_BODY_CHARS` stay behind the
+  `Skill` tool.
+- **A group whose every member depends on one unavailable capability is not
+  advertised.** `BUILTIN_SKILL_GROUP_GATES`, in the same file as the group table,
+  holds those gates; `Generation` drops out when neither generation model is
+  configured. Entry-level gating still runs underneath, so one unconfigured
+  member disappears without taking the group with it.
+- **Load counts are local evidence, not telemetry.** Each successful `Skill` load
+  of a bundled document increments `<data dir>/skill-usage.json`, and `pnpm
+  skills:usage` prints the ranking. The file is diagnostic state: a corrupt or
+  unreadable copy resets to zero and never fails a turn.
 
 ## 9. Editing an existing document
 
@@ -238,6 +254,9 @@ table is a convention followed by people, not a guarantee.
 | `SkillCreate` advertises the limits from §6, and the body cap in the unit that is enforced | `apps/desktop/test/skill-authoring-tool.test.mjs` |
 | Discovery finds every bundled document | `apps/desktop/test/builtin-skill-discovery.test.mjs` |
 | Name required, clipping, id derivation, rename preservation | `crates/host-core/src/user_skills/tests.rs`, `crates/host-core/src/agent_capabilities/tests.rs` |
+| Preload thresholds and first-turn rule (§8) | `apps/desktop/test/skill-preload.test.mjs`, `packages/agent-runtime/src/runtime.test.ts` |
+| Group gates (§8) | `apps/desktop/test/builtin-skill-gating.test.mjs` |
+| Usage counter shape and corruption tolerance (§8) | `apps/desktop/test/skill-usage.test.mjs` |
 | Importer warnings for missing fields | `apps/desktop/electron/test/agent-skill-scan.test.mjs` |
 
 ## 11. Authoring checklist
