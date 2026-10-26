@@ -124,6 +124,15 @@ describe("RestoreWindow", () => {
     expect(first + second + window.flush()).toBe("call 13812345678 now");
   });
 
+  it("releases a complete stand-in arriving in one chunk", async () => {
+    const store = await makeStore();
+    const stand = store.getOrInsert("PHONE", "13812345678");
+    const window = new RestoreWindow(store);
+    // A complete value must not hold itself back on its own prefix.
+    expect(window.push(stand)).toBe("13812345678");
+    expect(window.flush()).toBe("");
+  });
+
   it("does not leak a partial stand-in before the chunk settles", async () => {
     const store = await makeStore();
     const stand = store.getOrInsert("PHONE", "13812345678");

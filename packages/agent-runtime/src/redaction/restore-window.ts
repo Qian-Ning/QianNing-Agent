@@ -101,7 +101,10 @@ export class RestoreWindow {
     if (values.length === 0 || text.length === 0) return text.length;
     let best = text.length;
     for (const value of values) {
-      // A complete value in the buffer is restorable, so stop at length - 1.
+      // A complete value is restorable right now; it must not hold itself back.
+      if (text.endsWith(value)) continue;
+      // Otherwise hold the longest trailing prefix, which is what a chunk
+      // boundary can leave behind.
       const limit = Math.min(value.length - 1, text.length);
       for (let length = limit; length >= 1; length -= 1) {
         if (!text.endsWith(value.slice(0, length))) continue;
