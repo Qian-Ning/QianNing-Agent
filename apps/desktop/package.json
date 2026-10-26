@@ -281,9 +281,6 @@
       ],
       "category": "Development",
       "icon": "build/icon.png",
-      "appImage": {
-        "artifactName": "QianNing.Agent-${version}.${ext}"
-      },
       "extraResources": [
         {
           "from": "../../target/release/pi-desktop-host-core",

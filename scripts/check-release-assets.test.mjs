@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import test from "node:test";
 import { auditAssets, expectedAssets, feedVersion } from "./check-release-assets.mjs";
 
@@ -19,7 +20,7 @@ test("the declared set covers every platform the build matrix publishes", () => 
     "QianNing-Agent-Portable-2.0.0.exe",
     "QianNing-Agent-2.0.0-arm64.dmg",
     "QianNing-Agent-2.0.0-x64-mac.zip",
-    "QianNing.Agent-2.0.0.AppImage",
+    "QianNing Agent-2.0.0.AppImage",
     "qianning-agent_2.0.0_amd64.deb",
     "qianning-agent-2.0.0-x86_64.rpm",
     "pi-host-2.0.0-linux-x64.tar.gz",
@@ -79,10 +80,10 @@ test("feed parsing reads quoted and unquoted version lines", () => {
 
 test("electron-builder's AppImage name is the one the audit declares", () => {
   // Without a target-level artifactName the builder writes
-  // `${productName}-${version}.${ext}`, and productName carries a space. That
-  // produced "QianNing Agent-2.0.0.AppImage" against a declared
-  // "QianNing.Agent-2.0.0.AppImage" and failed the publish gate after every
-  // platform had already built.
+  // `${productName}-${version}.${ext}`, and productName carries a space. 26.x
+  // offers no way to change it for AppImage alone, so the audit has to declare
+  // the spaced name; this keeps the two from drifting apart again, which is how
+  // a full green build ended at the publish gate with "1 missing".
   const pkg = JSON.parse(
     readFileSync(new URL("../apps/desktop/package.json", import.meta.url), "utf8"),
   );
@@ -95,5 +96,28 @@ test("electron-builder's AppImage name is the one the audit declares", () => {
   assert.ok(
     expectedAssets(VERSION).includes(produced),
     `${produced} is what electron-builder would write, and the audit does not declare it`,
+  );
+});
+
+test("every build.linux key is one electron-builder accepts", () => {
+  // electron-builder validates the whole `build` field before it starts any
+  // platform job. An unknown key therefore fails every job at once — a
+  // `linux.appImage` block that the schema never had turned four green platform
+  // builds into four red ones. Unit tests are the only place this can be caught
+  // before a tag, so the schema is read from the installed package.
+  const pkg = JSON.parse(
+    readFileSync(new URL("../apps/desktop/package.json", import.meta.url), "utf8"),
+  );
+  const schemePath = createRequire(new URL("../apps/desktop/package.json", import.meta.url))
+    .resolve("app-builder-lib/scheme.json");
+  const scheme = JSON.parse(readFileSync(schemePath, "utf8"));
+  const allowed = new Set(
+    Object.keys(scheme.definitions.LinuxConfiguration.properties ?? {}),
+  );
+  const unknown = Object.keys(pkg.build?.linux ?? {}).filter((key) => !allowed.has(key));
+  assert.deepEqual(
+    unknown,
+    [],
+    `electron-builder would reject these linux keys: ${unknown.join(", ")}`,
   );
 });
