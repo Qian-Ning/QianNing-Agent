@@ -103,6 +103,10 @@ skill applies — not as a summary of the body. It is the text the model uses to
 decide whether to load the document at all, so a description that reads like a
 table of contents is a description that never matches.
 
+A bundled document is advertised in every session, so its description is held to
+a tighter **120-character catalog budget** (§8) than the 240-character format
+limit above.
+
 ### 4.3 `version`
 
 `version` is an **entry field of the market catalog** (`SkillCatalogEntry`). It is
@@ -197,6 +201,13 @@ These are project policy rather than format rules, and they are enforced (§10):
   name costs less context. Brand identity is carried by the **id**, which doubles
   as the slash-command name and is the user-visible surface.
 - **`description` is the trigger condition**, and it is bounded by §4.2.
+- **A bundled document's `description` stays within the 120-character catalog
+  budget**, tighter than the §4.2 format limit, because every bundled description
+  is advertised in every session.
+- **Every bundled document appears in `BUILTIN_SKILL_GROUPS`** in
+  `apps/desktop/electron/main/builtin-skills.ts`. The model-facing catalog prints
+  built-in skills under those headings; an unlisted document still ships, under
+  `Other`, and the gating test reports it as a missing entry.
 - **The body ends with its own final instruction**, not with a promise of further
   work or a sentence that describes the document.
 

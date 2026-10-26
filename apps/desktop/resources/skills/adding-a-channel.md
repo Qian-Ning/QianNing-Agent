@@ -1,6 +1,6 @@
 ---
 name: adding-a-channel
-description: a new channel, adapter, or third-party integration has to be added to a layered application without forking the transport
+description: a channel, adapter, or third-party integration has to be added to a layered app without forking its transport
 ---
 
 # Adding a channel to a layered application

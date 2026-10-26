@@ -1,6 +1,6 @@
 ---
 name: codebase-inspection
-description: an unfamiliar repository has to be sized up before a change - what it is made of, where the weight sits, and what is generated
+description: an unfamiliar repository has to be sized up before a change — its parts, where the weight sits, what is generated
 ---
 
 # Measuring a repository before you change it

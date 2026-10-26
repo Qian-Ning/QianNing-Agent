@@ -1,6 +1,6 @@
 ---
 name: generative-sketches
-description: an animated canvas sketch is being written - generative art, a shader-like effect, an interactive scene, or a 3D view - and a good frame has to be reproducible
+description: an animated canvas sketch — generative art, shader effect, interactive scene — must reproduce a good frame
 ---
 
 # Canvas sketches that can be replayed

@@ -1,6 +1,6 @@
 ---
 name: node-inspect-debugger
-description: a Node process produces a wrong value and prints are not enough - run or attach to the inspector, break, and read the actual locals
+description: a Node process returns a wrong value and prints are not enough — attach the inspector, break, read the locals
 ---
 
 # Stepping through a Node process

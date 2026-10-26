@@ -1,6 +1,6 @@
 ---
 name: videogen
-description: Generate short videos with the configured video model. Supports a first-frame image, variants, batches, and a requested duration and size. Rendering takes minutes and is billed per second by the provider.
+description: Generate short videos with the configured video model — first-frame image, variants, batches, duration and size
 ---
 
 # Video generation

@@ -206,4 +206,31 @@ describe("system transcript helpers", () => {
     expect(getCurrentTools(requests[0]!)).toEqual([toToolDeclaration(tool)]);
     expect(agent.state.messages.filter((message) => message.role === "system")).toEqual(prefix);
   });
+
+  it("keeps a skill group heading in the rebuilt prompt and syncs it like an entry", () => {
+    const heading = "skill-group:Writing";
+    const grouped: SystemMessage = {
+      role: "system", content: "", timestamp: 3_000,
+      sections: {
+        runtime: "Base",
+        skills: "Load skills",
+        "skill:qianning/alpha": "A",
+        [heading]: "## Writing",
+        "skill:qianning/beta": "B",
+        context: "Context",
+      },
+    };
+    // The heading sits between the entries it introduces, in insertion order.
+    expect(systemPromptContent([grouped])).toBe(
+      ["Base", "Load skills", "A", "## Writing", "B", "Context"].join("\n\n"),
+    );
+
+    const withoutHeading = {
+      runtime: "Base", skills: "Load skills",
+      "skill:qianning/alpha": "A", "skill:qianning/beta": "B", context: "Context",
+    };
+    expect(syncSystemSections([grouped], withoutHeading).at(-1)).toMatchObject({
+      sections: { [heading]: null },
+    });
+  });
 });

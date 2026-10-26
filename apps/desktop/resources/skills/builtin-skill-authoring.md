@@ -1,6 +1,6 @@
 ---
 name: builtin-skill-authoring
-description: a document will ship inside an assistant and be loaded by a model on demand, so the trigger line and the procedure both have to earn their cost
+description: a document ships inside an assistant and loads by model demand, so its trigger line and procedure must earn their cost
 ---
 
 # Writing a document that ships inside an assistant

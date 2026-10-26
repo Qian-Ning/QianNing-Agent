@@ -15,6 +15,16 @@ export type PluginSkillDef = {
   id: string;
   name: string;
   description?: string;
+  /**
+   * The catalog group the entry renders under, when its owner assigns one.
+   *
+   * Grouping is presentation, not filtering: every entry is still advertised.
+   * Built-in skills carry a group so the per-session catalog reads as a small
+   * set of headings instead of one undifferentiated list; plugin and user
+   * skills leave it absent and keep their current flat rendering, so nothing
+   * owned by a third party changes shape here.
+   */
+  group?: string;
 };
 
 /**
@@ -26,5 +36,5 @@ export type PluginSkillDef = {
  */
 export function pluginSkillsDigest(skills?: PluginSkillDef[]): string {
   if (!skills?.length) return "";
-  return JSON.stringify(skills.map((skill) => [skill.id, skill.name, skill.description ?? ""]));
+  return JSON.stringify(skills.map((skill) => [skill.id, skill.name, skill.description ?? "", skill.group ?? ""]));
 }
