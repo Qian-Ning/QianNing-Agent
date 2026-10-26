@@ -49,6 +49,12 @@ export type HttpBindingOptions = {
    * a LAN bind is an explicit decision even when a certificate is present.
    */
   allowLan?: boolean;
+  /**
+   * Serves the client shell. Called BEFORE authentication, because the page is
+   * what collects the token — it must therefore return only public assets and
+   * never anything derived from a session.
+   */
+  serveStatic?: (pathname: string) => { body: string | Buffer; contentType: string } | null;
   /** `0` asks the OS for a free port, which is what the desktop wants by default. */
   port: number;
   log: (level: "info" | "warn" | "error", message: string, data?: Record<string, unknown>) => void;
@@ -425,6 +431,19 @@ export async function bindRacpHttp(options: HttpBindingOptions): Promise<HttpBin
       if ([...url.searchParams.keys()].some((key) => /token|auth|key/i.test(key))) {
         options.log("warn", "racp http refused: credential in url");
         return send(response, 400, { error: "INVALID_ARGUMENT", message: "credentials must not travel in a URL" });
+      }
+
+      // The client shell is the one thing a caller may fetch without a
+      // credential: it is the page that asks for one. It carries no session
+      // data, and every request it then makes is authenticated normally.
+      const asset = method === "GET" ? options.serveStatic?.(url.pathname) : null;
+      if (asset) {
+        response.statusCode = 200;
+        response.setHeader("content-type", asset.contentType);
+        response.setHeader("cache-control", "no-store");
+        response.setHeader("x-content-type-options", "nosniff");
+        response.end(asset.body);
+        return;
       }
 
       const auth = await options.authenticator.authenticate({

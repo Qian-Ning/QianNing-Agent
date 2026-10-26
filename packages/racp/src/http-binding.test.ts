@@ -193,3 +193,37 @@ describe("a non-loopback bind", () => {
     ).rejects.toThrow(/requires TLS/);
   });
 });
+
+describe("the client shell", () => {
+  async function withShell<T>(run: (base: string) => Promise<T>): Promise<T> {
+    const h = await harness({ bindings: HTTP_BINDINGS });
+    const binding = await bindRacpHttp({
+      server: h.server,
+      authenticator: h.authenticator,
+      port: 0,
+      log: () => undefined,
+      serveStatic: (pathname) =>
+        pathname === "/app" ? { body: "<html>shell</html>", contentType: "text/html" } : null,
+    });
+    try {
+      return await run(`http://127.0.0.1:${binding.address.port}`);
+    } finally {
+      await binding.close();
+    }
+  }
+
+  it("is served without a credential, because it is the page that collects one", async () => {
+    await withShell(async (base) => {
+      const response = await fetch(`${base}/app`);
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe("<html>shell</html>");
+    });
+  });
+
+  it("does not make the protocol anonymous: an unknown path still needs a token", async () => {
+    await withShell(async (base) => {
+      expect((await fetch(`${base}/v1/unknown`)).status).toBe(401);
+      expect((await fetch(`${base}/v1/unknown`, { headers: auth() })).status).toBe(404);
+    });
+  });
+});

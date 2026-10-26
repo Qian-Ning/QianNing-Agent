@@ -49,6 +49,11 @@ export type RemoteListenerOptions = {
    * phone on the same network is the reason this exists.
    */
   exposure?: "loopback" | "lan";
+  /**
+   * The client shell, when the host has one to serve. Passed through to the
+   * binding untouched: this module knows how to listen, not what a page is.
+   */
+  serveStatic?: (pathname: string) => { body: string | Buffer; contentType: string } | null;
 };
 
 export type RemoteStatus = {
@@ -187,6 +192,7 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
         host: exposure === "lan" ? EVERY_INTERFACE : LOOPBACK,
         port: options.port ?? 0,
         ...(tls ? { tls, allowLan: true } : {}),
+        ...(options.serveStatic ? { serveStatic: options.serveStatic } : {}),
         log: options.log,
       });
       publicUrl = tls ? `https://${addresses[0]}:${binding.address.port}` : null;
