@@ -747,7 +747,8 @@ export const api = {
   clearRedactionTable: () => invoke<RedactionClearResult>(IPC.invoke.redactionClear),
   /** Remote access (ADR 0333): the listener state plus its paired devices. */
   getRemoteAccess: () => invoke<RemoteAccessStatus>(IPC.invoke.remoteStatus),
-  enableRemoteAccess: () => invoke<RemoteAccessStatus>(IPC.invoke.remoteEnable),
+  enableRemoteAccess: (exposure?: "loopback" | "lan") =>
+    invoke<RemoteAccessStatus>(IPC.invoke.remoteEnable, { exposure }),
   disableRemoteAccess: () => invoke<RemoteAccessStatus>(IPC.invoke.remoteDisable),
   /** The only call that ever returns a token; the Host keeps just its hash. */
   issueRemoteDevice: (label: string) =>

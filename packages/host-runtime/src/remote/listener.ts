@@ -73,7 +73,12 @@ export type IssuedDevice = {
 
 export type RemoteListener = {
   status(): Promise<RemoteStatus>;
-  start(): Promise<{ host: string; port: number; protocol: "http" | "https" }>;
+  /**
+   * Opens the listener. `exposure` overrides the option for this start, because
+   * the mode is the user's choice at the moment they turn it on, not a property
+   * of the store that also holds the devices.
+   */
+  start(exposure?: "loopback" | "lan"): Promise<{ host: string; port: number; protocol: "http" | "https" }>;
   stop(): Promise<void>;
   listDevices(): Promise<DeviceRecord[]>;
   issueDevice(label: string, roles?: RacpRole[]): Promise<IssuedDevice>;
@@ -142,9 +147,9 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
       };
     },
 
-    async start() {
+    async start(requested) {
       if (binding) return binding.address;
-      const exposure = options.exposure ?? "loopback";
+      const exposure = requested ?? options.exposure ?? "loopback";
       const addresses = exposure === "lan" ? lanAddresses() : [];
       if (exposure === "lan" && addresses.length === 0) {
         throw Object.assign(new Error("this machine has no non-loopback IPv4 address to serve on"), {
