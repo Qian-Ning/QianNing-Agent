@@ -72,6 +72,9 @@ jobs:
       - name: Upstream sync audit
         run: node --test scripts/upstream-sync-audit.test.mjs
 
+      - name: Release asset audit unit tests
+        run: node --test scripts/check-release-assets.test.mjs
+
   theme-surfaces:
     name: Theme surface cascade E2E
     runs-on: ubuntu-latest

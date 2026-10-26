@@ -511,6 +511,32 @@ merge runs `scripts/merge-mac-update-feed.mjs` from the checkout, and
 script would be missing and the job would die on a module-not-found before
 reaching the release step.
 
+### 4.10 Release asset audit
+
+A build matrix entry can fail while the rest of the release still publishes.
+Nothing about a green Release run implies every platform shipped, so the
+published set is checked against the declared set twice:
+
+- **Staged** — after the macOS feed merge, `node scripts/check-release-assets.mjs
+  --version "${GITHUB_REF_NAME#v}" --dir dist` reads the directory the upload is
+  about to publish and fails the job before anything reaches the release page.
+  This is also the only check that reads feed contents: every `latest*.yml` must
+  declare the tagged version.
+- **Published** — after the upload the job re-reads the release with
+  `gh release view --json assets` and runs the same script with `--assets-from`.
+  An asset can still fail to attach while the action reports success, so what
+  users and the updater actually see is verified separately from what the build
+  produced.
+
+`scripts/check-release-assets.mjs` owns the declared list (`expectedAssets`):
+Windows NSIS, portable and zip; both macOS architectures, DMG and ZIP with their
+blockmaps; AppImage, deb, rpm and the Linux ASAR; the pi-host bundle and its
+checksum; and the three updater feeds. Extra assets are allowed — the
+per-architecture macOS feeds are intermediates — a missing one is not. Adding a
+target or renaming an artifact template in `apps/desktop/package.json` updates
+this list in the same commit; otherwise the next release fails the audit, which
+is the intended signal.
+
 ## 5. Verification gates
 
 Ad-hoc artifacts from a repository without signing configuration (§ 4.3) are
