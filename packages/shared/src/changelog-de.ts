@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "2.1.0",
+    date: "2026-10-27",
+    highlights: [
+      "Ausgehende Maskierung, standardmäßig aus. Ist sie an, erreicht eine Anfrage, die einen API-Schlüssel, eine Verbindungszeichenfolge oder eine Ausweisnummer tragen würde, das Modell stattdessen mit einem typisierten Platzhalter, und eine Telefonnummer erreicht es als eine andere Nummer derselben Form — es gibt nichts, worauf das Modell reagieren könnte, und der echte Wert wird zurückgesetzt, bevor die Antwort gelesen wird. Eine fehlgeschlagene Umschreibung lässt die Anfrage scheitern, statt sie unmaskiert zu senden.",
+      "Die Zeile unter dem Schalter zeigt, wie viele Werte gespeichert sind, und kann sie leeren. Leeren wirkt sofort, lässt sich nicht rückgängig machen und schreibt keine Nachrichten um, die bereits einen Ersatz zeigen.",
+    ],
+  },
+
+  {
     version: "2.0.0",
     date: "2026-10-26",
     highlights: [

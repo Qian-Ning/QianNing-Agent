@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "2.1.0",
+    date: "2026-10-27",
+    highlights: [
+      "Redacción saliente, desactivada por defecto. Cuando está activa, una petición que llevaría una clave de API, una cadena de conexión o un número de identidad llega al modelo con un marcador tipado, y un teléfono llega como otro número de la misma forma: no hay nada a lo que el modelo pueda reaccionar, y el valor real se restaura antes de leer la respuesta. Una reescritura fallida hace fallar la petición en lugar de enviarla sin filtrar.",
+      "La fila bajo el interruptor indica cuántos valores hay guardados y permite borrarlos. Borrar es inmediato, no se puede deshacer y no reescribe mensajes que ya muestran un sustituto.",
+    ],
+  },
+
+  {
     version: "2.0.0",
     date: "2026-10-26",
     highlights: [

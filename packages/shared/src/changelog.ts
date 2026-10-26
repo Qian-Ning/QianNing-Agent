@@ -30,6 +30,15 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.1.0",
+    date: "2026-10-27",
+    highlights: [
+      "Outbound redaction, off by default. When it is on, a request that would carry an API key, a connection string or an ID number reaches the model with a typed placeholder instead, and a phone number reaches it as a different number of the same shape — there is nothing for the model to react to, and the real value is put back before the reply is read. A rewrite that fails fails the request rather than sending it unscrubbed.",
+      "The row under the switch reports how many values are stored and can clear them. Clearing is immediate and cannot be undone, and it does not rewrite messages that already show a substitute.",
+    ],
+  },
+
+  {
     version: "2.0.0",
     date: "2026-10-26",
     highlights: [
@@ -1072,6 +1081,15 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.1.0",
+    date: "2026-10-27",
+    highlights: [
+      "出网脱敏，默认关闭。开启后，本该带着 API 密钥、连接串或证件号离开本机的请求，到模型那里变成类型化占位符；手机号则变成另一个同格式的号码——模型没有可反应的东西，真实值在回复被读到之前就换回来。改写失败时请求直接失败，而不是带着原文发出去。",
+      "开关下方的一行会显示本机存了多少条，并提供清空。清空立即生效、无法撤销，也不会改写已经显示替代内容的旧消息。",
+    ],
+  },
+
+  {
     version: "2.0.0",
     date: "2026-10-26",
     highlights: [
@@ -2113,6 +2131,15 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.1.0",
+    date: "2026-10-27",
+    highlights: [
+      "出網脫敏，預設關閉。開啟後，本該帶著 API 金鑰、連線字串或證件號離開本機的請求，到模型那裡變成型別化佔位符；手機號碼則變成另一個同格式的號碼——模型沒有可反應的東西，真實值在回覆被讀到之前就換回來。改寫失敗時請求直接失敗，而不是帶著原文送出去。",
+      "開關下方的一行會顯示本機存了多少筆，並提供清空。清空立即生效、無法復原，也不會改寫已經顯示替代內容的舊訊息。",
+    ],
+  },
+
   {
     version: "2.0.0",
     date: "2026-10-26",

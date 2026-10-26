@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "2.1.0",
+    date: "2026-10-27",
+    highlights: [
+      "Masquage sortant, désactivé par défaut. Lorsqu'il est actif, une requête qui porterait une clé d'API, une chaîne de connexion ou un numéro de pièce d'identité parvient au modèle avec un jeton typé, et un numéro de téléphone lui parvient sous la forme d'un autre numéro de même forme — le modèle n'a rien à quoi réagir, et la valeur réelle est rétablie avant la lecture de la réponse. Un masquage qui échoue fait échouer la requête plutôt que de l'envoyer en clair.",
+      "La ligne sous l'interrupteur indique combien de valeurs sont stockées et permet de les effacer. L'effacement est immédiat, irréversible, et ne réécrit pas les messages qui affichent déjà une substitution.",
+    ],
+  },
+
+  {
     version: "2.0.0",
     date: "2026-10-26",
     highlights: [

@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.1.0",
+    date: "2026-10-27",
+    highlights: [
+      "Giden maskeleme, varsayılan olarak kapalı. Açıkken bir API anahtarı, bağlantı dizesi veya kimlik numarası taşıyacak istek, modele bunun yerine türü belirli bir yer tutucuyla ulaşır; telefon numarası ise aynı biçimde başka bir numara olarak ulaşır — modelin tepki vereceği bir şey yoktur ve gerçek değer yanıt okunmadan önce geri konur. Başarısız bir yeniden yazma, isteği maskelenmemiş hâlde göndermek yerine isteği başarısız kılar.",
+      "Anahtarın altındaki satır kaç değerin saklandığını gösterir ve bunları temizlemeye izin verir. Temizleme anında etkilidir, geri alınamaz ve hâlihazırda bir yedek değer gösteren iletileri yeniden yazmaz.",
+    ],
+  },
+
+  {
     version: "2.0.0",
     date: "2026-10-26",
     highlights: [
