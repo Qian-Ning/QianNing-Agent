@@ -204,15 +204,16 @@ const BUILTIN_SKILL_GROUPS: Readonly<Record<string, string>> = {
   "time-zones-and-dates.md": "Engineering",
   "unicode-and-text.md": "Engineering",
   "working-with-legacy-code.md": "Engineering",
+  // Generation
+  "image-generation.md": "Generation",
+  "video-generation.md": "Generation",
   // Media & Documents
   "architecture-diagram.md": "Media & Documents",
   "ascii-video.md": "Media & Documents",
   "audio-visualization.md": "Media & Documents",
   "generative-sketches.md": "Media & Documents",
   "html-artifact-verification.md": "Media & Documents",
-  "image-generation.md": "Media & Documents",
   "math-animation.md": "Media & Documents",
-  "video-generation.md": "Media & Documents",
   "docx.md": "Media & Documents",
   "pdf.md": "Media & Documents",
   "powerpoint.md": "Media & Documents",
@@ -260,6 +261,25 @@ const BUILTIN_SKILL_GROUPS: Readonly<Record<string, string>> = {
 export const BUILTIN_SKILL_FALLBACK_GROUP = "Other";
 
 /**
+ * Group-level gates: a group whose every entry depends on a capability that is
+ * not configured is not advertised at all.
+ *
+ * The signal is configuration, never a guess about the task at hand. Both
+ * generation models unconfigured means neither document can act on a request
+ * and a heading over two unusable entries is pure cost; one model configured
+ * keeps the group, and the per-entry gate below trims only the missing half.
+ */
+const BUILTIN_SKILL_GROUP_GATES: Readonly<Record<string, (input: BuiltinSkillInput) => boolean>> = {
+  Generation: (input) =>
+    input.imageGenerationAvailable !== false || input.videoGenerationAvailable !== false,
+};
+
+function isGroupAvailable(group: string, input: BuiltinSkillInput): boolean {
+  const gate = BUILTIN_SKILL_GROUP_GATES[group];
+  return gate ? gate(input) : true;
+}
+
+/**
  * Catalog descriptions stay short enough that eighty of them are cheap to
  * advertise: the catalog rides in every session's system prompt, and the body
  * is what carries the detail. Measured in characters of the frontmatter value.
@@ -296,6 +316,8 @@ export function builtinSkills(input: BuiltinSkillInput): PluginSkillDef[] {
     // the catalog until the session shows signs of plugin work.
     if (file === PLUGIN_DEV_SKILL_FILE && !devWorkspace) return [];
     const id = builtinSkillIdForFile(file);
+    const group = builtinSkillGroupForFile(file);
+    if (!isGroupAvailable(group, input)) return [];
     if (!isCapabilityAvailable(id, input)) return [];
     const raw = readBuiltinSkill(file);
     if (!raw?.raw.trim()) return [];
@@ -305,7 +327,7 @@ export function builtinSkills(input: BuiltinSkillInput): PluginSkillDef[] {
       id,
       name: parsed.name ?? id,
       description: parsed.description,
-      group: builtinSkillGroupForFile(file),
+      group,
     }];
   });
 }

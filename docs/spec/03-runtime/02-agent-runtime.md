@@ -1309,7 +1309,8 @@ The Pi agent loop owns `toolsAdded` / `toolsRemoved` declarations, including
 same-name schema replacement. Desktop never moves an update ahead of the user
 or ToolSearch result that preceded it. Instruction composition uses independent
 `runtime`, `skills` (loading instructions), `skill:<exact-id>` (one catalog
-entry each), `skill-group:<heading>` (one catalog group heading each), and
+entry each), `skill-group:<heading>` (one catalog group heading each),
+`skill-preload` (a body the host matched to the first prompt), and
 `context` sections. Refreshing an idle skill catalog appends only changed
 entries, uses null to revoke removed entries, and updates the executable
 catalog. Unchanged entries and loading instructions are not repeated. A group
@@ -1317,7 +1318,10 @@ heading is an entry identity of its own: it is appended when the group first
 appears and is not re-sent while only its members change. Restoring
 an older aggregate `skills` section upgrades it once at the continuation
 boundary; checkpoints retain the effective per-entry state. Bodies remain
-on-demand and permission-checked. Different plugin tool schemas/permissions
+on-demand and permission-checked, with one exception: a body the host matched
+to the session's first prompt occupies `skill-preload`, is fixed for the life
+of that session, and is dropped entirely when the restored history already has
+turns. Different plugin tool schemas/permissions
 invalidate idle reuse even when their names are unchanged.
 
 Before model dispatch, Desktop acknowledges new system records through Host's

@@ -165,6 +165,16 @@ frontmatter **可选**。没有它的文档仍是合法技能：显示名取自�
   `BUILTIN_SKILL_GROUPS` 中登记**。面向模型的目录会按这些标题给内置技能分组；
   未登记文档仍会以 `Other` 组发布，并由门禁测试报为缺登记。
 - **正文以自己的指令收尾**，不用一句"本文介绍了……"来结束。
+- **命中文档可随首条消息预载。** 宿主用词法匹配器给首条用户消息与已广告目录打分；
+  仅当某份文档同时过线并拉开足够差距时，正文以 `skill-preload` 系统段落随首轮注入。
+  会话已有对话历史时 runtime 会拒绝该提议，因此恢复的会话绝不会拿到只凭一句话
+  判断出的正文。超过 `SKILL_PRELOAD_MAX_BODY_CHARS` 的正文仍走 `Skill` 工具。
+- **整组成员都依赖同一个未配置能力时，整组不广告。** 门控表 `BUILTIN_SKILL_GROUP_GATES`
+  与分组表同文件；两个生成模型都未配置时 `Generation` 组整体消失。条目级门控仍在
+  下层运行，单个未配置成员消失不会带走整组。
+- **加载计数是本地证据，不是遥测。** 每次通过 `Skill` 成功加载内置文档，都会累加
+  `<数据目录>/skill-usage.json`；`pnpm skills:usage` 打印排行。该文件属诊断状态：
+  损坏或不可读时从零开始，绝不让一轮对话失败。
 
 ## 9. 改动已有文档
 
@@ -188,6 +198,9 @@ frontmatter **可选**。没有它的文档仍是合法技能：显示名取自�
 | `SkillCreate` 宣告的上限与 §6 一致，且正文上限用**被强制的那种单位** | `apps/desktop/test/skill-authoring-tool.test.mjs` |
 | 发现能覆盖每一份内置文档 | `apps/desktop/test/builtin-skill-discovery.test.mjs` |
 | name 必需、裁剪、id 派生、改名保留 | `crates/host-core/src/user_skills/tests.rs`、`agent_capabilities/tests.rs` |
+| 预载阈值与首轮规则（§8） | `apps/desktop/test/skill-preload.test.mjs`、`packages/agent-runtime/src/runtime.test.ts` |
+| 组级门控（§8） | `apps/desktop/test/builtin-skill-gating.test.mjs` |
+| 计数文件结构与损坏容错（§8） | `apps/desktop/test/skill-usage.test.mjs` |
 | 导入器对缺字段的警告 | `apps/desktop/electron/test/agent-skill-scan.test.mjs` |
 
 ## 11. 作者自检清单

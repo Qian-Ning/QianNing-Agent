@@ -126,8 +126,10 @@ test("the built-in skill body loads through the same Skill tool", () => {
   assert.match(builtinSrc, /export function loadBuiltinSkillBody/);
   assert.match(
     mainSrc,
-    /loadBuiltinSkillBody\(id\) \?\?\s*\(await loadUserSkillBody\(id, projectPath\)\) \?\?\s*plugins\.loadSkillBody\(id\)/,
+    /const builtin = loadBuiltinSkillBody\(id\);\s*const skill: LoadedSkillDocument =\s*builtin \?\?\s*\(await loadUserSkillBody\(id, projectPath\)\) \?\?\s*plugins\.loadSkillBody\(id\)/,
   );
+  // The same call site records bundled loads for the local usage counter.
+  assert.match(mainSrc, /if \(builtin\) recordSkillLoad\(dataDir, builtin\.id\)/);
   assert.match(mainSrc, /const userIds = \(await activeUserSkills/);
   assert.match(desktopSidecarSrc, /formatSkillToolContent\(skill\)/);
   assert.match(builtinSrc, /location: raw\.path/);
