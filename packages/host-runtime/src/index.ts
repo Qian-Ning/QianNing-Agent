@@ -19,4 +19,5 @@ export * from "./workspace-files.js";
 export * from "./workspace-diff.js";
 export * from "./racp-host-operations.js";
 export * from "./remote/listener.js";
+export * from "./remote/tls.js";
 export * from "./remote/device-store.js";

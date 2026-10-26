@@ -18,6 +18,7 @@
  */
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
 
 import {
   RACP_HTTP_HOST_EVENTS_PATH,
@@ -36,8 +37,18 @@ import type { RacpConnection, RacpServer, ServerConnectionTransport } from "./se
 export type HttpBindingOptions = {
   server: RacpServer;
   authenticator: DeviceTokenAuthenticator;
-  /** Loopback only unless TLS terminates in front (ADR 0333 §4). */
+  /** Loopback unless TLS is supplied (ADR 0333 §4 forbids a plaintext LAN bind). */
   host?: string;
+  /**
+   * PEM material for an HTTPS listener. Supplying it is what makes a
+   * non-loopback bind legal: the protocol has no plaintext LAN mode.
+   */
+  tls?: { cert: string; key: string };
+  /**
+   * Whether peers outside loopback may reach a TLS listener. Off by default so
+   * a LAN bind is an explicit decision even when a certificate is present.
+   */
+  allowLan?: boolean;
   /** `0` asks the OS for a free port, which is what the desktop wants by default. */
   port: number;
   log: (level: "info" | "warn" | "error", message: string, data?: Record<string, unknown>) => void;
@@ -54,7 +65,7 @@ export type HttpBindingOptions = {
 };
 
 export type HttpBinding = {
-  address: { host: string; port: number };
+  address: { host: string; port: number; protocol: "http" | "https" };
   close(): Promise<void>;
 };
 
@@ -318,8 +329,9 @@ function readJsonBody(request: IncomingMessage): Promise<Record<string, unknown>
  */
 export async function bindRacpHttp(options: HttpBindingOptions): Promise<HttpBinding> {
   const host = options.host ?? "127.0.0.1";
-  if (!isLoopbackAddress(host)) {
-    throw Object.assign(new Error("RACP-HTTP binds loopback only; a non-loopback bind requires TLS"), {
+  const tls = options.tls ?? null;
+  if (!isLoopbackAddress(host) && !tls) {
+    throw Object.assign(new Error("a non-loopback RACP-HTTP bind requires TLS"), {
       errorCode: "INVALID_ARGUMENT",
     });
   }
@@ -394,12 +406,12 @@ export async function bindRacpHttp(options: HttpBindingOptions): Promise<HttpBin
     response.end(text);
   };
 
-  const server: Server = createServer((request, response) => {
+  const handler = (request: IncomingMessage, response: ServerResponse): void => {
     void (async () => {
       const url = new URL(request.url ?? "/", "http://localhost");
       const method = request.method ?? "GET";
 
-      if (!isLoopbackAddress(request.socket.remoteAddress)) {
+      if (!isLoopbackAddress(request.socket.remoteAddress) && !(tls && options.allowLan)) {
         options.log("warn", "racp http refused: non-loopback peer", { peer: request.socket.remoteAddress });
         return send(response, 403, { error: "FORBIDDEN" });
       }
@@ -498,7 +510,11 @@ export async function bindRacpHttp(options: HttpBindingOptions): Promise<HttpBin
         return send(response, status, { error: code, message: (error as Error).message });
       }
     })();
-  });
+  };
+
+  const server: Server = tls
+    ? createHttpsServer({ cert: tls.cert, key: tls.key }, handler)
+    : createServer(handler);
 
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
@@ -509,10 +525,10 @@ export async function bindRacpHttp(options: HttpBindingOptions): Promise<HttpBin
   });
   const address = server.address();
   const boundPort = typeof address === "object" && address ? address.port : options.port;
-  options.log("info", "racp http listening", { host, port: boundPort });
+  options.log("info", "racp http listening", { host, port: boundPort, protocol: tls ? "https" : "http" });
 
   return {
-    address: { host, port: boundPort },
+    address: { host, port: boundPort, protocol: tls ? "https" : "http" },
     async close() {
       for (const session of [...sessions.values()]) session.release();
       sessions.clear();

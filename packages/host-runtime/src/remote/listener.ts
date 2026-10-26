@@ -13,6 +13,7 @@
 
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { hostname, networkInterfaces } from "node:os";
 import { join } from "node:path";
 
 import type { AgentHost } from "@pi-desktop/agent-host";
@@ -29,6 +30,7 @@ import {
 import type { RacpRole } from "@pi-desktop/shared";
 
 import { FileCredentialStore } from "./device-store.js";
+import { ensureCertificate } from "./tls.js";
 
 export type RemoteListenerOptions = {
   /** `<dataDir>/remote` or the data directory itself; the store picks its file. */
@@ -41,12 +43,23 @@ export type RemoteListenerOptions = {
   log: (level: "info" | "warn" | "error", message: string, data?: Record<string, unknown>) => void;
   /** `0` asks the OS for a free port. */
   port?: number;
+  /**
+   * Where the listener is reachable from. `loopback` (the default) keeps the
+   * P1 behaviour; `lan` binds every interface and requires TLS, because a
+   * phone on the same network is the reason this exists.
+   */
+  exposure?: "loopback" | "lan";
 };
 
 export type RemoteStatus = {
   running: boolean;
   host?: string;
   port?: number;
+  /** `https` only in `lan` exposure; loopback listeners stay plaintext. */
+  protocol?: "http" | "https";
+  /** The URL a phone should open, when one can be derived. */
+  url?: string;
+  exposure?: "loopback" | "lan";
   pairedDevices: number;
 };
 
@@ -60,7 +73,7 @@ export type IssuedDevice = {
 
 export type RemoteListener = {
   status(): Promise<RemoteStatus>;
-  start(): Promise<{ host: string; port: number }>;
+  start(): Promise<{ host: string; port: number; protocol: "http" | "https" }>;
   stop(): Promise<void>;
   listDevices(): Promise<DeviceRecord[]>;
   issueDevice(label: string, roles?: RacpRole[]): Promise<IssuedDevice>;
@@ -68,6 +81,26 @@ export type RemoteListener = {
 };
 
 const LOOPBACK = "127.0.0.1";
+const EVERY_INTERFACE = "0.0.0.0";
+
+/**
+ * Non-loopback IPv4 addresses this machine currently holds.
+ *
+ * A certificate names addresses, so this is also what the SAN is built from;
+ * a phone that reaches the desktop under a different address than the one in
+ * the SAN gets a handshake failure with no useful explanation.
+ */
+function lanAddresses(): string[] {
+  type Entry = { address: string; family: string | number; internal: boolean };
+  const interfaces = networkInterfaces() as unknown as Record<string, Entry[] | undefined>;
+  const addresses: string[] = [];
+  for (const entries of Object.values(interfaces)) {
+    for (const entry of entries ?? []) {
+      if (String(entry.family) === "IPv4" && !entry.internal) addresses.push(entry.address);
+    }
+  }
+  return addresses.sort();
+}
 
 export function createRemoteListener(options: RemoteListenerOptions): RemoteListener {
   const remoteDir = join(options.dataDir, "remote");
@@ -75,6 +108,7 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
   const authenticator = new DeviceTokenAuthenticator(store);
   let binding: HttpBinding | null = null;
   let server: RacpServer | null = null;
+  let publicUrl: string | null = null;
 
   const hostId = async (): Promise<string> => {
     const path = join(remoteDir, "host-id");
@@ -95,13 +129,38 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
       const devices = await store.listDevices();
       return {
         running: binding !== null,
-        ...(binding ? { host: binding.address.host, port: binding.address.port } : {}),
+        ...(binding
+          ? {
+              host: binding.address.host,
+              port: binding.address.port,
+              protocol: binding.address.protocol,
+              url: publicUrl ?? undefined,
+            }
+          : {}),
+        exposure: options.exposure ?? "loopback",
         pairedDevices: devices.filter((device) => !device.revokedAt).length,
       };
     },
 
     async start() {
       if (binding) return binding.address;
+      const exposure = options.exposure ?? "loopback";
+      const addresses = exposure === "lan" ? lanAddresses() : [];
+      if (exposure === "lan" && addresses.length === 0) {
+        throw Object.assign(new Error("this machine has no non-loopback IPv4 address to serve on"), {
+          errorCode: "UNAVAILABLE",
+        });
+      }
+      // A LAN bind is TLS-only (ADR 0333 §4): the certificate names the
+      // addresses the phone will use, so it is minted from the same list the
+      // listener will be reachable under.
+      const tls =
+        exposure === "lan"
+          ? await ensureCertificate(join(remoteDir, "tls"), {
+              hostnames: ["localhost", hostname()],
+              addresses: [LOOPBACK, ...addresses],
+            })
+          : null;
       const operations = createHostOperations({
         getHost: options.getHost,
         runtime: { compact: options.compact, isBusy: options.isBusy },
@@ -120,11 +179,13 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
       binding = await bindRacpHttp({
         server,
         authenticator,
-        host: LOOPBACK,
+        host: exposure === "lan" ? EVERY_INTERFACE : LOOPBACK,
         port: options.port ?? 0,
+        ...(tls ? { tls, allowLan: true } : {}),
         log: options.log,
       });
-      options.log("info", "remote listener started", binding.address);
+      publicUrl = tls ? `https://${addresses[0]}:${binding.address.port}` : null;
+      options.log("info", "remote listener started", { ...binding.address, exposure });
       return binding.address;
     },
 
@@ -135,6 +196,7 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
       }
       server?.close();
       server = null;
+      publicUrl = null;
       options.log("info", "remote listener stopped");
     },
 
