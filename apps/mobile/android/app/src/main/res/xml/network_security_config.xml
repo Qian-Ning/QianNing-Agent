@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Host serves HTTPS with a certificate it mints itself, so the phone has to
+  be told to trust the copy the user installed. Android does not honour user
+  certificates for app traffic by default — the system store only — which is why
+  this file exists at all.
+
+  Cleartext stays forbidden: the Host has no plaintext LAN mode, and an app that
+  quietly fell back to HTTP would hide a wrong address behind working traffic.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
