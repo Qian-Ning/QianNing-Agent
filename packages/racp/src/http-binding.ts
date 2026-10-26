@@ -45,6 +45,12 @@ export type HttpBindingOptions = {
   idleTimeoutMs?: number;
   /** Upper bound on one operation; turns return immediately, so this is generous. */
   requestTimeoutMs?: number;
+  /** Failed authentications from one peer before it is locked out. */
+  maxFailedAttempts?: number;
+  /** Window the failures are counted in; a quiet peer starts fresh. */
+  failureWindowMs?: number;
+  /** How long a locked-out peer waits. */
+  lockoutMs?: number;
 };
 
 export type HttpBinding = {
@@ -321,6 +327,47 @@ export async function bindRacpHttp(options: HttpBindingOptions): Promise<HttpBin
   const requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_MS;
   const sessions = new Map<string, HttpClientSession>();
 
+  /**
+   * ADR 0333 lists failed-attempt lockout as a companion to the first listening
+   * release, not a follow-up. A loopback listener is reachable by every process
+   * on the machine, so guessing a device token has to cost something even
+   * before TLS exists.
+   */
+  const throttles = new Map<string, { failures: number; windowStart: number; lockedUntil: number }>();
+  const maxFailedAttempts = options.maxFailedAttempts ?? 5;
+  const failureWindowMs = options.failureWindowMs ?? 60_000;
+  const lockoutMs = options.lockoutMs ?? 60_000;
+  const now = () => Date.now();
+
+  const lockedFor = (peer: string): number => {
+    const state = throttles.get(peer);
+    if (!state || state.lockedUntil === 0) return 0;
+    const remaining = state.lockedUntil - now();
+    if (remaining <= 0) {
+      throttles.delete(peer);
+      return 0;
+    }
+    return remaining;
+  };
+
+  const noteFailure = (peer: string): void => {
+    const timestamp = now();
+    const state = throttles.get(peer);
+    if (!state || timestamp - state.windowStart > failureWindowMs) {
+      throttles.set(peer, { failures: 1, windowStart: timestamp, lockedUntil: 0 });
+      return;
+    }
+    state.failures += 1;
+    if (state.failures >= maxFailedAttempts) {
+      state.lockedUntil = timestamp + lockoutMs;
+      options.log("warn", "racp http lockout", { peer, failures: state.failures, lockoutMs });
+    }
+  };
+
+  const noteSuccess = (peer: string): void => {
+    throttles.delete(peer);
+  };
+
   /** One session per credential: subscriptions are connection-scoped. */
   const sessionFor = (key: string, auth: Parameters<RacpServer["accept"]>[0]): HttpClientSession => {
     const existing = sessions.get(key);
@@ -356,6 +403,13 @@ export async function bindRacpHttp(options: HttpBindingOptions): Promise<HttpBin
         options.log("warn", "racp http refused: non-loopback peer", { peer: request.socket.remoteAddress });
         return send(response, 403, { error: "FORBIDDEN" });
       }
+      const peer = request.socket.remoteAddress ?? "unknown";
+      const locked = lockedFor(peer);
+      if (locked > 0) {
+        response.setHeader("retry-after", String(Math.ceil(locked / 1000)));
+        return send(response, 429, { error: "RATE_LIMITED", retryAfterMs: locked });
+      }
+
       if ([...url.searchParams.keys()].some((key) => /token|auth|key/i.test(key))) {
         options.log("warn", "racp http refused: credential in url");
         return send(response, 400, { error: "INVALID_ARGUMENT", message: "credentials must not travel in a URL" });
@@ -366,7 +420,11 @@ export async function bindRacpHttp(options: HttpBindingOptions): Promise<HttpBin
         urlHasToken: false,
         connectionId: "pending",
       });
-      if (!auth) return send(response, 401, { error: "UNAUTHORIZED" });
+      if (!auth) {
+        noteFailure(peer);
+        return send(response, 401, { error: "UNAUTHORIZED" });
+      }
+      noteSuccess(peer);
 
       // The device id is the credential's stable identity; the token itself never
       // becomes a key, so a re-pair produces a new session rather than reusing one.

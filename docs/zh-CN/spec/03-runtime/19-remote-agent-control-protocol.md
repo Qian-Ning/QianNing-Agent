@@ -302,6 +302,10 @@ Plan/Goal 审批为带显式 `permissionMode` 的 `approve` 或 `reject`，且�
 每个事件流都接受 `Last-Event-ID`，断线后从上一个游标续传而不是重放整轮。cookie
 profile、Origin 白名单与 CSRF token 属于浏览器里程碑，尚不在此绑定内。
 
+认证失败按对端计数：一分钟内失败五次即锁定该对端一分钟，429 带
+`Retry-After`，下一次成功会清零。ADR 0333 把失败锁定列为第一个监听版本的
+必备件而非后续项——loopback 监听对本机任何进程都是可达的。
+
 ## 6. 限制和错误
 
 | Limit | Target |
