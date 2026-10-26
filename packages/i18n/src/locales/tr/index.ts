@@ -1925,6 +1925,8 @@ sklm: {
     enterToSendDesc: "Kapalı: göndermek için ⌘/Ctrl+Enter.",
     infiniteProviderRetry: "Başarılı olana kadar yeniden dene",
     infiniteProviderRetryDesc: "Ağ ve geçici sağlayıcı hataları istek başarılı olana kadar yeniden denenir. Çalışmayı yine durdurabilirsiniz; açıkken API kullanımı sürebilir.",
+    redaction: "Göndermeden önce gizle",
+    redactionDesc: "İstek bu makineden çıkmadan önce anahtarları, bağlantı dizelerini ve telefon numaralarını yer tutucularla değiştirir, yanıtta geri koyar. Varsayılan olarak kapalıdır.",
     smoothStreaming: "Düzgün akış",
     smoothStreamingDesc: "Akan metni daktilo efekti için karakter karakter gösterir. Sistem hareket azaltmayı tercih ettiğinde otomatik devre dışı kalır.",
     inlineVisualizations: "Satır içi görselleştirmeler",

@@ -154,6 +154,7 @@ import {
   providerRequestKey,
   type RuntimeProviderConfig,
 } from "./provider-binding.js";
+import type { RedactionBinding } from "./redaction/install.js";
 import {
   contextBudgetFor,
   automaticCompactionThresholdFor,
@@ -901,6 +902,12 @@ export type AgentRuntimeOptions = {
    * setting.
    */
   inlineVisualizations?: boolean;
+  /**
+   * Outbound redaction (ADR 0332). When present, provider requests carry typed
+   * placeholders instead of the secrets the rule table matches, and replies are
+   * restored before the agent reads them. Absent keeps the request verbatim.
+   */
+  redaction?: RedactionBinding;
   /**
    * The persona this run answers with, already resolved by the launch: the
    * conversation's own prompt, else the app-wide one, else absent for the
@@ -1890,6 +1897,8 @@ export class DesktopAgentRuntime {
   private activeToolProgressCleanups = new Set<(flush: boolean) => void>();
   private hostCloseUnsubscribe?: () => void;
   private turnSubagentUsage?: MessageUsage;
+  /** Outbound redaction for this session, when the operator enabled it. */
+  private readonly redaction?: RedactionBinding;
 
   constructor(opts: AgentRuntimeOptions) {
     this.sessionId = opts.sessionId;
@@ -1900,6 +1909,7 @@ export class DesktopAgentRuntime {
     this.thinkingLevel = clampThinkingLevel(opts.provider, opts.thinkingLevel);
     this.infiniteProviderRetry = opts.infiniteProviderRetry === true;
     this.inlineVisualizations = opts.inlineVisualizations === true;
+    this.redaction = opts.redaction;
     this.host = opts.host;
     this.hostCloseUnsubscribe = this.host.onClose?.(() => {
       this.cleanupActiveToolProgress();
@@ -1938,7 +1948,7 @@ export class DesktopAgentRuntime {
     this.rebuildToolCatalog();
     const model = buildProviderModel(this.provider);
     this.model = model;
-    const models = createProviderModels(this.provider, model);
+    const models = createProviderModels(this.provider, model, this.redaction);
     this.models = models;
     const runtimeApiKey = providerRequestKey(this.provider);
 

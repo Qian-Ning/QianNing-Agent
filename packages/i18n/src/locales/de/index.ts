@@ -1925,6 +1925,8 @@ sklm: {
     "enterToSendDesc": "Aus: Zum Senden ⌘/Strg+Eingabe drücken.",
     "infiniteProviderRetry": "Bis zum Erfolg wiederholen",
     "infiniteProviderRetryDesc": "Netzwerk- und vorübergehende Anbieterfehler werden bis zum Erfolg wiederholt. Du kannst den Lauf weiterhin stoppen; der API-Verbrauch kann fortlaufen.",
+    "redaction": "Geheimnisse vor dem Senden maskieren",
+    "redactionDesc": "Ersetzt Schlüssel, Verbindungszeichenfolgen und Telefonnummern durch Platzhalter, bevor eine Anfrage diesen Rechner verlässt, und setzt sie in der Antwort zurück. Standardmäßig aus.",
     "smoothStreaming": "Sanftes Streaming",
     "smoothStreamingDesc": "Gibt gestreamten Text zeichenweise aus, um einen Schreibmaschineneffekt zu erzeugen. Wird automatisch deaktiviert, wenn das System reduzierte Bewegung bevorzugt.",
     "inlineVisualizations": "Inline-Visualisierungen",

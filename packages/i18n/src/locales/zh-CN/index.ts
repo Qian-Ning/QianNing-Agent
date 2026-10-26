@@ -1913,6 +1913,8 @@ sklm: {
     enterToSendDesc: "关闭后按 ⌘/Ctrl+Enter 发送。",
     infiniteProviderRetry: "无尽重试",
     infiniteProviderRetryDesc: "网络或临时服务故障会一直重试直到成功。仍可随时停止，但开启后可能持续消耗 API 用量。",
+    redaction: "发送前脱敏",
+    redactionDesc: "在请求离开本机之前，把密钥、连接串和手机号换成占位符，回复时再还原成本来的内容。默认关闭。",
     smoothStreaming: "平滑流式显示",
     smoothStreamingDesc: "将流式文本逐字释放，产生打字机效果。系统开启“减少动态效果”时自动禁用。",
     inlineVisualizations: "内联可视化",

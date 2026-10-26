@@ -6,6 +6,7 @@
 import { randomUUID } from "node:crypto";
 import type { ModelAuth } from "@earendil-works/pi-ai";
 import { ParentHostProxy } from "./parent-host-proxy.js";
+import { openMappingStore } from "./redaction/session-store.js";
 import { visionFromModelConfig } from "./model-capabilities.js";
 import { hydrateAttachmentHistory } from "./attachment-history.js";
 import { classifyAgentError } from "./agent-errors.js";
@@ -93,6 +94,11 @@ type RuntimeParams = {
   infiniteProviderRetry?: boolean;
   /** Opt-in inline visualizations (ADR 0327); gates the tool declaration. */
   inlineVisualizations?: boolean;
+  /**
+   * Outbound redaction (ADR 0332). Present only when the operator enabled it;
+   * `dir` is the directory that holds the token table.
+   */
+  redaction?: { dir: string };
   provider: RuntimeProviderConfig;
   commandShell: CommandShellOption;
   pluginTools?: PluginToolDef[];
@@ -285,6 +291,7 @@ async function runtimeFor(
     mode,
     turnId: params.turnId,
     provider,
+    redaction: params.redaction ? { store: await openMappingStore(params.redaction.dir) } : undefined,
     commandShell: params.commandShell,
     thinkingLevel,
     infiniteProviderRetry: params.infiniteProviderRetry === true,

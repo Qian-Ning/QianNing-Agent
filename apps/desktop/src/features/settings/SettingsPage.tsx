@@ -605,6 +605,18 @@ export function SettingsPage() {
                     })}
                   />
                 </SettingsRow>
+                <SettingsRow
+                  title={t("settings.redaction")}
+                  description={t("settings.redactionDesc")}
+                >
+                  <SettingsToggle
+                    checked={settings.redaction?.enabled === true}
+                    label={t("settings.redaction")}
+                    onChange={() => void saveSettings({
+                      redaction: { enabled: settings.redaction?.enabled !== true },
+                    })}
+                  />
+                </SettingsRow>
                 {settings.inlineVisualizations === true ? (
                   <SettingsRow
                     title={t("settings.inlineVizScriptedPreviews")}

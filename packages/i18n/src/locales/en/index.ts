@@ -1938,6 +1938,8 @@ sklm: {
     enterToSendDesc: "Off: press ⌘/Ctrl+Enter to send.",
     infiniteProviderRetry: "Retry until success",
     infiniteProviderRetryDesc: "Keep retrying network and transient provider failures until the request succeeds. You can still stop the turn; API usage may continue while enabled.",
+    redaction: "Redact secrets before sending",
+    redactionDesc: "Replace keys, connection strings and phone numbers with placeholders before a request leaves this machine, then put them back in the reply. Off by default.",
     smoothStreaming: "Smooth streaming",
     smoothStreamingDesc: "Release streamed text character by character for a typewriter effect. Automatically disabled when the system prefers reduced motion.",
     inlineVisualizations: "Inline visualizations",
