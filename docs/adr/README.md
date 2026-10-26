@@ -361,3 +361,4 @@ Each ADR includes:
 | 0329 | [The shared inbound-webhook receiver as a messaging channel](0329-messaging-webhook-receiver.md) | Accepted for implementation |
 | 0330 | [Grouped skill catalog with a description budget](0330-skill-catalog-groups.md) | Accepted |
 | 0331 | [First-turn skill preload, local load counts, and a generation group gate](0331-skill-delivery-tuning.md) | Accepted |
+| 0332 | [Outbound redaction before the provider](0332-outbound-redaction.md) | Accepted for implementation |
