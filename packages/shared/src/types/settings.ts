@@ -506,3 +506,37 @@ export type VoiceInputSettings = {
 export type LinkOpenTarget = "workpanel" | "external";
 
 export type ContextUsageDisplay = "remaining" | "used";
+
+/**
+ * Remote access (ADR 0333). The listener binds loopback only and stays off until
+ * the user enables it. Status carries the device list so Settings can show and
+ * revoke without a second round trip.
+ */
+export type RemoteDeviceSummary = {
+  deviceId: string;
+  label: string;
+  roles: string[];
+  createdAt: string;
+  lastSeenAt?: string;
+  revokedAt?: string;
+};
+
+export type RemoteAccessStatus = {
+  running: boolean;
+  host?: string;
+  port?: number;
+  pairedDevices: number;
+  devices: RemoteDeviceSummary[];
+};
+
+/**
+ * Returned once, at issue time. The Host keeps only the token's hash, so no
+ * channel can read a token back — that is why this type is a response and not a
+ * row in the device list.
+ */
+export type RemoteIssuedDevice = {
+  deviceId: string;
+  label: string;
+  roles: string[];
+  token: string;
+};

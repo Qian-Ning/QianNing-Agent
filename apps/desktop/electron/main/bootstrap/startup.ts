@@ -39,6 +39,7 @@ import {
 } from "../messaging-inbound-lifecycle";
 import { readCloseBehavior } from "../window-preferences";
 import { createAgentHostBridge, type AgentHostBridge } from "../agent-host-bridge";
+import { createRemoteListener, type RemoteListener } from "@pi-desktop/host-runtime";
 import { messagingGateway } from "../messaging-gateway";
 import { createBackendRouter, type BackendRouter } from "../remote/backend-router";
 import { createRemoteHostsBoot, setActiveRemoteHostsBoot } from "./remote-hosts";
@@ -86,6 +87,8 @@ export type StartupState = {
   applicationBooted: boolean;
   closeBehavior: CloseBehavior;
   agentHostBridge: AgentHostBridge | null;
+  /** Constructed at boot, listening only after the user enables remote access. */
+  remoteListener: RemoteListener | null;
   backendRouter: BackendRouter | null;
   desktopControl: McpControlController | null;
   mcpControl: McpControlServer | null;
@@ -312,6 +315,24 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
         sendToRenderer(IPC.event.agentQueueChanged, event);
         deps.onSessionQueueChange?.();
       },
+      log: (level, message, data) => logger.app("runtime", level, message, { data }),
+    });
+    // ADR 0333: the listener exists from boot so Settings can show the device
+    // list, and it binds only when the user turns remote access on.
+    const bridge = state.agentHostBridge;
+    state.remoteListener = createRemoteListener({
+      dataDir: deps.dataDir,
+      // The desktop Host is the Agent Host that already exists here (ADR 0333
+      // §2): RACP drives the same bridge the renderer uses, so sessions keep one
+      // owner and the renderer keeps using IPC.
+      agentHost: bridge.agentHost,
+      serverVersion: app.getVersion(),
+      getHost,
+      // Remote compaction is not offered yet: the desktop compacts through the
+      // renderer's IPC path, which a RACP client does not share, and returning
+      // `accepted: false` is the truth rather than a no-op that looks like work.
+      compact: async () => ({ accepted: false }),
+      isBusy: isSessionBusy,
       log: (level, message, data) => logger.app("runtime", level, message, { data }),
     });
     const control = createMcpControlController({

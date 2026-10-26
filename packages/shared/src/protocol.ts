@@ -535,6 +535,12 @@ export const IPC = {
      */
     redactionStatus: "pi-desktop/redaction/status",
     redactionClear: "pi-desktop/redaction/clear",
+    /** Remote access (ADR 0333): loopback listener, off until enabled. */
+    remoteStatus: "pi-desktop/remote/status",
+    remoteEnable: "pi-desktop/remote/enable",
+    remoteDisable: "pi-desktop/remote/disable",
+    remoteIssueDevice: "pi-desktop/remote/device/issue",
+    remoteRevokeDevice: "pi-desktop/remote/device/revoke",
   },
   event: {
     pluginChanged: "pi-desktop/event/pluginChanged",

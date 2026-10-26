@@ -9,6 +9,7 @@ import type {
 } from "@pi-desktop/shared";
 import { useAppStore } from "../../stores/app-store";
 import { api } from "../../lib/api";
+import { RemoteAccessCard } from "./RemoteAccessCard";
 import {
   isSettingsDestinationHidden,
   SETTINGS_NAV_GROUP_LABELS,
@@ -685,6 +686,7 @@ export function SettingsPage() {
                   saveSettings={saveSettings}
                 />
               </SettingsCard>
+              <RemoteAccessCard />
             </div>
           )}
 
