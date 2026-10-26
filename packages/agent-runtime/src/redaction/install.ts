@@ -15,6 +15,7 @@ import { RuleSet, builtinRules } from "./rules.js";
 import type { MappingStore } from "./store.js";
 import { restoreStream } from "./stream.js";
 import { redactValue } from "./walk.js";
+import { withPlaceholderNotice } from "./notice.js";
 
 export interface RedactionBinding {
   store: MappingStore;
@@ -39,7 +40,7 @@ export function installRedaction(models: Models, binding: RedactionBinding): voi
       onPayload: async (payload: unknown, payloadModel: Model<Api>) => {
         const base = previousPayload ? ((await previousPayload(payload, payloadModel)) ?? payload) : payload;
         try {
-          return redactValue(base, rules, store);
+          return withPlaceholderNotice(redactValue(base, rules, store));
         } catch (error) {
           binding.onFailure?.(error);
           throw error;

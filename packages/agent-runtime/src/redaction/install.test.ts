@@ -50,6 +50,20 @@ describe("installRedaction", () => {
     expect(JSON.stringify(seen[0])).toContain("{{PHONE_");
   });
 
+  it("explains the placeholder to the model in the same request", async () => {
+    const store = await makeStore();
+    const seen: unknown[] = [];
+    const models = fakeModels(seen);
+    installRedaction(models, { store, rules });
+
+    await models.streamSimple({} as never, {} as never, {});
+
+    const body = seen[0] as { messages: Array<{ role: string; content: string }> };
+    expect(body.messages[0]).toMatchObject({ role: "system" });
+    expect(body.messages[0]?.content).toContain("Local privacy filter");
+    expect(body.messages[1]?.content).toContain("{{PHONE_");
+  });
+
   it("redacts what an earlier onPayload produced", async () => {
     const store = await makeStore();
     const seen: unknown[] = [];
