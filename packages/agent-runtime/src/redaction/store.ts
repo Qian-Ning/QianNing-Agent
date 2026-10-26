@@ -219,10 +219,29 @@ export class MappingStore {
   }
 
   clear(): Promise<void> {
+    // Every index has to go, not only the two that answer a lookup: a table
+    // whose `byDisplay` still holds rows keeps restoring stand-ins from memory
+    // after the user asked for them gone, and `isDisplay` keeps skipping values
+    // the next walk should treat as new.
     this.entries.clear();
     this.byToken.clear();
+    this.byDisplay.clear();
+    this.known.clear();
+    this.displayCache = undefined;
     this.dirty = true;
     return this.scheduleWrite();
+  }
+
+  /** Count and age of the rows, without exposing a single plaintext. */
+  stats(): { count: number; oldest: number | null; newest: number | null } {
+    if (this.entries.size === 0) return { count: 0, oldest: null, newest: null };
+    let oldest = Number.POSITIVE_INFINITY;
+    let newest = 0;
+    for (const entry of this.entries.values()) {
+      if (entry.createdAt < oldest) oldest = entry.createdAt;
+      if (entry.createdAt > newest) newest = entry.createdAt;
+    }
+    return { count: this.entries.size, oldest, newest };
   }
 
   flush(): Promise<void> {

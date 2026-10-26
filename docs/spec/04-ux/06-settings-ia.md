@@ -276,7 +276,10 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
      reply is restored before the agent reads it — so the transcript, tool
      arguments and UI keep the real values. A rewrite failure fails the request
      rather than sending it. The token table lives under `<data dir>/redaction/`
-     with owner-only permissions, an expiry and a size cap.
+     with owner-only permissions, an expiry and a size cap. The row under the
+     switch reports how many values are stored and offers a clear; clearing is
+     immediate, cannot be undone, and does not rewrite messages that already
+     show a stand-in.
    - **Inline visualizations** (`AppSettings.inlineVisualizations`) is off by
      default and gates both halves of the surface: the agent is offered
      `WriteInlineVisualization`, and the transcript renders an artifact card

@@ -153,6 +153,18 @@ describe("MappingStore", () => {
     expect(await store.load()).toEqual({ loaded: 0, evicted: 0 });
   });
 
+  it("reports the row count and its age bracket", async () => {
+    let now = 5_000;
+    const store = track(new MappingStore({ path: await storePath(), now: () => now }));
+    // count is what the settings row shows; oldest/newest let it say "since"
+    // without exposing a single value.
+    expect(store.stats()).toEqual({ count: 0, oldest: null, newest: null });
+    store.getOrInsert("PHONE", "13812345678");
+    now = 9_000;
+    store.getOrInsert("PHONE", "13900001111");
+    expect(store.stats()).toEqual({ count: 2, oldest: 5_000, newest: 9_000 });
+  });
+
   it("masks secrets in the preview", async () => {
     const store = track(new MappingStore({ path: await storePath() }));
     store.getOrInsert("PHONE", "13812345678");

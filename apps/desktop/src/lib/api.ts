@@ -11,6 +11,8 @@ import type {
   UiMessage,
   MessageRevisionSummary,
   AgentPromptResponse,
+  RedactionClearResult,
+  RedactionTableStatus,
 
   MediaWorkbenchFileRequest,
   MediaWorkbenchThumbnailRequest,
@@ -738,6 +740,9 @@ export const api = {
   runImportModelConfigs: (items: ModelConfigImportCandidate[]) =>
     invoke<ImportRunResult>(IPC.invoke.modelConfigImportRun, items),
   getSettings: () => invoke<AppSettings>(IPC.invoke.settingsGet).then(normalizeSettings),
+  /** Row count for the redaction settings row; never returns a value. */
+  getRedactionStatus: () => invoke<RedactionTableStatus>(IPC.invoke.redactionStatus),
+  clearRedactionTable: () => invoke<RedactionClearResult>(IPC.invoke.redactionClear),
   setSettings: (settings: AppSettings) =>
     invoke(IPC.invoke.settingsSet, validateSettingsWrite(settings)),
   /**
