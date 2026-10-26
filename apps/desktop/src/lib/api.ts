@@ -117,6 +117,7 @@ import type {
   PlanningStateEvent,
   PlansPendingResult,
   MessagingChannelSettings,
+  MessagingWebhookReceiverSettings,
   UpdateState,
   WindowControlAction,
   CloseBehavior,
@@ -1863,7 +1864,7 @@ export const api = {
    */
   setMessagingSection: (
     section: MessagingSectionKey,
-    value: MessagingChannelSettings | null,
+    value: MessagingChannelSettings | MessagingWebhookReceiverSettings | null,
   ) => invoke<{ ok: boolean }>(IPC.invoke.messagingSetSection, { section, value }),
   /**
    * Which inbound loops the main process has running, for the panel's third

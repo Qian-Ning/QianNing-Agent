@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
-import type { MessagingChannelSettings } from "@pi-desktop/shared";
+
 import { useAppStore } from "../../stores/app-store";
 import { api } from "../../lib/api";
 import {
@@ -38,6 +38,7 @@ import {
   type MessagingGatewaySnapshot,
   type MessagingPlatform,
   type MessagingPlatformId,
+  type MessagingPlatformRecord,
   type MessagingSetupState,
   type SupportedMessagingPlatform,
   type TelegramChatCandidate,
@@ -256,7 +257,7 @@ export function MessagingPlatformsPage() {
       await saveMessagingPlatform(
         target,
         draft,
-        settings?.[target.section] as MessagingChannelSettings | undefined,
+        settings?.[target.section] as MessagingPlatformRecord | undefined,
         {
           writeSection: async (section, value) => {
             await api.setMessagingSection(section, value);
@@ -314,7 +315,7 @@ export function MessagingPlatformsPage() {
               entry.support === "supported"
                 ? deriveChannelState(
                     entry,
-                    settings?.[entry.section] as MessagingChannelSettings | undefined,
+                    settings?.[entry.section] as MessagingPlatformRecord | undefined,
                     secretPresent,
                     gateway,
                   )
@@ -359,7 +360,7 @@ export function MessagingPlatformsPage() {
           <MessagingDetail
             key={platform.id}
             platform={platform}
-            record={settings?.[platform.section] as MessagingChannelSettings | undefined}
+            record={settings?.[platform.section] as MessagingPlatformRecord | undefined}
             secretPresent={secretPresent}
             gateway={gateway}
             saving={saving}
@@ -431,7 +432,7 @@ function MessagingDetail({
   onSave,
 }: {
   platform: SupportedMessagingPlatform;
-  record: MessagingChannelSettings | undefined;
+  record: MessagingPlatformRecord | undefined;
   secretPresent: Record<string, boolean>;
   gateway: MessagingGatewaySnapshot;
   saving: boolean;
@@ -1031,6 +1032,23 @@ function SupportedPanel({
 
 /** The field label for a missing-field id, as the status line reads it. */
 function missingLabelKey(id: string, platform: SupportedMessagingPlatform): string {
+  // The receiver shares the listener field ids with the local API and the
+  // credential id with nothing else, so its labels are its own rather than the
+  // API server's.
+  if (platform.id === "webhooks") {
+    switch (id) {
+      case "port":
+        return "settings.messaging.webhookPort";
+      case "bindAddress":
+        return "settings.messaging.webhookBindAddress";
+      case "sessionId":
+        return "settings.messaging.webhookSession";
+      case "signing-secret":
+        return "settings.messaging.webhookSigningSecret";
+      default:
+        return "settings.messaging.webhookSigningSecret";
+    }
+  }
   switch (id) {
     case "endpoint":
       return "settings.messaging.endpoint";

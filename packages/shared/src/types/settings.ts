@@ -176,6 +176,13 @@ export type MessagingChannelSettings = {
  * a separate, explicit boolean rather than an inference from `bindAddress`.
  */
 export type MessagingWebhookReceiverSettings = {
+  /**
+   * This build's record format and version, the pair every channel's own record
+   * carries. A record written by a different build reads as foreign and starts
+   * nothing, rather than being half-read by a reader that guesses.
+   */
+  format: string;
+  version: number;
   /** Whether a receiver listens at all; absent or false binds no port. */
   enabled: boolean;
   /** The port to listen on, 1–65535. */
@@ -193,6 +200,20 @@ export type MessagingWebhookReceiverSettings = {
   replayWindowSeconds: number;
   /** The largest body accepted, in bytes; larger requests are refused unread. */
   maxBodyBytes: number;
+  /**
+   * The `/webhooks/<path>` segment the channel is served under. Absent means
+   * `generic`, which is the segment this build documents; the field exists so a
+   * future adapter's segment does not force the first one to move.
+   */
+  path?: string;
+  /**
+   * The conversation-to-session binding and the restart-durable replay guard,
+   * carried beside the surface exactly as every channel's record carries them.
+   * The receiver serves one bound session in this build: an event delivered to
+   * a segment whose record names no session is refused (fail closed) rather
+   * than guessed at.
+   */
+  inbound?: MessagingInboundSettings;
 };
 
 /**

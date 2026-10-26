@@ -171,6 +171,7 @@ const SUPPORTED_IDS = [
   "homeAssistant",
   "email",
   "apiServer",
+  "webhooks",
   "irc",
   "ntfy",
 ];
@@ -261,7 +262,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
     "googleChat",
     "wecomGroup",
     "wecomApp",
-    "webhooks",
     "line",
     "microsoftGraph",
     "teams",
@@ -450,12 +450,21 @@ test("a channel reports its own gateway, never a sibling's", () => {
   assert.ok(platforms.length >= 8, "the supported catalogue lost a channel");
 
   // The per-channel keys the snapshot itself declares. `booted` is the host's
-  // own liveness, not a channel.
-  const channelKeys = Object.keys(MESSAGING_GATEWAY_OFF).filter((key) => key !== "booted");
+  // own liveness and the `*Error` keys are a listener's failure reason, so
+  // neither is a loop.
+  const channelKeys = Object.keys(MESSAGING_GATEWAY_OFF).filter(
+    (key) => key !== "booted" && !key.endsWith("Error"),
+  );
+
+  // One catalogue id does not name its loop directly: the webhook card is one
+  // platform and the loop it rides is the shared inbound receiver. Every other
+  // channel's key is its own id, so a channel added without a mapping still has
+  // to declare one here.
+  const gatewayKey = (id) => (id === "webhooks" ? "webhookReceiver" : id);
 
   for (const platform of platforms) {
     assert.ok(
-      channelKeys.includes(platform.id),
+      channelKeys.includes(gatewayKey(platform.id)),
       `${platform.id} has no gateway key of its own in the snapshot`,
     );
 
@@ -468,7 +477,7 @@ test("a channel reports its own gateway, never a sibling's", () => {
 
     // One running loop at a time. Only the platform that owns it may report it.
     for (const running of platforms) {
-      const snapshot = { ...GATEWAY_DOWN, [running.id]: true };
+      const snapshot = { ...GATEWAY_DOWN, [gatewayKey(running.id)]: true };
       const expected = running.id === platform.id ? "running" : "stopped";
       assert.equal(
         deriveChannelState(platform, undefined, {}, snapshot).gateway,
@@ -603,6 +612,19 @@ test("fields are grouped, and every field explains itself and its blank", () => 
         ["api-token"],
         "the local API's token is required, unlike ntfy's optional one",
       );
+    } else if (platform.id === "webhooks") {
+      // The receiver is a listener with one binding, not a chat peer: no
+      // destination, subject or role list. What it cannot start without is where
+      // it binds and the session an accepted event acts on; the signing secret
+      // is required too, because a receiver that authenticates nobody is a way
+      // into the agent for every process that can reach the port.
+      assert.deepEqual(requiredWithoutSecrets, ["port", "bindAddress", "sessionId"]);
+      assert.deepEqual(recommended.map((field) => field.id), []);
+      assert.deepEqual(
+        requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
+        ["signing-secret"],
+      );
+      assert.deepEqual(platform.secrets.map((slot) => slot.id), ["signing-secret"]);
     } else {
       assert.deepEqual(
         requiredWithoutSecrets,
@@ -647,6 +669,11 @@ test("fields are grouped, and every field explains itself and its blank", () => 
         continue;
       }
       if (platform.id === "signal" && (id === "destination" || id === "requestTimeoutMs")) {
+        continue;
+      }
+      // The webhook receiver has none of them: its endpoint is this listener,
+      // its "conversation" is the bound session it serves, and it names no link.
+      if (platform.id === "webhooks") {
         continue;
       }
       // The local API has none of the conversation fields: its address is a bind

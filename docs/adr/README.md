@@ -358,3 +358,4 @@ Each ADR includes:
 | 0326 | [Deliver Slack inbound over Socket Mode](0326-slack-inbound-socket-mode.md) | Accepted for implementation |
 | 0327 | [Session-owned inline visualizations rendered in a no-script sandbox](0327-inline-visualizations.md) | Accepted for implementation |
 | 0328 | [Scripted previews, a session-artifact scheme, and a user-driven write](0328-inline-viz-advanced.md) | Accepted for implementation |
+| 0329 | [The shared inbound-webhook receiver as a messaging channel](0329-messaging-webhook-receiver.md) | Accepted for implementation |

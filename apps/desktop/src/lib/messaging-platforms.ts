@@ -1,8 +1,18 @@
 import type {
   MessagingChannelSettings,
+  MessagingWebhookReceiverSettings,
   RacpPermissionMode,
   RacpRole,
 } from "@pi-desktop/shared";
+
+/**
+ * Any record the panel edits: a channel's own, or the shared webhook receiver's.
+ *
+ * The receiver is not a channel — its record describes an HTTP surface and the
+ * one binding served on it — so it has its own type, and every writer here takes
+ * the union rather than pretending the two shapes are the same.
+ */
+export type MessagingPlatformRecord = MessagingChannelSettings | MessagingWebhookReceiverSettings;
 
 /**
  * The messaging-platform settings surface (Settings ▸ Messaging platforms).
@@ -92,11 +102,24 @@ export type MessagingSectionKey =
   | "messagingNtfy"
   | "messagingEmail"
   | "messagingSignal"
-  | "messagingApiServer";
+  | "messagingApiServer"
+  /**
+   * The shared inbound-webhook receiver. It is a section of its own, not a
+   * channel record: the record describes the surface (`enabled`, the port, the
+   * signing secret's ref) and carries the one binding this build serves on it.
+   */
+  | "messagingWebhookReceiver";
 
 /** One credential a channel reads, and where the host keeps it. */
 export type MessagingSecretSlot = {
-  id: "app-token" | "bot-token" | "access-token" | "server-password" | "password" | "api-token";
+  id:
+    | "app-token"
+    | "bot-token"
+    | "access-token"
+    | "server-password"
+    | "password"
+    | "api-token"
+    | "signing-secret";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -131,7 +154,14 @@ export type MessagingFieldId =
   | "subjectPrefix"
   | "account"
   | "port"
-  | "bindAddress";
+  | "bindAddress"
+  /**
+   * The webhook receiver only: the session an accepted event starts a turn on.
+   * It is a form field because the receiver's principal holds the `owner` role
+   * — the same identity model the local API channel uses — so no per-session
+   * ownership write is needed for the binding to work.
+   */
+  | "sessionId";
 
 /**
  * Whether a field must be filled before the channel can work at all
@@ -610,6 +640,86 @@ function apiServerFields(): MessagingField[] {
       helpKey: "settings.messaging.requestTimeoutHint",
       placeholderKey: "settings.messaging.requestTimeoutPlaceholder",
       consequenceKey: "settings.messaging.consequenceTimeout",
+    },
+  ];
+}
+
+/**
+ * The port the webhook card opens with; the same default the receiver binds.
+ *
+ * 8787 is the receiver's own default in `@pi-desktop/agent-host`, so a record
+ * saved from this card without touching the port and one written by hand agree.
+ */
+export const WEBHOOK_RECEIVER_DEFAULT_PORT = 8787;
+
+/** Where the shared signing secret lives in the host's secret store. */
+export const WEBHOOK_RECEIVER_SECRET_REF = "secret:messaging-webhooks:signing-secret";
+
+/** The `/webhooks/<path>` segment this build serves. */
+export const WEBHOOK_RECEIVER_PATH = "generic";
+
+/** The receiver record's self-identifying format and version. */
+export const WEBHOOK_RECEIVER_FORMAT = "pi-desktop-messaging-webhook-receiver";
+export const WEBHOOK_RECEIVER_VERSION = 1;
+
+/** The replay window (seconds) and body cap (bytes) the card opens with. */
+export const WEBHOOK_RECEIVER_REPLAY_WINDOW_SECONDS = 300;
+export const WEBHOOK_RECEIVER_MAX_BODY_BYTES = 262_144;
+
+/**
+ * The receiver's one credential.
+ *
+ * Required, not optional: the receiver refuses to bind without a signing secret,
+ * because an unauthenticated listener is a way into the agent for anything that
+ * can reach the port. Unlike the local API's generated token this value is
+ * chosen by the operator, because the sender on the other side has to be told
+ * the same secret — it is the shared key of the HMAC both ends compute.
+ */
+const webhookSecrets: MessagingSecretSlot[] = [
+  {
+    id: "signing-secret",
+    ref: WEBHOOK_RECEIVER_SECRET_REF,
+    labelKey: "settings.messaging.webhookSigningSecret",
+    hintKey: "settings.messaging.webhookSigningSecretHint",
+    placeholderKey: "settings.messaging.webhookSigningSecretPlaceholder",
+  },
+];
+
+/**
+ * The receiver's fields: the secret, the listener, and the one session.
+ *
+ * There is no endpoint and no destination. A webhook has no API base to post
+ * to — the URL is this listener's own — and the conversation an event belongs to
+ * is named by the event's body, not by the record. What the record does own is
+ * the session the event acts on: the receiver serves one bound session in this
+ * build, and a record with none refuses every event rather than guessing.
+ */
+function webhookFields(): MessagingField[] {
+  return [
+    ...secretFields(webhookSecrets),
+    {
+      id: "port",
+      group: "required",
+      labelKey: "settings.messaging.webhookPort",
+      helpKey: "settings.messaging.webhookPortHint",
+      placeholderKey: "settings.messaging.webhookPortPlaceholder",
+      consequenceKey: "settings.messaging.consequenceWebhookPort",
+    },
+    {
+      id: "bindAddress",
+      group: "required",
+      labelKey: "settings.messaging.webhookBindAddress",
+      helpKey: "settings.messaging.webhookBindAddressHint",
+      placeholderKey: "settings.messaging.webhookBindAddressPlaceholder",
+      consequenceKey: "settings.messaging.consequenceWebhookBindAddress",
+    },
+    {
+      id: "sessionId",
+      group: "required",
+      labelKey: "settings.messaging.webhookSession",
+      helpKey: "settings.messaging.webhookSessionHint",
+      placeholderKey: "settings.messaging.webhookSessionPlaceholder",
+      consequenceKey: "settings.messaging.consequenceWebhookSession",
     },
   ];
 }
@@ -1247,14 +1357,26 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "webhooks",
-    support: "unsupported",
+    support: "supported",
+    section: "messagingWebhookReceiver",
+    format: WEBHOOK_RECEIVER_FORMAT,
+    version: WEBHOOK_RECEIVER_VERSION,
+    // No API base: the "endpoint" is this listener's own URL, not a remote
+    // service, so the form has nothing to fill in here.
+    defaultEndpoint: "",
     labelKey: "settings.messaging.platformWebhooks",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "publicCallback",
-    requirementKey: "settings.messaging.needsWebhook",
+    blurbKey: "settings.messaging.blurbWebhooks",
+    noteKey: "settings.messaging.webhooksNote",
+    limitationKey: "settings.messaging.webhooksLimitations",
     guideUrl: "https://www.standardwebhooks.com/",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepWebhooks1",
+      "settings.messaging.stepWebhooks2",
+      "settings.messaging.stepWebhooks3",
+      "settings.messaging.stepWebhooks4",
+    ],
+    secrets: webhookSecrets,
+    fields: webhookFields(),
   },
   {
     id: "a2a",
@@ -1437,7 +1559,8 @@ export type MessagingGatewayChannel =
   | "ntfy"
   | "email"
   | "signal"
-  | "apiServer";
+  | "apiServer"
+  | "webhookReceiver";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -1458,6 +1581,8 @@ export type MessagingGatewaySnapshot = {
   email: boolean;
   signal: boolean;
   apiServer: boolean;
+  /** Whether the shared inbound-webhook receiver is listening. */
+  webhookReceiver: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -1465,6 +1590,8 @@ export type MessagingGatewaySnapshot = {
    * failure is a fact about the record that retrying does not fix.
    */
   apiServerError: string | null;
+  /** Why the webhook receiver is not listening, on the same terms. */
+  webhookReceiverError: string | null;
 }
 
 /** The snapshot to use before the first reply arrives: nothing is known to run. */
@@ -1481,11 +1608,19 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   email: false,
   signal: false,
   apiServer: false,
+  webhookReceiver: false,
   apiServerError: null,
+  webhookReceiverError: null,
 };
 
 /** The catalogue ids that own a receive loop, i.e. the snapshot's channel keys. */
-type GatewayBackedPlatformId = Extract<MessagingPlatformId, MessagingGatewayChannel>;
+type GatewayBackedPlatformId =
+  | Extract<MessagingPlatformId, MessagingGatewayChannel>
+  /**
+   * The webhook receiver's catalogue id is not its snapshot key: the card is one
+   * platform, the key names the shared surface it listens on.
+   */
+  | "webhooks";
 
 /**
  * Which snapshot key each platform's loop is filed under.
@@ -1517,6 +1652,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   email: "email",
   signal: "signal",
   apiServer: "apiServer",
+  webhooks: "webhookReceiver",
 };
 
 /**
@@ -1572,6 +1708,8 @@ export type MessagingDraft = {
   /** The local API only: the listener's port and bind address, as typed text. */
   port: string;
   bindAddress: string;
+  /** The webhook receiver only: the session an accepted event acts on. */
+  sessionId: string;
   secrets: Record<string, string>;
 };
 
@@ -1588,36 +1726,47 @@ function trimmed(value: string | undefined): string {
 /** The form's opening state: the stored record, or the platform's defaults. */
 export function draftFrom(
   platform: SupportedMessagingPlatform,
-  record: MessagingChannelSettings | null | undefined,
+  record: MessagingPlatformRecord | null | undefined,
 ): MessagingDraft {
-  const linked = record?.inbound?.linkedPrincipal;
+  // The receiver's record has no `endpoint`/`destination`, so it is read through
+  // the channel shape as a partial: every field it does not carry stays absent,
+  // which is exactly what the form's defaults are for.
+  const channel = (record ?? null) as Partial<MessagingChannelSettings> | null;
+  const linked = channel?.inbound?.linkedPrincipal;
   const roles = MESSAGING_ROLES.filter((role) => linked?.roles?.includes(role));
   return {
-    endpoint: trimmed(record?.endpoint) || platform.defaultEndpoint,
-    nick: trimmed(record?.nick),
-    channels: trimmed(record?.channels),
-    destination: trimmed(record?.destination),
+    endpoint: trimmed(channel?.endpoint) || platform.defaultEndpoint,
+    nick: trimmed(channel?.nick),
+    channels: trimmed(channel?.channels),
+    destination: trimmed(channel?.destination),
     subject: trimmed(linked?.subject),
     roles: roles.length > 0 ? roles : ["controller"],
     permissionMode: MESSAGING_PERMISSION_MODES.includes(
-      record?.inbound?.permissionMode as RacpPermissionMode,
+      channel?.inbound?.permissionMode as RacpPermissionMode,
     )
-      ? (record?.inbound?.permissionMode as RacpPermissionMode)
+      ? (channel?.inbound?.permissionMode as RacpPermissionMode)
       : "ask",
     requestTimeoutMs:
-      typeof record?.requestTimeoutMs === "number" ? String(record.requestTimeoutMs) : "",
-    imapHost: trimmed(record?.imapHost),
-    imapPort: typeof record?.imapPort === "number" ? String(record.imapPort) : "",
-    smtpHost: trimmed(record?.smtpHost),
-    smtpPort: typeof record?.smtpPort === "number" ? String(record.smtpPort) : "",
-    smtpSecurity: record?.smtpSecurity === "starttls" ? "starttls" : "tls",
-    username: trimmed(record?.username),
-    allowedSenders: Array.isArray(record?.allowedSenders) ? record.allowedSenders.join(", ") : "",
-    subjectPrefix: trimmed(record?.subjectPrefix),
-    account: trimmed(record?.account),
+      typeof channel?.requestTimeoutMs === "number" ? String(channel.requestTimeoutMs) : "",
+    imapHost: trimmed(channel?.imapHost),
+    imapPort: typeof channel?.imapPort === "number" ? String(channel.imapPort) : "",
+    smtpHost: trimmed(channel?.smtpHost),
+    smtpPort: typeof channel?.smtpPort === "number" ? String(channel.smtpPort) : "",
+    smtpSecurity: channel?.smtpSecurity === "starttls" ? "starttls" : "tls",
+    username: trimmed(channel?.username),
+    allowedSenders: Array.isArray(channel?.allowedSenders)
+      ? channel.allowedSenders.join(", ")
+      : "",
+    subjectPrefix: trimmed(channel?.subjectPrefix),
+    account: trimmed(channel?.account),
     port:
-      typeof record?.port === "number" ? String(record.port) : String(API_SERVER_DEFAULT_PORT),
-    bindAddress: trimmed(record?.bindAddress) || "127.0.0.1",
+      typeof channel?.port === "number"
+        ? String(channel.port)
+        : String(
+            platform.id === "webhooks" ? WEBHOOK_RECEIVER_DEFAULT_PORT : API_SERVER_DEFAULT_PORT,
+          ),
+    bindAddress: trimmed(channel?.bindAddress) || "127.0.0.1",
+    sessionId: trimmed(channel?.inbound?.sessionId),
     secrets: {},
   };
 }
@@ -1649,6 +1798,8 @@ function draftText(draft: MessagingDraft, id: MessagingField["id"]): string {
       return draft.port;
     case "bindAddress":
       return draft.bindAddress;
+    case "sessionId":
+      return draft.sessionId;
     default:
       return "";
   }
@@ -1675,7 +1826,7 @@ function allowlistFromDraft(draft: MessagingDraft): string[] {
 /** True when the record is this build's own, not a foreign or future one. */
 export function isOwnRecord(
   platform: SupportedMessagingPlatform,
-  record: MessagingChannelSettings | null | undefined,
+  record: MessagingPlatformRecord | null | undefined,
 ): boolean {
   if (!record) return false;
   return record.format === platform.format && record.version === platform.version;
@@ -1707,6 +1858,20 @@ export function draftMissing(
     const port = Number(trimmed(draft.port));
     if (!Number.isInteger(port) || port < 1 || port > 65_535) missing.push("port");
     if (trimmed(draft.bindAddress) === "") missing.push("bindAddress");
+    return missing;
+  }
+  if (platform.id === "webhooks") {
+    // The receiver has no destination, no link and no endpoint: the signing
+    // secret is its identity and the bound session is where an accepted event
+    // lands. What a save must carry is a port in the TCP range, an address and
+    // that session, so the form cannot store a record the start gate would leave
+    // inert. The secret is not checked here, for the same reason it is not
+    // checked for any channel: a save may store a record before its credential,
+    // and the Setup dimension reports the gap.
+    const port = Number(trimmed(draft.port));
+    if (!Number.isInteger(port) || port < 1 || port > 65_535) missing.push("port");
+    if (trimmed(draft.bindAddress) === "") missing.push("bindAddress");
+    if (trimmed(draft.sessionId) === "") missing.push("sessionId");
     return missing;
   }
   if (platform.id === "email" || platform.id === "signal") {
@@ -1787,47 +1952,64 @@ export type MessagingChannelState = {
 /** The field ids a stored record still lacks: destination, link, credentials. */
 export function missingFromRecord(
   platform: SupportedMessagingPlatform,
-  record: MessagingChannelSettings,
+  record: MessagingPlatformRecord,
   secretPresent: Record<string, boolean>,
 ): string[] {
   const missing: string[] = [];
-  if (platform.id === "apiServer") {
-    // No destination and no linked principal: the token authenticates the
-    // caller, so the only record facts that can be missing are the listener's.
+  // The receiver's record is not a channel record, so the branches below read it
+  // through the channel shape once: a field the receiver does not carry reads as
+  // absent, which is what the completeness check wants.
+  const channel = record as MessagingChannelSettings;
+  if (platform.id === "webhooks") {
+    // The receiver's own facts: a usable port, a bind address, and the one
+    // session an accepted event acts on. The session lives inside `inbound`
+    // because that is where every channel's binding lives, so it is read there
+    // rather than from a top-level field this record does not have.
     const port = record.port;
     if (typeof port !== "number" || !Number.isInteger(port) || port < 1 || port > 65_535) {
       missing.push("port");
     }
     if (trimmed(record.bindAddress) === "") missing.push("bindAddress");
+    if (trimmed(record.inbound?.sessionId) === "") missing.push("sessionId");
+  } else if (platform.id === "apiServer") {
+    // No destination and no linked principal: the token authenticates the
+    // caller, so the only record facts that can be missing are the listener's.
+    const port = channel.port;
+    if (typeof port !== "number" || !Number.isInteger(port) || port < 1 || port > 65_535) {
+      missing.push("port");
+    }
+    if (trimmed(channel.bindAddress) === "") missing.push("bindAddress");
   } else if (platform.id === "email") {
-    if (trimmed(record.imapHost) === "") missing.push("imapHost");
-    if (typeof record.imapPort !== "number") missing.push("imapPort");
-    if (trimmed(record.smtpHost) === "") missing.push("smtpHost");
-    if (typeof record.smtpPort !== "number") missing.push("smtpPort");
-    if (trimmed(record.username) === "") missing.push("username");
-    if (!Array.isArray(record.allowedSenders) || record.allowedSenders.length === 0) {
+    if (trimmed(channel.imapHost) === "") missing.push("imapHost");
+    if (typeof channel.imapPort !== "number") missing.push("imapPort");
+    if (trimmed(channel.smtpHost) === "") missing.push("smtpHost");
+    if (typeof channel.smtpPort !== "number") missing.push("smtpPort");
+    if (trimmed(channel.username) === "") missing.push("username");
+    if (!Array.isArray(channel.allowedSenders) || channel.allowedSenders.length === 0) {
       missing.push("allowedSenders");
     }
   } else if (platform.id === "signal") {
-    if (trimmed(record.endpoint) === "") missing.push("endpoint");
-    if (trimmed(record.account) === "") missing.push("account");
+    if (trimmed(channel.endpoint) === "") missing.push("endpoint");
+    if (trimmed(channel.account) === "") missing.push("account");
     // Fail closed: a record with no allowed sender is incomplete, not open.
-    if (!Array.isArray(record.allowedSenders) || record.allowedSenders.length === 0) {
+    if (!Array.isArray(channel.allowedSenders) || channel.allowedSenders.length === 0) {
       missing.push("allowedSenders");
     }
   } else {
-    if (trimmed(record.endpoint) === "" && trimmed(platform.defaultEndpoint) === "") {
+    if (trimmed(channel.endpoint) === "" && trimmed(platform.defaultEndpoint) === "") {
       missing.push("endpoint");
     }
-    if (trimmed(record.destination) === "") missing.push("destination");
+    if (trimmed(channel.destination) === "") missing.push("destination");
   }
-  if (platform.fields.some((field) => field.id === "nick") && trimmed(record.nick) === "") {
+  if (platform.fields.some((field) => field.id === "nick") && trimmed(channel.nick) === "") {
     missing.push("nick");
   }
-  // The local API channel has no linked principal to record: its caller is
-  // whoever holds the token, so a "link" here would be a second identity.
-  if (platform.id !== "apiServer") {
-    const linked = record.inbound?.linkedPrincipal;
+  // The two channels whose caller is identified by a credential rather than by a
+  // linked principal: the local API's token holder, and the webhook's signing
+  // secret holder. Neither has a link to record, so requiring one would mark a
+  // working channel incomplete forever.
+  if (platform.id !== "apiServer" && platform.id !== "webhooks") {
+    const linked = channel.inbound?.linkedPrincipal;
     if (!linked || trimmed(linked.subject) === "" || (linked.roles?.length ?? 0) === 0) {
       missing.push("link");
     }
@@ -1843,7 +2025,7 @@ export function missingFromRecord(
 /** The three state dimensions, each from its own evidence. */
 export function deriveChannelState(
   platform: SupportedMessagingPlatform,
-  record: MessagingChannelSettings | null | undefined,
+  record: MessagingPlatformRecord | null | undefined,
   secretPresent: Record<string, boolean>,
   gateway: MessagingGatewaySnapshot,
 ): MessagingChannelState {
@@ -1894,8 +2076,8 @@ export function gatewayPresentation(state: MessagingChannelState): MessagingGate
 export function buildSectionWrite(
   platform: SupportedMessagingPlatform,
   draft: MessagingDraft,
-  existing: MessagingChannelSettings | null | undefined,
-): MessagingChannelSettings {
+  existing: MessagingPlatformRecord | null | undefined,
+): MessagingPlatformRecord {
   const endpoint = trimmed(draft.endpoint) || platform.defaultEndpoint;
   const destination = trimmed(draft.destination);
   const subject = trimmed(draft.subject);
@@ -1925,6 +2107,45 @@ export function buildSectionWrite(
         ? { requestTimeoutMs: Math.floor(timeout) }
         : {}),
     };
+  }
+  if (platform.id === "webhooks") {
+    // The receiver's record is the surface's own facts plus the one binding
+    // served on it. `enabled` is explicit for the same reason the local API's
+    // is: the runtime reads this section as "may listen", not "is configured".
+    // The replay window, the body cap and the path segment are this build's
+    // defaults — the card offers none of them — so they are written here rather
+    // than left for a reader to guess.
+    //
+    // The saved record starts from the stored one, because the runtime keeps its
+    // own state in this same section: the restart-durable delivery guard
+    // (`handledEventIds`) is written by the receiver, not by this form, and a
+    // save that rebuilt the record from the form alone would clear it and let a
+    // replayed delivery run a second turn.
+    const port = Number(trimmed(draft.port));
+    const sessionId = trimmed(draft.sessionId);
+    const next: Record<string, unknown> = {
+      ...((existing ?? {}) as Record<string, unknown>),
+      format: platform.format,
+      version: platform.version,
+      enabled: true,
+      port:
+        Number.isInteger(port) && port >= 1 && port <= 65_535 ? port : WEBHOOK_RECEIVER_DEFAULT_PORT,
+      bindAddress: trimmed(draft.bindAddress) || "127.0.0.1",
+      // The panel never offers a non-loopback bind: this listener speaks plain
+      // HTTP, and publishing it without a TLS-terminating proxy in front is the
+      // mistake the receiver's own default exists to prevent.
+      allowNonLoopback: false,
+      secretRef: WEBHOOK_RECEIVER_SECRET_REF,
+      replayWindowSeconds: WEBHOOK_RECEIVER_REPLAY_WINDOW_SECONDS,
+      maxBodyBytes: WEBHOOK_RECEIVER_MAX_BODY_BYTES,
+      path: WEBHOOK_RECEIVER_PATH,
+    };
+    const inbound = { ...((existing?.inbound ?? {}) as Record<string, unknown>) };
+    if (sessionId !== "") inbound.sessionId = sessionId;
+    else delete inbound.sessionId;
+    if (Object.keys(inbound).length > 0) next.inbound = inbound;
+    else delete next.inbound;
+    return next as MessagingWebhookReceiverSettings;
   }
   if (platform.id === "email") {
     const imapPort = Number(trimmed(draft.imapPort));
@@ -2023,7 +2244,7 @@ export type MessagingSavePorts = {
    */
   writeSection(
     section: MessagingSectionKey,
-    value: MessagingChannelSettings | null,
+    value: MessagingPlatformRecord | null,
   ): Promise<void>;
   /** Write one credential to the host's secret store, under its ref. */
   setSecret(ref: string, value: string): Promise<void>;
@@ -2052,7 +2273,7 @@ export type MessagingSaveResult = {
 export async function saveMessagingPlatform(
   platform: SupportedMessagingPlatform,
   draft: MessagingDraft,
-  existing: MessagingChannelSettings | null | undefined,
+  existing: MessagingPlatformRecord | null | undefined,
   ports: MessagingSavePorts,
   options: { enabled?: boolean } = {},
 ): Promise<MessagingSaveResult> {

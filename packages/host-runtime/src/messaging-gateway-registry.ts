@@ -38,7 +38,8 @@ export type MessagingGatewayChannel =
   | "ntfy"
   | "email"
   | "signal"
-  | "apiServer";
+  | "apiServer"
+  | "webhookReceiver";
 
 /** The answer the renderer reads. */
 export type MessagingGatewaySnapshot = {
@@ -55,6 +56,11 @@ export type MessagingGatewaySnapshot = {
   signal: boolean;
   apiServer: boolean;
   /**
+   * Whether the shared inbound-webhook receiver is listening. It is the one
+   * surface two channels could share, so it is reported once, here.
+   */
+  webhookReceiver: boolean;
+  /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — most often a port already taken. `null` for
    * every other channel's state: the other transports report their failures
@@ -62,6 +68,12 @@ export type MessagingGatewaySnapshot = {
    * record that will not fix itself.
    */
   apiServerError: string | null;
+  /**
+   * Why the webhook receiver is not listening, on the same terms as
+   * [`apiServerError`]: a bind failure, or no signing secret stored, is a fact
+   * about the record rather than a transient the receiver retries through.
+   */
+  webhookReceiverError: string | null;
 };
 
 /** The part of a started loop this registry needs: its lifetime. */
@@ -100,7 +112,12 @@ export type MessagingGatewayPort = {
 export class MessagingGatewayRegistry implements MessagingGatewayPort {
   private booted = false;
   private readonly running = new Set<MessagingGatewayChannel>();
-  private apiServerFailure: string | null = null;
+  /** The channels whose start failed for a reason a person can act on. */
+  private static readonly FAILURE_CHANNELS: readonly MessagingGatewayChannel[] = [
+    "apiServer",
+    "webhookReceiver",
+  ];
+  private readonly failures = new Map<MessagingGatewayChannel, string>();
 
   /** Record that host-core and the Agent Host came up. Idempotent. */
   markBooted(): void {
@@ -136,24 +153,25 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
   /**
    * Record why a channel could not start.
    *
-   * Only the local API channel has a place in the snapshot for this: its
-   * failure is a bind failure, which no amount of waiting fixes, while every
-   * other transport retries and reports through the audit sink. A failure for
-   * any other channel is still accepted (a caller should not have to know
-   * which channel has a slot) and kept out of the snapshot.
+   * Only the two channels that bind a port have a place in the snapshot for
+   * this: their failure is a bind failure (or, for the receiver, a missing
+   * signing secret), which no amount of waiting fixes, while every other
+   * transport retries and reports through the audit sink. A failure for any
+   * other channel is still accepted (a caller should not have to know which
+   * channel has a slot) and kept out of the snapshot.
    */
   fail(channel: MessagingGatewayChannel, reason: string): void {
-    if (channel !== "apiServer") return;
+    if (!MessagingGatewayRegistry.FAILURE_CHANNELS.includes(channel)) return;
     // The loop is gone — a bind failure ends it — so the running mark must go
     // with it: "running" beside a bind error would be the same contradiction the
     // disabled/running pair was.
     this.running.delete(channel);
-    this.apiServerFailure = reason;
+    this.failures.set(channel, reason);
   }
 
   clearFailure(channel: MessagingGatewayChannel): void {
-    if (channel !== "apiServer") return;
-    this.apiServerFailure = null;
+    if (!MessagingGatewayRegistry.FAILURE_CHANNELS.includes(channel)) return;
+    this.failures.delete(channel);
   }
 
   snapshot(): MessagingGatewaySnapshot {
@@ -170,7 +188,9 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
       email: this.running.has("email"),
       signal: this.running.has("signal"),
       apiServer: this.running.has("apiServer"),
-      apiServerError: this.apiServerFailure,
+      webhookReceiver: this.running.has("webhookReceiver"),
+      apiServerError: this.failures.get("apiServer") ?? null,
+      webhookReceiverError: this.failures.get("webhookReceiver") ?? null,
     };
   }
 }
