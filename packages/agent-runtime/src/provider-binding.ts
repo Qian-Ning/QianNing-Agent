@@ -1,5 +1,6 @@
 import { transcriptCompat } from "./transcript-compat.js";
 import { installHostedSearch } from "./hosted-search-stream.js";
+import { installRedaction, type RedactionBinding } from "./redaction/install.js";
 /**
  * Provider/model wiring shared by the session runtime and its subagents.
  *
@@ -440,6 +441,7 @@ export function buildProviderModel(
 export function createProviderModels(
   provider: RuntimeProviderConfig,
   model: Model<Api>,
+  redaction?: RedactionBinding,
 ): Models {
   const requestKey = providerRequestKey(provider);
   const resolveAuth = provider.resolveAuth;
@@ -474,6 +476,10 @@ export function createProviderModels(
       api: apiBindingForProviderModel(provider).adapter(),
     }),
   );
+  // Outbound redaction is installed first so it sits inside the hosted-search
+  // wrapper: the body it rewrites is the one after replay, which is the body
+  // that actually leaves.
+  if (redaction) installRedaction(models, redaction);
   // Hosted search rides the adapter call every consumer already makes, so the
   // session runtime, one-shot completion, and subagents all keep the feature.
   installHostedSearch(models);
