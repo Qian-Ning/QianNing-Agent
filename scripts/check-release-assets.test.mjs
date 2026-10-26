@@ -19,7 +19,7 @@ test("the declared set covers every platform the build matrix publishes", () => 
     "QianNing-Agent-Portable-2.0.0.exe",
     "QianNing-Agent-2.0.0-arm64.dmg",
     "QianNing-Agent-2.0.0-x64-mac.zip",
-    "QianNing.Agent-2.0.0.AppImage",
+    "QianNing Agent-2.0.0.AppImage",
     "qianning-agent_2.0.0_amd64.deb",
     "qianning-agent-2.0.0-x86_64.rpm",
     "pi-host-2.0.0-linux-x64.tar.gz",
@@ -79,10 +79,10 @@ test("feed parsing reads quoted and unquoted version lines", () => {
 
 test("electron-builder's AppImage name is the one the audit declares", () => {
   // Without a target-level artifactName the builder writes
-  // `${productName}-${version}.${ext}`, and productName carries a space. That
-  // produced "QianNing Agent-2.0.0.AppImage" against a declared
-  // "QianNing.Agent-2.0.0.AppImage" and failed the publish gate after every
-  // platform had already built.
+  // `${productName}-${version}.${ext}`, and productName carries a space. 26.x
+  // offers no way to change it for AppImage alone, so the audit has to declare
+  // the spaced name; this keeps the two from drifting apart again, which is how
+  // a full green build ended at the publish gate with "1 missing".
   const pkg = JSON.parse(
     readFileSync(new URL("../apps/desktop/package.json", import.meta.url), "utf8"),
   );

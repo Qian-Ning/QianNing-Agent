@@ -48,7 +48,11 @@ export function expectedAssets(version) {
     `${PRODUCT}-${version}-${arch}-mac.zip.blockmap`,
   ]);
   const linux = [
-    `QianNing.Agent-${version}.AppImage`,
+    // electron-builder writes `${productName}-${version}.${ext}` for AppImage and
+    // its 26.x configuration has no per-target artifactName: `linux.appImage`
+    // fails schema validation and `linux.artifactName` would rename deb and rpm
+    // too. productName is "QianNing Agent", so the asset carries a space.
+    `QianNing Agent-${version}.AppImage`,
     `qianning-agent_${version}_amd64.deb`,
     `qianning-agent-${version}-x86_64.rpm`,
     `${PRODUCT}-${version}-linux-x64.asar`,
