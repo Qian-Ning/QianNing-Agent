@@ -20,7 +20,7 @@ test("the declared set covers every platform the build matrix publishes", () => 
     "QianNing-Agent-Portable-2.0.0.exe",
     "QianNing-Agent-2.0.0-arm64.dmg",
     "QianNing-Agent-2.0.0-x64-mac.zip",
-    "QianNing Agent-2.0.0.AppImage",
+    "QianNing.Agent-2.0.0.AppImage",
     "qianning-agent_2.0.0_amd64.deb",
     "qianning-agent-2.0.0-x86_64.rpm",
     "pi-host-2.0.0-linux-x64.tar.gz",
@@ -78,24 +78,22 @@ test("feed parsing reads quoted and unquoted version lines", () => {
   assert.equal(feedVersion("files: []\n"), undefined);
 });
 
-test("electron-builder's AppImage name is the one the audit declares", () => {
-  // Without a target-level artifactName the builder writes
-  // `${productName}-${version}.${ext}`, and productName carries a space. 26.x
-  // offers no way to change it for AppImage alone, so the audit has to declare
-  // the spaced name; this keeps the two from drifting apart again, which is how
-  // a full green build ended at the publish gate with "1 missing".
-  const pkg = JSON.parse(
-    readFileSync(new URL("../apps/desktop/package.json", import.meta.url), "utf8"),
+test("the AppImage the workflow uploads is the one the audit declares", () => {
+  // One file, three names: electron-builder writes `${productName}-${version}`
+  // with a space, GitHub publishes that as a dot, and the updater feed carries
+  // electron-builder's hyphenated safe form. The release workflow renames the
+  // file, so its target has to be exactly what this audit expects — otherwise a
+  // release with every artifact present fails its own asset check.
+  const workflow = readFileSync(
+    new URL("../.github/workflows/release.yml", import.meta.url),
+    "utf8",
   );
-  const build = pkg.build ?? {};
-  const template = build.linux?.appImage?.artifactName
-    ?? `${build.productName}-\${version}.\${ext}`;
-  const produced = template
-    .replace("${version}", VERSION)
-    .replace("${ext}", "AppImage");
+  const match = /dotted="([^"]+)"/.exec(workflow);
+  assert.ok(match, "the release workflow should rename the AppImage");
+  const produced = match[1].replace("${version}", VERSION);
   assert.ok(
     expectedAssets(VERSION).includes(produced),
-    `${produced} is what electron-builder would write, and the audit does not declare it`,
+    `${produced} is what the workflow uploads, and the audit does not declare it`,
   );
 });
 

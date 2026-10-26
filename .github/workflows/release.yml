@@ -459,6 +459,35 @@ jobs:
         if: matrix.platform == 'linux'
         run: node scripts/export-linux-asar.mjs
 
+      - name: Normalize the Linux AppImage name
+        # electron-builder names the AppImage `${productName}-${version}.${ext}`,
+        # and productName is "QianNing Agent", so the file lands with a space.
+        # That one space produces three different names: GitHub replaces it with
+        # a dot when publishing the asset, and the updater feed carries
+        # electron-builder's safe form with hyphens. The feed therefore pointed at
+        # a file nobody published (404), and the published-asset audit failed on
+        # a release whose artifacts were all present.
+        if: matrix.platform == 'linux'
+        run: |
+          set -euo pipefail
+          cd apps/desktop/release
+          version="${GITHUB_REF_NAME#v}"
+          spaced="QianNing Agent-${version}.AppImage"
+          dotted="QianNing.Agent-${version}.AppImage"
+          if [[ ! -f "$spaced" ]]; then
+            echo "::error::expected $spaced from the AppImage target"
+            ls -1 ./*.AppImage || true
+            exit 1
+          fi
+          mv -- "$spaced" "$dotted"
+          sed -i "s|QianNing-Agent-${version}\.AppImage|${dotted}|g" latest-linux.yml
+          if ! grep -Fq "$dotted" latest-linux.yml; then
+            echo "::error::latest-linux.yml still does not name $dotted"
+            cat latest-linux.yml
+            exit 1
+          fi
+          printf 'appimage: %s\n' "$dotted"
+
       - name: Verify macOS artifact names
         # Same drift guard as the Windows lane: the DMG name comes from the
         # dmg target override and the ZIP name from the mac pattern, both in
