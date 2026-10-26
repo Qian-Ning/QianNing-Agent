@@ -1035,6 +1035,12 @@ dropped connection resumes from the last cursor instead of replaying the turn.
 The cookie profile, Origin allowlist and CSRF token belong to the browser
 milestone and are not part of this binding yet.
 
+Failed authentications are counted per peer: five inside a minute lock that peer
+out for a minute, the 429 carries `Retry-After`, and the next success clears the
+counter. ADR 0333 lists failed-attempt lockout as a companion to the first
+listening release rather than a follow-up, because a loopback listener is
+reachable by every process on the machine.
+
 | Operation family | HTTP mapping |
 |---|---|
 | Capabilities | `GET /v1/capabilities` |

@@ -7,13 +7,17 @@ import { OWNER_TOKEN, harness } from "./test-harness.js";
 
 const HTTP_BINDINGS = ["RACP-WS", "RACP-HTTP"] as const;
 
-async function withBinding<T>(run: (address: string, h: Awaited<ReturnType<typeof harness>>) => Promise<T>): Promise<T> {
+async function withBinding<T>(
+  run: (address: string, h: Awaited<ReturnType<typeof harness>>) => Promise<T>,
+  limits: { maxFailedAttempts?: number; lockoutMs?: number } = {},
+): Promise<T> {
   const h = await harness({ bindings: HTTP_BINDINGS });
   const binding = await bindRacpHttp({
     server: h.server,
     authenticator: h.authenticator,
     port: 0,
     log: () => undefined,
+    ...limits,
   });
   try {
     return await run(`http://127.0.0.1:${binding.address.port}`, h);
@@ -131,5 +135,46 @@ describe("RACP-HTTP over a loopback socket", () => {
       const response = await fetch(`${base}/v1/nope`, { headers: auth() });
       expect(response.status).toBe(404);
     });
+  });
+});
+
+describe("RACP-HTTP failed-attempt lockout", () => {
+  const wrong = { authorization: "Bearer race_00000000000000000000000000000000" };
+
+  const failTimes = async (base: string, count: number): Promise<number[]> => {
+    const codes: number[] = [];
+    for (let index = 0; index < count; index += 1) {
+      const response = await fetch(`${base}/v1/sessions`, { headers: wrong });
+      codes.push(response.status);
+    }
+    return codes;
+  };
+
+  it("locks a peer out after the configured number of failed attempts", async () => {
+    await withBinding(async (base) => {
+      expect(await failTimes(base, 3)).toEqual([401, 401, 401]);
+      const locked = await fetch(`${base}/v1/sessions`, { headers: auth() });
+      expect(locked.status).toBe(429);
+      expect(locked.headers.get("retry-after")).toBeTruthy();
+    }, { maxFailedAttempts: 3 });
+  });
+
+  it("lets the peer back in once the lockout expires", async () => {
+    await withBinding(async (base) => {
+      await failTimes(base, 2);
+      expect((await fetch(`${base}/v1/sessions`, { headers: auth() })).status).toBe(429);
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      expect((await fetch(`${base}/v1/sessions`, { headers: auth() })).status).toBe(200);
+    }, { maxFailedAttempts: 2, lockoutMs: 60 });
+  });
+
+  it("clears the failure count after a successful authentication", async () => {
+    await withBinding(async (base) => {
+      await failTimes(base, 2);
+      expect((await fetch(`${base}/v1/sessions`, { headers: auth() })).status).toBe(200);
+      await failTimes(base, 2);
+      // Two more failures after a success must not reach a limit of four.
+      expect((await fetch(`${base}/v1/sessions`, { headers: auth() })).status).toBe(200);
+    }, { maxFailedAttempts: 4 });
   });
 });
