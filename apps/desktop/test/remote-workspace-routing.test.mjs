@@ -47,7 +47,7 @@ const { registerWorkspaceIpc } = await import("../electron/main/ipc/workspace-ip
 // The Host's own workspace access, imported from compiled output for the same
 // reason the terminal end-to-end test does: the source uses TypeScript
 // parameter properties, which Node's strip-only loader rejects.
-const { createWorkspaceAccess } = await import("@pi-desktop/pi-host/dist/host-operations.js");
+const { createWorkspaceAccess } = await import("@pi-desktop/host-runtime");
 
 const HOST_KEY = "hostA";
 const HOST_SESSION_ID = "s1";

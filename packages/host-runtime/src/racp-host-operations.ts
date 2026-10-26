@@ -1,3 +1,12 @@
+/**
+ * The `RacpHostOperations` the RACP server drives: sessions, projects and
+ * workspace reads over host-core RPC.
+ *
+ * Lives here rather than in `pi-host` because the desktop Host is the same
+ * module deployed differently (ADR 0333 §2): `pi-host` and Electron Main both
+ * have a `host.call` proxy, so both can build the same catalogs instead of
+ * keeping two mappings in step.
+ */
 import { readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -11,7 +20,7 @@ import {
   type HostRpc,
   type HostSessionRecord,
   type RuntimeService,
-} from "@pi-desktop/host-runtime";
+} from "./index.js";
 import type { RacpHostOperations, RacpProjectCatalog, RacpSessionCatalog, RacpWorkspaceAccess } from "@pi-desktop/racp";
 import type { RacpProjectSummary } from "@pi-desktop/shared";
 

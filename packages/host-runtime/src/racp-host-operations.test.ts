@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { RacpError } from "@pi-desktop/agent-host";
 
-import { createHostOperations } from "./host-operations.js";
+import { createHostOperations } from "./racp-host-operations.js";
 
 const dirs: string[] = [];
 afterEach(async () => {
