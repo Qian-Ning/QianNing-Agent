@@ -2,6 +2,18 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "2.0.0",
+    date: "2026-10-26",
+    highlights: [
+      "Três novas entradas na mensageria que não são mais um adaptador de chat. O Signal conecta um canal criptografado onde a regra sobre quem pode falar é do produto, não do transporte. Um endpoint local de mensageria aceita um token que é a identidade inteira, para que automação sem cliente de chat abra uma sessão. E um webhook de entrada compartilhado dá a cada plataforma compatível um endereço público, `/webhooks/<platform>`, assinado com timestamp e id de entrega e respondido antes de o turno começar, para que uma resposta lenta não perca mensagem.",
+      "Visualizações embutidas: um agente pode deixar um artefato limitado — HTML, SVG, JSON, CSV ou texto — na transcrição como cartão. Vem desligado e a prévia roda em sandbox sem scripts e sem acesso ao aplicativo. Um segundo interruptor permite os scripts do próprio artefato — ainda origem opaca, ainda sem rede —, e Salvar como visual mantém uma resposta pronta como artefato sem pedir ao modelo que a escreva de novo.",
+      "As skills agora são entregues, não apenas anunciadas. O catálogo é agrupado, cada descrição cabe em um orçamento de 120 caracteres e uma correspondência lexical conservadora pode pré-carregar no máximo um corpo com a primeira mensagem. Um grupo cujos membros dependem todos de um modelo não configurado sai inteiro da lista, e `pnpm skills:usage` lê as contagens locais de carregamento que tornam a próxima poda uma questão de evidência.",
+      "Um turno só é abortado quando o aborto foi aceito. Um cancelamento que falhava, expirava ou era recusado encerrava o turno como parado enquanto o trabalho continuava; agora o encerramento segue a resposta, e uma requisição falha termina com seu próprio código de erro. Abortar uma sessão que a runtime não conhece não relata mais sucesso por não fazer nada.",
+      "A busca web hospedada volta a rodar no kernel 1.4.0. O pi-ai 1.4.0 removeu a ferramenta de servidor do provedor, então a runtime restaura os blocos de busca, seu replay e a ligação do adaptador por hooks públicos em vez de aplicar patch no adaptador. A mesma atualização corrige o corte do stream de Responses após o evento terminal e a dobra de raciocínio entre modelos ao restaurar uma sessão.",
+      "Correções menores. A pergunta ao sair pertence ao aplicativo e agora aparece também pela bandeja. Um endpoint próprio compatível com OpenAI não recebe mais `reasoning_effort` que nunca declarou suportar.",
+    ],
+  },
+  {
     version: "1.0.0",
     date: "2026-10-19",
     highlights: [

@@ -2,6 +2,18 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "2.0.0",
+    date: "2026-10-26",
+    highlights: [
+      "Tres formas nuevas de entrar en la mensajería que no son otro adaptador de chat. Signal conecta un canal cifrado donde la regla sobre quién puede hablar es del producto, no del transporte. Un endpoint local de mensajería acepta un token que es toda la identidad, para que la automatización sin cliente de chat pueda abrir una sesión. Y un webhook entrante compartido da a cada plataforma compatible una dirección pública, `/webhooks/<platform>`, firmada con marca de tiempo e id de entrega y respondida antes de que empiece el turno, para que una respuesta lenta no pierda un mensaje.",
+      "Visualizaciones en línea: un agente puede dejar un artefacto acotado —HTML, SVG, JSON, CSV o texto— en la transcripción como una tarjeta. Viene desactivado y la vista previa corre en un sandbox sin scripts y sin acceso a la app. Un segundo interruptor permite los scripts del propio artefacto —sigue siendo un origen opaco, sigue sin red—, y Guardar como visual conserva una respuesta terminada como artefacto sin pedirle al modelo que la escriba otra vez.",
+      "Las skills ahora se entregan, no solo se anuncian. El catálogo está agrupado, cada descripción cabe en un presupuesto de 120 caracteres y una coincidencia léxica conservadora puede precargar como mucho un cuerpo con el primer mensaje. Un grupo cuyos miembros dependen todos de un modelo sin configurar desaparece de la lista, y `pnpm skills:usage` informa los conteos locales de carga que convierten la próxima poda en una cuestión de evidencia.",
+      "Un turno solo se aborta cuando el aborto fue aceptado. Una cancelación que falló, expiró o fue rechazada antes cerraba el turno como detenido mientras el trabajo seguía; ahora el cierre sigue a la respuesta, y una petición fallida termina con su propio código de error. Abortar una sesión que la runtime no conoce ya no informa éxito por no hacer nada.",
+      "La búsqueda web alojada vuelve a correr sobre el kernel 1.4.0. pi-ai 1.4.0 eliminó la herramienta de servidor del proveedor, así que la runtime restaura los bloques de búsqueda, su replay y el enlace del adaptador mediante hooks públicos en vez de parchear el adaptador. La misma actualización corrige el corte del stream de Responses tras su evento terminal y el plegado de pensamiento entre modelos al restaurar una sesión.",
+      "Correcciones menores. La pregunta al salir pertenece a la app y ahora también aparece desde la bandeja. Un endpoint propio compatible con OpenAI ya no recibe `reasoning_effort` que nunca declaró admitir.",
+    ],
+  },
+  {
     version: "1.0.0",
     date: "2026-10-19",
     highlights: [
