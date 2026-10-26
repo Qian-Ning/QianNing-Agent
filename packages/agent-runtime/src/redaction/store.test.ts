@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { MappingStore } from "./store.js";
+import { MappingStore, mappingKey } from "./store.js";
 
 const dirs: string[] = [];
 const stores: MappingStore[] = [];
@@ -37,6 +37,64 @@ describe("MappingStore", () => {
   it("issues different tokens for different secrets", async () => {
     const store = track(new MappingStore({ path: await storePath() }));
     expect(store.getOrInsert("PHONE", "13812345678")).not.toBe(store.getOrInsert("PHONE", "13912345678"));
+  });
+
+  it("persists a hit so a value still in use does not expire", async () => {
+    const path = await storePath();
+    let now = 1_000;
+    const first = track(new MappingStore({ path, now: () => now }));
+    first.getOrInsert("PHONE", "13812345678");
+    await first.flush();
+
+    now = 5_000;
+    const second = track(new MappingStore({ path, now: () => now }));
+    await second.load();
+    second.getOrInsert("PHONE", "13812345678");
+    await second.flush();
+
+    const written = JSON.parse(await readFile(path, "utf8")) as {
+      entries: Record<string, { lastSeen: number }>;
+    };
+    expect(Object.values(written.entries)[0]?.lastSeen).toBe(5_000);
+  });
+
+  it("migrates a phone entry written before stand-ins existed", async () => {
+    const path = await storePath();
+    const token = "{{PHONE_01M5W9JCQEGTQDQABQF85N50XR}}";
+    await writeFile(
+      path,
+      JSON.stringify({
+        version: 1,
+        entries: {
+          [mappingKey("13812345678")]: { token, plaintext: "13812345678", type: "PHONE", createdAt: 1, lastSeen: 1 },
+        },
+      }),
+      "utf8",
+    );
+    const store = track(new MappingStore({ path, now: () => 2 }));
+    await store.load();
+    expect(store.getOrInsert("PHONE", "13812345678")).toMatch(/^1[3-9][0-9]{9}$/);
+    // The old token still restores, so messages that already quoted it survive.
+    expect(store.lookup(token)).toBe("13812345678");
+  });
+
+  it("persists the lastSeen of a restore", async () => {
+    const path = await storePath();
+    let now = 1_000;
+    const first = track(new MappingStore({ path, now: () => now }));
+    const token = first.getOrInsert("PHONE", "13812345678");
+    await first.flush();
+
+    now = 7_000;
+    const second = track(new MappingStore({ path, now: () => now }));
+    await second.load();
+    expect(second.lookup(token)).toBe("13812345678");
+    await second.flush();
+
+    const written = JSON.parse(await readFile(path, "utf8")) as {
+      entries: Record<string, { lastSeen: number }>;
+    };
+    expect(Object.values(written.entries)[0]?.lastSeen).toBe(7_000);
   });
 
   it("restores a token it issued and refuses one it did not", async () => {

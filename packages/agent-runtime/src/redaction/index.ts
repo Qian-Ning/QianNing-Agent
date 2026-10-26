@@ -21,6 +21,7 @@ import type { RuleSet } from "./rules.js";
 import type { MappingStore } from "./store.js";
 
 export * from "./blob.js";
+export * from "./fake.js";
 export * from "./install.js";
 export * from "./notice.js";
 export * from "./placeholder.js";

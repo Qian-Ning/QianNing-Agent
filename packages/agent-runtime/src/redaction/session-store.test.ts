@@ -51,7 +51,7 @@ describe("openMappingStore", () => {
     await writeFile(join(dir, "mappings.json"), "{not json", "utf8");
     const store = await open(dir);
     expect(store.size()).toBe(0);
-    expect(store.getOrInsert("PHONE", "13812345678")).toMatch(/^\{\{PHONE_/);
+    expect(store.getOrInsert("PHONE", "13812345678")).toMatch(/^1[3-9][0-9]{9}$/);
   });
 
   it("writes the table beside the session directory it was given", async () => {

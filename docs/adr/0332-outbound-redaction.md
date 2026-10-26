@@ -58,6 +58,16 @@ install it on the model registry before hosted search is installed.
    providers keep their cache prefixes. An unrecognised body shape is left
    untouched: a missing sentence costs clarity, a guessed request shape costs
    the request.
+9. **A phone number is replaced by a same-shaped stand-in, not a placeholder.**
+   Two live runs showed the cost of the visible token: the model answered that it
+   had no value for the "template placeholder", then that a "local privacy
+   filter" had replaced it — redaction worked, the task did not. A phone number
+   now becomes another eleven-digit number, which the model treats as data.
+   Every other type keeps its typed placeholder, because a fake credential
+   invites the model to use it against a real service, while a fake phone number
+   is inert. The stand-in matches the same rule on the next turn, so redaction
+   skips values the table issued — otherwise every replay would mint a stand-in
+   for a stand-in.
 
 ## Consequences
 

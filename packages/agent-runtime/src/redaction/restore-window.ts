@@ -1,14 +1,18 @@
 /**
- * Restores placeholders in a streamed reply.
+ * Restores stand-ins and placeholders in a streamed reply.
  *
- * A token can be split across two chunks — `{{PHONE_01J…` in one and `…AB}}` in
- * the next — so the tail of every chunk is held back until it is provably not
- * the start of a token. Holding is bounded: a stream that never emits `{` is
- * never delayed, and even a pathological run of braces is released after
+ * Two shapes have to survive being split across chunks. A placeholder
+ * (`{{PHONE_01J…}}`) is held from its opening brace until it parses or is proven
+ * not to be one. A stand-in is a bare value with no syntax at all — its only
+ * tell is that the buffer ends with a proper prefix of a value this table
+ * issued — so it is held at the longest such prefix.
+ *
+ * Holding is bounded: a stream that never emits a brace and never ends on a
+ * stand-in prefix is never delayed, and a pathological run is released after
  * `MAX_HOLD` characters, which is longer than any token this module issues.
  *
  * Without this, a restored phone number would occasionally arrive as
- * `{{PHONE_01J…` followed by `…AB}}`, and no later stage can repair that.
+ * `{{PHONE_01J…` followed by `…AB}}`, or as `1390000` followed by `1111`.
  */
 
 import { findPlaceholders } from "./placeholder.js";
@@ -46,7 +50,7 @@ export function isPlaceholderPrefix(text: string): boolean {
 }
 
 /** Index where a suffix that may still become a token starts. */
-function holdStart(text: string): number {
+function braceHoldStart(text: string): number {
   let brace = text.lastIndexOf("{");
   while (brace !== -1) {
     // The token opens with "{{"; `lastIndexOf` lands on the second brace of a
@@ -78,22 +82,52 @@ export class RestoreWindow {
   private emit(flush: boolean): string {
     const buffer = this.tail;
     this.tail = "";
+    if (flush) return this.render(buffer);
+
+    const hold = Math.min(braceHoldStart(buffer), this.displayHoldStart(buffer));
+    const safe = buffer.slice(0, hold);
+    const keep = buffer.slice(hold);
+    // Past the bound and still nothing plausible: release rather than stall.
+    if (keep.length > MAX_HOLD && braceHoldStart(keep) === keep.length && this.displayHoldStart(keep) === keep.length) {
+      return this.render(buffer);
+    }
+    this.tail = keep;
+    return this.render(safe);
+  }
+
+  /** Where the longest trailing prefix of an issued stand-in begins. */
+  private displayHoldStart(text: string): number {
+    const values = this.store.displayValues();
+    if (values.length === 0 || text.length === 0) return text.length;
+    let best = text.length;
+    for (const value of values) {
+      // A complete value is restorable right now; it must not hold itself back.
+      if (text.endsWith(value)) continue;
+      // Otherwise hold the longest trailing prefix, which is what a chunk
+      // boundary can leave behind.
+      const limit = Math.min(value.length - 1, text.length);
+      for (let length = limit; length >= 1; length -= 1) {
+        if (!text.endsWith(value.slice(0, length))) continue;
+        const start = text.length - length;
+        if (start < best) best = start;
+        break;
+      }
+    }
+    return best;
+  }
+
+  /** Replaces every complete token and stand-in in `text`. */
+  private render(text: string): string {
+    if (text.length === 0) return "";
     let output = "";
     let last = 0;
-    for (const match of findPlaceholders(buffer)) {
-      output += buffer.slice(last, match.start);
+    for (const match of findPlaceholders(text)) {
+      output += text.slice(last, match.start);
       const plaintext = this.store.lookup(match.token);
       output += plaintext === undefined ? match.token : plaintext;
       last = match.end;
     }
-    const remaining = buffer.slice(last);
-    if (flush) return output + remaining;
-    const start = holdStart(remaining);
-    output += remaining.slice(0, start);
-    const keep = remaining.slice(start);
-    // Past the bound and still not a token start: release it rather than stall.
-    if (keep.length > MAX_HOLD && !keep.startsWith("{{")) return output + keep;
-    this.tail = keep;
-    return output;
+    output += text.slice(last);
+    return this.store.restoreDisplays(output);
   }
 }
