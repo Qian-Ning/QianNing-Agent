@@ -17,3 +17,6 @@ export * from "./messaging-inbound-supervisor.js";
 export * from "./messaging-outbound-relay.js";
 export * from "./workspace-files.js";
 export * from "./workspace-diff.js";
+export * from "./racp-host-operations.js";
+export * from "./remote/listener.js";
+export * from "./remote/device-store.js";
