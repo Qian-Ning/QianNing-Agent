@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { auditAssets, expectedAssets, feedVersion } from "./check-release-assets.mjs";
 
@@ -74,4 +75,25 @@ test("feed parsing reads quoted and unquoted version lines", () => {
   assert.equal(feedVersion("version: 2.0.0\nfiles:\n  - url: x\n"), "2.0.0");
   assert.equal(feedVersion('version: "2.0.0"\n'), "2.0.0");
   assert.equal(feedVersion("files: []\n"), undefined);
+});
+
+test("electron-builder's AppImage name is the one the audit declares", () => {
+  // Without a target-level artifactName the builder writes
+  // `${productName}-${version}.${ext}`, and productName carries a space. That
+  // produced "QianNing Agent-2.0.0.AppImage" against a declared
+  // "QianNing.Agent-2.0.0.AppImage" and failed the publish gate after every
+  // platform had already built.
+  const pkg = JSON.parse(
+    readFileSync(new URL("../apps/desktop/package.json", import.meta.url), "utf8"),
+  );
+  const build = pkg.build ?? {};
+  const template = build.linux?.appImage?.artifactName
+    ?? `${build.productName}-\${version}.\${ext}`;
+  const produced = template
+    .replace("${version}", VERSION)
+    .replace("${ext}", "AppImage");
+  assert.ok(
+    expectedAssets(VERSION).includes(produced),
+    `${produced} is what electron-builder would write, and the audit does not declare it`,
+  );
 });
