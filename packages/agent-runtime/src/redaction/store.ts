@@ -21,6 +21,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { formatPlaceholder, newPlaceholderId, parsePlaceholder } from "./placeholder.js";
+import { synthesizeStandIn, usesFakeValue } from "./fake.js";
 
 /** First 16 hex characters of SHA-256: collision-free at any realistic table size. */
 export function mappingKey(plaintext: string): string {
@@ -29,6 +30,12 @@ export function mappingKey(plaintext: string): string {
 
 interface Entry {
   token: string;
+  /**
+   * What the provider actually sees. A phone number is replaced by a
+   * same-shaped stand-in, so the model has no privacy-filter tell to react to;
+   * every other type keeps the typed placeholder.
+   */
+  display: string;
   plaintext: string;
   type: string;
   createdAt: number;
@@ -36,7 +43,7 @@ interface Entry {
 }
 
 interface FileShape {
-  version: 1;
+  version: 2;
   entries: Record<string, Entry>;
 }
 
@@ -47,21 +54,30 @@ export interface MappingStoreOptions {
   /** Hard cap; the oldest entries are evicted beyond it. */
   cap?: number;
   now?: () => number;
+  /** Injectable randomness, so tests get deterministic stand-ins. */
+  random?: () => number;
 }
 
 export class MappingStore {
   private readonly entries = new Map<string, Entry>();
   private readonly byToken = new Map<string, Entry>();
+  private readonly byDisplay = new Map<string, Entry>();
+  /** Every value the table must never reuse: plaintexts and issued stand-ins. */
+  private readonly known = new Set<string>();
+  private displayCache?: string[];
   private dirty = false;
   private writing: Promise<void> = Promise.resolve();
+  private flushTimer?: ReturnType<typeof setTimeout>;
   private readonly path: string;
   private readonly ttlMs: number;
   private readonly cap: number;
   private readonly now: () => number;
+  private readonly random: () => number;
 
   constructor(options: MappingStoreOptions) {
     this.path = options.path;
     this.now = options.now ?? Date.now;
+    this.random = options.random ?? Math.random;
     const ttlDays = options.ttlDays ?? 90;
     this.ttlMs = ttlDays > 0 ? ttlDays * 24 * 60 * 60 * 1000 : 0;
     this.cap = options.cap ?? 10_000;
@@ -86,48 +102,103 @@ export class MappingStore {
         evicted += 1;
         continue;
       }
-      this.entries.set(key, entry);
-      this.byToken.set(entry.token, entry);
+      // A table written before stand-ins existed has no `display`; the token was
+      // the display then. Phone numbers are migrated to a stand-in on load so an
+      // upgrade stops showing the placeholder to the model, while the token stays
+      // in the table for restoring messages that already quoted it.
+      let display = typeof entry.display === "string" && entry.display.length > 0 ? entry.display : entry.token;
+      let migrated = false;
+      if (usesFakeValue(entry.type) && display === entry.token) {
+        display = synthesizeStandIn(entry.type, (candidate) => this.known.has(candidate), this.random) ?? entry.token;
+        migrated = true;
+      }
+      const normalized: Entry = { ...entry, display };
+      this.entries.set(key, normalized);
+      this.byToken.set(normalized.token, normalized);
+      this.byDisplay.set(normalized.display, normalized);
+      this.known.add(normalized.plaintext);
+      this.known.add(normalized.display);
+      if (migrated) this.dirty = true;
     }
     if (evicted > 0) this.dirty = true;
     return { loaded: this.entries.size, evicted };
   }
 
-  /** The token for `plaintext`, issuing one on first sight. */
+  /** What the provider should see for `plaintext`, issuing a mapping on first sight. */
   getOrInsert(type: string, plaintext: string): string {
     const key = mappingKey(plaintext);
     const existing = this.entries.get(key);
     if (existing) {
-      existing.lastSeen = this.now();
-      this.dirty = true;
-      return existing.token;
+      this.touch(existing);
+      return existing.display;
     }
+    const token = formatPlaceholder({ type, id: newPlaceholderId(this.now()) });
+    // A stand-in must never equal a value this table has seen — reusing a real
+    // number as the fake for a different one would restore the wrong value.
+    const display = synthesizeStandIn(type, (candidate) => this.known.has(candidate), this.random) ?? token;
     const entry: Entry = {
-      token: formatPlaceholder({ type, id: newPlaceholderId(this.now()) }),
+      token,
+      display,
       plaintext,
       type,
       createdAt: this.now(),
       lastSeen: this.now(),
     };
     this.entries.set(key, entry);
-    this.byToken.set(entry.token, entry);
+    this.byToken.set(token, entry);
+    this.byDisplay.set(display, entry);
+    this.known.add(plaintext);
+    this.known.add(display);
+    this.displayCache = undefined;
     this.evict();
     this.dirty = true;
     this.scheduleWrite();
-    return entry.token;
+    return display;
   }
 
   /**
-   * The plaintext a token stands for, or undefined when this table never issued
-   * it. A model may quote an example token verbatim; that is not a value to
-   * restore, it is text to leave alone.
+   * The plaintext a token or stand-in stands for, or undefined when this table
+   * never issued it. A model may quote an example value verbatim; that is not a
+   * value to restore, it is text to leave alone.
    */
-  lookup(token: string): string | undefined {
-    const entry = this.byToken.get(token);
+  lookup(value: string): string | undefined {
+    const entry = this.byToken.get(value) ?? this.byDisplay.get(value);
     if (!entry) return undefined;
-    entry.lastSeen = this.now();
-    this.dirty = true;
+    this.touch(entry);
     return entry.plaintext;
+  }
+
+  /** True when `value` is a stand-in this table issued for some other value. */
+  isDisplay(value: string): boolean {
+    return this.byDisplay.has(value);
+  }
+
+  /** Stand-ins only: what the provider saw for a value that is not a token. */
+  displayValues(): string[] {
+    if (this.displayCache) return this.displayCache;
+    this.displayCache = [...this.byDisplay.values()]
+      .filter((entry) => entry.display !== entry.token)
+      .map((entry) => entry.display);
+    return this.displayCache;
+  }
+
+  /**
+   * Replaces issued stand-ins in `text`, longest first.
+   *
+   * Longest first matters because a stand-in may be a prefix of another; without
+   * it a shorter match would rewrite the head of a longer one.
+   */
+  restoreDisplays(text: string): string {
+    const values = this.displayValues();
+    if (values.length === 0 || text.length === 0) return text;
+    let output = text;
+    for (const value of [...values].sort((a, b) => b.length - a.length)) {
+      if (!output.includes(value)) continue;
+      const plaintext = this.lookup(value);
+      if (plaintext === undefined) continue;
+      output = output.split(value).join(plaintext);
+    }
+    return output;
   }
 
   size(): number {
@@ -165,14 +236,36 @@ export class MappingStore {
     for (const [key, entry] of oldest.slice(0, this.entries.size - this.cap)) {
       this.entries.delete(key);
       this.byToken.delete(entry.token);
+      this.byDisplay.delete(entry.display);
+      this.displayCache = undefined;
     }
+  }
+
+  /**
+   * Marks an entry as recently used and schedules a coalesced write.
+   *
+   * A hit has to reach the disk as well as the memory: expiry is decided from
+   * `lastSeen` on load, so a table that only wrote on first sight would expire
+   * exactly the values the user keeps pasting. The write is delayed because one
+   * turn restores many tokens, and each restore would otherwise rewrite the
+   * whole snapshot.
+   */
+  private touch(entry: Entry): void {
+    entry.lastSeen = this.now();
+    this.dirty = true;
+    if (this.flushTimer) return;
+    this.flushTimer = setTimeout(() => {
+      this.flushTimer = undefined;
+      void this.scheduleWrite();
+    }, 1_000);
+    this.flushTimer.unref?.();
   }
 
   /** Coalesces a burst of inserts into one write. */
   private scheduleWrite(): Promise<void> {
     if (!this.dirty) return this.writing;
     this.dirty = false;
-    const snapshot: FileShape = { version: 1, entries: Object.fromEntries(this.entries) };
+    const snapshot: FileShape = { version: 2, entries: Object.fromEntries(this.entries) };
     const body = JSON.stringify(snapshot);
     const run = async (): Promise<void> => {
       await mkdir(dirname(this.path), { recursive: true });

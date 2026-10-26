@@ -271,12 +271,12 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
      integer values from 1 through 1,000,000.
    - **Redact secrets before sending** (`AppSettings.redaction.enabled`) is off
      by default (ADR 0332). When on, a provider request carries typed
-     placeholders in place of the keys, connection strings, ID numbers and phone
-     numbers the rule table matches, and the reply is restored before the agent
-     reads it — so the transcript, tool arguments and UI keep the real values. A
-     rewrite failure fails the request rather than sending it. The token table
-     lives under `<data dir>/redaction/` with owner-only permissions, an expiry
-     and a size cap.
+     placeholders in place of the keys, connection strings and ID numbers the
+     rule table matches, and same-shaped stand-ins in place of phone numbers; the
+     reply is restored before the agent reads it — so the transcript, tool
+     arguments and UI keep the real values. A rewrite failure fails the request
+     rather than sending it. The token table lives under `<data dir>/redaction/`
+     with owner-only permissions, an expiry and a size cap.
    - **Inline visualizations** (`AppSettings.inlineVisualizations`) is off by
      default and gates both halves of the surface: the agent is offered
      `WriteInlineVisualization`, and the transcript renders an artifact card

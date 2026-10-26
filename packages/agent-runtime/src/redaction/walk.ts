@@ -31,15 +31,18 @@ export function redactText(text: string, rules: RuleSet, store: MappingStore): s
   let output = text;
   for (let i = hits.length - 1; i >= 0; i -= 1) {
     const hit = hits[i] as (typeof hits)[number];
+    // A stand-in has the same shape as the value it replaces, so the rules match
+    // it again on the next turn. Redacting it would mint a second stand-in and
+    // leave the first one unrestorable.
+    if (store.isDisplay(hit.text)) continue;
     output = output.slice(0, hit.start) + store.getOrInsert(hit.type, hit.text) + output.slice(hit.end);
   }
   return output;
 }
 
-/** Replaces every token this table issued; unknown tokens are left as written. */
+/** Replaces every token and stand-in this table issued; unknown text is left as written. */
 export function restoreText(text: string, store: MappingStore): string {
   const found = findPlaceholders(text);
-  if (found.length === 0) return text;
   let output = text;
   for (let i = found.length - 1; i >= 0; i -= 1) {
     const match = found[i] as PlaceholderMatch;
@@ -47,7 +50,7 @@ export function restoreText(text: string, store: MappingStore): string {
     if (plaintext === undefined) continue;
     output = output.slice(0, match.start) + plaintext + output.slice(match.end);
   }
-  return output;
+  return store.restoreDisplays(output);
 }
 
 function mapStrings(value: JsonValue, transform: (text: string) => string): JsonValue {

@@ -28,10 +28,13 @@ afterEach(async () => {
 
 const rules = new RuleSet({ rules: builtinRules() });
 
-function fakeModels(seen: unknown[]): Models {
+function fakeModels(
+  seen: unknown[],
+  body: unknown = { messages: [{ role: "user", content: "call 13812345678" }] },
+): Models {
   return {
     streamSimple: async (_model: unknown, _context: unknown, options: { onPayload?: (p: unknown, m: unknown) => unknown }) => {
-      seen.push(await options.onPayload?.({ messages: [{ role: "user", content: "call 13812345678" }] }, {}));
+      seen.push(await options.onPayload?.(body, {}));
       return createAssistantMessageEventStream();
     },
   } as unknown as Models;
@@ -47,10 +50,10 @@ describe("installRedaction", () => {
     await models.streamSimple({} as never, {} as never, {});
 
     expect(JSON.stringify(seen[0])).not.toContain("13812345678");
-    expect(JSON.stringify(seen[0])).toContain("{{PHONE_");
+    expect(JSON.stringify(seen[0])).toMatch(/1[3-9][0-9]{9}/);
   });
 
-  it("explains the placeholder to the model in the same request", async () => {
+  it("leaves the prompt alone when only a phone number was replaced", async () => {
     const store = await makeStore();
     const seen: unknown[] = [];
     const models = fakeModels(seen);
@@ -58,10 +61,25 @@ describe("installRedaction", () => {
 
     await models.streamSimple({} as never, {} as never, {});
 
+    // A stand-in needs no explanation — that is the whole point of using one.
+    const body = seen[0] as { messages: Array<{ role: string }> };
+    expect(body.messages.some((message) => message.role === "system")).toBe(false);
+  });
+
+  it("explains a typed placeholder to the model in the same request", async () => {
+    const store = await makeStore();
+    const seen: unknown[] = [];
+    const models = fakeModels(seen, {
+      messages: [{ role: "user", content: "use sk-abcdefghij0123456789XYZ" }],
+    });
+    installRedaction(models, { store, rules });
+
+    await models.streamSimple({} as never, {} as never, {});
+
     const body = seen[0] as { messages: Array<{ role: string; content: string }> };
     expect(body.messages[0]).toMatchObject({ role: "system" });
     expect(body.messages[0]?.content).toContain("Local privacy filter");
-    expect(body.messages[1]?.content).toContain("{{PHONE_");
+    expect(body.messages[1]?.content).toContain("{{APIKEY_");
   });
 
   it("redacts what an earlier onPayload produced", async () => {

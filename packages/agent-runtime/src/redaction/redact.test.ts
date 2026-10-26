@@ -36,7 +36,17 @@ describe("payload walk", () => {
     expect(Object.keys(output)).toEqual(["model", "messages"]);
     expect(output.model).toBe("x");
     expect(output.messages[0]?.content).not.toContain("13812345678");
-    expect(output.messages[0]?.content).toContain("{{PHONE_");
+    // A phone number becomes a same-shaped stand-in: the model must have no
+    // privacy-filter tell to react to.
+    expect(output.messages[0]?.content).toMatch(/^call 1[3-9][0-9]{9}$/);
+  });
+
+  it("leaves a stand-in untouched when the same text goes out again", async () => {
+    const store = await makeStore();
+    const stand = store.getOrInsert("PHONE", "13812345678");
+    // Replaying a turn must not mint a second stand-in for the first one.
+    expect(redactText(`号码 ${stand}`, rules, store)).toBe(`号码 ${stand}`);
+    expect(store.size()).toBe(1);
   });
 
   it("leaves base64 image data untouched", async () => {
@@ -92,13 +102,41 @@ describe("RestoreWindow", () => {
     expect(window.flush()).toBe("");
   });
 
-  it("holds a trailing brace until the next chunk decides", async () => {
+  it("holds a trailing character until the next chunk decides", async () => {
     const store = await makeStore();
-    const token = store.getOrInsert("PHONE", "13812345678");
+    const stand = store.getOrInsert("PHONE", "13812345678");
+    expect(store.displayValues()).toContain(stand);
+    expect(store.restoreDisplays(`x${stand}`)).toBe("x13812345678");
+
     const window = new RestoreWindow(store);
-    const first = window.push(`x${token.slice(0, 1)}`);
+    const first = window.push(`x${stand.slice(0, 1)}`);
     expect(first).toBe("x");
-    expect(window.push(token.slice(1)) + window.flush()).toBe("13812345678");
+    expect(window.push(stand.slice(1)) + window.flush()).toBe("13812345678");
+  });
+
+  it("restores a stand-in split across two chunks", async () => {
+    const store = await makeStore();
+    const stand = store.getOrInsert("PHONE", "13812345678");
+    const window = new RestoreWindow(store);
+    const cut = 5;
+    const first = window.push(`call ${stand.slice(0, cut)}`);
+    const second = window.push(`${stand.slice(cut)} now`);
+    expect(first + second + window.flush()).toBe("call 13812345678 now");
+  });
+
+  it("does not leak a partial stand-in before the chunk settles", async () => {
+    const store = await makeStore();
+    const stand = store.getOrInsert("PHONE", "13812345678");
+    const window = new RestoreWindow(store);
+    const emitted = window.push(`call ${stand.slice(0, 7)}`);
+    expect(emitted).toBe("call ");
+    expect(window.push(`${stand.slice(7)}`)).toBe("13812345678");
+  });
+
+  it("leaves a number the table never issued alone", async () => {
+    const store = await makeStore();
+    store.getOrInsert("PHONE", "13812345678");
+    expect(restoreText("随机 13911112222", store)).toBe("随机 13911112222");
   });
 });
 
