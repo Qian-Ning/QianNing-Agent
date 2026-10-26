@@ -40,6 +40,8 @@ import {
 import { readCloseBehavior } from "../window-preferences";
 import { createAgentHostBridge, type AgentHostBridge } from "../agent-host-bridge";
 import { createRemoteListener, type RemoteListener } from "@pi-desktop/host-runtime";
+
+import { serveClientShell } from "../remote/app-shell";
 import { messagingGateway } from "../messaging-gateway";
 import { createBackendRouter, type BackendRouter } from "../remote/backend-router";
 import { createRemoteHostsBoot, setActiveRemoteHostsBoot } from "./remote-hosts";
@@ -333,6 +335,9 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
       // `accepted: false` is the truth rather than a no-op that looks like work.
       compact: async () => ({ accepted: false }),
       isBusy: isSessionBusy,
+      // The shell is what a phone opens first; it carries no credential and no
+      // session data, so the binding serves it before authentication.
+      serveStatic: serveClientShell,
       log: (level, message, data) => logger.app("runtime", level, message, { data }),
     });
     const control = createMcpControlController({
