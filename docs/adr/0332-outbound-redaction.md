@@ -27,8 +27,9 @@ happens when the rewrite fails.
 Add an outbound redaction layer in `packages/agent-runtime/src/redaction/` and
 install it on the model registry before hosted search is installed.
 
-1. **Matched strings are replaced by typed placeholders**, `{{TYPE_ULID}}` —
-   for example `{{PHONE_01J9Z6…}}`. The grammar is narrow so ordinary prose is
+1. **Matched strings are replaced by typed placeholders.** A placeholder is a
+   type prefix plus a 26-character id, wrapped in double braces; the visible
+   part looks like `PHONE_01J9Z6…`. The grammar is narrow so ordinary prose is
    never mistaken for a token, and the same secret always maps to the same
    placeholder through a hash-keyed table.
 2. **Only string values are rewritten, never object keys.** Keys belong to the
