@@ -1,0 +1,20 @@
+{
+  "name": "@pi-desktop/mobile",
+  "version": "2.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mobile shell for QianNing Agent: the same client page the Host serves at /app, packaged for a phone.",
+  "scripts": {
+    "sync-shell": "node scripts/sync-shell.mjs",
+    "cap:add": "cap add android",
+    "cap:sync": "cap sync android",
+    "apk": "node scripts/build-apk.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3"
+  }
+}

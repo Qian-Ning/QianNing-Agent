@@ -99,9 +99,35 @@ const HTML = `<!doctype html>
 <script>
 (function () {
   var TOKEN_KEY = "racp.token";
+  var BASE_KEY = "racp.base";
   var app = document.getElementById("app");
   var state = { view: "loading", sessions: [], sessionId: null, messages: [], approvals: [], error: null, busy: false };
   var stream = null;
+
+  /**
+   * Where the Host lives. Empty means "the origin this page came from", which
+   * is right for a browser tab served by the Host and wrong for the phone
+   * shell, where the page comes from the app bundle.
+   */
+  // Trimmed by hand rather than with a regex: this code lives inside a template
+  // string, and the escaping a regex needs there is exactly the kind that turns
+  // into a comment in the delivered file.
+  function trimSlash(value) {
+    var out = value;
+    while (out.length > 1 && out.charAt(out.length - 1) === "/") out = out.slice(0, -1);
+    return out;
+  }
+  function base() {
+    var stored = localStorage.getItem(BASE_KEY);
+    return stored ? trimSlash(stored) : "";
+  }
+  function setBase(value) {
+    if (value) localStorage.setItem(BASE_KEY, trimSlash(value));
+    else localStorage.removeItem(BASE_KEY);
+  }
+  function defaultBase() {
+    return window.Capacitor ? "" : location.origin;
+  }
 
   function token() { return localStorage.getItem(TOKEN_KEY) || ""; }
   function setToken(value) {
@@ -119,7 +145,7 @@ const HTML = `<!doctype html>
     init = init || {};
     var headers = { authorization: "Bearer " + token() };
     if (init.body) headers["content-type"] = "application/json";
-    return fetch(path, {
+    return fetch(base() + path, {
       method: init.method || "GET",
       headers: headers,
       body: init.body ? JSON.stringify(init.body) : undefined,
@@ -143,8 +169,10 @@ const HTML = `<!doctype html>
     app.innerHTML =
       '<header><h1>QianNing Agent</h1></header>' +
       '<main>' +
-        '<p class="empty">Paste the device token issued on your computer.</p>' +
+        '<p class="empty">Point this at the computer running QianNing Agent, then paste its device token.</p>' +
         '<form id="login">' +
+          '<span class="field"><label for="b">Server address</label>' +
+            '<input id="b" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://192.168.1.10:11400" value="' + esc(defaultBase()) + '"></span>' +
           '<span class="field"><label for="t">Device token</label>' +
             '<input id="t" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="pdt1.…"></span>' +
           '<button type="submit">Connect</button>' +
@@ -154,8 +182,10 @@ const HTML = `<!doctype html>
     var form = document.getElementById("login");
     form.addEventListener("submit", function (event) {
       event.preventDefault();
+      var address = document.getElementById("b").value.trim();
       var value = document.getElementById("t").value.trim();
       if (!value) return;
+      setBase(address);
       setToken(value);
       state.view = "sessions";
       render();
@@ -325,7 +355,7 @@ const HTML = `<!doctype html>
     closeStream();
     var controller = new AbortController();
     stream = controller;
-    fetch("/v1/sessions/" + encodeURIComponent(state.sessionId) + "/events", {
+    fetch(base() + "/v1/sessions/" + encodeURIComponent(state.sessionId) + "/events", {
       headers: { authorization: "Bearer " + token() },
       signal: controller.signal,
     }).then(function (response) {
