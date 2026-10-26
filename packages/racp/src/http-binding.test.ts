@@ -178,3 +178,18 @@ describe("RACP-HTTP failed-attempt lockout", () => {
     }, { maxFailedAttempts: 4 });
   });
 });
+
+describe("a non-loopback bind", () => {
+  it("is refused without TLS, because the protocol has no plaintext LAN mode", async () => {
+    const h = await harness({ bindings: HTTP_BINDINGS });
+    await expect(
+      bindRacpHttp({
+        server: h.server,
+        authenticator: h.authenticator,
+        host: "0.0.0.0",
+        port: 0,
+        log: () => undefined,
+      }),
+    ).rejects.toThrow(/requires TLS/);
+  });
+});
