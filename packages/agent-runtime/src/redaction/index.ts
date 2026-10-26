@@ -22,6 +22,7 @@ import type { MappingStore } from "./store.js";
 
 export * from "./blob.js";
 export * from "./install.js";
+export * from "./notice.js";
 export * from "./placeholder.js";
 export * from "./restore-window.js";
 export * from "./rules.js";

@@ -49,6 +49,15 @@ install it on the model registry before hosted search is installed.
    the settings page exposes one switch (`AppSettings.redaction.enabled`), and an
    absent or false value launches no binding: the sidecar never opens the table
    and the request stays verbatim.
+8. **The model is told what a placeholder is.** When the rewritten body contains
+   at least one token, one sentence is appended to whichever system-level
+   surface that payload exposes. Without it a model reads the token as an
+   unresolved template and refuses the task — verified against a live provider,
+   where the reply said it had no value for the "variable". The sentence is
+   added only in that case, so ordinary turns keep their exact prompt and
+   providers keep their cache prefixes. An unrecognised body shape is left
+   untouched: a missing sentence costs clarity, a guessed request shape costs
+   the request.
 
 ## Consequences
 
