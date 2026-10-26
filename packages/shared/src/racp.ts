@@ -27,9 +27,12 @@ export const RACP_PROTOCOL_VERSION = "1.0" as const;
 export const RACP_BINDINGS = ["RACP-WS", "RACP-HTTP", "RACP-GRPC"] as const;
 export type RacpBinding = (typeof RACP_BINDINGS)[number];
 
-/** Bindings a v1 Host may advertise. HTTP and gRPC stay in the enum so the
- * contract does not drift while their milestones are unscheduled. */
-export const RACP_SHIPPED_BINDINGS: readonly RacpBinding[] = ["RACP-WS"];
+/**
+ * Bindings a v1 Host may advertise. HTTP joined the shipped set when the
+ * browser profile landed (ADR 0333, stage P1); gRPC stays in the enum so the
+ * contract does not drift while its milestone remains unscheduled.
+ */
+export const RACP_SHIPPED_BINDINGS: readonly RacpBinding[] = ["RACP-WS", "RACP-HTTP"];
 
 export const RACP_WS_SUBPROTOCOL = "pi-racp.v1.jsonrpc" as const;
 

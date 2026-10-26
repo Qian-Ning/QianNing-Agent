@@ -12,6 +12,7 @@ import {
   RacpInitializeParamsSchema,
   protocolVersionsCompatible,
   rolesAllowOperation,
+  type RacpBinding,
   type RacpEventEnvelope,
   type RacpInitializeResult,
   type RacpLimits,
@@ -59,6 +60,13 @@ export type RacpServerOptions = {
   serverName?: string;
   serverVersion: string;
   limits?: Partial<RacpLimits>;
+  /**
+   * Bindings this Host serves (spec §11). A client must offer at least one of
+   * them in `connection/initialize`. The WebSocket binding is the default, so a
+   * Host that only speaks it keeps refusing browser-profile clients; the desktop
+   * Host adds `RACP-HTTP` when it serves the network transport.
+   */
+  bindings?: ReadonlyArray<RacpBinding>;
   policy?: Partial<RacpPolicy>;
   log: (level: "info" | "warn" | "error", message: string, data?: Record<string, unknown>) => void;
   now?: () => number;
@@ -226,7 +234,7 @@ export class RacpServer {
       toolRelay: true,
       terminal: Boolean(options.operations.terminal),
       notifications: false,
-      bindings: ["RACP-WS"],
+      bindings: [...(this.options.bindings ?? ["RACP-WS"])],
     };
     this.handlers = createOperations();
   }
@@ -484,8 +492,11 @@ export class RacpServer {
     if (!protocolVersionsCompatible(RACP_PROTOCOL_VERSION, params.protocolVersion)) {
       throw new RacpError("PROTOCOL_MISMATCH", `protocol ${params.protocolVersion} is not compatible with ${RACP_PROTOCOL_VERSION}`);
     }
-    if (!params.bindings.includes("RACP-WS")) {
-      throw new RacpError("PROTOCOL_MISMATCH", "client does not offer the RACP-WS binding");
+    if (!params.bindings.some((binding) => this.options.bindings?.includes(binding) ?? binding === "RACP-WS")) {
+      throw new RacpError(
+        "PROTOCOL_MISMATCH",
+        `client offers none of the bindings this Host serves (${(this.options.bindings ?? ["RACP-WS"]).join(", ")})`,
+      );
     }
     // A pairing connection may only pair; everything else needs the device's roles.
     connection.initialized = true;

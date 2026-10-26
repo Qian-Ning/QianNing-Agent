@@ -1,7 +1,8 @@
 # ADR 0333 — A network entry point for the desktop Agent Host
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-27
+- **Implemented:** P1 — `packages/racp/src/http-binding.ts` (loopback `RACP-HTTP`, bearer only). P2 and P3 remain unstarted.
 
 ## Context
 
@@ -91,7 +92,7 @@ the honest minimum, and it is what the first stage must deliver.
 
 | Stage | Deliverable | Proof |
 | --- | --- | --- |
-| P1 | `RACP-HTTP` binding on the desktop Host | A script drives one turn end to end and receives events over SSE |
+| P1 | `RACP-HTTP` binding on the desktop Host | A script drives one turn end to end and receives events over SSE — **shipped** (`http-binding.ts`, loopback + bearer) |
 | P2 | Minimal Web client: sessions, conversation, approvals | A turn is run and a tool approval answered from a browser |
 | P3 | Exposure controls + TLS + pairing QR | A phone pairs, connects over TLS, and resumes after a reconnect |
 | P4 | Phone layout, and the installable form | The same session is driven from a phone home-screen icon |

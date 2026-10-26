@@ -297,6 +297,10 @@ Plan/Goal 审批为带显式 `permissionMode` 的 `approve` 或 `reject`，且�
 + CSRF token（cookie profile）；两者都禁止 URL 中的 token。Host link
 （`racp-hostlink.v1`）在一条出站连接上复用逻辑客户端连接，服务端发起的请求按
 `clientConnectionId` 中继并在同一逻辑连接上应答；Gateway 不得改写其中的消息。
+`RACP-HTTP` 的 P1 阶段（ADR 0333）已由 `bindRacpHttp`
+（`packages/racp/src/http-binding.ts`）实现：只绑定 loopback、只用 bearer 认证、
+每个事件流都接受 `Last-Event-ID`，断线后从上一个游标续传而不是重放整轮。cookie
+profile、Origin 白名单与 CSRF token 属于浏览器里程碑，尚不在此绑定内。
 
 ## 6. 限制和错误
 

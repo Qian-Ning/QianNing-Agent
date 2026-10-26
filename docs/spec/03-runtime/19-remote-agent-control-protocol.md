@@ -1028,6 +1028,13 @@ with the unscheduled browser milestone.
 
 ### 11.2 HTTP/JSON + SSE (`RACP-HTTP`, browser profile)
 
+Implemented at stage P1 of ADR 0333 by `bindRacpHttp`
+(`packages/racp/src/http-binding.ts`): loopback bind only, bearer
+authentication only, and `Last-Event-ID` accepted on every event stream so a
+dropped connection resumes from the last cursor instead of replaying the turn.
+The cookie profile, Origin allowlist and CSRF token belong to the browser
+milestone and are not part of this binding yet.
+
 | Operation family | HTTP mapping |
 |---|---|
 | Capabilities | `GET /v1/capabilities` |

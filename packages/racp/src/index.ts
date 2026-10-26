@@ -5,4 +5,5 @@ export * from "./server.js";
 export * from "./client.js";
 export * from "./tool-relay.js";
 export * from "./ws-binding.js";
+export * from "./http-binding.js";
 export type { OperationContext, OperationHandler } from "./operations.js";
