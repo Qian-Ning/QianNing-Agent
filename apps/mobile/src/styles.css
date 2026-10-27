@@ -297,6 +297,7 @@ textarea:focus {
 
 main {
   flex: 1;
+  min-width: 0;
   padding: 10px 14px 24px;
 }
 
@@ -338,7 +339,16 @@ main {
   white-space: nowrap;
 }
 
+/* A base URL is longer than any phone. The row stays one line and the tail
+   is cut, because an endpoint the reader cannot read is still recognisable
+   by its host — a horizontally scrolling list is not. */
 .row-meta {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 52%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--text-2xs);
   color: var(--ds-text-muted);
 }
