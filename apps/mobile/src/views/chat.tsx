@@ -72,6 +72,8 @@ type Props = {
   configured: boolean;
   /** Only a Host with a project workspace can produce a diff. */
   canDiff: boolean;
+  /** The model this phone is pinned to, shown where the desktop shows it. */
+  modelLabel: string;
   onRequestSetup: () => void;
   onBack: () => void;
 };
@@ -84,7 +86,17 @@ type Props = {
  * transcript is reloaded only when the Host says the client fell behind
  * (`resync.required`), never on every event.
  */
-export function ChatView({ client, sessionId, title, t, configured, canDiff, onRequestSetup, onBack }: Props) {
+export function ChatView({
+  client,
+  sessionId,
+  title,
+  t,
+  configured,
+  canDiff,
+  modelLabel,
+  onRequestSetup,
+  onBack,
+}: Props) {
   const [items, setItems] = useState<MessageItem[] | null>(null);
   const [live, setLive] = useState(false);
   const [turnId, setTurnId] = useState<string | null>(null);
@@ -310,21 +322,32 @@ export function ChatView({ client, sessionId, title, t, configured, canDiff, onR
           void send();
         }}
       >
-        <textarea
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder={t("chat.placeholder")}
-          rows={1}
-        />
-        {turnId ? (
-          <button type="button" className="danger" onClick={() => void stop()}>
-            {t("chat.stop")}
-          </button>
-        ) : (
-          <button type="submit" className="primary" disabled={!draft.trim() || sending}>
-            {t("chat.send")}
-          </button>
-        )}
+        <div className="composer-box">
+          <textarea
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder={t("chat.placeholder")}
+            rows={1}
+          />
+          <div className="composer-tools">
+            <button type="button" className="round" aria-label={t("local.title")} onClick={onRequestSetup}>
+              +
+            </button>
+            <div className="spacer" />
+            <button type="button" className="chip" onClick={onRequestSetup}>
+              {modelLabel}
+            </button>
+            {turnId ? (
+              <button type="button" className="round send stop" aria-label={t("chat.stop")} onClick={() => void stop()}>
+                ■
+              </button>
+            ) : (
+              <button type="submit" className="round send" aria-label={t("chat.send")} disabled={!draft.trim() || sending}>
+                ↑
+              </button>
+            )}
+          </div>
+        </div>
       </form>
 
       {showDiff ? (
@@ -437,7 +460,7 @@ function Bubble({ item, t }: { item: MessageItem; t: Translate }) {
   const mine = item.role === "user";
   return (
     <div className={"bubble" + (mine ? " mine" : "")}>
-      <div className="bubble-role">{mine ? t("chat.you") : t("chat.agent")}</div>
+      {mine ? null : <div className="bubble-role">{t("chat.agent")}</div>}
       {item.thinking ? (
         <div className="thinking">
           <button className="ghost tiny" onClick={() => setShowThinking(!showThinking)}>

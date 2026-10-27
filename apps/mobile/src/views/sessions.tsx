@@ -186,28 +186,33 @@ export function SessionsView({
             </button>
           </div>
         ) : null}
-        {sessions?.map((session) => {
-          const title = session.title || t("sessions.untitled");
-          if (!editing) {
-            return (
-              <button key={session.id} className="card row" onClick={() => onOpen(session)}>
-                <span className="row-title">{title}</span>
-                <span className="row-meta">{relativeTime(session.updatedAt, lang)}</span>
-              </button>
-            );
-          }
-          return (
-            <div key={session.id} className="card row editing">
-              <span className="row-title">{title}</span>
-              <button
-                className={"danger" + (armed === session.id ? " armed" : "")}
-                onClick={() => void remove(session.id)}
-              >
-                {armed === session.id ? t("sessions.deleteArmed") : t("sessions.delete")}
-              </button>
-            </div>
-          );
-        })}
+        {sessions === null ? null : groupSessions(sessions, Date.now()).map((group) => (
+          <section key={group.key} className="group">
+            <h2 className="group-label">{t(group.labelKey)}</h2>
+            {group.items.map((session) => {
+              const title = session.title || t("sessions.untitled");
+              if (!editing) {
+                return (
+                  <button key={session.id} className="row" onClick={() => onOpen(session)}>
+                    <span className="row-title">{title}</span>
+                    <span className="row-meta">{relativeTime(session.updatedAt, lang)}</span>
+                  </button>
+                );
+              }
+              return (
+                <div key={session.id} className="row editing">
+                  <span className="row-title">{title}</span>
+                  <button
+                    className={"danger" + (armed === session.id ? " armed" : "")}
+                    onClick={() => void remove(session.id)}
+                  >
+                    {armed === session.id ? t("sessions.deleteArmed") : t("sessions.delete")}
+                  </button>
+                </div>
+              );
+            })}
+          </section>
+        ))}
         {error ? <p className="error">{error}</p> : null}
       </main>
 
@@ -240,3 +245,35 @@ export function SessionsView({
   );
 }
 
+
+/**
+ * The desktop groups its history into today / yesterday / this week / older,
+ * because a flat list stops being scannable the moment it has more than a
+ * screenful. Same buckets here, same order, empty buckets dropped.
+ */
+export function groupSessions(
+  sessions: readonly SessionSummary[],
+  now: number,
+): { key: string; labelKey: "sessions.today" | "sessions.yesterday" | "sessions.week" | "sessions.earlier"; items: SessionSummary[] }[] {
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const today = startOfToday.getTime();
+  const day = 86_400_000;
+
+  const buckets = [
+    { key: "today", labelKey: "sessions.today" as const, min: today, max: Infinity, items: [] as SessionSummary[] },
+    { key: "yesterday", labelKey: "sessions.yesterday" as const, min: today - day, max: today, items: [] as SessionSummary[] },
+    { key: "week", labelKey: "sessions.week" as const, min: today - 7 * day, max: today - day, items: [] as SessionSummary[] },
+    { key: "earlier", labelKey: "sessions.earlier" as const, min: -Infinity, max: today - 7 * day, items: [] as SessionSummary[] },
+  ];
+
+  for (const session of sessions) {
+    const stamp = session.updatedAt ? Date.parse(session.updatedAt) : Number.NaN;
+    // An undated session still has to land somewhere; "older" is the honest bucket.
+    const at = Number.isNaN(stamp) ? -Infinity : stamp;
+    const bucket = buckets.find((entry) => at >= entry.min && at < entry.max) ?? buckets[3]!;
+    bucket.items.push(session);
+  }
+
+  return buckets.filter((bucket) => bucket.items.length > 0);
+}

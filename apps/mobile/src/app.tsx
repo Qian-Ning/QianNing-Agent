@@ -100,6 +100,9 @@ export function App() {
   }
 
   const configured = host.kind !== "local" || isComplete(host.provider);
+  // The desktop shows the live model beside the composer; on the phone the same
+  // label doubles as the way back into the setup sheet.
+  const modelLabel = host.kind === "local" ? host.provider.modelId || t("local.model") : t("connect.modeRemote");
 
   const setupSheet = setupOpen ? (
     <ProviderSheet
@@ -125,6 +128,7 @@ export function App() {
           t={t}
           configured={configured}
           canDiff={host.kind === "remote"}
+          modelLabel={modelLabel}
           onRequestSetup={() => setSetupOpen(true)}
           onBack={() => setScreen({ name: "sessions" })}
         />
