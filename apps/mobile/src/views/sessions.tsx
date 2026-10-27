@@ -62,6 +62,7 @@ type Props = {
   configured: boolean;
   onRequestSetup: () => void;
   onOpen: (session: SessionSummary) => void;
+  onOpenSettings: () => void;
   onSignOut: () => void;
 };
 
@@ -77,6 +78,7 @@ export function SessionsView({
   configured,
   onRequestSetup,
   onOpen,
+  onOpenSettings,
   onSignOut,
 }: Props) {
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
@@ -164,6 +166,9 @@ export function SessionsView({
         <div className="bar-actions">
           <button className="ghost" onClick={() => void openChooser()} aria-label={t("sessions.new")}>
             +
+          </button>
+          <button className="ghost" aria-label={t("settings.title")} onClick={onOpenSettings}>
+            ⚙
           </button>
           <button className="ghost" onClick={() => { setEditing(!editing); setArmed(null); }}>
             {editing ? t("sessions.done") : t("sessions.edit")}
