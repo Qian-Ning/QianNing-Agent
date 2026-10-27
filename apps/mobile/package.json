@@ -3,18 +3,31 @@
   "version": "2.1.0",
   "private": true,
   "type": "module",
-  "description": "Mobile shell for QianNing Agent: the same client page the Host serves at /app, packaged for a phone.",
+  "description": "QianNing Agent for the phone: a RACP client that runs its own UI, packaged both as the Host's /app page and as an Android app.",
   "scripts": {
-    "sync-shell": "node scripts/sync-shell.mjs",
-    "cap:add": "cap add android",
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "preview": "vite preview",
     "cap:sync": "cap sync android",
     "apk": "node scripts/build-apk.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
-    "@capacitor/core": "^8.5.3"
+    "@capacitor/core": "^8.5.3",
+    "@pi-desktop/shared": "workspace:*",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.5.3"
+    "@capacitor/cli": "^8.5.3",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^4.6.0",
+    "jsdom": "^30.1.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6",
+    "vitest": "^3.2.4"
   }
 }

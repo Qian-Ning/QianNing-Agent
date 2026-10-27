@@ -108,6 +108,12 @@
       "!**/node_modules/node-addon-api/*.{c,gyp,gypi,h,js,json}",
       "!**/node_modules/node-addon-api/README.md"
     ],
+    "extraResources": [
+      {
+        "from": "../mobile/dist",
+        "to": "mobile-shell"
+      }
+    ],
     "electronLanguages": [
       "en-US",
       "zh-CN",
