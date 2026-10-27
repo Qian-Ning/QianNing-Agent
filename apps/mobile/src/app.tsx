@@ -15,7 +15,9 @@ import { SessionsView, type SessionSummary } from "./views/sessions";
 import { BrowserStore } from "./agent/store";
 import { LocalAgentHost, type ProviderConfig } from "./agent/host";
 import { LocalClient } from "./agent/local-client";
-import { clearProvider, loadProvider, saveProvider } from "./agent/settings";
+import { clearProvider, isComplete, loadProvider, saveProvider } from "./agent/settings";
+import { emptyProvider } from "./agent/settings";
+import { ProviderSheet } from "./views/provider-sheet";
 
 type Screen = { name: "sessions" } | { name: "chat"; session: SessionSummary };
 
@@ -51,6 +53,7 @@ export function App() {
     return provider ? { kind: "local", provider } : null;
   });
   const [screen, setScreen] = useState<Screen>({ name: "sessions" });
+  const [setupOpen, setSetupOpen] = useState(false);
 
   const lang = useMemo(() => detectLang(), []);
   const t = useMemo(() => createTranslator(lang), [lang]);
@@ -88,27 +91,56 @@ export function App() {
           localStorage.setItem(HOST_KEY, "local");
           setHost({ kind: "local", provider });
         }}
+        onSkip={() => {
+          localStorage.setItem(HOST_KEY, "local");
+          setHost({ kind: "local", provider: emptyProvider });
+        }}
       />
     );
   }
 
+  const configured = host.kind !== "local" || isComplete(host.provider);
+
+  const setupSheet = setupOpen ? (
+    <ProviderSheet
+      t={t}
+      initial={host.kind === "local" ? host.provider : emptyProvider}
+      onClose={() => setSetupOpen(false)}
+      onSave={(provider) => {
+        saveProvider(provider);
+        setSetupOpen(false);
+        // A new provider means a new Host: the old instance holds a model.
+        setHost({ kind: "local", provider });
+      }}
+    />
+  ) : null;
+
   if (screen.name === "chat") {
     return (
-      <ChatView
-        client={client}
-        sessionId={screen.session.id}
-        title={screen.session.title}
-        t={t}
-        onBack={() => setScreen({ name: "sessions" })}
-      />
+      <>
+        <ChatView
+          client={client}
+          sessionId={screen.session.id}
+          title={screen.session.title}
+          t={t}
+          configured={configured}
+          canDiff={host.kind === "remote"}
+          onRequestSetup={() => setSetupOpen(true)}
+          onBack={() => setScreen({ name: "sessions" })}
+        />
+        {setupSheet}
+      </>
     );
   }
 
   return (
+    <>
     <SessionsView
       client={client}
       t={t}
       lang={lang}
+      configured={configured}
+      onRequestSetup={() => setSetupOpen(true)}
       onOpen={(session) => setScreen({ name: "chat", session })}
       onSignOut={() => {
         clearConnection();
@@ -118,5 +150,7 @@ export function App() {
         setScreen({ name: "sessions" });
       }}
     />
+    {setupSheet}
+    </>
   );
 }

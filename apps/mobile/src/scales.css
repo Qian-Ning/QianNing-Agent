@@ -1,0 +1,45 @@
+/*
+ * The desktop's @theme scales, declared for a build without Tailwind.
+ *
+ * tokens.css defines radii, type sizes and fonts inside a Tailwind `@theme`
+ * block. Tailwind compiles that block into real custom properties; the phone has
+ * no Tailwind, so those declarations never land on :root and every var(--radius-*)
+ * would silently fall back to zero.
+ *
+ * These are the same names with the same values. mobile-token-guard.test.ts
+ * parses both files and fails if they ever disagree, so this is a mirror with a
+ * watchdog rather than a second source of truth.
+ */
+
+:root {
+  --radius-3xs: 4px;
+  --radius-2xs: 6px;
+  --radius-xs: 8px;
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-md-plus: 14px;
+  --radius-lg: 16px;
+  --radius-lg-plus: 18px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+  --radius-round: 50%;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --text-3xs: calc(10.5px * var(--font-scale, 1));
+  --text-2xs: calc(11px * var(--font-scale, 1));
+  --text-xs: calc(11px * var(--font-scale, 1));
+  --text-xs-plus: calc(11.5px * var(--font-scale, 1));
+  --text-sm: calc(12px * var(--font-scale, 1));
+  --text-sm-plus: calc(12.5px * var(--font-scale, 1));
+  --text-md: calc(13px * var(--font-scale, 1));
+  --text-md-plus: calc(13.5px * var(--font-scale, 1));
+  --text-base: calc(14px * var(--font-scale, 1));
+  --text-base-plus: calc(15px * var(--font-scale, 1));
+  --text-lg: calc(16px * var(--font-scale, 1));
+  --text-lg-plus: calc(18px * var(--font-scale, 1));
+  --text-xl: calc(20px * var(--font-scale, 1));
+  --text-2xl: calc(28px * var(--font-scale, 1));
+}

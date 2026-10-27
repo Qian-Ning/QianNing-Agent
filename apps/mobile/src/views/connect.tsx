@@ -8,6 +8,8 @@ type Props = {
   t: Translate;
   onConnected: (connection: Connection) => void;
   onLocal: (provider: ProviderConfig) => void;
+  /** Enter without a model; the app asks for one only when a turn needs it. */
+  onSkip: () => void;
 };
 
 /**
@@ -17,7 +19,7 @@ type Props = {
  * a desktop to be useful. Pairing stays first-class because it is the only path
  * that reaches files the phone cannot see.
  */
-export function ConnectView({ t, onConnected, onLocal }: Props) {
+export function ConnectView({ t, onConnected, onLocal, onSkip }: Props) {
   const [mode, setMode] = useState<"local" | "remote">("local");
   const [link, setLink] = useState("");
   const [token, setToken] = useState("");
@@ -119,6 +121,7 @@ export function ConnectView({ t, onConnected, onLocal }: Props) {
               id="apiKey"
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
+              placeholder={t("local.apiKeyHint")}
               type="password"
               autoCapitalize="off"
               autoCorrect="off"
@@ -136,6 +139,9 @@ export function ConnectView({ t, onConnected, onLocal }: Props) {
             />
             <button className="primary" type="submit" disabled={busy}>
               {busy ? t("local.busy") : t("local.start")}
+            </button>
+            <button className="ghost wide" type="button" onClick={onSkip}>
+              {t("local.skip")}
             </button>
           </form>
         </>

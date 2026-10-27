@@ -80,7 +80,7 @@ describe("chat streaming", () => {
     const client = new RacpClient({ base: "https://host", token: "tok" });
 
     await act(async () => {
-      root.render(<ChatView client={client} sessionId="s1" title="T" t={t} onBack={() => {}} />);
+      root.render(<ChatView client={client} sessionId="s1" title="T" t={t} configured canDiff onRequestSetup={() => {}} onBack={() => {}} />);
     });
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 30));
@@ -116,7 +116,7 @@ describe("chat streaming", () => {
     const client = new RacpClient({ base: "https://host", token: "tok" });
 
     await act(async () => {
-      root.render(<ChatView client={client} sessionId="s1" title="T" t={t} onBack={() => {}} />);
+      root.render(<ChatView client={client} sessionId="s1" title="T" t={t} configured canDiff onRequestSetup={() => {}} onBack={() => {}} />);
     });
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 30));
