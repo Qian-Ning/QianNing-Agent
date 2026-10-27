@@ -83,9 +83,9 @@ export function registerRemoteIpc({ registrar, getListener }: RemoteIpcDependenc
     async (input: { label: string } | undefined): Promise<RemoteIssuedDevice> => {
       const listener = getListener();
       if (!listener) throw new Error("the remote listener is unavailable");
-      const label = (input?.label ?? "").trim();
-      if (!label) throw new Error("a device label is required");
-      return listener.issueDevice(label);
+      // An empty label is allowed: the listener numbers unnamed devices, so a
+      // user who does not care about names still gets a list they can tell apart.
+      return listener.issueDevice(input?.label ?? "");
     },
   );
 

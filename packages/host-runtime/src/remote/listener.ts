@@ -94,6 +94,22 @@ const LOOPBACK = "127.0.0.1";
 const EVERY_INTERFACE = "0.0.0.0";
 
 /**
+ * A label for a device the user did not name.
+ *
+ * Every unnamed device used to be called "device", which turned the device list
+ * into a column of identical rows: no way to tell one phone from another, and no
+ * safe way to revoke the right one. Numbering makes the default label distinct
+ * on its own, and a name the user typed is always kept as typed.
+ */
+function nextDeviceLabel(existing: readonly { label: string }[]): string {
+  const used = new Set(existing.map((device) => device.label));
+  for (let index = 1; ; index += 1) {
+    const candidate = `Device ${index}`;
+    if (!used.has(candidate)) return candidate;
+  }
+}
+
+/**
  * Non-loopback IPv4 addresses this machine currently holds.
  *
  * A certificate names addresses, so this is also what the SAN is built from;
@@ -283,9 +299,11 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
 
     async issueDevice(label, roles = ["owner"]) {
       const token = newDeviceToken();
+      const trimmed = label.trim();
+      const named = trimmed || nextDeviceLabel(await store.listDevices());
       const record: DeviceRecord = {
         deviceId: `dev_${randomUUID()}`,
-        label: label.trim() || "device",
+        label: named,
         roles,
         tokenHash: hashToken(token),
         createdAt: new Date().toISOString(),
