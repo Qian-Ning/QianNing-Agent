@@ -47,9 +47,6 @@ importers:
       electron-updater:
         specifier: ^6.8.9
         version: 6.8.9
-      qrcode:
-        specifier: ^1.5.4
-        version: 1.5.4
       transcribe-cpp:
         specifier: 0.2.2
         version: 0.2.2
@@ -129,6 +126,9 @@ importers:
       pinyin-pro:
         specifier: 3.29.1
         version: 3.29.1
+      qrcode:
+        specifier: ^1.5.4
+        version: 1.5.4
       react:
         specifier: ^19.2.8
         version: 19.2.8

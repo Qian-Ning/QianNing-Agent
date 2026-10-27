@@ -35,7 +35,6 @@
   "dependencies": {
     "@picovoice/pvrecorder-node": "1.2.9",
     "electron-updater": "^6.8.9",
-    "qrcode": "^1.5.4",
     "transcribe-cpp": "0.2.2"
   },
   "devDependencies": {
@@ -64,6 +63,7 @@
     "lucide-react": "^1.31.0",
     "mermaid": "^11.16.1",
     "pinyin-pro": "3.29.1",
+    "qrcode": "^1.5.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-i18next": "^15.6.0",
