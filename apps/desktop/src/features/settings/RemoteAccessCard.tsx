@@ -24,6 +24,7 @@ export function RemoteAccessCard() {
   const [busy, setBusy] = useState(false);
   const [label, setLabel] = useState("");
   const [issued, setIssued] = useState<RemoteIssuedDevice | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -101,6 +102,26 @@ export function RemoteAccessCard() {
   const devices: RemoteDeviceSummary[] = status?.devices ?? [];
   const running = status?.running === true;
 
+  /**
+   * Opening this link is the whole pairing step: the page reads the token out of
+   * the fragment, sets the address to the origin it was served from, and lands
+   * on the session list with nothing typed. It works in a browser tab as well as
+   * in the phone shell, and can be sent over any messaging app.
+   */
+  const pairingLink =
+    issued && status?.url ? `${status.url}/app#t=${encodeURIComponent(issued.token)}` : null;
+
+  const copyPairing = useCallback(async () => {
+    if (!pairingLink) return;
+    try {
+      await navigator.clipboard.writeText(pairingLink);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }, [pairingLink]);
+
   return (
     <SettingsCard title={t("settings.remoteAccess")} description={t("settings.remoteAccessDesc")}>
       <SettingsRow
@@ -156,6 +177,20 @@ export function RemoteAccessCard() {
           description={t("settings.remoteTokenDesc", { label: issued.label })}
         >
           <code data-testid="remote-issued-token">{issued.token}</code>
+          {pairingLink ? (
+            <Button variant="primary" onClick={() => void copyPairing()}>
+              {copied ? t("settings.remotePairingCopied") : t("settings.remotePairingCopy")}
+            </Button>
+          ) : null}
+        </SettingsRow>
+      ) : null}
+
+      {pairingLink ? (
+        <SettingsRow
+          title={t("settings.remotePairingTitle")}
+          description={t("settings.remotePairingDesc")}
+        >
+          <code data-testid="remote-pairing-link">{pairingLink}</code>
         </SettingsRow>
       ) : null}
 

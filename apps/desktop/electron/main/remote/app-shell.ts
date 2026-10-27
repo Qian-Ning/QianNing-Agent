@@ -158,7 +158,26 @@ const HTML = `<!doctype html>
     });
   }
 
+  /**
+   * A pairing link puts the token in the fragment — the one part of a URL a
+   * browser never sends to the server. Opening the link the desktop shows is
+   * then a single tap: no address to type, no token to paste.
+   */
+  function adoptPairingLink() {
+    var hash = location.hash || "";
+    if (hash.indexOf("#t=") !== 0) return false;
+    var value = decodeURIComponent(hash.slice(3));
+    if (!value || token()) return false;
+    setBase(location.origin);
+    setToken(value);
+    // Cleared from the address bar so it does not linger in a screenshot or a
+    // shared history entry.
+    history.replaceState(null, "", location.pathname);
+    return true;
+  }
+
   function render() {
+    if (!token() && adoptPairingLink()) state.view = "sessions";
     if (state.view === "login") return renderLogin();
     if (state.view === "sessions") return renderSessions();
     if (state.view === "chat") return renderChat();
