@@ -78,3 +78,14 @@ test("a stored history item renders as text, not as its object", () => {
   assert.equal(textOf({ content: { content: { nested: true } } }), "");
   assert.equal(textOf(undefined), "");
 });
+
+test("a pairing link signs the page in without typing", () => {
+  // The token rides in the fragment: a browser never sends that part to the
+  // server, so it cannot land in a request log or a proxy trace.
+  assert.ok(html.includes('hash.indexOf("#t=")'), "the shell must read the token from the fragment");
+  assert.ok(html.includes("adoptPairingLink"), "the pairing step must exist");
+  assert.equal(/[?&]t=/.test(html), false, "the token must never become a query parameter");
+
+  // A link must not be able to replace the identity of an already paired device.
+  assert.ok(html.includes("if (!value || token()) return false;"));
+});

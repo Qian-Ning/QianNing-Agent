@@ -1008,6 +1008,14 @@ issue button. An issued token appears once and is never read back — the Host
 stores only its hash — so the row is gone when the page is left, and the copy
 tells the user to paste it now.
 
+An issued token also comes with a pairing link: the address and the token in one
+`https://…/app#t=…` URL, with a button that copies it. Opening that link on the
+phone — scanned from a code, sent over a messaging app, or saved to the home
+screen — lands on the session list with nothing typed. The token sits in the
+fragment, which a browser never sends to the server, and the page clears it from
+the address bar as soon as it has read it. A link can never replace a token the
+device already holds, so a forwarded link cannot silently repoint a paired phone.
+
 Network mode is the one that can fail for environmental reasons: a machine with
 no non-loopback IPv4 address cannot serve one, and the error says so rather than
 silently falling back to loopback.
