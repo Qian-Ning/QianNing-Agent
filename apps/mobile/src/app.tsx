@@ -86,11 +86,6 @@ export function App() {
     return (
       <ConnectView
         t={t}
-        onConnected={(next) => {
-          saveConnection(next);
-          localStorage.setItem(HOST_KEY, "remote");
-          setHost({ kind: "remote", connection: next });
-        }}
         onLocal={(provider) => {
           saveProvider(provider);
           localStorage.setItem(HOST_KEY, "local");
@@ -139,14 +134,21 @@ export function App() {
         thinking={host.kind === "local" ? (host.provider.thinking ?? "off") : "off"}
         onApplyModel={(patch) => {
           if (host.kind !== "local") return;
-          const next = { ...host.provider, modelId: patch.modelId, thinking: patch.thinking as never };
+          const next = { ...host.provider, modelId: patch.modelId, thinking: patch.thinking };
           saveProvider(next);
           setHost({ kind: "local", provider: next });
         }}
         connection={host.kind === "remote" ? { base: host.connection.base } : undefined}
+        onConnectRemote={async (base, token) => {
+          const connection = { base, token };
+          const probe = new RacpClient(connection);
+          await probe.call("/v1/sessions");
+          saveConnection(connection);
+          localStorage.setItem(HOST_KEY, "remote");
+          setHost({ kind: "remote", connection });
+        }}
         onDisconnect={() => {
           clearConnection();
-          clearProvider();
           localStorage.removeItem(HOST_KEY);
           setHost(null);
           setScreen({ name: "sessions" });
@@ -171,6 +173,10 @@ export function App() {
           onOpenModel={host.kind === "local" ? () => setModelOpen(true) : undefined}
           onRequestSetup={() => setSetupOpen(true)}
           onOpenDrawer={() => setDrawerOpen(true)}
+          onNewSession={() => {
+            setScreen({ name: "sessions" });
+            setDrawerOpen(true);
+          }}
         />
         {drawerOpen ? (
           <SessionDrawer

@@ -172,7 +172,7 @@ export function SessionsView({
           <button className="ghost" onClick={() => void openChooser()} aria-label={t("sessions.new")}>
             +
           </button>
-          <button className="ghost" aria-label={t("settings.title")} onClick={onOpenSettings}>
+          <button className="ghost" aria-label={t("settings.open")} onClick={onOpenSettings}>
             ⚙
           </button>
           <button className="ghost" onClick={() => { setEditing(!editing); setArmed(null); }}>

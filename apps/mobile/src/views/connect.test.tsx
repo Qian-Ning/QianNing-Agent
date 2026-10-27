@@ -26,20 +26,8 @@ afterEach(() => {
 });
 
 describe("the connect screen", () => {
-  it("starts on the on-device agent and can switch to pairing", () => {
-    render(<ConnectView t={t} onConnected={vi.fn()} onLocal={vi.fn()} onSkip={vi.fn()} />);
-
-    const local = screen.getByRole("tab", { name: "本机运行" });
-    const remote = screen.getByRole("tab", { name: "连接电脑" });
-    expect(local.getAttribute("aria-selected")).toBe("true");
-
-    fireEvent.click(remote);
-    expect(remote.getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByLabelText("配对链接或地址")).toBeTruthy();
-  });
-
   it("offers the known services so nobody types a base URL", () => {
-    render(<ConnectView t={t} onConnected={vi.fn()} onLocal={vi.fn()} onSkip={vi.fn()} />);
+    render(<ConnectView t={t} onLocal={vi.fn()} onSkip={vi.fn()} />);
 
     expect(screen.getByText("DeepSeek")).toBeTruthy();
     expect(screen.getByText("Moonshot AI (China)")).toBeTruthy();
@@ -52,7 +40,7 @@ describe("the connect screen", () => {
   it("asks the service for its models and starts with the chosen one", async () => {
     probe.mockResolvedValue(["deepseek-chat", "deepseek-reasoner"]);
     const onLocal = vi.fn();
-    render(<ConnectView t={t} onConnected={vi.fn()} onLocal={onLocal} onSkip={vi.fn()} />);
+    render(<ConnectView t={t} onLocal={onLocal} onSkip={vi.fn()} />);
 
     fireEvent.click(screen.getByText("DeepSeek"));
     fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "sk-test" } });
@@ -74,7 +62,7 @@ describe("the connect screen", () => {
   it("cannot start without a model, and says so when the endpoint lists none", async () => {
     probe.mockResolvedValue([]);
     const onLocal = vi.fn();
-    render(<ConnectView t={t} onConnected={vi.fn()} onLocal={onLocal} onSkip={vi.fn()} />);
+    render(<ConnectView t={t} onLocal={onLocal} onSkip={vi.fn()} />);
 
     fireEvent.click(screen.getByText("DeepSeek"));
     fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "sk-test" } });
