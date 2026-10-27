@@ -28,6 +28,11 @@ export function RemoteAccessCard() {
   const [copied, setCopied] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  const devices: RemoteDeviceSummary[] = status?.devices ?? [];
+  const running = status?.running === true;
+  const revokedCount = devices.filter((device) => device.revokedAt).length;
 
   useEffect(() => {
     let cancelled = false;
@@ -102,8 +107,40 @@ export function RemoteAccessCard() {
     }
   }, [issued?.deviceId]);
 
-  const devices: RemoteDeviceSummary[] = status?.devices ?? [];
-  const running = status?.running === true;
+  /**
+   * Drops a revoked device's record.
+   *
+   * Only revoked rows offer this: an active device has to lose access first, so
+   * "delete" never doubles as a silent revocation. The row is what the user is
+   * looking at when they decide a phone is gone for good.
+   */
+  const forget = useCallback(async (deviceId: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.deleteRemoteDevice(deviceId);
+      setStatus(await api.getRemoteAccess());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  /** Empties the revoked backlog in one step, after an in-place confirmation. */
+  const clearRevoked = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.clearRevokedRemoteDevices();
+      setConfirmClear(false);
+      setStatus(await api.getRemoteAccess());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
 
   /**
    * A timestamp someone can read at a glance.
@@ -130,12 +167,19 @@ export function RemoteAccessCard() {
   );
 
   /**
-   * Most recently used first. A device that was used a minute ago is the one
-   * being asked about; one that has never been used falls to the bottom.
+   * Active devices first, then the revoked backlog; each group most-recently-used
+   * first.
+   *
+   * Sorting purely by last use left revoked rows scattered through the list, so
+   * the phones that still work were mixed in with the ones that do not. The
+   * backlog is also what "clear" acts on, so it reads better as one block.
    */
   const sortedDevices = useMemo(
     () =>
       [...devices].sort((left, right) => {
+        const leftRevoked = left.revokedAt ? 1 : 0;
+        const rightRevoked = right.revokedAt ? 1 : 0;
+        if (leftRevoked !== rightRevoked) return leftRevoked - rightRevoked;
         const leftSeen = left.lastSeenAt ?? "";
         const rightSeen = right.lastSeenAt ?? "";
         if (leftSeen !== rightSeen) return leftSeen < rightSeen ? 1 : -1;
@@ -274,6 +318,33 @@ export function RemoteAccessCard() {
         </SettingsRow>
       ) : null}
 
+      {revokedCount > 0 ? (
+        <SettingsRow
+          title={t("settings.remoteClearRevoked")}
+          description={
+            confirmClear
+              ? t("settings.remoteClearRevokedConfirm", { n: revokedCount })
+              : t("settings.remoteClearRevokedDesc")
+          }
+          detail={t("settings.remoteRevokedCount", { n: revokedCount })}
+        >
+          {confirmClear ? (
+            <>
+              <Button variant="primary" onClick={() => void clearRevoked()} disabled={busy}>
+                {t("settings.remoteClearRevokedAction")}
+              </Button>
+              <Button variant="ghost" onClick={() => setConfirmClear(false)} disabled={busy}>
+                {t("settings.remoteClearRevokedCancel")}
+              </Button>
+            </>
+          ) : (
+            <Button variant="secondary" onClick={() => setConfirmClear(true)} disabled={busy}>
+              {t("settings.remoteClearRevokedStart")}
+            </Button>
+          )}
+        </SettingsRow>
+      ) : null}
+
       {devices.length > 0 ? (
         <>
           {sortedDevices.map((device) => (
@@ -284,7 +355,11 @@ export function RemoteAccessCard() {
                 at: new Date(device.createdAt).toLocaleDateString(),
               })}`}
             >
-              {device.revokedAt ? null : (
+              {device.revokedAt ? (
+                <Button variant="ghost" onClick={() => void forget(device.deviceId)} disabled={busy}>
+                  {t("settings.remoteRemove")}
+                </Button>
+              ) : (
                 <Button variant="ghost" onClick={() => void revoke(device.deviceId)} disabled={busy}>
                   {t("settings.remoteRevoke")}
                 </Button>

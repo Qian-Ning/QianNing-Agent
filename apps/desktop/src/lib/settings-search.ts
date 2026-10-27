@@ -18,6 +18,7 @@ export type SettingsTabId =
   | "projects"
   | "sync"
   | "voice"
+  | "remote"
   | "usage"
   | "about";
 
@@ -309,6 +310,32 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
       "settings.usageStats.byModel",
       "settings.usageStats.trendTitle",
       "settings.usageStats.detailTitle",
+    ],
+  },
+  {
+    /*
+     * Reaching this machine from a phone is its own destination rather than a
+     * row under AI: the listener, its address, its certificate, and the device
+     * list are one subject, and the device list is long enough to bury a tab.
+     */
+    id: "remote",
+    labelKey: "settings.nav.remote",
+    titleKey: "settings.remoteAccess",
+    group: "system",
+    keywordKeys: [
+      "settings.remoteAccessDesc",
+      "settings.remoteAccessEnable",
+      "settings.remoteModeLan",
+      "settings.remoteModeLoopback",
+      "settings.remoteUrlTitle",
+      "settings.remoteDevices",
+      "settings.remoteIssueDevice",
+      "settings.remoteDeviceLabel",
+      "settings.remotePairingTitle",
+      "settings.remotePairingScan",
+      "settings.remoteRevoke",
+      "settings.remoteRemove",
+      "settings.remoteClearRevoked",
     ],
   },
   {

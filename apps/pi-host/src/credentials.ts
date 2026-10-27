@@ -99,6 +99,24 @@ export class FileCredentialStore implements DeviceCredentialStore {
   async listDevices(): Promise<DeviceRecord[]> {
     return [...(await this.load()).devices];
   }
+  async deleteDevice(deviceId: string): Promise<boolean> {
+    return this.mutate((state) => {
+      const device = state.devices.find((candidate) => candidate.deviceId === deviceId);
+      // Only a revoked record may go: removing a live one is a revocation
+      // wearing a cleanup label.
+      if (!device || !device.revokedAt) return false;
+      state.devices = state.devices.filter((candidate) => candidate.deviceId !== deviceId);
+      return true;
+    });
+  }
+  async deleteRevokedDevices(): Promise<number> {
+    return this.mutate((state) => {
+      const kept = state.devices.filter((candidate) => !candidate.revokedAt);
+      const removed = state.devices.length - kept.length;
+      state.devices = kept;
+      return removed;
+    });
+  }
   async findPairing(tokenHash: string): Promise<PairingRecord | null> {
     const state = await this.load();
     return state.pairings.find((pairing) => pairing.tokenHash === tokenHash) ?? null;

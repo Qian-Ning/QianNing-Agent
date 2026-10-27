@@ -541,6 +541,8 @@ export const IPC = {
     remoteDisable: "pi-desktop/remote/disable",
     remoteIssueDevice: "pi-desktop/remote/device/issue",
     remoteRevokeDevice: "pi-desktop/remote/device/revoke",
+    remoteDeleteDevice: "pi-desktop/remote/device/delete",
+    remoteClearRevokedDevices: "pi-desktop/remote/device/clearRevoked",
   },
   event: {
     pluginChanged: "pi-desktop/event/pluginChanged",

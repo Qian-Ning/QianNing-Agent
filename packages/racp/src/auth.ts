@@ -34,6 +34,14 @@ export interface DeviceCredentialStore {
   saveDevice(record: DeviceRecord): Promise<void>;
   touchDevice(deviceId: string, seenAt: string): Promise<void>;
   revokeDevice(deviceId: string, revokedAt: string): Promise<boolean>;
+  /**
+   * Removes a device record outright. Refused for a device that is still
+   * active: dropping a live credential silently would look like cleanup while
+   * it is really a revocation, so the caller has to revoke first.
+   */
+  deleteDevice(deviceId: string): Promise<boolean>;
+  /** Removes every already-revoked device; returns how many went. */
+  deleteRevokedDevices(): Promise<number>;
   listDevices(): Promise<DeviceRecord[]>;
   findPairing(tokenHash: string): Promise<PairingRecord | null>;
   savePairing(record: PairingRecord): Promise<void>;
@@ -65,6 +73,21 @@ export class MemoryCredentialStore implements DeviceCredentialStore {
   }
   async listDevices(): Promise<DeviceRecord[]> {
     return [...this.devices.values()];
+  }
+  async deleteDevice(deviceId: string): Promise<boolean> {
+    const device = this.devices.get(deviceId);
+    if (!device || !device.revokedAt) return false;
+    return this.devices.delete(deviceId);
+  }
+  async deleteRevokedDevices(): Promise<number> {
+    let removed = 0;
+    for (const [deviceId, device] of [...this.devices]) {
+      if (device.revokedAt) {
+        this.devices.delete(deviceId);
+        removed += 1;
+      }
+    }
+    return removed;
   }
   async findPairing(tokenHash: string): Promise<PairingRecord | null> {
     return this.pairings.get(tokenHash) ?? null;

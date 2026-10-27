@@ -97,4 +97,25 @@ export function registerRemoteIpc({ registrar, getListener }: RemoteIpcDependenc
       return { revoked: await listener.revokeDevice(input.deviceId) };
     },
   );
+
+  // Removing a record is cleanup, not access control: a device that is still
+  // active is refused by the store, so the caller has to revoke it first and see
+  // that it lost access before the row disappears.
+  registrar.handle(
+    IPC.invoke.remoteDeleteDevice,
+    async (input: { deviceId: string }): Promise<{ removed: boolean }> => {
+      const listener = getListener();
+      if (!listener) return { removed: false };
+      return { removed: await listener.deleteDevice(input.deviceId) };
+    },
+  );
+
+  registrar.handle(
+    IPC.invoke.remoteClearRevokedDevices,
+    async (): Promise<{ removed: number }> => {
+      const listener = getListener();
+      if (!listener) return { removed: 0 };
+      return { removed: await listener.deleteRevokedDevices() };
+    },
+  );
 }
