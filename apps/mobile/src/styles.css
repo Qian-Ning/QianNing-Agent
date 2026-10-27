@@ -1,22 +1,14 @@
 /*
- * One stylesheet, no framework. The phone is a fixed environment: a dark surface,
- * a thumb-reachable composer, and safe-area insets that the WebView reports
- * through env(). Everything sizes in rem so the OS font setting still works.
+ * The phone's surface, drawn with the desktop's own design tokens.
+ *
+ * Colours, radii and type sizes come from apps/desktop/src/styles/tokens.css,
+ * imported in main.tsx — the same file the desktop renderer uses. One source
+ * means a theme change reaches both surfaces instead of drifting.
+ * Raw hex/rgb and literal radii are rejected by mobile-token-guard.test.ts.
+ *
+ * Mobile-only decisions kept here: the composer sits inside the thumb arc and
+ * the page respects the WebView's safe-area insets.
  */
-
-:root {
-  --bg: #0e0e10;
-  --card: #17171a;
-  --card-2: #1f1f24;
-  --fg: #ededf0;
-  --muted: #8b8b96;
-  --line: #2a2a31;
-  --accent: #d6d3ff;
-  --accent-fg: #14131f;
-  --danger: #ff5c5c;
-  --ok: #4ec98a;
-  color-scheme: dark;
-}
 
 * {
   box-sizing: border-box;
@@ -31,10 +23,13 @@ body,
 }
 
 body {
-  background: var(--bg);
-  color: var(--fg);
-  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--ds-bg-primary);
+  color: var(--ds-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base-plus);
+  line-height: 1.5;
   overscroll-behavior-y: none;
+  -webkit-font-smoothing: antialiased;
 }
 
 button {
@@ -52,25 +47,40 @@ button:disabled {
 input,
 textarea {
   font: inherit;
-  color: var(--fg);
-  background: var(--card-2);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 12px 14px;
+  color: var(--ds-text-primary);
+  background: var(--ds-bg-tertiary);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-sm);
+  padding: 11px 13px;
   width: 100%;
   outline: none;
+  transition: border-color 140ms ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--ds-text-secondary);
+  opacity: 0.7;
 }
 
 input:focus,
 textarea:focus {
-  border-color: var(--accent);
+  border-color: var(--ds-text-muted);
 }
+
+/* ── shells ─────────────────────────────────────────────── */
 
 .screen {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--ds-bg-primary);
+}
+
+.chat {
+  height: 100%;
 }
 
 .bar {
@@ -80,100 +90,119 @@ textarea:focus {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 14px;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--line);
+  padding: 10px 14px;
+  min-height: 52px;
+  background: var(--ds-bg-primary);
+  border-bottom: 1px solid var(--ds-border-subtle);
 }
 
 .bar h1 {
-  font-size: 1.05rem;
-  margin: 0;
   flex: 1;
   min-width: 0;
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bar-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+}
+
+.back {
+  padding: 6px 8px 6px 2px;
+  font-size: var(--text-lg);
+  line-height: 1;
+  color: var(--ds-text-secondary);
 }
 
 .ghost {
-  color: var(--muted);
-  padding: 10px 12px;
-  min-height: 40px;
-  border-radius: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-md);
 }
 
 .ghost:active {
-  background: var(--card-2);
+  background: var(--ds-bg-hover);
 }
 
+/* A secondary way out reads as text, not as a second button. */
 .ghost.wide {
   width: 100%;
+  margin-top: 6px;
+  padding: 12px;
   text-align: center;
-  margin-top: 16px;
-  min-height: 44px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
+  color: var(--ds-text-secondary);
 }
 
 .ghost.tiny {
-  font-size: 0.78rem;
   padding: 2px 6px;
+  font-size: var(--text-2xs);
 }
 
 .ghost.back {
   padding-left: 0;
-  color: var(--accent);
+  color: var(--ds-text-primary);
 }
 
 .primary {
-  background: var(--accent);
-  color: var(--accent-fg);
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--ds-accent);
+  color: var(--ds-bg-primary);
+  font-size: var(--text-base);
   font-weight: 600;
-  border-radius: 12px;
-  padding: 12px 18px;
+}
+
+.primary:active {
+  background: var(--ds-accent-hover);
 }
 
 .danger {
-  color: var(--danger);
-  border: 1px solid var(--danger);
-  border-radius: 10px;
-  padding: 8px 12px;
+  padding: 7px 10px;
+  border-radius: var(--radius-2xs);
+  border: 1px solid color-mix(in oklab, var(--ds-error) 38%, transparent);
+  color: var(--ds-error);
+  font-size: var(--text-sm);
 }
 
 .danger.armed {
-  background: var(--danger);
-  color: #fff;
+  background: color-mix(in oklab, var(--ds-error) 16%, transparent);
 }
 
 .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--muted);
   display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-round);
+  background: var(--ds-text-faint);
 }
 
 .dot.live {
-  background: var(--ok);
+  background: var(--ds-success);
 }
 
 .muted {
-  color: var(--muted);
+  color: var(--ds-text-muted);
+  font-size: var(--text-md);
 }
 
 .center {
+  padding: 28px 16px;
   text-align: center;
-  padding: 32px 16px;
 }
 
 .error {
-  color: var(--danger);
-  font-size: 0.86rem;
-  padding: 8px 2px;
+  margin: 8px 0 0;
+  color: var(--ds-error);
+  font-size: var(--text-md);
 }
 
 .truncate {
@@ -182,12 +211,17 @@ textarea:focus {
   white-space: nowrap;
 }
 
-/* ── connect ───────────────────────────────────────────── */
+.tiny {
+  font-size: var(--text-2xs);
+  color: var(--ds-text-faint);
+}
+
+/* ── connect ────────────────────────────────────────────── */
 
 .connect {
-  justify-content: center;
-  padding: 24px;
-  gap: 12px;
+  justify-content: flex-start;
+  padding: 13vh 20px calc(28px + env(safe-area-inset-bottom));
+  gap: 6px;
 }
 
 .brand {
@@ -197,75 +231,89 @@ textarea:focus {
 }
 
 .brand h1 {
-  font-size: 1.3rem;
   margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
 }
 
 .brand-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: var(--accent);
-  color: var(--accent-fg);
   display: grid;
   place-items: center;
-  font-weight: 700;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--ds-border-default);
+  background: var(--ds-bg-tertiary);
+  font-size: var(--text-md);
+  font-weight: 600;
 }
 
 .connect form {
   display: grid;
-  gap: 6px;
-  margin-top: 12px;
+  gap: 4px;
+  margin-top: 6px;
 }
 
 .connect label {
-  font-size: 0.82rem;
-  color: var(--muted);
-  margin-top: 8px;
+  margin-top: 12px;
+  margin-bottom: 5px;
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ds-text-muted);
 }
 
 .connect .primary {
-  margin-top: 16px;
+  margin-top: 14px;
 }
 
-/* Two equal ways in: run the agent here, or reach the one at home. */
+/* Two equal ways in: segmented control on desktop radii, no accent colour. */
 .segmented {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 12px;
-  background: var(--surface-2, rgba(255, 255, 255, 0.06));
-  margin-top: 8px;
+  gap: 2px;
+  margin-top: 6px;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--ds-bg-tertiary);
 }
 
 .segment {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  padding: 9px 10px;
-  border-radius: 9px;
-  font-size: 0.88rem;
-  font-weight: 500;
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-md);
+  transition: background 120ms ease, color 120ms ease;
 }
 
 .segment.active {
-  background: var(--accent);
-  color: var(--accent-fg);
+  background: var(--ds-bg-elevated-opaque, var(--ds-bg-secondary));
+  color: var(--ds-text-primary);
+  font-weight: 500;
+  box-shadow: inset 0 0 0 1px var(--ds-border-default);
 }
 
-/* ── sessions ──────────────────────────────────────────── */
+/* ── sessions ───────────────────────────────────────────── */
 
 main {
   flex: 1;
-  padding: 12px 14px 24px;
+  padding: 10px 14px 24px;
+}
+
+.list {
+  display: grid;
+  gap: 6px;
 }
 
 .card {
-  background: var(--card);
-  border-radius: 14px;
-  padding: 14px;
-  margin-bottom: 8px;
+  padding: 12px 13px;
+  border-radius: var(--radius-sm);
+  background: var(--ds-bg-secondary);
+  border: 1px solid var(--ds-border-subtle);
+}
+
+.card:active {
+  background: var(--ds-bg-hover);
 }
 
 .row {
@@ -284,68 +332,86 @@ main {
 }
 
 .row-title {
-  font-weight: 600;
+  font-size: var(--text-base);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .row-meta {
-  font-size: 0.8rem;
-  color: #a2a2ae;
+  font-size: var(--text-2xs);
+  color: var(--ds-text-muted);
 }
 
 footer {
   padding: 0 14px 18px;
 }
 
-/* ── chat ──────────────────────────────────────────────── */
-
-.chat {
-  height: 100%;
+/* Empty state: says what this phone can do before asking for anything. */
+.empty {
+  display: grid;
+  gap: 8px;
+  max-width: 320px;
+  margin: 44px auto 0;
+  text-align: center;
 }
+
+.empty h2 {
+  margin: 0;
+  font-size: var(--text-base-plus);
+  font-weight: 600;
+}
+
+.empty p {
+  margin: 0;
+  color: var(--ds-text-muted);
+  font-size: var(--text-md);
+  line-height: 1.6;
+}
+
+.empty .primary {
+  margin-top: 10px;
+}
+
+/* ── chat ───────────────────────────────────────────────── */
 
 .transcript {
   flex: 1;
-  overflow-y: auto;
-  padding: 12px 14px 8px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 12px 14px 8px;
+  overflow-y: auto;
 }
 
 .bubble {
-  background: var(--card);
-  border-radius: 16px;
-  padding: 10px 12px;
-  max-width: 92%;
   align-self: flex-start;
+  max-width: 90%;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--ds-bg-secondary);
+  border: 1px solid var(--ds-border-subtle);
+  word-break: break-word;
 }
 
 .bubble.mine {
   align-self: flex-end;
-  background: var(--accent);
-  color: var(--accent-fg);
-}
-
-.bubble.mine .markdown,
-.bubble.mine .markdown p,
-.bubble.mine .bubble-role {
-  color: var(--accent-fg);
+  background: var(--ds-bg-tertiary);
+  border-color: var(--ds-border-default);
 }
 
 .bubble-role {
-  font-size: 0.72rem;
-  opacity: 0.6;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
+  font-size: var(--text-2xs);
+  color: var(--ds-text-muted);
 }
 
 .cursor {
   display: inline-block;
-  width: 7px;
+  width: 2px;
   height: 1em;
-  background: var(--accent);
   vertical-align: text-bottom;
+  background: var(--ds-text-secondary);
   animation: blink 1s steps(2, start) infinite;
 }
 
@@ -356,95 +422,119 @@ footer {
 }
 
 .thinking {
-  margin-bottom: 6px;
+  max-width: 90%;
+  margin-bottom: 4px;
+  font-size: var(--text-sm);
+  color: var(--ds-text-muted);
+}
+
+.thinking summary {
+  padding: 3px 0;
+  list-style: none;
+  cursor: pointer;
 }
 
 .thinking-body {
-  white-space: pre-wrap;
-  color: var(--muted);
-  font-size: 0.84rem;
   margin: 4px 0 0;
-  border-left: 2px solid var(--line);
-  padding-left: 8px;
+  padding-left: 9px;
+  border-left: 2px solid var(--ds-border-default);
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
+/* Tool rows read like log lines: monospace, quiet, one line when closed. */
 .tool {
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  max-width: 100%;
   padding: 8px 10px;
-  max-width: 96%;
-  background: var(--card-2);
+  border-radius: var(--radius-xs);
+  background: var(--ds-bg-inset);
+  border: 1px solid var(--ds-border-subtle);
 }
 
 .tool.failed {
-  border-color: var(--danger);
+  border-color: color-mix(in oklab, var(--ds-error) 40%, transparent);
 }
 
 .tool-name {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.82rem;
-  color: var(--accent);
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--ds-text-primary);
 }
 
 .tool-detail {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.76rem;
-  color: var(--muted);
+  max-height: 9rem;
+  margin-top: 4px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--ds-text-muted);
   white-space: pre-wrap;
   word-break: break-all;
-  margin-top: 4px;
-  max-height: 9rem;
-  overflow: auto;
 }
 
 .tag {
-  font-size: 0.68rem;
-  color: var(--danger);
-  border: 1px solid var(--danger);
-  border-radius: 6px;
   padding: 0 5px;
+  border: 1px solid color-mix(in oklab, var(--ds-error) 50%, transparent);
+  border-radius: var(--radius-3xs);
+  font-size: var(--text-2xs);
+  color: var(--ds-error);
 }
 
 .approval {
-  border: 1px solid var(--accent);
+  align-self: stretch;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ds-border-default);
+  background: var(--ds-bg-secondary);
 }
 
 .approval-actions {
   display: flex;
   gap: 8px;
-  justify-content: flex-end;
   margin-top: 10px;
+}
+
+.approval-actions .primary {
+  flex: 1;
+  width: auto;
 }
 
 .composer {
   position: sticky;
   bottom: 0;
   display: flex;
-  gap: 8px;
   align-items: flex-end;
+  gap: 8px;
   padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(12px);
-  border-top: 1px solid var(--line);
+  background: var(--ds-bg-primary);
+  border-top: 1px solid var(--ds-border-subtle);
 }
 
 .composer textarea {
-  resize: none;
-  max-height: 7.5rem;
-  min-height: 44px;
   flex: 1;
   min-width: 0;
+  min-height: 44px;
+  max-height: 34vh;
+  resize: none;
+  border-radius: var(--radius-md);
+  line-height: 1.45;
 }
 
 /* The send button must never shrink: a squeezed two-character label wraps one
-   character per line, which is how it reads as broken. */
+   character per line, which reads as broken. */
 .composer button {
   flex: none;
-  white-space: nowrap;
   min-height: 44px;
+  white-space: nowrap;
+}
+
+.composer .primary {
+  width: auto;
+  padding: 11px 16px;
+  border-radius: var(--radius-md);
 }
 
 /* ── markdown ──────────────────────────────────────────── */
@@ -465,7 +555,8 @@ footer {
 .markdown h3,
 .markdown h4 {
   margin: 14px 0 6px;
-  font-size: 1rem;
+  font-size: var(--text-base-plus);
+  font-weight: 600;
 }
 
 .markdown ul,
@@ -477,53 +568,56 @@ footer {
 .markdown blockquote {
   margin: 0 0 8px;
   padding-left: 10px;
-  border-left: 2px solid var(--line);
-  color: var(--muted);
+  border-left: 2px solid var(--ds-border-default);
+  color: var(--ds-text-muted);
 }
 
 .markdown a {
-  color: var(--accent);
+  color: var(--ds-text-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .inline-code,
 .code-block {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.84rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
 }
 
 .inline-code {
-  background: var(--card-2);
-  border-radius: 5px;
   padding: 1px 5px;
+  border-radius: var(--radius-3xs);
+  background: var(--ds-bg-inset);
 }
 
 .code-block {
-  background: #0a0a0c;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  margin: 0 0 8px;
   padding: 10px;
   overflow-x: auto;
-  margin: 0 0 8px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--ds-bg-inset);
 }
 
-/* ── diff sheet ────────────────────────────────────────── */
+/* ── sheets ────────────────────────────────────────────── */
 
 .sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  z-index: 20;
   display: flex;
   align-items: flex-end;
-  z-index: 20;
+  background: color-mix(in oklab, var(--ds-bg-under) 62%, transparent);
 }
 
 .sheet {
   width: 100%;
   max-height: 82vh;
-  overflow-y: auto;
-  background: var(--bg);
-  border-radius: 18px 18px 0 0;
   padding: 16px 14px calc(20px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  background: var(--ds-bg-primary);
+  border-top: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 .sheet.tall {
@@ -531,8 +625,9 @@ footer {
 }
 
 .sheet h2 {
-  font-size: 1rem;
-  margin: 0 0 12px;
+  margin: 0 0 10px;
+  font-size: var(--text-base-plus);
+  font-weight: 600;
 }
 
 .file summary {
@@ -548,21 +643,21 @@ footer {
 }
 
 .diff {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.76rem;
   margin: 8px 0 0;
   overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
   white-space: pre;
 }
 
 .diff .add {
-  color: var(--ok);
+  color: var(--ds-success);
 }
 
 .diff .del {
-  color: var(--danger);
+  color: var(--ds-error);
 }
 
 .diff .hunk {
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }

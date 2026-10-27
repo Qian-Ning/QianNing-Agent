@@ -58,6 +58,9 @@ type Props = {
   client: HostClient;
   t: Translate;
   lang: string;
+  /** Whether a model is set up; false still lets the list be browsed. */
+  configured: boolean;
+  onRequestSetup: () => void;
   onOpen: (session: SessionSummary) => void;
   onSignOut: () => void;
 };
@@ -67,7 +70,15 @@ type Props = {
  * session that can actually touch files, and removing the ones nobody will open
  * again.
  */
-export function SessionsView({ client, t, lang, onOpen, onSignOut }: Props) {
+export function SessionsView({
+  client,
+  t,
+  lang,
+  configured,
+  onRequestSetup,
+  onOpen,
+  onSignOut,
+}: Props) {
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [editing, setEditing] = useState(false);
@@ -161,7 +172,20 @@ export function SessionsView({ client, t, lang, onOpen, onSignOut }: Props) {
 
       <main>
         {sessions === null ? <p className="muted center">{t("connect.busy")}</p> : null}
-        {sessions?.length === 0 ? <p className="muted center">{t("sessions.empty")}</p> : null}
+        {sessions?.length === 0 ? (
+          <div className="empty">
+            <h2>{t("sessions.emptyTitle")}</h2>
+            <p>{t("sessions.emptyHint")}</p>
+            {configured ? null : (
+              <button className="primary" onClick={onRequestSetup}>
+                {t("sessions.setup")}
+              </button>
+            )}
+            <button className="ghost wide" onClick={() => void openChooser()}>
+              {t("sessions.new")}
+            </button>
+          </div>
+        ) : null}
         {sessions?.map((session) => {
           const title = session.title || t("sessions.untitled");
           if (!editing) {

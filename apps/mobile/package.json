@@ -1,6 +1,6 @@
 {
   "name": "@pi-desktop/mobile",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "type": "module",
   "description": "QianNing Agent for the phone: a RACP client that runs its own UI, packaged both as the Host's /app page and as an Android app.",

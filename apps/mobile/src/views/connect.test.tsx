@@ -19,7 +19,7 @@ afterEach(() => {
 
 describe("the connect screen", () => {
   it("starts on the on-device agent and can switch to pairing", () => {
-    render(<ConnectView t={t} onConnected={vi.fn()} onLocal={vi.fn()} />);
+    render(<ConnectView t={t} onConnected={vi.fn()} onLocal={vi.fn()} onSkip={vi.fn()} />);
 
     const local = screen.getByRole("tab", { name: "本机运行" });
     const remote = screen.getByRole("tab", { name: "连接电脑" });
@@ -33,7 +33,7 @@ describe("the connect screen", () => {
 
   it("hands a complete provider to the app", () => {
     const onLocal = vi.fn();
-    render(<ConnectView t={t} onConnected={vi.fn()} onLocal={onLocal} />);
+    render(<ConnectView t={t} onConnected={vi.fn()} onLocal={onLocal} onSkip={vi.fn()} />);
 
     fireEvent.change(screen.getByLabelText("接口地址"), {
       target: { value: "api.deepseek.com/v1/" },
@@ -51,7 +51,7 @@ describe("the connect screen", () => {
 
   it("says what is missing instead of starting with half a provider", () => {
     const onLocal = vi.fn();
-    render(<ConnectView t={t} onConnected={vi.fn()} onLocal={onLocal} />);
+    render(<ConnectView t={t} onConnected={vi.fn()} onLocal={onLocal} onSkip={vi.fn()} />);
 
     fireEvent.change(screen.getByLabelText("接口地址"), { target: { value: "api.deepseek.com/v1" } });
     fireEvent.click(screen.getByRole("button", { name: "开始" }));

@@ -68,6 +68,11 @@ type Props = {
   sessionId: string;
   title: string;
   t: Translate;
+  /** False when this phone has no model yet; the composer asks before sending. */
+  configured: boolean;
+  /** Only a Host with a project workspace can produce a diff. */
+  canDiff: boolean;
+  onRequestSetup: () => void;
   onBack: () => void;
 };
 
@@ -79,7 +84,7 @@ type Props = {
  * transcript is reloaded only when the Host says the client fell behind
  * (`resync.required`), never on every event.
  */
-export function ChatView({ client, sessionId, title, t, onBack }: Props) {
+export function ChatView({ client, sessionId, title, t, configured, canDiff, onRequestSetup, onBack }: Props) {
   const [items, setItems] = useState<MessageItem[] | null>(null);
   const [live, setLive] = useState(false);
   const [turnId, setTurnId] = useState<string | null>(null);
@@ -180,6 +185,11 @@ export function ChatView({ client, sessionId, title, t, onBack }: Props) {
   const send = async () => {
     const text = draft.trim();
     if (!text || sending) return;
+    if (!configured) {
+      // Keep what was typed: the setup sheet is a detour, not a reset.
+      onRequestSetup();
+      return;
+    }
     setSending(true);
     setError(null);
     setDraft("");
@@ -251,9 +261,11 @@ export function ChatView({ client, sessionId, title, t, onBack }: Props) {
         <h1 className="truncate">{title || t("sessions.untitled")}</h1>
         <div className="bar-actions">
           <span className={"dot" + (live ? " live" : "")} title={live ? t("chat.live") : t("chat.offline")} />
-          <button className="ghost" onClick={() => void openDiff()}>
-            {t("chat.changes")}
-          </button>
+          {canDiff ? (
+            <button className="ghost" onClick={() => void openDiff()}>
+              {t("chat.changes")}
+            </button>
+          ) : null}
         </div>
       </header>
 
