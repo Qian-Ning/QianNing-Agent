@@ -115,7 +115,12 @@ test("a token comes back only from the issue channel", async () => {
   const status = await handlers.get(IPC.invoke.remoteStatus)();
   assert.equal(JSON.stringify(status).includes("pdt1.secret"), false);
 
-  await assert.rejects(handlers.get(IPC.invoke.remoteIssueDevice)({ label: "   " }));
+  // An empty label is a valid request now: the listener numbers the device, so a
+  // user who does not want to invent names still gets a list they can read. The
+  // channel passes the blank through untouched — trimming and numbering are the
+  // listener's job, and one place deciding both is why they stay consistent.
+  const unnamed = await handlers.get(IPC.invoke.remoteIssueDevice)({ label: "   " });
+  assert.equal(unnamed.label, "   ");
 });
 
 test("choosing the local network starts a LAN listener, not a loopback one", async () => {
