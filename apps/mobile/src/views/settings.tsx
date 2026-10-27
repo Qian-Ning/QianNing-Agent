@@ -84,14 +84,20 @@ export function SettingsView(props: Props) {
                 setSkinId(skin.id);
               }}
             >
-              <span className="row-title">
-                {skin.name}
-                {skin.id === skinId ? <span className="tick"> ✓</span> : null}
-              </span>
+              <span className="row-title">{skin.name}</span>
               <span className="swatches">
-                <i style={{ background: skin.tokens.bg }} />
-                <i style={{ background: skin.tokens.panel }} />
-                <i style={{ background: skin.tokens.accent }} />
+                {/* "Follow the system" has no palette of its own; painting empty
+                    circles for it would read as a broken skin. */}
+                {skin.id === "none" ? (
+                  <span className="row-meta">{t("settings.followSystem")}</span>
+                ) : (
+                  <>
+                    <i style={{ background: skin.tokens.bg }} />
+                    <i style={{ background: skin.tokens.panel }} />
+                    <i style={{ background: skin.tokens.accent }} />
+                  </>
+                )}
+                {skin.id === skinId ? <span className="tick">✓</span> : null}
               </span>
             </button>
           ))}
