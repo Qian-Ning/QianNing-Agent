@@ -1,4 +1,6 @@
 import { app, BrowserWindow, crashReporter, Menu, safeStorage } from "electron";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createScheduledRunner } from "../runtime/scheduled-runner";
 import {
   APP_NAME,
@@ -322,6 +324,7 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
     // ADR 0333: the listener exists from boot so Settings can show the device
     // list, and it binds only when the user turns remote access on.
     const bridge = state.agentHostBridge;
+    const certPath = join(deps.dataDir, "remote", "tls", "cert.pem");
     state.remoteListener = createRemoteListener({
       dataDir: deps.dataDir,
       // The desktop Host is the Agent Host that already exists here (ADR 0333
@@ -337,7 +340,28 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
       isBusy: isSessionBusy,
       // The shell is what a phone opens first; it carries no credential and no
       // session data, so the binding serves it before authentication.
-      serveStatic: serveClientShell,
+      //
+      // The certificate rides the same unauthenticated path because it is needed
+      // before any credential can exist: a phone cannot reach this listener until
+      // it trusts the certificate this listener presents.
+      serveStatic: (pathname) => {
+        if (pathname === "/cert" || pathname === "/cert.crt") {
+          try {
+            return {
+              body: readFileSync(certPath, "utf8"),
+              contentType: "application/x-x509-ca-cert",
+              headers: {
+                "content-disposition": 'attachment; filename="qianning-agent-ca.crt"',
+              },
+            };
+          } catch {
+            // No certificate yet: the listener has not minted one, and the page
+            // simply has nothing to offer.
+            return null;
+          }
+        }
+        return serveClientShell(pathname);
+      },
       log: (level, message, data) => logger.app("runtime", level, message, { data }),
     });
     const control = createMcpControlController({

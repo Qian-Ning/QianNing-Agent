@@ -300,3 +300,34 @@ describe("RACP-HTTP and a page it did not serve", () => {
     });
   });
 });
+
+describe("static asset headers", () => {
+  it("passes response headers a static asset asks for", async () => {
+    const h = await harness({ bindings: HTTP_BINDINGS });
+    const binding = await bindRacpHttp({
+      server: h.server,
+      authenticator: h.authenticator,
+      port: 0,
+      log: () => undefined,
+      serveStatic: (pathname) =>
+        pathname === "/cert"
+          ? {
+              body: "-----BEGIN CERTIFICATE-----\n",
+              contentType: "application/x-x509-ca-cert",
+              headers: { "content-disposition": 'attachment; filename="ca.crt"' },
+            }
+          : null,
+    });
+    try {
+      const response = await fetch(`http://127.0.0.1:${binding.address.port}/cert`);
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toBe("application/x-x509-ca-cert");
+      // Without the disposition a phone renders the certificate as text instead
+      // of handing it to the installer.
+      expect(response.headers.get("content-disposition")).toBe('attachment; filename="ca.crt"');
+      expect(await response.text()).toContain("BEGIN CERTIFICATE");
+    } finally {
+      await binding.close();
+    }
+  });
+});

@@ -94,6 +94,13 @@ the honest minimum, and it is what the first stage must deliver.
   nothing on screen to explain why. The remembered value is data rather than
   configuration: read at start, written after a successful bind, and a corrupt
   or unusable file is treated as "no preference" instead of a startup failure.
+- **The certificate is served by the listener that presents it.** `GET /cert`
+  returns the PEM unauthenticated, next to the client shell and for the same
+  reason: it is needed before any credential can exist. It is sent as
+  `application/x-x509-ca-cert` with an attachment disposition and a `.crt`
+  filename, because that combination is what makes a phone offer the install
+  prompt instead of displaying base64 — and because Android file pickers filter
+  `.pem` out of the CA-installation selection.
 
 ### 5. Stages, each ending in a demonstrable artifact
 

@@ -89,3 +89,10 @@ test("a pairing link signs the page in without typing", () => {
   // A link must not be able to replace the identity of an already paired device.
   assert.ok(html.includes("if (!value || token()) return false;"));
 });
+
+test("the login page offers the certificate it must be trusted with", () => {
+  // A phone cannot reach this listener until its certificate is installed, so the
+  // page has to offer that certificate rather than only describe the problem.
+  assert.ok(html.includes('href="/cert"'), "the login page must link to the certificate");
+  assert.ok(html.includes("download=") || html.includes("/cert.crt"), "the link must save a file");
+});

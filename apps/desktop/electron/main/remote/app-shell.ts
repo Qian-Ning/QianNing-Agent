@@ -189,6 +189,8 @@ const HTML = `<!doctype html>
       '<header><h1>QianNing Agent</h1></header>' +
       '<main>' +
         '<p class="empty">Point this at the computer running QianNing Agent, then paste its device token.</p>' +
+        '<p class="empty">If this page warned about the connection before loading, install the certificate first: ' +
+          '<a href="/cert" download="qianning-agent-ca.crt">download it</a>.</p>' +
         '<form id="login">' +
           '<span class="field"><label for="b">Server address</label>' +
             '<input id="b" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://192.168.1.10:11400" value="' + esc(defaultBase()) + '"></span>' +
