@@ -50,16 +50,20 @@ export function ModelSheet({ t, client, model, thinking, onClose, onApply }: Pro
         {models !== null && models.length === 0 ? (
           <p className="muted">{t("model.none")}</p>
         ) : null}
+        <div className="model-list">
         {models?.map((id) => (
           <button
             key={id}
             className={"row" + (id === chosen ? " chosen" : "")}
             onClick={() => setChosen(id)}
           >
-            <span className="row-title">{id}</span>
-            {id === chosen ? <span className="row-meta">✓</span> : null}
+            <span className="row-title">
+              {id}
+              {id === chosen ? <span className="tick"> ✓</span> : null}
+            </span>
           </button>
         ))}
+        </div>
         {models !== null && models.length === 0 ? (
           <input
             value={chosen}

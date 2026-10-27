@@ -860,3 +860,29 @@ footer {
   margin-top: 8px;
   text-align: center;
 }
+
+/* A sheet's last action must sit clear of the home indicator, not under it. */
+.sheet {
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+
+/* The list scrolls; the actions underneath it never leave the screen. */
+.model-list {
+  max-height: 42vh;
+  overflow-y: auto;
+  margin: 0 -4px;
+}
+
+.levels {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.level {
+  text-align: center;
+}
+
+.tick {
+  color: var(--ds-accent);
+}
