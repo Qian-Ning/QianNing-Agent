@@ -54,7 +54,12 @@ export type HttpBindingOptions = {
    * what collects the token — it must therefore return only public assets and
    * never anything derived from a session.
    */
-  serveStatic?: (pathname: string) => { body: string | Buffer; contentType: string } | null;
+  serveStatic?: (pathname: string) => {
+    body: string | Buffer;
+    contentType: string;
+    /** Extra response headers, e.g. a download disposition for a certificate. */
+    headers?: Readonly<Record<string, string>>;
+  } | null;
   /**
    * Origins allowed to call this listener from a page it did not serve.
    *
@@ -481,6 +486,9 @@ export async function bindRacpHttp(options: HttpBindingOptions): Promise<HttpBin
         response.setHeader("content-type", asset.contentType);
         response.setHeader("cache-control", "no-store");
         response.setHeader("x-content-type-options", "nosniff");
+        for (const [name, value] of Object.entries(asset.headers ?? {})) {
+          response.setHeader(name, value);
+        }
         response.end(asset.body);
         return;
       }
