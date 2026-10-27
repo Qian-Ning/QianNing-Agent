@@ -77,7 +77,8 @@ type Props = {
   /** Present only when the host can switch models; absent on a remote desktop. */
   onOpenModel?: () => void;
   onRequestSetup: () => void;
-  onBack: () => void;
+  /** Opens the session column, the way the desktop keeps it always visible. */
+  onOpenDrawer: () => void;
 };
 
 /**
@@ -98,7 +99,7 @@ export function ChatView({
   modelLabel,
   onOpenModel,
   onRequestSetup,
-  onBack,
+  onOpenDrawer,
 }: Props) {
   const [items, setItems] = useState<MessageItem[] | null>(null);
   const [live, setLive] = useState(false);
@@ -314,8 +315,8 @@ export function ChatView({
   return (
     <div className="screen chat">
       <header className="bar">
-        <button className="ghost back" onClick={onBack}>
-          ‹ {t("chat.back")}
+        <button className="ghost back" aria-label={t("chat.back")} onClick={onOpenDrawer}>
+          ☰
         </button>
         {client.renameSession ? (
           <button className="title-button truncate" onClick={() => setRenaming(true)}>

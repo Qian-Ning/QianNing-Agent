@@ -1005,3 +1005,73 @@ footer {
   font-weight: 400;
   color: var(--ds-text-muted);
 }
+
+/* ── session drawer ────────────────────────────────────────
+   The desktop's left column, folded away. Same grouping, same row, same
+   order — it slides in instead of taking a third of a phone's width away
+   from the transcript. */
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  background: color-mix(in srgb, var(--ds-text-primary) 30%, transparent);
+}
+
+.drawer {
+  width: 84%;
+  max-width: 320px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom));
+  background: var(--ds-bg-secondary);
+  border-right: 1px solid var(--ds-border-subtle);
+  animation: drawer-in 0.18s ease-out;
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(-12px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.drawer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px;
+}
+
+.drawer-bar h1 {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.drawer-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.drawer-list .row {
+  padding: 9px 10px;
+  background: transparent;
+  border: none;
+}
+
+.drawer-list .row.current {
+  background: var(--ds-bg-hover);
+}
+
+.drawer-foot {
+  padding: 6px 4px 0;
+  border-top: 1px solid var(--ds-border-subtle);
+}

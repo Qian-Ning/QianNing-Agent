@@ -20,6 +20,7 @@ import { emptyProvider } from "./agent/settings";
 import { ProviderSheet } from "./views/provider-sheet";
 import { ModelSheet } from "./views/model-sheet";
 import { SettingsView } from "./views/settings";
+import { SessionDrawer } from "./views/session-drawer";
 
 type Screen = { name: "sessions" } | { name: "chat"; session: SessionSummary } | { name: "settings" };
 
@@ -57,6 +58,7 @@ export function App() {
   const [screen, setScreen] = useState<Screen>({ name: "sessions" });
   const [modelOpen, setModelOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const lang = useMemo(() => detectLang(), []);
   const t = useMemo(() => createTranslator(lang), [lang]);
@@ -168,8 +170,29 @@ export function App() {
           modelLabel={modelLabel}
           onOpenModel={host.kind === "local" ? () => setModelOpen(true) : undefined}
           onRequestSetup={() => setSetupOpen(true)}
-          onBack={() => setScreen({ name: "sessions" })}
+          onOpenDrawer={() => setDrawerOpen(true)}
         />
+        {drawerOpen ? (
+          <SessionDrawer
+            client={client}
+            t={t}
+            lang={lang}
+            currentId={screen.session.id}
+            onSelect={(next) => {
+              setDrawerOpen(false);
+              setScreen({ name: "chat", session: next });
+            }}
+            onNew={() => {
+              setDrawerOpen(false);
+              setScreen({ name: "sessions" });
+            }}
+            onSettings={() => {
+              setDrawerOpen(false);
+              setScreen({ name: "settings" });
+            }}
+            onClose={() => setDrawerOpen(false)}
+          />
+        ) : null}
         {setupSheet}
         {modelOpen && host.kind === "local" ? (
           <ModelSheet
