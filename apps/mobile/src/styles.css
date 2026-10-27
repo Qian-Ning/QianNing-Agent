@@ -1100,3 +1100,58 @@ footer {
 .settings-list .chevron {
   flex: none;
 }
+
+/* ── touch targets ─────────────────────────────────────────
+   A phone is used with a thumb, not a cursor. The layout audit measures every
+   interactive element; these rules are what make it pass at 320dp and at a
+   1.3× font scale, where a button sized to its text shrinks. */
+
+.bar .ghost,
+.bar .ghost.back {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+}
+
+.composer .round {
+  width: 44px;
+  height: 44px;
+}
+
+.composer .chip {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+}
+
+/* The box grows with its content: at a 1.3× font scale a one-line box clipped
+   the placeholder, and a fixed height would do the same to a long message. */
+.composer textarea {
+  min-height: 44px;
+  field-sizing: content;
+}
+
+.row {
+  min-height: 44px;
+}
+
+.settings-list .row,
+.drawer-list .row {
+  min-height: 44px;
+}
+
+.title-button,
+.drawer-bar .ghost {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.drawer-bar .ghost {
+  min-width: 44px;
+  justify-content: center;
+}
