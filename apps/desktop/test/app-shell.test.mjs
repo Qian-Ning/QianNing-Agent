@@ -115,3 +115,12 @@ test("a running turn can be stopped from the phone", () => {
   assert.ok(html.includes(":interrupt"), "the stop action must call turn/interrupt");
   assert.ok(html.includes("state.activeTurnId"), "the stop button is gated on a live turn");
 });
+
+test("the working-tree diff can be read from the phone", () => {
+  // The route has to exist first: RACP exposes 40 operations but only the ones
+  // in RACP_HTTP_ROUTES are reachable over HTTP.
+  assert.ok(html.includes("/diff"), "the page must call the diff route");
+  assert.ok(html.includes("function renderDiffFile"), "each changed file gets its own row");
+  // A binary file or one over the cap has no hunks; the row still has to show up.
+  assert.ok(html.includes("file.binary") && html.includes("file.tooLarge"));
+});
