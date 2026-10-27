@@ -774,3 +774,89 @@ footer {
   font-size: var(--text-2xs);
   color: var(--ds-text-muted);
 }
+
+/* ── title, model sheet, attachments ───────────────────── */
+
+.title-button {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius-2xs);
+  background: none;
+  color: var(--ds-text-primary);
+  font-size: var(--text-base-plus);
+  font-weight: 500;
+  text-align: left;
+}
+
+.title-button:active {
+  background: var(--ds-bg-secondary);
+}
+
+.search {
+  width: 100%;
+  margin: 4px 0 2px;
+  padding: 9px 12px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--ds-bg-secondary);
+  font-size: var(--text-base);
+}
+
+.sheet-sub {
+  margin-top: 18px !important;
+}
+
+.levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.level {
+  padding: 7px 12px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--ds-bg-secondary);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.level.chosen {
+  border-color: var(--ds-accent);
+  color: var(--ds-accent);
+  font-weight: 500;
+}
+
+.row.chosen .row-title {
+  color: var(--ds-accent);
+}
+
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 2px;
+}
+
+.attachment {
+  max-width: 100%;
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--ds-bg-secondary);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-2xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.primary.wide,
+.ghost.wide {
+  width: 100%;
+  margin-top: 8px;
+  text-align: center;
+}

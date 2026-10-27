@@ -12,13 +12,17 @@ import { streamSimple } from "@earendil-works/pi-ai/api/openai-completions";
 import type { Model, ProviderId } from "@earendil-works/pi-ai";
 import { createTools } from "./tools";
 import type { AgentStore, StoredMessage, StoredSession } from "./store";
-import type { HostEvent } from "../lib/racp";
+import type { HostEvent, ThinkingLevel } from "../lib/racp";
+
+export type Attachment = { name: string; text: string };
 
 export type ProviderConfig = {
   /** Any OpenAI-compatible endpoint: `https://api.deepseek.com/v1`. */
   baseUrl: string;
   apiKey: string;
   modelId: string;
+  /** How hard the model should think, when it honours the parameter. */
+  thinking?: ThinkingLevel;
 };
 
 export type LocalEvent = HostEvent;
@@ -72,13 +76,54 @@ export class LocalAgentHost {
 
   constructor(
     private readonly store: AgentStore,
-    private readonly provider: ProviderConfig,
+    private provider: ProviderConfig,
     /** Tests supply a scripted stream and model; production uses the provider. */
     private readonly override?: { stream: StreamFn; model?: Model<"openai-completions"> },
   ) {}
 
   listSessions(): StoredSession[] {
     return this.store.listSessions();
+  }
+
+  providerConfig(): ProviderConfig {
+    return this.provider;
+  }
+
+  /** Rename keeps the id and the transcript; only the label moves. */
+  renameSession(sessionId: string, title: string): StoredSession | null {
+    const session = this.store.listSessions().find((entry) => entry.id === sessionId);
+    if (!session) return null;
+    const next: StoredSession = { ...session, title: title.trim().slice(0, 120) };
+    this.store.writeSession(next);
+    return next;
+  }
+
+  /**
+   * A new provider means a new model and possibly a new endpoint, so the cached
+   * agents (which hold a model) are dropped and rebuilt on next use.
+   */
+  setProvider(next: ProviderConfig): void {
+    for (const session of this.running.values()) session.agent.abort();
+    this.running.clear();
+    this.provider = next;
+  }
+
+  /**
+   * The models the endpoint advertises. This is the same list the desktop's
+   * picker reads when the provider is OpenAI-compatible; a provider that does
+   * not implement /models simply yields nothing and the current model stands.
+   */
+  async listModels(): Promise<string[]> {
+    const base = this.provider.baseUrl.replace(/\/+$/, "");
+    const response = await fetch(base + "/models", {
+      headers: { authorization: "Bearer " + this.provider.apiKey },
+    });
+    if (!response.ok) throw new Error("the endpoint returned " + response.status);
+    const body = (await response.json()) as { data?: { id?: unknown }[] };
+    return (body.data ?? [])
+      .map((entry) => (typeof entry.id === "string" ? entry.id : ""))
+      .filter((id) => id.length > 0)
+      .sort();
   }
 
   createSession(title = ""): StoredSession {
@@ -119,12 +164,12 @@ export class LocalAgentHost {
    * `turn.failed` rather than thrown, because the UI already knows how to show
    * an error row and a rejected promise would leave it spinning.
    */
-  async send(sessionId: string, text: string): Promise<void> {
+  async send(sessionId: string, text: string, attachments: readonly Attachment[] = []): Promise<void> {
     const session = this.ensureSession(sessionId);
     const turnId = newId("t");
     this.emit(session, { sessionId, turnId, kind: "turn.started", payload: {} });
     try {
-      await session.agent.prompt(text);
+      await session.agent.prompt(withAttachments(text, attachments));
       const last = session.agent.state.messages.at(-1);
       const failed = last && "stopReason" in last && last.stopReason === "error";
       if (failed) {
@@ -169,6 +214,11 @@ export class LocalAgentHost {
           streamSimple(model as Model<"openai-completions">, context, {
             ...options,
             apiKey: this.provider.apiKey,
+            // "off" means do not send the parameter at all, so a provider that
+            // rejects unknown fields keeps working.
+            ...(this.provider.thinking && this.provider.thinking !== "off"
+              ? { reasoning: this.provider.thinking }
+              : {}),
           })),
       getApiKey: () => this.provider.apiKey,
     });
@@ -378,4 +428,17 @@ function textOfBlocks(content: unknown): string {
     }
   }
   return parts.join("");
+}
+
+/**
+ * A turn carries its files as text, fenced and labelled, because the phone has
+ * no upload channel to the model — the same shape the desktop uses when it
+ * inlines an attachment into the prompt.
+ */
+function withAttachments(text: string, attachments: readonly Attachment[]): string {
+  if (attachments.length === 0) return text;
+  const blocks = attachments.map(
+    (file) => "### " + file.name + "\n```\n" + file.text.replace(/\n$/, "") + "\n```",
+  );
+  return blocks.join("\n\n") + "\n\n" + text;
 }

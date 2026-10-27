@@ -7,7 +7,7 @@
  * indistinguishable from the one across the network.
  */
 
-import type { HostEvent, RequestBody } from "../lib/racp";
+import type { HostEvent, RequestBody, ThinkingLevel } from "../lib/racp";
 import { RacpClientError } from "../lib/racp";
 import type { LocalAgentHost } from "./host";
 
@@ -64,14 +64,19 @@ export class LocalClient {
     const turnsMatch = /^\/v1\/sessions\/([^/]+)\/turns$/.exec(route);
     if (turnsMatch && method === "POST") {
       const sessionId = decodeURIComponent(turnsMatch[1] as string);
-      const body = (init.body ?? {}) as { input?: { text?: string } };
+      const body = (init.body ?? {}) as {
+        input?: { text?: string; attachments?: { name?: string; text?: string }[] };
+      };
       const text = body.input?.text ?? "";
       if (!text.trim()) throw new RacpClientError("INVALID_REQUEST", "a turn needs input text");
+      const attachments = (body.input?.attachments ?? [])
+        .filter((file) => typeof file.name === "string" && typeof file.text === "string")
+        .map((file) => ({ name: file.name as string, text: file.text as string }));
       const turnId = "t_" + Date.now().toString(36);
       this.turns.set(turnId, sessionId);
       // The turn runs to completion before this resolves, which keeps the
       // composer's "sending" state honest; events stream while it runs.
-      await this.host.send(sessionId, text);
+      await this.host.send(sessionId, text, attachments);
       return { turn: { id: turnId } } as T;
     }
 
@@ -100,6 +105,20 @@ export class LocalClient {
     }
 
     throw new RacpClientError("METHOD_NOT_FOUND", "the local Host does not serve " + path);
+  }
+
+  async renameSession(sessionId: string, title: string): Promise<void> {
+    if (!this.host.renameSession(sessionId, title)) {
+      throw new RacpClientError("NOT_FOUND", "no such session");
+    }
+  }
+
+  async listModels(): Promise<string[]> {
+    return this.host.listModels();
+  }
+
+  async configure(patch: { modelId?: string; thinking?: ThinkingLevel }): Promise<void> {
+    this.host.setProvider({ ...this.host.providerConfig(), ...patch });
   }
 
   stream(sessionId: string, handlers: Handlers): () => void {

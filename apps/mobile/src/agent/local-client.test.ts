@@ -92,3 +92,42 @@ describe("the local Host speaks RACP", () => {
     );
   });
 });
+
+describe("capabilities beyond the wire", () => {
+  it("renames through the client so the list label follows", async () => {
+    const client = build([fauxAssistantMessage("hi")]);
+    const created = await client.call<{ session: { id: string } }>("/v1/sessions", {
+      method: "POST",
+      body: { title: "old" },
+    });
+
+    await client.renameSession?.(created.session.id, "new name");
+    const listed = await client.call<{ sessions: { id: string; title: string }[] }>("/v1/sessions");
+
+    expect(listed.sessions.find((row) => row.id === created.session.id)?.title).toBe("new name");
+  });
+
+  it("refuses to rename a session that is not there", async () => {
+    const client = build([fauxAssistantMessage("hi")]);
+    await expect(client.renameSession?.("missing", "x")).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("keeps the conversation alive across a model change", async () => {
+    const client = build([fauxAssistantMessage("first"), fauxAssistantMessage("second")]);
+    const created = await client.call<{ session: { id: string } }>("/v1/sessions", {
+      method: "POST",
+      body: { title: "swap" },
+    });
+    const path = "/v1/sessions/" + created.session.id + "/turns";
+    await client.call(path, { method: "POST", body: { input: { text: "one" } } });
+
+    // A model swap drops the cached loop; the transcript must survive it.
+    await client.configure?.({ modelId: "other-model", thinking: "high" });
+    await client.call(path, { method: "POST", body: { input: { text: "two" } } });
+
+    const rows = await client.call<{ itemId: string }[]>(
+      "/v1/sessions/" + created.session.id + "/history",
+    );
+    expect(rows.length).toBeGreaterThanOrEqual(4);
+  });
+});

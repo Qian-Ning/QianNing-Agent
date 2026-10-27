@@ -81,6 +81,7 @@ export function SessionsView({
 }: Props) {
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [query, setQuery] = useState("");
   const [editing, setEditing] = useState(false);
   const [armed, setArmed] = useState<string | null>(null);
   const [choosing, setChoosing] = useState(false);
@@ -186,7 +187,15 @@ export function SessionsView({
             </button>
           </div>
         ) : null}
-        {sessions === null ? null : groupSessions(sessions, Date.now()).map((group) => (
+        {sessions !== null && sessions.length > 6 ? (
+          <input
+            className="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("sessions.search")}
+          />
+        ) : null}
+        {sessions === null ? null : groupSessions(filterSessions(sessions, query), Date.now()).map((group) => (
           <section key={group.key} className="group">
             <h2 className="group-label">{t(group.labelKey)}</h2>
             {group.items.map((session) => {
@@ -213,6 +222,9 @@ export function SessionsView({
             })}
           </section>
         ))}
+        {sessions !== null && sessions.length > 0 && filterSessions(sessions, query).length === 0 ? (
+          <p className="muted center">{t("sessions.noMatch")}</p>
+        ) : null}
         {error ? <p className="error">{error}</p> : null}
       </main>
 
@@ -251,6 +263,13 @@ export function SessionsView({
  * because a flat list stops being scannable the moment it has more than a
  * screenful. Same buckets here, same order, empty buckets dropped.
  */
+/** Title filter, case-insensitive, so a long history stays reachable by typing. */
+export function filterSessions(sessions: readonly SessionSummary[], query: string): SessionSummary[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return sessions.slice();
+  return sessions.filter((session) => (session.title || "").toLowerCase().includes(needle));
+}
+
 export function groupSessions(
   sessions: readonly SessionSummary[],
   now: number,

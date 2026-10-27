@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupSessions, type SessionSummary } from "./sessions";
+import { filterSessions, groupSessions, type SessionSummary } from "./sessions";
 
 const NOW = new Date("2026-10-28T10:00:00+08:00").getTime();
 const at = (iso: string): SessionSummary => ({ id: iso, title: iso, updatedAt: iso });
@@ -35,5 +35,25 @@ describe("session buckets", () => {
     const groups = groupSessions([{ id: "x", title: "no date" }], NOW);
     expect(groups).toHaveLength(1);
     expect(groups[0]?.labelKey).toBe("sessions.earlier");
+  });
+});
+
+describe("session search", () => {
+  const rows: SessionSummary[] = [
+    { id: "1", title: "Refactor the parser" },
+    { id: "2", title: "refactor the loader" },
+    { id: "3", title: "结婚请柬" },
+  ];
+
+  it("matches case-insensitively and keeps original order", () => {
+    expect(filterSessions(rows, "REFACTOR").map((row) => row.id)).toEqual(["1", "2"]);
+  });
+
+  it("returns everything for an empty query", () => {
+    expect(filterSessions(rows, "   ")).toHaveLength(3);
+  });
+
+  it("returns nothing rather than everything when nothing matches", () => {
+    expect(filterSessions(rows, "zzz")).toHaveLength(0);
   });
 });

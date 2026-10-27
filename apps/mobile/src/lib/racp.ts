@@ -9,6 +9,9 @@
 
 export type Connection = { base: string; token: string };
 
+/** The phone's own thinking levels; mirrors what the model endpoints accept. */
+export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+
 export type RequestBody = Record<string, unknown>;
 
 /**
@@ -21,6 +24,17 @@ export interface HostClient {
     sessionId: string,
     handlers: { onEvent: (event: HostEvent) => void; onState: (state: "open" | "closed") => void },
   ): () => void;
+
+  /*
+   * Capabilities the wire does not carry. RACP has no HTTP route for renaming a
+   * session or reconfiguring a model — those are WebSocket operations on the
+   * desktop — so a client that can do them says so by implementing these, and
+   * the screens hide the affordance when it is absent. A phone-host does them
+   * in process; a remote desktop host leaves them undefined today.
+   */
+  renameSession?(sessionId: string, title: string): Promise<void>;
+  listModels?(): Promise<string[]>;
+  configure?(patch: { modelId?: string; thinking?: ThinkingLevel }): Promise<void>;
 }
 
 const STORAGE_KEY = "qn.connection";
