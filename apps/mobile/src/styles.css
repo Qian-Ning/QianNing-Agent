@@ -958,3 +958,50 @@ footer {
   margin-left: 6px;
   color: var(--ds-text-faint);
 }
+
+/* ── crash ─────────────────────────────────────────────── */
+
+.crash main {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.crash-line {
+  font-size: var(--text-sm);
+  color: var(--ds-danger-text, var(--ds-text-primary));
+  word-break: break-word;
+}
+
+.crash-stack {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--ds-bg-secondary);
+  border: 1px solid var(--ds-border-subtle);
+  font-size: var(--text-2xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ds-text-muted);
+}
+
+.crash-stack.global {
+  position: fixed;
+  inset: auto 8px 8px 8px;
+  max-height: 40vh;
+  overflow: auto;
+  z-index: 99;
+}
+
+.bar h1 {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.bar-count {
+  font-size: var(--text-2xs);
+  font-weight: 400;
+  color: var(--ds-text-muted);
+}

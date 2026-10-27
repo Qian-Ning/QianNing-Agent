@@ -162,7 +162,12 @@ export function SessionsView({
   return (
     <div className="screen sessions">
       <header className="bar">
-        <h1>{t("sessions.title")}</h1>
+        <h1>
+          {t("sessions.title")}
+          {sessions && sessions.length > 0 ? (
+            <span className="bar-count">{sessions.length}</span>
+          ) : null}
+        </h1>
         <div className="bar-actions">
           <button className="ghost" onClick={() => void openChooser()} aria-label={t("sessions.new")}>
             +
@@ -177,6 +182,16 @@ export function SessionsView({
       </header>
 
       <main>
+        {/* Search is a permanent fixture on the desktop sidebar; on the phone it
+            only earns its row once there is a history worth filtering. */}
+        {sessions !== null && sessions.length > 0 ? (
+          <input
+            className="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("sessions.search")}
+          />
+        ) : null}
         {sessions === null ? <p className="muted center">{t("connect.busy")}</p> : null}
         {sessions?.length === 0 ? (
           <div className="empty">
@@ -191,14 +206,6 @@ export function SessionsView({
               {t("sessions.new")}
             </button>
           </div>
-        ) : null}
-        {sessions !== null && sessions.length > 6 ? (
-          <input
-            className="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("sessions.search")}
-          />
         ) : null}
         {sessions === null ? null : groupSessions(filterSessions(sessions, query), Date.now()).map((group) => (
           <section key={group.key} className="group">
