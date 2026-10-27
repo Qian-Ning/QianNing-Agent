@@ -11,7 +11,8 @@
     "test": "vitest run",
     "preview": "vite preview",
     "cap:sync": "cap sync android",
-    "apk": "node scripts/build-apk.mjs"
+    "apk": "node scripts/build-apk.mjs",
+    "audit:layout": "electron scripts/layout-audit.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
