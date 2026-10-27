@@ -227,3 +227,76 @@ describe("the client shell", () => {
     });
   });
 });
+
+describe("RACP-HTTP and a page it did not serve", () => {
+  const ORIGIN = "https://localhost";
+
+  async function withCors<T>(
+    run: (base: string) => Promise<T>,
+    corsOrigins?: readonly string[],
+  ): Promise<T> {
+    const h = await harness({ bindings: HTTP_BINDINGS });
+    const binding = await bindRacpHttp({
+      server: h.server,
+      authenticator: h.authenticator,
+      port: 0,
+      log: () => undefined,
+      ...(corsOrigins ? { corsOrigins } : {}),
+    });
+    try {
+      return await run(`http://127.0.0.1:${binding.address.port}`);
+    } finally {
+      await binding.close();
+    }
+  }
+
+  it("answers a preflight for a listed origin without demanding a credential", async () => {
+    await withCors(async (base) => {
+      const response = await fetch(`${base}/v1/sessions`, {
+        method: "OPTIONS",
+        headers: {
+          origin: ORIGIN,
+          "access-control-request-method": "GET",
+          "access-control-request-headers": "authorization",
+        },
+      });
+      // 204, not 401. The browser builds a preflight without Authorization, so
+      // requiring one here would fail every cross-origin call before it starts.
+      expect(response.status).toBe(204);
+      expect(response.headers.get("access-control-allow-origin")).toBe(ORIGIN);
+      expect(response.headers.get("access-control-allow-headers")).toContain("authorization");
+    }, [ORIGIN]);
+  });
+
+  it("gives an unlisted origin no CORS headers at all", async () => {
+    await withCors(async (base) => {
+      const response = await fetch(`${base}/v1/sessions`, {
+        method: "OPTIONS",
+        headers: { origin: "https://evil.example", "access-control-request-method": "GET" },
+      });
+      expect(response.status).toBe(403);
+      // No header means the browser discards the response even if it arrived.
+      expect(response.headers.get("access-control-allow-origin")).toBeNull();
+    }, [ORIGIN]);
+  });
+
+  it("echoes the origin on a real response so the page can read it", async () => {
+    await withCors(async (base) => {
+      const response = await fetch(`${base}/v1/sessions`, {
+        headers: { ...auth(), origin: ORIGIN },
+      });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("access-control-allow-origin")).toBe(ORIGIN);
+    }, [ORIGIN]);
+  });
+
+  it("stays closed when no origin is configured", async () => {
+    await withCors(async (base) => {
+      const response = await fetch(`${base}/v1/sessions`, {
+        method: "OPTIONS",
+        headers: { origin: ORIGIN, "access-control-request-method": "GET" },
+      });
+      expect(response.status).toBe(403);
+    });
+  });
+});

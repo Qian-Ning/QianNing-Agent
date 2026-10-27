@@ -200,6 +200,11 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
         port: options.port ?? 0,
         ...(tls ? { tls, allowLan: true } : {}),
         ...(options.serveStatic ? { serveStatic: options.serveStatic } : {}),
+        // The phone shell serves the client page from its own bundle, so its
+        // requests arrive from a bundler origin rather than from this listener.
+        // Only those origins are listed: a page on any other origin gets no
+        // CORS headers and cannot read a reply, even with a stolen token.
+        corsOrigins: ["https://localhost", "capacitor://localhost", "http://localhost"],
         log: options.log,
       });
       publicUrl = tls ? `https://${addresses[0]}:${binding.address.port}` : null;

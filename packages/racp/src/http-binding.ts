@@ -55,6 +55,15 @@ export type HttpBindingOptions = {
    * never anything derived from a session.
    */
   serveStatic?: (pathname: string) => { body: string | Buffer; contentType: string } | null;
+  /**
+   * Origins allowed to call this listener from a page it did not serve.
+   *
+   * The phone shell loads the client page from its own bundle, so every call it
+   * makes is cross-origin and the browser sends a preflight first. Listing an
+   * origin here is what answers that preflight; an origin that is not listed
+   * gets no CORS headers at all, and therefore cannot read any response.
+   */
+  corsOrigins?: readonly string[];
   /** `0` asks the OS for a free port, which is what the desktop wants by default. */
   port: number;
   log: (level: "info" | "warn" | "error", message: string, data?: Record<string, unknown>) => void;
@@ -416,6 +425,36 @@ export async function bindRacpHttp(options: HttpBindingOptions): Promise<HttpBin
     void (async () => {
       const url = new URL(request.url ?? "/", "http://localhost");
       const method = request.method ?? "GET";
+
+      // Resolved before anything else so every response — including the static
+      // shell, the event stream and the errors — carries the same headers.
+      const origin = request.headers.origin;
+      const allowedOrigin =
+        origin && options.corsOrigins?.includes(origin) ? origin : null;
+      if (allowedOrigin) {
+        response.setHeader("access-control-allow-origin", allowedOrigin);
+        response.setHeader("vary", "origin");
+        response.setHeader(
+          "access-control-expose-headers",
+          "retry-after, content-type",
+        );
+      }
+
+      if (method === "OPTIONS") {
+        // A preflight is unauthenticated by construction: the browser does not
+        // attach Authorization to it. Answering it without a credential is the
+        // whole point, and it grants nothing — the real request still needs one.
+        if (!allowedOrigin) return send(response, 403, { error: "FORBIDDEN" });
+        response.setHeader("access-control-allow-methods", "GET, POST, OPTIONS");
+        response.setHeader(
+          "access-control-allow-headers",
+          "authorization, content-type, last-event-id",
+        );
+        response.setHeader("access-control-max-age", "600");
+        response.statusCode = 204;
+        response.end();
+        return;
+      }
 
       if (!isLoopbackAddress(request.socket.remoteAddress) && !(tls && options.allowLan)) {
         options.log("warn", "racp http refused: non-loopback peer", { peer: request.socket.remoteAddress });
