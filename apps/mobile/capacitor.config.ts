@@ -9,7 +9,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const config: CapacitorConfig = {
   appId: "app.qianning.agent",
   appName: "QianNing Agent",
-  webDir: "www",
+  webDir: "dist",
   android: {
     // The Host's certificate is self-signed and pinned by the user installing it;
     // cleartext is never allowed, so a misconfigured address fails loudly.

@@ -363,3 +363,4 @@ Each ADR includes:
 | 0331 | [First-turn skill preload, local load counts, and a generation group gate](0331-skill-delivery-tuning.md) | Accepted |
 | 0332 | [Outbound redaction before the provider](0332-outbound-redaction.md) | Accepted for implementation |
 | 0333 | [A network entry point for the desktop Agent Host](0333-remote-entry-point.md) | Proposed |
+| 0334 | [The phone client is an app, not a page in a string](0334-mobile-client-as-an-app.md) | Accepted |

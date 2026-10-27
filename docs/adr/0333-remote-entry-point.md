@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-27
-- **Implemented:** P1 — `packages/racp/src/http-binding.ts` (loopback `RACP-HTTP`, bearer only). P2 and P3 remain unstarted.
+- **Implemented:** P1 — `packages/racp/src/http-binding.ts` (loopback `RACP-HTTP`, bearer only). P2 — `/app`, sessions, conversation, approvals, diff; the client itself moved to its own package in [ADR 0334](0334-mobile-client-as-an-app.md). P3 remains unstarted.
 
 ## Context
 
