@@ -115,3 +115,61 @@ describe("the phone agent", () => {
     expect(events.at(-1)).toBe("turn.failed");
   });
 });
+
+describe("host capabilities the screens rely on", () => {
+  it("renames a session without touching its transcript", async () => {
+    const store = new MemoryStore();
+    const host = fauxHost(store, [fauxAssistantMessage("ok")]);
+    const session = host.createSession("first");
+
+    expect(host.renameSession(session.id, "  renamed  ")?.title).toBe("renamed");
+    expect(host.listSessions().find((entry) => entry.id === session.id)?.title).toBe("renamed");
+    expect(host.renameSession("nope", "x")).toBeNull();
+  });
+
+  it("swaps the provider and rebuilds the loop instead of reusing the old model", () => {
+    const store = new MemoryStore();
+    const host = fauxHost(store, [fauxAssistantMessage("ok")]);
+    expect(host.providerConfig().modelId).toBe("scripted");
+
+    host.setProvider({ ...provider, modelId: "scripted-2", thinking: "high" });
+    expect(host.providerConfig().modelId).toBe("scripted-2");
+    expect(host.providerConfig().thinking).toBe("high");
+  });
+
+  it("sends an attached file inline, labelled, ahead of the message", async () => {
+    const store = new MemoryStore();
+    let seen = "";
+    const faux = createFauxCore({ models: [{ id: "scripted" }], tokensPerSecond: 100_000, tokenSize: { min: 1, max: 1 } });
+    faux.setResponses([fauxAssistantMessage("got it")]);
+    const host = new LocalAgentHost(store, provider, {
+      stream: (model, context, options) => {
+        seen = JSON.stringify(context);
+        return faux.streamSimple(model, context, options);
+      },
+      model: faux.getModel() as Model<"openai-completions">,
+    });
+    const session = host.createSession("files");
+
+    await host.send(session.id, "summarise this", [{ name: "notes.md", text: "# hello" }]);
+
+    expect(seen).toContain("notes.md");
+    expect(seen).toContain("# hello");
+    expect(seen.indexOf("notes.md")).toBeLessThan(seen.indexOf("summarise this"));
+  });
+
+  it("lists the models the endpoint advertises", async () => {
+    const store = new MemoryStore();
+    const host = new LocalAgentHost(store, provider);
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (input: string) => {
+      expect(String(input)).toBe("https://example.invalid/v1/models");
+      return new Response(JSON.stringify({ data: [{ id: "b-model" }, { id: "a-model" }, {}] }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      expect(await host.listModels()).toEqual(["a-model", "b-model"]);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+});

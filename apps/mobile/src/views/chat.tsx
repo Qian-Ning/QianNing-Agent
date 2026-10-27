@@ -74,6 +74,8 @@ type Props = {
   canDiff: boolean;
   /** The model this phone is pinned to, shown where the desktop shows it. */
   modelLabel: string;
+  /** Present only when the host can switch models; absent on a remote desktop. */
+  onOpenModel?: () => void;
   onRequestSetup: () => void;
   onBack: () => void;
 };
@@ -94,6 +96,7 @@ export function ChatView({
   configured,
   canDiff,
   modelLabel,
+  onOpenModel,
   onRequestSetup,
   onBack,
 }: Props) {
@@ -105,6 +108,11 @@ export function ChatView({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [diff, setDiff] = useState<DiffFile[] | null>(null);
+  /** Text files the reader picked; sent inline with the turn, like the desktop. */
+  const [files, setFiles] = useState<{ name: string; text: string }[]>([]);
+  const [shownTitle, setShownTitle] = useState(title);
+  const [renaming, setRenaming] = useState(false);
+  const [renameDraft, setRenameDraft] = useState(title);
   const [showDiff, setShowDiff] = useState(false);
 
   const bottom = useRef<HTMLDivElement | null>(null);
@@ -194,6 +202,41 @@ export function ChatView({
     }
   }, [items, approvals]);
 
+  const filePicker = useRef<HTMLInputElement | null>(null);
+
+  const addFiles = async (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    const picked: { name: string; text: string }[] = [];
+    for (const file of Array.from(list)) {
+      // A binary would arrive as mojibake and poison the turn; refuse it plainly.
+      if (file.size > 200_000) {
+        setError(t("chat.attachTooBig"));
+        continue;
+      }
+      try {
+        picked.push({ name: file.name, text: await file.text() });
+      } catch {
+        setError(t("chat.attachFailed"));
+      }
+    }
+    if (picked.length > 0) {
+      setFiles((current) => current.concat(picked.filter((entry) => !current.some((seen) => seen.name === entry.name))));
+    }
+    if (filePicker.current) filePicker.current.value = "";
+  };
+
+  const applyRename = async () => {
+    const next = renameDraft.trim();
+    if (!next || !client.renameSession) return;
+    try {
+      await client.renameSession(sessionId, next);
+      setShownTitle(next);
+      setRenaming(false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("error.generic"));
+    }
+  };
+
   const send = async () => {
     const text = draft.trim();
     if (!text || sending) return;
@@ -209,8 +252,12 @@ export function ChatView({
     try {
       await client.call("/v1/sessions/" + encodeURIComponent(sessionId) + "/turns", {
         method: "POST",
-        body: { input: { text }, context: { requestId: "phone_" + Date.now() } },
+        body: {
+          input: files.length > 0 ? { text, attachments: files } : { text },
+          context: { requestId: "phone_" + Date.now() },
+        },
       });
+      setFiles([]);
     } catch (cause) {
       setDraft(text);
       setError(cause instanceof Error ? cause.message : t("error.generic"));
@@ -270,7 +317,13 @@ export function ChatView({
         <button className="ghost back" onClick={onBack}>
           ‹ {t("chat.back")}
         </button>
-        <h1 className="truncate">{title || t("sessions.untitled")}</h1>
+        {client.renameSession ? (
+          <button className="title-button truncate" onClick={() => setRenaming(true)}>
+            {shownTitle || t("sessions.untitled")}
+          </button>
+        ) : (
+          <h1 className="truncate">{title || t("sessions.untitled")}</h1>
+        )}
         <div className="bar-actions">
           <span className={"dot" + (live ? " live" : "")} title={live ? t("chat.live") : t("chat.offline")} />
           {canDiff ? (
@@ -323,6 +376,20 @@ export function ChatView({
         }}
       >
         <div className="composer-box">
+          {files.length > 0 ? (
+            <div className="attachments">
+              {files.map((file) => (
+                <button
+                  key={file.name}
+                  type="button"
+                  className="attachment"
+                  onClick={() => setFiles((current) => current.filter((entry) => entry.name !== file.name))}
+                >
+                  {file.name} ×
+                </button>
+              ))}
+            </div>
+          ) : null}
           <textarea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
@@ -330,11 +397,19 @@ export function ChatView({
             rows={1}
           />
           <div className="composer-tools">
-            <button type="button" className="round" aria-label={t("local.title")} onClick={onRequestSetup}>
+            <button type="button" className="round" aria-label={t("chat.attach")} onClick={() => filePicker.current?.click()}>
               +
             </button>
+            <input
+              ref={filePicker}
+              type="file"
+              multiple
+              hidden
+              accept=".txt,.md,.markdown,.json,.csv,.tsv,.log,.yml,.yaml,.ts,.tsx,.js,.jsx,.py,.sh,.html,.css,.xml,.ini,.toml"
+              onChange={(event) => void addFiles(event.target.files)}
+            />
             <div className="spacer" />
-            <button type="button" className="chip" onClick={onRequestSetup}>
+            <button type="button" className="chip" onClick={onOpenModel ?? onRequestSetup}>
               {modelLabel}
             </button>
             {turnId ? (
@@ -349,6 +424,30 @@ export function ChatView({
           </div>
         </div>
       </form>
+
+      {renaming ? (
+        <div className="sheet-backdrop" onClick={() => setRenaming(false)}>
+          <div className="sheet" onClick={(event) => event.stopPropagation()}>
+            <h2>{t("chat.rename")}</h2>
+            <input
+              value={renameDraft}
+              autoFocus
+              onChange={(event) => setRenameDraft(event.target.value)}
+              placeholder={t("sessions.untitled")}
+            />
+            <button
+              className="primary wide"
+              disabled={!renameDraft.trim()}
+              onClick={() => void applyRename()}
+            >
+              {t("chat.renameSave")}
+            </button>
+            <button className="ghost wide" onClick={() => setRenaming(false)}>
+              {t("sessions.cancel")}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {showDiff ? (
         <div className="sheet-backdrop" onClick={() => setShowDiff(false)}>

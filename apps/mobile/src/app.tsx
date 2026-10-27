@@ -18,6 +18,7 @@ import { LocalClient } from "./agent/local-client";
 import { clearProvider, isComplete, loadProvider, saveProvider } from "./agent/settings";
 import { emptyProvider } from "./agent/settings";
 import { ProviderSheet } from "./views/provider-sheet";
+import { ModelSheet } from "./views/model-sheet";
 
 type Screen = { name: "sessions" } | { name: "chat"; session: SessionSummary };
 
@@ -53,6 +54,7 @@ export function App() {
     return provider ? { kind: "local", provider } : null;
   });
   const [screen, setScreen] = useState<Screen>({ name: "sessions" });
+  const [modelOpen, setModelOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
 
   const lang = useMemo(() => detectLang(), []);
@@ -129,10 +131,26 @@ export function App() {
           configured={configured}
           canDiff={host.kind === "remote"}
           modelLabel={modelLabel}
+          onOpenModel={host.kind === "local" ? () => setModelOpen(true) : undefined}
           onRequestSetup={() => setSetupOpen(true)}
           onBack={() => setScreen({ name: "sessions" })}
         />
         {setupSheet}
+        {modelOpen && host.kind === "local" ? (
+          <ModelSheet
+            t={t}
+            client={client}
+            model={host.provider.modelId}
+            thinking={host.provider.thinking ?? "off"}
+            onClose={() => setModelOpen(false)}
+            onApply={(patch) => {
+              const next = { ...host.provider, ...patch };
+              saveProvider(next);
+              setHost({ kind: "local", provider: next });
+              setModelOpen(false);
+            }}
+          />
+        ) : null}
       </>
     );
   }
