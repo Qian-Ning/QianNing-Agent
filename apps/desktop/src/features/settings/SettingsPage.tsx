@@ -35,6 +35,7 @@ import {
   IconSparkles,
   IconCloudDown,
   IconMic,
+  IconSmartphone,
 } from "../../components/icons";
 import { Badge, Button, cx, SegmentedControl, SettingsToggle } from "../../components/ui";
 import { ModelConfigPage } from "../../components/settings/ModelConfigPage";
@@ -281,6 +282,7 @@ export function SettingsPage() {
       sync: <IconCloudDown size={14} />,
       messaging: <IconChat size={14} />,
       voice: <IconMic size={14} />,
+      remote: <IconSmartphone size={14} />,
       usage: <IconChartColumn size={14} />,
       about: <IconInfo size={14} />,
     };
@@ -686,6 +688,11 @@ export function SettingsPage() {
                   saveSettings={saveSettings}
                 />
               </SettingsCard>
+            </div>
+          )}
+
+          {tab === "remote" && !tabHidden && (
+            <div className="settings-stack">
               <RemoteAccessCard />
             </div>
           )}

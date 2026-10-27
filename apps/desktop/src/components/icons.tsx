@@ -81,6 +81,7 @@ import {
   Shield,
   SlidersHorizontal,
   Slash,
+  Smartphone,
   Smile,
   Sparkles,
   Square,
@@ -246,6 +247,8 @@ export const IconMore = icon(MoreHorizontal);
 export const IconX = icon(X);
 export const IconTrash = icon(Trash2);
 export const IconStar = icon(Star);
+/** Remote access: this machine reached from a phone. */
+export const IconSmartphone = icon(Smartphone);
 /* Toast status glyphs (see ToastHost) */
 export const IconCircleCheck = icon(CircleCheck);
 export const IconCircleAlert = icon(CircleAlert);

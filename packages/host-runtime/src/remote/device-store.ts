@@ -95,6 +95,29 @@ export class FileCredentialStore implements DeviceCredentialStore {
     return [...state.devices];
   }
 
+  async deleteDevice(deviceId: string): Promise<boolean> {
+    let removed = false;
+    await this.persist((state) => {
+      const device = state.devices.find((entry) => entry.deviceId === deviceId);
+      // Only a revoked record may go: removing a live one is a revocation
+      // wearing a cleanup label.
+      if (!device || !device.revokedAt) return;
+      state.devices = state.devices.filter((entry) => entry.deviceId !== deviceId);
+      removed = true;
+    });
+    return removed;
+  }
+
+  async deleteRevokedDevices(): Promise<number> {
+    let removed = 0;
+    await this.persist((state) => {
+      const kept = state.devices.filter((entry) => !entry.revokedAt);
+      removed = state.devices.length - kept.length;
+      state.devices = kept;
+    });
+    return removed;
+  }
+
   async findPairing(tokenHash: string): Promise<PairingRecord | null> {
     const state = await this.load();
     return state.pairings.find((pairing) => pairing.tokenHash === tokenHash) ?? null;

@@ -995,11 +995,14 @@ system while preserving their different data ownership:
 - Activating a project or project session returns to chat; archive and close
   actions keep Project archive open even when the active workspace changes
 
-### Remote access
+### Remote access (`remote` tab)
 
-A card below the advanced rows, for the RACP-HTTP listener (ADR 0333). Off by
-default, and turning it on is a choice between two modes: **this machine only**
-(loopback, plaintext) and **local network** (every interface, HTTPS with a
+Its own destination under **System**, ahead of Info. Reaching this machine from a
+phone is one subject — the listener, its address, its certificate, the device list
+— and the device list is long enough to bury any tab it shares.
+
+Off by default, and turning it on is a choice between two modes: **this machine
+only** (loopback, plaintext) and **local network** (every interface, HTTPS with a
 certificate the Host mints). The card names the address it is listening on, and
 in network mode the `https://` URL to open on a phone.
 
@@ -1015,6 +1018,14 @@ screen — lands on the session list with nothing typed. The token sits in the
 fragment, which a browser never sends to the server, and the page clears it from
 the address bar as soon as it has read it. A link can never replace a token the
 device already holds, so a forwarded link cannot silently repoint a paired phone.
+
+Revoked devices accumulate: a phone that is gone still leaves a row. They are
+listed after the active ones as one block, and two cleanup actions exist — a
+per-row **remove** and a **clear all** over the whole block. Removal is refused
+for a device that is still active, because deleting a live credential is a
+revocation wearing a cleanup label; the row stays until the device has actually
+lost access. Clearing is a two-step action in place (arm, then confirm) rather
+than a modal, so it does not stall the renderer.
 
 Network mode is the one that can fail for environmental reasons: a machine with
 no non-loopback IPv4 address cannot serve one, and the error says so rather than

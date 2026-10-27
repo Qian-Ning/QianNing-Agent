@@ -114,6 +114,17 @@ the honest minimum, and it is what the first stage must deliver.
 No stage ships a layer with nothing to demonstrate. P1 does not wait for a UI;
 P2 does not wait for TLS.
 
+### 6. Device records are cleanup, not a second access-control path
+
+A revoked device is a row a user eventually wants gone, so the store can remove
+it — but only after it is revoked. Deleting an active device would be a
+revocation wearing a cleanup label: the row disappears, the phone silently loses
+access, and nothing in the interaction said so. Requiring the revoke first keeps
+one path for taking access away (revoke) and one for tidying up afterwards.
+
+The bulk form deletes only revoked records. Both forms are Host-side file
+operations, so a removal survives a restart; the list is the file.
+
 ## Consequences
 
 **Positive**

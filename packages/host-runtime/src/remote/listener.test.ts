@@ -206,3 +206,59 @@ describe("device labels", () => {
     expect(next.label).toBe("Device 2");
   });
 });
+
+describe("removing device records", () => {
+  it("keeps an active device and drops a revoked one", async () => {
+    const { listener } = await start();
+    const live = await listener.issueDevice("live");
+    const gone = await listener.issueDevice("gone");
+
+    // Deleting a live credential would be a revocation wearing a cleanup
+    // label, so the record stays until the device has actually lost access.
+    expect(await listener.deleteDevice(live.deviceId)).toBe(false);
+    expect(await listener.listDevices()).toHaveLength(2);
+
+    await listener.revokeDevice(gone.deviceId);
+    expect(await listener.deleteDevice(gone.deviceId)).toBe(true);
+    expect((await listener.listDevices()).map((device) => device.label)).toEqual(["live"]);
+  });
+
+  it("clears the revoked backlog without touching active devices", async () => {
+    const { listener } = await start();
+    const active = await listener.issueDevice("kept");
+    const first = await listener.issueDevice("old-a");
+    const second = await listener.issueDevice("old-b");
+    await listener.revokeDevice(first.deviceId);
+    await listener.revokeDevice(second.deviceId);
+
+    expect(await listener.deleteRevokedDevices()).toBe(2);
+    const left = await listener.listDevices();
+    expect(left.map((device) => device.deviceId)).toEqual([active.deviceId]);
+  });
+
+  it("forgets a revoked device across a restart", async () => {
+    const dir = await dataDir();
+    const first = await createRemoteListener({
+      dataDir: dir,
+      agentHost,
+      host: fakeHost(),
+      log: () => undefined,
+    });
+    listeners.push(first);
+    const device = await first.issueDevice("temporary phone");
+    await first.revokeDevice(device.deviceId);
+    await first.deleteDevice(device.deviceId);
+    await first.stop();
+
+    // The file is the record; a removal that only lived in memory would come
+    // back on the next start.
+    const second = await createRemoteListener({
+      dataDir: dir,
+      agentHost,
+      host: fakeHost(),
+      log: () => undefined,
+    });
+    listeners.push(second);
+    expect(await second.listDevices()).toEqual([]);
+  });
+});

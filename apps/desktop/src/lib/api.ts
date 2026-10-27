@@ -755,6 +755,11 @@ export const api = {
     invoke<RemoteIssuedDevice>(IPC.invoke.remoteIssueDevice, { label }),
   revokeRemoteDevice: (deviceId: string) =>
     invoke<{ revoked: boolean }>(IPC.invoke.remoteRevokeDevice, { deviceId }),
+  /** Cleanup of an already-revoked device; an active one is refused. */
+  deleteRemoteDevice: (deviceId: string) =>
+    invoke<{ removed: boolean }>(IPC.invoke.remoteDeleteDevice, { deviceId }),
+  clearRevokedRemoteDevices: () =>
+    invoke<{ removed: number }>(IPC.invoke.remoteClearRevokedDevices),
   setSettings: (settings: AppSettings) =>
     invoke(IPC.invoke.settingsSet, validateSettingsWrite(settings)),
   /**

@@ -88,6 +88,10 @@ export type RemoteListener = {
   listDevices(): Promise<DeviceRecord[]>;
   issueDevice(label: string, roles?: RacpRole[]): Promise<IssuedDevice>;
   revokeDevice(deviceId: string): Promise<boolean>;
+  /** Removes a revoked device record. An active device must be revoked first. */
+  deleteDevice(deviceId: string): Promise<boolean>;
+  /** Clears every revoked device at once; returns how many were removed. */
+  deleteRevokedDevices(): Promise<number>;
 };
 
 const LOOPBACK = "127.0.0.1";
@@ -317,6 +321,18 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
       const revoked = await store.revokeDevice(deviceId, new Date().toISOString());
       if (revoked) options.log("info", "remote device revoked", { deviceId });
       return revoked;
+    },
+
+    async deleteDevice(deviceId) {
+      const removed = await store.deleteDevice(deviceId);
+      if (removed) options.log("info", "remote device removed", { deviceId });
+      return removed;
+    },
+
+    async deleteRevokedDevices() {
+      const removed = await store.deleteRevokedDevices();
+      if (removed > 0) options.log("info", "remote revoked devices cleared", { removed });
+      return removed;
     },
   };
 }
