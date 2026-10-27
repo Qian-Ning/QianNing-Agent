@@ -9,7 +9,7 @@
 
 import { Agent, type AgentMessage, type StreamFn } from "@earendil-works/pi-agent-core";
 import { streamSimple } from "@earendil-works/pi-ai/api/openai-completions";
-import type { Model, ProviderId } from "@earendil-works/pi-ai";
+import type { Model, ProviderId, TranscriptContext } from "@earendil-works/pi-ai";
 import { createTools } from "./tools";
 import type { AgentStore, StoredMessage, StoredSession } from "./store";
 import type { HostEvent, ThinkingLevel } from "../lib/racp";
@@ -35,7 +35,7 @@ const SYSTEM_PROMPT = [
   "Answer in the user's language.",
 ].join("\n");
 
-function buildModel(config: ProviderConfig): Model<"openai-completions"> {
+function buildModel(config: ProviderConfig, maxTokens = 8192): Model<"openai-completions"> {
   return {
     id: config.modelId,
     name: config.modelId,
@@ -46,7 +46,7 @@ function buildModel(config: ProviderConfig): Model<"openai-completions"> {
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     reasoning: false,
     contextWindow: 128_000,
-    maxTokens: 8192,
+    maxTokens,
   } as Model<"openai-completions">;
 }
 
@@ -78,7 +78,14 @@ export class LocalAgentHost {
     private readonly store: AgentStore,
     private provider: ProviderConfig,
     /** Tests supply a scripted stream and model; production uses the provider. */
-    private readonly override?: { stream: StreamFn; model?: Model<"openai-completions"> },
+    private readonly override?: {
+      stream: StreamFn;
+      model?: Model<"openai-completions">;
+      /** Tests stub the title call so a scripted stream is not consumed twice. */
+      summarize?: (userText: string) => Promise<string>;
+    },
+    /** Reader-level instructions and limits; empty means the built-in defaults. */
+    private readonly prefs: { systemPrompt?: string; maxTokens?: number } = {},
   ) {}
 
   listSessions(): StoredSession[] {
@@ -114,16 +121,7 @@ export class LocalAgentHost {
    * not implement /models simply yields nothing and the current model stands.
    */
   async listModels(): Promise<string[]> {
-    const base = this.provider.baseUrl.replace(/\/+$/, "");
-    const response = await fetch(base + "/models", {
-      headers: { authorization: "Bearer " + this.provider.apiKey },
-    });
-    if (!response.ok) throw new Error("the endpoint returned " + response.status);
-    const body = (await response.json()) as { data?: { id?: unknown }[] };
-    return (body.data ?? [])
-      .map((entry) => (typeof entry.id === "string" ? entry.id : ""))
-      .filter((id) => id.length > 0)
-      .sort();
+    return probeModels(this.provider.baseUrl, this.provider.apiKey);
   }
 
   createSession(title = ""): StoredSession {
@@ -182,6 +180,9 @@ export class LocalAgentHost {
         return;
       }
       this.emit(session, { sessionId, turnId, kind: "turn.completed", payload: {} });
+      // A name is a convenience, never a precondition: it runs after the turn
+      // has already been reported complete, and a failure is swallowed.
+      void this.autoTitle(sessionId, text).catch(() => undefined);
     } catch (cause) {
       this.emit(session, {
         sessionId,
@@ -190,6 +191,46 @@ export class LocalAgentHost {
         payload: { message: cause instanceof Error ? cause.message : String(cause) },
       });
     }
+  }
+
+  /**
+   * Names the session from its first prompt, the way the desktop does. Only an
+   * untitled session is touched, so a manual name always wins.
+   */
+  private async autoTitle(sessionId: string, userText: string): Promise<void> {
+    const stored = this.store.listSessions().find((entry) => entry.id === sessionId);
+    if (!stored || stored.title.trim()) return;
+    const title = cleanTitle(await this.summarize(userText));
+    if (!title) return;
+    const current = this.store.listSessions().find((entry) => entry.id === sessionId);
+    // Another writer may have named it while the summary was in flight.
+    if (!current || current.title.trim()) return;
+    this.renameSession(sessionId, title);
+  }
+
+  private async summarize(userText: string): Promise<string> {
+    if (this.override?.summarize) return this.override.summarize(userText);
+    const model = this.override?.model ?? buildModel(this.provider, this.prefs.maxTokens);
+    const stream = streamSimple(
+      model,
+      {
+        // The completions adapter takes no system prompt, so the instruction
+        // rides with the prompt — the same text either way.
+        messages: [
+          {
+            role: "user",
+            content: TITLE_PROMPT + "\n\nUser Prompt:\n" + userText.slice(0, 1000),
+            timestamp: Date.now(),
+          },
+        ],
+      } as unknown as TranscriptContext,
+      { apiKey: this.provider.apiKey, maxTokens: 64 },
+    );
+    let text = "";
+    for await (const event of stream) {
+      if (event.type === "text_delta") text += event.delta;
+    }
+    return text;
   }
 
   interrupt(sessionId: string): void {
@@ -203,8 +244,8 @@ export class LocalAgentHost {
     const stored = this.store.readMessages(sessionId);
     const agent = new Agent({
       initialState: {
-        model: this.override?.model ?? buildModel(this.provider),
-        systemPrompt: SYSTEM_PROMPT,
+        model: this.override?.model ?? buildModel(this.provider, this.prefs.maxTokens),
+        systemPrompt: withExtraInstructions(SYSTEM_PROMPT, this.prefs.systemPrompt),
         tools: createTools(this.store),
         messages: this.readTranscript(sessionId),
       },
@@ -441,4 +482,52 @@ function withAttachments(text: string, attachments: readonly Attachment[]): stri
     (file) => "### " + file.name + "\n```\n" + file.text.replace(/\n$/, "") + "\n```",
   );
   return blocks.join("\n\n") + "\n\n" + text;
+}
+
+/**
+ * The model list an OpenAI-compatible endpoint advertises.
+ *
+ * Same URL rule the desktop uses for discovery (`{base}/models`), so a provider
+ * that works in Settings works here without anyone retyping a path.
+ */
+export async function probeModels(baseUrl: string, apiKey: string): Promise<string[]> {
+  const base = baseUrl.trim().replace(/\/+$/, "");
+  if (!base) throw new Error("a base URL is required");
+  const response = await fetch(base + "/models", {
+    headers: apiKey ? { authorization: "Bearer " + apiKey } : {},
+  });
+  if (!response.ok) throw new Error("the endpoint returned " + response.status);
+  const body = (await response.json()) as { data?: { id?: unknown }[] };
+  return (body.data ?? [])
+    .map((entry) => (typeof entry.id === "string" ? entry.id : ""))
+    .filter((id) => id.length > 0)
+    .sort();
+}
+
+/** The desktop's own title instructions; the phone should name a session alike. */
+const TITLE_PROMPT =
+  "You generate a short, concise, descriptive session title summarizing the conversation based on the user's initial prompt and context.\n" +
+  "Rules:\n" +
+  "1. Output ONLY the title text. Do NOT wrap in quotes, brackets, or backticks.\n" +
+  "2. Do not include markdown formatting, trailing punctuation, or emojis.\n" +
+  "3. Keep it under 25 characters (or 4-7 words).\n" +
+  "4. Use the primary language of the user's prompt (e.g. Chinese for Chinese requests, English for English requests).\n" +
+  "5. Focus on the key topic or action (e.g. \"Debug WebSocket reconnect\", \"重构用户认证模块\").";
+
+/** Strip the wrappers a model likes to add to a title. */
+export function cleanTitle(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^[`"'\u201c\u201d\u300c\u300d]+|[`"'\u201c\u201d\u300c\u300d]+$/g, "")
+    .replace(/^(Title|Session Title|会话标题|标题)\s*[:：]\s*/i, "")
+    .replace(/\s+/g, " ")
+    .replace(/[.。!！?？]+$/, "")
+    .trim()
+    .slice(0, 80);
+}
+
+/** The built-in rules stay; the reader's additions come after them. */
+function withExtraInstructions(base: string, extra: string | undefined): string {
+  const addition = extra?.trim();
+  return addition ? base + "\n\n" + addition : base;
 }

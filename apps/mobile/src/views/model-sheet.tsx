@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import type { HostClient, ThinkingLevel } from "../lib/racp";
+import type { ThinkingLevel } from "../lib/racp";
 import type { Translate } from "../lib/i18n";
 
 const THINKING: ThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 type Props = {
   t: Translate;
-  client: HostClient;
+  /** Only the model list is read here; a host without it shows the free-text field. */
+  client: { listModels?: () => Promise<string[]> };
   model: string;
   thinking: ThinkingLevel;
   onClose: () => void;

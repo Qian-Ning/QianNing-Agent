@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
+import { NAMED_ENDPOINT_PRESETS } from "@pi-desktop/shared";
 import { normalizeBase, RacpClient, RacpClientError, type Connection } from "../lib/racp";
 import type { Translate } from "../lib/i18n";
 import { isComplete, loadProvider } from "../agent/settings";
-import type { ProviderConfig } from "../agent/host";
+import { probeModels, type ProviderConfig } from "../agent/host";
 
 type Props = {
   t: Translate;
@@ -13,22 +14,48 @@ type Props = {
 };
 
 /**
- * Two ways to have an agent: one that runs here, and one that runs on a computer.
+ * The phone's version of the desktop's "add a provider" flow: pick the service,
+ * paste the key, choose from the models *that service* lists.
  *
- * They are presented as equal choices because they are — the phone does not need
- * a desktop to be useful. Pairing stays first-class because it is the only path
- * that reaches files the phone cannot see.
+ * The desktop's catalog already knows every endpoint it supports, so the phone
+ * reads the same presets instead of asking a person to remember a Base URL. Only
+ * Chat Completions presets appear, because that is the wire the phone speaks.
  */
+const PRESETS = NAMED_ENDPOINT_PRESETS.filter((preset) => preset.apiStyle === "chat_completions");
+
 export function ConnectView({ t, onConnected, onLocal, onSkip }: Props) {
   const [mode, setMode] = useState<"local" | "remote">("local");
   const [link, setLink] = useState("");
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const saved = loadProvider();
-  const [baseUrl, setBaseUrl] = useState(saved?.baseUrl ?? "");
+  const [presetId, setPresetId] = useState<string | null>(saved ? "custom" : null);
+  const [customBase, setCustomBase] = useState(saved?.baseUrl ?? "");
   const [apiKey, setApiKey] = useState(saved?.apiKey ?? "");
   const [modelId, setModelId] = useState(saved?.modelId ?? "");
+  const [models, setModels] = useState<string[] | null>(null);
+
+  const custom = presetId === "custom";
+  const preset = useMemo(() => PRESETS.find((entry) => entry.id === presetId), [presetId]);
+  const baseUrl = custom ? customBase : (preset?.baseUrl ?? "");
+
+  const fetchModels = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const list = await probeModels(normalizeBase(baseUrl), apiKey.trim());
+      setModels(list);
+      if (list.length === 0) setError(t("local.noModels"));
+      else setModelId((current) => (list.includes(current) ? current : (list[0] as string)));
+    } catch (cause) {
+      setModels(null);
+      setError(cause instanceof Error ? cause.message : t("error.generic"));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const submitRemote = async (event: FormEvent) => {
     event.preventDefault();
@@ -102,20 +129,71 @@ export function ConnectView({ t, onConnected, onLocal, onSkip }: Props) {
       </div>
 
       {mode === "local" ? (
-        <>
-          <p className="muted">{t("local.subtitle")}</p>
+        presetId === null ? (
+          <>
+            <p className="muted">{t("local.pickProvider")}</p>
+            <div className="provider-list">
+              {PRESETS.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className="row"
+                  onClick={() => {
+                    setPresetId(entry.id);
+                    setModels(null);
+                    setModelId("");
+                  }}
+                >
+                  <span className="row-title">{entry.name}</span>
+                  <span className="row-meta">{entry.baseUrl.replace(/^https:\/\//, "")}</span>
+                </button>
+              ))}
+              <button
+                type="button"
+                className="row"
+                onClick={() => {
+                  setPresetId("custom");
+                  setModels(null);
+                }}
+              >
+                <span className="row-title">{t("local.custom")}</span>
+                <span className="row-meta">{t("local.customHint")}</span>
+              </button>
+            </div>
+            <button className="ghost wide" type="button" onClick={onSkip}>
+              {t("local.skip")}
+            </button>
+          </>
+        ) : (
           <form onSubmit={submitLocal}>
-            <label htmlFor="baseUrl">{t("local.baseUrl")}</label>
-            <input
-              id="baseUrl"
-              value={baseUrl}
-              onChange={(event) => setBaseUrl(event.target.value)}
-              placeholder={t("local.baseUrlHint")}
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              inputMode="url"
-            />
+            <button
+              type="button"
+              className="ghost back"
+              onClick={() => {
+                setPresetId(null);
+                setError(null);
+              }}
+            >
+              ‹ {t("local.changeProvider")}
+            </button>
+            <p className="muted">{custom ? t("local.subtitle") : preset?.name}</p>
+
+            {custom ? (
+              <>
+                <label htmlFor="baseUrl">{t("local.baseUrl")}</label>
+                <input
+                  id="baseUrl"
+                  value={customBase}
+                  onChange={(event) => setCustomBase(event.target.value)}
+                  placeholder={t("local.baseUrlHint")}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  inputMode="url"
+                />
+              </>
+            ) : null}
+
             <label htmlFor="apiKey">{t("local.apiKey")}</label>
             <input
               id="apiKey"
@@ -127,24 +205,40 @@ export function ConnectView({ t, onConnected, onLocal, onSkip }: Props) {
               autoCorrect="off"
               spellCheck={false}
             />
-            <label htmlFor="model">{t("local.model")}</label>
-            <input
-              id="model"
-              value={modelId}
-              onChange={(event) => setModelId(event.target.value)}
-              placeholder={t("local.modelHint")}
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-            />
-            <button className="primary" type="submit" disabled={busy}>
-              {busy ? t("local.busy") : t("local.start")}
+
+            <button type="button" className="ghost wide" disabled={busy} onClick={() => void fetchModels()}>
+              {busy ? t("local.busy") : t("local.fetchModels")}
+            </button>
+
+            {models !== null && models.length > 0 ? (
+              <>
+                <label>{t("local.models")}</label>
+                <div className="model-list pick">
+                  {models.map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className={id === modelId ? "row chosen" : "row"}
+                      onClick={() => setModelId(id)}
+                    >
+                      <span className="row-title">
+                        {id}
+                        {id === modelId ? <span className="tick"> ✓</span> : null}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
+
+            <button className="primary wide" type="submit" disabled={!modelId || busy}>
+              {t("local.start")}
             </button>
             <button className="ghost wide" type="button" onClick={onSkip}>
               {t("local.skip")}
             </button>
           </form>
-        </>
+        )
       ) : (
         <>
           <p className="muted">{t("connect.subtitle")}</p>

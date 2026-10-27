@@ -15,12 +15,13 @@ import { SessionsView, type SessionSummary } from "./views/sessions";
 import { BrowserStore } from "./agent/store";
 import { LocalAgentHost, type ProviderConfig } from "./agent/host";
 import { LocalClient } from "./agent/local-client";
-import { clearProvider, isComplete, loadProvider, saveProvider } from "./agent/settings";
+import { clearProvider, isComplete, loadPrefs, loadProvider, saveProvider } from "./agent/settings";
 import { emptyProvider } from "./agent/settings";
 import { ProviderSheet } from "./views/provider-sheet";
 import { ModelSheet } from "./views/model-sheet";
+import { SettingsView } from "./views/settings";
 
-type Screen = { name: "sessions" } | { name: "chat"; session: SessionSummary };
+type Screen = { name: "sessions" } | { name: "chat"; session: SessionSummary } | { name: "settings" };
 
 /** Which agent this phone is talking to: the one here, or the one at home. */
 type Host =
@@ -66,7 +67,7 @@ export function App() {
    */
   const localHost = useMemo(() => {
     if (host?.kind !== "local") return null;
-    return new LocalAgentHost(new BrowserStore(), host.provider);
+    return new LocalAgentHost(new BrowserStore(), host.provider, undefined, loadPrefs());
   }, [host]);
 
   const client: HostClient | null = useMemo(() => {
@@ -102,6 +103,13 @@ export function App() {
   }
 
   const configured = host.kind !== "local" || isComplete(host.provider);
+  const store = useMemo(() => new BrowserStore(), []);
+  const stats = useMemo(() => {
+    if (host?.kind !== "local") return undefined;
+    const sessions = store.listSessions();
+    const messages = sessions.reduce((total, session) => total + store.readMessages(session.id).length, 0);
+    return { sessions: sessions.length, messages };
+  }, [store, host, screen]);
   // The desktop shows the live model beside the composer; on the phone the same
   // label doubles as the way back into the setup sheet.
   const modelLabel = host.kind === "local" ? host.provider.modelId || t("local.model") : t("connect.modeRemote");
@@ -119,6 +127,33 @@ export function App() {
       }}
     />
   ) : null;
+
+  if (screen.name === "settings") {
+    return (
+      <SettingsView
+        t={t}
+        client={host.kind === "local" ? client : undefined}
+        modelLabel={modelLabel}
+        thinking={host.kind === "local" ? (host.provider.thinking ?? "off") : "off"}
+        onApplyModel={(patch) => {
+          if (host.kind !== "local") return;
+          const next = { ...host.provider, modelId: patch.modelId, thinking: patch.thinking as never };
+          saveProvider(next);
+          setHost({ kind: "local", provider: next });
+        }}
+        connection={host.kind === "remote" ? { base: host.connection.base } : undefined}
+        onDisconnect={() => {
+          clearConnection();
+          clearProvider();
+          localStorage.removeItem(HOST_KEY);
+          setHost(null);
+          setScreen({ name: "sessions" });
+        }}
+        stats={stats ?? { sessions: 0, messages: 0 }}
+        onClose={() => setScreen({ name: "sessions" })}
+      />
+    );
+  }
 
   if (screen.name === "chat") {
     return (
@@ -164,6 +199,7 @@ export function App() {
       configured={configured}
       onRequestSetup={() => setSetupOpen(true)}
       onOpen={(session) => setScreen({ name: "chat", session })}
+      onOpenSettings={() => setScreen({ name: "settings" })}
       onSignOut={() => {
         clearConnection();
         clearProvider();

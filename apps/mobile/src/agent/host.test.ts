@@ -14,7 +14,7 @@ import {
   fauxToolCall,
 } from "@earendil-works/pi-ai/providers/faux";
 import type { Model } from "@earendil-works/pi-ai";
-import { LocalAgentHost } from "./host";
+import { cleanTitle, LocalAgentHost } from "./host";
 import { MemoryStore } from "./store";
 
 const provider = { baseUrl: "https://example.invalid/v1", apiKey: "test", modelId: "scripted" };
@@ -171,5 +171,51 @@ describe("host capabilities the screens rely on", () => {
     } finally {
       globalThis.fetch = original;
     }
+  });
+});
+
+describe("session naming", () => {
+  it("names an untitled session from the first prompt", async () => {
+    const store = new MemoryStore();
+    const faux = createFauxCore({ models: [{ id: "scripted" }], tokensPerSecond: 100_000, tokenSize: { min: 1, max: 1 } });
+    faux.setResponses([fauxAssistantMessage("done")]);
+    const host = new LocalAgentHost(store, provider, {
+      stream: faux.streamSimple,
+      model: faux.getModel() as Model<"openai-completions">,
+      summarize: async () => '"调试 WebSocket 重连。"',
+    });
+    const session = host.createSession("");
+
+    await host.send(session.id, "websocket 老是断，帮我看看");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(host.listSessions().find((entry) => entry.id === session.id)?.title).toBe("调试 WebSocket 重连");
+  });
+
+  it("never overwrites a name the reader typed", async () => {
+    const store = new MemoryStore();
+    const faux = createFauxCore({ models: [{ id: "scripted" }], tokensPerSecond: 100_000, tokenSize: { min: 1, max: 1 } });
+    faux.setResponses([fauxAssistantMessage("done")]);
+    let asked = 0;
+    const host = new LocalAgentHost(store, provider, {
+      stream: faux.streamSimple,
+      model: faux.getModel() as Model<"openai-completions">,
+      summarize: async () => {
+        asked += 1;
+        return "generated";
+      },
+    });
+    const session = host.createSession("我起的名");
+
+    await host.send(session.id, "hello");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(host.listSessions().find((entry) => entry.id === session.id)?.title).toBe("我起的名");
+    expect(asked).toBe(0);
+  });
+
+  it("cleans the model's answer into a title", () => {
+    expect(cleanTitle('  "Session Title: 重构用户认证模块。"  ')).toBe("重构用户认证模块");
+    expect(cleanTitle("标题：调试 WebSocket 重连")).toBe("调试 WebSocket 重连");
   });
 });
