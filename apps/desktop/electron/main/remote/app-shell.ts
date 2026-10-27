@@ -58,6 +58,16 @@ const HTML = `<!doctype html>
     color: var(--fg); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; font-weight: 500;
   }
   .row small { display: block; color: var(--muted); font-weight: 400; margin-top: 2px; }
+  .row.editing {
+    display: flex; gap: 10px; align-items: center; justify-content: space-between;
+    background: var(--card); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+  }
+  .row-text { font-weight: 500; min-width: 0; word-break: break-word; }
+  .row-del {
+    flex: none; background: transparent; color: var(--danger); border: 1px solid var(--danger);
+    border-radius: 9px; padding: 7px 12px; font-size: 13px; font-weight: 600;
+  }
+  .row-del.armed { background: var(--danger); color: #fff; }
   .empty { color: var(--muted); text-align: center; padding: 40px 12px; }
   .msg { padding: 10px 12px; border-radius: 12px; margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; }
   .msg.user { background: var(--accent); color: var(--accent-fg); margin-left: 14%; }
@@ -125,7 +135,7 @@ const HTML = `<!doctype html>
   var TOKEN_KEY = "racp.token";
   var BASE_KEY = "racp.base";
   var app = document.getElementById("app");
-  var state = { view: "loading", sessions: [], sessionId: null, messages: [], approvals: [], error: null, busy: false, activeTurnId: null, diff: null, projects: null };
+  var state = { view: "loading", sessions: [], sessionId: null, messages: [], approvals: [], error: null, busy: false, activeTurnId: null, diff: null, projects: null, editing: false, armedSessionId: null };
   var stream = null;
 
   /**
@@ -240,26 +250,84 @@ const HTML = `<!doctype html>
     });
   }
 
+  /**
+   * The session list, with a management mode.
+   *
+   * Sessions accumulate the way device records do, and a phone that can only
+   * create them ends up with a list nobody can prune. Edit mode turns each row
+   * into a delete action rather than adding a permanent control: a list whose
+   * rows are mostly tap-to-open should stay that way.
+   */
   function renderSessions() {
+    var editing = state.editing === true;
     var items = state.sessions.map(function (session) {
-      return '<button class="row" data-id="' + esc(session.sessionId || session.id) + '">' +
-        esc(session.title || "Untitled session") +
-        '<small>' + esc(session.updatedAt || session.createdAt || "") + '</small></button>';
+      var id = session.sessionId || session.id;
+      var title = session.title || "Untitled session";
+      var when = session.updatedAt || session.createdAt || "";
+      if (!editing) {
+        return '<button class="row" data-id="' + esc(id) + '">' +
+          esc(title) + '<small>' + esc(when) + '</small></button>';
+      }
+      // Removing a conversation is not reversible, so the row asks first: the
+      // first tap arms it, the second performs it.
+      var armed = state.armedSessionId === id;
+      return '<div class="row editing">' +
+        '<span class="row-text">' + esc(title) + '<small>' + esc(when) + '</small></span>' +
+        '<button class="row-del' + (armed ? " armed" : "") + '" data-del="' + esc(id) + '">' +
+          (armed ? "Delete?" : "Delete") +
+        '</button></div>';
     }).join("");
     app.innerHTML =
       '<header><h1>Sessions</h1>' +
         '<button class="ghost" id="fresh" title="New session">+</button>' +
+        '<button class="ghost" id="edit">' + (editing ? "Done" : "Edit") + '</button>' +
         '<button class="ghost" id="signout">Sign out</button></header>' +
       '<main>' + (items || '<div class="empty">No sessions yet. Tap + to start one.</div>') +
         (state.error ? '<p class="error">' + esc(state.error) + '</p>' : '') +
       '</main>';
-    Array.prototype.forEach.call(document.querySelectorAll(".row"), function (node) {
+    Array.prototype.forEach.call(document.querySelectorAll("button.row"), function (node) {
       node.addEventListener("click", function () { openChat(node.getAttribute("data-id")); });
     });
+    Array.prototype.forEach.call(document.querySelectorAll("button.row-del"), function (node) {
+      node.addEventListener("click", function () {
+        var id = node.getAttribute("data-del");
+        if (state.armedSessionId !== id) {
+          state.armedSessionId = id;
+          render();
+          return;
+        }
+        forgetSession(id);
+      });
+    });
     document.getElementById("fresh").addEventListener("click", function () { newSession(); });
+    document.getElementById("edit").addEventListener("click", function () {
+      state.editing = !editing;
+      state.armedSessionId = null;
+      render();
+    });
     document.getElementById("signout").addEventListener("click", function () {
       setToken(""); state.view = "login"; render();
     });
+  }
+
+  /**
+   * Deletes a session from the Host.
+   *
+   * Only the record goes: the row is what the user pointed at, and the phone has
+   * no business guessing what else to clean up.
+   */
+  function forgetSession(sessionId) {
+    state.error = null;
+    call("/v1/sessions/" + encodeURIComponent(sessionId) + ":delete", { method: "POST", body: {} })
+      .then(function () {
+        state.armedSessionId = null;
+        loadSessions();
+      })
+      .catch(function (error) {
+        state.error = error.message;
+        state.armedSessionId = null;
+        render();
+      });
   }
 
   /**
