@@ -124,3 +124,13 @@ test("the working-tree diff can be read from the phone", () => {
   // A binary file or one over the cap has no hunks; the row still has to show up.
   assert.ok(html.includes("file.binary") && html.includes("file.tooLarge"));
 });
+
+test("a session can be deleted from the phone", () => {
+  // The route has to exist: session/delete was a working operation with no HTTP
+  // entry, so the page could not reach it.
+  assert.ok(html.includes('":delete"'), "the page must call the delete route");
+  assert.ok(html.includes("function forgetSession"));
+  // Deleting a conversation is not reversible, so the row asks first.
+  assert.ok(html.includes("armedSessionId"), "the delete action must be two-step");
+  assert.ok(html.includes('state.editing'), "rows stay tap-to-open until edit mode");
+});
