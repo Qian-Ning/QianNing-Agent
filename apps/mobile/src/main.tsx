@@ -6,6 +6,11 @@ import { App } from "./app";
 import "../../desktop/src/styles/tokens.css";
 import "./scales.css";
 import "./styles.css";
+import { applySkin, loadSkinId } from "./lib/skin";
+
+// Paint the desktop's skin before the first frame so nothing flashes the base
+// theme on the way in.
+applySkin(loadSkinId());
 
 const root = document.getElementById("root");
 if (!root) throw new Error("the page has no #root element");

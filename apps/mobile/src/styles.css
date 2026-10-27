@@ -375,34 +375,45 @@ footer {
 
 /* ── chat ───────────────────────────────────────────────── */
 
+/*
+ * One asymmetry, borrowed from the desktop: the assistant writes on the canvas,
+ * the reader's own words sit in a panel-coloured bubble on the right. A bubble
+ * around the answer would make the phone a different product.
+ */
 .transcript {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px 8px;
+  gap: 18px;
+  padding: 16px 18px 10px;
   overflow-y: auto;
 }
 
 .bubble {
   align-self: flex-start;
-  max-width: 90%;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  background: var(--ds-bg-secondary);
-  border: 1px solid var(--ds-border-subtle);
+  max-width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: var(--text-base-plus);
+  line-height: 1.62;
+  color: var(--ds-text-primary);
   word-break: break-word;
 }
 
 .bubble.mine {
   align-self: flex-end;
-  background: var(--ds-bg-tertiary);
-  border-color: var(--ds-border-default);
+  max-width: 82%;
+  padding: 10px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--ds-bg-secondary);
+  color: var(--ds-text-primary);
 }
 
 .bubble-role {
-  margin-bottom: 3px;
+  margin-bottom: 6px;
   font-size: var(--text-2xs);
+  letter-spacing: 0.04em;
   color: var(--ds-text-muted);
 }
 
@@ -502,39 +513,87 @@ footer {
   width: auto;
 }
 
+/*
+ * The composer is a floating white card, the way the desktop draws it: the input
+ * sits on a raised surface, and the tools live on a row inside that surface
+ * rather than as buttons beside it.
+ */
 .composer {
   position: sticky;
   bottom: 0;
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
+  display: block;
   padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
   background: var(--ds-bg-primary);
-  border-top: 1px solid var(--ds-border-subtle);
+}
+
+.composer-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 10px 8px 14px;
+  border-radius: var(--radius-xl);
+  background: var(--ds-bg-composer);
+  border: 1px solid var(--ds-border-subtle);
+  box-shadow: 0 2px 10px color-mix(in oklab, var(--ds-text-primary) 7%, transparent);
 }
 
 .composer textarea {
-  flex: 1;
-  min-width: 0;
-  min-height: 44px;
-  max-height: 34vh;
+  min-height: 24px;
+  max-height: 32vh;
+  padding: 4px 0;
   resize: none;
-  border-radius: var(--radius-md);
+  border: none;
+  background: none;
+  border-radius: 0;
+  outline: none;
   line-height: 1.45;
 }
 
-/* The send button must never shrink: a squeezed two-character label wraps one
-   character per line, which reads as broken. */
-.composer button {
-  flex: none;
-  min-height: 44px;
-  white-space: nowrap;
+.composer-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.composer .primary {
-  width: auto;
-  padding: 11px 16px;
-  border-radius: var(--radius-md);
+.composer-tools .spacer {
+  flex: 1;
+}
+
+/* Round and square-ish controls stay at the 44px touch floor. */
+.composer .round {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  padding: 0;
+  border-radius: var(--radius-full);
+  font-size: var(--text-lg);
+  line-height: 1;
+  color: var(--ds-text-primary);
+  background: var(--ds-bg-secondary);
+}
+
+.composer .send {
+  background: var(--ds-accent);
+  color: var(--ds-bg-primary);
+  font-size: var(--text-base-plus);
+}
+
+.composer .send:disabled {
+  opacity: 0.45;
+}
+
+.composer .chip {
+  max-width: 52vw;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  background: var(--ds-bg-secondary);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── markdown ──────────────────────────────────────────── */
@@ -659,5 +718,59 @@ footer {
 }
 
 .diff .hunk {
+  color: var(--ds-text-muted);
+}
+
+/* ── sessions ──────────────────────────────────────────── */
+
+/*
+ * History reads as grouped lines, not as a stack of cards: a muted bucket label
+ * and a row that only shows its surface on touch. Cards would fight the warm
+ * canvas for attention and make ten sessions look like ten decisions.
+ */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 16px;
+}
+
+.group-label {
+  margin: 0 0 4px 10px;
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ds-text-muted);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ds-text-primary);
+  text-align: left;
+}
+
+.row:active {
+  background: var(--ds-bg-secondary);
+}
+
+.row .row-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-base-plus);
+}
+
+.row .row-meta {
+  flex: none;
+  font-size: var(--text-2xs);
   color: var(--ds-text-muted);
 }
