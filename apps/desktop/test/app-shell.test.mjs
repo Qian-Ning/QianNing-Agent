@@ -96,3 +96,22 @@ test("the login page offers the certificate it must be trusted with", () => {
   assert.ok(html.includes('href="/cert"'), "the login page must link to the certificate");
   assert.ok(html.includes("download=") || html.includes("/cert.crt"), "the link must save a file");
 });
+
+test("a tool call is shown as its own step, not folded into prose", () => {
+  // "the agent changed something" is not the same as knowing which file it
+  // touched, so a tool item gets its own renderer rather than a text bubble.
+  assert.ok(html.includes("function renderTool"), "tool items need their own renderer");
+  assert.ok(html.includes('class="msg tool'), "tool items need their own class");
+  assert.ok(html.includes('if (message.itemType === "tool") return true;'),
+    "a tool step must survive even when nothing about it is readable");
+});
+
+test("a session can be started from the phone", () => {
+  assert.ok(html.includes('call("/v1/sessions"'), "the phone must be able to create a session");
+  assert.ok(html.includes("function newSession"));
+});
+
+test("a running turn can be stopped from the phone", () => {
+  assert.ok(html.includes(":interrupt"), "the stop action must call turn/interrupt");
+  assert.ok(html.includes("state.activeTurnId"), "the stop button is gated on a live turn");
+});

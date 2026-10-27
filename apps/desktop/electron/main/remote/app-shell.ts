@@ -60,7 +60,13 @@ const HTML = `<!doctype html>
   .msg { padding: 10px 12px; border-radius: 12px; margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; }
   .msg.user { background: var(--accent); color: var(--accent-fg); margin-left: 14%; }
   .msg.agent { background: var(--card); margin-right: 14%; }
-  .msg.tool { background: transparent; border: 1px dashed var(--line); color: var(--muted); font-size: 13px; }
+  .msg.tool { background: transparent; border: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+  .msg.tool .tool-name { color: var(--fg); font-weight: 600; }
+  .msg.tool .tool-detail {
+    display: block; margin-top: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px; white-space: pre-wrap; word-break: break-all; color: var(--muted);
+  }
+  .msg.tool.failed { border-color: var(--danger); }
   .composer {
     position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 8px;
     padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
@@ -101,7 +107,7 @@ const HTML = `<!doctype html>
   var TOKEN_KEY = "racp.token";
   var BASE_KEY = "racp.base";
   var app = document.getElementById("app");
-  var state = { view: "loading", sessions: [], sessionId: null, messages: [], approvals: [], error: null, busy: false };
+  var state = { view: "loading", sessions: [], sessionId: null, messages: [], approvals: [], error: null, busy: false, activeTurnId: null };
   var stream = null;
 
   /**
@@ -221,22 +227,59 @@ const HTML = `<!doctype html>
         '<small>' + esc(session.updatedAt || session.createdAt || "") + '</small></button>';
     }).join("");
     app.innerHTML =
-      '<header><h1>Sessions</h1><button class="ghost" id="signout">Sign out</button></header>' +
-      '<main>' + (items || '<div class="empty">No sessions yet.</div>') +
+      '<header><h1>Sessions</h1>' +
+        '<button class="ghost" id="fresh" title="New session">+</button>' +
+        '<button class="ghost" id="signout">Sign out</button></header>' +
+      '<main>' + (items || '<div class="empty">No sessions yet. Tap + to start one.</div>') +
         (state.error ? '<p class="error">' + esc(state.error) + '</p>' : '') +
       '</main>';
     Array.prototype.forEach.call(document.querySelectorAll(".row"), function (node) {
       node.addEventListener("click", function () { openChat(node.getAttribute("data-id")); });
     });
+    document.getElementById("fresh").addEventListener("click", function () { newSession(); });
     document.getElementById("signout").addEventListener("click", function () {
       setToken(""); state.view = "login"; render();
     });
   }
 
+  /**
+   * Creates a session on the Host and opens it.
+   *
+   * Everything is optional on session/create, so the phone does not have to
+   * pick a project or a model to start talking — the Host applies its defaults,
+   * and the desktop can be used to change them later.
+   */
+  function newSession() {
+    if (state.busy) return;
+    state.busy = true;
+    state.error = null;
+    render();
+    call("/v1/sessions", {
+      method: "POST",
+      body: { title: "From phone", mode: "agent" },
+    }).then(function (result) {
+      var created = result.session || result;
+      var id = created.sessionId || created.id;
+      state.busy = false;
+      if (!id) {
+        state.error = "the Host did not return a session id";
+        render();
+        loadSessions();
+        return;
+      }
+      openChat(id);
+    }).catch(function (error) {
+      state.busy = false;
+      state.error = error.message;
+      render();
+    });
+  }
+
   function renderChat() {
     var messages = state.messages.map(function (message) {
-      var kind = message.role === "user" ? "user" : message.itemType === "tool" ? "tool" : "agent";
-      return '<div class="msg ' + kind + '">' + esc(message.text || "") + '</div>';
+      if (message.role === "user") return '<div class="msg user">' + esc(message.text || "") + '</div>';
+      if (message.itemType === "tool") return renderTool(message);
+      return '<div class="msg agent">' + esc(message.text || "") + '</div>';
     }).join("");
     app.innerHTML =
       '<header><button class="ghost" id="back">Back</button><h1>Conversation</h1>' +
@@ -247,10 +290,11 @@ const HTML = `<!doctype html>
       '<div class="approvals" id="approvals">' + renderApprovals() + '</div>' +
       '<div class="composer">' +
         '<textarea id="text" rows="1" placeholder="Message…"></textarea>' +
+        (state.activeTurnId ? '<button id="stop">Stop</button>' : '') +
         '<button id="send"' + (state.busy ? " disabled" : "") + '>Send</button>' +
       '</div>';
     document.getElementById("back").addEventListener("click", function () {
-      closeStream(); state.view = "sessions"; state.sessionId = null; render(); loadSessions();
+      closeStream(); state.view = "sessions"; state.sessionId = null; state.activeTurnId = null; render(); loadSessions();
     });
     var send = document.getElementById("send");
     send.addEventListener("click", function () {
@@ -260,6 +304,8 @@ const HTML = `<!doctype html>
       field.value = "";
       submit(text);
     });
+    var stop = document.getElementById("stop");
+    if (stop) stop.addEventListener("click", function () { interrupt(); });
     Array.prototype.forEach.call(document.querySelectorAll(".approval button"), function (node) {
       node.addEventListener("click", function () {
         respond(node.getAttribute("data-id"), node.getAttribute("data-decision"), Number(node.getAttribute("data-revision")));
@@ -268,6 +314,65 @@ const HTML = `<!doctype html>
     var log = document.getElementById("log");
     log.scrollTop = log.scrollHeight;
     window.scrollTo(0, document.body.scrollHeight);
+  }
+
+  /**
+   * One tool call, as the line a reader actually needs: what ran, on what, and
+   * whether it worked.
+   *
+   * A tool item is the difference between "the agent changed something" and
+   * knowing which file it touched. It is rendered even when nothing about it can
+   * be read, because dropping the step silently is worse than an unnamed row.
+   */
+  function renderTool(message) {
+    var failed = message.failed === true;
+    var detail = message.toolDetail || "";
+    return '<div class="msg tool' + (failed ? " failed" : "") + '">' +
+      '<span class="tool-name">' + esc(message.toolName || "tool") + '</span>' +
+      (detail ? '<span class="tool-detail">' + esc(detail) + '</span>' : '') +
+      '</div>';
+  }
+
+  /**
+   * What a stored tool item did, from whatever shape it arrived in.
+   *
+   * content is unknown in the protocol because the agent owns that shape, so
+   * this looks in the places a tool record keeps its name, arguments and outcome
+   * instead of assuming one exact structure. Anything missing degrades to the
+   * item's plain text rather than hiding the call.
+   */
+  function toolSummary(item) {
+    var outer = item.content && typeof item.content === "object" ? item.content : {};
+    var inner = outer.content && typeof outer.content === "object" ? outer.content : outer;
+    var name = inner.toolName || inner.name || outer.toolName || outer.name || "";
+    var args = inner.input || inner.arguments || inner.args || outer.input || outer.arguments || null;
+    var result = inner.output || inner.result || outer.output || outer.result || null;
+    var failed = inner.isError === true || inner.failed === true || outer.isError === true ||
+      inner.status === "failed" || inner.status === "error";
+    var detail = "";
+    if (args) detail = typeof args === "string" ? args : safeJson(args);
+    else if (result) detail = typeof result === "string" ? result : safeJson(result);
+    else detail = textOf(item);
+    return { name: String(name || "tool"), detail: detail.slice(0, 400), failed: failed };
+  }
+
+  function safeJson(value) {
+    try { return JSON.stringify(value); } catch (error) { return String(value); }
+  }
+
+  /** Stops the running turn. The turn id comes from the live event stream. */
+  function interrupt() {
+    if (!state.activeTurnId) return;
+    var turnId = state.activeTurnId;
+    state.busy = true;
+    render();
+    call("/v1/turns/" + encodeURIComponent(turnId) + ":interrupt", { method: "POST", body: {} })
+      .catch(function (error) { state.error = error.message; })
+      .then(function () {
+        state.busy = false;
+        state.activeTurnId = null;
+        render();
+      });
   }
 
   function renderApprovals() {
@@ -363,16 +468,23 @@ const HTML = `<!doctype html>
       state.messages = items
         .map(function (item) {
           var role = roleOf(item);
+          var tool = item.itemType === "tool" ? toolSummary(item) : null;
           return {
             itemType: item.itemType,
             role: role,
             text: textOf(item),
+            toolName: tool ? tool.name : "",
+            toolDetail: tool ? tool.detail : "",
+            failed: tool ? tool.failed : false,
           };
         })
         .filter(function (message) {
           // System scaffolding is not part of the conversation; showing it as an
           // empty bubble is worse than not showing it at all.
           if (message.role === "system") return false;
+          // A tool call is a step in the work even when none of it is readable.
+          // Dropping it would hide that the agent acted at all.
+          if (message.itemType === "tool") return true;
           return message.text.length > 0;
         });
       render();
@@ -457,6 +569,24 @@ const HTML = `<!doctype html>
     if (parsed.subscriptionId) return;
     var params = parsed.params || {};
     var kind = params.kind || "";
+    var turnId = params.turnId || (params.payload && params.payload.turnId) || "";
+
+    // The Stop button only exists while a turn is live, and the live turn id is
+    // the only way to interrupt it — the Host does not expose a "current turn"
+    // lookup over HTTP.
+    if (turnId) {
+      var running = kind.indexOf("turn.") === 0 && kind !== "turn.completed" &&
+        kind !== "turn.interrupted" && kind !== "turn.failed" && kind !== "turn.cancelled";
+      var finished = kind === "turn.completed" || kind === "turn.interrupted" ||
+        kind === "turn.failed" || kind === "turn.cancelled";
+      if (running && state.activeTurnId !== turnId) {
+        state.activeTurnId = turnId;
+        render();
+      } else if (finished && state.activeTurnId === turnId) {
+        state.activeTurnId = null;
+        render();
+      }
+    }
     // The Host is authoritative for transcript state, so a completed item simply
     // re-reads history instead of merging deltas client-side.
     if (kind === "approval.requested") {
