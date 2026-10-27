@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Markdown } from "../lib/markdown";
-import { toMessageItem, type HostEvent, type MessageItem, type RacpClient } from "../lib/racp";
+import { toMessageItem, type HostClient, type HostEvent, type MessageItem } from "../lib/racp";
 import type { Translate } from "../lib/i18n";
 
 type Approval = {
@@ -64,7 +64,7 @@ function readDiff(value: unknown): DiffFile[] {
 }
 
 type Props = {
-  client: RacpClient;
+  client: HostClient;
   sessionId: string;
   title: string;
   t: Translate;

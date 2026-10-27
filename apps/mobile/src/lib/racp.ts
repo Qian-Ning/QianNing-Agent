@@ -9,6 +9,20 @@
 
 export type Connection = { base: string; token: string };
 
+export type RequestBody = Record<string, unknown>;
+
+/**
+ * What a screen needs from a Host. Two implementations satisfy it: the HTTP
+ * client for a desktop, and the in-process one for the agent running here.
+ */
+export interface HostClient {
+  call<T>(path: string, init?: { method?: string; body?: RequestBody }): Promise<T>;
+  stream(
+    sessionId: string,
+    handlers: { onEvent: (event: HostEvent) => void; onState: (state: "open" | "closed") => void },
+  ): () => void;
+}
+
 const STORAGE_KEY = "qn.connection";
 
 export class RacpClientError extends Error {
@@ -72,7 +86,6 @@ export function clearConnection(): void {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-type RequestBody = Record<string, unknown>;
 
 /** One event as the Host frames it: a JSON-RPC notification carrying a payload. */
 export type HostEvent = {
@@ -181,7 +194,7 @@ function stringifyDetail(value: unknown): string {
   }
 }
 
-export class RacpClient {
+export class RacpClient implements HostClient {
   constructor(readonly connection: Connection) {}
 
   private url(path: string): string {

@@ -1,0 +1,116 @@
+/**
+ * The point of this file: prove the phone can run a whole agent turn on its own,
+ * using the desktop's loop, with no Node, no desktop, and no network.
+ *
+ * The model is pi's own faux provider, which streams tokens the same way a real
+ * provider does. If the loop, tool dispatch, event translation, or transcript
+ * persistence were wrong, this test fails.
+ */
+
+import { describe, expect, it } from "vitest";
+import {
+  createFauxCore,
+  fauxAssistantMessage,
+  fauxToolCall,
+} from "@earendil-works/pi-ai/providers/faux";
+import type { Model } from "@earendil-works/pi-ai";
+import { LocalAgentHost } from "./host";
+import { MemoryStore } from "./store";
+
+const provider = { baseUrl: "https://example.invalid/v1", apiKey: "test", modelId: "scripted" };
+
+type Responses = NonNullable<Parameters<ReturnType<typeof createFauxCore>["setResponses"]>[0]>;
+
+function fauxHost(store: MemoryStore, responses: Responses) {
+  const faux = createFauxCore({
+    models: [{ id: "scripted" }],
+    tokensPerSecond: 100_000,
+    tokenSize: { min: 1, max: 1 },
+  });
+  faux.setResponses(responses);
+  const host = new LocalAgentHost(store, provider, {
+    stream: faux.streamSimple,
+    model: faux.getModel() as Model<"openai-completions">,
+  });
+  return host;
+}
+
+describe("the phone agent", () => {
+  it("runs a turn, calls a tool, and answers from what the tool returned", async () => {
+    const store = new MemoryStore();
+    const host = fauxHost(store, [
+      fauxAssistantMessage(
+        fauxToolCall("write_file", { path: "notes/hello.txt", content: "written on the phone" }),
+        { stopReason: "toolUse" },
+      ),
+      fauxAssistantMessage("Saved it."),
+    ]);
+
+    const session = host.createSession();
+    const events: string[] = [];
+    host.subscribe(session.id, (event) => events.push(event.kind));
+
+    await host.send(session.id, "write a note");
+
+    // one message carrying the tool call, the tool run, then the reply
+    expect(events.slice(0, 3)).toEqual(["turn.started", "item.started", "item.completed"]);
+    expect(events.slice(3, 5)).toEqual(["item.started", "item.completed"]);
+    expect(events.at(-1)).toBe("turn.completed");
+    expect(events.filter((kind) => kind === "item.delta").length).toBeGreaterThan(0);
+    expect(store.readValue("file:notes/hello.txt")).toBe("written on the phone");
+    expect(store.readValue("file:index")).toContain("notes/hello.txt");
+
+    const history = host.history(session.id);
+    expect(history.map((entry) => entry.role)).toEqual(["assistant", "tool", "assistant"]);
+    expect(history.at(-1)?.text).toBe("Saved it.");
+  });
+
+  it("streams the answer as it arrives instead of after the turn", async () => {
+    const store = new MemoryStore();
+    const host = fauxHost(store, [fauxAssistantMessage("hello there")]);
+
+    const session = host.createSession();
+    const deltas: string[] = [];
+    host.subscribe(session.id, (event) => {
+      if (event.kind !== "item.delta" || !event.payload) return;
+      const detail = event.payload.event as { deltaText?: string } | undefined;
+      if (detail?.deltaText) deltas.push(detail.deltaText);
+    });
+
+    await host.send(session.id, "hi");
+
+    expect(deltas.join("")).toBe("hello there");
+    expect(deltas.length).toBeGreaterThan(1);
+  });
+
+  it("keeps two sessions apart", async () => {
+    const store = new MemoryStore();
+    const host = fauxHost(store, [
+      fauxAssistantMessage("first"),
+      fauxAssistantMessage("second"),
+    ]);
+
+    const first = host.createSession("one");
+    const second = host.createSession("two");
+    await host.send(first.id, "a");
+    await host.send(second.id, "b");
+
+    expect(host.history(first.id)).toHaveLength(1);
+    expect(host.history(second.id)).toHaveLength(1);
+    expect(host.history(first.id)[0]?.text).toBe("first");
+    expect(host.history(second.id)[0]?.text).toBe("second");
+    expect(host.listSessions().map((entry) => entry.title)).toEqual(["two", "one"]);
+  });
+
+  it("reports a provider failure as turn.failed instead of hanging", async () => {
+    const store = new MemoryStore();
+    const host = fauxHost(store, []);
+    const session = host.createSession();
+    const events: string[] = [];
+    host.subscribe(session.id, (event) => events.push(event.kind));
+
+    await host.send(session.id, "hi");
+
+    expect(events.at(-1)).toBe("turn.failed");
+  });
+});

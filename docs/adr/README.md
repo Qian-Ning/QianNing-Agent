@@ -364,3 +364,4 @@ Each ADR includes:
 | 0332 | [Outbound redaction before the provider](0332-outbound-redaction.md) | Accepted for implementation |
 | 0333 | [A network entry point for the desktop Agent Host](0333-remote-entry-point.md) | Proposed |
 | 0334 | [The phone client is an app, not a page in a string](0334-mobile-client-as-an-app.md) | Accepted |
+| 0335 | [The phone runs the agent itself](0335-mobile-agent-host.md) | Accepted |

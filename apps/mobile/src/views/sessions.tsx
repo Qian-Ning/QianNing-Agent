@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { RacpClient } from "../lib/racp";
+import { type HostClient } from "../lib/racp";
 import type { Translate } from "../lib/i18n";
 
 export type SessionSummary = {
@@ -55,7 +55,7 @@ function relativeTime(iso: string | undefined, lang: string): string {
 }
 
 type Props = {
-  client: RacpClient;
+  client: HostClient;
   t: Translate;
   lang: string;
   onOpen: (session: SessionSummary) => void;
@@ -97,11 +97,18 @@ export function SessionsView({ client, t, lang, onOpen, onSignOut }: Props) {
     try {
       const listed = await client.call<{ projects?: unknown } | unknown[]>("/v1/projects");
       const value = Array.isArray(listed) ? listed : (listed as { projects?: unknown }).projects;
-      setProjects(toProjects(value));
+      const found = toProjects(value);
+      setProjects(found);
+      // A Host with no projects — the agent on this phone — has nothing to pick
+      // from, so the sheet would be a door with one handle.
+      if (found.length === 0) {
+        setChoosing(false);
+        await createSession(null);
+      }
     } catch {
-      // Without a project list the session is still creatable; it just has no
-      // workspace, which the chooser tells the user before they pick.
       setProjects([]);
+      setChoosing(false);
+      await createSession(null);
     }
   };
 

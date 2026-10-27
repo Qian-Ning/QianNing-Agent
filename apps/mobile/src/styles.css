@@ -228,6 +228,32 @@ textarea:focus {
   margin-top: 16px;
 }
 
+/* Two equal ways in: run the agent here, or reach the one at home. */
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.06));
+  margin-top: 8px;
+}
+
+.segment {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 9px 10px;
+  border-radius: 9px;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.segment.active {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
 /* ── sessions ──────────────────────────────────────────── */
 
 main {
