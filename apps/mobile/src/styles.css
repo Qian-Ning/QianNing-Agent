@@ -1075,3 +1075,28 @@ footer {
   padding: 6px 4px 0;
   border-top: 1px solid var(--ds-border-subtle);
 }
+
+/* Settings rows: a divider like the desktop's, and a fixed slot for the
+   chevron so a long model id cannot crowd it. */
+.settings-list > .row {
+  border-bottom: 1px solid var(--ds-border-subtle);
+  border-radius: 0;
+}
+
+.settings-list > .row:last-child {
+  border-bottom: none;
+}
+
+.settings-list .row-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 58%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.settings-list .chevron {
+  flex: none;
+}

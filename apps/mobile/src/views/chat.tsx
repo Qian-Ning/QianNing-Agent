@@ -79,6 +79,9 @@ type Props = {
   onRequestSetup: () => void;
   /** Opens the session column, the way the desktop keeps it always visible. */
   onOpenDrawer: () => void;
+  /** Starts a fresh conversation without leaving the current one's title bar. */
+  onNewSession?: () => void;
+
 };
 
 /**
@@ -100,6 +103,7 @@ export function ChatView({
   onOpenModel,
   onRequestSetup,
   onOpenDrawer,
+  onNewSession,
 }: Props) {
   const [items, setItems] = useState<MessageItem[] | null>(null);
   const [live, setLive] = useState(false);
@@ -326,6 +330,11 @@ export function ChatView({
           <h1 className="truncate">{title || t("sessions.untitled")}</h1>
         )}
         <div className="bar-actions">
+          {onNewSession ? (
+            <button className="ghost" aria-label={t("sessions.new")} onClick={onNewSession}>
+              +
+            </button>
+          ) : null}
           <span className={"dot" + (live ? " live" : "")} title={live ? t("chat.live") : t("chat.offline")} />
           {canDiff ? (
             <button className="ghost" onClick={() => void openDiff()}>
