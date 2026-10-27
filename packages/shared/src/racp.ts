@@ -736,6 +736,7 @@ export const RACP_HTTP_ROUTES: Partial<Record<RacpOperation, { method: "GET" | "
   "session/get": { method: "GET", path: "/v1/sessions/{sessionId}" },
   "session/attach": { method: "POST", path: "/v1/sessions/{sessionId}:attach" },
   "session/history": { method: "GET", path: "/v1/sessions/{sessionId}/history" },
+  "workspace/diff": { method: "GET", path: "/v1/sessions/{sessionId}/diff" },
   "turn/start": { method: "POST", path: "/v1/sessions/{sessionId}/turns" },
   "turn/get": { method: "GET", path: "/v1/turns/{turnId}" },
   "turn/stop": { method: "POST", path: "/v1/turns/{turnId}:stop" },

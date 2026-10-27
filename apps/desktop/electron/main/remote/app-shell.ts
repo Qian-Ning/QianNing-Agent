@@ -25,11 +25,13 @@ const HTML = `<!doctype html>
   :root {
     --bg: #ffffff; --fg: #16161a; --muted: #6b6b76; --line: #e4e4ea;
     --card: #f6f6f9; --accent: #2f6df6; --accent-fg: #ffffff; --danger: #c0392b;
+    --ok: #1f8a4c;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #111114; --fg: #ececf1; --muted: #9a9aa6; --line: #26262e;
       --card: #1a1a20; --accent: #5b8cff; --accent-fg: #0b0b0e; --danger: #ff6b5e;
+      --ok: #4ec98a;
     }
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -63,10 +65,26 @@ const HTML = `<!doctype html>
   .msg.tool { background: transparent; border: 1px solid var(--line); color: var(--muted); font-size: 13px; }
   .msg.tool .tool-name { color: var(--fg); font-weight: 600; }
   .msg.tool .tool-detail {
-    display: block; margin-top: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 12px; white-space: pre-wrap; word-break: break-all; color: var(--muted);
+    display: block; margin-top: 4px; font-family: ui-monospace, monospace;
+    font-size: 12px; white-space: pre-wrap; word-break: break-all;
   }
   .msg.tool.failed { border-color: var(--danger); }
+  .diff-file { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .diff-file > summary {
+    list-style: none; cursor: pointer; padding: 10px 12px;
+    display: flex; gap: 8px; align-items: baseline;
+  }
+  .diff-file > summary::-webkit-details-marker { display: none; }
+  .diff-path { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; flex: 1; }
+  .diff-count { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .diff-count .add { color: var(--ok); }
+  .diff-count .del { color: var(--danger); }
+  .diff-body { border-top: 1px solid var(--line); overflow-x: auto; }
+  .diff-hunk { font-family: ui-monospace, monospace; font-size: 11px; line-height: 1.5; }
+  .diff-hunk > .hunk-head { color: var(--muted); padding: 4px 8px; background: rgba(255,255,255,0.03); }
+  .diff-line { padding: 0 8px; white-space: pre; }
+  .diff-line.add { background: rgba(80, 200, 120, 0.12); color: #9be0b0; }
+  .diff-line.del { background: rgba(220, 80, 80, 0.12); color: #f0a0a0; }
   .composer {
     position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 8px;
     padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
@@ -107,7 +125,7 @@ const HTML = `<!doctype html>
   var TOKEN_KEY = "racp.token";
   var BASE_KEY = "racp.base";
   var app = document.getElementById("app");
-  var state = { view: "loading", sessions: [], sessionId: null, messages: [], approvals: [], error: null, busy: false, activeTurnId: null };
+  var state = { view: "loading", sessions: [], sessionId: null, messages: [], approvals: [], error: null, busy: false, activeTurnId: null, diff: null, projects: null };
   var stream = null;
 
   /**
@@ -187,6 +205,8 @@ const HTML = `<!doctype html>
     if (state.view === "login") return renderLogin();
     if (state.view === "sessions") return renderSessions();
     if (state.view === "chat") return renderChat();
+    if (state.view === "projects") return renderProjects();
+    if (state.view === "diff") return renderDiff();
     app.innerHTML = '<main><div class="empty">Connecting…</div></main>';
   }
 
@@ -243,26 +263,67 @@ const HTML = `<!doctype html>
   }
 
   /**
-   * Creates a session on the Host and opens it.
+   * Starts the new-session flow.
    *
-   * Everything is optional on session/create, so the phone does not have to
-   * pick a project or a model to start talking — the Host applies its defaults,
-   * and the desktop can be used to change them later.
+   * A session without a project has no workspace, so the agent cannot read or
+   * write files and the diff is empty. Picking the folder first is therefore part
+   * of making a session, not an optional extra — but when the Host has no
+   * projects at all there is nothing to pick, and the session is created anyway
+   * so the phone is not blocked.
    */
   function newSession() {
     if (state.busy) return;
     state.busy = true;
     state.error = null;
     render();
-    call("/v1/sessions", {
-      method: "POST",
-      body: { title: "From phone", mode: "agent" },
-    }).then(function (result) {
+    call("/v1/projects").then(function (result) {
+      var projects = (result.projects || []).filter(function (project) { return !project.archived; });
+      state.busy = false;
+      if (projects.length === 0) { createSession(""); return; }
+      state.projects = projects;
+      state.view = "projects";
+      render();
+    }).catch(function (error) {
+      state.busy = false;
+      state.error = error.message;
+      render();
+    });
+  }
+
+  function renderProjects() {
+    var items = state.projects.map(function (project) {
+      return '<button class="row" data-id="' + esc(project.id) + '">' + esc(project.label || project.id) + '</button>';
+    }).join("");
+    app.innerHTML =
+      '<header><button class="ghost" id="back">Cancel</button><h1>New session</h1></header>' +
+      '<main>' + items +
+        '<button class="row" data-id="">No project</button>' +
+        '<p class="empty">A session needs a project folder before the agent can touch files.</p>' +
+      '</main>';
+    Array.prototype.forEach.call(document.querySelectorAll(".row"), function (node) {
+      node.addEventListener("click", function () { createSession(node.getAttribute("data-id") || ""); });
+    });
+    document.getElementById("back").addEventListener("click", function () {
+      state.view = "sessions"; state.projects = null; render();
+    });
+  }
+
+  /** Creates the session on the Host and opens it. */
+  function createSession(projectId) {
+    if (state.busy) return;
+    state.busy = true;
+    state.error = null;
+    render();
+    var body = { title: "From phone", mode: "agent" };
+    if (projectId) body.projectId = projectId;
+    call("/v1/sessions", { method: "POST", body: body }).then(function (result) {
       var created = result.session || result;
       var id = created.sessionId || created.id;
       state.busy = false;
+      state.projects = null;
       if (!id) {
         state.error = "the Host did not return a session id";
+        state.view = "sessions";
         render();
         loadSessions();
         return;
@@ -271,6 +332,7 @@ const HTML = `<!doctype html>
     }).catch(function (error) {
       state.busy = false;
       state.error = error.message;
+      state.view = "sessions";
       render();
     });
   }
@@ -283,6 +345,7 @@ const HTML = `<!doctype html>
     }).join("");
     app.innerHTML =
       '<header><button class="ghost" id="back">Back</button><h1>Conversation</h1>' +
+        '<button class="ghost" id="changes">Changes</button>' +
         '<span class="dot' + (stream ? " live" : "") + '" title="' + (stream ? "live" : "offline") + '"></span></header>' +
       '<main id="log">' + (messages || '<div class="empty">No messages yet.</div>') +
         (state.error ? '<p class="error">' + esc(state.error) + '</p>' : '') +
@@ -306,6 +369,7 @@ const HTML = `<!doctype html>
     });
     var stop = document.getElementById("stop");
     if (stop) stop.addEventListener("click", function () { interrupt(); });
+    document.getElementById("changes").addEventListener("click", function () { openDiff(); });
     Array.prototype.forEach.call(document.querySelectorAll(".approval button"), function (node) {
       node.addEventListener("click", function () {
         respond(node.getAttribute("data-id"), node.getAttribute("data-decision"), Number(node.getAttribute("data-revision")));
@@ -358,6 +422,81 @@ const HTML = `<!doctype html>
 
   function safeJson(value) {
     try { return JSON.stringify(value); } catch (error) { return String(value); }
+  }
+
+  /**
+   * Reads the working-tree diff for the open session.
+   *
+   * Only the file list is fetched up front; a hunk is only worth rendering once
+   * the reader opens that file, and a long diff on a phone is worse than a list.
+   */
+  function openDiff() {
+    if (!state.sessionId) return;
+    state.view = "diff";
+    state.diff = null;
+    state.error = null;
+    render();
+    call("/v1/sessions/" + encodeURIComponent(state.sessionId) + "/diff")
+      .then(function (result) { state.diff = result; render(); })
+      .catch(function (error) {
+        var message = error.message || "";
+        // A session made without a project has no workspace; the Host's wording
+        // for that is accurate but means nothing to a reader.
+        state.error = message.indexOf("no project root") >= 0
+          ? "This session has no project folder, so there is no workspace to diff."
+          : message;
+        render();
+      });
+  }
+
+  function renderDiff() {
+    var diff = state.diff;
+    var body;
+    if (state.error) {
+      body = '<p class="error">' + esc(state.error) + '</p>';
+    } else if (!diff) {
+      body = '<div class="empty">Reading changes…</div>';
+    } else if (!diff.repo) {
+      body = '<div class="empty">This workspace is not a git repository, so there is nothing to diff.</div>';
+    } else if (diff.clean) {
+      body = '<div class="empty">No pending changes.</div>';
+    } else {
+      body = diff.files.map(renderDiffFile).join("");
+      if (diff.truncated) body += '<p class="empty">More files changed than are listed.</p>';
+    }
+    app.innerHTML =
+      '<header><button class="ghost" id="back">Back</button><h1>Changes</h1></header>' +
+      '<main id="log">' + body + '</main>';
+    document.getElementById("back").addEventListener("click", function () {
+      state.view = "chat"; state.diff = null; render();
+    });
+  }
+
+  /**
+   * One changed file: collapsed to its path and line counts, expandable to the
+   * hunks the Host already parsed.
+   *
+   * A binary file or one over the per-file cap has no hunks; the row still shows
+   * the path and counts so the change is not invisible.
+   */
+  function renderDiffFile(file) {
+    var counts = '<span class="diff-count">' +
+      '<span class="add">+' + (file.additions || 0) + '</span> ' +
+      '<span class="del">-' + (file.deletions || 0) + '</span></span>';
+    var path = file.oldPath ? file.oldPath + ' → ' + file.path : file.path;
+    var label = (file.status || "modified") + " · " + path;
+    var hunks = (file.hunks || []).map(function (hunk) {
+      var lines = (hunk.lines || []).map(function (line) {
+        var sign = line.type === "add" ? "+" : line.type === "del" ? "-" : " ";
+        return '<div class="diff-line ' + esc(line.type) + '">' + esc(sign + line.text) + '</div>';
+      }).join("");
+      return '<div class="diff-hunk"><div class="hunk-head">' + esc(hunk.header) + '</div>' + lines + '</div>';
+    }).join("");
+    var empty = '<p class="empty">' +
+      (file.binary ? "Binary file." : file.tooLarge ? "Too large to show." : "No line changes.") + '</p>';
+    return '<details class="diff-file"><summary>' +
+      '<span class="diff-path">' + esc(label) + '</span>' + counts + '</summary>' +
+      '<div class="diff-body">' + (hunks || empty) + '</div></details>';
   }
 
   /** Stops the running turn. The turn id comes from the live event stream. */
