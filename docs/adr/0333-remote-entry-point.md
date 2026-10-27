@@ -87,6 +87,13 @@ the honest minimum, and it is what the first stage must deliver.
   Users who need off-LAN access get two documented paths: their own overlay
   network, or their own reverse proxy with TLS. This keeps the product's
   security promise equal to what a user configured themselves.
+- **A stable port.** The listener remembers the port it last bound and asks for
+  that one on the next start, falling back to an OS-assigned port only when
+  something else holds it. A port that changes on every restart breaks every
+  link, bookmark, and home-screen shortcut a user has already saved, with
+  nothing on screen to explain why. The remembered value is data rather than
+  configuration: read at start, written after a successful bind, and a corrupt
+  or unusable file is treated as "no preference" instead of a startup failure.
 
 ### 5. Stages, each ending in a demonstrable artifact
 
