@@ -72,10 +72,11 @@ describe("the local Host speaks RACP", () => {
     expect(events.at(-1)?.kind).toBe("turn.completed");
     expect(events.some((event) => event.kind === "item.delta")).toBe(true);
 
-    const history = await client.call<{ itemId: string; itemType?: string; status?: string }[]>(
-      "/v1/sessions/" + id + "/history",
-    );
-    expect(history).toHaveLength(3);
+    const history = await client.call<
+      { itemId: string; itemType?: string; status?: string; event?: { message?: { role?: string } } }[]
+    >("/v1/sessions/" + id + "/history");
+    expect(history).toHaveLength(4);
+    expect(history[0]?.event?.message?.role).toBe("user");
     expect(history.filter((row) => row.itemType === "tool")).toHaveLength(1);
   });
 
