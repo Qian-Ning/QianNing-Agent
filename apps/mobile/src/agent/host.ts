@@ -24,7 +24,7 @@ export type ProviderConfig = {
 export type LocalEvent = HostEvent;
 
 const SYSTEM_PROMPT = [
-  "You are QianNing Agent running on the user's phone.",
+  "You are QianNing Agent, running on the phone itself.",
   "You have no shell and no desktop filesystem. Your tools are the complete list:",
   "list_files, read_file, write_file (the app's own storage) and fetch_url (the web).",
   "Never claim to have run a command or opened a desktop file. Say what you cannot do.",
@@ -63,6 +63,8 @@ type RunningSession = {
   messages: StoredMessage[];
   /** The assistant message currently streaming; start/update/end share its id. */
   streamingId: string | null;
+  /** The user message being appended this turn; start and end share its id. */
+  promptId: string | null;
 };
 
 export class LocalAgentHost {
@@ -177,6 +179,7 @@ export class LocalAgentHost {
       listeners: new Set(),
       messages: stored,
       streamingId: null,
+      promptId: null,
     };
     this.running.set(sessionId, session);
 
@@ -217,9 +220,12 @@ export class LocalAgentHost {
       case "message_start": {
         const message = record.message ?? {};
         const role = String(message.role ?? "assistant");
-        if (role !== "assistant") return;
-        const itemId = String(message.id ?? newId("m"));
-        session.streamingId = itemId;
+        if (role !== "assistant" && role !== "user") return;
+        const itemId =
+          role === "user"
+            ? (session.promptId ??= String(message.id ?? newId("m")))
+            : String(message.id ?? newId("m"));
+        if (role === "assistant") session.streamingId = itemId;
         const item = { ...this.toStored(message, role), itemId };
         this.upsert(session, item);
         this.emit(session, {
@@ -255,9 +261,14 @@ export class LocalAgentHost {
       case "message_end": {
         const message = record.message ?? {};
         const role = String(message.role ?? "assistant");
-        if (role !== "assistant") return;
-        const item = { ...this.toStored(message, role), itemId: session.streamingId ?? String(message.id ?? newId("m")) };
-        session.streamingId = null;
+        if (role !== "assistant" && role !== "user") return;
+        const itemId =
+          role === "user"
+            ? (session.promptId ?? String(message.id ?? newId("m")))
+            : (session.streamingId ?? String(message.id ?? newId("m")));
+        if (role === "user") session.promptId = null;
+        else session.streamingId = null;
+        const item = { ...this.toStored(message, role), itemId };
         this.upsert(session, item);
         this.emit(session, {
           sessionId,

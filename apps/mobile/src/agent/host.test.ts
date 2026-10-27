@@ -61,7 +61,10 @@ describe("the phone agent", () => {
     expect(store.readValue("file:index")).toContain("notes/hello.txt");
 
     const history = host.history(session.id);
-    expect(history.map((entry) => entry.role)).toEqual(["assistant", "tool", "assistant"]);
+    // The user's own line is part of the transcript: without it a reopened
+    // session shows answers floating with nothing they answered.
+    expect(history.map((entry) => entry.role)).toEqual(["user", "assistant", "tool", "assistant"]);
+    expect(history[0]?.text).toBe("write a note");
     expect(history.at(-1)?.text).toBe("Saved it.");
   });
 
@@ -95,10 +98,8 @@ describe("the phone agent", () => {
     await host.send(first.id, "a");
     await host.send(second.id, "b");
 
-    expect(host.history(first.id)).toHaveLength(1);
-    expect(host.history(second.id)).toHaveLength(1);
-    expect(host.history(first.id)[0]?.text).toBe("first");
-    expect(host.history(second.id)[0]?.text).toBe("second");
+    expect(host.history(first.id).map((row) => row.text)).toEqual(["a", "first"]);
+    expect(host.history(second.id).map((row) => row.text)).toEqual(["b", "second"]);
     expect(host.listSessions().map((entry) => entry.title)).toEqual(["two", "one"]);
   });
 
