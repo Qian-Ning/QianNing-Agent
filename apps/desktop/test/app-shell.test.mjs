@@ -47,3 +47,34 @@ test("the token is never put in a URL", () => {
   // A token in a query string is rejected by the Host; the page must not try.
   assert.equal(/[?&](token|auth|key)=/.test(html), false);
 });
+
+test("a stored history item renders as text, not as its object", () => {
+  // The transcript used to print [object Object] for every message: the item's
+  // "content" field is itself an object, and the renderer passed that inner
+  // object to String(). These are the shapes the Host actually returns.
+  const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const start = script.indexOf("function textOf");
+  const end = script.indexOf("function roleOf");
+  assert.ok(start >= 0 && end > start, "the shell must define textOf before roleOf");
+
+  const textOf = new Function(`${script.slice(start, end)}; return textOf;`)();
+
+  assert.equal(
+    textOf({ itemType: "message", content: { content: "你好，世界", role: "user" } }),
+    "你好，世界",
+  );
+
+  // Assistant messages carry an array of typed blocks.
+  assert.equal(
+    textOf({ content: { content: [{ text: "第一段" }, { text: "第二段" }] } }),
+    "第一段\n第二段",
+  );
+
+  // System scaffolding has no text a reader wants.
+  assert.equal(textOf({ content: { content: "", modelSystem: { messageJson: "{}" } } }), "");
+  assert.equal(textOf({ content: { content: "", role: "system" } }), "");
+
+  // Anything unreadable degrades to an empty bubble, never to "[object Object]".
+  assert.equal(textOf({ content: { content: { nested: true } } }), "");
+  assert.equal(textOf(undefined), "");
+});

@@ -302,17 +302,58 @@ const HTML = `<!doctype html>
     });
   }
 
+  /**
+   * The text of one history item, or "" when it has none a reader would want.
+   *
+   * A stored item is an object whose "content" field is itself an object:
+   * content.content holds a plain string for user turns and an array of typed
+   * blocks for assistant turns. Passing that inner object to String() is what
+   * produced a screen of [object Object].
+   */
+  function textOf(item) {
+    if (!item) return "";
+    var payload = item.content && typeof item.content === "object" ? item.content : item;
+    if (payload.modelSystem) return "";
+    var body = payload.content;
+    if (typeof body === "string") return body;
+    if (Array.isArray(body)) {
+      return body
+        .map(function (part) {
+          if (typeof part === "string") return part;
+          if (!part) return "";
+          return part.text || part.content || "";
+        })
+        .filter(Boolean)
+        .join("\\n");
+    }
+    if (typeof payload.text === "string") return payload.text;
+    return "";
+  }
+
+  function roleOf(item) {
+    if (!item) return "";
+    var payload = item.content && typeof item.content === "object" ? item.content : item;
+    return typeof payload.role === "string" ? payload.role : "";
+  }
+
   function loadHistory() {
     return call("/v1/sessions/" + encodeURIComponent(state.sessionId) + "/history").then(function (result) {
       var items = result.items || [];
-      state.messages = items.map(function (item) {
-        var payload = item.payload || item;
-        return {
-          itemType: payload.itemType || item.itemType,
-          role: payload.role || (payload.itemType === "message" ? payload.role : undefined),
-          text: payload.text || payload.content || (typeof payload === "string" ? payload : ""),
-        };
-      });
+      state.messages = items
+        .map(function (item) {
+          var role = roleOf(item);
+          return {
+            itemType: item.itemType,
+            role: role,
+            text: textOf(item),
+          };
+        })
+        .filter(function (message) {
+          // System scaffolding is not part of the conversation; showing it as an
+          // empty bubble is worse than not showing it at all.
+          if (message.role === "system") return false;
+          return message.text.length > 0;
+        });
       render();
     });
   }
