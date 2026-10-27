@@ -178,3 +178,31 @@ describe("remote listener port memory", () => {
     expect(address.port).toBeGreaterThan(1023);
   });
 });
+
+describe("device labels", () => {
+  it("numbers a device the user did not name", async () => {
+    const { listener } = await start();
+
+    const first = await listener.issueDevice("");
+    const second = await listener.issueDevice("   ");
+
+    // Both used to be called "device", which is a list nobody can act on: two
+    // identical rows and no way to tell which one to revoke.
+    expect(first.label).toBe("Device 1");
+    expect(second.label).toBe("Device 2");
+  });
+
+  it("keeps a name the user typed", async () => {
+    const { listener } = await start();
+    const issued = await listener.issueDevice("  我的手机  ");
+    expect(issued.label).toBe("我的手机");
+  });
+
+  it("skips a number that is already taken", async () => {
+    const { listener } = await start();
+    await listener.issueDevice("Device 1");
+    const next = await listener.issueDevice("");
+    // A typed "Device 1" must not collide with the generated series.
+    expect(next.label).toBe("Device 2");
+  });
+});

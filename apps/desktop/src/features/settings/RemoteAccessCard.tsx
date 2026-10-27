@@ -9,8 +9,9 @@
  * storing the secret somewhere the renderer can reach.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import QRCode from "qrcode";
 
 import type { RemoteAccessStatus, RemoteDeviceSummary, RemoteIssuedDevice } from "@pi-desktop/shared";
 
@@ -25,6 +26,7 @@ export function RemoteAccessCard() {
   const [label, setLabel] = useState("");
   const [issued, setIssued] = useState<RemoteIssuedDevice | null>(null);
   const [copied, setCopied] = useState(false);
+  const [qr, setQr] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,8 +71,9 @@ export function RemoteAccessCard() {
   }, []);
 
   const issue = useCallback(async () => {
+    // An empty name is a valid request: the listener numbers the device, so the
+    // user does not have to invent names to tell devices apart.
     const trimmed = label.trim();
-    if (!trimmed) return;
     setBusy(true);
     setError(null);
     try {
@@ -103,6 +106,45 @@ export function RemoteAccessCard() {
   const running = status?.running === true;
 
   /**
+   * A timestamp someone can read at a glance.
+   *
+   * The list used to print the raw ISO string, so telling two identically named
+   * devices apart meant comparing two machine timestamps character by character.
+   */
+  const seenLabel = useCallback(
+    (device: RemoteDeviceSummary): string => {
+      if (device.revokedAt) return t("settings.remoteDeviceRevoked");
+      if (!device.lastSeenAt) return t("settings.remoteDeviceNeverSeen");
+      const then = new Date(device.lastSeenAt).getTime();
+      if (Number.isNaN(then)) return device.lastSeenAt;
+      const minutes = Math.round((Date.now() - then) / 60_000);
+      if (minutes < 1) return t("settings.relativeNow");
+      if (minutes < 60) return t("settings.relativeMinutes", { n: minutes });
+      const hours = Math.round(minutes / 60);
+      if (hours < 24) return t("settings.relativeHours", { n: hours });
+      const days = Math.round(hours / 24);
+      if (days < 30) return t("settings.relativeDays", { n: days });
+      return new Date(then).toLocaleDateString();
+    },
+    [t],
+  );
+
+  /**
+   * Most recently used first. A device that was used a minute ago is the one
+   * being asked about; one that has never been used falls to the bottom.
+   */
+  const sortedDevices = useMemo(
+    () =>
+      [...devices].sort((left, right) => {
+        const leftSeen = left.lastSeenAt ?? "";
+        const rightSeen = right.lastSeenAt ?? "";
+        if (leftSeen !== rightSeen) return leftSeen < rightSeen ? 1 : -1;
+        return left.createdAt < right.createdAt ? 1 : -1;
+      }),
+    [devices],
+  );
+
+  /**
    * Opening this link is the whole pairing step: the page reads the token out of
    * the fragment, sets the address to the origin it was served from, and lands
    * on the session list with nothing typed. It works in a browser tab as well as
@@ -120,6 +162,32 @@ export function RemoteAccessCard() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
+  }, [pairingLink]);
+
+  /**
+   * The link as a scannable image.
+   *
+   * Rendered here rather than in the main process: it is pure presentation over
+   * a value the renderer already holds, so no new IPC surface is needed.
+   */
+  useEffect(() => {
+    if (!pairingLink) {
+      setQr(null);
+      return;
+    }
+    let cancelled = false;
+    QRCode.toDataURL(pairingLink, { errorCorrectionLevel: "M", margin: 1, width: 240 })
+      .then((url) => {
+        if (!cancelled) setQr(url);
+      })
+      .catch(() => {
+        // A code that fails to render must not take the card down with it; the
+        // link itself is still on screen and still works.
+        if (!cancelled) setQr(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [pairingLink]);
 
   return (
@@ -162,11 +230,11 @@ export function RemoteAccessCard() {
       >
         <Input
           value={label}
-          placeholder={t("settings.remoteDeviceLabel")}
+          placeholder={t("settings.remoteDeviceLabelHint")}
           onChange={(event) => setLabel(event.target.value)}
           aria-label={t("settings.remoteDeviceLabel")}
         />
-        <Button variant="primary" onClick={() => void issue()} disabled={busy || label.trim().length === 0}>
+        <Button variant="primary" onClick={() => void issue()} disabled={busy}>
           {t("settings.remoteIssueDevice")}
         </Button>
       </SettingsRow>
@@ -194,19 +262,27 @@ export function RemoteAccessCard() {
         </SettingsRow>
       ) : null}
 
+      {qr ? (
+        <SettingsRow title={t("settings.remotePairingScan")} description={t("settings.remotePairingScanDesc")}>
+          <img
+            src={qr}
+            alt={t("settings.remotePairingScan")}
+            width={240}
+            height={240}
+            data-testid="remote-pairing-qr"
+          />
+        </SettingsRow>
+      ) : null}
+
       {devices.length > 0 ? (
         <>
-          {devices.map((device) => (
+          {sortedDevices.map((device) => (
             <SettingsRow
               key={device.deviceId}
               title={device.label}
-              detail={
-                device.revokedAt
-                  ? t("settings.remoteDeviceRevoked")
-                  : device.lastSeenAt
-                    ? t("settings.remoteDeviceLastSeen", { at: device.lastSeenAt })
-                    : t("settings.remoteDeviceNeverSeen")
-              }
+              detail={`${seenLabel(device)} · ${t("settings.remoteDeviceCreated", {
+                at: new Date(device.createdAt).toLocaleDateString(),
+              })}`}
             >
               {device.revokedAt ? null : (
                 <Button variant="ghost" onClick={() => void revoke(device.deviceId)} disabled={busy}>
