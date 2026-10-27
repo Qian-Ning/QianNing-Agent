@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -125,5 +125,56 @@ describe("desktop remote listener", () => {
 
     await listener.start("loopback");
     expect((await listener.status()).exposure).toBe("loopback");
+  });
+});
+
+describe("remote listener port memory", () => {
+  it("keeps the port it used last time", async () => {
+    const dir = await dataDir();
+    const make = () => {
+      const listener = createRemoteListener({
+        dataDir: dir,
+        agentHost,
+        serverVersion: "2.1.0",
+        getHost: () => fakeHost(),
+        compact: async () => ({ accepted: true }),
+        isBusy: () => false,
+        log: () => undefined,
+      });
+      listeners.push(listener);
+      return listener;
+    };
+
+    const first = make();
+    const started = await first.start();
+    await first.stop();
+
+    const second = make();
+    const restarted = await second.start();
+
+    // Without the remembered port the OS hands out a different free one, and a
+    // link a phone already holds stops resolving with nothing to explain it.
+    expect(restarted.port).toBe(started.port);
+  });
+
+  it("ignores a remembered port that is out of range", async () => {
+    const dir = await dataDir();
+    await mkdir(join(dir, "remote"), { recursive: true });
+    await writeFile(join(dir, "remote", "port.json"), JSON.stringify({ port: 80 }), "utf8");
+
+    const listener = createRemoteListener({
+      dataDir: dir,
+      agentHost,
+      serverVersion: "2.1.0",
+      getHost: () => fakeHost(),
+      compact: async () => ({ accepted: true }),
+      isBusy: () => false,
+      log: () => undefined,
+    });
+    listeners.push(listener);
+
+    const address = await listener.start();
+    // 80 is privileged; a corrupt or tampered file must not make startup fail.
+    expect(address.port).toBeGreaterThan(1023);
   });
 });

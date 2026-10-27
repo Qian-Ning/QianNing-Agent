@@ -127,6 +127,42 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
    */
   let activeExposure: "loopback" | "lan" | null = null;
 
+  /**
+   * The port this listener used last time.
+   *
+   * The OS hands out a new free port on every start, which silently breaks every
+   * link and bookmark that pointed at the old one — the phone keeps a pairing
+   * link, and that link stops working for a reason nothing on screen explains.
+   * Remembering the port keeps a paired phone paired.
+   */
+  const readPort = async (): Promise<number> => {
+    try {
+      const raw = await readFile(join(remoteDir, "port.json"), "utf8");
+      const parsed = JSON.parse(raw) as { port?: unknown };
+      const port = parsed.port;
+      if (typeof port === "number" && Number.isInteger(port) && port > 1023 && port < 65536) {
+        return port;
+      }
+    } catch {
+      // Missing or unreadable: no preference, which is not an error.
+    }
+    return 0;
+  };
+
+  const writePort = async (port: number): Promise<void> => {
+    if (port <= 0) return;
+    try {
+      await mkdir(remoteDir, { recursive: true });
+      await writeFile(join(remoteDir, "port.json"), JSON.stringify({ port }), "utf8");
+    } catch (error) {
+      // A listener that works but forgets its port is better than one that fails
+      // to start because a preferences file could not be written.
+      options.log("warn", "remote listener could not remember its port", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
   const hostId = async (): Promise<string> => {
     const path = join(remoteDir, "host-id");
     try {
@@ -193,20 +229,36 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
         bindings: ["RACP-HTTP"],
         log: options.log,
       });
-      binding = await bindRacpHttp({
-        server,
-        authenticator,
-        host: exposure === "lan" ? EVERY_INTERFACE : LOOPBACK,
-        port: options.port ?? 0,
-        ...(tls ? { tls, allowLan: true } : {}),
-        ...(options.serveStatic ? { serveStatic: options.serveStatic } : {}),
-        // The phone shell serves the client page from its own bundle, so its
-        // requests arrive from a bundler origin rather than from this listener.
-        // Only those origins are listed: a page on any other origin gets no
-        // CORS headers and cannot read a reply, even with a stolen token.
-        corsOrigins: ["https://localhost", "capacitor://localhost", "http://localhost"],
-        log: options.log,
-      });
+      // Passed in rather than captured: a closure over the mutable `server` is
+      // not narrowed by the assignment above, so the type would widen to null.
+      const open = (port: number, srv: RacpServer) =>
+        bindRacpHttp({
+          server: srv,
+          authenticator,
+          host: exposure === "lan" ? EVERY_INTERFACE : LOOPBACK,
+          port,
+          ...(tls ? { tls, allowLan: true } : {}),
+          ...(options.serveStatic ? { serveStatic: options.serveStatic } : {}),
+          // The phone shell serves the client page from its own bundle, so its
+          // requests arrive from a bundler origin rather than from this listener.
+          // Only those origins are listed: a page on any other origin gets no
+          // CORS headers and cannot read a reply, even with a stolen token.
+          corsOrigins: ["https://localhost", "capacitor://localhost", "http://localhost"],
+          log: options.log,
+        });
+
+      const preferred = options.port ?? (await readPort());
+      try {
+        binding = await open(preferred, server);
+      } catch (error) {
+        if (preferred === 0) throw error;
+        // Something else holds the remembered port. Starting on a different one
+        // is better than not starting, but it has to be visible: a phone holding
+        // the old link will fail until it is re-paired.
+        options.log("warn", "remote listener port busy, asking the OS", { port: preferred });
+        binding = await open(0, server);
+      }
+      await writePort(binding.address.port);
       publicUrl = tls ? `https://${addresses[0]}:${binding.address.port}` : null;
       activeExposure = exposure;
       options.log("info", "remote listener started", { ...binding.address, exposure });
