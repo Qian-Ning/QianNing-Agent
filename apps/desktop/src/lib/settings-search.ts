@@ -52,6 +52,12 @@ export type SettingsNavEntry = {
   developerOnly?: true;
   /** Surface is omitted from packaged builds; development builds retain it. */
   developmentOnly?: true;
+  /**
+   * Destination edits keyboard bindings. A phone has no hardware keyboard
+   * shortcuts to bind, so the phone surface drops it with the rest of the
+   * desktop-only settings.
+   */
+  desktopOnly?: true;
   /** Localized Experimental badge shown beside the rail row and page title. */
   experimentalBadgeKey?: string;
 };
@@ -146,6 +152,7 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
   },
   {
     id: "shortcuts",
+    desktopOnly: true,
     labelKey: "settings.nav.shortcuts",
     titleKey: "settings.shortcuts",
     group: "preferences",
@@ -363,11 +370,13 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
 export function visibleSettingsNav(
   developerMode: boolean,
   includeDevelopmentOnly = true,
+  surface: "desktop" | "mobile" = "desktop",
 ): SettingsNavEntry[] {
   return SETTINGS_NAV.filter(
     (entry) =>
       (entry.developerOnly !== true || developerMode) &&
-      (entry.developmentOnly !== true || includeDevelopmentOnly),
+      (entry.developmentOnly !== true || includeDevelopmentOnly) &&
+      (entry.desktopOnly !== true || surface === "desktop"),
   );
 }
 
@@ -376,8 +385,9 @@ export function isSettingsDestinationHidden(
   tab: SettingsTabId,
   developerMode: boolean,
   includeDevelopmentOnly = true,
+  surface: "desktop" | "mobile" = "desktop",
 ): boolean {
-  return !visibleSettingsNav(developerMode, includeDevelopmentOnly).some(
+  return !visibleSettingsNav(developerMode, includeDevelopmentOnly, surface).some(
     (entry) => entry.id === tab,
   );
 }

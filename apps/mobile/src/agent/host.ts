@@ -10,6 +10,7 @@
 import { Agent, type AgentMessage, type StreamFn } from "@earendil-works/pi-agent-core";
 import { streamSimple } from "@earendil-works/pi-ai/api/openai-completions";
 import type { Model, ProviderId, TranscriptContext } from "@earendil-works/pi-ai";
+import { PRODUCT_IDENTITY_SYSTEM_PROMPT } from "@pi-desktop/shared";
 import { createTools } from "./tools";
 import type { AgentStore, StoredMessage, StoredSession } from "./store";
 import type { HostEvent, ThinkingLevel } from "../lib/racp";
@@ -27,13 +28,32 @@ export type ProviderConfig = {
 
 export type LocalEvent = HostEvent;
 
+/**
+ * The phone's prompt is the desktop's product identity plus an honest account
+ * of what a phone can do. The identity block is imported rather than copied, so
+ * the two surfaces cannot describe the same product differently.
+ */
 const SYSTEM_PROMPT = [
-  "You are QianNing Agent, running on the phone itself.",
-  "You have no shell and no desktop filesystem. Your tools are the complete list:",
-  "list_files, read_file, write_file (the app's own storage) and fetch_url (the web).",
-  "Never claim to have run a command or opened a desktop file. Say what you cannot do.",
-  "Answer in the user's language.",
-].join("\n");
+  "You are QianNing Agent, running on the phone itself: the same product as the desktop app, with a phone's tools and the phone's own storage.",
+  PRODUCT_IDENTITY_SYSTEM_PROMPT,
+  [
+    "Your tools are the complete list:",
+    "list_files, read_file, write_file (inside this app's own storage) and fetch_url (the open web).",
+    "There is no shell, no desktop filesystem, no browser control, and no way to install software.",
+    "Never claim to have run a command, opened a file on the user's computer, or reached a local network address.",
+    "When a request needs one of those, say plainly what is missing and what you can do with the tools you have.",
+  ].join(" "),
+  [
+    "Answer in the user's language, and keep code, identifiers, file paths, and commands in English.",
+    "Lead with the answer, then give the specifics it needs — numbers, names, steps, mechanisms, trade-offs — so the reader can act without asking again.",
+    "Do not restate the question, do not pad, and do not close with an offer of further help when there is no concrete next step.",
+  ].join(" "),
+  [
+    "Write long output to a file with write_file instead of printing something the reader would have to copy, and say where you wrote it.",
+    "Read a file before you replace it: a file you have not read is a file you cannot safely rewrite.",
+    "When something cannot be verified — a fetch failed, a file is missing — report what you actually observed. Never invent file contents, command output, or URLs.",
+  ].join(" "),
+].join("\n\n");
 
 function buildModel(config: ProviderConfig, maxTokens = 8192): Model<"openai-completions"> {
   return {
@@ -233,6 +253,20 @@ export class LocalAgentHost {
     return text;
   }
 
+  /**
+   * Replaces the instructions for one conversation. The runtime caches an
+   * agent per session, so the cached one is dropped; the next turn builds a
+   * new agent from the stored prompt.
+   */
+  setSystemPrompt(sessionId: string, systemPrompt: string | null): void {
+    const session = this.store.readSession(sessionId);
+    if (!session) return;
+    const trimmed = (systemPrompt ?? "").trim();
+    const next = { ...session, systemPrompt: trimmed || undefined };
+    this.store.writeSession(next);
+    this.running.delete(sessionId);
+  }
+
   interrupt(sessionId: string): void {
     this.running.get(sessionId)?.agent.abort();
   }
@@ -242,10 +276,14 @@ export class LocalAgentHost {
     if (existing) return existing;
 
     const stored = this.store.readMessages(sessionId);
+    const sessionPrompt = this.store.readSession(sessionId)?.systemPrompt;
     const agent = new Agent({
       initialState: {
         model: this.override?.model ?? buildModel(this.provider, this.prefs.maxTokens),
-        systemPrompt: withExtraInstructions(SYSTEM_PROMPT, this.prefs.systemPrompt),
+        systemPrompt: withExtraInstructions(
+          SYSTEM_PROMPT,
+          sessionPrompt ?? this.prefs.systemPrompt,
+        ),
         tools: createTools(this.store),
         messages: this.readTranscript(sessionId),
       },

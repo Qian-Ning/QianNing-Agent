@@ -10,6 +10,7 @@
  */
 
 import { appStorage } from "../lib/app-storage";
+import { clearSystemNotice, postSystemNotice } from "./system-notices";
 
 export type Notice = {
   id: string;
@@ -85,11 +86,15 @@ export function pushNotice(input: {
     read: false,
   };
   write([notice, ...read()].slice(0, LIMIT));
+  // A copy in the system tray is what reaches the reader when the app is not
+  // on screen; the centre above stays the record either way.
+  void postSystemNotice(notice);
   return notice;
 }
 
 /** Marks one entry read; used when the reader opens its conversation. */
 export function markRead(id: string): void {
+  void clearSystemNotice(id);
   const current = read();
   let changed = false;
   const next = current.map((notice) => {

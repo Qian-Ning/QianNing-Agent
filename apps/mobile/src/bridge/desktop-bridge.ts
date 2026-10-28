@@ -24,6 +24,9 @@ export type AgentHostLike = {
   send(sessionId: string, text: string): Promise<void>;
   subscribe(sessionId: string, listener: (event: LocalEvent) => void): () => void;
   interrupt?(sessionId: string): void;
+  /** Rewrites the instructions for one conversation; optional for hosts that
+   * run a single fixed prompt. */
+  setSystemPrompt?(sessionId: string, systemPrompt: string | null): void;
 };
 
 export type BridgeEnvironment = {
@@ -41,6 +44,19 @@ export type BridgeListener = (payload: unknown) => void;
 
 const PREFIX = "pi-desktop/";
 const AGENT_EVENT = "agent/event/message";
+
+/**
+ * Session channels disagree on how they name their first argument: some send a
+ * bare id string (`sessionDelete`, `configureSession`), others send `{ id }`
+ * or `{ sessionId }`. Reading only one shape made model selection and deleting
+ * a conversation fail with "sessionId is required" while the same id sat in
+ * the call.
+ */
+function sessionIdOf(input: unknown): string {
+  if (typeof input === "string") return input;
+  const request = (input ?? {}) as { id?: string; sessionId?: string };
+  return request.id ?? request.sessionId ?? "";
+}
 
 export class PhoneBridge {
   private readonly listeners = new Map<string, Set<BridgeListener>>();
@@ -183,7 +199,7 @@ export class PhoneBridge {
     },
 
     "session/delete": (input) => {
-      const sessionId = (input as { sessionId?: string } | undefined)?.sessionId;
+      const sessionId = sessionIdOf(input);
       if (!sessionId) throw new Error("sessionId is required");
       this.env.store.deleteSession(sessionId);
       return { deleted: true };
@@ -193,8 +209,7 @@ export class PhoneBridge {
     // host runs one service at a time, so a chosen provider/model also becomes
     // the active one: there is no second runtime to switch between.
     "session/configure": (input, config) => {
-      const request = (input ?? {}) as { id?: string; sessionId?: string };
-      const sessionId = request.id ?? request.sessionId;
+      const sessionId = sessionIdOf(input);
       if (!sessionId) throw new Error("sessionId is required");
       const session = this.env.store.readSession(sessionId);
       if (!session) throw new Error(`unknown session ${sessionId}`);
@@ -226,9 +241,7 @@ export class PhoneBridge {
     // The conversation view reads the whole session, not just its messages:
     // without this the app can list sessions but never open one.
     "session/get": (input) => {
-      // The renderer names this argument `id`; other channels use `sessionId`.
-      const request = (input ?? {}) as { id?: string; sessionId?: string };
-      const sessionId = request.id ?? request.sessionId;
+      const sessionId = sessionIdOf(input);
       if (!sessionId) throw new Error("sessionId is required");
       const session = this.env.store.readSession(sessionId);
       if (!session) throw new Error(`unknown session ${sessionId}`);
@@ -247,6 +260,7 @@ export class PhoneBridge {
           mode: "agent",
           thinkingLevel: "medium",
           permissionMode: "inherit",
+          systemPrompt: session.systemPrompt ?? null,
           createdAt: session.createdAt,
           updatedAt: session.updatedAt,
           messages,
@@ -254,16 +268,36 @@ export class PhoneBridge {
       };
     },
 
+    // The topbar's prompt dialog: one conversation may carry its own
+    // instructions, appended to the phone's prompt for every turn after this.
+    "session/setSystemPrompt": (input, systemPrompt) => {
+      const sessionId = sessionIdOf(input);
+      if (!sessionId) throw new Error("sessionId is required");
+      const session = this.env.store.readSession(sessionId);
+      if (!session) throw new Error(`unknown session ${sessionId}`);
+      const trimmed = (typeof systemPrompt === "string" ? systemPrompt : "").trim();
+      this.env.store.writeSession({ ...session, systemPrompt: trimmed || undefined });
+      // The host also drops its cached agent for this session, so the next turn
+      // rebuilds its prompt instead of reusing the old one.
+      this.env.host?.setSystemPrompt?.(sessionId, trimmed || null);
+      const updated = this.env.store.readSession(sessionId) ?? session;
+      return {
+        session: {
+          ...updated,
+          messageCount: this.env.store.readMessages(sessionId).length,
+        },
+      };
+    },
+
     "session/open": (input) => {
-      const request = (input ?? {}) as { id?: string; sessionId?: string };
-      const sessionId = request.id ?? request.sessionId;
+      const sessionId = sessionIdOf(input);
       const session = sessionId ? this.env.store.readSession(sessionId) : null;
       return { session: session ? { id: session.id, title: session.title } : null };
     },
 
     "session/rename": (input) => {
       const request = (input ?? {}) as { id?: string; sessionId?: string; title?: string };
-      request.sessionId = request.sessionId ?? request.id;
+      request.sessionId = sessionIdOf(input);
       if (!request.sessionId) throw new Error("sessionId is required");
       const session = this.env.store.readSession(request.sessionId);
       if (!session) throw new Error(`unknown session ${request.sessionId}`);
@@ -277,7 +311,7 @@ export class PhoneBridge {
     },
 
     "session/history": (input) => {
-      const sessionId = (input as { sessionId?: string } | undefined)?.sessionId;
+      const sessionId = sessionIdOf(input);
       if (!sessionId) throw new Error("sessionId is required");
       return {
         messages: this.env.store.readMessages(sessionId).map((message) => ({

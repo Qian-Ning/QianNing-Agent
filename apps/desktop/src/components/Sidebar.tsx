@@ -106,6 +106,18 @@ type ProjectEntry = {
 };
 
 const VIEWPORT_PADDING = 8;
+/** Width the row menus request; used to keep them inside the window. */
+const ROW_MENU_WIDTH = 184;
+
+/**
+ * Menus anchor their left edge to the trigger, but they still have to fit. A
+ * three-dot at the right of a phone drawer put that edge past the window, so
+ * the list was cut in half; the menu slides back instead.
+ */
+function clampMenuLeft(preferred: number): number {
+  const maxLeft = window.innerWidth - ROW_MENU_WIDTH - VIEWPORT_PADDING;
+  return Math.max(VIEWPORT_PADDING, Math.min(preferred, maxLeft));
+}
 
 /** Private MIME so a sidebar session drag is never mistaken for an OS file drop. */
 const SESSION_DRAG_MIME = "application/x-pi-desktop-session";
@@ -514,7 +526,7 @@ export function Sidebar({
         VIEWPORT_PADDING,
         Math.min(rect.bottom + 4, window.innerHeight - 220),
       ),
-      left: Math.max(VIEWPORT_PADDING, rect.right + 4),
+      left: clampMenuLeft(rect.right + 4),
     });
   }, []);
 
@@ -526,7 +538,7 @@ export function Sidebar({
         VIEWPORT_PADDING,
         Math.min(y + 4, window.innerHeight - 220),
       ),
-      left: Math.max(VIEWPORT_PADDING, x + 4),
+      left: clampMenuLeft(x + 4),
     });
   }, []);
 

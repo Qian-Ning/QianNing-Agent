@@ -62,7 +62,10 @@ test("settings search returns no cloud-sync hit", () => {
 
 test("build visibility is still wired where it is still used", () => {
   assert.match(settingsPage, /const includeDevelopmentOnly = import\.meta\.env\.DEV/);
-  assert.match(settingsPage, /visibleSettingsNav\(developerMode, includeDevelopmentOnly\)/);
+  assert.match(
+    settingsPage,
+    /visibleSettingsNav\(developerMode, includeDevelopmentOnly, surface\)/,
+  );
   assert.match(settingsPage, /isSettingsDestinationHidden\([\s\S]*includeDevelopmentOnly/);
   assert.match(settingsPage, /setSettingsTab\("general"\)/);
   assert.match(searchDialog, /includeDevelopmentOnly: import\.meta\.env\.DEV/);
