@@ -1,3 +1,4 @@
+import { PROTOCOL_VERSION } from "@pi-desktop/shared";
 import type { AgentStore } from "../agent/store";
 import { toDesktopEvents, type LocalEvent } from "./agent-events";
 
@@ -15,7 +16,7 @@ import { toDesktopEvents, type LocalEvent } from "./agent-events";
  * - a channel nobody has implemented says so, by name. A silent `null` looks
  *   like "no data" and the interface lies about what it knows.
  */
-export type BridgeEnvelope<T> = { ok: true; value: T } | { ok: false; error: { code: string; message: string } };
+export type BridgeEnvelope<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
 
 /** What the bridge needs from the phone's agent host — nothing more. */
 export type AgentHostLike = {
@@ -92,7 +93,7 @@ export class PhoneBridge {
           error: { code: "bridge/unavailable", message: `the phone host does not implement ${key} yet` },
         };
       }
-      return { ok: true, value: await handler(...args) };
+      return { ok: true, data: await handler(...args) };
     } catch (cause) {
       return {
         ok: false,
@@ -108,12 +109,12 @@ export class PhoneBridge {
     "app/getVersion": () => ({
       name: "QianNing Agent",
       version: this.env.version,
-      protocolVersion: 1,
+      protocolVersion: PROTOCOL_VERSION,
       platform: this.env.platform,
       arch: "arm64",
     }),
 
-    "app/health": () => ({ ok: true, protocolVersion: 1, version: this.env.version, uptimeMs: 0 }),
+    "app/health": () => ({ ok: true, protocolVersion: PROTOCOL_VERSION, version: this.env.version, uptimeMs: 0 }),
 
     "settings/get": () => ({
       // Only what the phone host can actually answer today. The renderer fills
@@ -172,6 +173,24 @@ export class PhoneBridge {
     "providers/list": () => ({ providers: [] }),
     "project/list": () => ({ projects: [] }),
     "project/get": () => ({ workspace: null }),
+    // The phone ships without an updater; saying so is the honest answer, and
+    // the interface hides the update row when the mode is manual.
+    "updates/getState": () => ({
+      mode: "manual",
+      preference: "manual",
+      defaultPreference: "manual",
+      automaticSupported: false,
+      status: "idle",
+      currentVersion: this.env.version,
+    }),
+
+    // Onboarding is a desktop first-run flow; the phone has its own.
+    "app/getOnboarding": () => ({ showChecklist: false, steps: [] }),
+
+    "composer/commands": () => ({ commands: [] }),
+
+    "notification/setViewingSession": () => null,
+
     "plugin/list": () => ({ plugins: [] }),
     "plugin/themes": () => [],
     "plugin/views": () => [],

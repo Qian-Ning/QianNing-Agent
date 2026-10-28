@@ -51,7 +51,7 @@ describe("agent prompt channel", () => {
     const result = await bridge.invoke("pi-desktop/agent/prompt", { sessionId: "s1", content: "你好" });
 
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value).toMatchObject({ accepted: true });
+    if (result.ok) expect(result.data).toMatchObject({ accepted: true });
     expect(fake.sent).toEqual([{ sessionId: "s1", text: "你好" }]);
   });
 
@@ -109,7 +109,7 @@ describe("agent prompt channel", () => {
     const { bridge, store } = bridgeWithHost();
     const created = await bridge.invoke("pi-desktop/session/create", { title: "探针" });
     expect(created.ok).toBe(true);
-    const session = (created as { value: { session: { id: string; title: string; messageCount: number } } }).value.session;
+    const session = (created as unknown as { data: { session: { id: string; title: string; messageCount: number } } }).data.session;
     expect(session.title).toBe("探针");
     expect(session.messageCount).toBe(0);
     expect(store.readSession(session.id)?.title).toBe("探针");
@@ -118,20 +118,20 @@ describe("agent prompt channel", () => {
   it("names an untitled session instead of leaving it blank", async () => {
     const { bridge } = bridgeWithHost();
     const created = await bridge.invoke("pi-desktop/session/create", {});
-    const session = (created as { value: { session: { title: string } } }).value.session;
+    const session = (created as unknown as { data: { session: { title: string } } }).data.session;
     expect(session.title).toBe("新对话");
   });
 
   it("deletes a session and its transcript", async () => {
     const { bridge, store } = bridgeWithHost();
     const created = await bridge.invoke("pi-desktop/session/create", { title: "x" });
-    const id = (created as { value: { session: { id: string } } }).value.session.id;
+    const id = (created as unknown as { data: { session: { id: string } } }).data.session.id;
 
     await bridge.invoke("pi-desktop/session/delete", { sessionId: id });
 
     expect(store.readSession(id)).toBeNull();
     const listed = await bridge.invoke("pi-desktop/session/list");
-    expect((listed as { value: { sessions: unknown[] } }).value.sessions).toHaveLength(0);
+    expect((listed as unknown as { data: { sessions: unknown[] } }).data.sessions).toHaveLength(0);
   });
 
   it("stops a turn through the host", async () => {

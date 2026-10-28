@@ -25,4 +25,21 @@ const bridge = new PhoneBridge({
   host: provider ? new LocalAgentHost(store, provider) : undefined,
 });
 
-(window as unknown as { piDesktop: unknown }).piDesktop = bridge.toWindowApi();
+const api = bridge.toWindowApi() as {
+  invoke: (channel: string, ...args: unknown[]) => Promise<{ ok: boolean; data?: unknown }>;
+};
+
+// A bridge that answers `undefined` looks like a missing feature to the
+// interface. That is worth one line in the console when someone is looking,
+// and silence the rest of the time.
+if (new URLSearchParams(location.search).has("bridgeDebug")) {
+  const real = api.invoke;
+  api.invoke = async (channel, ...args) => {
+    const result = await real(channel, ...args);
+    if (result.ok && result.data === undefined) console.warn("[bridge] empty answer:", channel);
+    if (!result.ok) console.warn("[bridge] refused:", channel);
+    return result;
+  };
+}
+
+(window as unknown as { piDesktop: unknown }).piDesktop = api;

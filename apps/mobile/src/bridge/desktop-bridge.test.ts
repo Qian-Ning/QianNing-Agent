@@ -15,7 +15,7 @@ describe("PhoneBridge", () => {
     const { bridge } = bridgeWith();
     const result = await bridge.invoke("pi-desktop/app/health");
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value).toMatchObject({ ok: true, version: "2.2.0" });
+    if (result.ok) expect(result.data).toMatchObject({ ok: true, version: "2.2.0" });
   });
 
   it("lists the phone's own sessions in the shape the sidebar reads", async () => {
@@ -29,7 +29,7 @@ describe("PhoneBridge", () => {
     const result = await bridge.invoke("pi-desktop/session/list");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const value = result.value as { sessions: Array<Record<string, unknown>> };
+    const value = result.data as { sessions: Array<Record<string, unknown>> };
     expect(value.sessions).toHaveLength(1);
     expect(value.sessions[0]).toMatchObject({ id: "s1", title: "整理发布清单", messageCount: 1, mode: "agent" });
   });
