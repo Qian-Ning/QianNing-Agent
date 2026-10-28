@@ -8,6 +8,13 @@
     <title>QianNing Agent</title>
   </head>
   <body>
+    <script>
+      // The shared surface (ADR 0339) is opt-in until a device proves a prompt
+      // round-trip; `?shared` loads the desktop renderer instead of this app.
+      if (new URLSearchParams(location.search).has("shared")) {
+        location.replace("./shared/index.html?surface=mobile");
+      }
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
