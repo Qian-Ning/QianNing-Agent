@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "cap:sync": "cap sync android",
     "apk": "node scripts/build-apk.mjs",
-    "audit:layout": "electron scripts/layout-audit.mjs"
+    "audit:layout": "electron scripts/layout-audit.mjs",
+    "build:headless": "esbuild src/agent/headless-entry.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist-headless/agent.mjs --log-level=warning"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",

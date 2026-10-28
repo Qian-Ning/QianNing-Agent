@@ -367,3 +367,4 @@ Each ADR includes:
 | 0335 | [The phone runs the agent itself](0335-mobile-agent-host.md) | Accepted |
 | 0336 | [A foreground service keeps a running turn alive](0336-mobile-foreground-service.md) | Accepted for implementation |
 | 0337 | [Scheduled tasks ring, the app runs them](0337-mobile-scheduled-alarms.md) | Accepted for implementation |
+| 0338 | [The agent runs outside the WebView](0338-headless-agent-runtime.md) | Proposed |
