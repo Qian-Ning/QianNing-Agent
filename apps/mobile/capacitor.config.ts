@@ -10,6 +10,12 @@ const config: CapacitorConfig = {
   appId: "app.qianning.agent",
   appName: "QianNing Agent",
   webDir: "dist",
+  plugins: {
+    // The shared surface is the desktop renderer, whose CSP allows same-origin
+    // requests only. Model calls go to the user's provider, so they are made
+    // natively instead of through the WebView's fetch.
+    CapacitorHttp: { enabled: true },
+  },
   android: {
     // The Host's certificate is self-signed and pinned by the user installing it;
     // cleartext is never allowed, so a misconfigured address fails loudly.
