@@ -97,14 +97,18 @@ export function SettingsPage() {
   // Experimental feature surfaces remain available in development builds only.
   const includeDevelopmentOnly = import.meta.env.DEV;
   const developerMode = settings?.developerMode === true;
+  // The phone surface hides destinations that only exist for a desktop — a
+  // keyboard-shortcut editor has nothing to bind without a hardware keyboard.
+  const surface = document.documentElement.dataset.surface === "mobile" ? "mobile" : "desktop";
   const navEntries = useMemo(
-    () => visibleSettingsNav(developerMode, includeDevelopmentOnly),
-    [developerMode, includeDevelopmentOnly],
+    () => visibleSettingsNav(developerMode, includeDevelopmentOnly, surface),
+    [developerMode, includeDevelopmentOnly, surface],
   );
   const tabHidden = isSettingsDestinationHidden(
     tab,
     developerMode,
     includeDevelopmentOnly,
+    surface,
   );
 
   const [query, setQuery] = useState("");

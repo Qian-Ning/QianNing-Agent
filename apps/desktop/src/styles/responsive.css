@@ -525,3 +525,14 @@
 :root[data-surface="mobile"] .settings-content {
   padding-left: 0;
 }
+
+/*
+  Row menus are placed by the sidebar and can be taller than a phone screen.
+  They keep to the viewport and scroll instead of running off the bottom.
+*/
+:root[data-surface="mobile"] .sidebar-row-menu,
+:root[data-surface="mobile"] .sidebar-popover {
+  max-width: calc(100vw - 16px);
+  max-height: min(70vh, 420px);
+  overflow-y: auto;
+}

@@ -182,6 +182,42 @@ describe("provider channels", () => {
     expect(value.defaultModelId).toBe("agnes-2.5-flash");
   });
 
+  it("deletes a session addressed by a bare id", async () => {
+    // `deleteSession` sends the id as the argument itself.
+    const api = bridge();
+    const created = await api.invoke("pi-desktop/session/create", { title: "旧对话" });
+    const id = (created as unknown as { data: { session: { id: string } } }).data.session.id;
+
+    const result = await api.invoke("pi-desktop/session/delete", id);
+    expect((result as unknown as { data: { deleted: boolean } }).data.deleted).toBe(true);
+
+    const listed = await api.invoke("pi-desktop/session/list");
+    const sessions = (listed as unknown as { data: { sessions: Array<{ id: string }> } }).data.sessions;
+    expect(sessions.some((session) => session.id === id)).toBe(false);
+  });
+
+  it("configures a session addressed by a bare id", async () => {
+    // `configureSession` sends (id, config) positionally.
+    const api = bridge();
+    const created = await api.invoke("pi-desktop/providers/create", {
+      name: "Agnes",
+      baseUrl: "https://apihub.agnes-ai.com/v1",
+      secretValue: "k",
+      models: [{ id: "agnes-3.0-flash" }],
+    });
+    const providerId = (created as unknown as { data: { provider: { id: string } } }).data.provider.id;
+    const session = await api.invoke("pi-desktop/session/create", { title: "对话" });
+    const id = (session as unknown as { data: { session: { id: string } } }).data.session.id;
+
+    const result = await api.invoke("pi-desktop/session/configure", id, {
+      providerId,
+      modelId: "agnes-3.0-flash",
+    });
+    expect((result as unknown as { data: { session: { modelId: string } } }).data.session.modelId).toBe(
+      "agnes-3.0-flash",
+    );
+  });
+
   it("renames a session", async () => {
     const api = bridge();
     const created = await api.invoke("pi-desktop/session/create", { title: "旧名" });
