@@ -5,8 +5,22 @@ import type { HostClient, ThinkingLevel } from "../lib/racp";
 import { loadSkinId, saveSkinId } from "../lib/skin";
 import { loadPrefs, savePrefs, type AgentPrefs } from "../agent/settings";
 import { ModelSheet } from "./model-sheet";
+import { NotificationsPage } from "./notifications-page";
+import { SchedulesPage } from "./schedules-page";
+import { loadNotices, subscribeNotices, unreadCount } from "../agent/notifications";
+import { loadSchedules } from "../agent/schedules";
 
-type Page = "root" | "general" | "model" | "appearance" | "connection" | "remote" | "usage" | "about";
+type Page =
+  | "root"
+  | "general"
+  | "model"
+  | "appearance"
+  | "notifications"
+  | "schedules"
+  | "connection"
+  | "remote"
+  | "usage"
+  | "about";
 
 type Props = {
   t: Translate;
@@ -54,6 +68,13 @@ export function SettingsView({
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [modelOpen, setModelOpen] = useState(false);
+  const [unread, setUnread] = useState(() => unreadCount(loadNotices()));
+
+  useEffect(() => {
+    const refresh = () => setUnread(unreadCount(loadNotices()));
+    refresh();
+    return subscribeNotices(refresh);
+  }, []);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--font-scale", fontStep);
@@ -88,6 +109,14 @@ export function SettingsView({
       { key: "general", label: t("settings.general") },
       { key: "model", label: t("settings.model"), value: modelLabel },
       { key: "appearance", label: t("settings.appearance"), value: BUILTIN_SKINS.find((s) => s.id === skinId)?.name },
+      { key: "notifications", label: t("settings.notifications"), value: unread > 0 ? String(unread) : undefined },
+      {
+        key: "schedules",
+        label: t("settings.schedules"),
+        value: loadSchedules().filter((entry) => entry.enabled).length
+          ? String(loadSchedules().filter((entry) => entry.enabled).length)
+          : undefined,
+      },
       { key: "connection", label: t("settings.connection"), value: connection ? connection.base : t("settings.thisPhone") },
       { key: "remote", label: t("settings.remoteAccess") },
       { key: "usage", label: t("settings.usage") },
@@ -107,6 +136,24 @@ export function SettingsView({
             </button>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (page === "notifications") {
+    return (
+      <div className="screen settings">
+        {header(t("settings.notifications"), "root")}
+        <NotificationsPage t={t} />
+      </div>
+    );
+  }
+
+  if (page === "schedules") {
+    return (
+      <div className="screen settings">
+        {header(t("settings.schedules"), "root")}
+        <SchedulesPage t={t} />
       </div>
     );
   }
