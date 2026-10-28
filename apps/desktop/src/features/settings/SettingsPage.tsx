@@ -134,6 +134,10 @@ export function SettingsPage() {
   const destination = activeExtension ? `extension:${activeExtension.ref}` : `builtin:${tab}`;
 
   useLayoutEffect(() => {
+    // On a phone this focus opens the soft keyboard the moment settings loads,
+    // covering the very directory the reader came to look at. Focus stays a
+    // pointer decision there.
+    if (document.documentElement.dataset.surface === "mobile") return;
     settingsSearchRef.current?.focus({ preventScroll: true });
   }, []);
 
@@ -434,14 +438,6 @@ export function SettingsPage() {
         data-settings-tab={activeExtension ? "extension" : tab}
       >
         <div className="settings-content-inner">
-          <button
-            type="button"
-            className="settings-mobile-back"
-            onClick={() => setMobileView("nav")}
-          >
-            <IconChevronLeft size={16} />
-            <span>{t("settings.backToApp")}</span>
-          </button>
           <div className="settings-content-enter">
           <h1 className="settings-section-title">
             <span>{activeExtension?.label ?? t(activeTitleKey)}</span>
@@ -483,6 +479,7 @@ export function SettingsPage() {
 
               <NetworkProxySection settings={settings} saveSettings={saveSettings} />
 
+              {surface === "desktop" ? (
               <SettingsCard title={t("settings.power")}>
                 <SettingsRow
                   title={t("settings.keepAwakeWhileRunning")}
@@ -507,8 +504,9 @@ export function SettingsPage() {
                   />
                 </SettingsRow>
               </SettingsCard>
+              ) : null}
 
-              {platform !== "darwin" && <CloseBehaviorSection />}
+              {surface === "desktop" && platform !== "darwin" && <CloseBehaviorSection />}
 
               <SettingsCard title={t("settings.companion")}>
                 <SettingsRow
