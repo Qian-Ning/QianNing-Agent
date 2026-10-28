@@ -1,4 +1,4 @@
-import { type CSSProperties, lazy, type ReactNode, Suspense } from "react";
+import { type CSSProperties, lazy, type ReactNode, Suspense, useEffect } from "react";
 import { ChatSurface } from "../../components/ChatSurface";
 import { ConversationTopbar } from "../../components/ConversationTopbar";
 import { ExtensionPromptHost } from "../../components/ExtensionPromptDialog";
@@ -99,6 +99,38 @@ export function AppShell() {
     sidebarToggleShortcut,
     workPanelToggleTooltip,
   } = useAppShellRuntime();
+
+  /**
+   * Android's back gesture is the phone's "go back". Without a handler the
+   * system reads it as "leave the app", which closed the window from inside a
+   * conversation. Each level unwinds exactly one step, and only the empty home
+   * screen lets the system take over.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (document.documentElement.dataset.surface !== "mobile") return;
+    const back = () => {
+      const store = useAppStore.getState();
+      if (store.page === "settings") {
+        store.setPage("chat");
+        return true;
+      }
+      if (!sidebarCollapsed) {
+        toggleSidebar();
+        return true;
+      }
+      if (store.activeSessionId) {
+        useAppStore.setState({ activeSessionId: undefined });
+        return true;
+      }
+      return false;
+    };
+    (window as unknown as { __qianningBack?: () => boolean }).__qianningBack = back;
+    return () => {
+      delete (window as unknown as { __qianningBack?: () => boolean }).__qianningBack;
+    };
+  }, [sidebarCollapsed, toggleSidebar]);
+
   useCopyTex();
   const petEnabled = useAppStore((state) => state.settings?.petEnabled === true);
 
@@ -371,3 +403,5 @@ export function AppShell() {
     </div>
   );
 }
+
+
