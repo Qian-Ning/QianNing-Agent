@@ -9,9 +9,9 @@
   </head>
   <body>
     <script>
-      // The shared surface (ADR 0339) is opt-in until a device proves a prompt
-      // round-trip; `?shared` loads the desktop renderer instead of this app.
-      if (new URLSearchParams(location.search).has("shared")) {
+      // The app is the desktop interface (ADR 0339). `?legacy` still opens the
+      // old phone-only screens while they are retired one by one.
+      if (!new URLSearchParams(location.search).has("legacy")) {
         location.replace("./shared/index.html?surface=mobile");
       }
     </script>

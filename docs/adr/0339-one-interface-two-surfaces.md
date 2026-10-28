@@ -70,10 +70,20 @@ interface, not a second interface.
   two shells to keep in step.
 - **Run the desktop Electron app inside Android** — no Electron for Android.
 
-## Open questions
+## Resolution
 
-- Whether the bridge lives in the WebView (JS, calling Capacitor plugins) or in a
-  native/Node host reached over a socket. The WebView path needs no new runtime;
-  the Node path is needed anyway for headless runs (ADR 0338).
-- How far the surface layer must go before the first screen ships: chat first,
-  settings second, panels later.
+The bridge lives in the WebView. `apps/mobile/src/bridge` implements
+`window.piDesktop` over the phone's own store and agent host, and
+`scripts/build-shared-surface.mjs` produces the renderer plus that bridge into
+`public/shared`. No new runtime, no socket between two processes.
+
+Two things that had to be right, both learned the hard way:
+
+- The bridge must answer `{ ok: true, data }`. The renderer reads `result.data`;
+  a `value` field resolves every call to `undefined` and surfaces as unrelated
+  rendering errors, with no failed channel to point at.
+- `protocolVersion` comes from `PROTOCOL_VERSION` in `@pi-desktop/shared`. A
+  placeholder number makes the shell refuse to start.
+
+The surface is now the default. `?legacy` still opens the old phone-only screens
+while they are retired; it disappears when the last of them does.
