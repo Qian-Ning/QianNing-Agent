@@ -249,6 +249,52 @@
   background: rgb(0 0 0 / 32%);
 }
 
+/*
+  A model service row is avatar + copy + switch + menu on desktop. At phone
+  width the copy lost its line and "9 个模型" stacked one character per row, so
+  the identity takes the full width and the controls move under it.
+*/
+:root[data-surface="mobile"] .model-provider-row {
+  row-gap: 8px;
+  padding: 12px;
+}
+
+:root[data-surface="mobile"] .model-provider-row-copy {
+  flex: 1 1 100%;
+}
+
+:root[data-surface="mobile"] .model-provider-row-actions {
+  flex: 1 1 100%;
+  justify-content: flex-end;
+}
+
+:root[data-surface="mobile"] .model-provider-row-meta,
+:root[data-surface="mobile"] .model-provider-row-account {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:root[data-surface="mobile"] .model-config-section-head {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+:root[data-surface="mobile"] .model-provider-add {
+  min-height: 40px;
+}
+
+/*
+  The two model panes size their lists with `flex: 1` inside a dialog that has
+  a fixed height on desktop. On a phone the dialog is height:auto, so the lists
+  collapsed to nothing while the header still reported nine models found.
+*/
+:root[data-surface="mobile"] .provider-models-list,
+:root[data-surface="mobile"] .provider-chosen-list {
+  flex: 0 0 auto;
+  max-height: min(46vh, 320px);
+}
+
 /* The sidebar footer holds eight destinations; one phone row cannot host them. */
 :root[data-surface="mobile"] .sidebar-footer,
 :root[data-surface="mobile"] .sidebar-actions {
@@ -318,7 +364,7 @@
 }
 
 :root[data-surface="mobile"] .composer-left {
-  flex: 1 1 100%;
+  grid-column: 1 / -1;
   min-width: 0;
   flex-wrap: nowrap;
   overflow-x: auto;
@@ -329,9 +375,23 @@
 }
 
 :root[data-surface="mobile"] .composer-right {
-  flex: 1 1 100%;
-  justify-content: space-between;
+  grid-column: 1 / -1;
+  width: 100%;
+  justify-content: flex-start;
   gap: 8px;
+  min-width: 0;
+}
+
+/* Send stays pinned right; the model cluster takes whatever is left and
+   truncates instead of pushing the button out of the box. */
+:root[data-surface="mobile"] .composer-right .send-btn,
+:root[data-surface="mobile"] .composer-right .stop-btn {
+  margin-left: auto;
+  flex: none;
+}
+
+:root[data-surface="mobile"] .composer-model-thinking {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -426,4 +486,42 @@
 /* The phone has no titlebar; the drag strip only wastes vertical space. */
 :root[data-surface="mobile"] .settings-titlebar {
   display: none;
+}
+
+/*
+  The conversation bar moves clear of the status bar. Its window-title text is
+  a desktop affordance — on a phone the hero and the conversation carry that
+  context — and every icon gets the same square target so the cluster reads as
+  one row instead of three differently sized buttons.
+*/
+:root[data-surface="mobile"] .conversation-topbar {
+  padding: calc(4px + env(safe-area-inset-top, 0px)) 12px 4px;
+  gap: 8px;
+}
+
+:root[data-surface="mobile"] .ct-title-wrap,
+:root[data-surface="mobile"] .ct-title {
+  display: none;
+}
+
+:root[data-surface="mobile"] .ct-actions {
+  gap: 4px;
+}
+
+:root[data-surface="mobile"] .ct-actions .ct-icon-btn,
+:root[data-surface="mobile"] .ct-right .ct-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+/*
+  The settings panel keeps the desktop rail's 40px inset. With the rail gone on
+  a phone that inset pushed every card off-centre and stole a tenth of the
+  width; the column padding belongs to `.settings-content-inner` alone.
+*/
+:root[data-surface="mobile"] .settings-content {
+  padding-left: 0;
 }
