@@ -116,8 +116,8 @@ export class PhoneBridge {
     "app/health": () => ({ ok: true, protocolVersion: 1, version: this.env.version, uptimeMs: 0 }),
 
     "settings/get": () => ({
-      // Only what the phone host can actually answer today. The renderer treats
-      // missing optional settings as their defaults.
+      // Only what the phone host can actually answer today. The renderer fills
+      // in anything it does not find here from its own defaults.
       defaultMode: "agent",
       theme: "system",
     }),
@@ -133,6 +133,27 @@ export class PhoneBridge {
         updatedAt: session.updatedAt,
       })),
     }),
+
+    "session/create": (input) => {
+      const now = new Date(this.now()).toISOString();
+      const requested = (input as { title?: string } | undefined)?.title;
+      const session = {
+        id: `s_${this.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+        title: requested?.trim() || "新对话",
+        createdAt: now,
+        updatedAt: now,
+      };
+      this.env.store.writeSession(session);
+      this.env.store.writeMessages(session.id, []);
+      return { session: { ...session, messageCount: 0, mode: "agent", thinkingLevel: "medium", permissionMode: "inherit" } };
+    },
+
+    "session/delete": (input) => {
+      const sessionId = (input as { sessionId?: string } | undefined)?.sessionId;
+      if (!sessionId) throw new Error("sessionId is required");
+      this.env.store.deleteSession(sessionId);
+      return { deleted: true };
+    },
 
     "session/history": (input) => {
       const sessionId = (input as { sessionId?: string } | undefined)?.sessionId;

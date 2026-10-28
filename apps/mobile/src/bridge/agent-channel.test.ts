@@ -105,6 +105,35 @@ describe("agent prompt channel", () => {
     if (!result.ok) expect(result.error.message).toContain("no agent runtime");
   });
 
+  it("creates a session the interface can open", async () => {
+    const { bridge, store } = bridgeWithHost();
+    const created = await bridge.invoke("pi-desktop/session/create", { title: "探针" });
+    expect(created.ok).toBe(true);
+    const session = (created as { value: { session: { id: string; title: string; messageCount: number } } }).value.session;
+    expect(session.title).toBe("探针");
+    expect(session.messageCount).toBe(0);
+    expect(store.readSession(session.id)?.title).toBe("探针");
+  });
+
+  it("names an untitled session instead of leaving it blank", async () => {
+    const { bridge } = bridgeWithHost();
+    const created = await bridge.invoke("pi-desktop/session/create", {});
+    const session = (created as { value: { session: { title: string } } }).value.session;
+    expect(session.title).toBe("新对话");
+  });
+
+  it("deletes a session and its transcript", async () => {
+    const { bridge, store } = bridgeWithHost();
+    const created = await bridge.invoke("pi-desktop/session/create", { title: "x" });
+    const id = (created as { value: { session: { id: string } } }).value.session.id;
+
+    await bridge.invoke("pi-desktop/session/delete", { sessionId: id });
+
+    expect(store.readSession(id)).toBeNull();
+    const listed = await bridge.invoke("pi-desktop/session/list");
+    expect((listed as { value: { sessions: unknown[] } }).value.sessions).toHaveLength(0);
+  });
+
   it("stops a turn through the host", async () => {
     const { bridge, fake } = bridgeWithHost();
     const result = await bridge.invoke("pi-desktop/agent/stop", { sessionId: "s1" });
