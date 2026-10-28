@@ -353,62 +353,110 @@
 }
 
 /*
-  The composer toolbar carries six controls on a desktop. None of them may
-  disappear on a phone — they move instead: attachments, voice, agent and
-  permission on one row, model, thinking level and send on the next.
+  Desktop puts seven controls on one row because it has the width. The phone
+  keeps the same single row and the same order, but the two chips that carry a
+  word ("代理", "权限") drop their label, the context ring and the permission
+  picker move out, and the model name truncates. Nothing wraps onto a second
+  line, which is what turned the composer into a two-storey block.
 */
 :root[data-surface="mobile"] .composer-toolbar {
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-inline: 12px;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  padding-inline: 10px;
 }
 
 :root[data-surface="mobile"] .composer-left {
-  grid-column: 1 / -1;
+  flex: 0 1 auto;
   min-width: 0;
   flex-wrap: nowrap;
-  overflow-x: auto;
-}
-
-:root[data-surface="mobile"] .composer-left::-webkit-scrollbar {
-  display: none;
+  gap: 2px;
+  overflow: visible;
 }
 
 :root[data-surface="mobile"] .composer-right {
-  grid-column: 1 / -1;
-  width: 100%;
-  justify-content: flex-start;
-  gap: 8px;
+  flex: 1 1 auto;
+  width: auto;
+  justify-content: flex-end;
+  gap: 2px;
   min-width: 0;
 }
 
-/* Send stays pinned right; the model cluster takes whatever is left and
-   truncates instead of pushing the button out of the box. */
+/* The send button is the anchor of the row; it never shrinks or moves. */
 :root[data-surface="mobile"] .composer-right .send-btn,
 :root[data-surface="mobile"] .composer-right .stop-btn {
-  margin-left: auto;
+  margin-left: 4px;
   flex: none;
 }
 
+/* A word inside a chip is the first thing to go: the icon still says which
+   control it is, and the row gains 48px back. */
+:root[data-surface="mobile"] .composer-permission .text-sm,
+:root[data-surface="mobile"] .composer-agent-chip .label {
+  display: none;
+}
+
+/*
+  The mode chip is an 88px word ("代理") that switches agent/plan/goal. It is a
+  power-user control next to a model name the reader needs to see, so the phone
+  spends that width on the model instead.
+*/
+:root[data-surface="mobile"] .composer-mode-chip {
+  display: none;
+}
+
+/*
+  The permission picker and the context ring open panels that do not fit a
+  phone; both are settable in the conversation's own settings, so the toolbar
+  keeps the row it needs instead of squeezing them in.
+*/
+:root[data-surface="mobile"] .composer-permission,
+:root[data-surface="mobile"] .context-inspector-trigger {
+  display: none;
+}
+
 :root[data-surface="mobile"] .composer-model-thinking {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
-/* The container query above drops the reasoning level once the composer is
-   narrow. On the phone the second row has room for it, and it is a feature
-   people set, not decoration. */
-:root[data-surface="mobile"] .composer-model-thinking-level,
-:root[data-surface="mobile"] .composer-model-thinking-dot {
-  display: inline-flex;
+:root[data-surface="mobile"] .composer-model-thinking-level {
+  display: none;
+}
+
+/*
+  The desktop container query collapses the model chip to a 32px icon below
+  450px, which is right for a squeezed window and wrong for a phone: the model
+  name is the one thing the reader needs to confirm before sending. The chip
+  reopens here and truncates its text instead.
+*/
+:root[data-surface="mobile"] .composer-right .composer-model-thinking-chip {
+  width: auto;
+  max-width: 52vw;
+  flex: 0 1 auto;
+  justify-content: flex-start;
+  gap: 6px;
+  padding-inline: 8px;
+}
+
+:root[data-surface="mobile"] .composer-model-thinking-model {
+  display: inline-block;
+  max-width: 42vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-surface="mobile"] .composer-model-thinking-chevron {
+  display: none;
 }
 
 /* The model name is the one label that can be long; it truncates rather than
-   pushing the send button off screen. */
+   wrapping or pushing the send button off screen. */
 :root[data-surface="mobile"] .composer-model-chip,
 :root[data-surface="mobile"] .composer-model-select {
   min-width: 0;
-  max-width: 60vw;
+  max-width: 52vw;
 }
 
 :root[data-surface="mobile"] .composer-model-chip .label,
@@ -535,4 +583,91 @@
   max-width: calc(100vw - 16px);
   max-height: min(70vh, 420px);
   overflow-y: auto;
+}
+
+/*
+  The action cluster is drawn as one tinted pill on desktop, where it holds two
+  buttons next to a title. On a phone the pill reads as a third, differently
+  sized control beside the plain panel button — the "one bigger, one smaller"
+  mismatch. The tray goes away so every button is the same 40px square.
+*/
+:root[data-surface="mobile"] .conversation-topbar .ct-actions {
+  background: transparent;
+  padding: 0;
+  gap: 2px;
+}
+
+:root[data-surface="mobile"] .conversation-topbar .ct-right {
+  gap: 2px;
+}
+
+:root[data-surface="mobile"] .conversation-topbar .ct-icon-btn {
+  border-radius: var(--radius-md);
+}
+
+/*
+  Settings kept the desktop's content padding (48px right, toolbar-height top)
+  which left an empty band above the section and a dead gutter on the right.
+  The phone uses the panel edge to edge.
+*/
+:root[data-surface="mobile"] .settings-content {
+  padding: 4px 16px 24px;
+}
+
+:root[data-surface="mobile"] .settings-section-title {
+  margin-top: 0;
+}
+
+/*
+  The model-service dialog is height:auto on a phone, but its panes still size
+  their lists with flex:1 and paint their sticky headers over the rows, so the
+  searches and the model rows collided. A full-height sheet gives every pane a
+  real height and its own scroll.
+*/
+:root[data-surface="mobile"] .provider-setup-dialog,
+:root[data-surface="mobile"] .vendor-account-dialog {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  height: 100dvh;
+  max-height: 100dvh;
+  width: 100vw;
+  max-width: 100vw;
+  border-radius: 0;
+  padding: 12px 14px 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:root[data-surface="mobile"] .provider-setup-panes {
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: minmax(0, auto);
+  min-height: 0;
+  overflow: hidden;
+}
+
+:root[data-surface="mobile"] .provider-models-pane,
+:root[data-surface="mobile"] .provider-chosen-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+:root[data-surface="mobile"] .provider-models-list,
+:root[data-surface="mobile"] .provider-chosen-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+
+/* Search fields and the add-custom row keep their own line instead of
+   overlapping the list header. */
+:root[data-surface="mobile"] .provider-models-search-wrap,
+:root[data-surface="mobile"] .provider-chosen-search-wrap,
+:root[data-surface="mobile"] .provider-models-add-custom {
+  flex: none;
+  position: relative;
+  z-index: 1;
 }
