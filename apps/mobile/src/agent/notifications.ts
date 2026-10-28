@@ -88,6 +88,18 @@ export function pushNotice(input: {
   return notice;
 }
 
+/** Marks one entry read; used when the reader opens its conversation. */
+export function markRead(id: string): void {
+  const current = read();
+  let changed = false;
+  const next = current.map((notice) => {
+    if (notice.id !== id || notice.read) return notice;
+    changed = true;
+    return { ...notice, read: true };
+  });
+  if (changed) write(next);
+}
+
 export function markAllRead(): void {
   const current = read();
   if (!current.some((notice) => !notice.read)) return;

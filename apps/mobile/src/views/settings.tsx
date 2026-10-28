@@ -32,6 +32,8 @@ type Props = {
   onConnectRemote: (base: string, token: string) => Promise<void>;
   onDisconnect: () => void;
   stats: { sessions: number; messages: number };
+  /** Jump straight to the conversation a notification belongs to. */
+  onOpenSession?: (sessionId: string) => void;
   onClose: () => void;
 };
 
@@ -57,6 +59,7 @@ export function SettingsView({
   onConnectRemote,
   onDisconnect,
   stats,
+  onOpenSession,
   onClose,
 }: Props) {
   const [page, setPage] = useState<Page>("root");
@@ -144,7 +147,7 @@ export function SettingsView({
     return (
       <div className="screen settings">
         {header(t("settings.notifications"), "root")}
-        <NotificationsPage t={t} />
+        <NotificationsPage t={t} onOpenSession={onOpenSession} />
       </div>
     );
   }

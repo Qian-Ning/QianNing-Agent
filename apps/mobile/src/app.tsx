@@ -79,6 +79,23 @@ export function App() {
     return null;
   }, [host, localHost]);
 
+  /**
+   * Opens a conversation by id, which is how a notification finds its way back.
+   * The title comes from the host when it answers; a missing title is not a
+   * reason to refuse the jump, the transcript is still the right one.
+   */
+  const openSessionById = async (sessionId: string) => {
+    setDrawerOpen(false);
+    if (!client) return;
+    try {
+      const listing = await client.call<{ sessions?: SessionSummary[] }>("/v1/sessions?limit=200");
+      const found = (listing.sessions ?? []).find((entry) => entry.id === sessionId);
+      setScreen({ name: "chat", session: found ?? { id: sessionId, title: "" } });
+    } catch {
+      setScreen({ name: "chat", session: { id: sessionId, title: "" } });
+    }
+  };
+
   // Scheduled prompts fire from the open app: a timer, not a background alarm.
   // The runner leaves a failed task due and records the failure as a notice.
   useEffect(() => {
@@ -172,6 +189,7 @@ export function App() {
           setScreen({ name: "sessions" });
         }}
         stats={stats ?? { sessions: 0, messages: 0 }}
+        onOpenSession={(sessionId) => void openSessionById(sessionId)}
         onClose={() => setScreen({ name: "sessions" })}
       />
     );

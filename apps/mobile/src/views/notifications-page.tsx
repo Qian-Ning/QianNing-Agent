@@ -1,13 +1,29 @@
 import { useEffect, useState } from "react";
 import type { Translate } from "../lib/i18n";
-import { clearNotices, loadNotices, markAllRead, subscribeNotices, unreadCount, type Notice } from "../agent/notifications";
+import {
+  clearNotices,
+  loadNotices,
+  markAllRead,
+  markRead,
+  subscribeNotices,
+  unreadCount,
+  type Notice,
+} from "../agent/notifications";
+
+type Props = {
+  t: Translate;
+  /** Opens the conversation a notice belongs to; absent when no host is up. */
+  onOpenSession?: (sessionId: string) => void;
+};
 
 /**
- * The log of things that finished while the reader was elsewhere. Rows are
- * plain records, not buttons: there is nothing to press on a notification the
- * phone cannot deep-link into yet, and a dead tap is worse than a text row.
+ * The log of things that finished while the reader was elsewhere.
+ *
+ * An entry that knows its conversation is a row you can open — that is the only
+ * reason to keep the session id at all. Entries without one stay plain records
+ * rather than looking tappable and doing nothing.
  */
-export function NotificationsPage({ t }: { t: Translate }) {
+export function NotificationsPage({ t, onOpenSession }: Props) {
   const [notices, setNotices] = useState<Notice[]>(() => loadNotices());
 
   useEffect(() => {
@@ -17,6 +33,12 @@ export function NotificationsPage({ t }: { t: Translate }) {
   }, []);
 
   const unread = unreadCount(notices);
+
+  const open = (notice: Notice) => {
+    if (!notice.sessionId || !onOpenSession) return;
+    markRead(notice.id);
+    onOpenSession(notice.sessionId);
+  };
 
   return (
     <>
@@ -32,17 +54,36 @@ export function NotificationsPage({ t }: { t: Translate }) {
         <p className="empty-note">{t("settings.notifications.empty")}</p>
       ) : (
         <div className="settings-list notice-list">
-          {notices.map((notice) => (
-            <article key={notice.id} className={notice.read ? "notice" : "notice unread"}>
-              <div className="notice-head">
-                <span className="row-title">{notice.title}</span>
-                <span className="row-meta">{formatTime(notice.at)}</span>
-              </div>
-              {notice.body ? <p className="notice-body">{notice.body}</p> : null}
-            </article>
-          ))}
+          {notices.map((notice) =>
+            notice.sessionId && onOpenSession ? (
+              <button
+                key={notice.id}
+                type="button"
+                className={notice.read ? "notice openable" : "notice openable unread"}
+                onClick={() => open(notice)}
+              >
+                <NoticeBody notice={notice} />
+              </button>
+            ) : (
+              <article key={notice.id} className={notice.read ? "notice" : "notice unread"}>
+                <NoticeBody notice={notice} />
+              </article>
+            ),
+          )}
         </div>
       )}
+    </>
+  );
+}
+
+function NoticeBody({ notice }: { notice: Notice }) {
+  return (
+    <>
+      <span className="notice-head">
+        <span className="row-title">{notice.title}</span>
+        <span className="row-meta">{formatTime(notice.at)}</span>
+      </span>
+      {notice.body ? <span className="notice-body">{notice.body}</span> : null}
     </>
   );
 }

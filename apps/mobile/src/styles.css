@@ -1165,6 +1165,7 @@ footer {
 
 .settings-actions {
   display: flex;
+  justify-content: space-between;
   gap: 8px;
   padding: 4px 0 8px;
 }
@@ -1178,14 +1179,24 @@ footer {
   border-bottom: 1px solid var(--ds-border-subtle);
 }
 
-.notice.unread .row-title::before {
+/* The unread dot owns a fixed gutter, so read and unread rows share one left
+   edge instead of stepping in and out by six pixels. */
+.notice .row-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notice .row-title::before {
   content: "";
-  display: inline-block;
+  flex: none;
   width: 6px;
   height: 6px;
-  margin-right: 8px;
-  vertical-align: middle;
   border-radius: var(--radius-full);
+  background: transparent;
+}
+
+.notice.unread .row-title::before {
   background: var(--ds-accent);
 }
 
@@ -1197,7 +1208,10 @@ footer {
 }
 
 .notice-body {
+  /* Cleared by the dot gutter: body text lines up under the title, not under
+     the dot. */
   margin: 4px 0 0;
+  padding-left: 14px;
   color: var(--ds-text-secondary);
   font-size: var(--text-sm);
   line-height: 1.5;
@@ -1354,4 +1368,39 @@ footer {
   margin-left: 12px;
   margin-right: 12px;
   width: auto;
+}
+
+/* A notice that knows its conversation is a row, so it carries a row's
+   affordances: full width, left aligned, and a press state. */
+.notice.openable {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  min-height: 44px;
+  /* Same gutter as a plain record, so the dividers line up whether a row can be
+     opened or not. */
+  padding: 12px 0;
+  border: none;
+  border-bottom: 1px solid var(--ds-border-subtle);
+  background: none;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.notice.openable:active {
+  background: var(--ds-bg-hover);
+}
+
+.notice.openable .notice-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notice.openable .notice-body {
+  display: block;
 }
