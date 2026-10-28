@@ -43,19 +43,36 @@ const FetchArgs = Type.Object({
   body: Type.Optional(Type.String()),
 });
 
-export function createTools(store: AgentStore): AgentTool[] {
+/**
+ * `root` is the open project's folder prefix, or null at the storage root. A
+ * path the agent passes is always relative to whatever the reader opened, so
+ * "notes.md" in project A and in project B are different files.
+ */
+export function createTools(
+  store: AgentStore,
+  root: () => string | null = () => null,
+): AgentTool[] {
+  const resolve = (path: string): string | null => {
+    const base = root();
+    const clean = path.trim().replace(/^\/+/, "");
+    return base ? `${base}/${clean}` : clean;
+  };
+
   const listFiles: AgentTool<typeof ListArgs> = {
     name: "list_files",
     label: "List files",
     description: "List the files this agent has written in the app's own storage.",
     parameters: ListArgs,
     execute: async () => {
-      const names = store
-        .readValue(FILE_PREFIX + "index")
-        ?.split("\n")
+      const base = root();
+      const stored = store.readValue(FILE_PREFIX + "index") ?? "";
+      const names = stored
+        .split("\n")
         .filter(Boolean)
+        .filter((entry) => (base ? entry.startsWith(base + "/") : true))
+        .map((entry) => (base ? entry.slice(base.length + 1) : entry))
         .sort();
-      return text(names && names.length > 0 ? names.join("\n") : "(no files yet)");
+      return text(names.length > 0 ? names.join("\n") : "(no files yet)");
     },
   };
 
@@ -65,7 +82,7 @@ export function createTools(store: AgentStore): AgentTool[] {
     description: "Read a file previously written by this agent.",
     parameters: ReadArgs,
     execute: async (_toolCallId: string, args: Static<typeof ReadArgs>) => {
-      const key = fileKey(args.path);
+      const key = fileKey(resolve(args.path) ?? "");
       if (!key) return failure("invalid path");
       const content = store.readValue(key);
       return content === null ? failure("no such file: " + args.path) : text(content);
@@ -78,7 +95,8 @@ export function createTools(store: AgentStore): AgentTool[] {
     description: "Write a text file into the app's own storage, replacing any existing file.",
     parameters: WriteArgs,
     execute: async (_toolCallId: string, args: Static<typeof WriteArgs>) => {
-      const key = fileKey(args.path);
+      const scoped = resolve(args.path);
+      const key = fileKey(scoped ?? "");
       if (!key) return failure("invalid path");
       const bytes = new TextEncoder().encode(args.content).byteLength;
       if (bytes > MAX_FILE_BYTES) return failure("file is too large: " + bytes + " bytes");
@@ -86,7 +104,7 @@ export function createTools(store: AgentStore): AgentTool[] {
       const index = new Set((store.readValue(FILE_PREFIX + "index") ?? "").split("\n").filter(Boolean));
       index.add(args.path.trim().replace(/^\/+/, ""));
       store.writeValue(FILE_PREFIX + "index", [...index].join("\n"));
-      return text("wrote " + bytes + " bytes to " + args.path);
+      return text("wrote " + bytes + " bytes to " + (scoped ?? args.path));
     },
   };
 
