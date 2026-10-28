@@ -4,6 +4,7 @@ import {
   clearNotices,
   loadNotices,
   markAllRead,
+  markRead,
   pushNotice,
   resetNoticesForTests,
   subscribeNotices,
@@ -29,6 +30,15 @@ describe("notifications", () => {
     markAllRead();
     expect(unreadCount()).toBe(0);
     expect(loadNotices()).toHaveLength(2);
+  });
+
+  it("marks a single entry read without touching the others", () => {
+    const first = pushNotice({ title: "a" });
+    pushNotice({ title: "b" });
+    markRead(first.id);
+    const list = loadNotices();
+    expect(list.find((entry) => entry.id === first.id)?.read).toBe(true);
+    expect(unreadCount()).toBe(1);
   });
 
   it("caps the list at fifty entries", () => {

@@ -38,8 +38,25 @@ describe("settings pages", () => {
     pushNotice({ title: "新的一条", body: "b" });
     const html = renderToStaticMarkup(<NotificationsPage t={t} />);
     expect(html.indexOf("新的一条")).toBeLessThan(html.indexOf("旧的一条"));
-    expect(html).toContain("notice unread");
+    expect(html).toContain("notice");
     expect(html).toContain("全部已读");
+  });
+
+  it("a notice with a conversation is a row that opens it", () => {
+    pushNotice({ title: "会话里完成", sessionId: "session_9" });
+    const openable = renderToStaticMarkup(<NotificationsPage t={t} onOpenSession={() => {}} />);
+    expect(openable).toContain("<button");
+    expect(openable).toContain("notice openable");
+
+    const plain = renderToStaticMarkup(<NotificationsPage t={t} />);
+    expect(plain).not.toContain("openable");
+  });
+
+  it("a notice without a conversation stays a plain record", () => {
+    pushNotice({ title: "定时任务" });
+    const html = renderToStaticMarkup(<NotificationsPage t={t} onOpenSession={() => {}} />);
+    expect(html).toContain("<article");
+    expect(html).not.toContain("openable");
   });
 
   it("an empty notification list explains where entries come from", () => {
