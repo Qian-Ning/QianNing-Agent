@@ -1,6 +1,12 @@
 import { PROTOCOL_VERSION } from "@pi-desktop/shared";
 import type { AgentStore } from "../agent/store";
 import { toDesktopEvents, type LocalEvent } from "./agent-events";
+import {
+  ProjectBook,
+  toProjectGroup,
+  toProjectRecord,
+  toWorkspace,
+} from "../agent/projects";
 import { ProviderBook, listModels, toPublic } from "./providers";
 
 /**
@@ -68,9 +74,11 @@ export class PhoneBridge {
   private readonly env: BridgeEnvironment;
 
   private host?: AgentHostLike;
+  private readonly projects: ProjectBook;
 
   constructor(env: BridgeEnvironment) {
     this.env = env;
+    this.projects = new ProjectBook(env.store);
     this.host = env.host;
     this.providers = new ProviderBook(env.store);
   }
@@ -176,6 +184,7 @@ export class PhoneBridge {
       sessions: this.env.store.listSessions().map((session) => ({
         id: session.id,
         title: session.title,
+        projectPath: session.projectPath ?? null,
         messageCount: this.env.store.readMessages(session.id).length,
         mode: "agent",
         thinkingLevel: "medium",
@@ -186,12 +195,16 @@ export class PhoneBridge {
 
     "session/create": (input) => {
       const now = new Date(this.now()).toISOString();
-      const requested = (input as { title?: string } | undefined)?.title;
+      const request = (input ?? {}) as { title?: string; projectPath?: string };
+      // A conversation started while a project is open belongs to it, the same
+      // way a desktop session inherits the workspace it was created in.
+      const projectPath = (request.projectPath ?? this.projects.activeFolder() ?? "").trim();
       const session = {
         id: `s_${this.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
-        title: requested?.trim() || "新对话",
+        title: request.title?.trim() || "新对话",
         createdAt: now,
         updatedAt: now,
+        ...(projectPath ? { projectPath } : {}),
       };
       this.env.store.writeSession(session);
       this.env.store.writeMessages(session.id, []);
@@ -287,6 +300,73 @@ export class PhoneBridge {
           messageCount: this.env.store.readMessages(sessionId).length,
         },
       };
+    },
+
+    // Phone projects are folders in app storage, not disks to point at. The
+    // sidebar asks for the same shapes it asks a desktop for.
+    "project/list": () => ({ projects: this.projects.list().map(toProjectRecord) }),
+
+    "project-group/list": () => ({ groups: this.projects.list().map(toProjectGroup) }),
+
+    "project-group/create": (input) => {
+      const request = (input ?? {}) as { name?: string };
+      return { group: toProjectGroup(this.projects.create({ name: request.name ?? "" })) };
+    },
+
+    "project-group/rename": (input) => {
+      const request = (input ?? {}) as { groupId?: string; name?: string };
+      if (!request.groupId) throw new Error("groupId is required");
+      return { group: toProjectGroup(this.projects.rename(request.groupId, request.name ?? "")) };
+    },
+
+    "project-group/update": (input) => {
+      const request = (input ?? {}) as { groupId?: string; name?: string };
+      if (!request.groupId) throw new Error("groupId is required");
+      return { group: toProjectGroup(this.projects.rename(request.groupId, request.name ?? "")) };
+    },
+
+    // There is no folder picker on a phone; the app's own storage is the one
+    // place its file tools can reach, so that is the folder offered.
+    "project/pickFolders": () => ({ folders: ["手机存储"] }),
+
+    "project/openFolder": (path) => {
+      const opened = this.projects.open(typeof path === "string" ? path : "");
+      return { ok: opened !== null, path: opened?.folder ?? "" };
+    },
+
+    "project/get": () => {
+      const active = this.projects.active();
+      return { workspace: active ? toWorkspace(active) : null };
+    },
+
+    "project/set": (input) => {
+      const request = (input ?? {}) as { path?: string };
+      const opened = this.projects.open(request.path ?? "");
+      return { workspace: opened ? toWorkspace(opened) : null };
+    },
+
+    "project/clear": () => {
+      this.projects.setActive(null);
+      return { ok: true };
+    },
+
+    "project/remove": (input) => {
+      const request = (input ?? {}) as { path?: string };
+      return { ok: this.projects.remove(request.path ?? "") };
+    },
+
+    "session/moveProject": (input) => {
+      const request = (input ?? {}) as { sessionId?: string; projectPath?: string };
+      const sessionId = request.sessionId ?? "";
+      if (!sessionId) throw new Error("sessionId is required");
+      const session = this.env.store.readSession(sessionId);
+      if (!session) throw new Error(`unknown session ${sessionId}`);
+      const projectPath = (request.projectPath ?? "").trim();
+      this.env.store.writeSession({
+        ...session,
+        projectPath: projectPath || undefined,
+      });
+      return { ok: true };
     },
 
     "session/open": (input) => {
@@ -402,8 +482,6 @@ export class PhoneBridge {
       const provider = this.providers.list().find((row) => ref.includes(row.id));
       return { has: Boolean(provider?.apiKey) };
     },
-    "project/list": () => ({ projects: [] }),
-    "project/get": () => ({ workspace: null }),
     // The phone ships without an updater; saying so is the honest answer, and
     // the interface hides the update row when the mode is manual.
     "updates/getState": () => ({

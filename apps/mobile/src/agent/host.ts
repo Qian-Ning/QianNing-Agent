@@ -12,6 +12,7 @@ import { streamSimple } from "@earendil-works/pi-ai/api/openai-completions";
 import type { Model, ProviderId, TranscriptContext } from "@earendil-works/pi-ai";
 import { PRODUCT_IDENTITY_SYSTEM_PROMPT } from "@pi-desktop/shared";
 import { createTools } from "./tools";
+import { ProjectBook } from "./projects";
 import type { AgentStore, StoredMessage, StoredSession } from "./store";
 import type { HostEvent, ThinkingLevel } from "../lib/racp";
 
@@ -106,7 +107,9 @@ export class LocalAgentHost {
     },
     /** Reader-level instructions and limits; empty means the built-in defaults. */
     private readonly prefs: { systemPrompt?: string; maxTokens?: number } = {},
-  ) {}
+  ) {
+    this.projects = new ProjectBook(store);
+  }
 
   listSessions(): StoredSession[] {
     return this.store.listSessions();
@@ -271,6 +274,9 @@ export class LocalAgentHost {
     this.running.get(sessionId)?.agent.abort();
   }
 
+  /** The open phone project scopes every file tool; null means storage root. */
+  private readonly projects: ProjectBook;
+
   private ensureSession(sessionId: string): RunningSession {
     const existing = this.running.get(sessionId);
     if (existing) return existing;
@@ -284,7 +290,7 @@ export class LocalAgentHost {
           SYSTEM_PROMPT,
           sessionPrompt ?? this.prefs.systemPrompt,
         ),
-        tools: createTools(this.store),
+        tools: createTools(this.store, () => this.projects.activeFolder()),
         messages: this.readTranscript(sessionId),
       },
       streamFn:

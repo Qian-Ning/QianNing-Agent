@@ -309,6 +309,10 @@ export function ProjectCreateDialog() {
                   <IconMonitor size={15} aria-hidden />
                   {t("project.createComputer")}
                 </button>
+                {/* Cloning needs git and a parent directory; a phone has
+                    neither, and the app's storage is the only folder it can
+                    offer. */}
+                {document.documentElement.dataset.surface === "mobile" ? null : (
                 <button
                   type="button"
                   className={`project-create-dialog-source-option${
@@ -322,6 +326,7 @@ export function ProjectCreateDialog() {
                   <IconBranch size={15} aria-hidden />
                   {t("project.createSourceGit")}
                 </button>
+                )}
               </div>
             </section>
 

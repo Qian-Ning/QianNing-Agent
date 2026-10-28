@@ -30,6 +30,8 @@ export type StoredSession = {
    * both surfaces.
    */
   systemPrompt?: string;
+  /** Phone project folder the conversation belongs to, when it belongs to one. */
+  projectPath?: string;
 };
 
 export interface AgentStore {
