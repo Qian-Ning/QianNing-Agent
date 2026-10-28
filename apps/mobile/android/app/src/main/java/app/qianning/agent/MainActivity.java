@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
         // Registered before the bridge starts so the WebView can call it on
         // its first render.
         registerPlugin(AgentKeepAlivePlugin.class);
+        registerPlugin(ScheduleAlarmPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

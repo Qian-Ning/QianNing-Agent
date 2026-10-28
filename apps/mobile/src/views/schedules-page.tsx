@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Translate } from "../lib/i18n";
+import { alarmInfo, syncAlarms } from "../agent/alarms";
 import {
   createSchedule,
   loadSchedules,
@@ -22,8 +23,18 @@ export function SchedulesPage({ t }: { t: Translate }) {
   const [prompt, setPrompt] = useState("");
   const [minutes, setMinutes] = useState<number>(INTERVALS[1]);
   const [armed, setArmed] = useState<string | null>(null);
+  const [exact, setExact] = useState<boolean | null>(null);
 
-  const refresh = () => setSchedules(loadSchedules());
+  const refresh = () => {
+    const next = loadSchedules();
+    setSchedules(next);
+    // Every edit re-places the system alarms: the list is the source of truth.
+    void syncAlarms(next).then((result) => setExact(result.exact));
+  };
+
+  useEffect(() => {
+    void alarmInfo().then((result) => setExact(result.exact));
+  }, []);
 
   const add = () => {
     if (!title.trim() || !prompt.trim()) return;
@@ -38,6 +49,7 @@ export function SchedulesPage({ t }: { t: Translate }) {
   return (
     <>
       <p className="hint">{t("settings.schedules.hint")}</p>
+      {exact === false ? <p className="hint">{t("settings.schedules.inexact")}</p> : null}
 
       {schedules.length === 0 && !adding ? (
         <div className="empty-state">
