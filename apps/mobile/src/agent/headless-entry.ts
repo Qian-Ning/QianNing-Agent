@@ -1,5 +1,6 @@
 import { HeadlessRunner, parseJob } from "./headless";
 import { BrowserStore } from "./store";
+import { FileStore } from "./file-store";
 
 /**
  * Process entry point for the headless host (ADR 0338).
@@ -42,7 +43,10 @@ async function main(raw: string): Promise<void> {
     return;
   }
 
-  const runner = new HeadlessRunner(new BrowserStore(), job.provider);
+  // A file the app drains on next launch, or the WebView's storage when this
+  // runs inside the browser bundle (tests, local probes).
+  const store = process.env.QN_HEADLESS_DATA ? new FileStore(process.env.QN_HEADLESS_DATA) : new BrowserStore();
+  const runner = new HeadlessRunner(store, job.provider);
   const result = await runner.run(job, (event) => {
     process.stdout.write(JSON.stringify(event) + "\n");
   });
