@@ -189,3 +189,102 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+  ── Mobile surface ──────────────────────────────────────────────
+  The phone loads this same renderer with `data-surface="mobile"`
+  (ADR 0339). Nothing here invents a second interface: it adapts the one
+  shell to a narrow viewport — the sidebar becomes an overlay drawer
+  instead of taking a column, and the chat column stops reserving the
+  desktop's 450px floor.
+*/
+:root[data-surface="mobile"] {
+  --ds-main-pane-min-width: 0;
+}
+
+:root[data-surface="mobile"] .main-pane,
+:root[data-surface="mobile"] .chat-surface,
+:root[data-surface="mobile"] .route-page {
+  min-width: 0;
+}
+
+/*
+  The dock is positioned against the viewport, not the flex row, so opening it
+  on a phone covers the chat instead of squeezing it. Its width comes from a
+  literal because the shell writes `--ds-sidebar-width` inline from the drag
+  state, and an inline custom property would win over this rule.
+*/
+:root[data-surface="mobile"] .sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 60;
+  width: min(84vw, 320px);
+  flex-basis: auto;
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  box-shadow: var(--ds-shadow-dialog);
+}
+
+:root[data-surface="mobile"] .sidebar-header,
+:root[data-surface="mobile"] .sidebar-body {
+  min-width: 0;
+}
+
+/* A drag handle needs a pointer and a column to resize; the phone has neither. */
+:root[data-surface="mobile"] .sidebar-resize-handle {
+  display: none;
+}
+
+/*
+  Window controls are native chrome for a frameless desktop window. The phone
+  has an OS around the app, so drawing minimize/maximize/close is a lie about
+  what the buttons do.
+*/
+:root[data-surface="mobile"] .window-controls {
+  display: none;
+}
+
+/*
+  The conversation bar keeps its one row, but drops the desktop's generous
+  padding and guarantees a touch-sized target for every icon in it.
+*/
+:root[data-surface="mobile"] .conversation-topbar {
+  padding-inline: 8px;
+}
+
+:root[data-surface="mobile"] .ct-icon-btn,
+:root[data-surface="mobile"] .icon-btn,
+:root[data-surface="mobile"] .composer-plus,
+:root[data-surface="mobile"] .send-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* A prompt-card action and the work-panel toggle are taps on a phone too. */
+:root[data-surface="mobile"] .composer-prompt-card-tool,
+:root[data-surface="mobile"] .app-work-panel-toggle {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+/* A dismiss button is a target too; 26px is a mouse. */
+:root[data-surface="mobile"] .chat-error-dismiss {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+/*
+  The composer toolbar carries six controls on a desktop, which do not survive
+  one phone row. The model chip and the send button are the two that must stay
+  reachable; the rest move to a later sheet rather than being shrunk below a
+  finger.
+*/
+:root[data-surface="mobile"] .composer-permission,
+:root[data-surface="mobile"] .composer-model-thinking-level {
+  display: none;
+}
+
+:root[data-surface="mobile"] .composer-toolbar {
+  gap: 4px;
+}
