@@ -13,4 +13,6 @@
     <string name="schedule_due_title">定时任务到点了</string>
     <string name="schedule_due_body">点开应用，任务会立刻开始。</string>
     <string name="schedule_due_inexact">系统未授予精确闹钟权限，提醒可能延迟几分钟。</string>
+  <string name="notice_channel_name">通知</string>
+  <string name="notice_channel_description">对话完成、定时任务与提醒</string>
 </resources>

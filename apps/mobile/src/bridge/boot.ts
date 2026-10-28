@@ -1,5 +1,6 @@
 import { LocalAgentHost, type ProviderConfig } from "../agent/host";
 import { loadProvider } from "../agent/settings";
+import { requestNoticePermission } from "../agent/system-notices";
 import { BrowserStore } from "../agent/store";
 import { PhoneBridge } from "./desktop-bridge";
 import { ProviderBook } from "./providers";
@@ -66,3 +67,7 @@ if (new URLSearchParams(location.search).has("bridgeDebug")) {
 }
 
 (window as unknown as { piDesktop: unknown }).piDesktop = api;
+
+// Ask for the notification permission on first start: the notification centre
+// is only useful outside the app when the tray is allowed to speak.
+void requestNoticePermission();
