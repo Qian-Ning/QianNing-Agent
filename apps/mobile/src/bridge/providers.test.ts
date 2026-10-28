@@ -218,6 +218,23 @@ describe("provider channels", () => {
     );
   });
 
+  it("stores a per-conversation system prompt and reads it back", async () => {
+    const api = bridge();
+    const created = await api.invoke("pi-desktop/session/create", { title: "对话" });
+    const id = (created as unknown as { data: { session: { id: string } } }).data.session.id;
+
+    await api.invoke("pi-desktop/session/setSystemPrompt", id, "  只用中文回答。 ");
+
+    const detail = await api.invoke("pi-desktop/session/get", { id });
+    const session = (detail as unknown as { data: { session: { systemPrompt?: string } } }).data.session;
+    expect(session.systemPrompt).toBe("只用中文回答。");
+
+    await api.invoke("pi-desktop/session/setSystemPrompt", id, "   ");
+    const cleared = await api.invoke("pi-desktop/session/get", { id });
+    const after = (cleared as unknown as { data: { session: { systemPrompt?: string } } }).data.session;
+    expect(after.systemPrompt ?? null).toBeNull();
+  });
+
   it("renames a session", async () => {
     const api = bridge();
     const created = await api.invoke("pi-desktop/session/create", { title: "旧名" });

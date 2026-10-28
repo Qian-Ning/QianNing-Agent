@@ -24,6 +24,9 @@ export type AgentHostLike = {
   send(sessionId: string, text: string): Promise<void>;
   subscribe(sessionId: string, listener: (event: LocalEvent) => void): () => void;
   interrupt?(sessionId: string): void;
+  /** Rewrites the instructions for one conversation; optional for hosts that
+   * run a single fixed prompt. */
+  setSystemPrompt?(sessionId: string, systemPrompt: string | null): void;
 };
 
 export type BridgeEnvironment = {
@@ -257,9 +260,31 @@ export class PhoneBridge {
           mode: "agent",
           thinkingLevel: "medium",
           permissionMode: "inherit",
+          systemPrompt: session.systemPrompt ?? null,
           createdAt: session.createdAt,
           updatedAt: session.updatedAt,
           messages,
+        },
+      };
+    },
+
+    // The topbar's prompt dialog: one conversation may carry its own
+    // instructions, appended to the phone's prompt for every turn after this.
+    "session/setSystemPrompt": (input, systemPrompt) => {
+      const sessionId = sessionIdOf(input);
+      if (!sessionId) throw new Error("sessionId is required");
+      const session = this.env.store.readSession(sessionId);
+      if (!session) throw new Error(`unknown session ${sessionId}`);
+      const trimmed = (typeof systemPrompt === "string" ? systemPrompt : "").trim();
+      this.env.store.writeSession({ ...session, systemPrompt: trimmed || undefined });
+      // The host also drops its cached agent for this session, so the next turn
+      // rebuilds its prompt instead of reusing the old one.
+      this.env.host?.setSystemPrompt?.(sessionId, trimmed || null);
+      const updated = this.env.store.readSession(sessionId) ?? session;
+      return {
+        session: {
+          ...updated,
+          messageCount: this.env.store.readMessages(sessionId).length,
         },
       };
     },

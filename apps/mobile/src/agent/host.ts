@@ -253,6 +253,20 @@ export class LocalAgentHost {
     return text;
   }
 
+  /**
+   * Replaces the instructions for one conversation. The runtime caches an
+   * agent per session, so the cached one is dropped; the next turn builds a
+   * new agent from the stored prompt.
+   */
+  setSystemPrompt(sessionId: string, systemPrompt: string | null): void {
+    const session = this.store.readSession(sessionId);
+    if (!session) return;
+    const trimmed = (systemPrompt ?? "").trim();
+    const next = { ...session, systemPrompt: trimmed || undefined };
+    this.store.writeSession(next);
+    this.running.delete(sessionId);
+  }
+
   interrupt(sessionId: string): void {
     this.running.get(sessionId)?.agent.abort();
   }
@@ -262,10 +276,14 @@ export class LocalAgentHost {
     if (existing) return existing;
 
     const stored = this.store.readMessages(sessionId);
+    const sessionPrompt = this.store.readSession(sessionId)?.systemPrompt;
     const agent = new Agent({
       initialState: {
         model: this.override?.model ?? buildModel(this.provider, this.prefs.maxTokens),
-        systemPrompt: withExtraInstructions(SYSTEM_PROMPT, this.prefs.systemPrompt),
+        systemPrompt: withExtraInstructions(
+          SYSTEM_PROMPT,
+          sessionPrompt ?? this.prefs.systemPrompt,
+        ),
         tools: createTools(this.store),
         messages: this.readTranscript(sessionId),
       },

@@ -24,6 +24,12 @@ export type StoredSession = {
   title: string;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Per-conversation instructions, appended to the phone's own prompt. The
+   * desktop keeps the same field on a session, so the same dialog works on
+   * both surfaces.
+   */
+  systemPrompt?: string;
 };
 
 export interface AgentStore {
