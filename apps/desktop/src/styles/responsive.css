@@ -322,7 +322,6 @@
   min-width: 0;
   flex-wrap: nowrap;
   overflow-x: auto;
-  scrollbar-width: none;
 }
 
 :root[data-surface="mobile"] .composer-left::-webkit-scrollbar {
