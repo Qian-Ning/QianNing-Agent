@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { acquireKeepAlive, releaseKeepAlive } from "../agent/keepalive";
 import { Markdown } from "../lib/markdown";
 import { toMessageItem, type HostClient, type HostEvent, type MessageItem } from "../lib/racp";
 import type { Translate } from "../lib/i18n";
@@ -124,6 +125,20 @@ export function ChatView({
   const stick = useRef(true);
   const itemsRef = useRef<MessageItem[] | null>(null);
   itemsRef.current = items;
+
+  // While a turn is in flight the phone must not freeze this WebView, or the
+  // stream stops mid-answer when the app is backgrounded. The effect is tied to
+  // the turn's own lifecycle, not to the send request, which returns first.
+  useEffect(() => {
+    if (!turnId) return;
+    void acquireKeepAlive(t("keepalive.running"));
+    return () => {
+      void releaseKeepAlive();
+    };
+    // `t` only supplies the notification line; a language switch mid-turn must
+    // not restart the service.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turnId]);
 
   const loadHistory = useCallback(async () => {
     try {

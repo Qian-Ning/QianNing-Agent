@@ -4,4 +4,8 @@
     <string name="title_activity_main">QianNing Agent</string>
     <string name="package_name">app.qianning.agent</string>
     <string name="custom_url_scheme">app.qianning.agent</string>
+    <string name="agent_running_channel">任务运行中</string>
+    <string name="agent_running_channel_desc">有任务在跑时保持应用不被系统冻结</string>
+    <string name="agent_running_title">QianNing 正在工作</string>
+    <string name="agent_running_default">正在执行任务，切到后台也不会中断</string>
 </resources>
