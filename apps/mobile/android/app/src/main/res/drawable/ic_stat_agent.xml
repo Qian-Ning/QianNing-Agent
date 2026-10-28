@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification small icon: a four-point spark, drawn in pure white so the
+     status bar can tint it on every Android version. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2 L14.1,9.9 L22,12 L14.1,14.1 L12,22 L9.9,14.1 L2,12 L9.9,9.9 Z" />
+</vector>

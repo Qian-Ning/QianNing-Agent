@@ -365,3 +365,4 @@ Each ADR includes:
 | 0333 | [A network entry point for the desktop Agent Host](0333-remote-entry-point.md) | Proposed |
 | 0334 | [The phone client is an app, not a page in a string](0334-mobile-client-as-an-app.md) | Accepted |
 | 0335 | [The phone runs the agent itself](0335-mobile-agent-host.md) | Accepted |
+| 0336 | [A foreground service keeps a running turn alive](0336-mobile-foreground-service.md) | Accepted for implementation |
