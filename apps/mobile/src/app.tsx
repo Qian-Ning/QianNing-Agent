@@ -21,6 +21,7 @@ import { ProviderSheet } from "./views/provider-sheet";
 import { ModelSheet } from "./views/model-sheet";
 import { SettingsView } from "./views/settings";
 import { SessionDrawer } from "./views/session-drawer";
+import { runDueSchedules } from "./agent/schedule-runner";
 
 type Screen = { name: "sessions" } | { name: "chat"; session: SessionSummary } | { name: "settings" };
 
@@ -77,6 +78,23 @@ export function App() {
     if (host?.kind === "remote") return new RacpClient(host.connection);
     return null;
   }, [host, localHost]);
+
+  // Scheduled prompts fire from the open app: a timer, not a background alarm.
+  // The runner leaves a failed task due and records the failure as a notice.
+  useEffect(() => {
+    if (!client) return;
+    let stopped = false;
+    const tick = () => {
+      if (stopped) return;
+      void runDueSchedules({ client }).catch(() => {});
+    };
+    tick();
+    const timer = window.setInterval(tick, 60_000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [client]);
 
   useEffect(() => {
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";

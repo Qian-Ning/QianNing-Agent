@@ -913,18 +913,23 @@ footer {
 }
 
 .settings-list > .muted {
-  margin: 4px 10px 10px;
+  margin: 4px 0 10px;
+  padding: 0 10px;
   line-height: 1.55;
 }
 
 .settings-list label {
-  margin: 14px 10px 6px;
+  margin: 14px 0 6px;
+  padding: 0 10px;
   font-size: var(--text-2xs);
   letter-spacing: 0.04em;
   color: var(--ds-text-muted);
 }
 
 .settings-list input {
+  /* Width comes from the flex column, not from 100%: 100% plus this margin was
+     exactly the 20px of horizontal scroll the audit caught here. */
+  width: auto;
   margin: 0 10px;
 }
 
@@ -1154,4 +1159,199 @@ footer {
 .drawer-bar .ghost {
   min-width: 44px;
   justify-content: center;
+}
+
+/* ── notification log ────────────────────────────────────── */
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0 8px;
+}
+
+.notice-list {
+  gap: 0;
+}
+
+.notice {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ds-border-subtle);
+}
+
+.notice.unread .row-title::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 8px;
+  vertical-align: middle;
+  border-radius: var(--radius-full);
+  background: var(--ds-accent);
+}
+
+.notice-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notice-body {
+  margin: 4px 0 0;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+/* ── scheduled tasks ─────────────────────────────────────── */
+
+.schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ds-border-subtle);
+}
+
+.schedule-head,
+.schedule-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: 44px;
+  height: 26px;
+}
+
+.switch input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+}
+
+.switch-track {
+  flex: 1;
+  border-radius: var(--radius-full);
+  background: var(--ds-bg-tertiary);
+  border: 1px solid var(--ds-border-default);
+  transition: background 140ms ease;
+}
+
+.switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  background: var(--ds-bg-primary);
+  transition: transform 140ms ease;
+}
+
+.switch input:checked + .switch-track {
+  background: var(--ds-accent);
+  border-color: var(--ds-accent);
+}
+
+.switch input:checked + .switch-track::after {
+  transform: translateX(18px);
+}
+
+/* Settings controls carry the same touch floor as the rest of the app. */
+.level {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.levels .chip {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+}
+
+.settings-actions .ghost {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+}
+
+/* ── explanatory text and empty states ──────────────────── */
+
+.hint {
+  margin: 4px 0 8px;
+  padding: 0 14px;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.empty-note,
+.empty-state {
+  /* Never stretch: the settings screen is a flex column, and a lone note would
+     otherwise be handed the leftover height. */
+  flex: none;
+  margin: 8px 0 12px;
+  padding: 16px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--ds-bg-secondary);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+.add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--ds-bg-secondary);
+  color: var(--ds-text-primary);
+  font-size: var(--text-md);
+  text-align: left;
+}
+
+.add-row .plus {
+  color: var(--ds-text-muted);
+  font-size: var(--text-lg);
+}
+
+/* The page content sits inside the settings padding; keep it there. */
+.screen.settings > .hint,
+.screen.settings > .empty-note,
+.screen.settings > .empty-state,
+.screen.settings > .add-row,
+.screen.settings > .settings-list,
+.screen.settings > .settings-actions {
+  margin-left: 12px;
+  margin-right: 12px;
+  width: auto;
 }

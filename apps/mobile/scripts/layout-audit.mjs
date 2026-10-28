@@ -71,7 +71,14 @@ const MEASURE = `(() => {
     const style = getComputedStyle(el);
     if (el.scrollWidth > el.clientWidth + 1 && style.textOverflow !== "ellipsis" && style.overflowX !== "hidden") {
       const label = (el.className && typeof el.className === "string" ? el.className : el.tagName).slice(0, 40);
-      problems.push({ kind: "text-overflow", detail: label + " " + el.scrollWidth + ">" + el.clientWidth });
+      // Name the widest child: a container overflow is always some child's fault.
+      let widest = "";
+      for (const child of el.children) {
+        if (child.scrollWidth > el.clientWidth - 8) {
+          widest += " [" + child.tagName + "." + String(child.className).slice(0, 24) + " " + child.scrollWidth + "]";
+        }
+      }
+      problems.push({ kind: "text-overflow", detail: label + " " + el.scrollWidth + ">" + el.clientWidth + widest.slice(0, 80) });
     }
   }
   for (const el of document.querySelectorAll("button, a, input, textarea, [role=button]")) {
@@ -158,12 +165,15 @@ async function runCombination(width, font, failures, url) {
   await win.webContents.executeJavaScript(`history.length; true`);
   await clickSelector(win, ".bar .ghost");
   await sleep(400);
-  await clickText(win, "设置");
+  // The gear is an icon with an accessible name, not the word 设置.
+  await clickSelector(win, '[aria-label="设置"]');
   await sleep(500);
   for (const [label, name] of [
     ["通用", "settings-general"],
     ["模型", "settings-model"],
     ["外观与皮肤", "settings-appearance"],
+    ["通知", "settings-notifications"],
+    ["定时任务", "settings-schedules"],
     ["连接", "settings-connection"],
     ["远程访问", "settings-remote"],
     ["用量", "settings-usage"],

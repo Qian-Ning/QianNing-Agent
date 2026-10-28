@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { acquireKeepAlive, releaseKeepAlive } from "../agent/keepalive";
+import { pushNotice } from "../agent/notifications";
 import { Markdown } from "../lib/markdown";
 import { toMessageItem, type HostClient, type HostEvent, type MessageItem } from "../lib/racp";
 import type { Translate } from "../lib/i18n";
@@ -191,9 +192,25 @@ export function ChatView({
         case "turn.completed":
         case "turn.interrupted":
         case "turn.failed":
-        case "turn.canceled":
+        case "turn.canceled": {
+          // Finished while the reader was elsewhere: that is what the
+          // notification centre is for. Visible turns need no record.
+          if (typeof document !== "undefined" && document.hidden) {
+            const last = [...(itemsRef.current ?? [])].reverse().find((entry) => entry.role === "assistant");
+            pushNotice({
+              title:
+                event.kind === "turn.failed"
+                  ? t("notice.turnFailed")
+                  : event.kind === "turn.completed"
+                    ? shownTitle || t("notice.turnDone")
+                    : t("notice.turnDone"),
+              body: (last?.text ?? "").slice(0, 140),
+              sessionId,
+            });
+          }
           setTurnId(null);
           return;
+        }
         case "approval.requested": {
           const approval = readApproval(payload);
           if (approval) setApprovals((current) => (current.some((entry) => entry.id === approval.id) ? current : current.concat([approval])));
