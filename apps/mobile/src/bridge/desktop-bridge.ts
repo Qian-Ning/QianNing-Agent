@@ -1,6 +1,7 @@
 import { PROTOCOL_VERSION } from "@pi-desktop/shared";
 import type { AgentStore } from "../agent/store";
 import { toDesktopEvents, type LocalEvent } from "./agent-events";
+import { ProviderBook, listModels, toPublic } from "./providers";
 
 /**
  * The desktop interface's host, implemented for the phone.
@@ -29,8 +30,10 @@ export type BridgeEnvironment = {
   store: AgentStore;
   platform: string;
   version: string;
-  /** Absent until the agent channel is wired; prompt then refuses by name. */
+  /** Built at start when a provider is already configured. */
   host?: AgentHostLike;
+  /** Lets the bridge attach a host the first time a service is added. */
+  createHost?: (config: { baseUrl: string; apiKey: string; modelId: string }) => AgentHostLike;
   now?: () => number;
 };
 
@@ -43,8 +46,18 @@ export class PhoneBridge {
   private readonly listeners = new Map<string, Set<BridgeListener>>();
   /** Sessions whose local events are already being translated onto the bus. */
   private readonly forwarded = new Map<string, () => void>();
+  /** Model services the user added on the phone. */
+  private readonly providers: ProviderBook;
 
-  constructor(private readonly env: BridgeEnvironment) {}
+  private readonly env: BridgeEnvironment;
+
+  private host?: AgentHostLike;
+
+  constructor(env: BridgeEnvironment) {
+    this.env = env;
+    this.host = env.host;
+    this.providers = new ProviderBook(env.store);
+  }
 
   /** The object the renderer expects at `window.piDesktop`. */
   toWindowApi() {
@@ -116,12 +129,32 @@ export class PhoneBridge {
 
     "app/health": () => ({ ok: true, protocolVersion: PROTOCOL_VERSION, version: this.env.version, uptimeMs: 0 }),
 
-    "settings/get": () => ({
-      // Only what the phone host can actually answer today. The renderer fills
-      // in anything it does not find here from its own defaults.
-      defaultMode: "agent",
-      theme: "system",
-    }),
+    "settings/get": () => {
+      const active = this.providers.active();
+      return {
+        defaultMode: "agent",
+        theme: "system",
+        // The composer resolves its model from these two; without them it shows
+        // an empty model pill even though a service exists.
+        defaultProviderId: active?.id ?? "",
+        defaultModelId: active?.defaultModelId ?? "",
+      };
+    },
+
+    "settings/set": (input) => {
+      const patch = (input ?? {}) as { defaultProviderId?: string; defaultModelId?: string };
+      if (patch.defaultProviderId) this.providers.setActive(patch.defaultProviderId);
+      if (patch.defaultProviderId && patch.defaultModelId) {
+        this.providers.update({ id: patch.defaultProviderId, defaultModelId: patch.defaultModelId });
+      }
+      const active = this.providers.active();
+      return {
+        defaultMode: "agent",
+        theme: "system",
+        defaultProviderId: active?.id ?? "",
+        defaultModelId: active?.defaultModelId ?? "",
+      };
+    },
 
     "session/list": () => ({
       sessions: this.env.store.listSessions().map((session) => ({
@@ -156,6 +189,93 @@ export class PhoneBridge {
       return { deleted: true };
     },
 
+    // The composer sets mode, model and reasoning per conversation. The phone
+    // host runs one service at a time, so a chosen provider/model also becomes
+    // the active one: there is no second runtime to switch between.
+    "session/configure": (input, config) => {
+      const request = (input ?? {}) as { id?: string; sessionId?: string };
+      const sessionId = request.id ?? request.sessionId;
+      if (!sessionId) throw new Error("sessionId is required");
+      const session = this.env.store.readSession(sessionId);
+      if (!session) throw new Error(`unknown session ${sessionId}`);
+
+      const patch = (config ?? {}) as {
+        mode?: string;
+        providerId?: string;
+        modelId?: string;
+        thinkingLevel?: string;
+      };
+      this.env.store.writeValue(`qn.local.sessionConfig.${sessionId}`, JSON.stringify(patch));
+      if (patch.providerId) this.providers.setActive(patch.providerId);
+      if (patch.providerId && patch.modelId) {
+        this.providers.update({ id: patch.providerId, defaultModelId: patch.modelId });
+      }
+
+      return {
+        session: {
+          ...session,
+          mode: patch.mode ?? "agent",
+          thinkingLevel: patch.thinkingLevel ?? "medium",
+          providerId: patch.providerId,
+          modelId: patch.modelId,
+          messageCount: this.env.store.readMessages(sessionId).length,
+        },
+      };
+    },
+
+    // The conversation view reads the whole session, not just its messages:
+    // without this the app can list sessions but never open one.
+    "session/get": (input) => {
+      // The renderer names this argument `id`; other channels use `sessionId`.
+      const request = (input ?? {}) as { id?: string; sessionId?: string };
+      const sessionId = request.id ?? request.sessionId;
+      if (!sessionId) throw new Error("sessionId is required");
+      const session = this.env.store.readSession(sessionId);
+      if (!session) throw new Error(`unknown session ${sessionId}`);
+      const messages = this.env.store.readMessages(sessionId).map((message) => ({
+        id: message.itemId,
+        role: message.role,
+        content: message.text,
+        createdAt: message.createdAt,
+        status: message.status,
+      }));
+      return {
+        session: {
+          id: session.id,
+          title: session.title,
+          messageCount: messages.length,
+          mode: "agent",
+          thinkingLevel: "medium",
+          permissionMode: "inherit",
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+          messages,
+        },
+      };
+    },
+
+    "session/open": (input) => {
+      const request = (input ?? {}) as { id?: string; sessionId?: string };
+      const sessionId = request.id ?? request.sessionId;
+      const session = sessionId ? this.env.store.readSession(sessionId) : null;
+      return { session: session ? { id: session.id, title: session.title } : null };
+    },
+
+    "session/rename": (input) => {
+      const request = (input ?? {}) as { id?: string; sessionId?: string; title?: string };
+      request.sessionId = request.sessionId ?? request.id;
+      if (!request.sessionId) throw new Error("sessionId is required");
+      const session = this.env.store.readSession(request.sessionId);
+      if (!session) throw new Error(`unknown session ${request.sessionId}`);
+      const renamed = {
+        ...session,
+        title: (request.title ?? "").trim() || session.title,
+        updatedAt: new Date(this.now()).toISOString(),
+      };
+      this.env.store.writeSession(renamed);
+      return { session: { ...renamed, messageCount: this.env.store.readMessages(renamed.id).length } };
+    },
+
     "session/history": (input) => {
       const sessionId = (input as { sessionId?: string } | undefined)?.sessionId;
       if (!sessionId) throw new Error("sessionId is required");
@@ -170,7 +290,84 @@ export class PhoneBridge {
       };
     },
 
-    "providers/list": () => ({ providers: [] }),
+    "providers/list": () => ({ providers: this.providers.list().map(toPublic) }),
+
+    "providers/create": (input) => {
+      const request = (input ?? {}) as {
+        name?: string;
+        baseUrl?: string;
+        secretValue?: string;
+        apiStyle?: string;
+        models?: Array<{ id: string }>;
+        defaultModelId?: string;
+      };
+      const provider = this.providers.create({
+        name: request.name,
+        baseUrl: request.baseUrl,
+        apiKey: request.secretValue ?? "",
+        apiStyle: request.apiStyle,
+        models: request.models,
+        defaultModelId: request.defaultModelId,
+      });
+      this.attachHost(provider);
+      return { provider: toPublic(provider) };
+    },
+
+    "providers/update": (input) => {
+      const request = (input ?? {}) as {
+        id: string;
+        name?: string;
+        baseUrl?: string;
+        apiStyle?: string;
+        models?: Array<{ id: string }>;
+        defaultModelId?: string;
+      };
+      const provider = this.providers.update(request);
+      return { provider: provider ? toPublic(provider) : null };
+    },
+
+    "providers/setSecret": (input) => {
+      const request = (input ?? {}) as { id: string; secretValue?: string };
+      const provider = this.providers.setSecret(request.id, request.secretValue);
+      if (provider) this.attachHost(provider);
+      return { provider: provider ? toPublic(provider) : null };
+    },
+
+    "providers/delete": (input) => {
+      const id = typeof input === "string" ? input : ((input as { id?: string } | undefined)?.id ?? "");
+      this.providers.remove(id);
+      return { ok: true };
+    },
+
+    "providers/reorder": () => ({ ok: true }),
+
+    // The settings page asks this before a provider exists (the setup form) and
+    // again after it is saved. Both shapes are supported here.
+    "providers/listModels": async (input) => {
+      const request = (input ?? {}) as {
+        providerId?: string;
+        baseUrl?: string;
+        apiKey?: string;
+      };
+      const stored = request.providerId ? this.providers.get(request.providerId) : null;
+      return listModels({ baseUrl: request.baseUrl, apiKey: request.apiKey, provider: stored });
+    },
+
+    "providers/testConnection": async (input) => {
+      const id = typeof input === "string" ? input : ((input as { id?: string } | undefined)?.id ?? "");
+      const provider = this.providers.get(id);
+      if (!provider) return { ok: false, error: "unknown provider" };
+      const probe = await listModels({ provider });
+      return probe.error ? { ok: false, error: probe.error } : { ok: true, modelCount: probe.models.length };
+    },
+
+    "providers/modelCatalogStatus": () => ({ ready: true, updatedAt: null }),
+
+    "secrets/has": (input) => {
+      const ref = String(input ?? "");
+      const provider = this.providers.list().find((row) => ref.includes(row.id));
+      return { has: Boolean(provider?.apiKey) };
+    },
     "project/list": () => ({ projects: [] }),
     "project/get": () => ({ workspace: null }),
     // The phone ships without an updater; saying so is the honest answer, and
@@ -204,7 +401,7 @@ export class PhoneBridge {
       if (!sessionId) throw new Error("sessionId is required");
       if (typeof content !== "string" || !content.trim()) throw new Error("content is required");
 
-      const host = this.env.host;
+      const host = this.host;
       if (!host) throw new Error("the phone host has no agent runtime attached");
 
       this.forward(sessionId, host);
@@ -239,6 +436,25 @@ export class PhoneBridge {
     "window/setWorkPanelReservation": () => null,
     "tray/setSessionPreferences": () => null,
   };
+
+  /**
+   * Gives the agent host a service to run against.
+   *
+   * A phone starts with nothing configured: the user adds a provider inside the
+   * shared settings page, which is the same page the desktop uses. Until that
+   * happens `agent/prompt` refuses by name instead of failing as a network error.
+   */
+  private attachHost(provider: { baseUrl: string; apiKey: string; defaultModelId: string }): void {
+    const config = {
+      baseUrl: provider.baseUrl,
+      apiKey: provider.apiKey,
+      modelId: provider.defaultModelId,
+    };
+    if (!config.baseUrl || !config.apiKey || !config.modelId) return;
+    if (!this.env.createHost) return;
+    if (this.host) return;
+    this.host = this.env.createHost(config);
+  }
 
   private now(): number {
     return this.env.now ? this.env.now() : Date.now();

@@ -245,6 +245,20 @@ export function Sidebar({
   const navBack = useAppStore((s) => s.navBack);
   const canNavBack = useAppStore((s) => s.canNavBack);
   const page = useAppStore((s) => s.page);
+
+  /**
+   * On a phone the sidebar is an overlay, so any navigation inside it has to
+   * give the screen back. Desktop keeps the rail open — there is room for it.
+   */
+  const drawerStateRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (document.documentElement.dataset.surface !== "mobile") return;
+    const state = `${page}|${activeSessionId ?? ""}`;
+    const previous = drawerStateRef.current;
+    drawerStateRef.current = state;
+    if (previous !== null && previous !== state) onToggleSidebar();
+  }, [activeSessionId, onToggleSidebar, page]);
   const settings = useAppStore((s) => s.settings);
   const prefetchSession = useAppStore((s) => s.prefetchSession);
   const selectSession = useAppStore((s) => s.selectSession);
