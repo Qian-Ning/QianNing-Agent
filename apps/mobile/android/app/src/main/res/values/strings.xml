@@ -8,4 +8,9 @@
     <string name="agent_running_channel_desc">有任务在跑时保持应用不被系统冻结</string>
     <string name="agent_running_title">QianNing 正在工作</string>
     <string name="agent_running_default">正在执行任务，切到后台也不会中断</string>
+    <string name="schedule_due_channel">定时任务到期</string>
+    <string name="schedule_due_channel_desc">定时任务到点时提醒你打开应用执行</string>
+    <string name="schedule_due_title">定时任务到点了</string>
+    <string name="schedule_due_body">点开应用，任务会立刻开始。</string>
+    <string name="schedule_due_inexact">系统未授予精确闹钟权限，提醒可能延迟几分钟。</string>
 </resources>

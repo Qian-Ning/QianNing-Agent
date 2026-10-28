@@ -45,6 +45,26 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="agent task execution" />
         </service>
+
+        <!-- One alarm per scheduled task; fires even when the app is closed. -->
+        <receiver
+            android:name=".ScheduleAlarmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="app.qianning.agent.action.SCHEDULE_DUE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Re-arms the mirror after a reboot or an update. -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="false"
+            android:directBootAware="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 
     <!-- Permissions -->
@@ -53,4 +73,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>

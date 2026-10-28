@@ -22,6 +22,7 @@ import { ModelSheet } from "./views/model-sheet";
 import { SettingsView } from "./views/settings";
 import { SessionDrawer } from "./views/session-drawer";
 import { runDueSchedules } from "./agent/schedule-runner";
+import { syncAlarms } from "./agent/alarms";
 
 type Screen = { name: "sessions" } | { name: "chat"; session: SessionSummary } | { name: "settings" };
 
@@ -103,7 +104,10 @@ export function App() {
     let stopped = false;
     const tick = () => {
       if (stopped) return;
-      void runDueSchedules({ client }).catch(() => {});
+      void runDueSchedules({ client })
+        .catch(() => {})
+        // A run moves lastRunAt, so the system alarms move with it.
+        .finally(() => void syncAlarms().catch(() => {}));
     };
     tick();
     const timer = window.setInterval(tick, 60_000);
