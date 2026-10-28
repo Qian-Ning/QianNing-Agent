@@ -175,7 +175,7 @@ test("sidebar section toolbars open create actions from context menus", () => {
   assert.match(sidebarSource, /addEventListener\("pointerdown"/);
 });
 
-test("sidebar floating menus open to the anchor's right", () => {
+test("sidebar floating menus open to the anchor's right and stay on screen", () => {
   const triggerPlacement = sidebarSource.match(
     /const placeMenu = useCallback\([\s\S]*?\n  }, \[\]\);/,
   )?.[0] ?? "";
@@ -183,13 +183,14 @@ test("sidebar floating menus open to the anchor's right", () => {
     /const placeMenuAtPoint = useCallback\([\s\S]*?\n  }, \[\]\);/,
   )?.[0] ?? "";
 
-  assert.match(triggerPlacement, /left:\s*Math\.max\(/);
-  assert.match(triggerPlacement, /rect\.right \+ 4/);
-  assert.doesNotMatch(triggerPlacement, /window\.innerWidth/);
+  // The anchor stays on the right of the trigger, but the menu slides back
+  // when that edge would push it past the window — a phone drawer put it half
+  // off screen.
+  assert.match(triggerPlacement, /left: clampMenuLeft\(rect\.right \+ 4\)/);
   assert.doesNotMatch(triggerPlacement, /right:\s*Math\.max/);
-  assert.match(pointPlacement, /left:\s*Math\.max\(/);
-  assert.match(pointPlacement, /x \+ 4/);
-  assert.doesNotMatch(pointPlacement, /window\.innerWidth/);
+  assert.match(pointPlacement, /left: clampMenuLeft\(x \+ 4\)/);
+  assert.match(sidebarSource, /function clampMenuLeft\(preferred: number\): number/);
+  assert.match(sidebarSource, /window\.innerWidth - ROW_MENU_WIDTH/);
   assert.match(sidebarSource, /placeMenuAtPoint\(event\.clientX, event\.clientY\)/);
   assert.match(sidebarSource, /left: menuPosition\.left/);
   assert.doesNotMatch(sidebarSource, /right: menuPosition\.right/);
