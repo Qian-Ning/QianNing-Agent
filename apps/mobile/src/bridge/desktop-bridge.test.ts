@@ -36,11 +36,11 @@ describe("PhoneBridge", () => {
 
   it("names a channel it does not implement instead of pretending it is empty", async () => {
     const { bridge } = bridgeWith();
-    const result = await bridge.invoke("pi-desktop/agent/prompt", { text: "hi" });
+    const result = await bridge.invoke("pi-desktop/workbench/render", { id: "x" });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.code).toBe("bridge/unavailable");
-    expect(result.error.message).toContain("agent/prompt");
+    expect(result.error.message).toContain("workbench/render");
   });
 
   it("reports a throwing handler as an error, never as a rejection the shell cannot catch", async () => {

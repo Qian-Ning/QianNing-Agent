@@ -1,4 +1,5 @@
 import type { AgentStore } from "../agent/store";
+import { toDesktopEvents, type LocalEvent } from "./agent-events";
 
 /**
  * The desktop interface's host, implemented for the phone.
@@ -16,18 +17,31 @@ import type { AgentStore } from "../agent/store";
  */
 export type BridgeEnvelope<T> = { ok: true; value: T } | { ok: false; error: { code: string; message: string } };
 
+/** What the bridge needs from the phone's agent host — nothing more. */
+export type AgentHostLike = {
+  send(sessionId: string, text: string): Promise<void>;
+  subscribe(sessionId: string, listener: (event: LocalEvent) => void): () => void;
+  interrupt?(sessionId: string): void;
+};
+
 export type BridgeEnvironment = {
   store: AgentStore;
   platform: string;
   version: string;
+  /** Absent until the agent channel is wired; prompt then refuses by name. */
+  host?: AgentHostLike;
+  now?: () => number;
 };
 
 export type BridgeListener = (payload: unknown) => void;
 
 const PREFIX = "pi-desktop/";
+const AGENT_EVENT = "agent/event/message";
 
 export class PhoneBridge {
   private readonly listeners = new Map<string, Set<BridgeListener>>();
+  /** Sessions whose local events are already being translated onto the bus. */
+  private readonly forwarded = new Map<string, () => void>();
 
   constructor(private readonly env: BridgeEnvironment) {}
 
@@ -143,6 +157,39 @@ export class PhoneBridge {
     "plans/pending": () => ({ plans: [] }),
     "notification/list": () => ({ notifications: [], unreadCount: 0 }),
 
+    "agent/prompt": async (input) => {
+      const request = input as { sessionId?: string; content?: string } | undefined;
+      const sessionId = request?.sessionId;
+      const content = request?.content;
+      if (!sessionId) throw new Error("sessionId is required");
+      if (typeof content !== "string" || !content.trim()) throw new Error("content is required");
+
+      const host = this.env.host;
+      if (!host) throw new Error("the phone host has no agent runtime attached");
+
+      this.forward(sessionId, host);
+      // The turn runs in the host; its events arrive through the bus, not the
+      // reply. The reply only says the prompt was accepted.
+      void host.send(sessionId, content).catch((cause: unknown) => {
+        this.emit(AGENT_EVENT, {
+          sessionId,
+          ts: this.now(),
+          event: {
+            type: "error",
+            error: { code: "AGENT_PROMPT_FAILED", message: cause instanceof Error ? cause.message : String(cause) },
+          },
+        });
+      });
+      return { accepted: true, turnId: "" };
+    },
+
+    "agent/stop": (input) => {
+      const sessionId = (input as { sessionId?: string } | undefined)?.sessionId;
+      if (!sessionId) throw new Error("sessionId is required");
+      this.env.host?.interrupt?.(sessionId);
+      return { stopped: true };
+    },
+
     // Fire-and-forget chrome. The phone has no window menu, tray, or frameless
     // window to colour; acknowledging keeps the shell from treating them as
     // failures.
@@ -152,6 +199,21 @@ export class PhoneBridge {
     "window/setWorkPanelReservation": () => null,
     "tray/setSessionPreferences": () => null,
   };
+
+  private now(): number {
+    return this.env.now ? this.env.now() : Date.now();
+  }
+
+  /** Starts translating one session's local events onto the desktop bus. */
+  private forward(sessionId: string, host: AgentHostLike): void {
+    if (this.forwarded.has(sessionId)) return;
+    this.forwarded.set(
+      sessionId,
+      host.subscribe(sessionId, (event) => {
+        for (const envelope of toDesktopEvents(event, this.now())) this.emit(AGENT_EVENT, envelope);
+      }),
+    );
+  }
 }
 
 function strip(channel: string): string {
