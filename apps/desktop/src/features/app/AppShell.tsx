@@ -126,6 +126,14 @@ export function AppShell() {
             hidden={page === "settings"}
             inert={page === "settings" ? true : undefined}
           >
+            {!sidebarCollapsed && !sidebarExiting ? (
+              <button
+                type="button"
+                className="mobile-drawer-scrim"
+                aria-label={t("nav.toggleSidebar")}
+                onClick={toggleSidebar}
+              />
+            ) : null}
             {!sidebarCollapsed || sidebarExiting ? (
               <Sidebar
                 className={cx(sidebarEntering && "is-entering", sidebarExiting && "is-exiting")}

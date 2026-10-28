@@ -231,6 +231,37 @@
   min-width: 0;
 }
 
+/*
+  Tapping the page beside an open drawer closes it. Desktop has no drawer, so
+  the scrim never exists there.
+*/
+.mobile-drawer-scrim {
+  display: none;
+}
+
+:root[data-surface="mobile"] .mobile-drawer-scrim {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  border: 0;
+  padding: 0;
+  background: rgb(0 0 0 / 32%);
+}
+
+/* The sidebar footer holds eight destinations; one phone row cannot host them. */
+:root[data-surface="mobile"] .sidebar-footer,
+:root[data-surface="mobile"] .sidebar-actions {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+:root[data-surface="mobile"] .sidebar-footer .icon-btn,
+:root[data-surface="mobile"] .sidebar-actions .icon-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
 /* A drag handle needs a pointer and a column to resize; the phone has neither. */
 :root[data-surface="mobile"] .sidebar-resize-handle {
   display: none;
@@ -250,7 +281,8 @@
   padding and guarantees a touch-sized target for every icon in it.
 */
 :root[data-surface="mobile"] .conversation-topbar {
-  padding-inline: 8px;
+  padding-inline: 12px;
+  gap: 8px;
 }
 
 :root[data-surface="mobile"] .ct-icon-btn,
@@ -275,16 +307,124 @@
 }
 
 /*
-  The composer toolbar carries six controls on a desktop, which do not survive
-  one phone row. The model chip and the send button are the two that must stay
-  reachable; the rest move to a later sheet rather than being shrunk below a
-  finger.
+  The composer toolbar carries six controls on a desktop. None of them may
+  disappear on a phone — they move instead: attachments, voice, agent and
+  permission on one row, model, thinking level and send on the next.
 */
-:root[data-surface="mobile"] .composer-permission,
-:root[data-surface="mobile"] .composer-model-thinking-level {
+:root[data-surface="mobile"] .composer-toolbar {
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-inline: 12px;
+}
+
+:root[data-surface="mobile"] .composer-left {
+  flex: 1 1 100%;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+:root[data-surface="mobile"] .composer-left::-webkit-scrollbar {
   display: none;
 }
 
-:root[data-surface="mobile"] .composer-toolbar {
+:root[data-surface="mobile"] .composer-right {
+  flex: 1 1 100%;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* The container query above drops the reasoning level once the composer is
+   narrow. On the phone the second row has room for it, and it is a feature
+   people set, not decoration. */
+:root[data-surface="mobile"] .composer-model-thinking-level,
+:root[data-surface="mobile"] .composer-model-thinking-dot {
+  display: inline-flex;
+}
+
+/* The model name is the one label that can be long; it truncates rather than
+   pushing the send button off screen. */
+:root[data-surface="mobile"] .composer-model-chip,
+:root[data-surface="mobile"] .composer-model-select {
+  min-width: 0;
+  max-width: 60vw;
+}
+
+:root[data-surface="mobile"] .composer-model-chip .label,
+:root[data-surface="mobile"] .composer-model-select .label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The composer sits above the gesture bar; the desktop's 8px bottom inset is
+   not enough there. */
+:root[data-surface="mobile"] .composer-stack {
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-agent-chip {
+  min-height: 40px;
+}
+
+/*
+  Settings is a rail plus a panel. At 390px the rail kept its desktop width and
+  the panel was squeezed into a vertical sliver, so the phone shows one at a
+  time: the directory, then the section with a way back.
+*/
+:root[data-surface="mobile"] .settings-shell .settings-nav {
+  width: 100%;
+  flex: 1 1 auto;
+  padding-bottom: 16px;
+}
+
+:root[data-surface="mobile"] .settings-shell .settings-content {
+  display: none;
+}
+
+:root[data-surface="mobile"] .settings-shell[data-settings-view="content"] .settings-nav {
+  display: none;
+}
+
+:root[data-surface="mobile"] .settings-shell[data-settings-view="content"] .settings-content {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+:root[data-surface="mobile"] .settings-content-inner {
+  padding: 8px 16px 32px;
+}
+
+/* Desktop-only: the phone reaches the directory with the button below. */
+.settings-mobile-back {
+  display: none;
+}
+
+:root[data-surface="mobile"] .settings-mobile-back {
+  display: flex;
+  align-items: center;
   gap: 4px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--ds-text-secondary);
+  font: inherit;
+}
+
+/* The rail's top band reserves room for desktop traffic lights. */
+:root[data-surface="mobile"] .settings-nav-top {
+  padding-top: 12px;
+}
+
+:root[data-surface="mobile"] .settings-nav-item {
+  min-height: 44px;
+}
+
+/* The phone has no titlebar; the drag strip only wastes vertical space. */
+:root[data-surface="mobile"] .settings-titlebar {
+  display: none;
 }

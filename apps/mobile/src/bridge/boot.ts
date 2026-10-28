@@ -1,7 +1,8 @@
-import { LocalAgentHost } from "../agent/host";
+import { LocalAgentHost, type ProviderConfig } from "../agent/host";
 import { loadProvider } from "../agent/settings";
 import { BrowserStore } from "../agent/store";
 import { PhoneBridge } from "./desktop-bridge";
+import { ProviderBook } from "./providers";
 
 /**
  * Turns the shared renderer's host into the phone's host.
@@ -14,7 +15,27 @@ import { PhoneBridge } from "./desktop-bridge";
 const VERSION = "2.2.0";
 
 const store = new BrowserStore();
-const provider = loadProvider();
+
+// A phone that was set up before the shared surface kept its service in
+// `qn.local.provider`. Carry it into the provider list so nothing has to be
+// re-entered after the upgrade.
+const book = new ProviderBook(store);
+const legacy = loadProvider();
+if (legacy && book.list().length === 0) {
+  book.create({
+    name: legacy.baseUrl,
+    baseUrl: legacy.baseUrl,
+    apiKey: legacy.apiKey,
+    models: [{ id: legacy.modelId }],
+    defaultModelId: legacy.modelId,
+  });
+}
+
+const active = book.active();
+const initialConfig: ProviderConfig | null =
+  active && active.baseUrl && active.apiKey && active.defaultModelId
+    ? { baseUrl: active.baseUrl, apiKey: active.apiKey, modelId: active.defaultModelId }
+    : null;
 
 const bridge = new PhoneBridge({
   store,
@@ -22,7 +43,9 @@ const bridge = new PhoneBridge({
   version: VERSION,
   // No provider configured yet: the bridge still answers, and prompting says by
   // name that there is no runtime, instead of failing as a network error.
-  host: provider ? new LocalAgentHost(store, provider) : undefined,
+  host: initialConfig ? new LocalAgentHost(store, initialConfig) : undefined,
+  // The settings page adds the first service after boot; the host attaches then.
+  createHost: (config) => new LocalAgentHost(store, { ...config, modelId: config.modelId }),
 });
 
 const api = bridge.toWindowApi() as {

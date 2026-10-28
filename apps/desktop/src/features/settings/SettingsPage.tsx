@@ -322,12 +322,19 @@ export function SettingsPage() {
     return [...groups.entries()].map(([id, items]) => ({ id, items }));
   }, [filteredItems]);
 
+  /**
+   * The phone shows one column at a time: the directory first, then the chosen
+   * section. Desktop ignores this — its rail and panel sit side by side — but
+   * without it a 390px screen squeezes the panel into a sliver.
+   */
+  const [mobileView, setMobileView] = useState<"nav" | "content">("nav");
+
   const activeNavItem = navItems.find((item) => item.id === tab);
   const activeTitleKey = activeNavItem?.titleKey ?? "settings.title";
   const tabNeedsSettings = ["general", "ai", "shortcuts", "agent"].includes(tab);
 
   return (
-    <div className="settings-shell settings-shell-full">
+    <div className="settings-shell settings-shell-full" data-settings-view={mobileView}>
       <div className="settings-titlebar" aria-hidden="true" />
       <aside className="settings-nav sidebar-surface" aria-label={t("settings.title")}>
         <div className="settings-nav-top drag">
@@ -363,6 +370,7 @@ export function SettingsPage() {
                     onClick={() => {
                       setActiveExtension(null);
                       setSettingsTab(item.id);
+                      setMobileView("content");
                     }}
                   >
                     <span className="settings-nav-icon">{item.icon}</span>
@@ -422,6 +430,14 @@ export function SettingsPage() {
         data-settings-tab={activeExtension ? "extension" : tab}
       >
         <div className="settings-content-inner">
+          <button
+            type="button"
+            className="settings-mobile-back"
+            onClick={() => setMobileView("nav")}
+          >
+            <IconChevronLeft size={16} />
+            <span>{t("settings.backToApp")}</span>
+          </button>
           <div className="settings-content-enter">
           <h1 className="settings-section-title">
             <span>{activeExtension?.label ?? t(activeTitleKey)}</span>
