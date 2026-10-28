@@ -368,3 +368,4 @@ Each ADR includes:
 | 0336 | [A foreground service keeps a running turn alive](0336-mobile-foreground-service.md) | Accepted for implementation |
 | 0337 | [Scheduled tasks ring, the app runs them](0337-mobile-scheduled-alarms.md) | Accepted for implementation |
 | 0338 | [The agent runs outside the WebView](0338-headless-agent-runtime.md) | Proposed |
+| 0339 | [One interface, two surfaces](0339-one-interface-two-surfaces.md) | Proposed |

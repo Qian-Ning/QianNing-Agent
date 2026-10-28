@@ -73,7 +73,10 @@ export function useAppShellRuntime() {
   const workPanelVisible = workPanelOpen;
 
   const [searchOpen, setSearchOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // The phone opens on the conversation, never on a drawer covering it.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => document.documentElement.dataset.surface === "mobile",
+  );
   const [sidebarWidth, setSidebarWidth] = useState(() => loadSidebarWidth());
   const { sidebarEntering, sidebarExiting, handleSidebarAnimationEnd } = useSidebarTransition(
     sidebarCollapsed,
