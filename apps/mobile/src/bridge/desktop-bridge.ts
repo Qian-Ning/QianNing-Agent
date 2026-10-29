@@ -7,6 +7,7 @@ import {
   toProjectRecord,
   toWorkspace,
 } from "../agent/projects";
+import { bundledSkills, findBundledSkill } from "../agent/skills";
 import { ProviderBook, listModels, toPublic } from "./providers";
 
 /**
@@ -522,9 +523,29 @@ export class PhoneBridge {
     // not carry: the bundled skills are baked into the runtime, and there is no
     // process to spawn an MCP server. The pages still open and say so, instead of
     // failing with "does not implement".
-    "skill/list": () => ({ skills: [] }),
-    "skill/catalog": () => ({ skills: [] }),
-    "skill/read": () => ({ skill: null }),
+    // The first-party skills ship inside the app, so the list is real: it is the
+    // same set the system prompt advertises, not a placeholder.
+    "skill/list": () => ({
+      skills: bundledSkills().map((skill) => ({
+        id: skill.id,
+        name: skill.name,
+        description: skill.description,
+        level: "user",
+        enabled: true,
+        source: "imported",
+        path: skill.file,
+      })),
+    }),
+    "skill/catalog": () => ({
+      skills: bundledSkills().map((skill) => ({ id: skill.id, name: skill.name })),
+    }),
+    "skill/read": (input) => {
+      const request = (input ?? {}) as { id?: string };
+      const found = findBundledSkill(String(request.id ?? ""));
+      return found
+        ? { skill: { id: found.id, name: found.name }, body: found.body }
+        : { skill: null };
+    },
     "mcp/list": () => ({ servers: [], statuses: [] }),
     "subagent/list": () => ({ subagents: [] }),
     "subagent/catalog": () => ({ subagents: [], builtins: [] }),

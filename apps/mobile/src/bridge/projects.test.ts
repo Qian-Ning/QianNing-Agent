@@ -118,14 +118,14 @@ describe("project channels", () => {
     expect(memory.content).toContain("用全小写文件名");
   });
 
-  it("opens the skill, mcp and subagent pages with empty catalogues", async () => {
+  it("lists the bundled skills and opens the empty host catalogues", async () => {
     const api = bridge();
     const skills = await api.invoke("pi-desktop/skill/list");
     const mcp = await api.invoke("pi-desktop/mcp/list");
     const subagents = await api.invoke("pi-desktop/subagent/list");
 
     expect((skills as unknown as { ok: boolean }).ok).toBe(true);
-    expect((skills as unknown as { data: { skills: unknown[] } }).data.skills).toEqual([]);
+    expect((skills as unknown as { data: { skills: unknown[] } }).data.skills.length).toBeGreaterThan(50);
     expect((mcp as unknown as { data: { servers: unknown[]; statuses: unknown[] } }).data).toEqual({
       servers: [],
       statuses: [],
