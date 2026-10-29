@@ -11,6 +11,7 @@
 import { Type, type Static } from "typebox";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { AgentStore } from "./store";
+import { bundledSkills, findBundledSkill } from "./skills";
 
 const FILE_PREFIX = "file:";
 const MAX_FILE_BYTES = 200_000;
@@ -37,6 +38,7 @@ const WriteArgs = Type.Object({
   path: Type.String({ minLength: 1 }),
   content: Type.String(),
 });
+const SkillArgs = Type.Object({ id: Type.String({ minLength: 1 }) });
 const FetchArgs = Type.Object({
   url: Type.String({ minLength: 1 }),
   method: Type.Optional(Type.Union([Type.Literal("GET"), Type.Literal("POST")])),
@@ -134,5 +136,30 @@ export function createTools(
     },
   };
 
-  return [listFiles, readFile, writeFile, fetchUrl];
+  /**
+   * Skills are model-invoked: the catalog names them, this tool loads one body.
+   * Without it the phone would carry the instructions and never read them.
+   */
+  const skill: AgentTool<typeof SkillArgs> = {
+    name: "Skill",
+    label: "Load skill",
+    description:
+      "Load the full instructions of a bundled skill by id. The available ids are listed under # Skills in the system prompt.",
+    parameters: SkillArgs,
+    execute: async (_toolCallId: string, args: Static<typeof SkillArgs>) => {
+      const found = findBundledSkill(args.id);
+      if (!found) {
+        const known = bundledSkills()
+          .slice(0, 12)
+          .map((entry) => entry.id)
+          .join(", ");
+        return failure(`no such skill: ${args.id}. Known ids include ${known}`);
+      }
+      return text(`# ${found.name}
+
+${found.body}`);
+    },
+  };
+
+  return [listFiles, readFile, writeFile, fetchUrl, skill];
 }

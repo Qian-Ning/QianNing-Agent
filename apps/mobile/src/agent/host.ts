@@ -12,6 +12,7 @@ import { streamSimple } from "@earendil-works/pi-ai/api/openai-completions";
 import type { Model, ProviderId, TranscriptContext } from "@earendil-works/pi-ai";
 import { PRODUCT_IDENTITY_SYSTEM_PROMPT } from "@pi-desktop/shared";
 import { createTools } from "./tools";
+import { skillCatalogSection } from "./skills";
 import { ProjectBook } from "./projects";
 import type { AgentStore, StoredMessage, StoredSession } from "./store";
 import type { HostEvent, ThinkingLevel } from "../lib/racp";
@@ -287,7 +288,7 @@ export class LocalAgentHost {
       initialState: {
         model: this.override?.model ?? buildModel(this.provider, this.prefs.maxTokens),
         systemPrompt: withExtraInstructions(
-          SYSTEM_PROMPT,
+          withExtraInstructions(SYSTEM_PROMPT, skillCatalogSection()),
           sessionPrompt ?? this.prefs.systemPrompt,
         ),
         tools: createTools(this.store, () => this.projects.activeFolder()),
