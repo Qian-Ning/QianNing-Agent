@@ -529,36 +529,91 @@
   flex: 1 1 auto;
 }
 
-/* Under 340px one control has to go; reasoning is the one that reads as part of
-   the model name anyway. Its panel is still reachable from the model chip. */
-/* The reasoning level is an icon on a phone: its word is the widest thing in
-   the row and the value is already in the tooltip and the menu. */
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-level,
+/*
+  Row budget at 400dp: the card leaves 338px. Five 44px targets and four 8px
+  gaps take 252 of it, leaving the model name 86px — every extra 44px control
+  took the name down to "a…". So the phone row is five slots:
+
+      [+] [permission] [model · level] [context] [send]
+
+  The mode toggle (icon-only, its menu is the same one the permission picker
+  opens) and the standalone reasoning chip are gone from the row. The reasoning
+  level now rides inside the model chip as text, so it is visible at a glance
+  instead of being a fourth icon that looks like the permission shield.
+*/
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip,
+:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
+  display: none;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-level:not(.composer-model-level-inline),
 :root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chevron {
   display: none;
 }
 
-:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
-  width: 44px;
-  min-width: 44px;
-  padding: 0;
-  justify-content: center;
+/*
+  The hidden reasoning chip still held a flex slot, so its two 8px gaps read as
+  a 16px hole between the model name and the send button. Take the wrapper out
+  of the flow, not just the chip inside it.
+*/
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking:has(.composer-reasoning-chip) {
+  display: none;
+}
+
+/*
+  Phone order: add · permission · model · context · send. The context trigger
+  is declared before the model chip in the desktop DOM (it sits on the left of
+  the model there); on a phone it reads better as a reading of the model's
+  headroom, so it moves to the model's right.
+*/
+:root[data-surface="mobile"] .composer-toolbar .composer-plus { order: 1; }
+:root[data-surface="mobile"] .composer-toolbar .composer-permission { order: 2; }
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking:not(:has(.composer-reasoning-chip)) { order: 3; flex: 1 1 auto; }
+:root[data-surface="mobile"] .composer-toolbar .context-inspector { order: 4; flex: none; }
+:root[data-surface="mobile"] .composer-toolbar .send-btn { order: 5; margin-inline-start: 0; }
+
+/*
+  Room for the name. The bot glyph inside the chip is decoration that cost 19px
+  of the 130 the row can spare; the level keeps to a single short word and the
+  ring shows no number (the ring's fill already says how much is left, and a
+  lone "100%" next to an empty bar reads as the opposite of what it means).
+*/
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip .composer-model-thinking-icon {
+  display: none;
+}
+
+/* The toolbar's own 8px inset is duplicated by the card's padding; dropping it
+   hands the model name 16px it was spending twice. */
+:root[data-surface="mobile"] .composer-toolbar {
+  padding-inline: 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip {
+  padding-inline: 9px;
+  gap: 4px;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .context-inspector-ring-value {
+  display: none;
+}
+
+:root[data-surface="mobile"] .composer-model-level-inline {
+  display: inline-block;
+  flex: none;
+  margin-inline-start: 4px;
+  padding-inline-start: 5px;
+  border-inline-start: 1px solid var(--ds-border-subtle);
+  color: var(--ds-text-tertiary);
+  font-size: var(--text-xs);
+  line-height: var(--leading-tighter);
+  white-space: nowrap;
 }
 
 @media (max-width: 340px) {
-  /* Five 44px targets and their gaps leave the model column almost nothing at
+  /* Four 44px targets and their gaps leave the model column almost nothing at
      320px; a tighter gap buys it back without dropping a control. */
   :root[data-surface="mobile"] .composer-toolbar {
     gap: 4px;
-  }
-}
-
-@media (max-width: 400px) {
-  /* Under 400px the reasoning chip costs the model name its last forty pixels,
-     and the name is the thing every message depends on. The level stays
-     settable from the model menu. */
-  :root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
-    display: none;
   }
 }
 
@@ -653,9 +708,34 @@
   gap: 8px;
 }
 
-:root[data-surface="mobile"] .ct-title-wrap,
+/*
+  The title stays on a phone. Hiding it left a bar with a toggle at one end and
+  two icons at the other — the empty middle is the "big gap" in every report —
+  and it also removed the only thing that says which conversation is open.
+*/
+:root[data-surface="mobile"] .conversation-topbar .ct-left {
+  /* Without this the lead keeps `flex: 1 1 auto`, grows under the title, and the
+     title paints behind the toggle icon. */
+  flex: 0 0 auto;
+  margin-right: 0;
+}
+
+:root[data-surface="mobile"] .ct-title-wrap {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  /* The lead is out of flow (absolute), so the title has to clear it by hand. */
+  margin-inline: 52px 12px;
+}
+
 :root[data-surface="mobile"] .ct-title {
-  display: none;
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  color: var(--ds-text-secondary);
 }
 
 

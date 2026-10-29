@@ -95,6 +95,14 @@ const MEASURE = String.raw`
     scrollWidth: document.documentElement.scrollWidth,
     topbar: box(document.querySelector(".ct-lead") ? document.querySelector(".ct-lead").parentElement : null),
     actions: actions.map((element) => ({ label: (element.textContent || element.getAttribute("aria-label") || "").trim().slice(0, 12), ...box(element) })),
+    // The reasoning level lives inside the model chip on a phone; if it is not
+    // painted there, the row has no way to show it at all.
+    reasoningLevel: (() => {
+      const level = document.querySelector(".composer-model-level-inline");
+      if (!level) return null;
+      const rect = level.getBoundingClientRect();
+      return { text: (level.textContent || "").trim(), w: Math.round(rect.width), h: Math.round(rect.height) };
+    })(),
     composer: box(composer),
     barScroll: bar ? { client: bar.clientWidth, scroll: bar.scrollWidth } : null,
     toolbarStyle: bar ? {
@@ -282,6 +290,14 @@ function inspect(measured, width) {
       if (overlaps(control, other)) push("control-overlap", `${control.label} / ${other.label}`);
     }
   }
+  const labels = controls.map((control) => control.label);
+  if (!labels.some((label) => /每次询问|权限/.test(label))) push("permission-missing", labels.join(" | "));
+  if (!labels.some((label) => /%|上下文/.test(label))) push("context-missing", labels.join(" | "));
+  const reasoning = measured.reasoningLevel;
+  if (!reasoning || reasoning.w < 10 || reasoning.h < 8) {
+    push("reasoning-level-missing", reasoning ? `${reasoning.text} ${reasoning.w}x${reasoning.h}` : "no inline level");
+  }
+
   return problems;
 }
 

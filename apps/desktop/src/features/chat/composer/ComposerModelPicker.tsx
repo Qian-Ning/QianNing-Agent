@@ -109,6 +109,12 @@ export function ComposerModelPicker({
               <IconBot size={14} />
             </span>
             <span className="composer-model-thinking-model">{modelLabel}</span>
+            {/* On a phone the reasoning level rides inside this chip: a separate
+                44px chip costs more width than the row has, and the level is
+                part of what the chip stands for. */}
+            {hasReasoning && thinkingLabel ? (
+              <span className="composer-model-level-inline">{thinkingLabel}</span>
+            ) : null}
             <IconChevronDown size={12} aria-hidden="true" className="composer-model-thinking-chevron" />
           </TooltipButton>
         )}
