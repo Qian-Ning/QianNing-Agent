@@ -18,6 +18,7 @@ import {
   IconFolder,
   IconMonitor,
   IconNewProject,
+  IconSmartphone,
   IconStar,
   IconX,
 } from "./icons";
@@ -127,6 +128,9 @@ export function ProjectCreateDialog() {
   }, [defaultName]);
 
   if (!open) return null;
+
+  // A phone has no drives to name: every project folder lives in app storage.
+  const phoneSurface = document.documentElement.dataset.surface === "mobile";
 
   const addFolders = async () => {
     if (busyRef.current || folderPickerInFlightRef.current) return;
@@ -312,7 +316,7 @@ export function ProjectCreateDialog() {
                 {/* Cloning needs git and a parent directory; a phone has
                     neither, and the app's storage is the only folder it can
                     offer. */}
-                {document.documentElement.dataset.surface === "mobile" ? null : (
+                {phoneSurface ? null : (
                 <button
                   type="button"
                   className={`project-create-dialog-source-option${
@@ -343,8 +347,17 @@ export function ProjectCreateDialog() {
                     ) : null}
                   </h3>
                   <span className="project-create-dialog-source" data-project-source="local">
-                    <IconMonitor size={15} aria-hidden />
-                    {t("project.createComputer")}
+                    {phoneSurface ? (
+                      <>
+                        <IconSmartphone size={15} aria-hidden />
+                        手机存储
+                      </>
+                    ) : (
+                      <>
+                        <IconMonitor size={15} aria-hidden />
+                        {t("project.createComputer")}
+                      </>
+                    )}
                   </span>
                 </div>
 
@@ -361,7 +374,9 @@ export function ProjectCreateDialog() {
                         </span>
                         <span className="project-create-folder-copy" title={path}>
                           <span className="project-create-folder-name">{folderNameFromPath(path)}</span>
-                          <span className="project-create-folder-path">{folderParent(path)}</span>
+                          {phoneSurface ? null : (
+                            <span className="project-create-folder-path">{folderParent(path)}</span>
+                          )}
                         </span>
                         {index === 0 ? (
                           <span className="project-create-primary-tag">

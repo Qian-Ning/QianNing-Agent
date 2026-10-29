@@ -12,6 +12,7 @@ import type { AgentStore } from "./store";
 
 const BOOK_KEY = "qn.local.projects";
 const ACTIVE_KEY = "qn.local.projects.active";
+const MEMORY_PREFIX = "qn.local.projects.memory.";
 
 export type PhoneProject = {
   /** Stable numeric id; the desktop sidebar keys projects by number. */
@@ -25,6 +26,14 @@ export type PhoneProject = {
 };
 
 export type PhoneProjectInput = { name: string };
+
+/** The project-notes shape the desktop's project memory panel reads. */
+export type PhoneProjectMemoryEntry = { id: string; title: string; content: string };
+export type PhoneProjectMemory = {
+  content: string;
+  entries: PhoneProjectMemoryEntry[];
+  updatedAt: number;
+};
 
 function slugify(name: string): string {
   const ascii = name
@@ -120,6 +129,39 @@ export class ProjectBook {
 
   setActive(folder: string | null): void {
     this.store.writeValue(ACTIVE_KEY, folder ?? "");
+  }
+
+  /** Project notes ("规范"), kept beside the project so they survive a restart. */
+  memory(key: string): PhoneProjectMemory {
+    const raw = this.store.readValue(MEMORY_PREFIX + (key || "__root__"));
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as Partial<PhoneProjectMemory>;
+        if (typeof parsed.content === "string" && Array.isArray(parsed.entries)) {
+          return {
+            content: parsed.content,
+            entries: parsed.entries,
+            updatedAt: typeof parsed.updatedAt === "number" ? parsed.updatedAt : 0,
+          };
+        }
+      } catch {
+        // Fall through to an empty memory rather than taking the panel down.
+      }
+    }
+    return { content: "", entries: [], updatedAt: 0 };
+  }
+
+  saveMemory(key: string, entries: PhoneProjectMemoryEntry[]): PhoneProjectMemory {
+    const memory: PhoneProjectMemory = {
+      content: entries
+        .map((entry) => "## " + entry.title + "\n" + entry.content)
+        .join("\n\n")
+        .trim(),
+      entries,
+      updatedAt: this.now(),
+    };
+    this.store.writeValue(MEMORY_PREFIX + (key || "__root__"), JSON.stringify(memory));
+    return memory;
   }
 
   /** Folder prefix the file tools resolve against, or null at the root. */

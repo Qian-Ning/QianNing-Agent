@@ -353,24 +353,25 @@
 }
 
 /*
-  Desktop puts seven controls on one row because it has the width. The phone
-  keeps the same single row and the same order, but the two chips that carry a
-  word ("代理", "权限") drop their label, the context ring and the permission
-  picker move out, and the model name truncates. Nothing wraps onto a second
-  line, which is what turned the composer into a two-storey block.
+  The composer row carries the same controls as the desktop, in the same order:
+  add, agent, run mode, model, reasoning, send. The phone cannot give each one
+  its desktop width, so the padding shrinks, the model name truncates, and the
+  two chips that open a panel the phone shows elsewhere (permission, context
+  ring) stay out. Labels stay visible: an unlabelled icon next to the model name
+  reads as part of the model, not as a control of its own.
 */
 :root[data-surface="mobile"] .composer-toolbar {
   flex-wrap: nowrap;
   align-items: center;
-  gap: 4px;
-  padding-inline: 10px;
+  gap: 6px;
+  padding-inline: 8px;
 }
 
 :root[data-surface="mobile"] .composer-left {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
   flex-wrap: nowrap;
-  gap: 2px;
+  gap: 4px;
   overflow: visible;
 }
 
@@ -378,85 +379,91 @@
   flex: 1 1 auto;
   width: auto;
   justify-content: flex-end;
-  gap: 2px;
+  gap: 6px;
   min-width: 0;
 }
 
 /* The send button is the anchor of the row; it never shrinks or moves. */
 :root[data-surface="mobile"] .composer-right .send-btn,
 :root[data-surface="mobile"] .composer-right .stop-btn {
-  margin-left: 4px;
+  margin-left: 2px;
   flex: none;
 }
 
-/* A word inside a chip is the first thing to go: the icon still says which
-   control it is, and the row gains 48px back. */
-:root[data-surface="mobile"] .composer-permission .text-sm,
-:root[data-surface="mobile"] .composer-agent-chip .label {
-  display: none;
-}
-
-/*
-  The mode chip is an 88px word ("代理") that switches agent/plan/goal. It is a
-  power-user control next to a model name the reader needs to see, so the phone
-  spends that width on the model instead.
-*/
+/* The mode chip keeps its word ("全自动"/"代理") — one short label, not 88px. */
 :root[data-surface="mobile"] .composer-mode-chip {
-  display: none;
+  display: inline-flex;
+  height: 32px;
+  padding-inline: 10px;
+  flex: 0 0 auto;
 }
 
-/*
-  The permission picker and the context ring open panels that do not fit a
-  phone; both are settable in the conversation's own settings, so the toolbar
-  keeps the row it needs instead of squeezing them in.
-*/
+:root[data-surface="mobile"] .composer-mode-chip-label {
+  white-space: nowrap;
+}
+
+:root[data-surface="mobile"] .composer-agent-chip {
+  min-height: 32px;
+  flex: 0 0 auto;
+}
+
+:root[data-surface="mobile"] .composer-agent-chip .label {
+  display: inline;
+  white-space: nowrap;
+}
+
+/* Both panel-openers are settings rows on a phone, not toolbar space. */
 :root[data-surface="mobile"] .composer-permission,
 :root[data-surface="mobile"] .context-inspector-trigger {
   display: none;
 }
 
+/* Model and reasoning sit side by side as two chips, never as one run of text. */
 :root[data-surface="mobile"] .composer-model-thinking {
+  display: inline-flex;
+  gap: 6px;
   flex: 0 1 auto;
   min-width: 0;
 }
 
-:root[data-surface="mobile"] .composer-model-thinking-level {
-  display: none;
-}
-
-/*
-  The desktop container query collapses the model chip to a 32px icon below
-  450px, which is right for a squeezed window and wrong for a phone: the model
-  name is the one thing the reader needs to confirm before sending. The chip
-  reopens here and truncates its text instead.
-*/
 :root[data-surface="mobile"] .composer-right .composer-model-thinking-chip {
   width: auto;
-  max-width: 52vw;
+  max-width: 46vw;
+  height: 32px;
   flex: 0 1 auto;
   justify-content: flex-start;
-  gap: 6px;
-  padding-inline: 8px;
+  gap: 5px;
+  padding-inline: 9px;
 }
 
 :root[data-surface="mobile"] .composer-model-thinking-model {
   display: inline-block;
-  max-width: 42vw;
+  max-width: 30vw;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The reasoning level is a word, and it must stay a word: 中/高 next to a
+   waveform icon is unreadable on its own. */
+:root[data-surface="mobile"] .composer-model-thinking-level {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+}
+
+:root[data-surface="mobile"] .composer-model-thinking-chip .composer-model-thinking-level {
+  padding-inline: 0;
 }
 
 :root[data-surface="mobile"] .composer-model-thinking-chevron {
   display: none;
 }
 
-/* The model name is the one label that can be long; it truncates rather than
-   wrapping or pushing the send button off screen. */
 :root[data-surface="mobile"] .composer-model-chip,
 :root[data-surface="mobile"] .composer-model-select {
   min-width: 0;
-  max-width: 52vw;
+  max-width: 46vw;
 }
 
 :root[data-surface="mobile"] .composer-model-chip .label,
@@ -470,10 +477,6 @@
    not enough there. */
 :root[data-surface="mobile"] .composer-stack {
   padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-agent-chip {
-  min-height: 40px;
 }
 
 /*
@@ -606,6 +609,27 @@
 }
 
 /*
+  One of the four buttons carries an icon of its own size and no shared box, so
+  the row read as three aligned icons and one taller, higher neighbour. Every
+  direct child of the cluster gets the same square and the same icon size.
+*/
+:root[data-surface="mobile"] .conversation-topbar .ct-actions > * {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  flex: none;
+  border-radius: var(--radius-md);
+}
+
+:root[data-surface="mobile"] .conversation-topbar .ct-actions > * > svg {
+  width: 18px;
+  height: 18px;
+}
+
+/*
   Settings kept the desktop's content padding (48px right, toolbar-height top)
   which left an empty band above the section and a dead gutter on the right.
   The phone uses the panel edge to edge.
@@ -670,4 +694,17 @@
   flex: none;
   position: relative;
   z-index: 1;
+}
+
+/*
+  The model list is a fixed box on a phone. Left to flex inside a height:auto
+  panel it collapsed to roughly two rows, which made nine discovered models look
+  like two with a scrollbar nobody could grab.
+*/
+:root[data-surface="mobile"] .provider-models-list,
+:root[data-surface="mobile"] .provider-chosen-list {
+  min-height: 40vh;
+  max-height: 40vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
