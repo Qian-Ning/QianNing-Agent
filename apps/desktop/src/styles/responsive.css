@@ -363,8 +363,12 @@
 :root[data-surface="mobile"] .composer-toolbar {
   flex-wrap: nowrap;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   padding-inline: 8px;
+  /* Fill the comment column: a row that stops short leaves the send button
+     floating in the middle of the bar. */
+  width: 100%;
+  box-sizing: border-box;
 }
 
 :root[data-surface="mobile"] .composer-left {
@@ -386,20 +390,28 @@
 /* The send button is the anchor of the row; it never shrinks or moves. */
 :root[data-surface="mobile"] .composer-right .send-btn,
 :root[data-surface="mobile"] .composer-right .stop-btn {
-  margin-left: 2px;
-  flex: none;
+  margin-left: auto;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
 }
 
 /* The mode chip keeps its word ("全自动"/"代理") — one short label, not 88px. */
 :root[data-surface="mobile"] .composer-mode-chip {
   display: inline-flex;
-  height: 32px;
-  padding-inline: 10px;
-  flex: 0 0 auto;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
 }
 
+/* The glyph carries the mode on a phone; the word lives in its tooltip and in
+   the sheet the chip opens. Keeping it cost 44px the model name needs. */
 :root[data-surface="mobile"] .composer-mode-chip-label {
-  white-space: nowrap;
+  display: none;
 }
 
 :root[data-surface="mobile"] .composer-agent-chip {
@@ -412,10 +424,45 @@
   white-space: nowrap;
 }
 
-/* Both panel-openers are settings rows on a phone, not toolbar space. */
-:root[data-surface="mobile"] .composer-permission,
-:root[data-surface="mobile"] .context-inspector-trigger {
+/*
+  Permission and context are panel-openers. A phone keeps them, but as glyphs:
+  the permission word and the ring's percentage are desktop luxury, and both
+  panels still open on tap.
+*/
+:root[data-surface="mobile"] .composer-permission {
+  display: inline-flex;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+}
+
+:root[data-surface="mobile"] .composer-permission .composer-permission-label,
+:root[data-surface="mobile"] .composer-permission .composer-permission-chevron {
   display: none;
+}
+
+:root[data-surface="mobile"] .context-inspector-trigger {
+  display: inline-flex;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+}
+
+:root[data-surface="mobile"] .context-inspector-trigger .context-inspector-ring-value {
+  display: none;
+}
+
+:root[data-surface="mobile"] .context-inspector-trigger .context-inspector-ring {
+  width: 20px;
+  height: 20px;
 }
 
 /* Model and reasoning sit side by side as two chips, never as one run of text. */
@@ -428,9 +475,10 @@
 
 :root[data-surface="mobile"] .composer-right .composer-model-thinking-chip {
   width: auto;
-  max-width: 46vw;
-  height: 32px;
-  flex: 0 1 auto;
+  max-width: none;
+  min-width: 64px;
+  height: 44px;
+  flex: 1 1 auto;
   justify-content: flex-start;
   gap: 5px;
   padding-inline: 9px;
@@ -438,7 +486,9 @@
 
 :root[data-surface="mobile"] .composer-model-thinking-model {
   display: inline-block;
-  max-width: 30vw;
+  max-width: none;
+  min-width: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -462,8 +512,17 @@
 
 :root[data-surface="mobile"] .composer-model-chip,
 :root[data-surface="mobile"] .composer-model-select {
-  min-width: 0;
-  max-width: 46vw;
+  min-width: 64px;
+  max-width: none;
+  flex: 1 1 auto;
+}
+
+/* Under 340px one control has to go; reasoning is the one that reads as part of
+   the model name anyway. Its panel is still reachable from the model chip. */
+@media (max-width: 340px) {
+  :root[data-surface="mobile"] .composer-reasoning-chip {
+    display: none;
+  }
 }
 
 :root[data-surface="mobile"] .composer-model-chip .label,
