@@ -570,10 +570,12 @@
    chat bubble for the default mode, so the icon alone is unambiguous. */
 :root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-label {
   display: inline-block;
-  max-width: 38px;
+  max-width: 40px;
   overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--text-2xs);
+  font-size: 10px;
+  line-height: 1;
   color: var(--ds-text-secondary);
 }
 
@@ -582,8 +584,9 @@
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-mode-chip {
-  width: 44px;
-  min-width: 44px;
+  width: 34px;
+  min-width: 34px;
+  padding: 0;
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-level:not(.composer-model-level-inline),
