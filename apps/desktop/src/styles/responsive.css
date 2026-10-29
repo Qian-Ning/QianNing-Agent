@@ -418,11 +418,11 @@
    hole between the attach button and the permission chip. The word stays. */
 :root[data-surface="mobile"] .composer-mode-chip-label {
   display: inline-block;
-  max-width: 30px;
+  max-width: 36px;
   overflow: hidden;
   white-space: nowrap;
-  font-size: 10px;
-  line-height: 1;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-none);
 }
 
 :root[data-surface="mobile"] .composer-agent-chip {
@@ -579,13 +579,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 10px;
-  line-height: 1;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-none);
   color: var(--ds-text-secondary);
 }
 
 /* The label lives inside the face, so hiding the face hid the word too and
-   left an empty 34px box. Keep the face, drop only the glyph. */
+   left an empty 34px box. Keep the face, drop only the glyph. Three characters
+   at 10px need 31px, so the slot carries 40 and the model name gives up 6. */
 :root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face {
   display: flex;
   align-items: center;
@@ -599,8 +600,8 @@
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-mode-chip {
-  width: 34px;
-  min-width: 34px;
+  width: 40px;
+  min-width: 40px;
   padding: 0;
 }
 
