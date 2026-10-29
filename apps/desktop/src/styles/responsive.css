@@ -541,9 +541,39 @@
   level now rides inside the model chip as text, so it is visible at a glance
   instead of being a fourth icon that looks like the permission shield.
 */
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip,
 :root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
   display: none;
+}
+
+/*
+  All seven composer functions stay on the phone, but they cannot all sit in one
+  44px row: seven targets and six gaps need 356px of a 338px card. So the attach
+  button moves up into the text row, where it belongs anyway, and the control
+  row is left with five slots:
+
+      text row   [+] 输入框
+      control    [mode] [permission] [model · level] [context] [send]
+
+  Four 44px targets and four 8px gaps take 208px, which leaves the model chip
+  130px — enough for the name and its reasoning level together.
+*/
+:root[data-surface="mobile"] .composer {
+  position: relative;
+}
+
+:root[data-surface="mobile"] .composer-toolbar {
+  position: static;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-plus {
+  position: absolute;
+  inset-inline-start: 6px;
+  top: 6px;
+  z-index: 3;
+}
+
+:root[data-surface="mobile"] .composer-input {
+  padding-inline-start: 46px;
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-level:not(.composer-model-level-inline),
@@ -595,6 +625,32 @@
 
 :root[data-surface="mobile"] .composer-toolbar .context-inspector-ring-value {
   display: none;
+}
+
+/*
+  The chip needs a surface. Without one the name and the level painted straight
+  onto the card and read as two loose words; a soft fill groups them into the
+  single control they are.
+*/
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip {
+  background: var(--ds-bg-secondary);
+  border-radius: var(--radius-full, 999px);
+}
+
+/* A full ring means "the whole window is free", not "alarm": at rest it has to
+   read as one more grey tool icon, not a black dot. */
+:root[data-surface="mobile"] .context-inspector-trigger {
+  color: var(--ds-text-tertiary);
+}
+
+:root[data-surface="mobile"] .context-inspector-trigger .context-inspector-ring-track {
+  stroke: color-mix(in oklab, var(--ds-text-primary) 12%, transparent);
+}
+
+/* The arc reads "how much is still free", so at rest it is a full circle; at
+   full opacity that circle is the heaviest mark in the row. */
+:root[data-surface="mobile"] .context-inspector-trigger .context-inspector-ring-progress {
+  stroke-opacity: 0.45;
 }
 
 :root[data-surface="mobile"] .composer-model-level-inline {
