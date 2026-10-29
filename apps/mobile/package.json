@@ -6,15 +6,21 @@
   "description": "QianNing Agent for the phone: a RACP client that runs its own UI, packaged both as the Host's /app page and as an Android app.",
   "scripts": {
     "dev": "vite",
+    "predev": "node scripts/build-skills.mjs",
     "build": "vite build",
+    "prebuild": "node scripts/build-skills.mjs",
+    "build:skills": "node scripts/build-skills.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretypecheck": "node scripts/build-skills.mjs",
     "test": "vitest run",
+    "pretest": "node scripts/build-skills.mjs",
     "preview": "vite preview",
     "cap:sync": "cap sync android",
     "apk": "node scripts/build-apk.mjs",
     "audit:layout": "electron scripts/layout-audit.mjs",
     "build:headless": "esbuild src/agent/headless-entry.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist-headless/agent.mjs --log-level=warning",
-    "build:shared": "node scripts/build-shared-surface.mjs"
+    "build:shared": "node scripts/build-shared-surface.mjs",
+    "smoke:boot": "node scripts/smoke-boot.cjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",

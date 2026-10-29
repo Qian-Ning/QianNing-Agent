@@ -3,10 +3,10 @@
  *
  * The desktop ships `apps/desktop/resources/skills/*.md` and advertises them as a
  * catalog the model can pull bodies from on demand (D174). A phone has the same
- * model and the same tasks, so it ships the same documents: `build-shared-surface`
- * copies them into `public/skills`, and this module turns that folder into the
- * same catalog-plus-tool pair. Nothing here is phone-specific except where the
- * files come from.
+ * model and the same tasks, so it ships the same documents. `build-skills.mjs`
+ * reads that folder at build time and emits `skills.generated.ts`, which both
+ * bundlers can carry — `import.meta.glob` is Vite-only and crashed the bridge
+ * under esbuild before this existed.
  */
 
 export type BundledSkill = {
@@ -19,13 +19,9 @@ export type BundledSkill = {
   file: string;
 };
 
-// Read straight from the desktop's shipped folder: one source of truth for both
+// Generated from the desktop's shipped folder: one source of truth for both
 // surfaces, and the bundle carries the text so no runtime copy step can drift.
-const FILES = import.meta.glob("../../../../apps/desktop/resources/skills/*.md", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
+import { SKILL_FILES } from "./skills.generated";
 
 type Frontmatter = { name?: string; description?: string };
 
@@ -53,8 +49,7 @@ let cached: BundledSkill[] | null = null;
 export function bundledSkills(): BundledSkill[] {
   if (cached) return cached;
   const skills: BundledSkill[] = [];
-  for (const [path, raw] of Object.entries(FILES)) {
-    const file = path.split("/").pop() ?? path;
+  for (const { file, body: raw } of SKILL_FILES) {
     const { data, body } = splitFrontmatter(raw);
     const fallbackName = file.replace(/\.md$/i, "").replace(/-/g, " ");
     skills.push({

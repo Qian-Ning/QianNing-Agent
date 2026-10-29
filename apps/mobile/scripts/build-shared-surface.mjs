@@ -41,6 +41,11 @@ console.log("[shared] copying renderer into public/shared");
 rmSync(target, { recursive: true, force: true });
 cpSync(rendererOut, target, { recursive: true });
 
+// The bridge bundle is built by esbuild, which cannot resolve `import.meta.glob`;
+// the skills are emitted as data first so the bundle carries them like any module.
+console.log("[shared] generating the skill data");
+execFileSync(node, [join(appRoot, "scripts/build-skills.mjs")], { cwd: appRoot, stdio: ["ignore", "inherit", "inherit"] });
+
 console.log("[shared] bundling the phone bridge");
 const bootOut = join(appRoot, "public/shared/bridge-boot.js");
 mkdirSync(join(appRoot, "public/shared"), { recursive: true });

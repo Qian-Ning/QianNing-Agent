@@ -75,3 +75,5 @@ electron.vite.config.*.mjs
 
 .playwright-cli
 worktrees
+# Generated from apps/desktop/resources/skills by apps/mobile/scripts/build-skills.mjs
+apps/mobile/src/agent/skills.generated.ts
