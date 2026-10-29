@@ -76,7 +76,21 @@ const MEASURE = String.raw`
   const controls = bar
     ? [...bar.querySelectorAll("button, [role=button], .composer-chip, .composer-mode-chip")].filter(visible)
     : [];
+  const topbar = document.querySelector(".conversation-topbar, .ct-bar, .ct-root, header.ct") ||
+    document.querySelector(".ct-actions")?.closest("header, .ct, .conversation-topbar");
   return {
+    topbarButtons: topbar
+      ? [...topbar.querySelectorAll("button, [role=button]")].filter(visible).map((element) => ({
+          label: (element.getAttribute("aria-label") || element.textContent || "").trim().slice(0, 14),
+          ...box(element),
+        }))
+      : [],
+    barBox: box(document.querySelector(".conversation-topbar")),
+    actionsBox: box(document.querySelector(".ct-actions")),
+    rightBox: box(document.querySelector(".ct-right")),
+    rightChildren: [...(document.querySelector(".ct-right")?.children ?? [])].map((element) => ({
+      tag: element.tagName, className: String(element.className || "").slice(0, 40), ...box(element),
+    })),
     viewport: { w: window.innerWidth, h: window.innerHeight },
     scrollWidth: document.documentElement.scrollWidth,
     topbar: box(document.querySelector(".ct-lead") ? document.querySelector(".ct-lead").parentElement : null),
@@ -89,6 +103,82 @@ const MEASURE = String.raw`
       aria: element.getAttribute("aria-label") || "",
       ...box(element),
     })),
+  };
+})()
+`;
+
+
+const MEASURE_SETTINGS = String.raw`
+(async () => {
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const box = (element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      x: Math.round(rect.x),
+      y: Math.round(rect.y),
+      w: Math.round(rect.width),
+      h: Math.round(rect.height),
+      right: Math.round(rect.right),
+    };
+  };
+  const visible = (element) => {
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  };
+  const snapshot = () => ({
+    view: document.querySelector(".settings-shell")?.getAttribute("data-settings-view") || "",
+    heading: (document.querySelector(".settings-content h2, .settings-page-header h2, .settings-content h1")?.textContent || "").trim(),
+    cards: [...document.querySelectorAll(".settings-card-heading, .settings-card > h3, .settings-card-block > h3")]
+      .filter(visible).map((element) => (element.textContent || "").trim()).filter(Boolean),
+    segments: [...document.querySelectorAll(".settings-segment")].filter(visible).map((segment) => ({
+      label: segment.getAttribute("aria-label") || "",
+      ...box(segment),
+      items: [...segment.children].filter(visible).map((item) => ({
+        text: (item.textContent || "").trim(),
+        ...box(item),
+        scrollW: item.scrollWidth,
+        clientW: item.clientWidth,
+      })),
+    })),
+  });
+  // On the phone the sidebar is a drawer: its buttons are inert until it opens.
+  const opener = [...document.querySelectorAll("[aria-label]")]
+    .find((element) => element.getAttribute("aria-label") === "切换侧边栏");
+  if (opener) {
+    opener.click();
+    await wait(500);
+  }
+  const trigger = document.querySelector('[data-nav="settings"]')
+    || [...document.querySelectorAll("[aria-label]")]
+      .find((element) => element.getAttribute("aria-label") === "设置");
+  if (!trigger) {
+    return { reached: false, labels: [...document.querySelectorAll("[aria-label]")].map((element) => element.getAttribute("aria-label")).slice(0, 40) };
+  }
+  trigger.click();
+  await wait(800);
+  const labels = [...document.querySelectorAll("[aria-label]")].map((element) => element.getAttribute("aria-label")).slice(0, 60);
+  const pages = [snapshot()];
+  for (const name of ["AI", "常规"]) {
+    // The phone's settings is a list that opens one destination at a time, so
+    // reaching the second one means going back to the list first.
+    if (document.querySelector('.settings-shell[data-settings-view="content"]') && typeof window.__qianningSettingsBack === "function") {
+      window.__qianningSettingsBack();
+      await wait(500);
+    }
+    const item = [...document.querySelectorAll(".settings-nav-item, .settings-nav-row, [data-settings-destination]")]
+      .find((candidate) => (candidate.textContent || "").includes(name));
+    if (!item) continue;
+    item.click();
+    await wait(600);
+    const next = snapshot();
+    if (!pages.some((page) => page.view === next.view && page.cards.join() === next.cards.join())) pages.push(next);
+  }
+  return {
+    reached: true,
+    labels,
+    navItems: [...document.querySelectorAll(".settings-nav-item")].map((element) => (element.textContent || "").trim()).slice(0, 30),
+    viewAttr: document.querySelector(".settings-shell")?.getAttribute("data-settings-view") ?? null,
+    pages,
   };
 })()
 `;
@@ -122,8 +212,30 @@ function inspect(measured, width) {
     if (arrowRightOf(actions) === false) push("action-order", "actions are not laid out left to right");
     if (first.y < 0) push("action-offscreen", `${first.y}`);
   }
+  if (measured.actionsBox && measured.barBox) {
+    // A cluster that stops short of the bar's padding reads as a misaligned row
+    // even when every button in it is the same size.
+    const slack = measured.barBox.right - measured.actionsBox.right;
+    if (slack > 18) push("actions-not-flush", `${slack}px from the right edge`);
+  }
   if (measured.barScroll && measured.barScroll.scroll > measured.barScroll.client + 1) {
     push("toolbar-overflow", `${measured.barScroll.scroll} > ${measured.barScroll.client}`);
+  }
+  // A settings control that wraps per character is not "narrow", it is broken:
+  // 智能体 becomes a three-line column. Height is the tell, width is the cause.
+  for (const page of measured.settings?.pages ?? []) {
+    for (const segment of page.segments) {
+      for (const item of segment.items) {
+        if (item.h > 48) push("segment-wrapped", `${segment.label}: ${item.text} ${item.w}x${item.h}`);
+        else if (item.scrollW > item.clientW + 1) push("segment-clipped", `${segment.label}: ${item.text}`);
+      }
+      if (segment.right > width + 1) push("segment-overflow", `${segment.label} right=${segment.right}`);
+    }
+    for (const card of page.cards) {
+      // Computer control drives the desktop's mouse and keyboard; there is no
+      // such target on a phone, so the card is noise there.
+      if (card === "电脑操作" || card === "Computer control") push("desktop-only-card", card);
+    }
   }
   const controls = measured.controls;
   for (let index = 0; index < controls.length; index += 1) {
@@ -165,6 +277,7 @@ async function run(port, width) {
   await win.webContents.reload();
   await new Promise((resolve) => setTimeout(resolve, 1200));
   const measured = await win.webContents.executeJavaScript(MEASURE);
+  measured.settings = await win.webContents.executeJavaScript(MEASURE_SETTINGS);
   win.destroy();
   return measured;
 }
@@ -189,6 +302,8 @@ for (const width of WIDTHS) {
     console.log(`  actions   ${measured.actions.map((action) => `${action.label || "·"} ${action.w}x${action.h}@${action.x}`).join("  ")}`);
     console.log(`  controls  ${measured.controls.map((control) => `${control.label || "·"} ${control.w}x${control.h}`).join("  ")}`);
     console.log(`  toolbar   ${measured.barScroll ? `${measured.barScroll.scroll}/${measured.barScroll.client}` : "n/a"}`);
+    const pages = measured.settings?.pages ?? [];
+    console.log(`  settings  ${measured.settings?.reached ? pages.map((page) => `${page.view}:${page.cards.length} cards/${page.segments.length} segments`).join("  ") : "unreachable"}`);
     for (const problem of problems) console.log(`  FAIL ${problem.kind}: ${problem.detail}`);
   }
 }
