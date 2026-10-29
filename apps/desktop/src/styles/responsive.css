@@ -362,14 +362,15 @@
 */
 :root[data-surface="mobile"] .composer-toolbar {
   /*
-    A grid, not a flex row. Four chips plus a send button in 288–358px is a
-    width budget, and flex only negotiates it by letting one item overflow the
-    others — which is how the send button ended up on top of the model name at
-    every width. Grid columns cannot overlap; the model name is the single
-    flexible column and everything else is its own box.
+    One line, always. A grid with a fixed column count wraps the moment a
+    seventh control appears (the context ring shows up once a turn has usage),
+    and the wrapped item lands on a second row at the left — which is how the
+    send button ended up floating over the card's bottom-left corner. Flex with
+    nowrap has no second row to fall into; the model chip is the only item that
+    shrinks, so any number of controls stays on the same line.
   */
-  display: grid;
-  grid-template-columns: auto auto auto minmax(0, 1fr) auto auto;
+  display: flex;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px;
   padding-inline: 8px;

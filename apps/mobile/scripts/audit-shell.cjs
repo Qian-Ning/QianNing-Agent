@@ -97,6 +97,10 @@ const MEASURE = String.raw`
     actions: actions.map((element) => ({ label: (element.textContent || element.getAttribute("aria-label") || "").trim().slice(0, 12), ...box(element) })),
     composer: box(composer),
     barScroll: bar ? { client: bar.clientWidth, scroll: bar.scrollWidth } : null,
+    toolbarStyle: bar ? {
+      display: getComputedStyle(bar).display,
+      flexWrap: getComputedStyle(bar).flexWrap,
+    } : null,
     controls: controls.map((element) => ({
       label: (element.textContent || element.getAttribute("aria-label") || "").trim().slice(0, 14),
       className: String(element.className || "").slice(0, 60),
@@ -183,6 +187,12 @@ const MEASURE_SETTINGS = String.raw`
 })()
 `;
 
+
+
+
+
+
+
 function overlaps(a, b) {
   return a.x < b.right && b.x < a.right && a.y < b.y + b.h && b.y < a.y + a.h;
 }
@@ -238,6 +248,23 @@ function inspect(measured, width) {
     }
   }
   const controls = measured.controls;
+  const toolbarStyle = measured.toolbarStyle;
+  if (toolbarStyle && (toolbarStyle.display !== "flex" || toolbarStyle.flexWrap !== "nowrap")) {
+    // Any layout that can move a control to a second line puts it under the
+    // input card, where it reads as a floating button.
+    push("toolbar-can-wrap", `${toolbarStyle.display}/${toolbarStyle.flexWrap}`);
+  }
+  if (controls.length > 1) {
+    // A control that drops to a second row lands below the input and reads as
+    // a floating button; no per-control size check can see that.
+    const tops = controls.map((control) => control.y);
+    if (Math.max(...tops) - Math.min(...tops) > 2) push("toolbar-two-rows", tops.join("/"));
+  }
+  for (const control of controls) {
+    if (measured.composer && (control.y + control.h > measured.composer.y + measured.composer.h + 2)) {
+      push("control-below-composer", `${control.label} bottom=${control.y + control.h} card=${measured.composer.y + measured.composer.h}`);
+    }
+  }
   for (let index = 0; index < controls.length; index += 1) {
     const control = controls[index];
     if (control.h < 32) push("control-squashed", `${control.label} h=${control.h}`);
@@ -249,6 +276,10 @@ function inspect(measured, width) {
     }
   }
   return problems;
+}
+
+function control_(control) {
+  return control;
 }
 
 function arrowRightOf(actions) {
@@ -272,6 +303,13 @@ async function run(port, width) {
       "qn.local.activeProvider": "p1",
     }));
     localStorage.setItem("qn.local.settings", JSON.stringify({ defaultPermissionMode: "ask" }));
+    const session = { id: "s1", title: "布局探针", createdAt: stamp, updatedAt: stamp };
+    localStorage.setItem("qn.agent.sessions", JSON.stringify([session]));
+    localStorage.setItem("qn.agent.messages.s1", JSON.stringify([
+      { itemId: "m1", role: "user", text: "在吗", status: "done", createdAt: stamp },
+      { itemId: "m2", role: "assistant", text: "在。", status: "done", createdAt: stamp,
+        usage: { inputTokens: 1500, outputTokens: 300, totalTokens: 1800 } },
+    ]));
     true;
   `);
   await win.webContents.reload();
