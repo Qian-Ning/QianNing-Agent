@@ -61,6 +61,13 @@ export function toDesktopEvents(local: LocalEvent, now: number): DesktopEnvelope
   const make = (event: Record<string, unknown>): DesktopEnvelope => ({ ...base, event });
 
   switch (local.kind) {
+    case "permission.requested": {
+      // The renderer's PermissionCard is driven by this event; without the
+      // translation a gated tool would wait for an answer nobody could give.
+      const request = (payload as { request?: unknown } | undefined)?.request;
+      return request ? [make({ type: "tool_permission_request", request })] : [];
+    }
+
     case "turn.started":
       return [make({ type: "agent_start" }), make({ type: "turn_start" })];
 
