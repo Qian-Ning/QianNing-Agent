@@ -18,6 +18,11 @@ import {
 } from "../../lib/settings-search";
 import { pluginViewIcon } from "../../lib/plugin-view-icons";
 import {
+  calculateContextUsage,
+  latestMessageUsage,
+  resolveContextWindow,
+} from "../../lib/context-usage";
+import {
   IconArchive,
   IconActivity,
   IconChartColumn,
@@ -70,6 +75,13 @@ import { UsagePage } from "../../components/settings/UsagePage";
 
 type SettingsTab = ReturnType<typeof useAppStore.getState>["settingsTab"];
 
+/** 15_600 → "15.6k"; the row has one line and no room for six digits. */
+function compactTokenLabel(tokens: number): string {
+  if (!Number.isFinite(tokens) || tokens <= 0) return "0";
+  if (tokens < 1000) return String(Math.round(tokens));
+  return (tokens / 1000).toFixed(tokens < 10_000 ? 1 : 0) + "k";
+}
+
 type NavItem = {
   id: SettingsTab;
   labelKey: string;
@@ -92,7 +104,21 @@ export function SettingsPage() {
   const settings = useAppStore((s) => s.settings);
   const version = useAppStore((s) => s.version);
   const refreshProviders = useAppStore((s) => s.refreshProviders);
+  const liveMessages = useAppStore((s) => s.messages);
+  const providers = useAppStore((s) => s.providers);
+  const providerModels = useAppStore((s) => s.providerModels);
+  const activeSessionId = useAppStore((s) => s.activeSessionId);
+  const isRunning = useAppStore((s) => s.isRunning);
+  const compactContext = useAppStore((s) => s.compactContext);
   const platform = (window.piDesktop?.platform ?? "darwin") as ShortcutPlatform;
+  // The phone hides the composer's context ring to keep the toolbar to one row,
+  // so the figures live here instead — same numbers, a surface with room.
+  const contextUsage = useMemo(() => {
+    const usage = latestMessageUsage(liveMessages);
+    if (!usage) return null;
+    const window = resolveContextWindow(undefined, undefined, providerModels, providers);
+    return { ...calculateContextUsage(usage, window), window };
+  }, [liveMessages, providerModels, providers]);
 
   // Experimental feature surfaces remain available in development builds only.
   const includeDevelopmentOnly = import.meta.env.DEV;
@@ -569,6 +595,28 @@ export function SettingsPage() {
                   />
                 </SettingsRow>
               </SettingsCard>
+
+              {surface === "mobile" ? (
+                <SettingsCard title={t("settings.contextWindow")}>
+                  <SettingsRow
+                    title={t("settings.contextWindow")}
+                    detail={
+                      contextUsage
+                        ? `${contextUsage.usedPercent}% · ${compactTokenLabel(contextUsage.usedTokens)} / ${compactTokenLabel(contextUsage.window)}`
+                        : "—"
+                    }
+                  >
+                    <button
+                      type="button"
+                      className="settings-text-action"
+                      disabled={!activeSessionId || isRunning || !contextUsage}
+                      onClick={() => void compactContext()}
+                    >
+                      {t("chat.builtin.compact")}
+                    </button>
+                  </SettingsRow>
+                </SettingsCard>
+              ) : null}
 
               <SettingsCard title={t("settings.computerControl")}>
                 <SettingsRow
