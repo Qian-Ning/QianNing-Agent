@@ -518,6 +518,18 @@ export class PhoneBridge {
 
     "providers/modelCatalogStatus": () => ({ ready: true, updatedAt: null }),
 
+    // Skills, MCP servers and subagents are host-side catalogues the phone does
+    // not carry: the bundled skills are baked into the runtime, and there is no
+    // process to spawn an MCP server. The pages still open and say so, instead of
+    // failing with "does not implement".
+    "skill/list": () => ({ skills: [] }),
+    "skill/catalog": () => ({ skills: [] }),
+    "skill/read": () => ({ skill: null }),
+    "mcp/list": () => ({ servers: [], statuses: [] }),
+    "subagent/list": () => ({ subagents: [] }),
+    "subagent/catalog": () => ({ subagents: [], builtins: [] }),
+    "subagent/read": () => ({ subagent: null }),
+
     "secrets/has": (input) => {
       const ref = String(input ?? "");
       const provider = this.providers.list().find((row) => ref.includes(row.id));

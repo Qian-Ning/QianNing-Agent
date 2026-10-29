@@ -71,3 +71,28 @@ if (new URLSearchParams(location.search).has("bridgeDebug")) {
 // Ask for the notification permission on first start: the notification centre
 // is only useful outside the app when the tray is allowed to speak.
 void requestNoticePermission();
+
+/**
+ * A keyboard that opens on its own is a bug: opening a dialog is not a request to
+ * type. Every focus that arrives without a tap in the last moment is dropped
+ * before the soft keyboard can settle. A tap still focuses normally.
+ */
+const GESTURE_WINDOW_MS = 600;
+let lastGestureAt = 0;
+for (const type of ["pointerdown", "touchstart", "keydown"]) {
+  window.addEventListener(type, () => {
+    lastGestureAt = Date.now();
+  }, true);
+}
+
+document.addEventListener(
+  "focusin",
+  (event) => {
+    const target = event.target as HTMLElement | null;
+    if (!target || (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA")) return;
+    if (target instanceof HTMLInputElement && target.type === "range") return;
+    if (Date.now() - lastGestureAt < GESTURE_WINDOW_MS) return;
+    target.blur();
+  },
+  true,
+);

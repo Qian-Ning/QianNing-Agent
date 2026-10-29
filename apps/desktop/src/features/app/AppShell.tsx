@@ -112,6 +112,12 @@ export function AppShell() {
     const back = () => {
       const store = useAppStore.getState();
       if (store.page === "settings") {
+        // Settings is two screens on a phone: the directory, then a section.
+        // Back unwinds one of them, never both.
+        const settingsBack = (
+          window as unknown as { __qianningSettingsBack?: () => boolean }
+        ).__qianningSettingsBack;
+        if (settingsBack && settingsBack()) return true;
         store.setPage("chat");
         return true;
       }
