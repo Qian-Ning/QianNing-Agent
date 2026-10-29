@@ -658,9 +658,6 @@
   display: none;
 }
 
-:root[data-surface="mobile"] .ct-actions {
-  gap: 4px;
-}
 
 /* The bar reserves 36px on the right for the desktop window controls. A phone
    has none, and the reservation pushed both icons out of the right edge. */
@@ -710,39 +707,61 @@
   sized control beside the plain panel button — the "one bigger, one smaller"
   mismatch. The tray goes away so every button is the same 40px square.
 */
-:root[data-surface="mobile"] .conversation-topbar .ct-actions {
-  background: transparent;
-  padding: 0;
-  gap: 2px;
-}
-
-:root[data-surface="mobile"] .conversation-topbar .ct-right {
-  gap: 2px;
-}
-
-:root[data-surface="mobile"] .conversation-topbar .ct-icon-btn {
-  border-radius: var(--radius-md);
-}
-
 /*
-  One of the four buttons carries an icon of its own size and no shared box, so
-  the row read as three aligned icons and one taller, higher neighbour. Every
-  direct child of the cluster gets the same square and the same icon size.
+  Top bar, phone: one row, equal squares, 8px between them, and the group sits
+  on the bar's own 12px page margin. The desktop tray (tinted pill, 4px gaps,
+  window-control inset) is removed outright — a 2px gap between two 44px
+  targets reads as one merged control, and a 10px inset reads as the icons
+  floating short of the edge.
 */
+:root[data-surface="mobile"] .conversation-topbar {
+  padding: calc(4px + env(safe-area-inset-top, 0px)) 12px 4px;
+  gap: 8px;
+  right: 0;
+  border: 0;
+  background: transparent;
+}
+
+:root[data-surface="mobile"] .conversation-topbar .ct-actions,
+:root[data-surface="mobile"] .conversation-topbar .ct-right {
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-surface="mobile"] .conversation-topbar .ct-right > *:not(.ct-actions),
 :root[data-surface="mobile"] .conversation-topbar .ct-actions > * {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
   padding: 0;
   flex: none;
   border-radius: var(--radius-md);
 }
 
-:root[data-surface="mobile"] .conversation-topbar .ct-actions > * > svg {
-  width: 18px;
-  height: 18px;
+/* `.ct-actions` is itself a child of `.ct-right`; the square rule above must
+   not shrink the cluster to one button's width, or its two buttons spill out
+   of a 44px box — one to the left, one past the screen edge. */
+:root[data-surface="mobile"] .conversation-topbar .ct-right > .ct-actions {
+  width: auto;
+  height: auto;
+  min-width: 0;
+}
+
+:root[data-surface="mobile"] .conversation-topbar .ct-actions > * > svg,
+:root[data-surface="mobile"] .conversation-topbar .ct-right > * > svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* The bar's own 12px padding is the page margin; nothing may add to it. */
+:root[data-surface="mobile"] .conversation-topbar .ct-right > *:last-child {
+  margin-inline-end: 0;
 }
 
 /*
