@@ -680,7 +680,13 @@
 
 :root[data-surface="mobile"] .composer-toolbar .composer-plus { order: 1; width: 34px; min-width: 34px; }
 :root[data-surface="mobile"] .composer-toolbar .composer-permission { order: 3; width: 34px; min-width: 34px; }
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip { order: 2; }
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip { order: 2; width: 34px; min-width: 34px; padding: 0; }
+
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face {
+  gap: 0;
+  padding: 0;
+  justify-content: center;
+}
 :root[data-surface="mobile"] .composer-toolbar .composer-model-thinking:not(:has(.composer-reasoning-chip)) { order: 4; flex: 0 1 auto; min-width: 0; }
 :root[data-surface="mobile"] .composer-toolbar .composer-model-thinking:has(.composer-reasoning-chip) {
   display: none;
