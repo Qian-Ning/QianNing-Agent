@@ -38,6 +38,10 @@ export type AgentHostLike = {
   resolvePermission?(requestId: string, decision: "allow-once" | "allow-session" | "deny"): boolean;
   /** Applies the user's permission mode to future tool calls. */
   setPermissionMode?(mode: "ask" | "accept-edits" | "auto"): void;
+  /** Summarizes the older part of a conversation right now. */
+  compact?(sessionId: string): Promise<{ compacted: boolean; dropped: number; count: number }>;
+  /** How many times this conversation has been compacted. */
+  compactionRecord?(sessionId: string): { count: number; dropped: number; at?: string };
 };
 
 export type BridgeEnvironment = {
@@ -633,6 +637,14 @@ export class PhoneBridge {
         });
       });
       return { accepted: true, turnId: "" };
+    },
+
+    "agent/compact": async (input) => {
+      const sessionId = (input as { sessionId?: string } | undefined)?.sessionId;
+      if (!sessionId) throw new Error("sessionId is required");
+      const host = this.host;
+      if (!host?.compact) throw new Error("the phone host cannot compact");
+      return host.compact(sessionId);
     },
 
     "agent/stop": (input) => {

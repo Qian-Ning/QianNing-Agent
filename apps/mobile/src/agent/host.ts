@@ -15,6 +15,14 @@ import { createTools } from "./tools";
 import { skillCatalogSection } from "./skills";
 import { usageFromPi } from "./usage";
 import {
+  COMPACTION_PROMPT,
+  DEFAULT_CONTEXT_WINDOW,
+  KEEP_RECENT_MESSAGES,
+  compactableText,
+  compactMessages,
+  shouldCompact,
+} from "./compaction";
+import {
   DEFAULT_PERMISSION_MODE,
   PermissionBroker,
   type PermissionDecision,
@@ -113,6 +121,8 @@ export class LocalAgentHost {
       model?: Model<"openai-completions">;
       /** Tests stub the title call so a scripted stream is not consumed twice. */
       summarize?: (userText: string) => Promise<string>;
+      /** Tests stub the compaction call for the same reason. */
+      compact?: (transcript: string) => Promise<string>;
     },
     /** Reader-level instructions and limits; empty means the built-in defaults. */
     private readonly prefs: { systemPrompt?: string; maxTokens?: number } = {},
@@ -224,6 +234,9 @@ export class LocalAgentHost {
    */
   async send(sessionId: string, text: string, attachments: readonly Attachment[] = []): Promise<void> {
     const session = this.ensureSession(sessionId);
+    // Summarize before the turn, never during it: rewriting the message list
+    // while a stream is running would corrupt the loop's own bookkeeping.
+    await this.maybeCompact(session, sessionId);
     const turnId = newId("t");
     this.emit(session, { sessionId, turnId, kind: "turn.started", payload: {} });
     try {
@@ -254,6 +267,79 @@ export class LocalAgentHost {
   }
 
   /**
+   * Summarizes the older part of the conversation when the window is nearly
+   * full. A provider that fails leaves the transcript alone and the turn runs.
+   */
+  private async maybeCompact(session: RunningSession, sessionId: string): Promise<void> {
+    const used = this.lastUsageTokens(session);
+    if (!shouldCompact(used, DEFAULT_CONTEXT_WINDOW)) return;
+    try {
+      await this.compactNow(session, sessionId);
+    } catch {
+      // A budget warning must never turn into a failed turn.
+    }
+  }
+
+  /** Compacts immediately; the settings row's button calls this. */
+  async compact(sessionId: string): Promise<{ compacted: boolean; dropped: number; count: number }> {
+    const session = this.ensureSession(sessionId);
+    const dropped = await this.compactNow(session, sessionId);
+    return { compacted: dropped > 0, dropped, count: this.compactionRecord(sessionId).count };
+  }
+
+  private async compactNow(session: RunningSession, sessionId: string): Promise<number> {
+    const messages = session.agent.state.messages;
+    if (messages.length <= KEEP_RECENT_MESSAGES + 2) return 0;
+    const text = compactableText(messages as unknown as Array<{ role?: string; content?: unknown }>);
+    if (!text.trim()) return 0;
+    const summary = (
+      this.override?.compact
+        ? await this.override.compact(text)
+        : await this.complete(COMPACTION_PROMPT + "\n\nTranscript:\n" + text, 700)
+    ).trim();
+    if (!summary) return 0;
+    const next = compactMessages(messages, summary);
+    if (!next.dropped) return 0;
+    session.agent.state.messages = next.messages as typeof messages;
+    this.persistTranscript(sessionId, session.agent);
+    const record = this.compactionRecord(sessionId);
+    this.store.writeValue(
+      "compaction:" + sessionId,
+      JSON.stringify({ count: record.count + 1, dropped: record.dropped + next.dropped, at: nowIso() }),
+    );
+    this.emit(session, {
+      sessionId,
+      kind: "context.compacted",
+      payload: { dropped: next.dropped, count: record.count + 1 },
+    });
+    return next.dropped;
+  }
+
+  /** The newest turn's token count — what the window is measured against. */
+  private lastUsageTokens(session: RunningSession): number {
+    for (let index = session.messages.length - 1; index >= 0; index -= 1) {
+      const usage = session.messages[index].usage;
+      if (usage) return usage.totalTokens;
+    }
+    return 0;
+  }
+
+  compactionRecord(sessionId: string): { count: number; dropped: number; at?: string } {
+    const raw = this.store.readValue("compaction:" + sessionId);
+    if (!raw) return { count: 0, dropped: 0 };
+    try {
+      const parsed = JSON.parse(raw) as { count?: number; dropped?: number; at?: string };
+      return {
+        count: typeof parsed.count === "number" ? parsed.count : 0,
+        dropped: typeof parsed.dropped === "number" ? parsed.dropped : 0,
+        ...(parsed.at ? { at: parsed.at } : {}),
+      };
+    } catch {
+      return { count: 0, dropped: 0 };
+    }
+  }
+
+  /**
    * Names the session from its first prompt, the way the desktop does. Only an
    * untitled session is touched, so a manual name always wins.
    */
@@ -270,6 +356,11 @@ export class LocalAgentHost {
 
   private async summarize(userText: string): Promise<string> {
     if (this.override?.summarize) return this.override.summarize(userText);
+    return this.complete(TITLE_PROMPT + "\n\nUser Prompt:\n" + userText.slice(0, 1000), 64);
+  }
+
+  /** One non-streaming reply, used for titles and for compaction summaries. */
+  private async complete(prompt: string, maxTokens: number): Promise<string> {
     const model = this.override?.model ?? buildModel(this.provider, this.prefs.maxTokens);
     const stream = streamSimple(
       model,
@@ -279,12 +370,12 @@ export class LocalAgentHost {
         messages: [
           {
             role: "user",
-            content: TITLE_PROMPT + "\n\nUser Prompt:\n" + userText.slice(0, 1000),
+            content: prompt,
             timestamp: Date.now(),
           },
         ],
       } as unknown as TranscriptContext,
-      { apiKey: this.provider.apiKey, maxTokens: 64 },
+      { apiKey: this.provider.apiKey, maxTokens },
     );
     let text = "";
     for await (const event of stream) {
