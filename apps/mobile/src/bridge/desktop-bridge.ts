@@ -34,6 +34,10 @@ export type AgentHostLike = {
   /** Rewrites the instructions for one conversation; optional for hosts that
    * run a single fixed prompt. */
   setSystemPrompt?(sessionId: string, systemPrompt: string | null): void;
+  /** Answers a pending tool approval raised by the host. */
+  resolvePermission?(requestId: string, decision: "allow-once" | "allow-session" | "deny"): boolean;
+  /** Applies the user's permission mode to future tool calls. */
+  setPermissionMode?(mode: "ask" | "accept-edits" | "auto"): void;
 };
 
 export type BridgeEnvironment = {
@@ -82,12 +86,16 @@ export class PhoneBridge {
   private readonly env: BridgeEnvironment;
 
   private host?: AgentHostLike;
+  /** The user's own settings, persisted where the phone can keep them. */
+  private readonly settings: Record<string, unknown>;
   private readonly projects: ProjectBook;
 
   constructor(env: BridgeEnvironment) {
     this.env = env;
     this.projects = new ProjectBook(env.store);
     this.host = env.host;
+    this.settings = this.readSettings();
+    this.applyPermissionMode();
     this.providers = new ProviderBook(env.store);
   }
 
@@ -168,8 +176,9 @@ export class PhoneBridge {
     "settings/get": () => {
       const active = this.providers.active();
       return {
+        ...this.settings,
         defaultMode: "agent",
-        theme: "system",
+        theme: (this.settings.theme as string) ?? "system",
         // The composer resolves its model from these two; without them it shows
         // an empty model pill even though a service exists.
         defaultProviderId: active?.id ?? "",
@@ -178,18 +187,38 @@ export class PhoneBridge {
     },
 
     "settings/set": (input) => {
-      const patch = (input ?? {}) as { defaultProviderId?: string; defaultModelId?: string };
+      const patch = (input ?? {}) as Record<string, unknown> & {
+        defaultProviderId?: string;
+        defaultModelId?: string;
+      };
       if (patch.defaultProviderId) this.providers.setActive(patch.defaultProviderId);
       if (patch.defaultProviderId && patch.defaultModelId) {
         this.providers.update({ id: patch.defaultProviderId, defaultModelId: patch.defaultModelId });
       }
+      // Keep every other setting the page saves. Dropping them made the phone
+      // forget the theme, the language and the permission mode on reload.
+      const { defaultProviderId: _provider, defaultModelId: _model, ...rest } = patch;
+      Object.assign(this.settings, rest);
+      this.env.store.writeValue("qn.local.settings", JSON.stringify(this.settings));
+      this.applyPermissionMode();
       const active = this.providers.active();
       return {
+        ...this.settings,
         defaultMode: "agent",
-        theme: "system",
+        theme: (this.settings.theme as string) ?? "system",
         defaultProviderId: active?.id ?? "",
         defaultModelId: active?.defaultModelId ?? "",
       };
+    },
+
+    "tool/resolvePermission": (input) => {
+      const request = (input ?? {}) as { requestId?: string; decision?: string };
+      const decision = request.decision;
+      if (decision !== "allow-once" && decision !== "allow-session" && decision !== "deny") {
+        throw new Error("unknown permission decision");
+      }
+      const resolved = this.host?.resolvePermission?.(String(request.requestId ?? ""), decision);
+      return { ok: resolved === true };
     },
 
     "session/list": () => ({
@@ -640,6 +669,26 @@ export class PhoneBridge {
     if (!this.env.createHost) return;
     if (this.host) return;
     this.host = this.env.createHost(config);
+    this.applyPermissionMode();
+  }
+
+  /** Settings are read once at start; a missing blob means defaults. */
+  private readSettings(): Record<string, unknown> {
+    const raw = this.env.store.readValue("qn.local.settings");
+    if (!raw) return {};
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private applyPermissionMode(): void {
+    const mode = this.settings.defaultPermissionMode;
+    this.host?.setPermissionMode?.(
+      mode === "ask" || mode === "auto" || mode === "accept-edits" ? mode : "accept-edits",
+    );
   }
 
   private now(): number {

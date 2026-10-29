@@ -12,6 +12,7 @@ import { Type, type Static } from "typebox";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { AgentStore } from "./store";
 import { bundledSkills, findBundledSkill } from "./skills";
+import type { GatedAction } from "./permissions";
 
 const FILE_PREFIX = "file:";
 const MAX_FILE_BYTES = 200_000;
@@ -50,9 +51,17 @@ const FetchArgs = Type.Object({
  * path the agent passes is always relative to whatever the reader opened, so
  * "notes.md" in project A and in project B are different files.
  */
+export type ToolApproval = (input: {
+  action: GatedAction;
+  toolCallId: string;
+  toolName: string;
+  argsPreview: unknown;
+}) => Promise<boolean>;
+
 export function createTools(
   store: AgentStore,
   root: () => string | null = () => null,
+  approve?: ToolApproval,
 ): AgentTool[] {
   const resolve = (path: string): string | null => {
     const base = root();
@@ -96,7 +105,18 @@ export function createTools(
     label: "Write file",
     description: "Write a text file into the app's own storage, replacing any existing file.",
     parameters: WriteArgs,
-    execute: async (_toolCallId: string, args: Static<typeof WriteArgs>) => {
+    execute: async (toolCallId: string, args: Static<typeof WriteArgs>) => {
+      if (
+        approve &&
+        !(await approve({
+          action: "write_file",
+          toolCallId,
+          toolName: "write_file",
+          argsPreview: { path: args.path, bytes: args.content.length },
+        }))
+      ) {
+        return failure("permission denied: the user did not allow this write");
+      }
       const scoped = resolve(args.path);
       const key = fileKey(scoped ?? "");
       if (!key) return failure("invalid path");
@@ -117,11 +137,22 @@ export function createTools(
       "Fetch an http(s) URL and return its body as text, truncated to 20000 characters.",
     parameters: FetchArgs,
     execute: async (
-      _toolCallId: string,
+      toolCallId: string,
       args: Static<typeof FetchArgs>,
       signal?: AbortSignal,
     ) => {
       if (!/^https?:\/\//i.test(args.url)) return failure("only http(s) URLs are allowed");
+      if (
+        approve &&
+        !(await approve({
+          action: "fetch_url",
+          toolCallId,
+          toolName: "fetch_url",
+          argsPreview: { url: args.url, method: args.method ?? "GET" },
+        }))
+      ) {
+        return failure("permission denied: the user did not allow this request");
+      }
       const response = await fetch(args.url, {
         method: args.method ?? "GET",
         ...(args.body ? { body: args.body } : {}),

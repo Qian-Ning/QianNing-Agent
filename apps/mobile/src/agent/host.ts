@@ -13,6 +13,13 @@ import type { Model, ProviderId, TranscriptContext } from "@earendil-works/pi-ai
 import { PRODUCT_IDENTITY_SYSTEM_PROMPT } from "@pi-desktop/shared";
 import { createTools } from "./tools";
 import { skillCatalogSection } from "./skills";
+import {
+  DEFAULT_PERMISSION_MODE,
+  PermissionBroker,
+  type PermissionDecision,
+  type PermissionMode,
+  type PermissionRequest,
+} from "./permissions";
 import { ProjectBook } from "./projects";
 import type { AgentStore, StoredMessage, StoredSession } from "./store";
 import type { HostEvent, ThinkingLevel } from "../lib/racp";
@@ -110,6 +117,34 @@ export class LocalAgentHost {
     private readonly prefs: { systemPrompt?: string; maxTokens?: number } = {},
   ) {
     this.projects = new ProjectBook(store);
+    this.permissions = new PermissionBroker(
+      (request) => this.emitPermissionRequest(request),
+      { mode: DEFAULT_PERMISSION_MODE },
+    );
+  }
+
+  /** The interface calls this when the user answers a permission card. */
+  resolvePermission(requestId: string, decision: PermissionDecision): boolean {
+    return this.permissions.resolve(requestId, decision);
+  }
+
+  setPermissionMode(mode: PermissionMode): void {
+    this.permissions.setMode(mode);
+  }
+
+  permissionMode(): PermissionMode {
+    return this.permissions.getMode();
+  }
+
+  /** A request goes to the session that raised it, the way a stream event does. */
+  private emitPermissionRequest(request: PermissionRequest): void {
+    const session = this.running.get(request.sessionId);
+    if (!session) return;
+    this.emit(session, {
+      sessionId: request.sessionId,
+      kind: "permission.requested",
+      payload: { request },
+    });
   }
 
   listSessions(): StoredSession[] {
@@ -278,6 +313,9 @@ export class LocalAgentHost {
   /** The open phone project scopes every file tool; null means storage root. */
   private readonly projects: ProjectBook;
 
+  /** Tool approvals the renderer has been asked to answer. */
+  private readonly permissions: PermissionBroker;
+
   private ensureSession(sessionId: string): RunningSession {
     const existing = this.running.get(sessionId);
     if (existing) return existing;
@@ -291,7 +329,18 @@ export class LocalAgentHost {
           withExtraInstructions(SYSTEM_PROMPT, skillCatalogSection()),
           sessionPrompt ?? this.prefs.systemPrompt,
         ),
-        tools: createTools(this.store, () => this.projects.activeFolder()),
+        tools: createTools(
+          this.store,
+          () => this.projects.activeFolder(),
+          (input) =>
+            this.permissions.approve({
+              sessionId,
+              toolCallId: input.toolCallId,
+              toolName: input.toolName,
+              action: input.action,
+              argsPreview: input.argsPreview,
+            }),
+        ),
         messages: this.readTranscript(sessionId),
       },
       streamFn:
