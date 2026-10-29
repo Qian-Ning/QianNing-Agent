@@ -11,6 +11,8 @@
  * of being invented into something plausible.
  */
 
+import { usageFromPi } from "../agent/usage";
+
 export type LocalEvent = {
   sessionId: string;
   turnId?: string;
@@ -111,6 +113,10 @@ export function toDesktopEvents(local: LocalEvent, now: number): DesktopEnvelope
       if (payload?.itemType !== "message" || !payload.itemId) return [];
       const role = messageRole(payload);
       if (role !== "assistant") return [];
+      // Usage rides on the final message, which is what the shared context ring
+      // measures; dropping it left the phone's meter permanently empty.
+      const rawUsage = (payload.event as { message?: { usage?: unknown } } | undefined)?.message?.usage;
+      const usage = usageFromPi(rawUsage);
       return [
         make({
           type: "message_end",
@@ -120,6 +126,7 @@ export function toDesktopEvents(local: LocalEvent, now: number): DesktopEnvelope
             content: messageText(payload),
             createdAt: new Date(now).toISOString(),
             status: "complete",
+            ...(usage ? { usage } : {}),
           },
         }),
       ];

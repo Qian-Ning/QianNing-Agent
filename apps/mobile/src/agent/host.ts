@@ -13,6 +13,7 @@ import type { Model, ProviderId, TranscriptContext } from "@earendil-works/pi-ai
 import { PRODUCT_IDENTITY_SYSTEM_PROMPT } from "@pi-desktop/shared";
 import { createTools } from "./tools";
 import { skillCatalogSection } from "./skills";
+import { usageFromPi } from "./usage";
 import {
   DEFAULT_PERMISSION_MODE,
   PermissionBroker,
@@ -525,6 +526,7 @@ export class LocalAgentHost {
   }
 
   private toStored(message: Record<string, unknown>, role: string): StoredMessage {
+    const usage = usageFromPi(message.usage);
     return {
       itemId: String(message.id ?? newId("m")),
       role,
@@ -532,6 +534,7 @@ export class LocalAgentHost {
       ...(typeof message.thinking === "string" && message.thinking ? { thinking: message.thinking } : {}),
       status: String(message.status ?? "complete"),
       createdAt: typeof message.createdAt === "string" ? message.createdAt : nowIso(),
+      ...(usage ? { usage } : {}),
     };
   }
 

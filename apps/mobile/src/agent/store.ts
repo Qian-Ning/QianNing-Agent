@@ -17,6 +17,16 @@ export type StoredMessage = {
   toolName?: string;
   toolDetail?: string;
   toolFailed?: boolean;
+  /** Token accounting for this message, as the shared context ring reads it. */
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens?: number;
+    cacheWriteTokens?: number;
+    reasoningTokens?: number;
+    totalTokens: number;
+    cost?: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
+  };
 };
 
 export type StoredSession = {
