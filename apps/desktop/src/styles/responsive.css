@@ -405,19 +405,24 @@
 /* The mode chip keeps its word ("全自动"/"代理") — one short label, not 88px. */
 :root[data-surface="mobile"] .composer-mode-chip {
   display: inline-flex;
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
   padding: 0;
   align-items: center;
   justify-content: center;
-  flex: 0 0 44px;
+  flex: 0 0 34px;
 }
 
-/* The glyph carries the mode on a phone; the word lives in its tooltip and in
-   the sheet the chip opens. Keeping it cost 44px the model name needs. */
+/* Hiding the word left a 44px box with no ink in it, which the eye read as a
+   hole between the attach button and the permission chip. The word stays. */
 :root[data-surface="mobile"] .composer-mode-chip-label {
-  display: none;
+  display: inline-block;
+  max-width: 30px;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 1;
 }
 
 :root[data-surface="mobile"] .composer-agent-chip {
@@ -579,7 +584,17 @@
   color: var(--ds-text-secondary);
 }
 
+/* The label lives inside the face, so hiding the face hid the word too and
+   left an empty 34px box. Keep the face, drop only the glyph. */
 :root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face > svg {
   display: none;
 }
 
