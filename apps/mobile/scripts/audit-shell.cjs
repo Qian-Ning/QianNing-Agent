@@ -20,7 +20,7 @@ const path = require("node:path");
 
 const here = __dirname;
 const root = path.resolve(here, "..", "public");
-const WIDTHS = [320, 360, 390];
+const WIDTHS = [320, 360, 390, 400];
 const HEIGHT = 844;
 const MIN_TARGET = 40;
 
@@ -220,14 +220,21 @@ function inspect(measured, width) {
     if (heights.size > 1) push("action-heights", [...heights].join(" / "));
     if (Math.max(...centers) - Math.min(...centers) > 2) push("action-baseline", centers.join(" / "));
     if (arrowRightOf(actions) === false) push("action-order", "actions are not laid out left to right");
+    for (let index = 1; index < actions.length; index += 1) {
+      const gap = actions[index].x - actions[index - 1].right;
+      if (Math.abs(gap - 8) > 1) {
+        push("action-gap", `${gap}px between ${actions[index - 1].label || "·"} and ${actions[index].label || "·"}`);
+      }
+    }
+    const last = actions[actions.length - 1];
+    const pageEdge = (measured.viewport ?? width) - 12;
+    if (Math.abs(last.right - pageEdge) > 2) {
+      push("action-edge", `last action right=${last.right}, page edge=${pageEdge}`);
+    }
     if (first.y < 0) push("action-offscreen", `${first.y}`);
   }
-  if (measured.actionsBox && measured.barBox) {
-    // A cluster that stops short of the bar's padding reads as a misaligned row
-    // even when every button in it is the same size.
-    const slack = measured.barBox.right - measured.actionsBox.right;
-    if (slack > 18) push("actions-not-flush", `${slack}px from the right edge`);
-  }
+  // The bar's own 12px padding is the page margin; `action-edge` above pins
+  // the last button to it, so no separate slack check is needed.
   if (measured.barScroll && measured.barScroll.scroll > measured.barScroll.client + 1) {
     push("toolbar-overflow", `${measured.barScroll.scroll} > ${measured.barScroll.client}`);
   }
