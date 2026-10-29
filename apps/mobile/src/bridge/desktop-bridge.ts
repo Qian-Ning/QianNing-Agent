@@ -64,6 +64,13 @@ function sessionIdOf(input: unknown): string {
   return request.id ?? request.sessionId ?? "";
 }
 
+/** Channels that only show or hide a desktop surface the phone does not have. */
+const COSMETIC_PREFIXES = ["plugin/view/", "plugin/panel/", "window/", "menu/", "tray/", "panel/"];
+
+function isCosmeticChannel(key: string): boolean {
+  return COSMETIC_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+
 export class PhoneBridge {
   private readonly listeners = new Map<string, Set<BridgeListener>>();
   /** Sessions whose local events are already being translated onto the bus. */
@@ -125,6 +132,10 @@ export class PhoneBridge {
     try {
       const handler = this.handlers[key];
       if (!handler) {
+        // Cosmetic channels exist to show or hide a desktop surface — a plugin
+        // view, a window control, a menu. The phone has none of those surfaces,
+        // so closing them is a no-op, not a failure the user should see.
+        if (isCosmeticChannel(key)) return { ok: true, data: { ok: true } };
         return {
           ok: false,
           error: { code: "bridge/unavailable", message: `the phone host does not implement ${key} yet` },
@@ -339,10 +350,40 @@ export class PhoneBridge {
       return { workspace: active ? toWorkspace(active) : null };
     },
 
+    // The renderer sends this one as a bare path, unlike its object-shaped
+    // neighbours; accept either so activating a project does not silently fail.
     "project/set": (input) => {
-      const request = (input ?? {}) as { path?: string };
-      const opened = this.projects.open(request.path ?? "");
+      const path = typeof input === "string" ? input : ((input ?? {}) as { path?: string }).path ?? "";
+      const opened = this.projects.open(path);
       return { workspace: opened ? toWorkspace(opened) : null };
+    },
+
+    "project/memory/get": (input) => {
+      const request = (input ?? {}) as { projectPath?: string };
+      return { memory: this.projects.memory(request.projectPath ?? "") };
+    },
+
+    "project/memory/save": (input) => {
+      const request = (input ?? {}) as {
+        projectPath?: string;
+        entries?: Array<{ id: string; title: string; content: string }>;
+      };
+      this.projects.saveMemory(request.projectPath ?? "", request.entries ?? []);
+      return { memory: this.projects.memory(request.projectPath ?? "") };
+    },
+
+    "project-group/memory/get": (input) => {
+      const request = (input ?? {}) as { groupId?: string };
+      return { memory: this.projects.memory(request.groupId ?? "") };
+    },
+
+    "project-group/memory/save": (input) => {
+      const request = (input ?? {}) as {
+        groupId?: string;
+        entries?: Array<{ id: string; title: string; content: string }>;
+      };
+      this.projects.saveMemory(request.groupId ?? "", request.entries ?? []);
+      return { memory: this.projects.memory(request.groupId ?? "") };
     },
 
     "project/clear": () => {

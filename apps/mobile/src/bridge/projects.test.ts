@@ -94,6 +94,36 @@ describe("project channels", () => {
     expect(workspace).toEqual({ path: group.primaryPath, name: "笔记" });
   });
 
+  it("activates a project from the bare path the renderer sends", async () => {
+    const api = bridge();
+    const created = await api.invoke("pi-desktop/project-group/create", { name: "写作" });
+    const group = (created as unknown as { data: { group: { primaryPath: string } } }).data.group;
+
+    const set = await api.invoke("pi-desktop/project/set", group.primaryPath);
+    const workspace = (set as unknown as { data: { workspace: { path: string } | null } }).data.workspace;
+    expect(workspace?.path).toBe(group.primaryPath);
+  });
+
+  it("keeps project notes beside the project", async () => {
+    const api = bridge();
+    const created = await api.invoke("pi-desktop/project-group/create", { name: "规范" });
+    const group = (created as unknown as { data: { group: { primaryPath: string } } }).data.group;
+
+    await api.invoke("pi-desktop/project/memory/save", {
+      projectPath: group.primaryPath,
+      entries: [{ id: "e1", title: "命名", content: "用全小写文件名" }],
+    });
+    const got = await api.invoke("pi-desktop/project/memory/get", { projectPath: group.primaryPath });
+    const memory = (got as unknown as { data: { memory: { content: string } } }).data.memory;
+    expect(memory.content).toContain("用全小写文件名");
+  });
+
+  it("treats a desktop-only surface as closed instead of failing", async () => {
+    const api = bridge();
+    const closed = await api.invoke("pi-desktop/plugin/view/close", { viewId: "x" });
+    expect((closed as unknown as { ok: boolean }).ok).toBe(true);
+  });
+
   it("clears the open project", async () => {
     const api = bridge();
     await api.invoke("pi-desktop/project-group/create", { name: "临时" });
