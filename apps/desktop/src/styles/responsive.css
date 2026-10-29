@@ -418,8 +418,8 @@
    hole between the attach button and the permission chip. The word stays. */
 :root[data-surface="mobile"] .composer-mode-chip-label {
   display: inline-block;
-  max-width: 36px;
-  overflow: hidden;
+  max-width: none;
+  overflow: visible;
   white-space: nowrap;
   font-size: var(--text-2xs);
   line-height: var(--leading-none);
@@ -600,8 +600,8 @@
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-mode-chip {
-  width: 40px;
-  min-width: 40px;
+  width: 44px;
+  min-width: 44px;
   padding: 0;
 }
 
