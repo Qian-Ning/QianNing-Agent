@@ -708,3 +708,52 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+
+/*
+  A narrow desktop window stacks every settings row into a label above a
+  full-width control. That is right for a 700px window and wrong for a phone: the
+  row becomes two ragged lines and the select stretches to the card edge. The
+  phone keeps one line, label left, control hugging the right. Rows that really
+  do need the width (segmented groups, sliders) still take it.
+*/
+:root[data-surface="mobile"] .settings-row {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+:root[data-surface="mobile"] .settings-row-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+:root[data-surface="mobile"] .settings-row-control {
+  width: auto;
+  max-width: 48%;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+:root[data-surface="mobile"] .settings-row-control .field-select,
+:root[data-surface="mobile"] .settings-row-control .settings-menu-select-anchor {
+  width: max-content;
+  max-width: 100%;
+}
+
+:root[data-surface="mobile"] .settings-row:has(.settings-font-size),
+:root[data-surface="mobile"] .settings-row:has(.settings-segmented),
+:root[data-surface="mobile"] .settings-row:has(input[type="range"]) {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+:root[data-surface="mobile"] .settings-row:has(.settings-font-size) .settings-row-control,
+:root[data-surface="mobile"] .settings-row:has(.settings-segmented) .settings-row-control,
+:root[data-surface="mobile"] .settings-row:has(input[type="range"]) .settings-row-control {
+  width: 100%;
+  max-width: none;
+  justify-content: flex-start;
+}

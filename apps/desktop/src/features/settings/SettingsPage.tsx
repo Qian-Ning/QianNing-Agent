@@ -337,6 +337,25 @@ export function SettingsPage() {
    */
   const [mobileView, setMobileView] = useState<"nav" | "content">("nav");
 
+  /**
+   * The phone has one back gesture and it must unwind one screen at a time. The
+   * section view is local state, so it publishes its own "go back to the list"
+   * hook for the app shell's gesture handler to call first.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (document.documentElement.dataset.surface !== "mobile") return;
+    if (mobileView !== "content") return;
+    const host = window as unknown as { __qianningSettingsBack?: () => boolean };
+    host.__qianningSettingsBack = () => {
+      setMobileView("nav");
+      return true;
+    };
+    return () => {
+      delete host.__qianningSettingsBack;
+    };
+  }, [mobileView]);
+
   const activeNavItem = navItems.find((item) => item.id === tab);
   const activeTitleKey = activeNavItem?.titleKey ?? "settings.title";
   const tabNeedsSettings = ["general", "ai", "shortcuts", "agent"].includes(tab);
