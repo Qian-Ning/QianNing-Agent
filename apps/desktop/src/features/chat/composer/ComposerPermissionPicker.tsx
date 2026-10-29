@@ -3,7 +3,7 @@ import type { TFunction } from "i18next";
 import type { GlobalPermissionMode, Mode } from "@pi-desktop/shared";
 import { AnchoredMenu } from "../../../components/settings/AnchoredMenu";
 import { TooltipButton } from "../../../components/ui";
-import { IconCheck, IconChevronDown } from "../../../components/icons";
+import { IconCheck, IconChevronDown, IconShield } from "../../../components/icons";
 import { PERMISSION_MODE_I18N_KEYS } from "../../../lib/permission-mode-labels";
 
 /** Controlled permission UI shared by conversations and task drafts. */
@@ -56,10 +56,13 @@ export function ComposerPermissionPicker({t, mode, composerPermissionMode,
                 setPermissionOpen((open) => !open);
               }}
             >
-              <span className="text-sm">
+              {/* The icon is what a phone shows; the word stays for the desktop,
+                  where there is room for it next to the glyph. */}
+              <IconShield size={16} aria-hidden="true" />
+              <span className="text-sm composer-permission-label">
                 {t(PERMISSION_MODE_I18N_KEYS[composerPermissionMode])}
               </span>
-              <IconChevronDown size={12} />
+              <IconChevronDown size={12} className="composer-permission-chevron" />
             </TooltipButton>
           )}
         >
