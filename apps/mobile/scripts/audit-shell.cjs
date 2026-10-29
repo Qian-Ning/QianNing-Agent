@@ -73,8 +73,12 @@ const MEASURE = String.raw`
   const actions = [...document.querySelectorAll(".ct-actions > *")].filter(visible);
   const composer = document.querySelector(".composer");
   const bar = document.querySelector(".composer-toolbar") || composer;
+  // The context ring lives in the card's corner as a badge, so it is not part
+  // of the row this measurement is about.
   const controls = bar
-    ? [...bar.querySelectorAll("button, [role=button], .composer-chip, .composer-mode-chip")].filter(visible)
+    ? [...bar.querySelectorAll("button, [role=button], .composer-chip, .composer-mode-chip")]
+      .filter(visible)
+      .filter((element) => !element.classList.contains("context-inspector-trigger"))
     : [];
   const topbar = document.querySelector(".conversation-topbar, .ct-bar, .ct-root, header.ct") ||
     document.querySelector(".ct-actions")?.closest("header, .ct, .conversation-topbar");
@@ -87,6 +91,7 @@ const MEASURE = String.raw`
       : [],
     barBox: box(document.querySelector(".conversation-topbar")),
     actionsBox: box(document.querySelector(".ct-actions")),
+    contextBox: box(document.querySelector(".context-inspector-trigger")),
     rightBox: box(document.querySelector(".ct-right")),
     rightChildren: [...(document.querySelector(".ct-right")?.children ?? [])].map((element) => ({
       tag: element.tagName, className: String(element.className || "").slice(0, 40), ...box(element),
@@ -95,6 +100,14 @@ const MEASURE = String.raw`
     scrollWidth: document.documentElement.scrollWidth,
     topbar: box(document.querySelector(".ct-lead") ? document.querySelector(".ct-lead").parentElement : null),
     actions: actions.map((element) => ({ label: (element.textContent || element.getAttribute("aria-label") || "").trim().slice(0, 12), ...box(element) })),
+    // The reasoning level lives inside the model chip on a phone; if it is not
+    // painted there, the row has no way to show it at all.
+    reasoningLevel: (() => {
+      const level = document.querySelector(".composer-model-level-inline");
+      if (!level) return null;
+      const rect = level.getBoundingClientRect();
+      return { text: (level.textContent || "").trim(), w: Math.round(rect.width), h: Math.round(rect.height) };
+    })(),
     composer: box(composer),
     barScroll: bar ? { client: bar.clientWidth, scroll: bar.scrollWidth } : null,
     toolbarStyle: bar ? {
@@ -227,7 +240,7 @@ function inspect(measured, width) {
       }
     }
     const last = actions[actions.length - 1];
-    const pageEdge = (measured.viewport ?? width) - 12;
+    const pageEdge = (measured.viewport?.w ?? width) - 12;
     if (Math.abs(last.right - pageEdge) > 2) {
       push("action-edge", `last action right=${last.right}, page edge=${pageEdge}`);
     }
@@ -282,6 +295,16 @@ function inspect(measured, width) {
       if (overlaps(control, other)) push("control-overlap", `${control.label} / ${other.label}`);
     }
   }
+  const labels = controls.map((control) => control.label);
+  if (!labels.some((label) => /每次询问|权限/.test(label))) push("permission-missing", labels.join(" | "));
+  if (!measured.contextBox || measured.contextBox.w < 20) {
+    push("context-missing", JSON.stringify(measured.contextBox));
+  }
+  const reasoning = measured.reasoningLevel;
+  if (!reasoning || reasoning.w < 10 || reasoning.h < 8) {
+    push("reasoning-level-missing", reasoning ? `${reasoning.text} ${reasoning.w}x${reasoning.h}` : "no inline level");
+  }
+
   return problems;
 }
 

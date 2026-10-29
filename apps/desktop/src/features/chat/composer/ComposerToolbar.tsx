@@ -10,6 +10,7 @@ import {
 import type { AppState } from "../../../stores/app-store";
 import { ComposerPermissionPicker } from "./ComposerPermissionPicker";
 import { ContextUsageInspector } from "../../../components/ContextUsageInspector";
+import { DEFAULT_CONTEXT_WINDOW } from "../../../lib/context-usage";
 import { TooltipButton } from "../../../components/ui";
 import {
   IconArrowUp,
@@ -28,6 +29,19 @@ import type { VoicePhase } from "../../voice/useVoiceInput";
 
 type ModelMenuController = ReturnType<typeof useComposerModelMenu>;
 type ContextUsage = Parameters<typeof ContextUsageInspector>[0];
+
+/**
+ * A phone keeps the context control on screen before the first turn reports
+ * usage. Rendering nothing made the control look missing; an empty reading is
+ * the truth (0 of the window used) and it keeps the row from reflowing once
+ * real usage arrives.
+ */
+const EMPTY_CONTEXT_USAGE: ContextUsage = {
+  usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+  turnUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+  contextWindow: DEFAULT_CONTEXT_WINDOW,
+  tools: [],
+};
 
 export type ComposerToolbarProps = {
   t: TFunction;
@@ -93,6 +107,7 @@ export function ComposerToolbar({
   onVoiceToggle,
   onVoiceCancel,
 }: ComposerToolbarProps) {
+  const phoneSurface = document.documentElement.dataset.surface === "mobile";
   const platform = (window.piDesktop?.platform ?? "darwin") as ShortcutPlatform;
   const steeringShortcut = keybindingDisplayParts("Alt+Enter", platform).join("+");
   return (
@@ -177,7 +192,11 @@ export function ComposerToolbar({
       </div>
 
       <div className="composer-right">
-        {contextUsage ? <ContextUsageInspector {...contextUsage} /> : null}
+        {contextUsage ? (
+          <ContextUsageInspector {...contextUsage} />
+        ) : phoneSurface ? (
+          <ContextUsageInspector {...EMPTY_CONTEXT_USAGE} />
+        ) : null}
         <ComposerModelPicker
           t={t}
           controller={modelMenu}
