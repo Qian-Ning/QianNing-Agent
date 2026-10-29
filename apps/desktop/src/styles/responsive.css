@@ -547,33 +547,32 @@
 
 /*
   All seven composer functions stay on the phone, but they cannot all sit in one
-  44px row: seven targets and six gaps need 356px of a 338px card. So the attach
-  button moves up into the text row, where it belongs anyway, and the control
-  row is left with five slots:
+  44px row: seven targets and six gaps need 356px of a 338px card. The row keeps
+  the five that act on the message:
 
-      text row   [+] 输入框
-      control    [mode] [permission] [model · level] [context] [send]
+      [+] [mode] [permission] [model · level] [send]
 
-  Four 44px targets and four 8px gaps take 208px, which leaves the model chip
-  130px — enough for the name and its reasoning level together.
+  Four 44px targets and four 8px gaps take 208px, leaving the model chip 130px.
+  The context ring moves to the card's top-right corner as a status badge: it is
+  always on screen, costs the row nothing, and it is a reading of the input, not
+  a control of it.
 */
-:root[data-surface="mobile"] .composer {
+:root[data-surface="mobile"] .composer-shell {
   position: relative;
 }
 
-:root[data-surface="mobile"] .composer-toolbar {
-  position: static;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-plus {
+:root[data-surface="mobile"] .composer-toolbar .context-inspector {
   position: absolute;
-  inset-inline-start: 6px;
+  inset-inline-end: 8px;
   top: 6px;
   z-index: 3;
 }
 
-:root[data-surface="mobile"] .composer-input {
-  padding-inline-start: 46px;
+/* The mode chip had the same shield glyph as the permission chip, which read as
+   two copies of one control once the labels were hidden. ModeIcon now draws a
+   chat bubble for the default mode, so the icon alone is unambiguous. */
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-label {
+  display: none;
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-level:not(.composer-model-level-inline),
@@ -597,7 +596,8 @@
   headroom, so it moves to the model's right.
 */
 :root[data-surface="mobile"] .composer-toolbar .composer-plus { order: 1; }
-:root[data-surface="mobile"] .composer-toolbar .composer-permission { order: 2; }
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip { order: 2; }
+:root[data-surface="mobile"] .composer-toolbar .composer-permission { order: 3; }
 :root[data-surface="mobile"] .composer-toolbar .composer-model-thinking:not(:has(.composer-reasoning-chip)) { order: 3; flex: 1 1 auto; }
 :root[data-surface="mobile"] .composer-toolbar .context-inspector { order: 4; flex: none; }
 :root[data-surface="mobile"] .composer-toolbar .send-btn { order: 5; margin-inline-start: 0; }
