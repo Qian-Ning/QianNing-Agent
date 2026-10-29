@@ -371,7 +371,7 @@
   display: grid;
   grid-template-columns: auto auto auto minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   padding-inline: 8px;
   width: 100%;
   box-sizing: border-box;
@@ -544,6 +544,14 @@
   justify-content: center;
 }
 
+@media (max-width: 340px) {
+  /* Five 44px targets and their gaps leave the model column almost nothing at
+     320px; a tighter gap buys it back without dropping a control. */
+  :root[data-surface="mobile"] .composer-toolbar {
+    gap: 4px;
+  }
+}
+
 @media (max-width: 400px) {
   /* Under 400px the reasoning chip costs the model name its last forty pixels,
      and the name is the thing every message depends on. The level stays
@@ -551,6 +559,13 @@
   :root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
     display: none;
   }
+}
+
+:root[data-surface="mobile"] .composer-model-thinking-chip {
+  /* Left-aligned inside its column: centring the name left a blank gutter on
+     both sides, which reads as a gap between controls. */
+  justify-content: flex-start;
+  padding-inline: 10px;
 }
 
 :root[data-surface="mobile"] .composer-model-chip .label,
@@ -644,6 +659,19 @@
 
 :root[data-surface="mobile"] .ct-actions {
   gap: 4px;
+}
+
+/* The bar reserves 36px on the right for the desktop window controls. A phone
+   has none, and the reservation pushed both icons out of the right edge. */
+:root[data-surface="mobile"] .conversation-topbar .ct-right {
+  padding-right: 0;
+}
+
+/* The chat-width handles are a 36px drag affordance on either side of the
+   column. On a phone they hold space but can never be dragged, which left the
+   two top-bar icons floating 36px short of the right edge. */
+:root[data-surface="mobile"] .chat-width-handles {
+  display: none;
 }
 
 :root[data-surface="mobile"] .ct-actions .ct-icon-btn,
@@ -830,7 +858,7 @@
 }
 
 :root[data-surface="mobile"] .settings-row:has(.settings-font-size),
-:root[data-surface="mobile"] .settings-row:has(.settings-segmented),
+:root[data-surface="mobile"] .settings-row:has(.settings-segment),
 :root[data-surface="mobile"] .settings-row:has(input[type="range"]) {
   flex-direction: column;
   align-items: stretch;
@@ -838,9 +866,42 @@
 }
 
 :root[data-surface="mobile"] .settings-row:has(.settings-font-size) .settings-row-control,
-:root[data-surface="mobile"] .settings-row:has(.settings-segmented) .settings-row-control,
+:root[data-surface="mobile"] .settings-row:has(.settings-segment) .settings-row-control,
 :root[data-surface="mobile"] .settings-row:has(input[type="range"]) .settings-row-control {
   width: 100%;
   max-width: none;
   justify-content: flex-start;
+}
+
+/*
+  A segmented control shares its row with the label on desktop; on a phone that
+  leaves each option ~37px and the label breaks one character per line
+  (自定义 became a 57px-tall column). The phone gives the group the full width
+  and lets the options divide it evenly.
+*/
+:root[data-surface="mobile"] .settings-segment {
+  display: flex;
+  width: 100%;
+}
+
+:root[data-surface="mobile"] .settings-segment-item {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-inline: 8px;
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* The type-scale column carries min-width: 180px from the desktop, which pinned
+   the four options at 43px each while the row had 300+ to give. */
+:root[data-surface="mobile"] .settings-font-size {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Four options with the longest labels in the app: at 320px each column is
+   66px, and 超超大杯 needs a size smaller than the label default. */
+:root[data-surface="mobile"] .settings-font-size .settings-segment-item {
+  padding-inline: 4px;
+  font-size: var(--text-xs);
 }

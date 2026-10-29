@@ -618,22 +618,26 @@ export function SettingsPage() {
                 </SettingsCard>
               ) : null}
 
-              <SettingsCard title={t("settings.computerControl")}>
-                <SettingsRow
-                  title={t("settings.computerControl")}
-                  description={t("settings.computerControlDesc")}
-                >
-                  <SettingsToggle
-                    checked={settings.computerControlEnabled === true}
-                    label={t("settings.computerControl")}
-                    onChange={() =>
-                      void saveSettings({
-                        computerControlEnabled: settings.computerControlEnabled !== true,
-                      })
-                    }
-                  />
-                </SettingsRow>
-              </SettingsCard>
+              {/* Computer control drives this machine's pointer and keyboard.
+                  A phone has no such target, so the card is desktop-only. */}
+              {surface === "desktop" ? (
+                <SettingsCard title={t("settings.computerControl")}>
+                  <SettingsRow
+                    title={t("settings.computerControl")}
+                    description={t("settings.computerControlDesc")}
+                  >
+                    <SettingsToggle
+                      checked={settings.computerControlEnabled === true}
+                      label={t("settings.computerControl")}
+                      onChange={() =>
+                        void saveSettings({
+                          computerControlEnabled: settings.computerControlEnabled !== true,
+                        })
+                      }
+                    />
+                  </SettingsRow>
+                </SettingsCard>
+              ) : null}
 
               <SettingsCard title={t("settings.connectionControl")}>
                 <SettingsRow
