@@ -361,14 +361,27 @@
   reads as part of the model, not as a control of its own.
 */
 :root[data-surface="mobile"] .composer-toolbar {
-  flex-wrap: nowrap;
+  /*
+    A grid, not a flex row. Four chips plus a send button in 288–358px is a
+    width budget, and flex only negotiates it by letting one item overflow the
+    others — which is how the send button ended up on top of the model name at
+    every width. Grid columns cannot overlap; the model name is the single
+    flexible column and everything else is its own box.
+  */
+  display: grid;
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 4px;
   padding-inline: 8px;
-  /* Fill the comment column: a row that stops short leaves the send button
-     floating in the middle of the bar. */
   width: 100%;
   box-sizing: border-box;
+}
+
+/* The two clusters stop being boxes, so their children become the grid items
+   in DOM order: add, mode, permission, model, reasoning, send. */
+:root[data-surface="mobile"] .composer-left,
+:root[data-surface="mobile"] .composer-right {
+  display: contents;
 }
 
 :root[data-surface="mobile"] .composer-left {
@@ -379,21 +392,13 @@
   overflow: visible;
 }
 
-:root[data-surface="mobile"] .composer-right {
-  flex: 1 1 auto;
-  width: auto;
-  justify-content: flex-end;
-  gap: 6px;
-  min-width: 0;
-}
-
 /* The send button is the anchor of the row; it never shrinks or moves. */
-:root[data-surface="mobile"] .composer-right .send-btn,
-:root[data-surface="mobile"] .composer-right .stop-btn {
-  margin-left: auto;
-  flex: 0 0 44px;
+:root[data-surface="mobile"] .send-btn,
+:root[data-surface="mobile"] .stop-btn {
+  margin: 0;
   width: 44px;
   height: 44px;
+  justify-self: end;
 }
 
 /* The mode chip keeps its word ("全自动"/"代理") — one short label, not 88px. */
@@ -469,11 +474,16 @@
 :root[data-surface="mobile"] .composer-model-thinking {
   display: inline-flex;
   gap: 6px;
-  flex: 0 1 auto;
+  /* The wrapper has to grow for the model name inside it to have anywhere to
+     go; otherwise both chips sit at their minimum and the name is cut at 64px. */
+  flex: 1 1 auto;
   min-width: 0;
+  /* A chip wider than the wrapper spills over the next control — which is how
+     the send button ended up on top of the model name. Clip to the box. */
+  overflow: hidden;
 }
 
-:root[data-surface="mobile"] .composer-right .composer-model-thinking-chip {
+:root[data-surface="mobile"] .composer-model-thinking-chip {
   width: auto;
   max-width: none;
   min-width: 64px;
@@ -512,15 +522,33 @@
 
 :root[data-surface="mobile"] .composer-model-chip,
 :root[data-surface="mobile"] .composer-model-select {
-  min-width: 64px;
-  max-width: none;
+  /* Shrinkable on a 320px screen, where the row has no slack left. */
+  min-width: 0;
+  max-width: 100%;
   flex: 1 1 auto;
 }
 
 /* Under 340px one control has to go; reasoning is the one that reads as part of
    the model name anyway. Its panel is still reachable from the model chip. */
-@media (max-width: 340px) {
-  :root[data-surface="mobile"] .composer-reasoning-chip {
+/* The reasoning level is an icon on a phone: its word is the widest thing in
+   the row and the value is already in the tooltip and the menu. */
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-level,
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chevron {
+  display: none;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+  justify-content: center;
+}
+
+@media (max-width: 400px) {
+  /* Under 400px the reasoning chip costs the model name its last forty pixels,
+     and the name is the thing every message depends on. The level stays
+     settable from the model menu. */
+  :root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
     display: none;
   }
 }

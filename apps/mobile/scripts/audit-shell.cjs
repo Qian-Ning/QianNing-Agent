@@ -125,9 +125,16 @@ function inspect(measured, width) {
   if (measured.barScroll && measured.barScroll.scroll > measured.barScroll.client + 1) {
     push("toolbar-overflow", `${measured.barScroll.scroll} > ${measured.barScroll.client}`);
   }
-  for (const control of measured.controls) {
+  const controls = measured.controls;
+  for (let index = 0; index < controls.length; index += 1) {
+    const control = controls[index];
     if (control.h < 32) push("control-squashed", `${control.label} h=${control.h}`);
     if (control.right > width + 1) push("control-clipped", `${control.label} right=${control.right}`);
+    for (const other of controls.slice(index + 1)) {
+      // Two controls sharing pixels is how a send button ends up on top of the
+      // model name at 320, which no overflow check would ever report.
+      if (overlaps(control, other)) push("control-overlap", `${control.label} / ${other.label}`);
+    }
   }
   return problems;
 }
@@ -139,16 +146,19 @@ function arrowRightOf(actions) {
 async function run(port, width) {
   const win = new BrowserWindow({ width, height: HEIGHT, show: false, backgroundColor: "#f7f2ea" });
   await win.loadURL(`http://127.0.0.1:${port}/shared/index.html?surface=mobile`);
-  // Seed a configured phone: an empty profile hides the model label, which is
-  // exactly the case that collapses the chip, so measure the real one.
+  // Seed a configured phone. BrowserStore keeps values inside one JSON blob, so
+  // the provider goes there; a top-level key is ignored and leaves the chip blank.
   await win.webContents.executeJavaScript(`
     const stamp = new Date().toISOString();
-    localStorage.setItem("qn.local.providers", JSON.stringify([{
-      id: "p1", name: "Agnes", baseUrl: "https://example.invalid/v1", apiKey: "x",
+    const provider = {
+      id: "p1", name: "Agnes", baseUrl: "https://apihub.agnes-ai.com/v1", apiKey: "x",
       apiStyle: "openai", models: ["agnes-3.0-flash"], defaultModelId: "agnes-3.0-flash",
-      createdAt: stamp, updatedAt: stamp
-    }]));
-    localStorage.setItem("qn.local.activeProvider", "p1");
+      createdAt: stamp, updatedAt: stamp,
+    };
+    localStorage.setItem("qn.agent.values", JSON.stringify({
+      "qn.local.providers": JSON.stringify([provider]),
+      "qn.local.activeProvider": "p1",
+    }));
     localStorage.setItem("qn.local.settings", JSON.stringify({ defaultPermissionMode: "ask" }));
     true;
   `);
