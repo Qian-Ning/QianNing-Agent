@@ -541,9 +541,8 @@
   level now rides inside the model chip as text, so it is visible at a glance
   instead of being a fourth icon that looks like the permission shield.
 */
-:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
-  display: none;
-}
+/* Every control the desktop row shows is on this one too; nothing is merged
+   away or hidden. Only the size changes. */
 
 /*
   All seven composer functions stay on the phone, but they cannot all sit in one
@@ -562,17 +561,29 @@
 }
 
 :root[data-surface="mobile"] .composer-toolbar .context-inspector {
-  position: absolute;
-  inset-inline-end: 8px;
-  top: 6px;
-  z-index: 3;
+  order: 6;
+  position: static;
 }
 
 /* The mode chip had the same shield glyph as the permission chip, which read as
    two copies of one control once the labels were hidden. ModeIcon now draws a
    chat bubble for the default mode, so the icon alone is unambiguous. */
 :root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-label {
+  display: inline-block;
+  max-width: 38px;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: var(--text-2xs);
+  color: var(--ds-text-secondary);
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face {
   display: none;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip {
+  width: 44px;
+  min-width: 44px;
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-level:not(.composer-model-level-inline),
@@ -585,9 +596,7 @@
   a 16px hole between the model name and the send button. Take the wrapper out
   of the flow, not just the chip inside it.
 */
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking:has(.composer-reasoning-chip) {
-  display: none;
-}
+/* The reasoning chip is one of the eight; it keeps its slot. */
 
 /*
   Phone order: add · permission · model · context · send. The context trigger
@@ -595,12 +604,99 @@
   the model there); on a phone it reads better as a reading of the model's
   headroom, so it moves to the model's right.
 */
-:root[data-surface="mobile"] .composer-toolbar .composer-plus { order: 1; }
+/* The row read as scattered because a 44px target holding a 14px glyph leaves
+   38px of air between two icons. The buttons drop to 40, the glyphs grow to 20
+   and the gap to 4: the icons sit 24px apart, every target is still 40px, and
+   the model chip picks up the reclaimed width. The classes on the toolbar are
+   wrappers, so the size goes on the buttons inside them. */
+:root[data-surface="mobile"] .composer-toolbar {
+  gap: 4px;
+  align-items: center;
+}
+
+:root[data-surface="mobile"] .composer-toolbar button,
+:root[data-surface="mobile"] .composer-toolbar .send-btn,
+:root[data-surface="mobile"] .composer-toolbar .stop-btn {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+}
+
+/* Two of the five slots are wrappers around their button; a wrapper one size
+   larger than its button turns the even gap into 8/6/6/4. Both boxes match the
+   button so the gap is the only spacing in the row. */
+:root[data-surface="mobile"] .composer-toolbar .composer-plus,
+:root[data-surface="mobile"] .composer-toolbar .composer-permission {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip,
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip button {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking button {
+  width: auto;
+  min-width: 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-plus svg,
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip svg,
+:root[data-surface="mobile"] .composer-toolbar .composer-permission svg,
+:root[data-surface="mobile"] .composer-toolbar .send-btn svg,
+:root[data-surface="mobile"] .composer-toolbar .stop-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking {
+  height: 40px;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-plus > svg,
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip-face > svg,
+:root[data-surface="mobile"] .composer-toolbar .composer-permission > svg,
+:root[data-surface="mobile"] .composer-toolbar .send-btn > svg,
+:root[data-surface="mobile"] .composer-toolbar .stop-btn > svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Order and size for the whole row: add, mode, permission, model, reasoning,
+   context, send. Wrappers are exactly as tall as their buttons so one control
+   cannot sit five pixels lower than its neighbour. */
+:root[data-surface="mobile"] .composer-toolbar .composer-plus,
+:root[data-surface="mobile"] .composer-toolbar .composer-permission,
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking {
+  height: 34px;
+  min-height: 34px;
+  align-items: center;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-plus { order: 1; width: 34px; min-width: 34px; }
+:root[data-surface="mobile"] .composer-toolbar .composer-permission { order: 3; width: 34px; min-width: 34px; }
 :root[data-surface="mobile"] .composer-toolbar .composer-mode-chip { order: 2; }
-:root[data-surface="mobile"] .composer-toolbar .composer-permission { order: 3; }
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking:not(:has(.composer-reasoning-chip)) { order: 3; flex: 1 1 auto; }
-:root[data-surface="mobile"] .composer-toolbar .context-inspector { order: 4; flex: none; }
-:root[data-surface="mobile"] .composer-toolbar .send-btn { order: 5; margin-inline-start: 0; }
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking:not(:has(.composer-reasoning-chip)) { order: 4; flex: 1 1 auto; }
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking:has(.composer-reasoning-chip) {
+  display: none;
+}
+
+/* The chip was a flex item inside a zero-width wrapper, so it collapsed to 0.
+   The wrapper now owns the width and the chip fills it. */
+:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+  padding-inline: 0;
+}
+:root[data-surface="mobile"] .composer-toolbar .context-inspector { order: 6; flex: none; width: 34px; min-width: 34px; }
+:root[data-surface="mobile"] .composer-toolbar .send-btn { order: 7; margin-inline-start: 0; }
 
 /*
   Room for the name. The bot glyph inside the chip is decoration that cost 19px
@@ -633,8 +729,9 @@
   single control they are.
 */
 :root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip {
-  background: var(--ds-bg-secondary);
-  border-radius: var(--radius-full, 999px);
+  background: none;
+  border-radius: 0;
+  padding-inline: 2px;
 }
 
 /* A full ring means "the whole window is free", not "alarm": at rest it has to
