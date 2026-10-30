@@ -1185,14 +1185,13 @@
    Authoritative for the phone composer row; last in the file on purpose.
 
    Desktop order, kept exactly:  +  mode  permission  model  reasoning  context  send
-   Desktop spends 760px on it. The phone card has 338, so the row is a budget:
+   Desktop spends 760px on it. The phone card has 338:
 
-     + 34 ·2· mode 34 ·2· permission 40 ·2· [ model 150 ] ·2· context 30 ·2· send 40
-     = 338 exactly, nothing left over and nothing negotiated.
+     + 26 ·2· mode 26 ·2· permission 30 ·2· model 158 ·2· context 26 ·2· send 36
+     = 336, two pixels spare.
 
-   The reasoning control lives inside the model cluster (same as desktop, where
-   it sits next to the name). It keeps its pulse glyph and loses the word: at
-   30px there is room for the shape, not for "关闭". */
+   Slots hug their glyph (17px in a 26px box) so the row reads as one line of
+   marks rather than seven buttons with air around them. */
 :root[data-surface="mobile"] .composer-toolbar {
   display: flex;
   flex-wrap: nowrap;
@@ -1202,54 +1201,59 @@
   row-gap: 0;
 }
 
+:root[data-surface="mobile"] .composer-toolbar svg {
+  width: 17px;
+  height: 17px;
+}
+
 :root[data-surface="mobile"] .composer-toolbar .composer-plus {
   order: 1;
-  flex: 0 0 34px;
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
+  flex: 0 0 26px;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
   margin: 0 2px 0 0;
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-plus .icon-btn {
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
   padding: 0;
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-mode-chip {
   order: 2;
-  flex: 0 0 34px;
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
+  flex: 0 0 26px;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
   margin: 0 2px 0 0;
   padding: 0;
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-permission {
   order: 3;
-  flex: 0 0 40px;
-  width: 40px;
-  min-width: 40px;
-  height: 34px;
+  flex: 0 0 30px;
+  width: 30px;
+  min-width: 30px;
+  height: 26px;
   margin: 0 2px 0 0;
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-permission .icon-btn {
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
   padding: 0;
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-model-thinking {
   order: 4;
-  flex: 0 0 150px;
-  width: 150px;
-  max-width: 150px;
-  height: 34px;
+  flex: 0 0 158px;
+  width: 158px;
+  max-width: 158px;
+  height: 26px;
   margin: 0 2px 0 0;
   gap: 2px;
   overflow: hidden;
@@ -1259,21 +1263,24 @@
 :root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip {
   flex: 1 1 auto;
   min-width: 0;
+  height: 26px;
+  padding: 0;
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
-  flex: 0 0 30px;
-  width: 30px;
-  min-width: 30px;
-  max-width: 30px;
-  height: 30px;
+  flex: 0 0 26px;
+  width: 26px;
+  min-width: 26px;
+  max-width: 26px;
+  height: 26px;
   padding: 0;
   gap: 0;
   justify-content: center;
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-level,
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chevron {
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chevron,
+:root[data-surface="mobile"] .composer-toolbar .composer-model-level-inline {
   display: none;
 }
 
@@ -1283,58 +1290,40 @@
   justify-content: center;
 }
 
-:root[data-surface="mobile"] .composer-toolbar .composer-model-level-inline,
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-model .composer-model-level-inline {
-  display: none;
-}
-
 :root[data-surface="mobile"] .composer-toolbar .context-inspector {
   order: 5;
-  flex: 0 0 30px;
-  width: 30px;
-  min-width: 30px;
-  height: 34px;
+  flex: 0 0 26px;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
   margin: 0 2px 0 0;
 }
 
 :root[data-surface="mobile"] .composer-toolbar .context-inspector .context-inspector-trigger {
-  width: 30px;
-  min-width: 30px;
-  height: 30px;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
   padding: 0;
 }
 
 :root[data-surface="mobile"] .composer-toolbar .send-btn {
   order: 6;
-  flex: 0 0 40px;
-  width: 40px;
-  min-width: 40px;
-  height: 34px;
+  flex: 0 0 36px;
+  width: 36px;
+  min-width: 36px;
+  height: 26px;
   margin: 0;
 }
 
-/* ── Composer height ────────────────────────────────────────────────────
-   The desktop composer reserves three empty lines (min-height: 3lh) because a
-   desktop draft is usually multi-line. On a phone that is 60px of blank above
-   the controls on an empty draft, which is most of what made the card look
-   hollow. One line until the text actually grows; five lines at most. */
-:root[data-surface="mobile"] .composer-input {
-  min-height: 1lh;
-  max-height: 5lh;
-}
-
-:root[data-surface="mobile"] .composer-input-wrap {
-  padding: 8px 12px 0;
-  min-height: 34px;
-}
-
-/* The face animates in from opacity 0 with `both` fill. On the phone surface
-   that animation is the only thing painting the glyph, and when the frame does
-   not advance the mode slot renders as an empty box — the control looks missing
-   and leaves a 66px hole after the attach button. Pin it visible. */
+/* The face animates in from opacity 0 with `both` fill; when the frame does not
+   advance the slot renders blank and the row reads as one function short. */
 :root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face {
   animation: none;
   opacity: 1;
   visibility: visible;
   gap: 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-label {
+  display: none;
 }
