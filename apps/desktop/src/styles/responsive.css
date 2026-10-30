@@ -1327,3 +1327,14 @@
   padding: 8px 12px 0;
   min-height: 34px;
 }
+
+/* The face animates in from opacity 0 with `both` fill. On the phone surface
+   that animation is the only thing painting the glyph, and when the frame does
+   not advance the mode slot renders as an empty box — the control looks missing
+   and leaves a 66px hole after the attach button. Pin it visible. */
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face {
+  animation: none;
+  opacity: 1;
+  visibility: visible;
+  gap: 0;
+}
