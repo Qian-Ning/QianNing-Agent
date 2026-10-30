@@ -1327,3 +1327,27 @@
 :root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-label {
   display: none;
 }
+
+/* The last air in the row was inside two controls, not between them: the model
+   chip kept 16px of inline padding and the context trigger kept its own. With
+   those gone the marks run at the same 2px beat as the icons. */
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip {
+  padding-inline: 0 !important;
+  justify-content: flex-start !important;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .context-inspector .context-inspector-trigger {
+  padding: 0 !important;
+}
+
+/* Inside the model cluster: the bot mark hugs the name, and the reasoning glyph
+   sits at the cluster's right edge, so the width the cluster reserves is used
+   by its two marks instead of becoming a 34px void before the context ring. */
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip {
+  gap: 2px !important;
+  justify-content: flex-start !important;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
+  margin-inline-start: auto !important;
+}
