@@ -414,15 +414,14 @@
   flex: 0 0 34px;
 }
 
-/* Hiding the word left a 44px box with no ink in it, which the eye read as a
-   hole between the attach button and the permission chip. The word stays. */
-:root[data-surface="mobile"] .composer-mode-chip-label {
-  display: inline-block;
-  max-width: none;
-  overflow: visible;
-  white-space: nowrap;
-  font-size: var(--text-2xs);
-  line-height: var(--leading-none);
+/* The mode reads as a glyph: sparkles for auto, a list for plan, a target for
+   goal. The word is desktop-only. */
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-label {
+  display: none;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face > svg {
+  display: block;
 }
 
 :root[data-surface="mobile"] .composer-agent-chip {
@@ -570,18 +569,14 @@
   position: static;
 }
 
-/* The mode chip had the same shield glyph as the permission chip, which read as
-   two copies of one control once the labels were hidden. ModeIcon now draws a
-   chat bubble for the default mode, so the icon alone is unambiguous. */
+/* On a phone the mode is a glyph: sparkles for auto, a list for plan, a target
+   for goal. The word would cost the model name 44px it does not have. */
 :root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-label {
-  display: inline-block;
-  max-width: 40px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-2xs);
-  line-height: var(--leading-none);
-  color: var(--ds-text-secondary);
+  display: none;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face > svg {
+  display: block;
 }
 
 /* The label lives inside the face, so hiding the face hid the word too and
@@ -600,9 +595,10 @@
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-mode-chip {
-  width: 44px;
-  min-width: 44px;
+  width: 32px;
+  min-width: 32px;
   padding: 0;
+  margin-inline-end: 2px;
 }
 
 :root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-level:not(.composer-model-level-inline),
@@ -697,7 +693,7 @@
   align-items: center;
 }
 
-:root[data-surface="mobile"] .composer-toolbar .composer-plus { order: 1; width: 34px; min-width: 34px; }
+:root[data-surface="mobile"] .composer-toolbar .composer-plus { order: 1; width: 32px; min-width: 32px; margin-inline-end: 2px; }
 :root[data-surface="mobile"] .composer-toolbar .composer-permission { order: 3; width: 34px; min-width: 34px; }
 :root[data-surface="mobile"] .composer-toolbar .composer-mode-chip { order: 2; width: 34px; min-width: 34px; padding: 0; }
 
@@ -1182,4 +1178,176 @@
 :root[data-surface="mobile"] .settings-font-size .settings-segment-item {
   padding-inline: 4px;
   font-size: var(--text-xs);
+}
+
+
+/* ── Composer row budget ────────────────────────────────────────────────
+   Authoritative for the phone composer row; last in the file on purpose.
+
+   Desktop order, kept exactly:  +  mode  permission  model  reasoning  context  send
+   Desktop spends 760px on it. The phone card has 338:
+
+     + 26 ·2· mode 26 ·2· permission 30 ·2· model 158 ·2· context 26 ·2· send 36
+     = 336, two pixels spare.
+
+   Slots hug their glyph (17px in a 26px box) so the row reads as one line of
+   marks rather than seven buttons with air around them. */
+:root[data-surface="mobile"] .composer-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  column-gap: 0;
+  row-gap: 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar svg {
+  width: 17px;
+  height: 17px;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-plus {
+  order: 1;
+  flex: 0 0 26px;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  margin: 0 2px 0 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-plus .icon-btn {
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip {
+  order: 2;
+  flex: 0 0 26px;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  margin: 0 2px 0 0;
+  padding: 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-permission {
+  order: 3;
+  flex: 0 0 30px;
+  width: 30px;
+  min-width: 30px;
+  height: 26px;
+  margin: 0 2px 0 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-permission .icon-btn {
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking {
+  order: 4;
+  flex: 0 0 158px;
+  width: 158px;
+  max-width: 158px;
+  height: 26px;
+  margin: 0 2px 0 0;
+  gap: 2px;
+  overflow: hidden;
+  justify-content: flex-start;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 26px;
+  padding: 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
+  flex: 0 0 26px;
+  width: 26px;
+  min-width: 26px;
+  max-width: 26px;
+  height: 26px;
+  padding: 0;
+  gap: 0;
+  justify-content: center;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-level,
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chevron,
+:root[data-surface="mobile"] .composer-toolbar .composer-model-level-inline {
+  display: none;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-icon {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .context-inspector {
+  order: 5;
+  flex: 0 0 26px;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  margin: 0 2px 0 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .context-inspector .context-inspector-trigger {
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .send-btn {
+  order: 6;
+  flex: 0 0 36px;
+  width: 36px;
+  min-width: 36px;
+  height: 26px;
+  margin: 0;
+}
+
+/* The face animates in from opacity 0 with `both` fill; when the frame does not
+   advance the slot renders blank and the row reads as one function short. */
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face {
+  animation: none;
+  opacity: 1;
+  visibility: visible;
+  gap: 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-label {
+  display: none;
+}
+
+/* The last air in the row was inside two controls, not between them: the model
+   chip kept 16px of inline padding and the context trigger kept its own. With
+   those gone the marks run at the same 2px beat as the icons. */
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip {
+  padding-inline: 0 !important;
+  justify-content: flex-start !important;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .context-inspector .context-inspector-trigger {
+  padding: 0 !important;
+}
+
+/* Inside the model cluster: the bot mark hugs the name, and the reasoning glyph
+   sits at the cluster's right edge, so the width the cluster reserves is used
+   by its two marks instead of becoming a 34px void before the context ring. */
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip {
+  gap: 2px !important;
+  justify-content: flex-start !important;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
+  margin-inline-start: auto !important;
 }
