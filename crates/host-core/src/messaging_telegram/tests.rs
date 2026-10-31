@@ -615,3 +615,46 @@ async fn the_attempt_cycle_releases_the_host_lock_across_a_blocking_send() {
 
     fixture.stop();
 }
+
+/// The indicator is a hint, not a delivery: it reaches the platform's own
+/// action method with the chat it belongs to, and nothing about it is recorded.
+#[tokio::test]
+async fn typing_posts_the_platform_action_to_that_chat() {
+    let fixture = fixture(200).await;
+    let adapter = adapter(&fixture.endpoint, "s3cret-token", "9001", None);
+
+    assert!(adapter.typing("9001"), "the hint is dispatched");
+
+    // The request is made on the hint's own thread, so wait for it rather than
+    // assume it has landed by the time `typing` returns.
+    let mut seen = fixture.requests();
+    for _ in 0..100 {
+        if !seen.is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        seen = fixture.requests();
+    }
+    assert_eq!(seen.len(), 1, "one hint, one request");
+    let request = &seen[0];
+    assert_eq!(request.method, "POST");
+    assert_eq!(
+        request.path, "/bots3cret-token/sendChatAction",
+        "the hint addresses the platform's action method, not the send method"
+    );
+    let body: serde_json::Value =
+        serde_json::from_slice(&request.body).expect("request body is JSON");
+    assert_eq!(
+        body,
+        json!({ "chat_id": "9001", "action": "typing" }),
+        "the body names the chat and the action, and carries no text"
+    );
+}
+
+/// A channel that was never configured has no indicator to show, and says so
+/// rather than pretending the request went somewhere.
+#[test]
+fn a_channel_without_a_hint_dispatches_nothing() {
+    let adapter = HttpChannelAdapter::new("test");
+    assert!(!adapter.typing("9001"));
+}

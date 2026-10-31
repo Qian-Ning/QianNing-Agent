@@ -120,6 +120,25 @@ pub(crate) enum OutcomeSource {
 /// Deliberately not `Debug`: it holds the endpoint (which for a channel whose
 /// credential lives in the URL path would carry it) and the credential header
 /// value, and no path may print either.
+/// A channel's transient "working on it" request: its own endpoint and body,
+/// because a platform puts the indicator behind a different method than a send.
+///
+/// Not part of the delivery ledger in any way: it is built once with the
+/// channel and used only by [`OutboundAdapter::typing`].
+pub(crate) struct TypingHint {
+    endpoint: Url,
+    body: Box<dyn Fn(&str) -> serde_json::Value + Send + Sync>,
+}
+
+impl TypingHint {
+    pub(crate) fn new(
+        endpoint: Url,
+        body: Box<dyn Fn(&str) -> serde_json::Value + Send + Sync>,
+    ) -> Self {
+        Self { endpoint, body }
+    }
+}
+
 pub(crate) struct ChannelConfig {
     endpoint: Url,
     /// `Some` only when a credential is configured. The value is marked
@@ -128,6 +147,8 @@ pub(crate) struct ChannelConfig {
     request_timeout: Duration,
     body: BodyBuilder,
     outcome: OutcomeSource,
+    /// Absent for a channel with no indicator, which is most of them.
+    typing: Option<TypingHint>,
 }
 
 impl ChannelConfig {
@@ -143,7 +164,14 @@ impl ChannelConfig {
             request_timeout,
             body,
             outcome: OutcomeSource::Status,
+            typing: None,
         }
+    }
+
+    /// Give the channel the request that shows its "working on it" indicator.
+    pub(crate) fn with_typing(mut self, hint: TypingHint) -> Self {
+        self.typing = Some(hint);
+        self
     }
 
     /// Read the answer's outcome from the response body instead of the status.
@@ -305,6 +333,58 @@ impl OutboundAdapter for HttpChannelAdapter {
                 &format!("the {} worker stopped before answering", self.label),
             ),
         }
+    }
+
+    /// Dispatch one request on its own thread, with no queue and no retry.
+    ///
+    /// A "working on it" indicator is worth nothing late, and it must never
+    /// stand in the worker's queue ahead of a real delivery, so it does not use
+    /// the worker at all: it gets a thread and a current-thread runtime of its
+    /// own, and every failure is dropped because there is nothing to retry and
+    /// nobody waiting. The answer says only whether the request was *sent* —
+    /// never that the platform displayed anything.
+    fn typing(&self, chat: &str) -> bool {
+        let Some(config) = self.config.as_ref() else {
+            return false;
+        };
+        let Some(hint) = config.typing.as_ref() else {
+            return false;
+        };
+        let Ok(payload) = serde_json::to_vec(&(hint.body)(chat)) else {
+            return false;
+        };
+        let url = hint.endpoint.clone();
+        let authorization = config.authorization.clone();
+        let timeout = config.request_timeout;
+        std::thread::spawn(move || {
+            let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+            else {
+                return;
+            };
+            runtime.block_on(async move {
+                let Ok(client) = Client::builder()
+                    // The same rule as a send: a redirected POST would carry the
+                    // credential to whatever host the endpoint names next.
+                    .redirect(reqwest::redirect::Policy::none())
+                    .connect_timeout(CONNECT_TIMEOUT)
+                    .timeout(timeout)
+                    .build()
+                else {
+                    return;
+                };
+                let mut request = client
+                    .post(url)
+                    .header(reqwest::header::CONTENT_TYPE, "application/json")
+                    .body(payload);
+                if let Some(authorization) = authorization {
+                    request = request.header(reqwest::header::AUTHORIZATION, authorization);
+                }
+                let _ = request.send().await;
+            });
+        });
+        true
     }
 }
 

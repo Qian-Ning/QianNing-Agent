@@ -136,6 +136,16 @@ pub trait OutboundAdapter: Send + Sync {
     /// held across that wait.
     fn send(&self, message: &OutboundMessage) -> SendResult;
 
+    /// Show the channel's own "working on it" indicator in a conversation.
+    ///
+    /// This is a hint, not a delivery: nothing is persisted, nothing is retried,
+    /// and the answer says only whether the platform accepted it once. A channel
+    /// with no such indicator keeps the default and reports `false`, so a caller
+    /// never has to know which channels have one.
+    fn typing(&self, _chat: &str) -> bool {
+        false
+    }
+
     /// The delivery's default attempt cap, so the ledger's retry/backoff bound
     /// can follow the channel's own policy. Defaults to the ledger's cap for a
     /// channel that does not override it.

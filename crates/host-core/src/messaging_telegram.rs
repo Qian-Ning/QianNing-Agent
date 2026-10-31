@@ -113,7 +113,7 @@ use crate::db::Database;
 use crate::messaging_adapter::{AdapterRegistry, OutboundAdapter};
 use crate::messaging_outbound::{
     envelope_text, request_timeout, validate_https_endpoint, BodyBuilder, ChannelConfig,
-    HttpChannelAdapter,
+    HttpChannelAdapter, TypingHint,
 };
 use crate::secrets::SecretStore;
 
@@ -139,6 +139,9 @@ const LABEL: &str = "telegram";
 /// The send method the platform's outbound API exposes, appended to the
 /// configured endpoint after the bot token.
 const SEND_METHOD: &str = "sendMessage";
+/// The Bot API method behind the "working on it" indicator. Telegram shows it
+/// for about five seconds per call; it is never the answer to anything.
+const TYPING_METHOD: &str = "sendChatAction";
 /// The platform's field naming the destination, mapped from our own vocabulary.
 const DESTINATION_FIELD: &str = "chat_id";
 
@@ -178,6 +181,20 @@ fn check_record(record: &StoredConfig) -> Result<()> {
 /// location, after the endpoint has been validated without it — so the rule
 /// judges only the user's address and the token never reaches a log or a detail.
 fn send_url(record: &StoredConfig, token: &str, allow_insecure_http: bool) -> Result<reqwest::Url> {
+    method_url(record, token, allow_insecure_http, SEND_METHOD)
+}
+
+/// The URL of one Bot API method: the endpoint, the token, the method name.
+///
+/// Shared by the send and the "working on it" indicator, which differ only in
+/// the method they name, so the endpoint policy and the token rule cannot drift
+/// between the two.
+fn method_url(
+    record: &StoredConfig,
+    token: &str,
+    allow_insecure_http: bool,
+    method: &str,
+) -> Result<reqwest::Url> {
     check_record(record)?;
     let token = token.trim();
     if token.is_empty() {
@@ -189,8 +206,8 @@ fn send_url(record: &StoredConfig, token: &str, allow_insecure_http: bool) -> Re
     // without the token, so the token only ever appends to an address that
     // already passed the rule.
     let base = endpoint.as_str().trim_end_matches('/');
-    reqwest::Url::parse(&format!("{base}/bot{token}/{SEND_METHOD}"))
-        .with_context(|| format!("{CODE}: the endpoint and bot token do not form a send URL"))
+    reqwest::Url::parse(&format!("{base}/bot{token}/{method}"))
+        .with_context(|| format!("{CODE}: the endpoint and bot token do not form a {method} URL"))
 }
 
 /// The stored record, if the Host has one.
@@ -258,7 +275,17 @@ fn configured_adapter(
             "text": envelope_text(message),
         })
     });
-    let config = ChannelConfig::new(url, None, timeout, body);
+    let typing_url = method_url(record, token, allow_insecure_http, TYPING_METHOD)?;
+    let hint = TypingHint::new(
+        typing_url,
+        Box::new(|chat: &str| {
+            serde_json::json!({
+                DESTINATION_FIELD: chat,
+                "action": "typing",
+            })
+        }),
+    );
+    let config = ChannelConfig::new(url, None, timeout, body).with_typing(hint);
     let mut adapter = HttpChannelAdapter::new(LABEL).configure(config);
     adapter.connect()?;
     Ok(adapter)

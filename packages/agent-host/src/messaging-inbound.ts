@@ -455,6 +455,12 @@ export type MessagingInboundOptions = {
   cursor?: MessagingInboundCursorStore;
   /** How the loop waits between polls; injectable so tests run without sleeps. */
   wait?: (ms: number) => Promise<void>;
+  /**
+   * Ask the channel to show its "working on it" indicator for a chat. Called
+   * once per accepted message, fire-and-forget: a channel with no indicator is
+   * simply never called, and a refusal never delays the turn.
+   */
+  notifyTyping?: (chatId: string) => void;
 };
 
 /** How many accepted messages the replay log remembers before evicting the oldest. */
@@ -481,6 +487,7 @@ export class MessagingInboundDriver {
   private readonly audit: MessagingInboundAudit;
   private readonly ids: IdSource;
   private readonly handled: IngressClaimLog;
+  private readonly notifyTyping: ((chatId: string) => void) | null;
   /** The shared polling transport for a pull channel; absent for a push one. */
   private readonly poller: PollingIngressTransport<InboundMessage> | null;
 
@@ -492,6 +499,7 @@ export class MessagingInboundDriver {
     this.audit = options.audit ?? (() => {});
     this.ids = options.ids ?? new RandomIds();
     this.handled = new IngressClaimLog(options.handledCapacity ?? DEFAULT_HANDLED_CAPACITY);
+    this.notifyTyping = options.notifyTyping ?? null;
     // A push channel has no cursor and no poll, so it gets no polling transport.
     // A pull channel's cursor, retry floor and platform back-off are the shared
     // polling transport's; this class keeps only the routing decision.
@@ -562,6 +570,13 @@ export class MessagingInboundDriver {
     // Accepted for handling: record the key now, before any operation runs, so a
     // redelivery arriving while this copy is being applied is a duplicate.
     this.handled.record(key);
+    // The indicator is a courtesy, so a channel that cannot show one — or throws
+    // while trying — must not cost the message its turn.
+    try {
+      this.notifyTyping?.(message.chatId);
+    } catch {
+      // Deliberately swallowed: nothing about a failed hint is the caller's.
+    }
 
     const target = await this.targets.resolve(link.principal).catch(() => ({}));
     const context: RacpRequestContext = { requestId: this.ids.next("msg") };

@@ -46,6 +46,22 @@ const DRIVER_TICK: Duration = Duration::from_secs(30);
 /// The lease owner name the outbound attempt cycle claims deliveries under.
 const DRIVER_WORKER: &str = "messaging-outbound";
 
+/// The `channel` argument both verbs take, or the same refusal for a missing one.
+fn required_channel(params: &Value) -> Result<&str, JsonRpcError> {
+    params
+        .get("channel")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|channel| !channel.is_empty())
+        .ok_or_else(|| {
+            rpc_err(
+                1002,
+                "channel is required and must not be blank",
+                "INVALID_PARAMS",
+            )
+        })
+}
+
 /// Handles the `messaging.*` family.
 pub(super) async fn handle(
     state: &Arc<Mutex<AppState>>,
@@ -54,18 +70,7 @@ pub(super) async fn handle(
 ) -> Result<Value, JsonRpcError> {
     match method {
         "messaging.enqueue" => {
-            let channel = params
-                .get("channel")
-                .and_then(Value::as_str)
-                .map(str::trim)
-                .filter(|channel| !channel.is_empty())
-                .ok_or_else(|| {
-                    rpc_err(
-                        1002,
-                        "channel is required and must not be blank",
-                        "INVALID_PARAMS",
-                    )
-                })?;
+            let channel = required_channel(&params)?;
             let payload = params
                 .get("payload")
                 .cloned()
@@ -74,6 +79,37 @@ pub(super) async fn handle(
             let delivery = enqueue_for(&st.db, &st.messaging, channel, payload)
                 .map_err(|error| rpc_err(1000, error.to_string(), "INTERNAL"))?;
             Ok(json!({ "delivery": delivery }))
+        }
+        // A "working on it" indicator: not a delivery, so it never touches the
+        // ledger, is never retried, and reports only whether the platform took
+        // it. The adapter is taken out of the registry as a shared handle and
+        // the host lock is dropped before the request, the same discipline the
+        // attempt cycle keeps for a send.
+        "messaging.typing" => {
+            let channel = required_channel(&params)?;
+            let chat_id = params
+                .get("chatId")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|chat| !chat.is_empty())
+                .ok_or_else(|| {
+                    rpc_err(
+                        1002,
+                        "chatId is required and must not be blank",
+                        "INVALID_PARAMS",
+                    )
+                })?;
+            let adapter = {
+                let st = state.lock().await;
+                st.messaging.get_shared(channel).ok_or_else(|| {
+                    rpc_err(
+                        1002,
+                        format!("no outbound channel is registered as {channel}"),
+                        "NOT_FOUND",
+                    )
+                })?
+            };
+            Ok(json!({ "dispatched": adapter.typing(chat_id) }))
         }
         _ => Err(rpc_err(
             -32601,
@@ -152,6 +188,8 @@ mod tests {
     #[derive(Default)]
     struct FakeChannel {
         sent: Vec<OutboundMessage>,
+        /// The chats whose indicator was asked for, in order.
+        typing: Vec<String>,
         /// Results to return, one per `send`, oldest first. Empty means accept.
         script: VecDeque<SendResult>,
     }
@@ -176,6 +214,11 @@ mod tests {
             let mut state = self.state.lock().unwrap();
             state.sent.push(message.clone());
             state.script.pop_front().unwrap_or(SendResult::Delivered)
+        }
+
+        fn typing(&self, chat: &str) -> bool {
+            self.state.lock().unwrap().typing.push(chat.to_string());
+            true
         }
 
         fn attempt_bound(&self) -> i64 {
@@ -503,5 +546,67 @@ mod tests {
         let st = state.lock().await;
         let stored = delivery_ledger::get(&st.db, &id).unwrap().unwrap();
         assert_eq!(stored.state, DeliveryState::Delivered);
+    }
+
+    /// The indicator is its own verb, not a delivery: it reaches the channel
+    /// directly and writes nothing to the ledger.
+    #[tokio::test]
+    async fn the_typing_verb_reaches_the_channel_without_touching_the_ledger() {
+        let (_dir, state, channel) = state_with_channel("primary", 3);
+
+        let result = handle(
+            &state,
+            "messaging.typing",
+            json!({ "channel": "primary", "chatId": "9001" }),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result["dispatched"], json!(true));
+        assert_eq!(
+            channel.lock().unwrap().typing,
+            vec!["9001".to_string()],
+            "the channel is asked for its indicator for that chat"
+        );
+        assert_eq!(
+            delivery_count(&state).await,
+            0,
+            "a hint is never a delivery"
+        );
+    }
+
+    /// A channel this Host has no adapter for is refused, rather than answered
+    /// as if something had been shown.
+    #[tokio::test]
+    async fn the_typing_verb_refuses_an_unregistered_channel() {
+        let (_dir, state, _channel) = state_with_channel("primary", 3);
+
+        let error = handle(
+            &state,
+            "messaging.typing",
+            json!({ "channel": "telegram", "chatId": "9001" }),
+        )
+        .await
+        .expect_err("an unregistered channel has no indicator");
+
+        assert_eq!(error.code, 1002);
+        assert!(
+            error.message.contains("telegram"),
+            "the refusal names the channel: {}",
+            error.message
+        );
+    }
+
+    /// A blank chat is refused before any channel is consulted.
+    #[tokio::test]
+    async fn the_typing_verb_requires_a_chat() {
+        let (_dir, state, channel) = state_with_channel("primary", 3);
+
+        let error = handle(&state, "messaging.typing", json!({ "channel": "primary" }))
+            .await
+            .expect_err("a hint without a chat has nowhere to go");
+
+        assert_eq!(error.code, 1002);
+        assert!(channel.lock().unwrap().typing.is_empty());
     }
 }
