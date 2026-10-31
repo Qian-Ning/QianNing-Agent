@@ -185,12 +185,19 @@ export class MessagingRedactor implements SubscriptionSink {
     private readonly onError: (error: unknown, envelope: RacpEventEnvelope) => void = () => {},
     /** Whether this channel shows a process card (ADR 0340). Off by default. */
     private readonly cards: boolean = false,
+    /**
+     * Where a card event goes when this channel has a card for it. Returning
+     * `true` means the card took it; `false` — no card open for that turn —
+     * leaves the event to be delivered the way it always has.
+     */
+    private readonly card: { absorb(summary: MessageDeliverySummary): boolean } | null = null,
   ) {}
 
   /** One event from the surface, as the surface's `deliver` receives it. */
   deliver(envelope: RacpEventEnvelope): void {
     const summary = summarizeEvent(envelope, { cards: this.cards });
     if (!summary) return;
+    if (this.card?.absorb(summary) === true) return;
     void this.port
       .call(MESSAGING_ENQUEUE_METHOD, { channel: this.channel, payload: summary })
       .catch((error: unknown) => this.onError(error, envelope));

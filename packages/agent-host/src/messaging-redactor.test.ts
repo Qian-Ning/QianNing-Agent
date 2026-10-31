@@ -452,4 +452,28 @@ describe("MessagingRedactor cards", () => {
     expect(params.payload.tool).toBeUndefined();
     expect(params.payload.phase).toBeUndefined();
   });
+
+  it("hands a card event to the card instead of enqueueing it", () => {
+    const call = vi.fn(async () => ({}));
+    const absorb = vi.fn(() => true);
+    const redactor = new MessagingRedactor(
+      { call } as unknown as HostRpcPort,
+      "telegram",
+      undefined,
+      true,
+      { absorb },
+    );
+    redactor.deliver(event("turn.started", {}));
+    expect(absorb).toHaveBeenCalledTimes(1);
+    expect(call).not.toHaveBeenCalled();
+  });
+
+  it("delivers a summary itself when no card took it", () => {
+    const call = vi.fn(async () => ({}));
+    const redactor = new MessagingRedactor({ call } as unknown as HostRpcPort, "telegram", undefined, true, {
+      absorb: () => false,
+    });
+    redactor.deliver(event("turn.completed", {}));
+    expect(call).toHaveBeenCalledTimes(1);
+  });
 });
