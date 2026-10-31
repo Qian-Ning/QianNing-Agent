@@ -18,6 +18,8 @@ import {
 import type { AgentHost } from "@pi-desktop/agent-host";
 
 import { requireHostRpc, type HostRpc } from "./host-ports.js";
+import { MessagingCard } from "./messaging-card.js";
+import { MessagingCards } from "./messaging-cards.js";
 import type { HostSettingsSurface, MessagingInboundWiringLog } from "./messaging-inbound-wiring.js";
 
 /**
@@ -222,6 +224,21 @@ function isChannelConfigured(settings: unknown, channel: MessagingOutboundChanne
 }
 
 /**
+ * Whether this channel shows a process card (ADR 0340).
+ *
+ * The switch lives with the channel's own settings section, beside the record
+ * that makes the channel run at all, and defaults to off: an install that never
+ * asked for a card is charged neither the extra delivery nor the payload read
+ * that a card needs.
+ */
+export function isCardEnabled(settings: unknown, channel: MessagingOutboundChannel): boolean {
+  if (!isRecord(settings)) return false;
+  const section = settings[channel.section];
+  if (!isRecord(section)) return false;
+  return section.card === true;
+}
+
+/**
  * Start the outbound relay over the surfaces the Host already owns, and return
  * the release that stops it.
  *
@@ -279,6 +296,21 @@ export function createMessagingOutboundRelay(
     };
     for (const channel of channels) {
       if (!isChannelConfigured(settings, channel)) continue;
+      const cardsOn = isCardEnabled(settings, channel);
+      // One card set per channel: a card belongs to a turn, and the redactor
+      // hands it every event that turn produces. With the switch off there is
+      // no set at all, so no card can be created by accident.
+      const cards = cardsOn
+        ? new MessagingCards(
+            () =>
+              new MessagingCard(port, channel.channel, (error) => {
+                log?.("warn", "outbound card hand-off failed", {
+                  channel: channel.channel,
+                  error: detail(error),
+                });
+              }),
+          )
+        : null;
       const redactor = new MessagingRedactor(port, channel.channel, (error, envelope) => {
         // The hand-off is fire-and-forget: the ledger owns the retry, so a
         // refused call is recorded here and nothing else happens. Structure and
@@ -290,7 +322,7 @@ export function createMessagingOutboundRelay(
           kind: envelope.kind,
           error: detail(error),
         });
-      });
+      }, cardsOn, cards);
       let subscriptionId: string;
       try {
         const result = await options.agentHost.subscribe(principal, { scope: "host" }, redactor);

@@ -1031,6 +1031,30 @@ function SupportedPanel({
         </fieldset>
 
         <div className="settings-messaging-footer">
+          {/* The process card (ADR 0340) is a per-channel choice, so it sits with
+              the enable switch: this save writes it, and only the channels that
+              asked for one get the extra message and the extra edits. */}
+          <div className="settings-messaging-enable">
+            <SettingsToggle
+              checked={draft.card}
+              busy={saving}
+              label={t("settings.messaging.cardToggle", { platform: t(platform.labelKey) })}
+              onChange={() => onDraftChange({ card: !draft.card })}
+            />
+            <div className="settings-messaging-enable-copy">
+              <span className="settings-messaging-enable-heading">
+                <span className="settings-messaging-enable-title">
+                  {t("settings.messaging.cardTitle")}
+                </span>
+                <Badge tone={draft.card ? "success" : "neutral"}>
+                  {t(draft.card ? "settings.messaging.enabledOn" : "settings.messaging.enabledOff")}
+                </Badge>
+              </span>
+              <span className="settings-messaging-enable-note">
+                {t("settings.messaging.cardNote")}
+              </span>
+            </div>
+          </div>
           <div className="settings-messaging-enable">
             <SettingsToggle
               checked={enabled}

@@ -94,9 +94,10 @@ fn a_new_database_carries_the_owner_column_at_the_current_schema_version() {
     // v17 added the provider owner column, v18 the turn-queue priority column, v19
     // session omit, v20 the per-conversation system prompt, v21 the model pricing
     // table, v22 the connection profiles table, v23 the outbound-delivery ledger,
-    // v24 the session owner column; a fresh database is stamped with the newest, so
-    // the column set is the current one.
-    assert_eq!(SCHEMA_VERSION, 24);
+    // v24 the session owner column, v25 the delivery ledger's operation and
+    // remote id; a fresh database is stamped with the newest, so the column set is
+    // the current one.
+    assert_eq!(SCHEMA_VERSION, 25);
     let version: i64 = db
         .conn()
         .query_row("PRAGMA user_version", [], |row| row.get(0))

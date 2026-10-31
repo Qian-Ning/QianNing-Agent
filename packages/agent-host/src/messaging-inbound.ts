@@ -455,10 +455,24 @@ export type MessagingInboundOptions = {
   cursor?: MessagingInboundCursorStore;
   /** How the loop waits between polls; injectable so tests run without sleeps. */
   wait?: (ms: number) => Promise<void>;
+  /**
+   * Ask the channel to show its "working on it" indicator for a chat. Called
+   * once per accepted message, fire-and-forget: a channel with no indicator is
+   * simply never called, and a refusal never delays the turn.
+   */
+  notifyTyping?: (chatId: string) => void;
 };
 
 /** How many accepted messages the replay log remembers before evicting the oldest. */
 const DEFAULT_HANDLED_CAPACITY = 4096;
+/**
+ * How often a long turn renews the channel's indicator.
+ *
+ * Telegram shows its indicator for about five seconds per call, so a renewal
+ * every four seconds keeps it continuous without spending a request per second
+ * on a decoration.
+ */
+const TYPING_RENEW_MS = 4_000;
 
 /**
  * The driver-side replay log is the shared layer's in-run claim log
@@ -481,6 +495,7 @@ export class MessagingInboundDriver {
   private readonly audit: MessagingInboundAudit;
   private readonly ids: IdSource;
   private readonly handled: IngressClaimLog;
+  private readonly notifyTyping: ((chatId: string) => void) | null;
   /** The shared polling transport for a pull channel; absent for a push one. */
   private readonly poller: PollingIngressTransport<InboundMessage> | null;
 
@@ -492,6 +507,7 @@ export class MessagingInboundDriver {
     this.audit = options.audit ?? (() => {});
     this.ids = options.ids ?? new RandomIds();
     this.handled = new IngressClaimLog(options.handledCapacity ?? DEFAULT_HANDLED_CAPACITY);
+    this.notifyTyping = options.notifyTyping ?? null;
     // A push channel has no cursor and no poll, so it gets no polling transport.
     // A pull channel's cursor, retry floor and platform back-off are the shared
     // polling transport's; this class keeps only the routing decision.
@@ -582,7 +598,14 @@ export class MessagingInboundDriver {
       return { kind: "refused", messageId: message.messageId, refusal: mapped.refusal };
     }
 
-    return this.invoke(message.messageId, link.principal, mapped.request);
+    // The indicator belongs to the turn, not to the message: it is raised once
+    // the command has been accepted and lowered when the operation settles.
+    const stopTyping = this.renewTyping(message.chatId);
+    try {
+      return await this.invoke(message.messageId, link.principal, mapped.request);
+    } finally {
+      stopTyping();
+    }
   }
 
   /** Apply one mapped request through the existing operation surface. */
@@ -693,6 +716,34 @@ export class MessagingInboundDriver {
     await poller.run(async (message: InboundMessage) => {
       await this.handleMessage(message);
     }, signal);
+  }
+
+  /**
+   * Keep the channel's indicator up until the returned function is called.
+   *
+   * The first hint is raised immediately, then renewed on an interval, because
+   * a platform shows it for a few seconds at a time. The interval is unref'd so
+   * a hint can never be the reason the process stays alive, and every failure
+   * is swallowed: the indicator is a courtesy and must never cost a turn.
+   */
+  private renewTyping(chatId: string): () => void {
+    const notify = this.notifyTyping;
+    if (!notify) {
+      return () => {};
+    }
+    const fire = (): void => {
+      try {
+        notify(chatId);
+      } catch {
+        // Deliberately swallowed: nothing about a failed hint is the caller's.
+      }
+    };
+    fire();
+    const timer: ReturnType<typeof setInterval> = setInterval(fire, TYPING_RENEW_MS);
+    if (typeof timer === "object" && timer !== null && "unref" in timer) {
+      timer.unref();
+    }
+    return () => clearInterval(timer);
   }
 }
 
