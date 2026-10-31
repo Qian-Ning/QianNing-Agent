@@ -258,6 +258,19 @@ export const MESSAGING_REQUIREMENT_CLASS_KEYS: Record<MessagingRequirementClass,
   platformApproval: "settings.messaging.requirementClassApproval",
 };
 
+/**
+ * The rail's version of the requirement classes: the same five gaps, named in
+ * a few words so a card's second line fits. The full sentence still uses
+ * MESSAGING_REQUIREMENT_CLASS_KEYS in the detail panel.
+ */
+export const MESSAGING_REQUIREMENT_SHORT_KEYS: Record<MessagingRequirementClass, string> = {
+  longConnection: "settings.messaging.requirementShortLongConnection",
+  publicCallback: "settings.messaging.requirementShortPublicCallback",
+  bridgeOrPoll: "settings.messaging.requirementShortBridge",
+  transport: "settings.messaging.requirementShortTransport",
+  platformApproval: "settings.messaging.requirementShortApproval",
+};
+
 export type UnsupportedMessagingPlatform = PlatformBase & {
   support: "unsupported";
   /** What kind of thing this build lacks, so the gap is placed, not just named. */
@@ -2069,6 +2082,56 @@ export type MessagingGatewayDisplay = "running" | "stopped" | "idle";
 export function gatewayPresentation(state: MessagingChannelState): MessagingGatewayDisplay {
   if (state.gateway === "running") return "running";
   return state.enabled === "on" ? "stopped" : "idle";
+}
+
+/**
+ * The one sentence a platform card shows.
+ *
+ * The three dimensions stay three facts — `deriveChannelState` still reports
+ * them separately and the detail panel still lists them as three rows. This is
+ * only the order a person needs them in while scanning a list: a channel that
+ * is switched off is off before it is "incomplete", and a channel that was
+ * never asked to run is not broken.
+ */
+export type MessagingStatusTone = "success" | "warning" | "neutral" | "error";
+
+export type MessagingStatus = {
+  tone: MessagingStatusTone;
+  key: string;
+  /** How many fields are still missing, when the sentence counts them. */
+  count?: number;
+};
+
+export const MESSAGING_STATUS_KEYS = {
+  running: "settings.messaging.statusRunning",
+  stopped: "settings.messaging.statusStopped",
+  incomplete: "settings.messaging.statusIncomplete",
+  disabled: "settings.messaging.statusDisabled",
+  notConfigured: "settings.messaging.statusNotConfigured",
+  unreadable: "settings.messaging.statusUnreadable",
+} as const;
+
+export function channelStatus(state: MessagingChannelState): MessagingStatus {
+  if (state.enabled === "unreadable" || state.setup === "unknown") {
+    return { tone: "error", key: MESSAGING_STATUS_KEYS.unreadable };
+  }
+  if (state.enabled === "off") {
+    return { tone: "neutral", key: MESSAGING_STATUS_KEYS.disabled };
+  }
+  if (state.setup === "notStarted") {
+    return { tone: "neutral", key: MESSAGING_STATUS_KEYS.notConfigured };
+  }
+  if (state.setup === "incomplete") {
+    return {
+      tone: "warning",
+      key: MESSAGING_STATUS_KEYS.incomplete,
+      count: state.missing.length,
+    };
+  }
+  if (state.gateway === "running") {
+    return { tone: "success", key: MESSAGING_STATUS_KEYS.running };
+  }
+  return { tone: "warning", key: MESSAGING_STATUS_KEYS.stopped };
 }
 
 /**

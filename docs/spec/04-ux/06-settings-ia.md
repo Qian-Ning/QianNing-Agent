@@ -686,7 +686,10 @@ system while preserving their different data ownership:
   dials.
 - The list is the reference product's own catalogue — all thirty-three
   platforms, in the product's order — so the surface has a real product's
-  density, and it is honest about breadth. **Telegram**, **Discord**, **Slack**,
+  density, and it is honest about breadth. It is drawn as two labelled groups
+  (*can be connected* and *not in this build*) of cards, each card one platform
+  mark, one name and one sentence of state; the three state dimensions survive
+  as the card's tooltip and, unchanged, as rows in the panel's overview. **Telegram**, **Discord**, **Slack**,
   **Mattermost**, **Matrix**, **Home Assistant**, **Email**, **IRC**, **ntfy**,
   **Signal**, **API server** and **Webhooks** are marked Supported and open a
   working panel. The other twenty-one are marked
@@ -1179,7 +1182,9 @@ silently falling back to loopback.
     - Layout → `SettingsCard` + `SettingsRow` from `features/settings/primitives`
     Inline reimplementation of any shared primitive is a spec violation.
 29. Messaging platforms is a chooser plus a panel: the list carries the reference
-    catalogue and marks honestly which platforms this build runs (Telegram,
+    catalogue as two groups of state cards — one sentence per platform, the three
+    derived states kept as rows in the panel — and marks honestly which platforms
+    this build runs (Telegram,
     Slack, Discord, Mattermost, Matrix, Home Assistant, IRC and ntfy) and which it does
     not, the unsupported ones opening a statement
     rather than a form. It reports three independent states — enabled, setup and
