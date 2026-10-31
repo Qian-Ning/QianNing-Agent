@@ -108,6 +108,40 @@ impl DeliveryState {
     }
 }
 
+/// What a delivery asks the channel to do.
+///
+/// A turn is one `send` and any number of `edit`s of the message that send
+/// created (ADR 0340). The ledger treats both as ordinary operations: edit rows
+/// are enqueued with a single attempt because a lost update is worth nothing,
+/// while the send that carries the final answer keeps the normal retry budget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[allow(dead_code)]
+pub enum DeliveryOperation {
+    /// Create a message in the conversation.
+    Send,
+    /// Replace the text of a message a previous send created.
+    Edit,
+}
+
+#[allow(dead_code)]
+impl DeliveryOperation {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            DeliveryOperation::Send => "send",
+            DeliveryOperation::Edit => "edit",
+        }
+    }
+
+    fn parse(value: &str) -> Option<Self> {
+        match value {
+            "send" => Some(DeliveryOperation::Send),
+            "edit" => Some(DeliveryOperation::Edit),
+            _ => None,
+        }
+    }
+}
+
 /// A delivery to enqueue. `payload` is the redacted summary or a reference to
 /// it; the ledger stores it verbatim and never inspects its contents.
 #[derive(Debug, Clone, Deserialize)]
@@ -121,6 +155,14 @@ pub struct NewDelivery {
     /// Per-delivery attempt cap; [`DEFAULT_MAX_ATTEMPTS`] when absent.
     #[serde(default)]
     pub max_attempts: Option<i64>,
+    /// What the channel should do; a send when absent, so every caller written
+    /// before edits existed keeps its meaning.
+    #[serde(default)]
+    pub operation: Option<DeliveryOperation>,
+    /// The message an edit rewrites, as the channel named it. Required for an
+    /// edit and refused on a send, because a send names nothing to rewrite.
+    #[serde(default)]
+    pub remote_id: Option<String>,
 }
 
 /// A persisted delivery row.
@@ -151,12 +193,15 @@ pub struct Delivery {
     pub delivered_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub failed_at: Option<String>,
+    pub operation: DeliveryOperation,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remote_id: Option<String>,
 }
 
 #[allow(dead_code)]
 const DELIVERY_COLUMNS: &str = "id, channel, payload_json, state, attempts, max_attempts, \
      redelivery, next_attempt_at, lease_owner, lease_expires_at, last_error, \
-     created_at, updated_at, delivered_at, failed_at";
+     created_at, updated_at, delivered_at, failed_at, operation, remote_id";
 
 #[allow(dead_code)]
 fn delivery_state_from_db(raw: &str) -> rusqlite::Result<DeliveryState> {
@@ -195,6 +240,20 @@ fn row_to_delivery(row: &rusqlite::Row<'_>) -> rusqlite::Result<Delivery> {
         updated_at: ms_to_ts(row.get::<_, i64>(12)?),
         delivered_at: row.get::<_, Option<i64>>(13)?.map(ms_to_ts),
         failed_at: row.get::<_, Option<i64>>(14)?.map(ms_to_ts),
+        operation: {
+            let raw: String = row.get(15)?;
+            DeliveryOperation::parse(&raw).ok_or_else(|| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    15,
+                    rusqlite::types::Type::Text,
+                    Box::new(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("unknown delivery operation '{raw}'"),
+                    )),
+                )
+            })?
+        },
+        remote_id: row.get(16)?,
     })
 }
 
@@ -219,6 +278,24 @@ pub fn enqueue(db: &Database, input: NewDelivery) -> Result<Delivery> {
     if channel.is_empty() {
         return Err(anyhow!("delivery channel must not be blank"));
     }
+    let operation = input.operation.unwrap_or(DeliveryOperation::Send);
+    let remote_id = input
+        .remote_id
+        .map(|id| id.trim().to_string())
+        .filter(|id| !id.is_empty());
+    match (operation, remote_id.as_deref()) {
+        (DeliveryOperation::Edit, None) => {
+            return Err(anyhow!(
+                "an edit delivery must name the message it rewrites"
+            ));
+        }
+        (DeliveryOperation::Send, Some(_)) => {
+            return Err(anyhow!(
+                "a send delivery must not name a message; enqueue an edit instead"
+            ));
+        }
+        _ => {}
+    }
     let max_attempts = input.max_attempts.unwrap_or(DEFAULT_MAX_ATTEMPTS).max(1);
     let id = input
         .id
@@ -229,9 +306,17 @@ pub fn enqueue(db: &Database, input: NewDelivery) -> Result<Delivery> {
     db.conn().execute(
         "INSERT INTO delivery_ledger (
             id, channel, payload_json, state, attempts, max_attempts, redelivery,
-            next_attempt_at, created_at, updated_at
-         ) VALUES (?1, ?2, ?3, 'pending', 0, ?4, 0, ?5, ?5, ?5)",
-        params![id, channel, payload_json, max_attempts, now],
+            next_attempt_at, created_at, updated_at, operation, remote_id
+         ) VALUES (?1, ?2, ?3, 'pending', 0, ?4, 0, ?5, ?5, ?5, ?6, ?7)",
+        params![
+            id,
+            channel,
+            payload_json,
+            max_attempts,
+            now,
+            operation.as_str(),
+            remote_id
+        ],
     )?;
     get(db, &id)?.ok_or_else(|| anyhow!("delivery {id} disappeared after insert"))
 }
@@ -496,6 +581,8 @@ mod tests {
             channel: channel.to_string(),
             payload: serde_json::json!({ "kind": "turn.completed", "turnId": "turn-1" }),
             max_attempts: None,
+            operation: None,
+            remote_id: None,
         }
     }
 
@@ -529,6 +616,8 @@ mod tests {
             channel: "webhook".into(),
             payload: payload.clone(),
             max_attempts: None,
+            operation: None,
+            remote_id: None,
         };
         let created = enqueue(&db, input).unwrap();
         assert_eq!(created.id, "delivery-1");
@@ -542,6 +631,58 @@ mod tests {
         let stored = get(&db, "delivery-1").unwrap().unwrap();
         assert_eq!(stored, created);
         assert_eq!(list(&db, Some(DeliveryState::Pending)).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_delivery_without_an_operation_is_a_send() {
+        let (_dir, db) = open();
+        let created = enqueue(&db, new_delivery("telegram")).unwrap();
+        assert_eq!(created.operation, DeliveryOperation::Send);
+        assert_eq!(created.remote_id, None);
+        let stored = get(&db, &created.id).unwrap().unwrap();
+        assert_eq!(stored.operation, DeliveryOperation::Send);
+    }
+
+    #[test]
+    fn an_edit_keeps_the_message_it_rewrites_through_a_claim() {
+        let (_dir, db) = open();
+        let mut input = new_delivery("telegram");
+        input.operation = Some(DeliveryOperation::Edit);
+        input.remote_id = Some("  4711  ".into());
+        let created = enqueue(&db, input).unwrap();
+        assert_eq!(created.operation, DeliveryOperation::Edit);
+        assert_eq!(created.remote_id.as_deref(), Some("4711"));
+
+        let claimed = claim(&db, "worker-1", 30_000).unwrap().unwrap();
+        assert_eq!(claimed.id, created.id);
+        assert_eq!(claimed.operation, DeliveryOperation::Edit);
+        assert_eq!(claimed.remote_id.as_deref(), Some("4711"));
+    }
+
+    #[test]
+    fn an_edit_must_name_the_message_it_rewrites() {
+        let (_dir, db) = open();
+        let mut input = new_delivery("telegram");
+        input.operation = Some(DeliveryOperation::Edit);
+        let error = enqueue(&db, input).unwrap_err();
+        assert!(
+            error.to_string().contains("must name the message"),
+            "unexpected refusal: {error}"
+        );
+        assert!(list(&db, None).unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_send_must_not_name_a_message() {
+        let (_dir, db) = open();
+        let mut input = new_delivery("telegram");
+        input.remote_id = Some("4711".into());
+        let error = enqueue(&db, input).unwrap_err();
+        assert!(
+            error.to_string().contains("must not name a message"),
+            "unexpected refusal: {error}"
+        );
+        assert!(list(&db, None).unwrap().is_empty());
     }
 
     #[test]

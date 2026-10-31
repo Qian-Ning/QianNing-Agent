@@ -283,6 +283,8 @@ pub fn enqueue_for(
             channel: key.to_string(),
             payload,
             max_attempts: Some(adapter.attempt_bound()),
+            operation: None,
+            remote_id: None,
         },
     )
 }
@@ -782,6 +784,8 @@ mod tests {
                 channel: "alpha".into(),
                 payload: json!({ "kind": "turn.completed" }),
                 max_attempts: None,
+                operation: None,
+                remote_id: None,
             },
         )
         .unwrap();

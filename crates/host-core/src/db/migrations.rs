@@ -1089,3 +1089,45 @@ pub(crate) fn migrate_v23_to_v24(conn: &Connection, path: &Path) -> Result<()> {
     })?;
     Ok(())
 }
+
+/// v25 adds the delivery ledger's `operation` and `remote_id` columns (ADR 0340).
+///
+/// A delivery is now either a send or an edit of a message a previous send
+/// created, so the ledger needs both the operation and the id it addresses.
+/// Existing rows are sends by definition — they predate the column — and the
+/// default makes that true without rewriting a single row.
+pub(crate) fn migrate_v24_to_v25_tx(tx: &rusqlite::Transaction<'_>) -> Result<()> {
+    let has_operation: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('delivery_ledger') WHERE name = 'operation')",
+        [],
+        |row| row.get(0),
+    )?;
+    if !has_operation {
+        tx.execute_batch(
+            "ALTER TABLE delivery_ledger ADD COLUMN operation TEXT NOT NULL DEFAULT 'send';",
+        )?;
+    }
+    let has_remote_id: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('delivery_ledger') WHERE name = 'remote_id')",
+        [],
+        |row| row.get(0),
+    )?;
+    if !has_remote_id {
+        tx.execute_batch("ALTER TABLE delivery_ledger ADD COLUMN remote_id TEXT;")?;
+    }
+    tx.pragma_update(None, "user_version", 25i64)?;
+    Ok(())
+}
+
+pub(crate) fn migrate_v24_to_v25(conn: &Connection, path: &Path) -> Result<()> {
+    let backup = create_migration_backup(conn, path, 24)?;
+    let tx = conn.unchecked_transaction()?;
+    migrate_v24_to_v25_tx(&tx)?;
+    tx.commit().with_context(|| {
+        format!(
+            "commit schema v24 to v25 migration; backup {} remains",
+            backup.display()
+        )
+    })?;
+    Ok(())
+}

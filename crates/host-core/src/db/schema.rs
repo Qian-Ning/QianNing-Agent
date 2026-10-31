@@ -355,7 +355,9 @@ CREATE TABLE IF NOT EXISTS delivery_ledger (
   created_at       INTEGER NOT NULL,
   updated_at       INTEGER NOT NULL,
   delivered_at     INTEGER,
-  failed_at        INTEGER
+  failed_at        INTEGER,
+  operation        TEXT NOT NULL DEFAULT 'send',
+  remote_id        TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_delivery_ledger_claim
   ON delivery_ledger(state, next_attempt_at);
