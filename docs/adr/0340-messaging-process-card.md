@@ -31,12 +31,19 @@ each one is in the wrong shape for it:
 
 ## Decision
 
-**1. A card is a delivery lifecycle, not a second message.** The ledger gains one
-intent kind, `card`, with three states: `open` (a message exists remotely),
-`updating` (its text is being replaced), `finalised` (the answer replaced the
-card, and the row leaves the retry path). The row stores `remote_message_id` and
-`last_edited_at`. The existing `send` intent is untouched, so a channel that has
-no card support keeps today's behaviour with no changes to its adapter.
+**1. A card is a sequence of ordinary deliveries, not a second message.** The
+ledger gains one `operation` value, `edit`, beside the existing `send`; a card is
+one `send` that creates the message and any number of `edit`s that rewrite it.
+The creating row stores `remote_id`, the channel's own name for the message; an
+edit row stores `card_of`, pointing at that row, and never receives a platform id
+as input — the id is minted by the channel and stays inside the Host, so a caller
+cannot address a message it did not create.
+
+There is deliberately no `card` state machine. The ledger keeps doing what it
+already does — claim, retry, deliver — and what a card *is* lives where the turn
+does. An edit is enqueued with a single attempt, because a lost progress frame is
+worth nothing; the answer that replaces the card is the one delivery that must
+still be retried.
 
 **2. What leaves the host is fixed at three fields.** A card update carries:
 
