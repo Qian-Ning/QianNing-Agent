@@ -290,19 +290,57 @@ pub fn enqueue_for(
     channel: &str,
     payload: serde_json::Value,
 ) -> Result<Delivery> {
+    enqueue_for_with(db, registry, channel, payload, EnqueueOptions::default())
+}
+
+/// What an enqueue may say besides the channel and the payload.
+///
+/// Every field is optional and defaults to the behaviour that existed before
+/// cards: a new id, a send, no card, the adapter's own attempt bound.
+#[derive(Debug, Clone, Default)]
+pub struct EnqueueOptions {
+    /// A delivery id the caller mints. A card needs this: the caller creates the
+    /// card and then addresses every later edit to the id it chose, so it has to
+    /// pick that id itself rather than learn it from a reply.
+    pub id: Option<String>,
+    /// Send (the default) or edit an existing message.
+    pub operation: Option<DeliveryOperation>,
+    /// For an edit, the delivery that created the message it rewrites.
+    pub card_of: Option<String>,
+    /// For an edit, the caller's bound. An edit is not retried by default: a
+    /// progress frame that arrives late is worth nothing.
+    pub max_attempts: Option<i64>,
+}
+
+/// Enqueue one delivery with the caller's options — the single write path into
+/// the ledger, with [`enqueue_for`] as its no-options form.
+pub fn enqueue_for_with(
+    db: &Database,
+    registry: &AdapterRegistry,
+    channel: &str,
+    payload: serde_json::Value,
+    options: EnqueueOptions,
+) -> Result<Delivery> {
     let key = channel.trim();
     let adapter = registry
         .get(key)
         .ok_or_else(|| anyhow!("no outbound adapter registered for channel '{key}'"))?;
+    let operation = options.operation.unwrap_or_default();
+    let max_attempts = options.max_attempts.unwrap_or_else(|| match operation {
+        DeliveryOperation::Send => adapter.attempt_bound(),
+        // One attempt: a card's frame is either replaced by the next one or by
+        // the final answer, so a retry would only delay the frame that matters.
+        DeliveryOperation::Edit => 1,
+    });
     delivery_ledger::enqueue(
         db,
         NewDelivery {
-            id: None,
+            id: options.id,
             channel: key.to_string(),
             payload,
-            max_attempts: Some(adapter.attempt_bound()),
-            operation: None,
-            card_of: None,
+            max_attempts: Some(max_attempts),
+            operation: Some(operation),
+            card_of: options.card_of,
         },
     )
 }

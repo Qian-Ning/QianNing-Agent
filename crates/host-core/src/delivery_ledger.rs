@@ -124,6 +124,12 @@ pub enum DeliveryOperation {
     Edit,
 }
 
+impl Default for DeliveryOperation {
+    fn default() -> Self {
+        DeliveryOperation::Send
+    }
+}
+
 #[allow(dead_code)]
 impl DeliveryOperation {
     pub fn as_str(self) -> &'static str {
