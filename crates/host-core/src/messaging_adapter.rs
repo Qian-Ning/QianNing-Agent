@@ -533,7 +533,10 @@ pub fn finish_attempt(
             kind: FailureKind::Terminal,
             detail,
         } => match delivery_ledger::mark_failed_terminal(db, &id, worker, &detail)? {
-            Some(_) => Ok(AttemptOutcome::Failed { id, error: detail }),
+            Some(_) => Ok(AttemptOutcome::Failed {
+                id,
+                error: fall_back_to_message(db, prepared, detail)?,
+            }),
             None => Err(lease_write_missed(&id, worker, "failed")),
         },
         SendResult::Failed {
@@ -545,11 +548,51 @@ pub fn finish_attempt(
             // becomes terminal failed.
             let row = delivery_ledger::mark_failed(db, &id, worker, &detail)?;
             match row.map(|row| row.state) {
-                Some(DeliveryState::Failed) => Ok(AttemptOutcome::Failed { id, error: detail }),
+                Some(DeliveryState::Failed) => Ok(AttemptOutcome::Failed {
+                    id,
+                    error: fall_back_to_message(db, prepared, detail)?,
+                }),
                 _ => Ok(AttemptOutcome::Retried { id, error: detail }),
             }
         }
     }
+}
+
+/// When an edit fails for good, deliver the same content as a new message.
+///
+/// A card is a convenience; the answer is not. If the channel refuses to rewrite
+/// the message — it deleted it, it never accepted edits, the text was rejected —
+/// the turn's content still has to reach the user, so the payload the edit would
+/// have carried is enqueued as an ordinary send with the adapter's normal retry
+/// budget. A send that is not an edit is returned untouched.
+///
+/// The failure detail is kept whether or not the re-send was enqueued, and a
+/// re-send that could not even be enqueued says so in that detail rather than
+/// disappearing.
+fn fall_back_to_message(
+    db: &Database,
+    prepared: &PreparedAttempt,
+    detail: String,
+) -> Result<String> {
+    if prepared.operation != DeliveryOperation::Edit {
+        return Ok(detail);
+    }
+    let message = &prepared.message;
+    let enqueued = delivery_ledger::enqueue(
+        db,
+        NewDelivery {
+            id: None,
+            channel: message.channel.clone(),
+            payload: message.payload.clone(),
+            max_attempts: Some(DEFAULT_MAX_ATTEMPTS),
+            operation: Some(DeliveryOperation::Send),
+            card_of: None,
+        },
+    );
+    Ok(match enqueued {
+        Ok(_) => detail,
+        Err(error) => format!("{detail}; the answer could not be re-queued as a message: {error}"),
+    })
 }
 
 /// Claim one due delivery, send it through its channel, and record the result.
@@ -1161,5 +1204,73 @@ mod tests {
         let row = delivery_ledger::get(&db, &delivery.id).unwrap().unwrap();
         assert_eq!(row.state, DeliveryState::Attempting);
         assert!(row.failed_at.is_none());
+    }
+
+    #[test]
+    fn an_edit_that_fails_for_good_is_delivered_as_a_new_message() {
+        let (_dir, db) = open();
+        let (registry, state) = registry_with(DEFAULT_MAX_ATTEMPTS);
+        state
+            .lock()
+            .unwrap()
+            .script
+            .push_back(SendResult::Delivered {
+                remote_id: Some("42".into()),
+            });
+
+        // The card is created, then the edit that would have replaced it fails.
+        delivery_ledger::enqueue(
+            &db,
+            NewDelivery {
+                id: Some("card-1".into()),
+                channel: "alpha".into(),
+                payload: json!({ "kind": "turn.started" }),
+                max_attempts: None,
+                operation: None,
+                card_of: None,
+            },
+        )
+        .unwrap();
+        assert!(matches!(
+            attempt_one(&db, &registry, "worker-a").unwrap(),
+            AttemptOutcome::Delivered { .. }
+        ));
+
+        state.lock().unwrap().script.push_back(SendResult::Failed {
+            kind: FailureKind::Terminal,
+            detail: "message to edit not found".into(),
+        });
+        delivery_ledger::enqueue(
+            &db,
+            NewDelivery {
+                id: Some("edit-1".into()),
+                channel: "alpha".into(),
+                payload: json!({ "kind": "turn.completed", "status": "completed" }),
+                max_attempts: Some(1),
+                operation: Some(DeliveryOperation::Edit),
+                card_of: Some("card-1".into()),
+            },
+        )
+        .unwrap();
+        assert!(matches!(
+            attempt_one(&db, &registry, "worker-a").unwrap(),
+            AttemptOutcome::Failed { .. }
+        ));
+
+        // The answer is not lost: the same payload waits as an ordinary send.
+        let waiting: i64 = db
+            .conn()
+            .query_row(
+                "SELECT COUNT(*) FROM delivery_ledger
+                  WHERE operation = 'send' AND state = 'pending'
+                    AND payload_json LIKE '%turn.completed%'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            waiting, 1,
+            "a card that cannot be rewritten falls back to a message"
+        );
     }
 }
