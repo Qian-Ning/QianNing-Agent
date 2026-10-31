@@ -1,6 +1,6 @@
 # ADR: A messaging turn shows its progress as one editable card
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-01
 - Related: [messaging settings](../spec/04-ux/06-settings-ia.md);
   the redactor boundary in `packages/agent-host/src/messaging-redactor.ts`;
@@ -96,12 +96,16 @@ current single-message behaviour.
 - A card that is never finalised (Host killed mid-turn) is closed on the next boot
   with the text "这条消息没有完成" rather than left spinning.
 
-## Open questions
+## Rulings
 
-1. Is the tool *name* allowed to leave the host by default, or only when the user
-   turns on "显示过程"? The former is more useful; the latter is a smaller change
-   to the boundary.
-2. Should the card show elapsed time? It is Host-local data with no privacy cost,
-   but it makes the edit cadence user-visible.
-3. Is 1.5 s the right throttle for Telegram, or should it follow the platform's
-   own rate limit per chat?
+1. **The tool name leaves the host by default.** A name is already in the tool
+   list the model was given; arguments, results and paths are what the boundary
+   protects. The per-bot switch "显示过程" turns the whole card off, and is on by
+   default — a card that cannot name the tool is a typing indicator with more
+   machinery, which is not worth the ledger change.
+2. **No elapsed time in the first version.** It is the only field on the card
+   that would make the edit cadence visible, and it earns nothing that the phase
+   and the tool name do not already say.
+3. **1.5 s stays the floor**, with the platform's own back-off honoured where the
+   answer carries one. Telegram's per-chat limit is not published, so the floor
+   is a floor rather than a target.

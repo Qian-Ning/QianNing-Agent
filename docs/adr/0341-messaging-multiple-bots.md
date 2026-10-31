@@ -1,6 +1,6 @@
 # ADR: More than one bot per messaging channel
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-01
 - Related: `packages/host-runtime/src/messaging-gateway-registry.ts` (the
   registry and snapshot); [messaging settings](../spec/04-ux/06-settings-ia.md);
@@ -109,12 +109,14 @@ is out of scope for this ADR.
   untouched; a snapshot with `channels` renders in an old page; a settings row
   without `messaging.bots` still starts one bot.
 
-## Open questions
+## Rulings
 
-1. Should the per-platform limit be configurable, or is a fixed 8 the right
-   product call?
-2. When the app is downgraded and re-upgraded, `messaging.bots` survives but the
-   *loops* of those bots never ran in between. Is a "resume stopped bots"
-   prompt needed, or is starting them silently correct?
-3. Does the local API server need multi-bot at all, or is it one instance per
-   machine by definition? This ADR assumes the latter.
+1. **Eight per platform, twenty-four in total, as constants.** Anyone who wants a
+   ninth bot wants a different product, and a setting for the cap costs a field,
+   a validation path and a test for a case nobody has.
+2. **A re-upgraded app starts its bots silently.** They were running before the
+   downgrade; asking the user to confirm what the app already decided once is
+   noise, and the card list shows what is running either way.
+3. **The local API server stays one instance per machine.** It binds a port and
+   exists to be reached from outside; a second one is a second port, which is a
+   different feature, not a second bot.
