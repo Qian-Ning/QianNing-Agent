@@ -190,6 +190,7 @@ function buildDriver(options: {
 }): { driver: MessagingInboundDriver; audit: MessagingInboundAuditEntry[] } {
   const audit = options.audit ?? [];
   const driver = new MessagingInboundDriver({
+    channelLabel: "telegram",
     agentHost: options.surface,
     transport: idleTransport,
     readConfig: async () =>
@@ -305,7 +306,11 @@ describe("MessagingInboundDriver routing", () => {
     expect(outcome).toEqual({ kind: "invoked", messageId: "m1", operation: "turn/start" });
     expect(routed).toEqual(["turn/start"]);
     expect(runtime.prompts).toHaveLength(1);
-    expect(runtime.prompts[0].content).toBe("do the thing");
+    // The command's argument reaches the turn inside the channel envelope;
+    // `/start` itself is not part of it.
+    expect(runtime.prompts[0].content).toBe(
+      '<msg channel="telegram">\ndo the thing\n</msg>',
+    );
     expect(runtime.prompts[0].principal).toEqual(LINKED_PRINCIPAL);
     expect(audit).toEqual([{ kind: "operation", messageId: "m1", operation: "turn/start" }]);
   });
@@ -422,6 +427,7 @@ describe("MessagingInboundDriver unlinked chats", () => {
 
 function replayDriver(surface: MessagingInboundOperationSurface): MessagingInboundDriver {
   return new MessagingInboundDriver({
+    channelLabel: "telegram",
     agentHost: surface,
     transport: idleTransport,
     readConfig: async () => ({ link: readInboundLink(linkedSection()) }),
@@ -472,6 +478,7 @@ describe("MessagingInboundDriver replay guard", () => {
       { turnId: "rt_1", revision: 1, lifetimeMs: 60_000, allowSession: false },
     );
     const driver = new MessagingInboundDriver({
+      channelLabel: "telegram",
       agentHost: surface,
       transport: idleTransport,
       readConfig: async () => ({ link: readInboundLink(linkedSection()) }),
@@ -495,6 +502,7 @@ describe("MessagingInboundDriver replay guard", () => {
     const { routed, surface } = buildHost();
     let linkedChat = CHAT_ID;
     const driver = new MessagingInboundDriver({
+      channelLabel: "telegram",
       agentHost: surface,
       transport: idleTransport,
       readConfig: async () => ({ link: { chatId: linkedChat, principal: LINKED_PRINCIPAL } }),
@@ -524,6 +532,7 @@ describe("MessagingInboundDriver replay guard", () => {
     // no conversation linked, and a conversation other than this one linked.
     let link: { chatId: string; principal: Principal } | null = null;
     const driver = new MessagingInboundDriver({
+      channelLabel: "telegram",
       agentHost: surface,
       transport: idleTransport,
       readConfig: async () => ({ link }),
@@ -569,6 +578,7 @@ describe("MessagingInboundDriver poll cursor", () => {
     const { surface } = buildHost();
     const store = new MemoryCursorStore();
     const driver = new MessagingInboundDriver({
+      channelLabel: "telegram",
       agentHost: surface,
       transport: { poll: async () => ({ ok: true, messages: [], nextOffset: 42 }) },
       readConfig: async () => ({ link: readInboundLink(linkedSection()) }),
@@ -587,6 +597,7 @@ describe("MessagingInboundDriver poll cursor", () => {
     const { runtime, routed, surface } = buildHost();
     const store = new MemoryCursorStore();
     const first = new MessagingInboundDriver({
+      channelLabel: "telegram",
       agentHost: surface,
       transport: {
         poll: async () => ({
@@ -612,6 +623,7 @@ describe("MessagingInboundDriver poll cursor", () => {
     const seen: number[] = [];
     const controller = new AbortController();
     const second = new MessagingInboundDriver({
+      channelLabel: "telegram",
       agentHost: surface,
       transport: {
         poll: async (offset) => {
@@ -650,6 +662,7 @@ describe("MessagingInboundDriver poll cursor", () => {
       },
     };
     const driver = new MessagingInboundDriver({
+      channelLabel: "telegram",
       agentHost: recordingSurface,
       transport: {
         poll: async () => ({
@@ -685,6 +698,7 @@ describe("MessagingInboundDriver poll cursor", () => {
     const store = new MemoryCursorStore();
     let next = 10;
     const driver = new MessagingInboundDriver({
+      channelLabel: "telegram",
       agentHost: surface,
       transport: { poll: async () => ({ ok: true, messages: [], nextOffset: next }) },
       readConfig: async () => ({ link: readInboundLink(linkedSection()) }),
@@ -710,6 +724,7 @@ describe("MessagingInboundDriver poll cursor", () => {
     const { surface } = buildHost();
     const audit: MessagingInboundAuditEntry[] = [];
     const driver = new MessagingInboundDriver({
+      channelLabel: "telegram",
       agentHost: surface,
       transport: { poll: async () => ({ ok: true, messages: [], nextOffset: 3 }) },
       readConfig: async () => ({ link: readInboundLink(linkedSection()) }),
@@ -745,6 +760,7 @@ describe("MessagingInboundDriver poll loop", () => {
     const controller = new AbortController();
     let polls = 0;
     const driver = new MessagingInboundDriver({
+      channelLabel: "telegram",
       agentHost: surface,
       transport: {
         poll: async (): Promise<TelegramPollResult> => {
@@ -776,6 +792,7 @@ describe("MessagingInboundDriver poll loop", () => {
       release = resolve;
     });
     const driver = new MessagingInboundDriver({
+      channelLabel: "telegram",
       agentHost: surface,
       transport: {
         poll: async (): Promise<TelegramPollResult> => {
@@ -802,6 +819,7 @@ describe("MessagingInboundDriver poll loop", () => {
   it("advances the cursor and applies every message a poll returns", async () => {
     const { routed, surface } = buildHost();
     const driver = new MessagingInboundDriver({
+      channelLabel: "telegram",
       agentHost: surface,
       transport: {
         poll: async (): Promise<TelegramPollResult> => ({
@@ -829,6 +847,7 @@ describe("MessagingInboundDriver poll loop", () => {
     const waits: number[] = [];
     let polls = 0;
     const driver = new MessagingInboundDriver({
+      channelLabel: "telegram",
       agentHost: surface,
       transport: {
         poll: async (offset): Promise<TelegramPollResult> => {
@@ -859,6 +878,7 @@ describe("MessagingInboundDriver poll loop", () => {
     const waits: number[] = [];
     let polls = 0;
     const driver = new MessagingInboundDriver({
+      channelLabel: "telegram",
       agentHost: surface,
       transport: {
         poll: async (): Promise<TelegramPollResult> => {

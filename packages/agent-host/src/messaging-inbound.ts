@@ -16,6 +16,7 @@ import {
 import {
   PollingIngressTransport,
 } from "./messaging-ingress-polling.js";
+import { wrapInboundText } from "./messaging-envelope.js";
 import {
   mapMessagingCommand,
   type MessagingCommandRefusal,
@@ -455,6 +456,12 @@ export type MessagingInboundOptions = {
   cursor?: MessagingInboundCursorStore;
   /** How the loop waits between polls; injectable so tests run without sleeps. */
   wait?: (ms: number) => Promise<void>;
+  /**
+   * The platform's own name, for the envelope's `channel` attribute: `telegram`,
+   * `slack`, … The driver never derives it from a section name — the section is
+   * a settings key and the channel is what the person is actually talking on.
+   */
+  channelLabel: string;
 };
 
 /** How many accepted messages the replay log remembers before evicting the oldest. */
@@ -481,6 +488,7 @@ export class MessagingInboundDriver {
   private readonly audit: MessagingInboundAudit;
   private readonly ids: IdSource;
   private readonly handled: IngressClaimLog;
+  private readonly channelLabel: string;
   /** The shared polling transport for a pull channel; absent for a push one. */
   private readonly poller: PollingIngressTransport<InboundMessage> | null;
 
@@ -492,6 +500,7 @@ export class MessagingInboundDriver {
     this.audit = options.audit ?? (() => {});
     this.ids = options.ids ?? new RandomIds();
     this.handled = new IngressClaimLog(options.handledCapacity ?? DEFAULT_HANDLED_CAPACITY);
+    this.channelLabel = options.channelLabel;
     // A push channel has no cursor and no poll, so it gets no polling transport.
     // A pull channel's cursor, retry floor and platform back-off are the shared
     // polling transport's; this class keeps only the routing decision.
@@ -582,21 +591,30 @@ export class MessagingInboundDriver {
       return { kind: "refused", messageId: message.messageId, refusal: mapped.refusal };
     }
 
-    return this.invoke(message.messageId, link.principal, mapped.request);
+    return this.invoke(message, link.principal, mapped.request);
   }
 
   /** Apply one mapped request through the existing operation surface. */
   private async invoke(
-    messageId: string,
+    message: InboundMessage,
     principal: Principal,
     request: MessagingCommandRequest,
   ): Promise<MessagingInboundOutcome> {
+    const messageId = message.messageId;
     try {
       switch (request.operation) {
         case "turn/start":
           await this.agentHost.startTurn(principal, {
             sessionId: request.sessionId,
-            input: { text: request.input.text },
+            // The command was mapped from the raw text above, so the body here
+            // is the mapped input, not the message: wrapping the message would
+            // put `/start` back in front of what the person actually said.
+            input: {
+              text: wrapInboundText(
+                { ...message, text: request.input.text },
+                this.channelLabel,
+              ),
+            },
             context: request.context,
           });
           break;

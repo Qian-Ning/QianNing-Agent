@@ -243,7 +243,9 @@ describe("a turn triggered from a messaging channel answers on that same channel
     await settle();
 
     // The Host started the turn the message named...
-    expect(started).toEqual([{ sessionId: SESSION_ID, text: "hello" }]);
+    expect(started).toEqual([
+      { sessionId: SESSION_ID, text: '<msg channel="discord">\nhello\n</msg>' },
+    ]);
     // ...and the turn's own channel answered for it.
     expect(relay.subscribed).toEqual(["discord"]);
     expect(calls).toHaveLength(1);
@@ -329,7 +331,9 @@ describe("a turn triggered from a messaging channel answers on that same channel
     });
     await settle();
 
-    expect(started).toEqual([{ sessionId: SESSION_ID, text: "hello" }]);
+    expect(started).toEqual([
+      { sessionId: SESSION_ID, text: '<msg channel="mattermost">\nhello\n</msg>' },
+    ]);
     expect(relay.subscribed).toEqual(["mattermost"]);
     expect(calls).toHaveLength(1);
     expect(calls[0]!.params?.channel).toBe("mattermost");
