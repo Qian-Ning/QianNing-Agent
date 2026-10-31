@@ -738,6 +738,34 @@ test("Signal's sender allowlist is required, normalised, and explained as fail-c
   assert.match(en.settings.messaging.signalLimitations, /empty list refuses everyone/i);
 });
 
+/** The process card switch (ADR 0340): written when on, gone when off. */
+test("the card switch is written only when it is on", () => {
+  const draft = { ...draftFrom(telegram, null), destination: "42", subject: "ops" };
+
+  const off = buildSectionWrite(telegram, { ...draft, card: false }, null);
+  assert.equal(
+    Object.hasOwn(off, "card"),
+    false,
+    "a channel that never asked for a card keeps the record shape it always had",
+  );
+
+  const on = buildSectionWrite(telegram, { ...draft, card: true }, null);
+  assert.equal(on.card, true);
+
+  // The section is rebuilt from the draft on every save, so omitting the key is
+  // what turns the switch off: saving from an on-record with the switch off
+  // must not carry the old value forward.
+  const turnedOff = buildSectionWrite(telegram, { ...draft, card: false }, on);
+  assert.equal(Object.hasOwn(turnedOff, "card"), false);
+});
+
+/** Reading a stored record back into the form. */
+test("a stored card switch comes back into the draft", () => {
+  const stored = { ...buildSectionWrite(telegram, { ...draftFrom(telegram, null), destination: "42" }, null), card: true };
+  assert.equal(draftFrom(telegram, stored).card, true);
+  assert.equal(draftFrom(telegram, null).card, false);
+});
+
 /** The record shape is the host's, not an invention of the form. */
 test("the written record has exactly the host's stored fields", () => {
   const storedFields = (source) => {

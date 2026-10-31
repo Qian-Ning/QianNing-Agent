@@ -103,8 +103,7 @@ export function createMessagingInboundSupervisor(
     gateway: messagingGateway,
     ...(options.log ? { log: options.log } : {}),
     starters: {
-      telegram: (signal) =>
-        createMessagingInboundWiring({ ...common, signal, notifyTyping: typing("telegram") }),
+      telegram: (signal) => createMessagingInboundWiring({ ...common, signal, notifyTyping: typing("telegram") }),
       slack: (signal) => createSlackInboundWiring({ ...common, signal }),
       discord: (signal) => createDiscordInboundWiring({ ...common, signal }),
       mattermost: (signal) => createMattermostInboundWiring({ ...common, signal }),
