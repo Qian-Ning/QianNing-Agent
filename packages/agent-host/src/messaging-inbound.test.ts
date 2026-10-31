@@ -1,5 +1,5 @@
 import { createServer, type Server } from "node:http";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AskToolResolution, PlanningStateEvent, RacpPermissionMode } from "@pi-desktop/shared";
 
 import { AgentHost } from "./agent-host.js";
@@ -338,6 +338,43 @@ describe("MessagingInboundDriver routing", () => {
     const outcome = await driver.handleMessage(inboundMessage({ text: "/start do the thing" }));
 
     expect(outcome).toEqual({ kind: "invoked", messageId: "m1", operation: "turn/start" });
+  });
+
+  it("renews the indicator while the turn runs and lowers it when the turn settles", async () => {
+    const { surface } = buildHost();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const slowSurface: MessagingInboundOperationSurface = {
+      ...surface,
+      startTurn: async (principal, params) => {
+        await gate;
+        return surface.startTurn(principal, params);
+      },
+    };
+    const hints: string[] = [];
+    const { driver } = buildDriver({
+      surface: slowSurface,
+      notifyTyping: (chatId) => hints.push(chatId),
+    });
+
+    vi.useFakeTimers();
+    try {
+      const done = driver.handleMessage(inboundMessage({ text: "/start do the thing" }));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(hints).toEqual([CHAT_ID]);
+
+      await vi.advanceTimersByTimeAsync(8_000);
+      expect(hints).toEqual([CHAT_ID, CHAT_ID, CHAT_ID]);
+
+      release();
+      await done;
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(hints).toHaveLength(3);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("asks for no indicator when it has none to ask with", async () => {

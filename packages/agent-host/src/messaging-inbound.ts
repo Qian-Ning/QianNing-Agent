@@ -465,6 +465,14 @@ export type MessagingInboundOptions = {
 
 /** How many accepted messages the replay log remembers before evicting the oldest. */
 const DEFAULT_HANDLED_CAPACITY = 4096;
+/**
+ * How often a long turn renews the channel's indicator.
+ *
+ * Telegram shows its indicator for about five seconds per call, so a renewal
+ * every four seconds keeps it continuous without spending a request per second
+ * on a decoration.
+ */
+const TYPING_RENEW_MS = 4_000;
 
 /**
  * The driver-side replay log is the shared layer's in-run claim log
@@ -570,13 +578,6 @@ export class MessagingInboundDriver {
     // Accepted for handling: record the key now, before any operation runs, so a
     // redelivery arriving while this copy is being applied is a duplicate.
     this.handled.record(key);
-    // The indicator is a courtesy, so a channel that cannot show one — or throws
-    // while trying — must not cost the message its turn.
-    try {
-      this.notifyTyping?.(message.chatId);
-    } catch {
-      // Deliberately swallowed: nothing about a failed hint is the caller's.
-    }
 
     const target = await this.targets.resolve(link.principal).catch(() => ({}));
     const context: RacpRequestContext = { requestId: this.ids.next("msg") };
@@ -597,7 +598,14 @@ export class MessagingInboundDriver {
       return { kind: "refused", messageId: message.messageId, refusal: mapped.refusal };
     }
 
-    return this.invoke(message.messageId, link.principal, mapped.request);
+    // The indicator belongs to the turn, not to the message: it is raised once
+    // the command has been accepted and lowered when the operation settles.
+    const stopTyping = this.renewTyping(message.chatId);
+    try {
+      return await this.invoke(message.messageId, link.principal, mapped.request);
+    } finally {
+      stopTyping();
+    }
   }
 
   /** Apply one mapped request through the existing operation surface. */
@@ -708,6 +716,34 @@ export class MessagingInboundDriver {
     await poller.run(async (message: InboundMessage) => {
       await this.handleMessage(message);
     }, signal);
+  }
+
+  /**
+   * Keep the channel's indicator up until the returned function is called.
+   *
+   * The first hint is raised immediately, then renewed on an interval, because
+   * a platform shows it for a few seconds at a time. The interval is unref'd so
+   * a hint can never be the reason the process stays alive, and every failure
+   * is swallowed: the indicator is a courtesy and must never cost a turn.
+   */
+  private renewTyping(chatId: string): () => void {
+    const notify = this.notifyTyping;
+    if (!notify) {
+      return () => {};
+    }
+    const fire = (): void => {
+      try {
+        notify(chatId);
+      } catch {
+        // Deliberately swallowed: nothing about a failed hint is the caller's.
+      }
+    };
+    fire();
+    const timer: ReturnType<typeof setInterval> = setInterval(fire, TYPING_RENEW_MS);
+    if (typeof timer === "object" && timer !== null && "unref" in timer) {
+      timer.unref();
+    }
+    return () => clearInterval(timer);
   }
 }
 
