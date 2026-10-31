@@ -17,6 +17,7 @@ import {
   MESSAGING_PERMISSION_MODES,
   MESSAGING_PLATFORMS,
   MESSAGING_REQUIREMENT_CLASS_KEYS,
+  MESSAGING_REQUIREMENT_SHORT_KEYS,
   MESSAGING_ROLES,
   SUPPORTED_MESSAGING_PLATFORMS,
   canSave,
@@ -44,6 +45,8 @@ import {
   type TelegramChatCandidate,
   type TelegramProbeFailure,
 } from "../../lib/messaging-platforms";
+import { channelStatus } from "../../lib/messaging-platforms";
+import { MessagingPlatformIcon } from "./MessagingPlatformIcon";
 import {
   Badge,
   Button,
@@ -143,46 +146,6 @@ function gatewayTone(display: MessagingGatewayDisplay): "neutral" | "success" | 
   if (display === "running") return "success";
   if (display === "stopped") return "warning";
   return "neutral";
-}
-
-/** One dot per state dimension in the rail row: dense, but never collapsed. */
-function StatePips({ state }: { state: MessagingChannelState }) {
-  const { t } = useTranslation();
-  const gateway = gatewayPresentation(state);
-  const pips = [
-    {
-      key: "enabled",
-      value: ENABLED_KEY[state.enabled],
-      tone: state.enabled === "on" ? "on" : state.enabled === "unreadable" ? "bad" : "off",
-      label: t("settings.messaging.stateEnabled"),
-    },
-    {
-      key: "setup",
-      value: SETUP_KEY[state.setup],
-      tone: state.setup === "complete" ? "on" : state.setup === "incomplete" ? "warn" : "off",
-      label: t("settings.messaging.stateSetup"),
-    },
-    {
-      key: "gateway",
-      value: GATEWAY_KEY[gateway],
-      tone: gateway === "running" ? "on" : gateway === "stopped" ? "warn" : "off",
-      label: t("settings.messaging.stateGateway"),
-    },
-  ];
-  return (
-    <span className="settings-messaging-pips">
-      {pips.map((pip) => (
-        <span
-          key={pip.key}
-          className="settings-messaging-pip"
-          data-tone={pip.tone}
-          role="img"
-          aria-label={`${pip.label}: ${t(pip.value)}`}
-          title={`${pip.label}: ${t(pip.value)}`}
-        />
-      ))}
-    </span>
-  );
 }
 
 export function MessagingPlatformsPage() {
@@ -290,19 +253,33 @@ export function MessagingPlatformsPage() {
     }
   };
 
-  const supportedCount = SUPPORTED_MESSAGING_PLATFORMS.length;
+
+  /**
+   * The catalogue is thirty-three entries: twelve this build can run and
+   * twenty-one it cannot. Flat, that is a wall; grouped, the question "what can
+   * I use" is answered before the first scroll. An unsupported card carries the
+   * class of thing it lacks ("needs a public callback") in the same slot a
+   * working card puts its state, so the two lists read the same way.
+   */
+  const railGroups = [
+    {
+      id: "available",
+      labelKey: "settings.messaging.groupAvailable",
+      entries: MESSAGING_PLATFORMS.filter((entry) => entry.support === "supported"),
+    },
+    {
+      id: "unavailable",
+      labelKey: "settings.messaging.groupUnsupported",
+      entries: MESSAGING_PLATFORMS.filter((entry) => entry.support === "unsupported"),
+    },
+  ];
 
   return (
     <div className="settings-messaging">
       <div className="settings-messaging-chooser">
         <div className="settings-messaging-chooser-head">
           <h3 className="settings-card-heading">{t("settings.messaging.listTitle")}</h3>
-          <p className="settings-messaging-chooser-note">
-            {t("settings.messaging.listSummary", {
-              supported: supportedCount,
-              total: MESSAGING_PLATFORMS.length,
-            })}
-          </p>
+          <p className="settings-messaging-chooser-note">{t("settings.messaging.railNote")}</p>
         </div>
         <div
           className="settings-messaging-list"
@@ -310,42 +287,84 @@ export function MessagingPlatformsPage() {
           aria-orientation="vertical"
           aria-label={t("settings.messaging.title")}
         >
-          {MESSAGING_PLATFORMS.map((entry) => {
-            const state =
-              entry.support === "supported"
-                ? deriveChannelState(
-                    entry,
-                    settings?.[entry.section] as MessagingPlatformRecord | undefined,
-                    secretPresent,
-                    gateway,
-                  )
-                : null;
-            return (
-              <button
-                key={entry.id}
-                type="button"
-                role="tab"
-                aria-selected={entry.id === platform.id}
-                data-nav={`messaging-platform-${entry.id}`}
-                data-support={entry.support}
-                className={cx(
-                  "settings-messaging-item",
-                  entry.id === platform.id && "active",
-                  entry.support === "unsupported" && "is-unsupported",
-                )}
-                onClick={() => setSelectedId(entry.id)}
+          {railGroups.map((group) => (
+            <section
+              key={group.id}
+              className="settings-messaging-group-rail"
+              aria-labelledby={`messaging-group-${group.id}`}
+            >
+              <p className="settings-messaging-group-label" id={`messaging-group-${group.id}`}>
+                {t(group.labelKey, { count: group.entries.length })}
+              </p>
+              <div
+                className="settings-messaging-group-tabs"
+                role="tablist"
+                aria-orientation="vertical"
+                aria-labelledby={`messaging-group-${group.id}`}
               >
-                <span className="settings-messaging-item-name">{t(entry.labelKey)}</span>
-                {state ? (
-                  <StatePips state={state} />
-                ) : (
-                  <span className="settings-messaging-item-tag">
-                    {t("settings.messaging.supportUnsupportedShort")}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                {group.entries.map((entry) => {
+                  const state =
+                    entry.support === "supported"
+                      ? deriveChannelState(
+                          entry,
+                          settings?.[entry.section] as MessagingPlatformRecord | undefined,
+                          secretPresent,
+                          gateway,
+                        )
+                      : null;
+                  /**
+                   * One sentence per card, and the three dimensions behind it in
+                   * the tooltip. The rail is scanned, not read: `enabled · setup
+                   * · gateway` is three answers to a question nobody asks while
+                   * looking for "Telegram", but it is exactly what someone asks
+                   * when a card looks wrong.
+                   */
+                  const status = state ? channelStatus(state) : null;
+                  const line = status
+                    ? t(status.key, { count: status.count ?? 0 })
+                    : entry.support === "unsupported"
+                      ? t(MESSAGING_REQUIREMENT_SHORT_KEYS[entry.requirementClass])
+                      : "";
+                  const detail =
+                    state && status
+                      ? `${t(ENABLED_KEY[state.enabled])} · ${t(SETUP_KEY[state.setup])} · ${t(
+                          GATEWAY_KEY[gatewayPresentation(state)],
+                        )}`
+                      : t(entry.blurbKey);
+                  return (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={entry.id === platform.id}
+                      data-nav={`messaging-platform-${entry.id}`}
+                      data-support={entry.support}
+                      data-tone={status?.tone ?? "neutral"}
+                      aria-label={`${t(entry.labelKey)}: ${line}`}
+                      title={detail}
+                      className={cx(
+                        "settings-messaging-item",
+                        entry.id === platform.id && "active",
+                        entry.support === "unsupported" && "is-unsupported",
+                      )}
+                      onClick={() => setSelectedId(entry.id)}
+                    >
+                      <MessagingPlatformIcon id={entry.id} label={t(entry.labelKey)} />
+                      <span className="settings-messaging-item-copy">
+                        <strong className="settings-messaging-item-name">
+                          {t(entry.labelKey)}
+                        </strong>
+                        <span className="settings-messaging-item-status" data-tone={status?.tone ?? "neutral"}>
+                          <span className="settings-messaging-item-dot" aria-hidden="true" />
+                          <span className="settings-messaging-item-line">{line}</span>
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       </div>
 
@@ -379,17 +398,29 @@ function DetailHeader({
   platform,
   action,
   hint,
+  status,
 }: {
   platform: MessagingPlatform;
   action?: ReactNode;
   hint?: string | null;
+  /** The same one-sentence state the card in the rail shows. */
+  status?: { tone: string; line: string } | null;
 }) {
   const { t } = useTranslation();
   return (
     <header className="settings-messaging-head">
       <div className="settings-messaging-head-copy">
-        <h3 className="settings-card-heading">{t(platform.labelKey)}</h3>
+        <h3 className="settings-card-heading">
+          <MessagingPlatformIcon id={platform.id} label={t(platform.labelKey)} size={22} />
+          {t(platform.labelKey)}
+        </h3>
         <p className="settings-messaging-blurb">{t(platform.blurbKey)}</p>
+        {status ? (
+          <p className="settings-messaging-head-status" data-tone={status.tone}>
+            <span className="settings-messaging-item-dot" aria-hidden="true" />
+            {status.line}
+          </p>
+        ) : null}
       </div>
       <div className="settings-messaging-head-actions">
         <Badge tone={platform.support === "supported" ? "neutral" : "warning"}>
@@ -518,6 +549,10 @@ function MessagingDetail({
       <DetailHeader
         platform={platform}
         hint={blockedReason}
+        status={{
+          tone: channelStatus(state).tone,
+          line: t(channelStatus(state).key, { count: channelStatus(state).count ?? 0 }),
+        }}
         action={
           <div className="settings-messaging-head-enable">
             <SettingsToggle
@@ -877,6 +912,9 @@ function SupportedPanel({
 
   return (
     <>
+      <h4 className="settings-messaging-block-title" id={`messaging-${platform.id}-overview`}>
+        {t("settings.messaging.blockOverview")}
+      </h4>
       <div className="settings-messaging-states">
         <StateRow
           labelKey="settings.messaging.stateEnabled"
@@ -927,6 +965,8 @@ function SupportedPanel({
         </p>
       ) : null}
 
+      <h4 className="settings-messaging-block-title">{t("settings.messaging.blockCredentials")}</h4>
+
       {platform.id === "telegram" ? (
         <TelegramQuickSetup
           disabled={saving}
@@ -935,9 +975,9 @@ function SupportedPanel({
       ) : null}
 
       <section className="settings-messaging-steps">
-        <h4 className="settings-messaging-section-title">
+        <p className="settings-messaging-section-title">
           {t("settings.messaging.getCredentials")}
-        </h4>
+        </p>
         <ol className="settings-messaging-step-list">
           {platform.credentialStepKeys.map((key) => (
             <li key={key} className="settings-messaging-step">
@@ -977,6 +1017,8 @@ function SupportedPanel({
           </legend>
           {required.map(renderField)}
         </fieldset>
+
+        <h4 className="settings-messaging-block-title">{t("settings.messaging.blockBehaviour")}</h4>
 
         <fieldset className="settings-messaging-group" disabled={saving}>
           <legend className="settings-messaging-group-title">

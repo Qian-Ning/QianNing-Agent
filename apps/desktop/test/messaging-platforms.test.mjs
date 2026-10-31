@@ -41,6 +41,7 @@ import {
   UNSUPPORTED_MESSAGING_PLATFORMS,
   buildSectionWrite,
   canSave,
+  channelStatus,
   deriveChannelState,
   draftFrom,
   draftMissing,
@@ -1556,4 +1557,79 @@ test("the chooser and the detail pane are independent scroll ports", () => {
   assert.match(page, /ref=\{detailRef\}/);
   assert.match(page, /detailRef\.current[\s\S]{0,80}scrollTop = 0/);
   assert.match(page, /\}, \[selectedId\]\);/);
+});
+
+
+/**
+ * The rail shows one sentence per channel. The three dimensions still exist —
+ * this is only the order a person needs them in while scanning a list, and the
+ * order has to hold: a channel that is switched off is off before it is
+ * "incomplete", and one that was never asked to run is not broken.
+ */
+test("the one-line status reads the three dimensions in the order a person needs them", () => {
+  const base = { enabled: "on", setup: "complete", gateway: "running", missing: [] };
+
+  assert.deepEqual(channelStatus(base), {
+    tone: "success",
+    key: "settings.messaging.statusRunning",
+  });
+
+  // Enabled and complete, but the receive loop is not up.
+  assert.deepEqual(channelStatus({ ...base, gateway: "stopped" }), {
+    tone: "warning",
+    key: "settings.messaging.statusStopped",
+  });
+
+  // Incomplete counts what is missing, so the sentence can say how much.
+  assert.deepEqual(channelStatus({ ...base, setup: "incomplete", missing: ["link", "bot-token"] }), {
+    tone: "warning",
+    key: "settings.messaging.statusIncomplete",
+    count: 2,
+  });
+
+  // Off wins over everything: the channel was not asked to be anything else.
+  assert.deepEqual(channelStatus({ ...base, enabled: "off", setup: "incomplete", missing: ["link"] }), {
+    tone: "neutral",
+    key: "settings.messaging.statusDisabled",
+  });
+
+  // A catalogue entry with no record at all was never set up.
+  assert.deepEqual(channelStatus({ enabled: "off", setup: "notStarted", gateway: "stopped", missing: [] }), {
+    tone: "neutral",
+    key: "settings.messaging.statusDisabled",
+  });
+
+  // A record this build cannot parse is an error, not a neutral "off".
+  assert.deepEqual(channelStatus({ ...base, enabled: "unreadable", setup: "unknown" }), {
+    tone: "error",
+    key: "settings.messaging.statusUnreadable",
+  });
+});
+
+/** The rail is cards now: a brand tile, a name, and the sentence above. */
+test("the rail renders a brand tile and the one-line status, and groups the catalogue", () => {
+  const page = readFileSync(
+    new URL("../src/components/settings/MessagingPlatformsPage.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(page, /<MessagingPlatformIcon id=\{entry\.id\}/);
+  assert.match(page, /channelStatus\(state\)/);
+  assert.match(page, /settings\.messaging\.groupAvailable/);
+  assert.match(page, /settings\.messaging\.groupUnsupported/);
+  // The three old pips are gone; the detail panel keeps the three rows.
+  assert.doesNotMatch(page, /function StatePips/);
+  assert.match(page, /<StateRow[\s\S]*stateEnabled[\s\S]*<StateRow[\s\S]*stateSetup[\s\S]*<StateRow[\s\S]*stateGateway/);
+});
+
+/** The detail panel is three blocks, and each one is a heading in the panel. */
+test("the detail panel is split into overview, credentials and behaviour", () => {
+  const page = readFileSync(
+    new URL("../src/components/settings/MessagingPlatformsPage.tsx", import.meta.url),
+    "utf8",
+  );
+  for (const key of ["blockOverview", "blockCredentials", "blockBehaviour"]) {
+    assert.match(page, new RegExp(`settings\.messaging\.${key}`));
+  }
+  const headings = page.match(/settings-messaging-block-title/g) ?? [];
+  assert.equal(headings.length, 3);
 });

@@ -826,95 +826,172 @@
 
 .settings-messaging-list {
   display: grid;
-  /* Rows are the buttons' own height; spare space stays at the bottom instead
+  /* Rows are the cards' own height; spare space stays at the bottom instead
      of being shared out between rows. */
   align-content: start;
   min-height: 0;
-  gap: 2px;
-  padding: 4px;
+  gap: 12px;
+  padding: 2px 4px 6px;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   /* The 4px padding is what keeps the focus ring inside the scroll port: the
      global ring is 1.5px at a 2px offset, so it is clipped by the padding box
      only if the inset drops below 3.5px. */
   scroll-padding-block: 4px;
-  border: 1px solid var(--ds-border-subtle);
-  border-radius: var(--radius-md-plus);
-  background: var(--ds-bg-inset);
 }
 
+.settings-messaging-group-rail {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-messaging-group-label {
+  margin: 0;
+  padding: 0 4px;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.03em;
+}
+
+.settings-messaging-group-tabs {
+  display: grid;
+  gap: 6px;
+}
+
+/*
+  One card per platform: a brand tile, the name, and one sentence of state.
+  The three state dimensions still exist behind the sentence — they are in the
+  card's tooltip and, unchanged, in the detail panel's three rows.
+*/
 .settings-messaging-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 9px 10px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--ds-text-secondary);
+  gap: 9px;
+  width: 100%;
+  min-height: 48px;
+  padding: 7px 9px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--ds-bg-elevated);
+  color: var(--ds-text-primary);
   text-align: left;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .settings-messaging-item:hover {
-    background: var(--ds-tile);
-    color: var(--ds-text-primary);
+    border-color: var(--ds-border-default);
+    background: var(--ds-bg-hover);
   }
 }
 
 .settings-messaging-item.active {
-  background: var(--ds-settings-nav-active);
-  border-color: var(--ds-border-subtle);
-  color: var(--ds-text-primary);
+  border-color: color-mix(in oklab, var(--ds-accent) 45%, var(--ds-border-subtle));
+  background: color-mix(in oklab, var(--ds-accent) 10%, var(--ds-bg-elevated));
+  box-shadow: 0 3px 12px color-mix(in oklab, var(--ds-accent) 10%, transparent);
 }
 
-.settings-messaging-item.is-unsupported .settings-messaging-item-name {
-  color: var(--ds-text-muted);
+.settings-messaging-item:focus-visible {
+  outline: none;
+  border-color: var(--ds-accent);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ds-accent) 30%, transparent);
+}
+
+.settings-messaging-logo {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 9px;
+  background: var(--ds-bg-inset);
+  color: var(--ds-text-secondary);
+}
+
+.settings-messaging-logo svg {
+  display: block;
+}
+
+.settings-messaging-logo-letter {
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+}
+
+.settings-messaging-item-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
 }
 
 .settings-messaging-item-name {
-  min-width: 0;
   overflow: hidden;
+  color: var(--ds-text-primary);
   font-size: var(--text-md-plus);
   font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.settings-messaging-item-tag {
-  flex: 0 0 auto;
-  color: var(--ds-text-faint);
+.settings-messaging-item.is-unsupported .settings-messaging-item-name {
+  color: var(--ds-text-secondary);
+}
+
+.settings-messaging-item-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: var(--ds-text-muted);
   font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact);
 }
 
-/*
-  The three state dimensions, one pip each: enabled, setup, gateway. They are
-  order-stable so a row can be read at a glance without the badge being merged.
-*/
-.settings-messaging-pips {
-  display: inline-flex;
+.settings-messaging-item-dot {
   flex: 0 0 auto;
-  gap: 4px;
-}
-
-.settings-messaging-pip {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: var(--radius-full);
   background: var(--ds-text-faint);
 }
 
-.settings-messaging-pip[data-tone="on"] {
+.settings-messaging-item-status[data-tone="success"] .settings-messaging-item-dot {
   background: var(--ds-success);
 }
 
-.settings-messaging-pip[data-tone="warn"] {
+.settings-messaging-item-status[data-tone="warning"] .settings-messaging-item-dot {
   background: var(--ds-warning);
 }
 
-.settings-messaging-pip[data-tone="bad"] {
+.settings-messaging-item-status[data-tone="error"] .settings-messaging-item-dot {
   background: var(--ds-error);
+}
+
+.settings-messaging-item-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The detail panel's three blocks: overview, credentials, behaviour. */
+.settings-messaging-block-title {
+  margin: 2px 0 -6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ds-border-subtle);
+  color: var(--ds-text-primary);
+  font-size: var(--text-md-plus);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.01em;
+}
+
+.settings-messaging-block-title:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .settings-messaging-detail {
@@ -955,6 +1032,34 @@
 
 .settings-messaging-head .settings-card-heading {
   margin-bottom: 2px;
+}
+
+
+.settings-messaging-head-copy .settings-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-messaging-head-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 0;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+}
+
+.settings-messaging-head-status[data-tone="success"] .settings-messaging-item-dot {
+  background: var(--ds-success);
+}
+
+.settings-messaging-head-status[data-tone="warning"] .settings-messaging-item-dot {
+  background: var(--ds-warning);
+}
+
+.settings-messaging-head-status[data-tone="error"] .settings-messaging-item-dot {
+  background: var(--ds-error);
 }
 
 .settings-messaging-head-actions {
