@@ -71,7 +71,17 @@ describe("project channels", () => {
       .data.projects;
 
     expect(projects).toHaveLength(1);
-    expect(projects[0]).toMatchObject({ id: 1, name: "写作", path: "projects/写作" });
+    // The dialog's folder list is what the project is rooted at; "手机存储" is
+    // the value the phone's own "add folder" flow puts in it.
+    expect(projects[0]).toMatchObject({ id: 1, name: "写作", path: "手机存储" });
+  });
+
+  it("derives a folder from the name when the dialog sent none", async () => {
+    const api = bridge();
+    await api.invoke("pi-desktop/project-group/create", { name: "写作" });
+    const listed = await api.invoke("pi-desktop/project/list");
+    const projects = (listed as unknown as { data: { projects: Array<{ path: string }> } }).data.projects;
+    expect(projects[0].path).toBe("projects/写作");
   });
 
   it("offers app storage as the one folder a phone can pick", async () => {
@@ -118,14 +128,15 @@ describe("project channels", () => {
     expect(memory.content).toContain("用全小写文件名");
   });
 
-  it("lists the bundled skills and opens the empty host catalogues", async () => {
+  it("hides the bundled skills from the phone's list and opens the empty host catalogues", async () => {
     const api = bridge();
     const skills = await api.invoke("pi-desktop/skill/list");
     const mcp = await api.invoke("pi-desktop/mcp/list");
     const subagents = await api.invoke("pi-desktop/subagent/list");
 
     expect((skills as unknown as { ok: boolean }).ok).toBe(true);
-    expect((skills as unknown as { data: { skills: unknown[] } }).data.skills.length).toBeGreaterThan(50);
+    // Bundled skills are part of the product: no shelf entry on the phone.
+    expect((skills as unknown as { data: { skills: unknown[] } }).data.skills).toEqual([]);
     expect((mcp as unknown as { data: { servers: unknown[]; statuses: unknown[] } }).data).toEqual({
       servers: [],
       statuses: [],

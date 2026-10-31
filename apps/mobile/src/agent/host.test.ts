@@ -16,6 +16,7 @@ import {
 import type { Model } from "@earendil-works/pi-ai";
 import { cleanTitle, LocalAgentHost } from "./host";
 import { MemoryStore } from "./store";
+import { updateSessionConfig } from "./session-config";
 
 const provider = { baseUrl: "https://example.invalid/v1", apiKey: "test", modelId: "scripted" };
 
@@ -36,6 +37,124 @@ function fauxHost(store: MemoryStore, responses: Responses) {
 }
 
 describe("the phone agent", () => {
+  it("sends the product system prompt on every turn", async () => {
+    const store = new MemoryStore();
+    const faux = createFauxCore({
+      models: [{ id: "scripted" }],
+      tokensPerSecond: 100_000,
+      tokenSize: { min: 1, max: 1 },
+    });
+    faux.setResponses([fauxAssistantMessage("ok")]);
+    const seen: string[] = [];
+    const host = new LocalAgentHost(store, provider, {
+      stream: (model, context, options) => {
+        const systemMessage = context.messages.find((message) => message.role === "system");
+        seen.push(
+          (context as { systemPrompt?: string }).systemPrompt ?? "",
+          typeof systemMessage?.content === "string" ? systemMessage.content : JSON.stringify(systemMessage?.content ?? ""),
+        );
+        return faux.streamSimple(model, context, options);
+      },
+      model: faux.getModel() as Model<"openai-completions">,
+    });
+
+    const session = host.createSession("prompt");
+    await host.send(session.id, "hi");
+
+    const joined = seen.join("\n");
+    expect(joined).toContain("QianNing Agent");
+    expect(joined).toContain("running on the phone itself");
+    // The model must not answer "who are you" with its own vendor identity.
+    expect(joined).toContain("that is the answer to \"who are you\"");
+    expect(joined).toContain("Never introduce yourself as the underlying model");
+  });
+
+  it("puts the system message on the wire of a real (non-faux) request", async () => {
+    const http = await import("node:http");
+    const bodies: Array<Record<string, unknown>> = [];
+    const server = http.createServer((req, res) => {
+      let raw = "";
+      req.on("data", (chunk) => {
+        raw += String(chunk);
+      });
+      req.on("end", () => {
+        bodies.push(JSON.parse(raw) as Record<string, unknown>);
+        res.writeHead(200, { "Content-Type": "text/event-stream" });
+        res.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: "ok" } }] })}\n\n`);
+        res.write("data: [DONE]\n\n");
+        res.end();
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+
+    try {
+      const store = new MemoryStore();
+      const host = new LocalAgentHost(store, {
+        baseUrl: `http://127.0.0.1:${port}/v1`,
+        apiKey: "test",
+        modelId: "wire",
+      });
+      const session = host.createSession("wire");
+      await host.send(session.id, "你是谁");
+
+      expect(bodies).toHaveLength(1);
+      const messages = bodies[0].messages as Array<Record<string, unknown>>;
+      // A third-party relay drops `developer`; the phone must send `system`.
+      expect(messages[0].role).toBe("system");
+      expect(String(messages[0].content)).toContain("QianNing Agent");
+    } finally {
+      server.close();
+    }
+  });
+
+  it("appends the conversation's own prompt after the built-in one", async () => {
+    const store = new MemoryStore();
+    const faux = createFauxCore({
+      models: [{ id: "scripted" }],
+      tokensPerSecond: 100_000,
+      tokenSize: { min: 1, max: 1 },
+    });
+    faux.setResponses([fauxAssistantMessage("ok")]);
+    const seen: string[] = [];
+    const host = new LocalAgentHost(store, provider, {
+      stream: (model, context, options) => {
+        const systemMessage = context.messages.find((message) => message.role === "system");
+        seen.push(
+          typeof systemMessage?.content === "string" ? systemMessage.content : JSON.stringify(systemMessage?.content ?? ""),
+        );
+        return faux.streamSimple(model, context, options);
+      },
+      model: faux.getModel() as Model<"openai-completions">,
+    });
+
+    const session = host.createSession("prompt");
+    host.setSystemPrompt(session.id, "只回答中文。");
+    await host.send(session.id, "hi");
+
+    const prompt = seen.join("\n");
+    expect(prompt).toContain("只回答中文。");
+    expect(prompt.indexOf("QianNing Agent")).toBeLessThan(prompt.indexOf("只回答中文。"));
+  });
+
+  it("reads persisted mode on the real tool path including cached agents", async () => {
+    const store = new MemoryStore();
+    const host = fauxHost(store, [
+      fauxAssistantMessage(fauxToolCall("write_file", { path: "blocked.txt", content: "no" }), { stopReason: "toolUse" }),
+      fauxAssistantMessage("planned"),
+      fauxAssistantMessage(fauxToolCall("write_file", { path: "allowed.txt", content: "yes" }), { stopReason: "toolUse" }),
+      fauxAssistantMessage("done"),
+    ]);
+    const session = host.createSession("configured");
+    updateSessionConfig(store, session.id, { mode: "plan", permissionMode: "auto", thinkingLevel: "high" });
+    await host.send(session.id, "plan");
+    expect(store.readValue("file:blocked.txt")).toBeNull();
+    updateSessionConfig(store, session.id, { mode: "agent", permissionMode: "auto" });
+    await host.send(session.id, "execute");
+    expect(store.readValue("file:allowed.txt")).toBe("yes");
+  });
+
   it("runs a turn, calls a tool, and answers from what the tool returned", async () => {
     const store = new MemoryStore();
     const host = fauxHost(store, [

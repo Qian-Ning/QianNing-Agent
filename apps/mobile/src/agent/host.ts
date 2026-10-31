@@ -9,6 +9,7 @@
 
 import { Agent, type AgentMessage, type StreamFn } from "@earendil-works/pi-agent-core";
 import { streamSimple } from "@earendil-works/pi-ai/api/openai-completions";
+import { createInitialSystemMessage, toToolDeclaration } from "@earendil-works/pi-ai";
 import type { Model, ProviderId, TranscriptContext } from "@earendil-works/pi-ai";
 import { PRODUCT_IDENTITY_SYSTEM_PROMPT } from "@pi-desktop/shared";
 import { createTools } from "./tools";
@@ -32,6 +33,8 @@ import {
 import { ProjectBook } from "./projects";
 import type { AgentStore, StoredMessage, StoredSession } from "./store";
 import type { HostEvent, ThinkingLevel } from "../lib/racp";
+import { readSessionConfig } from "./session-config";
+import { ProviderBook } from "../bridge/providers";
 
 export type Attachment = { name: string; text: string };
 
@@ -55,11 +58,18 @@ const SYSTEM_PROMPT = [
   "You are QianNing Agent, running on the phone itself: the same product as the desktop app, with a phone's tools and the phone's own storage.",
   PRODUCT_IDENTITY_SYSTEM_PROMPT,
   [
-    "Your tools are the complete list:",
-    "list_files, read_file, write_file (inside this app's own storage) and fetch_url (the open web).",
-    "There is no shell, no desktop filesystem, no browser control, and no way to install software.",
-    "Never claim to have run a command, opened a file on the user's computer, or reached a local network address.",
-    "When a request needs one of those, say plainly what is missing and what you can do with the tools you have.",
+    "Your identity is QianNing Agent, and that is the answer to \"who are you\".",
+    "Never introduce yourself as the underlying model, and never name its vendor as your maker: the model id is an engine detail, not your identity.",
+    "When asked what you are, say you are QianNing Agent running on this device, then — only if it helps — mention which model engine is answering.",
+  ].join(" "),
+  [
+    "Your tools are the complete list — you do have a shell and a browser:",
+    "list_files, read_file, write_file (inside this app's own storage), fetch_url (the open web),",
+    "run_command (a real /system/bin/sh in this app's sandbox), open_browser and read_browser (this app's own browser window), and Skill.",
+    "The shell is persistent: `cd`, `export` and variables carry over between calls. Each command has its own timeout — 60 seconds by default, pass timeoutMs to raise it up to 300 seconds — and output is capped head-and-tail.",
+    "open_browser opens a page the reader can see; read_browser returns that page's URL, title and rendered text. Use fetch_url for raw HTML and read_browser when the page builds itself with scripts.",
+    "Never say you have no browser or no terminal: you have both. What you do not have is the desktop filesystem, the user's git checkout, root, or the ability to install software.",
+    "Never claim to have opened a file on the user's computer or reached a local network address the phone cannot reach.",
   ].join(" "),
   [
     "Answer in the user's language, and keep code, identifiers, file paths, and commands in English.",
@@ -82,9 +92,17 @@ function buildModel(config: ProviderConfig, maxTokens = 8192): Model<"openai-com
     baseUrl: config.baseUrl.replace(/\/+$/, ""),
     input: ["text"],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    reasoning: false,
+    reasoning: !!config.thinking && config.thinking !== "off",
     contextWindow: 128_000,
     maxTokens,
+    /*
+      `developer` is an OpenAI-only role. With reasoning enabled the adapter
+      sends the instructions as `developer`, and a third-party
+      OpenAI-compatible relay silently drops that role — the model then answers
+      "who are you" as itself because it never received the identity prompt.
+      `system` is understood everywhere, so the phone always uses it.
+    */
+    compat: { supportsDeveloperRole: false },
   } as Model<"openai-completions">;
 }
 
@@ -111,6 +129,8 @@ type RunningSession = {
 
 export class LocalAgentHost {
   private running = new Map<string, RunningSession>();
+  /** One turn at a time per session; a second message queues behind the first. */
+  private turns = new Map<string, Promise<void>>();
 
   constructor(
     private readonly store: AgentStore,
@@ -228,12 +248,40 @@ export class LocalAgentHost {
   }
 
   /**
-   * Runs one turn. Resolves when the loop is done; failures are published as
-   * `turn.failed` rather than thrown, because the UI already knows how to show
-   * an error row and a rejected promise would leave it spinning.
+   * Sends one message. Resolves when its turn is done; failures are published
+   * as `turn.failed` rather than thrown, because the UI already knows how to
+   * show an error row and a rejected promise would leave it spinning.
+   *
+   * The agent refuses a second `prompt()` while a run is active, and the phone
+   * can produce that second call: a double tap on send, a retry after a slow
+   * first answer. That surfaced as "Agent is already processing a prompt" on
+   * the message the user had just sent, which reads like the app is broken.
+   * Turns are serialised per session instead, so the second message waits its
+   * turn and is answered.
    */
   async send(sessionId: string, text: string, attachments: readonly Attachment[] = []): Promise<void> {
+    const previous = this.turns.get(sessionId) ?? Promise.resolve();
+    const run = previous.then(() => this.runTurn(sessionId, text, attachments));
+    // Keep the chain alive even when a turn fails, or every later message would
+    // inherit the rejection.
+    this.turns.set(sessionId, run.catch(() => undefined));
+    return run;
+  }
+
+  private async runTurn(sessionId: string, text: string, attachments: readonly Attachment[]): Promise<void> {
     const session = this.ensureSession(sessionId);
+    const config = this.sessionProvider(sessionId);
+    session.agent.state.model = this.override?.model ?? buildModel(config, this.prefs.maxTokens);
+    const storedPrompt = this.store.readSession(sessionId)?.systemPrompt;
+    const mode = readSessionConfig(this.store, sessionId).mode;
+    const prompt = withExtraInstructions(
+      withExtraInstructions(withExtraInstructions(SYSTEM_PROMPT, skillCatalogSection()), storedPrompt ?? this.prefs.systemPrompt),
+      mode === "plan" ? "Plan mode: inspect and explain a plan. Do not write files or perform network actions."
+        : mode === "goal" ? "Goal mode: work toward the requested outcome using only the available phone tools. Never claim background or desktop execution." : undefined,
+    );
+    const system = createInitialSystemMessage(prompt, session.agent.state.tools.map(toToolDeclaration));
+    if (system) session.agent.state.messages = [system, ...session.agent.state.messages.filter((message) => message.role !== "system")];
+    session.agent.state.thinkingLevel = config.thinking ?? "off";
     // Summarize before the turn, never during it: rewriting the message list
     // while a stream is running would corrupt the loop's own bookkeeping.
     await this.maybeCompact(session, sessionId);
@@ -408,6 +456,17 @@ export class LocalAgentHost {
   /** Tool approvals the renderer has been asked to answer. */
   private readonly permissions: PermissionBroker;
 
+  private sessionProvider(sessionId: string): ProviderConfig {
+    const config = readSessionConfig(this.store, sessionId);
+    const book = new ProviderBook(this.store);
+    const provider = config.providerId ? book.get(config.providerId) : book.active();
+    return {
+      ...(provider ? { baseUrl: provider.baseUrl, apiKey: provider.apiKey, modelId: provider.defaultModelId } : this.provider),
+      ...(config.modelId ? { modelId: config.modelId } : {}),
+      thinking: config.thinkingLevel === "omit" ? undefined : config.thinkingLevel,
+    };
+  }
+
   private ensureSession(sessionId: string): RunningSession {
     const existing = this.running.get(sessionId);
     if (existing) return existing;
@@ -424,30 +483,36 @@ export class LocalAgentHost {
         tools: createTools(
           this.store,
           () => this.projects.activeFolder(),
-          (input) =>
-            this.permissions.approve({
+          (input) => {
+            const config = readSessionConfig(this.store, sessionId);
+            if (config.mode === "plan") return Promise.resolve(false);
+            return this.permissions.approve({
               sessionId,
               toolCallId: input.toolCallId,
               toolName: input.toolName,
               action: input.action,
               argsPreview: input.argsPreview,
-            }),
+              mode: config.mode === "goal" ? "auto" : config.permissionMode === "inherit" ? this.permissions.getMode() : config.permissionMode,
+            });
+          },
         ),
         messages: this.readTranscript(sessionId),
       },
       streamFn:
         this.override?.stream ??
-        ((model, context, options) =>
-          streamSimple(model as Model<"openai-completions">, context, {
+        ((model, context, options) => {
+          const config = this.sessionProvider(sessionId);
+          return streamSimple(model as Model<"openai-completions">, context, {
             ...options,
-            apiKey: this.provider.apiKey,
+            apiKey: config.apiKey,
             // "off" means do not send the parameter at all, so a provider that
             // rejects unknown fields keeps working.
-            ...(this.provider.thinking && this.provider.thinking !== "off"
-              ? { reasoning: this.provider.thinking }
+            ...(config.thinking && config.thinking !== "off"
+              ? { reasoning: config.thinking }
               : {}),
-          })),
-      getApiKey: () => this.provider.apiKey,
+          });
+        }),
+      getApiKey: () => this.sessionProvider(sessionId).apiKey,
     });
 
     const session: RunningSession = {
@@ -618,6 +683,16 @@ export class LocalAgentHost {
 
   private toStored(message: Record<string, unknown>, role: string): StoredMessage {
     const usage = usageFromPi(message.usage);
+    // The turn itself names its model when pi reports one; otherwise the
+    // session's configuration is the best record of what answered.
+    const sessionId = typeof message.sessionId === "string" ? message.sessionId : null;
+    const config = sessionId ? readSessionConfig(this.store, sessionId) : null;
+    const providerId =
+      typeof message.providerId === "string"
+        ? message.providerId
+        : config?.providerId ?? new ProviderBook(this.store).active()?.id ?? null;
+    const modelId =
+      typeof message.modelId === "string" ? message.modelId : config?.modelId ?? this.provider.modelId;
     return {
       itemId: String(message.id ?? newId("m")),
       role,
@@ -625,6 +700,12 @@ export class LocalAgentHost {
       ...(typeof message.thinking === "string" && message.thinking ? { thinking: message.thinking } : {}),
       status: String(message.status ?? "complete"),
       createdAt: typeof message.createdAt === "string" ? message.createdAt : nowIso(),
+      ...(usage
+        ? {
+            ...(providerId ? { providerId } : {}),
+            ...(modelId ? { modelId } : {}),
+          }
+        : {}),
       ...(usage ? { usage } : {}),
     };
   }

@@ -41,6 +41,11 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AgentKeepAlivePlugin.class);
         registerPlugin(ScheduleAlarmPlugin.class);
         registerPlugin(NoticePlugin.class);
+        registerPlugin(ShellPlugin.class);
+        registerPlugin(BrowserPlugin.class);
+        registerPlugin(FilesPlugin.class);
+        registerPlugin(RemoteHostPlugin.class);
+        registerPlugin(SshPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

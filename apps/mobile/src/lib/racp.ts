@@ -225,9 +225,14 @@ export class RacpClient implements HostClient {
   async call<T>(path: string, init: { method?: string; body?: RequestBody } = {}): Promise<T> {
     let response: Response;
     try {
+      // A Host that never answers must not hold the button forever: an 8s
+      // ceiling turns a dead address into a visible failure instead of an
+      // eternal spinner.
+      const timeout = AbortSignal.timeout(8_000);
       response = await fetch(this.url(path), {
         method: init.method ?? "GET",
         headers: this.headers(),
+        signal: timeout,
         ...(init.body ? { body: JSON.stringify(init.body) } : {}),
       });
     } catch (cause) {
