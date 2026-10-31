@@ -75,7 +75,7 @@ export function ComposerModelPicker({
   return (
     <>
       <AnchoredMenu
-        className="composer-model-thinking"
+        className="composer-model-thinking composer-model-anchor"
         open={modelOpen}
         onClose={() => setModelOpen(false)}
         menuClassName="composer-model-menu composer-model-thinking-menu composer-model-browser-menu"
@@ -109,12 +109,6 @@ export function ComposerModelPicker({
               <IconBot size={14} />
             </span>
             <span className="composer-model-thinking-model">{modelLabel}</span>
-            {/* On a phone the reasoning level rides inside this chip: a separate
-                44px chip costs more width than the row has, and the level is
-                part of what the chip stands for. */}
-            {hasReasoning && thinkingLabel ? (
-              <span className="composer-model-level-inline">{thinkingLabel}</span>
-            ) : null}
             <IconChevronDown size={12} aria-hidden="true" className="composer-model-thinking-chevron" />
           </TooltipButton>
         )}
@@ -132,7 +126,7 @@ export function ComposerModelPicker({
 
       {hasReasoning ? (
         <AnchoredMenu
-          className="composer-model-thinking"
+          className="composer-model-thinking composer-reasoning-anchor"
           open={reasoningOpen}
           onClose={() => setReasoningOpen(false)}
           menuClassName="composer-model-menu composer-model-thinking-menu"
@@ -160,7 +154,7 @@ export function ComposerModelPicker({
               }}
             >
               <span className="composer-model-thinking-icon" aria-hidden="true">
-                <IconActivity size={14} />
+                <IconActivity size="var(--composer-glyph, 14px)" />
               </span>
               <span className="composer-model-thinking-level">{thinkingLabel}</span>
               <IconChevronDown size={12} aria-hidden="true" className="composer-model-thinking-chevron" />

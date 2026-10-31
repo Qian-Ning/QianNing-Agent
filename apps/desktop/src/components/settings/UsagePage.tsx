@@ -853,6 +853,7 @@ export function UsagePage() {
               <div className="usage-card-h">
                 <div className="usage-card-t">{t("settings.usageStats.byProvider")}</div>
               </div>
+              <div className="usage-table-scroll">
               <table className="usage-table">
                 <thead>
                   <tr>
@@ -894,11 +895,13 @@ export function UsagePage() {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
             <div className="usage-card">
               <div className="usage-card-h">
                 <div className="usage-card-t">{t("settings.usageStats.byModel")}</div>
               </div>
+              <div className="usage-table-scroll">
               <table className="usage-table">
                 <thead>
                   <tr>
@@ -935,6 +938,7 @@ export function UsagePage() {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
 
@@ -949,7 +953,8 @@ export function UsagePage() {
                 {t("settings.usageStats.detailCount", { count: requestCount })}
               </div>
             </div>
-            <table className="usage-table">
+            <div className="usage-table-scroll">
+              <table className="usage-table">
               <thead>
                 <tr>
                   <th>{t("settings.usageStats.colTime")}</th>
@@ -996,6 +1001,7 @@ export function UsagePage() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       )}

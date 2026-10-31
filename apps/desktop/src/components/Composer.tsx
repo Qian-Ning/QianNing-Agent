@@ -443,7 +443,7 @@ export function Composer({
     return submit(steering);
   };
 
-  const voiceEnabled = !!settings?.voice?.enabled;
+  const voiceEnabled = document.documentElement.dataset.surface !== "mobile" && !!settings?.voice?.enabled;
   const voice = useVoiceInput({
     enabled: voiceEnabled,
     onTranscriptionComplete: (text) => {

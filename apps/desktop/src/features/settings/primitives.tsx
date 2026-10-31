@@ -16,6 +16,18 @@ import { HelpIcon, Input, SegmentedControl } from "../../components/ui";
 import { SettingsMenuSelect } from "../../components/settings/SettingsMenuSelect";
 
 /**
+ * Whether this render is the phone surface. Both surfaces share these
+ * primitives, and a few of them describe desktop machinery — a shell catalog, a
+ * work panel — that only exists where Electron runs.
+ */
+function onPhoneSurface(): boolean {
+  return (
+    typeof document !== "undefined" &&
+    document.documentElement.dataset.surface === "mobile"
+  );
+}
+
+/**
  * One settings decision: the title and its control on a single line.
  *
  * The explanation never occupies a permanent second line — it is reached from
@@ -97,7 +109,13 @@ export function CommandShellRow({
     useState<CommandShellId | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // The phone has exactly one shell — `/system/bin/sh` in the app's sandbox —
+  // so there is nothing to choose and no catalog to ask for. Asking anyway is
+  // what produced "命令 Shell 不可用" on a device that has a working shell.
+  const isPhone = onPhoneSurface();
+
   useEffect(() => {
+    if (isPhone) return;
     let cancelled = false;
     void api
       .listCommandShells()
@@ -172,6 +190,11 @@ export function CommandShellRow({
 
   return (
     <SettingsRow title={t("settings.commandShell")}>
+      {isPhone ? (
+        <span className="settings-command-shell-state" role="status">
+          {t("settings.commandShellPhone")}
+        </span>
+      ) : (
       <div
         className="settings-command-shell-control"
         aria-busy={saving || (!catalog && !loadError)}
@@ -213,6 +236,7 @@ export function CommandShellRow({
           </span>
         ) : null}
       </div>
+      )}
     </SettingsRow>
   );
 }
@@ -225,6 +249,17 @@ export function LinkOpenTargetRow({
 }) {
   const { t } = useTranslation();
   const current = settings.linkOpenTarget ?? "workpanel";
+  // On the phone every link opens the app's own browser window; there is no
+  // work panel to target and no external hand-off to pick between.
+  if (onPhoneSurface()) {
+    return (
+      <SettingsRow title={t("settings.linkOpenTarget")}>
+        <span className="settings-command-shell-state" role="status">
+          {t("settings.linkOpenTargetPhone")}
+        </span>
+      </SettingsRow>
+    );
+  }
   return (
     <SettingsRow title={t("settings.linkOpenTarget")}>
       <SegmentedControl

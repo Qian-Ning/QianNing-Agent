@@ -37,6 +37,7 @@ import {
   SegmentedControl,
   SettingsToggle,
 } from "../components/ui";
+import { PhoneConnections } from "../components/connections/PhoneConnections";
 import { IconLink, IconPlus, IconServer } from "../components/icons";
 
 /**
@@ -222,7 +223,23 @@ function summarize(profile: ConnectionProfileView): string {
   }
 }
 
+/**
+ * A phone cannot install an agent runtime on a remote host, so the desktop
+ * page's model (pair a machine, ship the runtime, multiplex) has no meaning
+ * there. The phone version is an SSH client instead — same list, different
+ * question: "run something on my machine from here".
+ *
+ * The branch lives in a wrapper, not inside the page, because the desktop body
+ * starts calling hooks immediately and a conditional return above them would
+ * change the hook order between surfaces.
+ */
 export function ConnectionsPage() {
+  const phone = document.documentElement.dataset.surface === "mobile";
+  if (phone) return <PhoneConnections />;
+  return <DesktopConnectionsPage />;
+}
+
+function DesktopConnectionsPage() {
   const { t } = useTranslation();
   const settings = useAppStore((s) => s.settings);
   const showToast = useAppStore((s) => s.showToast);
