@@ -112,7 +112,7 @@ use anyhow::{bail, Context, Result};
 use crate::db::Database;
 use crate::messaging_adapter::{AdapterRegistry, OutboundAdapter};
 use crate::messaging_outbound::{
-    envelope_text, request_timeout, validate_https_endpoint, BodyBuilder, ChannelConfig,
+    envelope_text, request_timeout, validate_https_endpoint, BodyBuilder, ChannelConfig, EditHint,
     HttpChannelAdapter, TypingHint,
 };
 use crate::secrets::SecretStore;
@@ -142,6 +142,8 @@ const SEND_METHOD: &str = "sendMessage";
 /// The Bot API method behind the "working on it" indicator. Telegram shows it
 /// for about five seconds per call; it is never the answer to anything.
 const TYPING_METHOD: &str = "sendChatAction";
+/// The Bot API method behind "replace the text of a message this bot sent".
+const EDIT_METHOD: &str = "editMessageText";
 /// The platform's field naming the destination, mapped from our own vocabulary.
 const DESTINATION_FIELD: &str = "chat_id";
 
@@ -285,7 +287,37 @@ fn configured_adapter(
             })
         }),
     );
-    let config = ChannelConfig::new(url, None, timeout, body).with_typing(hint);
+    let edit_destination = record.destination.clone();
+    let edit_url = method_url(record, token, allow_insecure_http, EDIT_METHOD)?;
+    let edit_hint = EditHint::new(
+        edit_url,
+        Box::new(
+            move |message: &crate::messaging_adapter::OutboundMessage, remote_id: &str| {
+                serde_json::json!({
+                    // The chat is the one this channel is bound to, exactly as a
+                    // send uses: an edit is addressed the same way a message is.
+                    DESTINATION_FIELD: edit_destination.clone(),
+                    "message_id": remote_id,
+                    "text": envelope_text(message),
+                })
+            },
+        ),
+    );
+    let config = ChannelConfig::new(url, None, timeout, body)
+        .with_typing(hint)
+        .with_edit(edit_hint)
+        // Telegram answers a send with the created message, `result.message_id`
+        // included, which is the only name an edit can address it by.
+        .with_remote_id(Box::new(|body: &str| {
+            serde_json::from_str::<serde_json::Value>(body)
+                .ok()?
+                .pointer("/result/message_id")
+                .and_then(|value| match value {
+                    serde_json::Value::Number(number) => Some(number.to_string()),
+                    serde_json::Value::String(text) => Some(text.clone()),
+                    _ => None,
+                })
+        }));
     let mut adapter = HttpChannelAdapter::new(LABEL).configure(config);
     adapter.connect()?;
     Ok(adapter)

@@ -139,6 +139,22 @@ impl TypingHint {
     }
 }
 
+/// A channel's rewrite request: its own endpoint and body, because a platform
+/// puts "replace this message" behind a different method than "create one".
+pub(crate) struct EditHint {
+    endpoint: Url,
+    body: Box<dyn Fn(&OutboundMessage, &str) -> serde_json::Value + Send + Sync>,
+}
+
+impl EditHint {
+    pub(crate) fn new(
+        endpoint: Url,
+        body: Box<dyn Fn(&OutboundMessage, &str) -> serde_json::Value + Send + Sync>,
+    ) -> Self {
+        Self { endpoint, body }
+    }
+}
+
 pub(crate) struct ChannelConfig {
     endpoint: Url,
     /// `Some` only when a credential is configured. The value is marked
@@ -149,6 +165,11 @@ pub(crate) struct ChannelConfig {
     outcome: OutcomeSource,
     /// Absent for a channel with no indicator, which is most of them.
     typing: Option<TypingHint>,
+    /// Absent for a channel that cannot rewrite a message it created.
+    edit: Option<EditHint>,
+    /// How to read the message's name out of an acceptance body, when the
+    /// channel reports one. `None` means "this channel names no message".
+    remote_id_in: Option<Box<dyn Fn(&str) -> Option<String> + Send + Sync>>,
 }
 
 impl ChannelConfig {
@@ -165,12 +186,30 @@ impl ChannelConfig {
             body,
             outcome: OutcomeSource::Status,
             typing: None,
+            edit: None,
+            remote_id_in: None,
         }
     }
 
     /// Give the channel the request that shows its "working on it" indicator.
     pub(crate) fn with_typing(mut self, hint: TypingHint) -> Self {
         self.typing = Some(hint);
+        self
+    }
+
+    /// Give the channel the request that rewrites one of its own messages.
+    pub(crate) fn with_edit(mut self, hint: EditHint) -> Self {
+        self.edit = Some(hint);
+        self
+    }
+
+    /// Teach the channel how to name the message it just created, so a later
+    /// edit can address it.
+    pub(crate) fn with_remote_id(
+        mut self,
+        read: Box<dyn Fn(&str) -> Option<String> + Send + Sync>,
+    ) -> Self {
+        self.remote_id_in = Some(read);
         self
     }
 
@@ -190,8 +229,14 @@ impl ChannelConfig {
 /// The reply channel is per attempt, so a caller that has given up on a slow
 /// request simply drops its end and the worker's send fails harmlessly.
 struct Job {
+    /// The method this job posts to. A channel's send and its edit are two
+    /// different methods on the same API, so the URL rides with the job rather
+    /// than living in the worker.
+    endpoint: Url,
     body: Vec<u8>,
-    reply: Sender<SendResult>,
+    /// The classified result and, when the channel answers in its body, the body
+    /// text — which is where a created message's name is read from.
+    reply: Sender<(SendResult, Option<String>)>,
 }
 
 /// The running worker: the pipe to the thread that drives the requests.
@@ -254,14 +299,13 @@ impl OutboundAdapter for HttpChannelAdapter {
             .timeout(config.request_timeout)
             .build()
             .context("build the channel client")?;
-        let endpoint = config.endpoint.clone();
         let authorization = config.authorization.clone();
         let outcome = config.outcome;
         let label = self.label;
         let (jobs, pending) = mpsc::channel::<Job>();
         let handle = std::thread::Builder::new()
             .name(format!("messaging-{label}"))
-            .spawn(move || run_worker(pending, client, endpoint, authorization, outcome, label))
+            .spawn(move || run_worker(pending, client, authorization, outcome, label))
             .context("start the channel worker thread")?;
         self.worker = Some(Worker { jobs, handle });
         Ok(())
@@ -287,12 +331,12 @@ impl OutboundAdapter for HttpChannelAdapter {
     /// returns the whole result of one attempt, and the ledger decides what it
     /// means.
     fn send(&self, message: &OutboundMessage) -> SendResult {
-        let Some(worker) = self.worker.as_ref() else {
+        if self.worker.is_none() {
             return failed(
                 FailureKind::Retryable,
                 &format!("the {} adapter is not connected", self.label),
             );
-        };
+        }
         let Some(config) = self.config.as_ref() else {
             return failed(
                 FailureKind::Retryable,
@@ -310,28 +354,54 @@ impl OutboundAdapter for HttpChannelAdapter {
                 );
             }
         };
-        let (reply, answer) = mpsc::channel();
-        if worker.jobs.send(Job { body, reply }).is_err() {
+        let (result, answer_body) = round_trip(self, config.endpoint.clone(), body);
+        match result {
+            SendResult::Delivered { .. } => {
+                // A channel that names the message it created is the only kind a
+                // card can ever rewrite, so the name is read here, once, from the
+                // body that acceptance came in.
+                let remote_id = match (answer_body.as_deref(), config.remote_id_in.as_ref()) {
+                    (Some(text), Some(read)) => read(text),
+                    _ => None,
+                };
+                SendResult::Delivered { remote_id }
+            }
+            failed => failed,
+        }
+    }
+
+    /// Replace the text of a message this channel created.
+    ///
+    /// An edit is a delivery too, so it goes through the same worker as a send:
+    /// one request, one classified answer, and the ledger deciding what a failure
+    /// means. Nothing here retries.
+    fn edit(&self, message: &OutboundMessage, remote_id: &str) -> SendResult {
+        let Some(config) = self.config.as_ref() else {
             return failed(
                 FailureKind::Retryable,
-                &format!("the {} worker stopped before the attempt", self.label),
+                &format!("the {} adapter is not configured", self.label),
             );
-        }
-        let budget = config.request_timeout + REPLY_GRACE;
-        match answer.recv_timeout(budget) {
-            Ok(result) => result,
-            Err(RecvTimeoutError::Timeout) => failed(
-                FailureKind::Retryable,
-                &format!(
-                    "the {} attempt did not answer within {}s",
-                    self.label,
-                    budget.as_secs()
-                ),
-            ),
-            Err(RecvTimeoutError::Disconnected) => failed(
-                FailureKind::Retryable,
-                &format!("the {} worker stopped before answering", self.label),
-            ),
+        };
+        let Some(hint) = config.edit.as_ref() else {
+            return failed(
+                FailureKind::Terminal,
+                &format!("the {} channel cannot edit a message", self.label),
+            );
+        };
+        let body = match serde_json::to_vec(&(hint.body)(message, remote_id)) {
+            Ok(body) => body,
+            Err(error) => {
+                return failed(
+                    FailureKind::Terminal,
+                    &format!("the edit summary could not be serialized: {error}"),
+                );
+            }
+        };
+        let (result, _) = round_trip(self, hint.endpoint.clone(), body);
+        match result {
+            // An edit creates nothing, so it has no name to return.
+            SendResult::Delivered { .. } => SendResult::Delivered { remote_id: None },
+            failed => failed,
         }
     }
 
@@ -388,6 +458,75 @@ impl OutboundAdapter for HttpChannelAdapter {
     }
 }
 
+/// Post one body to one method and classify the answer.
+///
+/// Shared by a send and an edit, which differ only in the method they name
+/// and the body they carry: both are one request, one answer, no retry.
+fn round_trip(
+    adapter: &HttpChannelAdapter,
+    endpoint: Url,
+    body: Vec<u8>,
+) -> (SendResult, Option<String>) {
+    let Some(worker) = adapter.worker.as_ref() else {
+        return (
+            failed(
+                FailureKind::Retryable,
+                &format!("the {} adapter is not connected", adapter.label),
+            ),
+            None,
+        );
+    };
+    let Some(config) = adapter.config.as_ref() else {
+        return (
+            failed(
+                FailureKind::Retryable,
+                &format!("the {} adapter is not configured", adapter.label),
+            ),
+            None,
+        );
+    };
+    let (reply, answer) = mpsc::channel();
+    if worker
+        .jobs
+        .send(Job {
+            endpoint,
+            body,
+            reply,
+        })
+        .is_err()
+    {
+        return (
+            failed(
+                FailureKind::Retryable,
+                &format!("the {} worker stopped before the attempt", adapter.label),
+            ),
+            None,
+        );
+    }
+    let budget = config.request_timeout + REPLY_GRACE;
+    match answer.recv_timeout(budget) {
+        Ok(result) => result,
+        Err(RecvTimeoutError::Timeout) => (
+            failed(
+                FailureKind::Retryable,
+                &format!(
+                    "the {} attempt did not answer within {}s",
+                    adapter.label,
+                    budget.as_secs()
+                ),
+            ),
+            None,
+        ),
+        Err(RecvTimeoutError::Disconnected) => (
+            failed(
+                FailureKind::Retryable,
+                &format!("the {} worker stopped before answering", adapter.label),
+            ),
+            None,
+        ),
+    }
+}
+
 /// The worker loop: own the runtime the request needs, answer one job at a time.
 ///
 /// The runtime is built here rather than in `connect` so that a runtime that
@@ -399,7 +538,6 @@ impl OutboundAdapter for HttpChannelAdapter {
 fn run_worker(
     pending: Receiver<Job>,
     client: Client,
-    endpoint: Url,
     authorization: Option<HeaderValue>,
     outcome: OutcomeSource,
     label: &'static str,
@@ -409,9 +547,12 @@ fn run_worker(
         .build();
     let Ok(runtime) = runtime else {
         while let Ok(job) = pending.recv() {
-            let _ = job.reply.send(failed(
-                FailureKind::Retryable,
-                &format!("the {label} delivery runtime is unavailable"),
+            let _ = job.reply.send((
+                failed(
+                    FailureKind::Retryable,
+                    &format!("the {label} delivery runtime is unavailable"),
+                ),
+                None,
             ));
         }
         return;
@@ -419,7 +560,7 @@ fn run_worker(
     while let Ok(job) = pending.recv() {
         let result = runtime.block_on(post(
             &client,
-            &endpoint,
+            &job.endpoint,
             authorization.as_ref(),
             job.body,
             outcome,
@@ -438,7 +579,7 @@ async fn post(
     body: Vec<u8>,
     outcome: OutcomeSource,
     label: &str,
-) -> SendResult {
+) -> (SendResult, Option<String>) {
     let mut request = client
         .post(endpoint.clone())
         .header(CONTENT_TYPE, "application/json")
@@ -447,11 +588,23 @@ async fn post(
         request = request.header(reqwest::header::AUTHORIZATION, value.clone());
     }
     match request.send().await {
-        Ok(response) => match outcome {
-            OutcomeSource::Status => classify_status(response.status(), label),
-            OutcomeSource::Body => classify_answer(response, label).await,
-        },
-        Err(error) => classify_transport(&error, label),
+        Ok(response) => {
+            let status = response.status();
+            match outcome {
+                // The body is read even when the status decides the outcome:
+                // it is where a channel names the message it just created, and
+                // that name is what a card's later edits address.
+                OutcomeSource::Status => match response.text().await {
+                    Ok(text) => (classify_status(status, label), Some(text)),
+                    Err(_) => (classify_status(status, label), None),
+                },
+                OutcomeSource::Body => match response.text().await {
+                    Ok(text) => (classify_answer_text(status, &text, label), Some(text)),
+                    Err(error) => (classify_transport(&error, label), None),
+                },
+            }
+        }
+        Err(error) => (classify_transport(&error, label), None),
     }
 }
 
@@ -463,17 +616,11 @@ async fn post(
 /// body that could not be read at all is not an acceptance either — the channel
 /// cannot see one, so the attempt is failed retryably, the same posture the
 /// transport rule takes for an answer whose body could not be read.
-async fn classify_answer(response: reqwest::Response, label: &str) -> SendResult {
-    if !response.status().is_success() {
-        return classify_status(response.status(), label);
+fn classify_answer_text(status: StatusCode, body: &str, label: &str) -> SendResult {
+    if !status.is_success() {
+        return classify_status(status, label);
     }
-    match response.text().await {
-        Ok(body) => classify_body(&body, label),
-        Err(_) => failed(
-            FailureKind::Retryable,
-            &format!("the {label} response body could not be read"),
-        ),
-    }
+    classify_body(body, label)
 }
 
 /// The API's own error names that mean "not now" rather than "never": a rate
