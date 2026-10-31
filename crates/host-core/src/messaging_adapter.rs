@@ -40,8 +40,10 @@ use anyhow::{anyhow, Result};
 
 use crate::db::Database;
 use crate::delivery_ledger::{
-    self, Delivery, DeliveryState, NewDelivery, DEFAULT_LEASE_MS, DEFAULT_MAX_ATTEMPTS,
+    self, Delivery, DeliveryOperation, DeliveryState, NewDelivery, DEFAULT_LEASE_MS,
+    DEFAULT_MAX_ATTEMPTS,
 };
+use crate::messaging_outbound::failed;
 
 // The forwarding end of the R3 milestone has two halves, and only one of them is
 // wired. The hand-off the Host spends today — `enqueue_for`, the attempt
@@ -86,7 +88,12 @@ pub enum FailureKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SendResult {
     /// The channel accepted the delivery.
-    Delivered,
+    ///
+    /// `remote_id` is whatever the channel names the created message by, when it
+    /// names one at all: it is what a later edit addresses. A channel that
+    /// returns nothing leaves it `None`, and a caller must read that as "this
+    /// message cannot be edited later", never as a failed delivery.
+    Delivered { remote_id: Option<String> },
     /// The attempt failed. `kind` decides what happens next; `detail` is kept
     /// as the delivery's last error.
     Failed { kind: FailureKind, detail: String },
@@ -135,6 +142,17 @@ pub trait OutboundAdapter: Send + Sync {
     /// channel may wait on its own transport, but no guarded Host state may be
     /// held across that wait.
     fn send(&self, message: &OutboundMessage) -> SendResult;
+
+    /// Replace the text of a message this channel created.
+    ///
+    /// `remote_id` is the name the channel gave that message when it was sent.
+    /// The default refuses, because a channel that cannot edit must fail loudly
+    /// rather than fall back to sending a second message the turn never asked
+    /// for; an adapter that can edit overrides this and decides for itself
+    /// whether a failure is retryable.
+    fn edit(&self, _message: &OutboundMessage, _remote_id: &str) -> SendResult {
+        failed(FailureKind::Terminal, "this channel cannot edit a message")
+    }
 
     /// Show the channel's own "working on it" indicator in a conversation.
     ///
@@ -284,7 +302,7 @@ pub fn enqueue_for(
             payload,
             max_attempts: Some(adapter.attempt_bound()),
             operation: None,
-            remote_id: None,
+            card_of: None,
         },
     )
 }
@@ -330,6 +348,9 @@ pub struct PreparedAttempt {
     id: String,
     adapter: Arc<dyn OutboundAdapter>,
     message: OutboundMessage,
+    operation: DeliveryOperation,
+    /// For an edit: the channel's name for the message being rewritten.
+    remote_id: Option<String>,
 }
 
 impl PreparedAttempt {
@@ -338,7 +359,18 @@ impl PreparedAttempt {
     /// This is the one step of the cycle that can block, so the caller must not
     /// hold the host state lock across it.
     pub fn send(&self) -> SendResult {
-        self.adapter.send(&self.message)
+        match self.operation {
+            DeliveryOperation::Send => self.adapter.send(&self.message),
+            DeliveryOperation::Edit => match self.remote_id.as_deref() {
+                Some(remote_id) => self.adapter.edit(&self.message, remote_id),
+                // begin_attempt resolves the id before it prepares an edit, so
+                // reaching here means the row and the resolution disagree.
+                None => failed(
+                    FailureKind::Terminal,
+                    "an edit delivery reached the channel without a message to rewrite",
+                ),
+            },
+        }
     }
 }
 
@@ -371,9 +403,60 @@ pub fn begin_attempt(
         };
     };
 
+    // An edit addresses the message a previous delivery created, so the
+    // channel's name for that message is resolved here, under the same claim
+    // that will carry the edit. A card that does not exist yet is a reason to
+    // wait; a card that never names a message is a reason to stop.
+    let (operation, remote_id) = match delivery.operation {
+        DeliveryOperation::Send => (DeliveryOperation::Send, None),
+        DeliveryOperation::Edit => {
+            let Some(card_id) = delivery.card_of.as_deref() else {
+                let error = "an edit delivery names no card".to_string();
+                return match delivery_ledger::mark_failed_terminal(db, &id, worker, &error)? {
+                    Some(_) => Ok(AttemptStart::Settled(AttemptOutcome::Failed { id, error })),
+                    None => Err(lease_write_missed(&id, worker, "failed")),
+                };
+            };
+            match delivery_ledger::get(db, card_id)? {
+                Some(card) if card.state == DeliveryState::Delivered => {
+                    let Some(remote_id) = card.remote_id else {
+                        let error = format!("the card '{card_id}' has no message to rewrite");
+                        return match delivery_ledger::mark_failed_terminal(db, &id, worker, &error)?
+                        {
+                            Some(_) => {
+                                Ok(AttemptStart::Settled(AttemptOutcome::Failed { id, error }))
+                            }
+                            None => Err(lease_write_missed(&id, worker, "failed")),
+                        };
+                    };
+                    (DeliveryOperation::Edit, Some(remote_id))
+                }
+                Some(_) => {
+                    let error = format!("the card '{card_id}' has no message yet");
+                    let row = delivery_ledger::mark_failed(db, &id, worker, &error)?;
+                    return Ok(match row.map(|row| row.state) {
+                        Some(DeliveryState::Failed) => {
+                            AttemptStart::Settled(AttemptOutcome::Failed { id, error })
+                        }
+                        _ => AttemptStart::Settled(AttemptOutcome::Retried { id, error }),
+                    });
+                }
+                None => {
+                    let error = format!("the card '{card_id}' does not exist");
+                    return match delivery_ledger::mark_failed_terminal(db, &id, worker, &error)? {
+                        Some(_) => Ok(AttemptStart::Settled(AttemptOutcome::Failed { id, error })),
+                        None => Err(lease_write_missed(&id, worker, "failed")),
+                    };
+                }
+            }
+        }
+    };
+
     Ok(AttemptStart::Ready(PreparedAttempt {
         id: id.clone(),
         adapter,
+        operation,
+        remote_id,
         message: OutboundMessage {
             id,
             channel: delivery.channel.clone(),
@@ -396,10 +479,18 @@ pub fn finish_attempt(
 ) -> Result<AttemptOutcome> {
     let id = prepared.id.clone();
     match result {
-        SendResult::Delivered => match delivery_ledger::mark_delivered(db, &id, worker)? {
-            Some(_) => Ok(AttemptOutcome::Delivered { id }),
-            None => Err(lease_write_missed(&id, worker, "delivered")),
-        },
+        SendResult::Delivered { remote_id } => {
+            // Written before the row is marked delivered, because delivery is
+            // what clears the lease and the write is lease-scoped: afterwards
+            // this worker is no longer the one that speaks for the row.
+            if let Some(remote_id) = remote_id.as_deref() {
+                delivery_ledger::record_remote_id(db, &id, worker, remote_id)?;
+            }
+            match delivery_ledger::mark_delivered(db, &id, worker)? {
+                Some(_) => Ok(AttemptOutcome::Delivered { id }),
+                None => Err(lease_write_missed(&id, worker, "delivered")),
+            }
+        }
         SendResult::Failed {
             kind: FailureKind::Terminal,
             detail,
@@ -476,6 +567,8 @@ mod tests {
         connects: usize,
         disconnects: usize,
         sent: Vec<OutboundMessage>,
+        /// Every edit the adapter was asked to perform, with the message it named.
+        edited: Vec<(String, OutboundMessage)>,
         /// Results to return, one per `send`, oldest first. Empty means accept.
         script: VecDeque<SendResult>,
     }
@@ -508,7 +601,19 @@ mod tests {
         fn send(&self, message: &OutboundMessage) -> SendResult {
             let mut state = self.state.lock().unwrap();
             state.sent.push(message.clone());
-            state.script.pop_front().unwrap_or(SendResult::Delivered)
+            state
+                .script
+                .pop_front()
+                .unwrap_or(SendResult::Delivered { remote_id: None })
+        }
+
+        fn edit(&self, message: &OutboundMessage, remote_id: &str) -> SendResult {
+            let mut state = self.state.lock().unwrap();
+            state.edited.push((remote_id.to_string(), message.clone()));
+            state
+                .script
+                .pop_front()
+                .unwrap_or(SendResult::Delivered { remote_id: None })
         }
 
         fn attempt_bound(&self) -> i64 {
@@ -579,6 +684,111 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap()
+    }
+
+    #[test]
+    fn an_edit_rewrites_the_message_its_card_created() {
+        let (_dir, db) = open();
+        let (registry, state) = registry_with(DEFAULT_MAX_ATTEMPTS);
+        state
+            .lock()
+            .unwrap()
+            .script
+            .push_back(SendResult::Delivered {
+                remote_id: Some("42".into()),
+            });
+
+        delivery_ledger::enqueue(
+            &db,
+            NewDelivery {
+                id: Some("card-1".into()),
+                channel: "alpha".into(),
+                payload: json!({ "kind": "turn.started" }),
+                max_attempts: None,
+                operation: None,
+                card_of: None,
+            },
+        )
+        .unwrap();
+
+        let outcome = attempt_one(&db, &registry, "worker-a").unwrap();
+        assert!(matches!(outcome, AttemptOutcome::Delivered { .. }));
+        let stored = delivery_ledger::get(&db, "card-1").unwrap().unwrap();
+        assert_eq!(
+            stored.remote_id.as_deref(),
+            Some("42"),
+            "the channel's name for the message is recorded when it is delivered"
+        );
+
+        delivery_ledger::enqueue(
+            &db,
+            NewDelivery {
+                id: Some("edit-1".into()),
+                channel: "alpha".into(),
+                payload: json!({ "kind": "turn.progress" }),
+                max_attempts: Some(1),
+                operation: Some(DeliveryOperation::Edit),
+                card_of: Some("card-1".into()),
+            },
+        )
+        .unwrap();
+
+        let outcome = attempt_one(&db, &registry, "worker-a").unwrap();
+        assert!(matches!(outcome, AttemptOutcome::Delivered { .. }));
+        let edited = state.lock().unwrap().edited.clone();
+        assert_eq!(edited.len(), 1, "the edit reached the channel");
+        assert_eq!(edited[0].0, "42", "and named the card's message");
+        assert_eq!(edited[0].1.payload, json!({ "kind": "turn.progress" }));
+    }
+
+    #[test]
+    fn an_edit_of_a_card_with_no_message_fails_terminally() {
+        let (_dir, db) = open();
+        let (registry, state) = registry_with(DEFAULT_MAX_ATTEMPTS);
+
+        delivery_ledger::enqueue(
+            &db,
+            NewDelivery {
+                id: Some("card-quiet".into()),
+                channel: "alpha".into(),
+                payload: json!({ "kind": "turn.started" }),
+                max_attempts: None,
+                operation: None,
+                card_of: None,
+            },
+        )
+        .unwrap();
+        // The fake channel reports no message id, which is what a channel that
+        // cannot be edited looks like from the ledger's side.
+        attempt_one(&db, &registry, "worker-a").unwrap();
+
+        delivery_ledger::enqueue(
+            &db,
+            NewDelivery {
+                id: Some("edit-quiet".into()),
+                channel: "alpha".into(),
+                payload: json!({ "kind": "turn.progress" }),
+                max_attempts: Some(3),
+                operation: Some(DeliveryOperation::Edit),
+                card_of: Some("card-quiet".into()),
+            },
+        )
+        .unwrap();
+
+        let outcome = attempt_one(&db, &registry, "worker-a").unwrap();
+        match outcome {
+            AttemptOutcome::Failed { error, .. } => {
+                assert!(
+                    error.contains("no message to rewrite"),
+                    "unexpected error: {error}"
+                );
+            }
+            other => panic!("expected a terminal failure, got {other:?}"),
+        }
+        assert!(
+            state.lock().unwrap().edited.is_empty(),
+            "a channel is never asked to edit a message it never named"
+        );
     }
 
     #[test]
@@ -785,7 +995,7 @@ mod tests {
                 payload: json!({ "kind": "turn.completed" }),
                 max_attempts: None,
                 operation: None,
-                remote_id: None,
+                card_of: None,
             },
         )
         .unwrap();
@@ -858,7 +1068,7 @@ mod tests {
                 "alpha",
                 Box::new(LeaseStealingAdapter {
                     db_path: path.clone(),
-                    result: SendResult::Delivered,
+                    result: SendResult::Delivered { remote_id: None },
                 }),
             )
             .unwrap();

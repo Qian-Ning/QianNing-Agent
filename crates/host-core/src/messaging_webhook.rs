@@ -465,7 +465,7 @@ async fn post(
 /// no later attempt changes.
 fn classify_status(status: StatusCode) -> SendResult {
     if status.is_success() {
-        return SendResult::Delivered;
+        return SendResult::Delivered { remote_id: None };
     }
     let kind = if status == StatusCode::TOO_MANY_REQUESTS || status.is_server_error() {
         FailureKind::Retryable

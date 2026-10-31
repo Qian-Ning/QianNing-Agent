@@ -514,7 +514,7 @@ pub(crate) fn classify_body(body: &str, label: &str) -> SendResult {
         );
     };
     match value.get("ok").and_then(Value::as_bool) {
-        Some(true) => SendResult::Delivered,
+        Some(true) => SendResult::Delivered { remote_id: None },
         Some(false) => {
             let error = value
                 .get("error")
@@ -545,7 +545,7 @@ pub(crate) fn classify_body(body: &str, label: &str) -> SendResult {
 /// no later attempt changes.
 pub(crate) fn classify_status(status: StatusCode, label: &str) -> SendResult {
     if status.is_success() {
-        return SendResult::Delivered;
+        return SendResult::Delivered { remote_id: None };
     }
     let kind = if status == StatusCode::TOO_MANY_REQUESTS || status.is_server_error() {
         FailureKind::Retryable
@@ -762,11 +762,11 @@ mod tests {
     fn the_status_classification_keeps_throttles_and_server_errors_retryable() {
         assert_eq!(
             classify_status(StatusCode::OK, "chat"),
-            SendResult::Delivered
+            SendResult::Delivered { remote_id: None }
         );
         assert_eq!(
             classify_status(StatusCode::NO_CONTENT, "chat"),
-            SendResult::Delivered
+            SendResult::Delivered { remote_id: None }
         );
         match classify_status(StatusCode::TOO_MANY_REQUESTS, "chat") {
             SendResult::Failed { kind, detail } => {

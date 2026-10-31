@@ -94,7 +94,7 @@ async fn a_two_hundred_delivers_the_summary_as_json_to_the_send_path() {
 
     assert_eq!(
         deliver(&adapter, summary()).await,
-        SendResult::Delivered,
+        SendResult::Delivered { remote_id: None },
         "an HTTP 200 whose body carries the acceptance flag delivers the summary"
     );
 
@@ -140,7 +140,7 @@ async fn a_two_hundred_family_status_other_than_200_delivers() {
 
     assert_eq!(
         deliver(&adapter, summary()).await,
-        SendResult::Delivered,
+        SendResult::Delivered { remote_id: None },
         "a 2xx other than 200 whose body carries the acceptance flag delivers"
     );
     assert_eq!(
@@ -164,7 +164,7 @@ async fn an_acceptance_body_is_the_receivers_acceptance() {
 
     assert_eq!(
         deliver(&adapter, summary()).await,
-        SendResult::Delivered,
+        SendResult::Delivered { remote_id: None },
         "the body's acceptance flag, not the status alone, is the delivery"
     );
     assert_eq!(fixture.requests().len(), 1, "one attempt, one request");

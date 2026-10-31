@@ -213,7 +213,10 @@ mod tests {
         fn send(&self, message: &OutboundMessage) -> SendResult {
             let mut state = self.state.lock().unwrap();
             state.sent.push(message.clone());
-            state.script.pop_front().unwrap_or(SendResult::Delivered)
+            state
+                .script
+                .pop_front()
+                .unwrap_or(SendResult::Delivered { remote_id: None })
         }
 
         fn typing(&self, chat: &str) -> bool {
@@ -477,7 +480,7 @@ mod tests {
             // unrelated host call runs to completion while this waits.
             self.started.notify_one();
             let _ = self.release.lock().unwrap().recv();
-            SendResult::Delivered
+            SendResult::Delivered { remote_id: None }
         }
     }
 

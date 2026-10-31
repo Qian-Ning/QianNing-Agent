@@ -1090,12 +1090,15 @@ pub(crate) fn migrate_v23_to_v24(conn: &Connection, path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// v25 adds the delivery ledger's `operation` and `remote_id` columns (ADR 0340).
+/// v25 adds the delivery ledger's `operation`, `remote_id` and `card_of`
+/// columns (ADR 0340).
 ///
 /// A delivery is now either a send or an edit of a message a previous send
-/// created, so the ledger needs both the operation and the id it addresses.
-/// Existing rows are sends by definition — they predate the column — and the
-/// default makes that true without rewriting a single row.
+/// created, so the ledger needs the operation and, for an edit, the delivery it
+/// belongs to. `remote_id` is written by the worker once the channel names the
+/// message it created; `card_of` points at that creating row. Existing rows are
+/// sends by definition — they predate the column — and the default makes that
+/// true without rewriting a single row.
 pub(crate) fn migrate_v24_to_v25_tx(tx: &rusqlite::Transaction<'_>) -> Result<()> {
     let has_operation: bool = tx.query_row(
         "SELECT EXISTS(SELECT 1 FROM pragma_table_info('delivery_ledger') WHERE name = 'operation')",
@@ -1114,6 +1117,14 @@ pub(crate) fn migrate_v24_to_v25_tx(tx: &rusqlite::Transaction<'_>) -> Result<()
     )?;
     if !has_remote_id {
         tx.execute_batch("ALTER TABLE delivery_ledger ADD COLUMN remote_id TEXT;")?;
+    }
+    let has_card_of: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('delivery_ledger') WHERE name = 'card_of')",
+        [],
+        |row| row.get(0),
+    )?;
+    if !has_card_of {
+        tx.execute_batch("ALTER TABLE delivery_ledger ADD COLUMN card_of TEXT;")?;
     }
     tx.pragma_update(None, "user_version", 25i64)?;
     Ok(())

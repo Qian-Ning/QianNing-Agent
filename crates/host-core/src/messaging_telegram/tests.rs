@@ -89,7 +89,7 @@ async fn a_two_hundred_delivers_the_summary_as_json_to_the_send_path() {
 
     assert_eq!(
         deliver(&adapter, summary()).await,
-        SendResult::Delivered,
+        SendResult::Delivered { remote_id: None },
         "a 2xx is the receiver's acceptance"
     );
 
@@ -129,7 +129,7 @@ async fn a_two_hundred_family_status_other_than_200_delivers() {
 
     assert_eq!(
         deliver(&adapter, summary()).await,
-        SendResult::Delivered,
+        SendResult::Delivered { remote_id: None },
         "every 2xx is the receiver's acceptance, not only 200"
     );
     assert_eq!(

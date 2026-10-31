@@ -159,10 +159,15 @@ pub struct NewDelivery {
     /// before edits existed keeps its meaning.
     #[serde(default)]
     pub operation: Option<DeliveryOperation>,
-    /// The message an edit rewrites, as the channel named it. Required for an
-    /// edit and refused on a send, because a send names nothing to rewrite.
+    /// For an edit: the delivery whose message this row rewrites. Required for
+    /// an edit and refused on a send, because a send creates the message rather
+    /// than addressing one.
+    ///
+    /// The platform's own message id is deliberately not an input: it is minted
+    /// by the channel and stays inside the Host, so a caller cannot address a
+    /// message it did not create.
     #[serde(default)]
-    pub remote_id: Option<String>,
+    pub card_of: Option<String>,
 }
 
 /// A persisted delivery row.
@@ -194,14 +199,20 @@ pub struct Delivery {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub failed_at: Option<String>,
     pub operation: DeliveryOperation,
+    /// The channel's own name for the message this delivery created. Written by
+    /// the worker when the channel reports one; `None` means "no message to
+    /// edit", never "unknown yet".
     #[serde(skip_serializing_if = "Option::is_none")]
     pub remote_id: Option<String>,
+    /// For an edit: the delivery whose message this row rewrites.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub card_of: Option<String>,
 }
 
 #[allow(dead_code)]
 const DELIVERY_COLUMNS: &str = "id, channel, payload_json, state, attempts, max_attempts, \
      redelivery, next_attempt_at, lease_owner, lease_expires_at, last_error, \
-     created_at, updated_at, delivered_at, failed_at, operation, remote_id";
+     created_at, updated_at, delivered_at, failed_at, operation, remote_id, card_of";
 
 #[allow(dead_code)]
 fn delivery_state_from_db(raw: &str) -> rusqlite::Result<DeliveryState> {
@@ -254,6 +265,7 @@ fn row_to_delivery(row: &rusqlite::Row<'_>) -> rusqlite::Result<Delivery> {
             })?
         },
         remote_id: row.get(16)?,
+        card_of: row.get(17)?,
     })
 }
 
@@ -279,19 +291,17 @@ pub fn enqueue(db: &Database, input: NewDelivery) -> Result<Delivery> {
         return Err(anyhow!("delivery channel must not be blank"));
     }
     let operation = input.operation.unwrap_or(DeliveryOperation::Send);
-    let remote_id = input
-        .remote_id
+    let card_of = input
+        .card_of
         .map(|id| id.trim().to_string())
         .filter(|id| !id.is_empty());
-    match (operation, remote_id.as_deref()) {
+    match (operation, card_of.as_deref()) {
         (DeliveryOperation::Edit, None) => {
-            return Err(anyhow!(
-                "an edit delivery must name the message it rewrites"
-            ));
+            return Err(anyhow!("an edit delivery must name the card it belongs to"));
         }
         (DeliveryOperation::Send, Some(_)) => {
             return Err(anyhow!(
-                "a send delivery must not name a message; enqueue an edit instead"
+                "a send delivery must not name a card; enqueue an edit instead"
             ));
         }
         _ => {}
@@ -306,7 +316,7 @@ pub fn enqueue(db: &Database, input: NewDelivery) -> Result<Delivery> {
     db.conn().execute(
         "INSERT INTO delivery_ledger (
             id, channel, payload_json, state, attempts, max_attempts, redelivery,
-            next_attempt_at, created_at, updated_at, operation, remote_id
+            next_attempt_at, created_at, updated_at, operation, card_of
          ) VALUES (?1, ?2, ?3, 'pending', 0, ?4, 0, ?5, ?5, ?5, ?6, ?7)",
         params![
             id,
@@ -315,10 +325,25 @@ pub fn enqueue(db: &Database, input: NewDelivery) -> Result<Delivery> {
             max_attempts,
             now,
             operation.as_str(),
-            remote_id
+            card_of
         ],
     )?;
     get(db, &id)?.ok_or_else(|| anyhow!("delivery {id} disappeared after insert"))
+}
+
+/// Record the channel's own name for the message a delivery created.
+///
+/// Only the holder of the live lease may write it, for the same reason only the
+/// holder may mark the row delivered: a worker whose lease was reclaimed is no
+/// longer the one that speaks for this row.
+#[allow(dead_code)]
+pub fn record_remote_id(db: &Database, id: &str, worker: &str, remote_id: &str) -> Result<()> {
+    db.conn().execute(
+        "UPDATE delivery_ledger SET remote_id = ?3, updated_at = ?4
+         WHERE id = ?1 AND lease_owner = ?2",
+        params![id, worker, remote_id, now_ms()],
+    )?;
+    Ok(())
 }
 
 /// Claim one claimable delivery for `worker`, leasing it for `lease_ms`.
@@ -582,7 +607,7 @@ mod tests {
             payload: serde_json::json!({ "kind": "turn.completed", "turnId": "turn-1" }),
             max_attempts: None,
             operation: None,
-            remote_id: None,
+            card_of: None,
         }
     }
 
@@ -617,7 +642,7 @@ mod tests {
             payload: payload.clone(),
             max_attempts: None,
             operation: None,
-            remote_id: None,
+            card_of: None,
         };
         let created = enqueue(&db, input).unwrap();
         assert_eq!(created.id, "delivery-1");
@@ -644,42 +669,46 @@ mod tests {
     }
 
     #[test]
-    fn an_edit_keeps_the_message_it_rewrites_through_a_claim() {
+    fn an_edit_keeps_the_card_it_belongs_to_through_a_claim() {
         let (_dir, db) = open();
         let mut input = new_delivery("telegram");
         input.operation = Some(DeliveryOperation::Edit);
-        input.remote_id = Some("  4711  ".into());
+        input.card_of = Some("  card-4711  ".into());
         let created = enqueue(&db, input).unwrap();
         assert_eq!(created.operation, DeliveryOperation::Edit);
-        assert_eq!(created.remote_id.as_deref(), Some("4711"));
+        assert_eq!(created.card_of.as_deref(), Some("card-4711"));
+        assert_eq!(
+            created.remote_id, None,
+            "the channel's own message id is never an input"
+        );
 
         let claimed = claim(&db, "worker-1", 30_000).unwrap().unwrap();
         assert_eq!(claimed.id, created.id);
         assert_eq!(claimed.operation, DeliveryOperation::Edit);
-        assert_eq!(claimed.remote_id.as_deref(), Some("4711"));
+        assert_eq!(claimed.card_of.as_deref(), Some("card-4711"));
     }
 
     #[test]
-    fn an_edit_must_name_the_message_it_rewrites() {
+    fn an_edit_must_name_the_card_it_belongs_to() {
         let (_dir, db) = open();
         let mut input = new_delivery("telegram");
         input.operation = Some(DeliveryOperation::Edit);
         let error = enqueue(&db, input).unwrap_err();
         assert!(
-            error.to_string().contains("must name the message"),
+            error.to_string().contains("must name the card"),
             "unexpected refusal: {error}"
         );
         assert!(list(&db, None).unwrap().is_empty());
     }
 
     #[test]
-    fn a_send_must_not_name_a_message() {
+    fn a_send_must_not_name_a_card() {
         let (_dir, db) = open();
         let mut input = new_delivery("telegram");
-        input.remote_id = Some("4711".into());
+        input.card_of = Some("card-4711".into());
         let error = enqueue(&db, input).unwrap_err();
         assert!(
-            error.to_string().contains("must not name a message"),
+            error.to_string().contains("must not name a card"),
             "unexpected refusal: {error}"
         );
         assert!(list(&db, None).unwrap().is_empty());
