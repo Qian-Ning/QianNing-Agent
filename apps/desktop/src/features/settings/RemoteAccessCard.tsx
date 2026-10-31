@@ -17,9 +17,21 @@ import type { RemoteAccessStatus, RemoteDeviceSummary, RemoteIssuedDevice } from
 
 import { Button, Input } from "../../components/ui";
 import { api } from "../../lib/api";
+import { PhoneRemoteAccess } from "./PhoneRemoteAccess";
 import { SettingsCard, SettingsRow } from "./primitives";
 
+/**
+ * A phone is the client in this relationship: it pairs a computer instead of
+ * listening for devices, so the whole page asks a different question there.
+ * The split is a wrapper rather than an early return so both branches keep
+ * their own hook order.
+ */
 export function RemoteAccessCard() {
+  if (document.documentElement.dataset.surface === "mobile") return <PhoneRemoteAccess />;
+  return <DesktopRemoteAccessCard />;
+}
+
+function DesktopRemoteAccessCard() {
   const { t } = useTranslation();
   const [status, setStatus] = useState<RemoteAccessStatus | null>(null);
   const [busy, setBusy] = useState(false);

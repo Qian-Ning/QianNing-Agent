@@ -24,6 +24,7 @@ export type WsBinding = {
   close(): Promise<void>;
 };
 
+
 function wsTransport(socket: WebSocket): ServerConnectionTransport {
   return {
     send: (frame) => socket.send(frame),

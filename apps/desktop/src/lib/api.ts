@@ -747,6 +747,77 @@ export const api = {
   clearRedactionTable: () => invoke<RedactionClearResult>(IPC.invoke.redactionClear),
   /** Remote access (ADR 0333): the listener state plus its paired devices. */
   getRemoteAccess: () => invoke<RemoteAccessStatus>(IPC.invoke.remoteStatus),
+  /**
+   * Pairing as a *client*: the computers this surface may drive. Present on the
+   * phone, where the remote-access page is about reaching a desktop rather than
+   * about accepting devices.
+   */
+  listPairedComputers: () =>
+    invoke<{
+      supported: boolean;
+      hosts: Array<{
+        hostKey: string;
+        label: string;
+        url: string;
+        fingerprint?: string;
+        connected: boolean;
+      }>;
+    }>(IPC.invoke.remoteHostList),
+  pairComputer: (input: { url: string; token: string; label?: string }) =>
+    invoke<{ host: { hostKey: string; label: string; url: string } }>(
+      IPC.invoke.remoteHostPair,
+      input,
+    ),
+  removePairedComputer: (hostKey: string) =>
+    invoke<{ removed: boolean }>(IPC.invoke.remoteHostRemove, hostKey),
+  /**
+   * SSH machines, phone side. The renderer never touches the plugin directly:
+   * it asks the phone host, exactly as it asks about paired computers.
+   */
+  sshProfiles: () =>
+    invoke<{
+      supported: boolean;
+      profiles: Array<{
+        id: string;
+        name: string;
+        host: string;
+        port: number;
+        user: string;
+        enabled: boolean;
+        auth: string;
+        fingerprint: string;
+        hasSecret: boolean;
+        connected: boolean;
+      }>;
+    }>("pi-desktop/ssh/profiles"),
+  sshProbe: (id: string) =>
+    invoke<{ ok: boolean; banner: string; fingerprint: string }>("pi-desktop/ssh/probe", id),
+  sshConnect: (id: string) =>
+    invoke<{ sessionId: string; fingerprint: string }>("pi-desktop/ssh/connect", id),
+  sshDisconnect: (id: string) => invoke<{ ok: boolean }>("pi-desktop/ssh/disconnect", id),
+  sshRun: (id: string, command: string, timeoutMs?: number) =>
+    invoke<{ output: string; exitStatus: number; cwd: string; timedOut: boolean }>(
+      "pi-desktop/ssh/run",
+      { id, command, ...(timeoutMs ? { timeoutMs } : {}) },
+    ),
+  sshSaveProfile: (input: {
+    id?: string;
+    name: string;
+    host: string;
+    port: number;
+    user: string;
+    auth: string;
+    password?: string;
+    privateKey?: string;
+    passphrase?: string;
+  }) => invoke<{ profile: { id: string } }>("pi-desktop/ssh/save", input),
+  sshDeleteProfile: (id: string) => invoke<{ ok: boolean }>("pi-desktop/ssh/delete", id),
+
+  remoteSessions: (hostKey: string) =>
+    invoke<{ sessions: Array<{ id: string; title: string }> }>(
+      "pi-desktop/remote/sessions",
+      hostKey,
+    ),
   enableRemoteAccess: (exposure?: "loopback" | "lan") =>
     invoke<RemoteAccessStatus>(IPC.invoke.remoteEnable, { exposure }),
   disableRemoteAccess: () => invoke<RemoteAccessStatus>(IPC.invoke.remoteDisable),

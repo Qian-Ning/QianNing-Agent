@@ -63,6 +63,8 @@ type Props = {
   onRequestSetup: () => void;
   onOpen: (session: SessionSummary) => void;
   onOpenSettings: () => void;
+  /** The phone's own shell — one tap from the list, not buried in settings. */
+  onOpenTerminal: () => void;
   onSignOut: () => void;
 };
 
@@ -79,6 +81,7 @@ export function SessionsView({
   onRequestSetup,
   onOpen,
   onOpenSettings,
+  onOpenTerminal,
   onSignOut,
 }: Props) {
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
@@ -171,6 +174,14 @@ export function SessionsView({
         <div className="bar-actions">
           <button className="ghost" onClick={() => void openChooser()} aria-label={t("sessions.new")}>
             +
+          </button>
+          <button
+            className="ghost"
+            aria-label={t("terminal.title")}
+            title={t("terminal.title")}
+            onClick={onOpenTerminal}
+          >
+            ›_
           </button>
           <button className="ghost" aria-label={t("settings.open")} onClick={onOpenSettings}>
             ⚙

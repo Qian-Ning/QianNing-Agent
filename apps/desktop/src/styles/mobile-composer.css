@@ -1,0 +1,319 @@
+/* Phone-only composer layout. The whole toolbar row sits inside one module seat,
+   like the desktop input card — seven controls share a single rounded surface.
+   Order follows the desktop: +, mode, permission, context, model, reasoning,
+   send. Every tool icon shares one ink size and one hit target with one fixed
+   gap, so the spacing between controls is identical at every width. Only the
+   model name shows text; it absorbs the leftover width, which keeps the gaps
+   exactly equal and never opens a void between two icons. */
+
+:root[data-surface="mobile"] .composer-toolbar {
+  /* One glyph size for every tool icon so the row reads as a single set. */
+  --composer-glyph: 18px;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  width: 100%;
+  padding-inline: 12px;
+  box-sizing: border-box;
+  /*
+    One fixed gap, no free space between the controls: `space-between` on a row
+    whose clusters flatten with `display: contents` spreads the leftover width
+    unevenly, which is what opened a wide gap in front of the send button and
+    squeezed the first pair of icons together. The leftover width belongs to the
+    model name instead, so every pair of controls keeps the same spacing at
+    every width.
+  */
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+/* The seven controls sit in one seat. The left and right clusters flatten into
+   the row so nothing forms its own tile. */
+:root[data-surface="mobile"] .composer-toolbar .composer-left,
+:root[data-surface="mobile"] .composer-toolbar .composer-right {
+  display: contents;
+}
+
+:root[data-surface="mobile"] .composer-toolbar > *,
+:root[data-surface="mobile"] .composer-toolbar .composer-plus,
+:root[data-surface="mobile"] .composer-toolbar .composer-permission,
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking,
+:root[data-surface="mobile"] .composer-toolbar .context-inspector {
+  min-width: 0;
+  margin: 0;
+}
+
+/* Every icon tool is the same square hit target. */
+:root[data-surface="mobile"] .composer-toolbar .composer-plus,
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-anchor,
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip,
+:root[data-surface="mobile"] .composer-toolbar .composer-permission,
+:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-anchor,
+:root[data-surface="mobile"] .composer-toolbar .context-inspector {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+}
+
+/*
+  The pill chips carry a desktop !important padding of 10px a side, and their
+  inner spans clip overflow. In a 32px tool that leaves a 12px content box for
+  an 18px glyph: the mode, permission and reasoning icons were all cut off at
+  the edge. A phone chip is an icon button, so it drops the pill padding, keeps
+  no gap, and lets the glyph have the whole square.
+*/
+:root[data-surface="mobile"] .composer-toolbar .mode-chip,
+:root[data-surface="mobile"] .composer-toolbar .composer-permission,
+:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-anchor,
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking {
+  padding: 0 !important;
+  gap: 0 !important;
+  justify-content: center !important;
+  overflow: visible;
+}
+
+/*
+  The chip fills the seat it sits in, so the narrow-phone rule that shrinks the
+  seat also shrinks the chip. Writing a fixed width here overrode that and
+  pushed the row past the toolbar's own inset.
+*/
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 auto;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .mode-chip > span,
+:root[data-surface="mobile"] .composer-toolbar .composer-permission > span,
+:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-anchor > span,
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  overflow: visible;
+}
+
+/* The send/stop button stays 28×28 — that is the shipped geometry the audit
+   pins, and the tap target still exceeds it through the row's padding. */
+:root[data-surface="mobile"] .composer-toolbar .send-btn,
+:root[data-surface="mobile"] .composer-toolbar .stop-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar button {
+  min-width: 0;
+  min-height: 36px;
+  height: 36px;
+  padding: 0;
+  margin: 0;
+}
+
+:root[data-surface="mobile"] .composer-plus { order: 1; }
+:root[data-surface="mobile"] .composer-mode-chip { order: 2; }
+:root[data-surface="mobile"] .composer-mode-anchor { order: 2; }
+:root[data-surface="mobile"] .composer-permission { order: 3; }
+:root[data-surface="mobile"] .context-inspector { order: 4; }
+:root[data-surface="mobile"] .composer-model-anchor { order: 5; }
+:root[data-surface="mobile"] .composer-reasoning-anchor { order: 6; }
+:root[data-surface="mobile"] .send-btn,
+:root[data-surface="mobile"] .composer-toolbar .stop-btn { order: 7; }
+
+/* The model name takes the leftover width: it is the one control that shows
+   text, so it is the one that can grow. Every icon keeps its own size and the
+   gap between any two controls stays exactly the same at every width. A
+   readable floor and an ellipsis ceiling keep a long name from pushing the row
+   apart. */
+:root[data-surface="mobile"] .composer-toolbar .composer-model-anchor {
+  display: inline-flex;
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 70px;
+  max-width: 40%;
+  height: 36px;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-model-anchor .composer-model-chip {
+  /* The chip fills its seat and centres the name in it, so the text stays
+     centred in the row however much width the seat takes. */
+  flex: 1 1 auto;
+  width: 100%;
+  display: inline-flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  max-width: none;
+  min-width: 0;
+  gap: 2px;
+  background: none;
+  justify-content: center;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
+  justify-content: center;
+  flex: none;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-model {
+  display: block;
+  min-width: 0;
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  padding-inline: 4px;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: none;
+  opacity: 1;
+  gap: 0;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip-face > svg,
+:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip .composer-model-thinking-icon {
+  display: block;
+}
+
+/*
+  Labels are gone on the phone row: every tool is an icon, and only the model
+  name carries text. `!important` is deliberate — the chip rules below give the
+  chip's children `display: flex`, and a `… > span` selector carries an extra
+  element in its specificity, which is enough to outrank a plain class rule and
+  put the label back on top of its icon.
+*/
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip-label,
+:root[data-surface="mobile"] .composer-toolbar .composer-permission-label,
+:root[data-surface="mobile"] .composer-toolbar .composer-permission-chevron,
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-level,
+:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chevron,
+:root[data-surface="mobile"] .composer-toolbar .composer-model-chip .composer-model-thinking-icon,
+:root[data-surface="mobile"] .composer-toolbar .context-inspector-ring-value {
+  display: none !important;
+}
+
+/* One ink size across every tool icon so they sit at the same visual weight.
+   The component reads the box from a CSS variable, so this wins over inline. */
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip-face > svg,
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-anchor button svg,
+:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip svg,
+:root[data-surface="mobile"] .composer-toolbar .composer-permission button > svg:first-child,
+:root[data-surface="mobile"] .composer-toolbar .composer-plus button > svg,
+:root[data-surface="mobile"] .composer-toolbar .composer-plus > svg,
+:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip .composer-model-thinking-icon,
+:root[data-surface="mobile"] .composer-toolbar .context-inspector-trigger .context-inspector-ring {
+  width: var(--composer-glyph) !important;
+  height: var(--composer-glyph) !important;
+  flex: none;
+}
+
+:root[data-surface="mobile"] .composer-toolbar .context-inspector-trigger {
+  width: 28px;
+  min-width: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ds-text-secondary);
+}
+
+/* The send button joins the row's own rhythm — no elastic void before it. */
+:root[data-surface="mobile"] .composer-toolbar .send-btn,
+:root[data-surface="mobile"] .composer-toolbar .stop-btn {
+  margin-left: 0;
+}
+
+/* On the narrow phones the tools step down one size so the model name keeps
+   its readable floor instead of collapsing to nothing; the gap rhythm is the
+   same everywhere, only the tap targets and the gap shrink together. */
+@media (max-width: 379px) {
+  /*
+    The row budget below 380px: gaps step to 4px, the tools sit at 28px, and
+    the name keeps a 56px floor before it ellipses. 6×28 + 56 + 6×4 + 2×12 =
+    268 ≤ 272 — the tightest phone fits with room to spare. At 360px the name
+    grows to its 70px floor and the row still fits: 6×28 + 70 + 6×4 + 24 = 286
+    ≤ 288.
+  */
+  :root[data-surface="mobile"] .composer-toolbar {
+    gap: 4px;
+  }
+  :root[data-surface="mobile"] .composer-toolbar .composer-model-anchor {
+    min-width: 56px;
+  }
+  /*
+    The seats are what the row spaces out, so the seats shrink — shrinking the
+    button inside a full-size seat would leave the gap untouched.
+  */
+  :root[data-surface="mobile"] .composer-toolbar .composer-plus,
+  :root[data-surface="mobile"] .composer-toolbar .composer-mode-anchor,
+  :root[data-surface="mobile"] .composer-toolbar .composer-mode-chip,
+  :root[data-surface="mobile"] .composer-toolbar .composer-permission,
+  :root[data-surface="mobile"] .composer-toolbar .composer-reasoning-anchor,
+  :root[data-surface="mobile"] .composer-toolbar .context-inspector {
+    flex: 0 0 28px;
+    width: 28px;
+  }
+  :root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-model {
+    padding-inline: 0;
+  }
+}
+
+:root[data-surface="mobile"] .composer-toolbar .send-btn,
+:root[data-surface="mobile"] .composer-toolbar .stop-btn {
+  align-self: center;
+}
+
+/* ── Phone composer menus ──────────────────────────────────────────────── */
+
+/* 1) Model picker menu: restore the desktop's own compact single-column list
+      exactly as it was — the phone inherits the desktop surface unchanged.
+      (The previous "phone overrides" here were a misfire: they restyled the
+      shared menu instead of leaving the desktop shape in place.) */
+
+/* 2) Permission/mode menu: same story — desktop shape, no phone overrides. */
+
+/* 3) Model rows: the favorite star is hover-revealed on the desktop, which a
+      phone can never satisfy — show it always, and let the row grow tall
+      enough that stacked ids read as list lines instead of overlapping. */
+:root[data-surface="mobile"] .composer-model-fav {
+  opacity: 1;
+}
+
+:root[data-surface="mobile"] .composer-model-option-select {
+  min-height: 44px;
+  align-items: flex-start;
+  padding-block: 8px;
+}
+
+:root[data-surface="mobile"] .composer-model-label {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  line-height: 1.35;
+}

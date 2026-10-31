@@ -190,6 +190,8 @@ export function MessagingPlatformsPage() {
   const settings = useAppStore((state) => state.settings);
   const showToast = useAppStore((state) => state.showToast);
   const [selectedId, setSelectedId] = useState<MessagingPlatformId>("telegram");
+  // Phone only: which platform's detail page is open. `null` is the list.
+  const [openPlatform, setOpenPlatform] = useState<MessagingPlatformId | null>(null);
   const [secretPresent, setSecretPresent] = useState<Record<string, boolean>>({});
   const [gateway, setGateway] = useState<MessagingGatewaySnapshot>(MESSAGING_GATEWAY_OFF);
   const [saving, setSaving] = useState(false);
@@ -292,8 +294,46 @@ export function MessagingPlatformsPage() {
 
   const supportedCount = SUPPORTED_MESSAGING_PLATFORMS.length;
 
-  return (
-    <div className="settings-messaging">
+  /*
+    A phone has no room for two panes side by side: the list and a full config
+    form cannot share 390px. So the phone drills down instead — the list is the
+    first page, a platform is the second, and back returns to the list. The
+    desktop keeps both panes, which is the whole point of its width.
+  */
+  const isPhone =
+    typeof document !== "undefined" &&
+    document.documentElement.dataset.surface === "mobile";
+
+  const openPlatformPage = (id: MessagingPlatformId) => {
+    setSelectedId(id);
+    setOpenPlatform(id);
+    // The list may be scrolled halfway down; its position means nothing on the
+    // platform's own page.
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(".settings-content")?.scrollTo({ top: 0 });
+    });
+  };
+
+  /*
+   * Android's back gesture never touches the browser history: the native shell
+   * calls `window.__qianningBack`, which reaches the settings page and unwinds
+   * one screen. A platform's page is one screen below the list, so it has to
+   * claim the gesture before the settings page does — otherwise back leaves the
+   * section entirely and lands on the settings directory.
+   */
+  useEffect(() => {
+    if (!isPhone || openPlatform === null) return;
+    const host = window as unknown as { __qianningPlatformBack?: () => boolean };
+    host.__qianningPlatformBack = () => {
+      setOpenPlatform(null);
+      return true;
+    };
+    return () => {
+      delete host.__qianningPlatformBack;
+    };
+  }, [isPhone, openPlatform]);
+
+  const chooser = (
       <div className="settings-messaging-chooser">
         <div className="settings-messaging-chooser-head">
           <h3 className="settings-card-heading">{t("settings.messaging.listTitle")}</h3>
@@ -330,10 +370,12 @@ export function MessagingPlatformsPage() {
                 data-support={entry.support}
                 className={cx(
                   "settings-messaging-item",
-                  entry.id === platform.id && "active",
+                  entry.id === platform.id && !isPhone && "active",
                   entry.support === "unsupported" && "is-unsupported",
                 )}
-                onClick={() => setSelectedId(entry.id)}
+                onClick={() => {
+                  openPlatformPage(entry.id);
+                }}
               >
                 <span className="settings-messaging-item-name">{t(entry.labelKey)}</span>
                 {state ? (
@@ -348,7 +390,9 @@ export function MessagingPlatformsPage() {
           })}
         </div>
       </div>
+  );
 
+  const detail = (
       <section
         ref={detailRef}
         className="settings-messaging-detail"
@@ -370,6 +414,22 @@ export function MessagingPlatformsPage() {
           <UnsupportedPanel platform={platform} />
         )}
       </section>
+  );
+
+  if (isPhone) {
+    return openPlatform === null ? (
+      <div className="settings-messaging is-phone">{chooser}</div>
+    ) : (
+      // The platform's own header carries its name; a back control would sit
+      // above it saying the same thing twice. Back is the system gesture.
+      <div className="settings-messaging is-phone">{detail}</div>
+    );
+  }
+
+  return (
+    <div className="settings-messaging">
+      {chooser}
+      {detail}
     </div>
   );
 }

@@ -118,7 +118,7 @@ export function ConversationTopbar({
           </TooltipButton>
         </div>
         <div
-          className="ct-title-wrap"
+          className={`ct-title-wrap${activeSession ? "" : " ct-empty-title"}`}
           title={project ? `${project} · ${fullTaskTitle}` : fullTaskTitle}
         >
           <span className="ct-title">{fullTaskTitle}</span>

@@ -25,7 +25,15 @@ export type PhoneProject = {
   lastOpenedAt: number;
 };
 
-export type PhoneProjectInput = { name: string };
+export type PhoneProjectInput = {
+  name: string;
+  /**
+   * The workspace folders the create dialog collected. On the phone these are
+   * paths in app storage (`手机存储/<name>`); the first one becomes the
+   * project's root, the way a primary folder does on the desktop.
+   */
+  folders?: string[];
+};
 
 /** The project-notes shape the desktop's project memory panel reads. */
 export type PhoneProjectMemoryEntry = { id: string; title: string; content: string };
@@ -71,9 +79,13 @@ export class ProjectBook {
     if (!name) throw new Error("a project needs a name");
     const projects = this.list();
     const base = slugify(name);
-    let folder = `projects/${base}`;
+    const chosen = (input.folders ?? []).map((folder) => folder.trim()).filter(Boolean);
+    let folder = chosen[0] ?? `projects/${base}`;
     let suffix = 2;
     const taken = new Set(projects.map((project) => project.folder));
+    if (chosen.length > 0 && taken.has(folder)) {
+      throw new Error(`a project already uses ${folder}`);
+    }
     while (taken.has(folder)) {
       folder = `projects/${base}-${suffix}`;
       suffix += 1;

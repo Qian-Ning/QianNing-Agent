@@ -488,6 +488,18 @@
   grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
+/*
+ * A stats table has more columns than a phone has width. Scrolling it inside
+ * its own card keeps every column readable without pushing the whole page
+ * sideways, which is what a bare table does at 390px.
+ */
+.usage-table-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
 .usage-table {
   width: 100%;
   border-collapse: collapse;
@@ -643,6 +655,10 @@
 }
 .usage-heat-cell {
   aspect-ratio: 1;
+  /* A column is `1fr`, so a series with a single week would otherwise blow one
+     cell up to the width of the card and push the page 2000px tall. */
+  max-width: 26px;
+  max-height: 26px;
   border-radius: var(--radius-3xs);
   background: var(--ds-chart-input);
 }
@@ -893,4 +909,80 @@
   margin: 0;
   font-size: var(--text-xs);
   color: var(--ds-error);
+}
+
+/*
+ * Phone usage page. The desktop layout collapses at 720px already; these rules
+ * tighten what is left — smaller type in tables, a narrower minimum width so a
+ * phone scrolls as little as possible, and cards that keep their gutters.
+ */
+:root[data-surface="mobile"] .usage-page {
+  padding: 0;
+  gap: 10px;
+}
+
+:root[data-surface="mobile"] .usage-toolbar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+:root[data-surface="mobile"] .usage-subtitle {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+:root[data-surface="mobile"] .usage-filters {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+:root[data-surface="mobile"] .usage-card {
+  padding: 10px;
+}
+
+:root[data-surface="mobile"] .usage-table {
+  min-width: 460px;
+  font-size: 12px;
+}
+
+:root[data-surface="mobile"] .usage-table th,
+:root[data-surface="mobile"] .usage-table td {
+  padding: 7px 8px;
+  white-space: nowrap;
+}
+
+:root[data-surface="mobile"] .usage-table th:first-child,
+:root[data-surface="mobile"] .usage-table td:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--ds-bg-primary, var(--card, #141414));
+  z-index: 1;
+}
+
+:root[data-surface="mobile"] .usage-hero {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+:root[data-surface="mobile"] .usage-hero-v {
+  font-size: 26px;
+}
+
+:root[data-surface="mobile"] .usage-mini {
+  gap: 8px;
+}
+
+:root[data-surface="mobile"] .usage-chart-stats {
+  gap: 8px;
+}
+
+/* A grid item defaults to its content width; a 460px table then props the
+   whole column open and the page scrolls sideways again. */
+:root[data-surface="mobile"] .usage-grid,
+:root[data-surface="mobile"] .usage-grid > *,
+:root[data-surface="mobile"] .usage-card,
+:root[data-surface="mobile"] .usage-table-scroll {
+  min-width: 0;
+  max-width: 100%;
 }

@@ -211,6 +211,7 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
       searchSettings(query, t, {
         developerMode,
         includeDevelopmentOnly: import.meta.env.DEV,
+        surface: document.documentElement.dataset.surface === "mobile" ? "mobile" : "desktop",
       }),
     [query, t, developerMode],
   );

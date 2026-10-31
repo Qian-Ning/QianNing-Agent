@@ -12,9 +12,11 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import process from "node:process";
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { injectBridgeBoot } from "./inject-bridge-boot.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(here, "..");
@@ -61,14 +63,7 @@ execFileSync(
 // The renderer's own bundle must not start before the bridge exists, or the
 // first `invoke` in a module initializer hits an undefined `piDesktop`.
 const indexFile = join(target, "index.html");
-const html = readFileSync(indexFile, "utf8");
-if (!html.includes("bridge-boot.js")) {
-  const patched = html.replace(
-    /(<script type="module"[^>]*><\/script>)/,
-    '<script src="./bridge-boot.js"></script>\n    $1',
-  );
-  if (patched === html) throw new Error("could not find the renderer entry script to prepend the bridge to");
-  writeFileSync(indexFile, patched, "utf8");
-}
+const injected = injectBridgeBoot(indexFile);
+console.log(`[shared] bridge bootstrap ${injected}`);
 
 console.log(`[shared] ready: ${target}`);

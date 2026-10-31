@@ -251,8 +251,9 @@
 
 /*
   A model service row is avatar + copy + switch + menu on desktop. At phone
-  width the copy lost its line and "9 个模型" stacked one character per row, so
-  the identity takes the full width and the controls move under it.
+  width the copy shrinks first (min-width 0 + ellipsis) so the switch stays on
+  the same line; the identity wraps internally instead of pushing the controls
+  to a second row.
 */
 :root[data-surface="mobile"] .model-provider-row {
   row-gap: 8px;
@@ -260,12 +261,13 @@
 }
 
 :root[data-surface="mobile"] .model-provider-row-copy {
-  flex: 1 1 100%;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 :root[data-surface="mobile"] .model-provider-row-actions {
-  flex: 1 1 100%;
-  justify-content: flex-end;
+  flex: none;
+  margin-left: auto;
 }
 
 :root[data-surface="mobile"] .model-provider-row-meta,
@@ -346,463 +348,31 @@
   min-height: 40px;
 }
 
+/* Mobile chrome uses the actual viewport edge; desktop window-control and
+   drag reservations otherwise leave the search cluster painted over itself. */
+:root[data-surface="mobile"] .conversation-topbar .ct-right {
+  padding-right: 0;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+:root[data-surface="mobile"] .conversation-topbar .ct-actions {
+  display: inline-flex;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+}
+
+:root[data-surface="mobile"] .conversation-topbar .ct-icon-btn {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+}
+
 /* A dismiss button is a target too; 26px is a mouse. */
 :root[data-surface="mobile"] .chat-error-dismiss {
   min-width: 40px;
   min-height: 40px;
-}
-
-/*
-  The composer row carries the same controls as the desktop, in the same order:
-  add, agent, run mode, model, reasoning, send. The phone cannot give each one
-  its desktop width, so the padding shrinks, the model name truncates, and the
-  two chips that open a panel the phone shows elsewhere (permission, context
-  ring) stay out. Labels stay visible: an unlabelled icon next to the model name
-  reads as part of the model, not as a control of its own.
-*/
-:root[data-surface="mobile"] .composer-toolbar {
-  /*
-    One line, always. A grid with a fixed column count wraps the moment a
-    seventh control appears (the context ring shows up once a turn has usage),
-    and the wrapped item lands on a second row at the left — which is how the
-    send button ended up floating over the card's bottom-left corner. Flex with
-    nowrap has no second row to fall into; the model chip is the only item that
-    shrinks, so any number of controls stays on the same line.
-  */
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 8px;
-  padding-inline: 8px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* The two clusters stop being boxes, so their children become the grid items
-   in DOM order: add, mode, permission, model, reasoning, send. */
-:root[data-surface="mobile"] .composer-left,
-:root[data-surface="mobile"] .composer-right {
-  display: contents;
-}
-
-:root[data-surface="mobile"] .composer-left {
-  flex: 0 0 auto;
-  min-width: 0;
-  flex-wrap: nowrap;
-  gap: 4px;
-  overflow: visible;
-}
-
-/* The send button is the anchor of the row; it never shrinks or moves. */
-:root[data-surface="mobile"] .send-btn,
-:root[data-surface="mobile"] .stop-btn {
-  margin: 0;
-  width: 44px;
-  height: 44px;
-  justify-self: end;
-}
-
-/* The mode chip keeps its word ("全自动"/"代理") — one short label, not 88px. */
-:root[data-surface="mobile"] .composer-mode-chip {
-  display: inline-flex;
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
-  padding: 0;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 34px;
-}
-
-/* The mode reads as a glyph: sparkles for auto, a list for plan, a target for
-   goal. The word is desktop-only. */
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-label {
-  display: none;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face > svg {
-  display: block;
-}
-
-:root[data-surface="mobile"] .composer-agent-chip {
-  min-height: 32px;
-  flex: 0 0 auto;
-}
-
-:root[data-surface="mobile"] .composer-agent-chip .label {
-  display: inline;
-  white-space: nowrap;
-}
-
-/*
-  Permission and context are panel-openers. A phone keeps them, but as glyphs:
-  the permission word and the ring's percentage are desktop luxury, and both
-  panels still open on tap.
-*/
-:root[data-surface="mobile"] .composer-permission {
-  display: inline-flex;
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
-  padding: 0;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 44px;
-}
-
-:root[data-surface="mobile"] .composer-permission .composer-permission-label,
-:root[data-surface="mobile"] .composer-permission .composer-permission-chevron {
-  display: none;
-}
-
-:root[data-surface="mobile"] .context-inspector-trigger {
-  display: inline-flex;
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
-  padding: 0;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 44px;
-}
-
-:root[data-surface="mobile"] .context-inspector-trigger .context-inspector-ring-value {
-  display: none;
-}
-
-:root[data-surface="mobile"] .context-inspector-trigger .context-inspector-ring {
-  width: 20px;
-  height: 20px;
-}
-
-/* Model and reasoning sit side by side as two chips, never as one run of text. */
-:root[data-surface="mobile"] .composer-model-thinking {
-  display: inline-flex;
-  gap: 6px;
-  /* The wrapper has to grow for the model name inside it to have anywhere to
-     go; otherwise both chips sit at their minimum and the name is cut at 64px. */
-  flex: 1 1 auto;
-  min-width: 0;
-  /* A chip wider than the wrapper spills over the next control — which is how
-     the send button ended up on top of the model name. Clip to the box. */
-  overflow: hidden;
-}
-
-:root[data-surface="mobile"] .composer-model-thinking-chip {
-  width: auto;
-  max-width: none;
-  min-width: 64px;
-  height: 44px;
-  flex: 1 1 auto;
-  justify-content: flex-start;
-  gap: 5px;
-  padding-inline: 9px;
-}
-
-:root[data-surface="mobile"] .composer-model-thinking-model {
-  display: inline-block;
-  max-width: none;
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The reasoning level is a word, and it must stay a word: 中/高 next to a
-   waveform icon is unreadable on its own. */
-:root[data-surface="mobile"] .composer-model-thinking-level {
-  display: inline-block;
-  white-space: nowrap;
-  font-size: var(--text-xs);
-}
-
-:root[data-surface="mobile"] .composer-model-thinking-chip .composer-model-thinking-level {
-  padding-inline: 0;
-}
-
-:root[data-surface="mobile"] .composer-model-thinking-chevron {
-  display: none;
-}
-
-:root[data-surface="mobile"] .composer-model-chip,
-:root[data-surface="mobile"] .composer-model-select {
-  /* Shrinkable on a 320px screen, where the row has no slack left. */
-  min-width: 0;
-  max-width: 100%;
-  flex: 1 1 auto;
-}
-
-/*
-  Row budget at 400dp: the card leaves 338px. Five 44px targets and four 8px
-  gaps take 252 of it, leaving the model name 86px — every extra 44px control
-  took the name down to "a…". So the phone row is five slots:
-
-      [+] [permission] [model · level] [context] [send]
-
-  The mode toggle (icon-only, its menu is the same one the permission picker
-  opens) and the standalone reasoning chip are gone from the row. The reasoning
-  level now rides inside the model chip as text, so it is visible at a glance
-  instead of being a fourth icon that looks like the permission shield.
-*/
-/* Every control the desktop row shows is on this one too; nothing is merged
-   away or hidden. Only the size changes. */
-
-/*
-  All seven composer functions stay on the phone, but they cannot all sit in one
-  44px row: seven targets and six gaps need 356px of a 338px card. The row keeps
-  the five that act on the message:
-
-      [+] [mode] [permission] [model · level] [send]
-
-  Four 44px targets and four 8px gaps take 208px, leaving the model chip 130px.
-  The context ring moves to the card's top-right corner as a status badge: it is
-  always on screen, costs the row nothing, and it is a reading of the input, not
-  a control of it.
-*/
-:root[data-surface="mobile"] .composer-shell {
-  position: relative;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .context-inspector {
-  order: 6;
-  position: static;
-}
-
-/* On a phone the mode is a glyph: sparkles for auto, a list for plan, a target
-   for goal. The word would cost the model name 44px it does not have. */
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-label {
-  display: none;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face > svg {
-  display: block;
-}
-
-/* The label lives inside the face, so hiding the face hid the word too and
-   left an empty 34px box. Keep the face, drop only the glyph. Three characters
-   at 10px need 31px, so the slot carries 40 and the model name gives up 6. */
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  padding: 0;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face > svg {
-  display: none;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip {
-  width: 32px;
-  min-width: 32px;
-  padding: 0;
-  margin-inline-end: 2px;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-level:not(.composer-model-level-inline),
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chevron {
-  display: none;
-}
-
-/*
-  The hidden reasoning chip still held a flex slot, so its two 8px gaps read as
-  a 16px hole between the model name and the send button. Take the wrapper out
-  of the flow, not just the chip inside it.
-*/
-/* The reasoning chip is one of the eight; it keeps its slot. */
-
-/*
-  Phone order: add · permission · model · context · send. The context trigger
-  is declared before the model chip in the desktop DOM (it sits on the left of
-  the model there); on a phone it reads better as a reading of the model's
-  headroom, so it moves to the model's right.
-*/
-/* The row read as scattered because a 44px target holding a 14px glyph leaves
-   38px of air between two icons. The buttons drop to 40, the glyphs grow to 20
-   and the gap to 4: the icons sit 24px apart, every target is still 40px, and
-   the model chip picks up the reclaimed width. The classes on the toolbar are
-   wrappers, so the size goes on the buttons inside them. */
-:root[data-surface="mobile"] .composer-toolbar {
-  gap: 4px;
-  align-items: center;
-}
-
-:root[data-surface="mobile"] .composer-toolbar button,
-:root[data-surface="mobile"] .composer-toolbar .send-btn,
-:root[data-surface="mobile"] .composer-toolbar .stop-btn {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  min-height: 34px;
-}
-
-/* Two of the five slots are wrappers around their button; a wrapper one size
-   larger than its button turns the even gap into 8/6/6/4. Both boxes match the
-   button so the gap is the only spacing in the row. */
-:root[data-surface="mobile"] .composer-toolbar .composer-plus,
-:root[data-surface="mobile"] .composer-toolbar .composer-permission {
-  width: 40px;
-  min-width: 40px;
-  height: 40px;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip,
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip button {
-  width: 40px;
-  min-width: 40px;
-  height: 40px;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking button {
-  width: auto;
-  min-width: 0;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-plus svg,
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip svg,
-:root[data-surface="mobile"] .composer-toolbar .composer-permission svg,
-:root[data-surface="mobile"] .composer-toolbar .send-btn svg,
-:root[data-surface="mobile"] .composer-toolbar .stop-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking {
-  height: 40px;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-plus > svg,
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip-face > svg,
-:root[data-surface="mobile"] .composer-toolbar .composer-permission > svg,
-:root[data-surface="mobile"] .composer-toolbar .send-btn > svg,
-:root[data-surface="mobile"] .composer-toolbar .stop-btn > svg {
-  width: 20px;
-  height: 20px;
-}
-
-/* Order and size for the whole row: add, mode, permission, model, reasoning,
-   context, send. Wrappers are exactly as tall as their buttons so one control
-   cannot sit five pixels lower than its neighbour. */
-:root[data-surface="mobile"] .composer-toolbar .composer-plus,
-:root[data-surface="mobile"] .composer-toolbar .composer-permission,
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking {
-  height: 34px;
-  min-height: 34px;
-  align-items: center;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-plus { order: 1; width: 32px; min-width: 32px; margin-inline-end: 2px; }
-:root[data-surface="mobile"] .composer-toolbar .composer-permission { order: 3; width: 34px; min-width: 34px; }
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip { order: 2; width: 34px; min-width: 34px; padding: 0; }
-
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face {
-  gap: 0;
-  padding: 0;
-  justify-content: center;
-}
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking:not(:has(.composer-reasoning-chip)) { order: 4; flex: 0 1 auto; min-width: 0; }
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking:has(.composer-reasoning-chip) {
-  display: none;
-}
-
-/* The chip was a flex item inside a zero-width wrapper, so it collapsed to 0.
-   The wrapper now owns the width and the chip fills it. */
-:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
-  flex: 0 0 auto;
-  width: 100%;
-  min-width: 0;
-  justify-content: center;
-  padding-inline: 0;
-}
-:root[data-surface="mobile"] .composer-toolbar .context-inspector { order: 6; flex: none; width: 34px; min-width: 34px; height: 34px; }
-:root[data-surface="mobile"] .composer-toolbar .send-btn { order: 7; margin-inline-start: 0; width: 34px; min-width: 34px; height: 34px; }
-
-/*
-  Room for the name. The bot glyph inside the chip is decoration that cost 19px
-  of the 130 the row can spare; the level keeps to a single short word and the
-  ring shows no number (the ring's fill already says how much is left, and a
-  lone "100%" next to an empty bar reads as the opposite of what it means).
-*/
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip .composer-model-thinking-icon {
-  display: none;
-}
-
-/* The toolbar's own 8px inset is duplicated by the card's padding; dropping it
-   hands the model name 16px it was spending twice. */
-:root[data-surface="mobile"] .composer-toolbar {
-  padding-inline: 0;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip {
-  padding-inline: 9px;
-  gap: 4px;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .context-inspector-ring-value {
-  display: none;
-}
-
-/*
-  The chip needs a surface. Without one the name and the level painted straight
-  onto the card and read as two loose words; a soft fill groups them into the
-  single control they are.
-*/
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip {
-  background: none;
-  border-radius: 0;
-  padding-inline: 2px;
-}
-
-/* A full ring means "the whole window is free", not "alarm": at rest it has to
-   read as one more grey tool icon, not a black dot. */
-:root[data-surface="mobile"] .context-inspector-trigger {
-  color: var(--ds-text-tertiary);
-}
-
-:root[data-surface="mobile"] .context-inspector-trigger .context-inspector-ring-track {
-  stroke: color-mix(in oklab, var(--ds-text-primary) 12%, transparent);
-}
-
-/* The arc reads "how much is still free", so at rest it is a full circle; at
-   full opacity that circle is the heaviest mark in the row. */
-:root[data-surface="mobile"] .context-inspector-trigger .context-inspector-ring-progress {
-  stroke-opacity: 0.45;
-}
-
-:root[data-surface="mobile"] .composer-model-level-inline {
-  display: inline-block;
-  flex: none;
-  margin-inline-start: 4px;
-  padding-inline-start: 5px;
-  border-inline-start: 1px solid var(--ds-border-subtle);
-  color: var(--ds-text-tertiary);
-  font-size: var(--text-xs);
-  line-height: var(--leading-tighter);
-  white-space: nowrap;
-}
-
-@media (max-width: 340px) {
-  /* Four 44px targets and their gaps leave the model column almost nothing at
-     320px; a tighter gap buys it back without dropping a control. */
-  :root[data-surface="mobile"] .composer-toolbar {
-    gap: 4px;
-  }
-}
-
-:root[data-surface="mobile"] .composer-model-thinking-chip {
-  /* Left-aligned inside its column: centring the name left a blank gutter on
-     both sides, which reads as a gap between controls. */
-  justify-content: flex-start;
-  padding-inline: 10px;
-}
-
-:root[data-surface="mobile"] .composer-model-chip .label,
-:root[data-surface="mobile"] .composer-model-select .label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* The composer sits above the gesture bar; the desktop's 8px bottom inset is
@@ -890,8 +460,10 @@
 :root[data-surface="mobile"] .conversation-topbar .ct-left {
   /* Without this the lead keeps `flex: 1 1 auto`, grows under the title, and the
      title paints behind the toggle icon. */
-  flex: 0 0 auto;
-  margin-right: 0;
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  margin-inline: 52px 0;
 }
 
 :root[data-surface="mobile"] .ct-title-wrap {
@@ -899,7 +471,7 @@
   flex: 1 1 auto;
   min-width: 0;
   /* The lead is out of flow (absolute), so the title has to clear it by hand. */
-  margin-inline: 52px 12px;
+  margin-inline: 0;
 }
 
 :root[data-surface="mobile"] .ct-title {
@@ -916,7 +488,14 @@
 /* The bar reserves 36px on the right for the desktop window controls. A phone
    has none, and the reservation pushed both icons out of the right edge. */
 :root[data-surface="mobile"] .conversation-topbar .ct-right {
-  padding-right: 0;
+  padding-right: 48px;
+}
+
+:root[data-surface="mobile"] .app-work-panel-toggle {
+  top: calc(1px + env(safe-area-inset-top, 0px));
+  right: 12px;
+  width: 44px;
+  height: 44px;
 }
 
 /* The chat-width handles are a 36px drag affordance on either side of the
@@ -979,10 +558,23 @@
 :root[data-surface="mobile"] .conversation-topbar .ct-actions,
 :root[data-surface="mobile"] .conversation-topbar .ct-right {
   gap: 8px;
-  padding: 0;
+  padding: 0 52px 0 0;
   margin: 0;
   background: transparent;
   box-shadow: none;
+}
+
+:root[data-surface="mobile"] .conversation-topbar .ct-actions {
+  padding: 0;
+  gap: 2px;
+}
+
+:root[data-surface="mobile"] .conversation-topbar .ct-right {
+  padding-right: 46px;
+}
+
+:root[data-surface="mobile"] .ct-empty-title {
+  display: none;
 }
 
 :root[data-surface="mobile"] .conversation-topbar .ct-right > *:not(.ct-actions),
@@ -1032,10 +624,10 @@
 }
 
 /*
-  The model-service dialog is height:auto on a phone, but its panes still size
-  their lists with flex:1 and paint their sticky headers over the rows, so the
-  searches and the model rows collided. A full-height sheet gives every pane a
-  real height and its own scroll.
+  The model-service sheet is a full-height phone screen. The credential band
+  stays on top and the two model panes share the height that is left, so
+  "该服务的模型" and "模型设置" are both on screen and the sheet never grows
+  past the viewport.
 */
 :root[data-surface="mobile"] .provider-setup-dialog,
 :root[data-surface="mobile"] .vendor-account-dialog {
@@ -1053,26 +645,46 @@
   overflow: hidden;
 }
 
-:root[data-surface="mobile"] .provider-setup-panes {
-  grid-template-columns: minmax(0, 1fr);
-  grid-auto-rows: minmax(0, auto);
-  min-height: 0;
-  overflow: hidden;
-}
-
-:root[data-surface="mobile"] .provider-models-pane,
-:root[data-surface="mobile"] .provider-chosen-pane {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-:root[data-surface="mobile"] .provider-models-list,
-:root[data-surface="mobile"] .provider-chosen-list {
+/*
+  One scroll container for the whole sheet: the credentials, the two panes and
+  every row between them. A pane that owns its own scrollbar inside a
+  full-height sheet produced two half-height boxes with clipped content.
+*/
+:root[data-surface="mobile"] .provider-setup-body {
   flex: 1 1 auto;
   min-height: 0;
-  max-height: none;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 2px 2px 16px;
+}
+
+:root[data-surface="mobile"] .provider-setup-panes {
+  grid-template-columns: minmax(0, 1fr);
+  /*
+    Rows are content-sized. A fixed 1fr split collapsed both lists: the chosen
+    pane's header and search ate 166 of its 176px and the list was left with 6px.
+    Each list now carries its own height below, and the sheet body scrolls to
+    reach the second block.
+  */
+  grid-auto-rows: auto;
+  gap: 10px;
+  /* Body is a flex column: without this the panes absorb the overflow and
+     every list is clipped by a pane that shrank to 158px. */
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+:root[data-surface="mobile"] .provider-models,
+:root[data-surface="mobile"] .provider-chosen {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: visible;
 }
 
 /* Search fields and the add-custom row keep their own line instead of
@@ -1086,16 +698,83 @@
 }
 
 /*
-  The model list is a fixed box on a phone. Left to flex inside a height:auto
-  panel it collapsed to roughly two rows, which made nine discovered models look
-  like two with a scrollbar nobody could grab.
+  A list owns its height and scrolls inside it, so it can never paint over the
+  block below it. 260px is roughly seven configured rows or three discovered
+  ones, and the sheet body scrolls to the second block.
 */
 :root[data-surface="mobile"] .provider-models-list,
 :root[data-surface="mobile"] .provider-chosen-list {
-  min-height: 40vh;
-  max-height: 40vh;
+  flex: 0 0 auto;
+  height: 260px;
+  max-height: 42vh;
+  min-height: 160px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/*
+  The lists are flex columns, so their rows are flex items and shrink to fit
+  the box when it is shorter than the content. On a phone that squashed nine
+  model rows into each other: names overlapped, checkboxes drifted out of their
+  rows. A row keeps its height and the list scrolls instead.
+*/
+:root[data-surface="mobile"] .provider-models-row,
+:root[data-surface="mobile"] .provider-chosen-row {
+  flex: 0 0 auto;
+}
+
+/* 27px rows were too tight to tap and read on a phone. */
+:root[data-surface="mobile"] .provider-chosen-row-head {
+  padding: 7px 8px;
+}
+
+/*
+  Discovered-model rows stay on ONE line: checkbox, model id, token counts.
+  Wrapping the id to its own line put the checkbox alone on the first line and
+  the name under it, which is what doubled the row height. The id truncates
+  with an ellipsis instead; the limits keep their space at the end.
+*/
+:root[data-surface="mobile"] .provider-models-row-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+}
+
+:root[data-surface="mobile"] .provider-models-check {
+  flex: none;
+  margin: 0;
+}
+
+:root[data-surface="mobile"] .provider-models-row-copy {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+:root[data-surface="mobile"] .provider-models-row-id {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+/* The display name repeats the id for a discovered model; one of them is enough. */
+:root[data-surface="mobile"] .provider-models-row-name {
+  display: none;
+}
+
+:root[data-surface="mobile"] .provider-models-row-limits {
+  flex: none;
+  margin: 0;
+  line-height: 1.3;
 }
 
 /*
@@ -1180,174 +859,544 @@
   font-size: var(--text-xs);
 }
 
+/*
+ * Messaging platforms on the phone: one page at a time, edge to edge.
+ *
+ * The desktop shows the list and the selected channel side by side; at 390px
+ * that produced a config form squeezed under a list nobody finished reading,
+ * inside a frame that padded the content column and then padded it again. The
+ * phone shows the list, then the platform's own page, with one gutter, and the
+ * page scrolls as a page instead of scrolling a box inside a box.
+ */
+:root[data-surface="mobile"] .settings-content {
+  padding: 0;
+}
 
-/* ── Composer row budget ────────────────────────────────────────────────
-   Authoritative for the phone composer row; last in the file on purpose.
+:root[data-surface="mobile"] .settings-content-inner {
+  padding: 8px 14px calc(20px + env(safe-area-inset-bottom));
+}
 
-   Desktop order, kept exactly:  +  mode  permission  model  reasoning  context  send
-   Desktop spends 760px on it. The phone card has 338:
+/* The platform page names itself; a page title above it would only repeat it. */
+:root[data-surface="mobile"] .settings-content[data-settings-tab="messaging"] .settings-section-title {
+  display: none;
+}
 
-     + 26 ·2· mode 26 ·2· permission 30 ·2· model 158 ·2· context 26 ·2· send 36
-     = 336, two pixels spare.
+:root[data-surface="mobile"] .settings-messaging.is-phone {
+  display: block;
+  padding-bottom: calc(28px + env(safe-area-inset-bottom));
+}
 
-   Slots hug their glyph (17px in a 26px box) so the row reads as one line of
-   marks rather than seven buttons with air around them. */
-:root[data-surface="mobile"] .composer-toolbar {
-  display: flex;
+:root[data-surface="mobile"] .settings-messaging.is-phone .settings-messaging-chooser,
+:root[data-surface="mobile"] .settings-messaging.is-phone .settings-messaging-detail {
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+}
+
+/* A sheet that grows with the page, not a window scrolling inside a window. */
+:root[data-surface="mobile"] .settings-messaging.is-phone .settings-messaging-chooser {
+  gap: 8px;
+}
+
+:root[data-surface="mobile"] .settings-messaging.is-phone .settings-messaging-list {
+  max-height: none;
+  gap: 0;
+  padding: 0;
+  overflow: visible;
+  border-radius: var(--radius-md-plus);
+  background: var(--ds-bg-inset);
+}
+
+:root[data-surface="mobile"] .settings-messaging.is-phone .settings-messaging-item {
+  padding: 14px 12px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--ds-border-subtle);
+}
+
+:root[data-surface="mobile"] .settings-messaging.is-phone .settings-messaging-item:last-child {
+  border-bottom: 0;
+}
+
+/* The detail page owns the whole width; the chevron is its only header. */
+:root[data-surface="mobile"] .settings-messaging.is-phone .settings-messaging-detail {
+  gap: 14px;
+  /* The page's own gutter. Zero here is what put the switch and the Save
+     button hard against the screen edge. */
+  padding: 14px;
+  gap: 14px;
+  overflow: visible;
+}
+
+
+:root[data-surface="mobile"] .settings-messaging-head {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+
+:root[data-surface="mobile"] .settings-messaging-head .settings-card-heading {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+/* A status line is read at a glance; breaking it mid-phrase costs that. */
+:root[data-surface="mobile"] .settings-messaging-head-actions {
   flex-wrap: nowrap;
-  align-items: center;
-  justify-content: flex-start;
-  column-gap: 0;
-  row-gap: 0;
+  white-space: nowrap;
 }
 
-:root[data-surface="mobile"] .composer-toolbar svg {
-  width: 17px;
-  height: 17px;
+/*
+ * The hint names the fields a channel is still missing. Ellipsizing it would
+ * hide exactly the words the reader needs, so it wraps — with room, at a
+ * readable measure, never breaking a word in half.
+ */
+:root[data-surface="mobile"] .settings-messaging-head-hint {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
-:root[data-surface="mobile"] .composer-toolbar .composer-plus {
-  order: 1;
-  flex: 0 0 26px;
-  width: 26px;
-  min-width: 26px;
-  height: 26px;
-  margin: 0 2px 0 0;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-plus .icon-btn {
-  width: 26px;
-  min-width: 26px;
-  height: 26px;
-  padding: 0;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip {
-  order: 2;
-  flex: 0 0 26px;
-  width: 26px;
-  min-width: 26px;
-  height: 26px;
-  margin: 0 2px 0 0;
-  padding: 0;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-permission {
-  order: 3;
-  flex: 0 0 30px;
-  width: 30px;
-  min-width: 30px;
-  height: 26px;
-  margin: 0 2px 0 0;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-permission .icon-btn {
-  width: 26px;
-  min-width: 26px;
-  height: 26px;
-  padding: 0;
-}
-
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking {
-  order: 4;
-  flex: 0 0 158px;
-  width: 158px;
-  max-width: 158px;
-  height: 26px;
-  margin: 0 2px 0 0;
-  gap: 2px;
+/* Two tidy lines instead of a ragged paragraph. */
+:root[data-surface="mobile"] .settings-messaging-blurb {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
+  line-height: 1.5;
+}
+
+/*
+ * The three state cards are a desktop row: three equal columns, each note
+ * squeezed into a third of the width and left ragging over four short lines.
+ * On a phone they stack, and each becomes one label line with its note below.
+ */
+:root[data-surface="mobile"] .settings-messaging-states {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+:root[data-surface="mobile"] .settings-messaging-state {
+  padding: 12px 14px;
+  gap: 4px;
+}
+
+:root[data-surface="mobile"] .settings-messaging-state-label {
+  letter-spacing: 0;
+}
+
+/* The header stack: name, then support, then the switch on its own line. */
+:root[data-surface="mobile"] .settings-messaging-head-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* The switch gets its own card: a control that writes settings should not look
+   like a stray toggle floating beside a paragraph. */
+:root[data-surface="mobile"] .settings-messaging-head-enable {
+  flex: 1 1 100%;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md-plus);
+  background: var(--ds-bg-primary);
+}
+
+:root[data-surface="mobile"] .settings-messaging-head-enable-copy {
+  max-width: none;
+  flex: 1 1 auto;
+  gap: 2px;
+}
+
+:root[data-surface="mobile"] .settings-messaging-head-enable-note {
+  line-height: 1.4;
+}
+
+/* The "still missing these fields" sentence reads as an alert, not a caption. */
+:root[data-surface="mobile"] .settings-messaging-head-hint {
+  padding: 8px 11px;
+  font-size: 12px;
+  border-left: 2px solid var(--ds-warning);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: color-mix(in srgb, var(--ds-warning) 10%, transparent);
+}
+
+/* Switch above, full-width Save below: two targets that each own a line. */
+:root[data-surface="mobile"] .settings-messaging-footer {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  padding: 14px;
+}
+
+:root[data-surface="mobile"] .settings-messaging-footer-action {
+  width: 100%;
+  min-height: 44px;
+}
+
+:root[data-surface="mobile"] .settings-messaging-field {
+  padding: 14px;
+}
+
+/* A token is one long unbroken string; break it anywhere but never overflow. */
+:root[data-surface="mobile"] .settings-messaging-form code,
+:root[data-surface="mobile"] .settings-messaging-form pre {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+/*
+ * A visible scrollbar eats 6px from one side only, which reads as lopsided
+ * margins on a page this narrow. The phone scrolls by touch; the bar is noise.
+ */
+:root[data-surface="mobile"] .settings-content::-webkit-scrollbar {
+  width: 0;
+}
+
+/* ── 远程访问（手机）: 配对电脑，而不是监听设备 ───────────────────────── */
+:root[data-surface="mobile"] .phone-remote {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+:root[data-surface="mobile"] .phone-remote-note {
+  margin: 0 0 12px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+:root[data-surface="mobile"] .phone-remote-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+:root[data-surface="mobile"] .phone-remote-connect {
+  width: 100%;
+  height: 44px;
+}
+
+:root[data-surface="mobile"] .phone-remote-error {
+  margin: 10px 0 0;
+  color: var(--destructive, #d33);
+  font-size: 12.5px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+:root[data-surface="mobile"] .phone-remote-empty {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+:root[data-surface="mobile"] .phone-remote-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:root[data-surface="mobile"] .phone-remote-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+:root[data-surface="mobile"] .phone-remote-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+:root[data-surface="mobile"] .phone-remote-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+:root[data-surface="mobile"] .phone-remote-name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-surface="mobile"] .phone-remote-url,
+:root[data-surface="mobile"] .phone-remote-fingerprint {
+  font-size: 11.5px;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-surface="mobile"] .phone-remote-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+:root[data-surface="mobile"] .phone-remote-check,
+:root[data-surface="mobile"] .phone-remote-remove {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+:root[data-surface="mobile"] .phone-remote-remove {
+  color: var(--muted-foreground);
+}
+
+/* ---------------------------------------------------------------
+   Connections (phone): SSH client. The desktop page is a host
+   manager; this one is a terminal that reaches your own machines.
+   --------------------------------------------------------------- */
+:root[data-surface="mobile"] .phone-ssh {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+:root[data-surface="mobile"] .phone-ssh-head h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+:root[data-surface="mobile"] .phone-ssh-head p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+:root[data-surface="mobile"] .phone-ssh-error,
+:root[data-surface="mobile"] .phone-ssh-notice {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+:root[data-surface="mobile"] .phone-ssh-error {
+  color: var(--destructive, #d9534f);
+  background: color-mix(in srgb, var(--destructive, #d9534f) 12%, transparent);
+}
+
+:root[data-surface="mobile"] .phone-ssh-notice {
+  color: var(--muted-foreground);
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+}
+
+:root[data-surface="mobile"] .phone-ssh-toolbar {
+  display: flex;
   justify-content: flex-start;
 }
 
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 26px;
-  padding: 0;
+:root[data-surface="mobile"] .phone-ssh-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
 }
 
-:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
-  flex: 0 0 26px;
-  width: 26px;
-  min-width: 26px;
-  max-width: 26px;
-  height: 26px;
-  padding: 0;
-  gap: 0;
-  justify-content: center;
+:root[data-surface="mobile"] .phone-ssh-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted-foreground);
 }
 
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-level,
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chevron,
-:root[data-surface="mobile"] .composer-toolbar .composer-model-level-inline {
-  display: none;
+:root[data-surface="mobile"] .phone-ssh-key {
+  width: 100%;
+  min-height: 84px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  resize: vertical;
 }
 
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-icon {
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
+:root[data-surface="mobile"] .phone-ssh-auth {
+  display: flex;
+  gap: 6px;
 }
 
-:root[data-surface="mobile"] .composer-toolbar .context-inspector {
-  order: 5;
-  flex: 0 0 26px;
-  width: 26px;
-  min-width: 26px;
-  height: 26px;
-  margin: 0 2px 0 0;
+:root[data-surface="mobile"] .phone-ssh-auth button {
+  flex: 1;
+  padding: 6px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 12px;
 }
 
-:root[data-surface="mobile"] .composer-toolbar .context-inspector .context-inspector-trigger {
-  width: 26px;
-  min-width: 26px;
-  height: 26px;
-  padding: 0;
+:root[data-surface="mobile"] .phone-ssh-auth button.is-active {
+  border-color: var(--accent);
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
-:root[data-surface="mobile"] .composer-toolbar .send-btn {
-  order: 6;
-  flex: 0 0 36px;
-  width: 36px;
-  min-width: 36px;
-  height: 26px;
+:root[data-surface="mobile"] .phone-ssh-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-/* The face animates in from opacity 0 with `both` fill; when the frame does not
-   advance the slot renders blank and the row reads as one function short. */
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-face {
-  animation: none;
-  opacity: 1;
-  visibility: visible;
-  gap: 0;
+:root[data-surface="mobile"] .phone-ssh-empty {
+  padding: 16px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted-foreground);
 }
 
-:root[data-surface="mobile"] .composer-toolbar .composer-mode-chip .composer-mode-chip-label {
-  display: none;
+:root[data-surface="mobile"] .phone-ssh-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
 }
 
-/* The last air in the row was inside two controls, not between them: the model
-   chip kept 16px of inline padding and the context trigger kept its own. With
-   those gone the marks run at the same 2px beat as the icons. */
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip {
-  padding-inline: 0 !important;
-  justify-content: flex-start !important;
+:root[data-surface="mobile"] .phone-ssh-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
-:root[data-surface="mobile"] .composer-toolbar .context-inspector .context-inspector-trigger {
-  padding: 0 !important;
+:root[data-surface="mobile"] .phone-ssh-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--foreground);
 }
 
-/* Inside the model cluster: the bot mark hugs the name, and the reasoning glyph
-   sits at the cluster's right edge, so the width the cluster reserves is used
-   by its two marks instead of becoming a 34px void before the context ring. */
-:root[data-surface="mobile"] .composer-toolbar .composer-model-thinking-chip {
-  gap: 2px !important;
-  justify-content: flex-start !important;
+:root[data-surface="mobile"] .phone-ssh-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
 }
 
-:root[data-surface="mobile"] .composer-toolbar .composer-reasoning-chip {
-  margin-inline-start: auto !important;
+:root[data-surface="mobile"] .phone-ssh-dot.is-live {
+  background: #3fb950;
+}
+
+:root[data-surface="mobile"] .phone-ssh-addr,
+:root[data-surface="mobile"] .phone-ssh-fp {
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-surface="mobile"] .phone-ssh-actions {
+  display: flex;
+  gap: 6px;
+}
+
+:root[data-surface="mobile"] .phone-ssh-actions button {
+  flex: 1;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 12px;
+}
+
+:root[data-surface="mobile"] .phone-ssh-actions .phone-ssh-primary {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+:root[data-surface="mobile"] .phone-ssh-terminal {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  overflow: hidden;
+}
+
+:root[data-surface="mobile"] .phone-ssh-terminal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+:root[data-surface="mobile"] .phone-ssh-terminal header button {
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+:root[data-surface="mobile"] .phone-ssh-log {
+  margin: 0;
+  max-height: 46vh;
+  min-height: 120px;
+  padding: 8px 10px;
+  overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+:root[data-surface="mobile"] .phone-ssh-input {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--border);
 }

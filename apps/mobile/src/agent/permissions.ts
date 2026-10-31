@@ -16,7 +16,7 @@ export type PermissionMode = "ask" | "accept-edits" | "auto";
 export type PermissionDecision = "allow-once" | "allow-session" | "deny";
 
 /** The actions this host can gate. Everything else the phone agent can do is read-only. */
-export type GatedAction = "write_file" | "fetch_url";
+export type GatedAction = "write_file" | "fetch_url" | "run_command";
 
 export type PermissionRequest = {
   requestId: string;
@@ -42,18 +42,21 @@ export function requiresApproval(mode: PermissionMode, action: GatedAction): boo
   if (mode === "auto") return false;
   if (mode === "ask") return true;
   // accept-edits: an edit inside the agent's own scratch space is the point of
-  // the mode; leaving the device for the network is not.
-  return action === "fetch_url";
+  // the mode. A command can do anything an edit can and more, so it still asks;
+  // leaving the device for the network asks too.
+  return action === "fetch_url" || action === "run_command";
 }
 
 const RISK: Record<GatedAction, PermissionRequest["risk"]> = {
   write_file: "write",
   fetch_url: "network",
+  run_command: "write",
 };
 
 const REASON: Record<GatedAction, string> = {
   write_file: "writes a file in app storage",
   fetch_url: "sends a request to the network",
+  run_command: "runs a shell command on this phone",
 };
 
 type Pending = {
@@ -112,9 +115,10 @@ export class PermissionBroker {
     toolName: string;
     action: GatedAction;
     argsPreview: unknown;
+    mode?: PermissionMode;
   }): Promise<boolean> {
-    if (!requiresApproval(this.mode, input.action)) return true;
-    const key = `${input.action}`;
+    if (!requiresApproval(input.mode ?? this.mode, input.action)) return true;
+    const key = `${input.sessionId}:${input.action}`;
     if (this.granted.has(key)) return true;
 
     const request: PermissionRequest = {
@@ -148,7 +152,7 @@ export class PermissionBroker {
 
     if (decision !== "deny") {
       const action: GatedAction = entry.request.risk === "network" ? "fetch_url" : "write_file";
-      if (decision === "allow-session") this.granted.add(action);
+      if (decision === "allow-session") this.granted.add(`${entry.request.sessionId}:${action}`);
       entry.settle(true);
       return true;
     }

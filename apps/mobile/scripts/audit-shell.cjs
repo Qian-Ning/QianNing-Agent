@@ -13,6 +13,7 @@
 // reload.
 
 const { app, BrowserWindow } = require("electron");
+if (process.env.PI_MOBILE_AUDIT_PROFILE) app.setPath("userData", process.env.PI_MOBILE_AUDIT_PROFILE);
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
@@ -70,15 +71,35 @@ const MEASURE = String.raw`
     const rect = element.getBoundingClientRect();
     return rect.width > 0 && rect.height > 0;
   };
-  const actions = [...document.querySelectorAll(".ct-actions > *")].filter(visible);
-  const composer = document.querySelector(".composer");
+  const actions = [...document.querySelectorAll(".ct-actions > *, .app-work-panel-toggle")].filter(visible).sort((a,b) => a.getBoundingClientRect().x - b.getBoundingClientRect().x);
+  const composer = document.querySelector(".composer-shell");
   const bar = document.querySelector(".composer-toolbar") || composer;
-  // The context ring lives in the card's corner as a badge, so it is not part
-  // of the row this measurement is about.
+  /*
+    The row's controls are the toolbar's own flex items. On a phone the two
+    clusters flatten with display:contents, so the items are the cluster's
+    children plus the toolbar's own children — not the buttons inside them: a
+    button carries its own padding and reads a narrower and offset box than
+    the slot the row actually spaces out.
+  */
+  const rowItems = (() => {
+    if (!bar) return [];
+    const out = [];
+    for (const child of bar.children) {
+      if (getComputedStyle(child).display === "contents") {
+        for (const leaf of child.children) if (visible(leaf)) out.push(leaf);
+      } else if (visible(child)) {
+        out.push(child);
+      }
+    }
+    return out;
+  })();
+// The context ring is an independent toolbar control and is counted below.
   const controls = bar
-    ? [...bar.querySelectorAll("button, [role=button], .composer-chip, .composer-mode-chip")]
-      .filter(visible)
-      .filter((element) => !element.classList.contains("context-inspector-trigger"))
+    ? (rowItems.length
+        ? rowItems
+        : [...bar.querySelectorAll("button, [role=button], .composer-chip, .composer-mode-chip, .context-inspector-trigger")]
+            .filter(visible))
+
     : [];
   const topbar = document.querySelector(".conversation-topbar, .ct-bar, .ct-root, header.ct") ||
     document.querySelector(".ct-actions")?.closest("header, .ct, .conversation-topbar");
@@ -103,12 +124,47 @@ const MEASURE = String.raw`
     // The reasoning level lives inside the model chip on a phone; if it is not
     // painted there, the row has no way to show it at all.
     reasoningLevel: (() => {
-      const level = document.querySelector(".composer-model-level-inline");
+      const level = document.querySelector(".composer-reasoning-chip .composer-model-thinking-icon");
       if (!level) return null;
       const rect = level.getBoundingClientRect();
       return { text: (level.textContent || "").trim(), w: Math.round(rect.width), h: Math.round(rect.height) };
     })(),
     composer: box(composer),
+    toolbarBox: box(document.querySelector(".composer-toolbar")),
+    modelSeatBox: box(document.querySelector(".composer-model-anchor")),
+    modelChipBox: box(document.querySelector(".composer-model-chip")),
+    modelText: box(document.querySelector('.composer-model-thinking-model')),
+    glyphs: controls.map(element => {
+      const svg = [...element.querySelectorAll('svg')].find(visible);
+      if (!svg) return null;
+      const ink = svg.getBBox();
+      const view = svg.viewBox.baseVal;
+      const rect = svg.getBoundingClientRect();
+      const host = element.getBoundingClientRect();
+      // A glyph that spills outside its own control is clipped by the control's
+      // padding or by a span with overflow hidden: the icon looks cut in half.
+      const fit = rect.left >= host.left - 0.5 && rect.right <= host.right + 0.5
+        && rect.top >= host.top - 0.5 && rect.bottom <= host.bottom + 0.5;
+      return { className: String(element.className), w: ink.width / view.width * rect.width, h: ink.height / view.height * rect.height, fit };
+    }).filter(Boolean),
+    // A control that draws an icon and also prints a label puts the text on top
+    // of the glyph: the row reads as smeared ink. Only the model chip carries
+    // text on the phone, and it has no icon inside it.
+    iconText: controls.map(element => {
+      const svg = [...element.querySelectorAll('svg')].find(visible);
+      if (!svg) return null;
+      const shown = [...element.querySelectorAll('*')]
+        .filter(el => el.children.length === 0 && (el.textContent || '').trim())
+        .filter(el => {
+          const cs = getComputedStyle(el);
+          const r = el.getBoundingClientRect();
+          return cs.display !== 'none' && cs.visibility !== 'hidden'
+            && Number(cs.opacity) > 0 && r.width > 0;
+        });
+      if (shown.length === 0) return null;
+      return { className: String(element.className).slice(0, 40),
+        text: shown.map(el => (el.textContent || '').trim()).join('|').slice(0, 20) };
+    }).filter(Boolean),
     barScroll: bar ? { client: bar.clientWidth, scroll: bar.scrollWidth } : null,
     toolbarStyle: bar ? {
       display: getComputedStyle(bar).display,
@@ -118,6 +174,9 @@ const MEASURE = String.raw`
       label: (element.textContent || element.getAttribute("aria-label") || "").trim().slice(0, 14),
       className: String(element.className || "").slice(0, 60),
       aria: element.getAttribute("aria-label") || "",
+      background: getComputedStyle(element).backgroundColor,
+      borderWidth: getComputedStyle(element).borderWidth,
+      shadow: getComputedStyle(element).boxShadow,
       ...box(element),
     })),
   };
@@ -235,7 +294,7 @@ function inspect(measured, width) {
     if (arrowRightOf(actions) === false) push("action-order", "actions are not laid out left to right");
     for (let index = 1; index < actions.length; index += 1) {
       const gap = actions[index].x - actions[index - 1].right;
-      if (Math.abs(gap - 8) > 1) {
+      if (Math.abs(gap - 2) > 2) {
         push("action-gap", `${gap}px between ${actions[index - 1].label || "·"} and ${actions[index].label || "·"}`);
       }
     }
@@ -268,6 +327,58 @@ function inspect(measured, width) {
     }
   }
   const controls = measured.controls;
+  if (controls.length !== 7) push("control-count", `${controls.length} != 7`);
+  if (controls.some((c) => /voice|mic/i.test(c.className))) push("mobile-voice", "voice control rendered");
+  // The model name's readable width lives on its anchor, the seat that holds
+  // the chip: the chip itself is the inner box and is narrower by its own
+  // padding. Measuring the chip made a 70px contract look like a 56px one.
+  const model = measured.modelSeatBox
+    ? { ...measured.modelSeatBox, className: "composer-model-anchor" }
+    : controls.find((c) => c.className.includes("composer-model-chip"));
+  // The row items are the seats the toolbar spaces out: the context trigger
+  // sits in its own seat and the reasoning control in another.
+  const context = controls.find((c) => /context-inspector/.test(c.className));
+  const reasoningChip = controls.find((c) => /composer-reasoning-(chip|anchor)/.test(c.className));
+  if (reasoningChip && (reasoningChip.background !== 'rgba(0, 0, 0, 0)' || reasoningChip.borderWidth !== '0px' || reasoningChip.shadow !== 'none')) push('reasoning-decoration', JSON.stringify(reasoningChip));
+  if (!model) {
+    push("model-unreadable", JSON.stringify(model));
+  } else {
+    /*
+      A 320px phone cannot give the model name 70px and still fit the six icons
+      around it, so the tightest layout ships a 56px floor and ellipses the
+      rest. From 360px up the name keeps the full readable width.
+    */
+    const floor = width <= 359 ? 56 : 70;
+    if (model.w < floor) push("model-unreadable", JSON.stringify(model));
+  }
+  if (model && measured.modelText && Math.abs(model.x + model.w / 2 - measured.modelText.x - measured.modelText.w / 2) > 1) push('model-text-center', JSON.stringify(measured.modelText));
+  // The gap is measured from the chip's own right edge: the anchor is a wider
+  // seat around it, and the seat's edge is not what the eye reads as the gap.
+  // The row's own gap is the budget, so a gap equal to it is correct.
+  const modelChipBox = measured.modelChipBox;
+  if (modelChipBox && reasoningChip && (reasoningChip.x - modelChipBox.right < 1 || reasoningChip.x - modelChipBox.right > 6)) push('model-reasoning-gap', `${reasoningChip.x - modelChipBox.right}`);
+  const sortedControls = [...controls].sort((a, b) => a.x - b.x);
+  if (measured.composer && sortedControls.length) {
+    /*
+      The row's own inset is the toolbar's padding: the first control's edge and
+      the last control's edge are measured against the toolbar box, not against
+      the wider composer card that wraps it. Measuring against the card mixed
+      the card's own margins into the row's inset and reported a lopsided 14/6.
+    */
+    const row = measured.toolbarBox ?? measured.composer;
+    const left = sortedControls[0].x - row.x;
+    const right = row.right - sortedControls.at(-1).right;
+    if (left < 12 || right < 12 || Math.abs(left - right) > 1) push('composer-edge-inset', `${left}/${right}`);
+    measured.composerInsets = { left, right };
+  }
+  for (const glyph of measured.glyphs ?? []) {
+    if (/composer-mode-chip|mode-chip/.test(glyph.className) && Math.max(glyph.w, glyph.h) < 14) push('glyph-ink', JSON.stringify(glyph));
+    if (glyph.fit === false) push('glyph-clipped', JSON.stringify({ c: glyph.className, w: Math.round(glyph.w), h: Math.round(glyph.h) }));
+  }
+  for (const over of measured.iconText ?? []) {
+    if (/composer-model-chip/.test(over.className)) continue;
+    push('icon-text-overlap', JSON.stringify(over));
+  }
   const toolbarStyle = measured.toolbarStyle;
   if (toolbarStyle && (toolbarStyle.display !== "flex" || toolbarStyle.flexWrap !== "nowrap")) {
     // Any layout that can move a control to a second line puts it under the
@@ -277,7 +388,7 @@ function inspect(measured, width) {
   if (controls.length > 1) {
     // A control that drops to a second row lands below the input and reads as
     // a floating button; no per-control size check can see that.
-    const tops = controls.map((control) => control.y);
+    const tops = controls.map((control) => control.y + control.h / 2);
     if (Math.max(...tops) - Math.min(...tops) > 2) push("toolbar-two-rows", tops.join("/"));
   }
   for (const control of controls) {
@@ -287,7 +398,9 @@ function inspect(measured, width) {
   }
   for (let index = 0; index < controls.length; index += 1) {
     const control = controls[index];
-    if (control.h < 32) push("control-squashed", `${control.label} h=${control.h}`);
+    if (control.className.includes("send-btn") || control.className.includes("stop-btn")) {
+      if (control.w !== 28 || control.h !== 28) push("send-not-square", `${control.w}x${control.h}`);
+    } else if (control.h < 32) push("control-squashed", `${control.label} h=${control.h}`);
     if (control.right > width + 1) push("control-clipped", `${control.label} right=${control.right}`);
     for (const other of controls.slice(index + 1)) {
       // Two controls sharing pixels is how a send button ends up on top of the
@@ -317,22 +430,51 @@ function arrowRightOf(actions) {
 }
 
 async function run(port, width) {
-  const win = new BrowserWindow({ width, height: HEIGHT, show: false, backgroundColor: "#f7f2ea" });
-  await win.loadURL(`http://127.0.0.1:${port}/shared/index.html?surface=mobile`);
+  const win = new BrowserWindow({ width, height: HEIGHT, show: true, useContentSize: true, backgroundColor: "#f7f2ea" });
+  const requests = [];
+  win.webContents.session.webRequest.onBeforeRequest((details, callback) => {
+    const remote = /^https?:/.test(details.url) && new URL(details.url).port !== String(port);
+    if (remote) requests.push(details.url);
+    callback({ cancel: remote });
+  });
+  // Load the way the installed app does: no `?surface=` parameter. The phone
+  // bundle is served by Capacitor at its own origin with no query string, so
+  // passing one here would let a missing surface detection pass the audit while
+  // every mobile rule stayed inert on a real device.
+  await win.loadURL(`http://127.0.0.1:${port}/shared/index.html`);
+  const surface = await win.webContents.executeJavaScript(
+    `document.documentElement.dataset.surface || ""`);
+  if (surface !== "mobile") {
+    throw new Error(`surface attribute is "${surface}", expected "mobile"`);
+  }
+  // A mobile-only declaration proves the mobile sheet is live, not just the
+  // attribute: the row gap is 6px on the wider phones and 4px on the narrow
+  // ones, while the desktop base is 8px. Either value means the phone sheet
+  // won; 8px means it did not apply.
+  const phoneGap = await win.webContents.executeJavaScript(
+    `(() => { const el = document.querySelector('.composer-toolbar'); return el ? getComputedStyle(el).columnGap : ''; })()`);
+  const expectedGap = width >= 380 ? "6px" : "4px";
+  if (phoneGap !== expectedGap) {
+    throw new Error(`mobile stylesheet not applied: composer gap ${phoneGap}, expected ${expectedGap}`);
+  }
+  const emptyTitle = await win.webContents.executeJavaScript(`(() => { const el=document.querySelector('.ct-empty-title'); return el ? getComputedStyle(el).display : 'none'; })()`);
+  if (emptyTitle !== 'none') throw new Error('mobile empty title visible');
   // Seed a configured phone. BrowserStore keeps values inside one JSON blob, so
   // the provider goes there; a top-level key is ignored and leaves the chip blank.
   await win.webContents.executeJavaScript(`
     const stamp = new Date().toISOString();
     const provider = {
-      id: "p1", name: "Agnes", baseUrl: "https://apihub.agnes-ai.com/v1", apiKey: "x",
-      apiStyle: "openai", models: ["agnes-3.0-flash"], defaultModelId: "agnes-3.0-flash",
+      id: "p1", name: "Agnes", baseUrl: "http://127.0.0.1:1/v1", apiKey: "x",
+      apiStyle: "openai", models: ["agnes-3.0-flash", "agnes-3.0-pro"], defaultModelId: "agnes-3.0-flash",
       createdAt: stamp, updatedAt: stamp,
     };
     localStorage.setItem("qn.agent.values", JSON.stringify({
       "qn.local.providers": JSON.stringify([provider]),
       "qn.local.activeProvider": "p1",
+      "qn.local.settings": JSON.stringify({ defaultPermissionMode: "ask", voice: { enabled: true } }),
+      "qn.local.sessionConfig.s1": JSON.stringify({ mode: "agent", permissionMode: "ask", thinkingLevel: "medium", providerId: "p1", modelId: "agnes-3.0-flash" }),
     }));
-    localStorage.setItem("qn.local.settings", JSON.stringify({ defaultPermissionMode: "ask" }));
+    localStorage.setItem("qn.local.settings", JSON.stringify({ defaultPermissionMode: "ask", voice: { enabled: true } }));
     const session = { id: "s1", title: "布局探针", createdAt: stamp, updatedAt: stamp };
     localStorage.setItem("qn.agent.sessions", JSON.stringify([session]));
     localStorage.setItem("qn.agent.messages.s1", JSON.stringify([
@@ -342,9 +484,111 @@ async function run(port, width) {
     ]));
     true;
   `);
-  await win.webContents.reload();
+  const started = Date.now();
+  win.reload();
   await new Promise((resolve) => setTimeout(resolve, 1200));
+  await win.webContents.executeJavaScript(`(async () => {
+    const opener = document.querySelector('.sidebar-toggle-btn') || [...document.querySelectorAll('[aria-label]')].find(el => el.getAttribute('aria-label') === '切换侧边栏');
+    if (opener) opener.click();
+    await new Promise(resolve => setTimeout(resolve, 200));
+    /*
+      The session list paints when the bridge answers, and a reload can be
+      slower than the fixed wait that used to be enough. Poll for the seeded
+      row instead of asserting on the first frame, and report what the store
+      actually holds when it never arrives.
+    */
+    const deadline = Date.now() + 8000;
+    let item = null;
+    while (Date.now() < deadline) {
+      item = document.querySelector('[data-sidebar-session-row="s1"]');
+      if (item) break;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    if (!item) {
+      const sessions = localStorage.getItem('qn.agent.sessions');
+      const rows = [...document.querySelectorAll('[data-sidebar-session-row]')].map(el => el.getAttribute('data-sidebar-session-row'));
+      throw new Error('seeded session row missing; stored=' + String(sessions).slice(0, 120) + ' rendered=' + JSON.stringify(rows));
+    }
+    item.click();
+    await new Promise(resolve => setTimeout(resolve, 400));
+  })()`);
   const measured = await win.webContents.executeJavaScript(MEASURE);
+  measured.localReadyMs = Date.now() - started;
+  measured.interactions = await win.webContents.executeJavaScript(`(async () => {
+    const wait = () => new Promise(resolve => setTimeout(resolve, 250));
+    const results = [];
+    const read = async () => {
+      const response = await window.piDesktop.invoke('pi-desktop/session/get', 's1');
+      if (!response.ok) throw new Error('session read failed');
+      return response.data.session;
+    };
+    document.querySelector('.composer-mode-chip').click(); await wait();
+    if (document.querySelectorAll('[data-mode-choice]').length !== 3) throw new Error('mode choices missing');
+    document.querySelector('[data-mode-choice="plan"]').click(); await wait();
+    if ((await read()).mode !== 'plan') throw new Error('mode selection not persisted');
+    if (document.querySelector('.composer-mode-chip').dataset.mode !== 'plan') throw new Error('mode UI not updated');
+    if (document.querySelector('[data-mode-choice]')) throw new Error('mode menu stayed open');
+    results.push('mode select/readback');
+    for (const selector of ['.composer-permission button', '.composer-model-chip', '.composer-reasoning-chip', '.context-inspector-trigger']) {
+      const trigger = document.querySelector(selector);
+      if (!trigger) throw new Error('missing trigger ' + selector);
+      trigger.click(); await wait();
+      const menu = document.querySelector('[role="menu"], [role="dialog"]');
+      if (!menu) throw new Error('menu did not open ' + selector);
+      if (selector === '.composer-model-chip') {
+        const choice = document.querySelector('.composer-model-option-select[title="agnes-3.0-pro"]');
+        if (!choice) throw new Error('alternate model choice missing');
+        choice.click(); await wait();
+        if ((await read()).modelId !== 'agnes-3.0-pro') throw new Error('model selection not persisted');
+        if (document.querySelector('.composer-model-chip')?.getAttribute('aria-expanded') !== 'false') throw new Error('model choice did not close menu');
+      }
+      if (selector === '.composer-reasoning-chip') {
+        const choice = document.querySelector('[data-thinking-index="1"]');
+        if (!choice) throw new Error('reasoning choices missing');
+        choice.click(); await wait();
+        if ((await read()).thinkingLevel === 'medium') throw new Error('reasoning not persisted: ' + JSON.stringify(await read()));
+        if (document.querySelector('.composer-reasoning-chip')?.getAttribute('aria-expanded') !== 'false') throw new Error('reasoning choice did not close menu');
+      }
+      if (selector === '.composer-permission button') {
+        const choice = document.querySelectorAll('[role="menuitemradio"]')[1];
+        if (!choice) throw new Error('permission choices missing');
+        choice.click(); await wait();
+        if ((await read()).permissionMode === 'ask') throw new Error('permission not persisted');
+      }
+      results.push(selector);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await wait();
+    }
+    const config = await read();
+    if (config.providerId !== 'p1' || config.modelId !== 'agnes-3.0-pro') throw new Error('model lost in partial update');
+    return { results, config };
+  })()`);
+  win.reload();
+  await new Promise(resolve => setTimeout(resolve, 900));
+  const reopened = await win.webContents.executeJavaScript(`window.piDesktop.invoke('pi-desktop/session/get', 's1')`);
+  for (const field of ['mode', 'permissionMode', 'thinkingLevel', 'providerId', 'modelId']) {
+    if (reopened.data.session[field] !== measured.interactions.config[field]) throw new Error('configuration changed after reload: ' + field);
+  }
+  measured.remoteRequests = requests.length;
+  if (requests.length) throw new Error('cache startup attempted remote requests: ' + requests.length);
+  await win.webContents.executeJavaScript(`(async () => {
+    const opener = [...document.querySelectorAll('[aria-label]')].find(el => el.getAttribute('aria-label') === '切换侧边栏');
+    if (opener) opener.click();
+    await new Promise(resolve => setTimeout(resolve, 200));
+    document.querySelector('[data-sidebar-session-row="s1"]')?.click();
+    await new Promise(resolve => setTimeout(resolve, 300));
+    if (document.querySelector('.composer-mode-chip')?.dataset.mode !== 'plan') throw new Error('reopened mode UI wrong');
+  })()`);
+  await win.webContents.executeJavaScript('document.activeElement?.blur(); true');
+  const output = process.env.PI_MOBILE_AUDIT_ARTIFACTS;
+  if (output) {
+    fs.mkdirSync(output, { recursive: true });
+    fs.writeFileSync(path.join(output, `phone-${width}.png`), (await win.webContents.capturePage()).toPNG());
+    await win.webContents.executeJavaScript("document.querySelector('.composer-model-chip').click(); true");
+    await new Promise(resolve => setTimeout(resolve, 250));
+    fs.writeFileSync(path.join(output, `phone-${width}-model-menu.png`), (await win.webContents.capturePage()).toPNG());
+    await win.webContents.executeJavaScript("document.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true})); true");
+  }
   measured.settings = await win.webContents.executeJavaScript(MEASURE_SETTINGS);
   win.destroy();
   return measured;
@@ -364,9 +608,10 @@ for (const width of WIDTHS) {
   const measured = await run(port, width);
   const problems = inspect(measured, width);
   report.push({ width, measured, problems });
+  if (process.env.PI_MOBILE_AUDIT_ARTIFACTS) fs.writeFileSync(path.join(process.env.PI_MOBILE_AUDIT_ARTIFACTS, 'audit-report.json'), JSON.stringify(report, null, 2));
   failures += problems.length;
   if (!raw) {
-    console.log(`\n${width}×${HEIGHT}`);
+    console.log(`\n${width}×${measured.viewport.h}`);
     console.log(`  actions   ${measured.actions.map((action) => `${action.label || "·"} ${action.w}x${action.h}@${action.x}`).join("  ")}`);
     console.log(`  controls  ${measured.controls.map((control) => `${control.label || "·"} ${control.w}x${control.h}`).join("  ")}`);
     console.log(`  toolbar   ${measured.barScroll ? `${measured.barScroll.scroll}/${measured.barScroll.client}` : "n/a"}`);
@@ -380,4 +625,7 @@ if (raw) console.log(JSON.stringify(report, null, 2));
 console.log(`\n${failures === 0 ? "PASS" : `FAIL (${failures})`}`);
 server.close();
 app.exit(failures === 0 ? 0 : 1);
-})();
+})().catch((error) => {
+  console.error(error);
+  app.exit(1);
+});

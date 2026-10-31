@@ -11,9 +11,12 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { LocalAgentHost } from "./host";
 import { MemoryStore } from "./store";
+import { ProviderBook } from "../bridge/providers";
+import { updateSessionConfig } from "./session-config";
 
 let server: Server;
 let baseUrl = "";
+const requests: Array<Record<string, unknown>> = [];
 
 function chunk(delta: Record<string, unknown>, finish: string | null): string {
   return (
@@ -32,6 +35,9 @@ function chunk(delta: Record<string, unknown>, finish: string | null): string {
 beforeAll(async () => {
   server = createServer((request, response) => {
     if (request.method === "POST" && request.url?.endsWith("/chat/completions")) {
+      let body = "";
+      request.on("data", (chunk) => { body += chunk; });
+      request.on("end", () => { requests.push(JSON.parse(body)); });
       response.writeHead(200, {
         "content-type": "text/event-stream",
         "cache-control": "no-cache",
@@ -57,6 +63,20 @@ afterAll(async () => {
 });
 
 describe("the phone agent over a real HTTP endpoint", () => {
+  it("uses restored session provider/model/reasoning and applies partial changes on its cached agent", async () => {
+    const store = new MemoryStore();
+    const selected = new ProviderBook(store).create({ baseUrl, apiKey: "test", models: [{ id: "selected-model" }] });
+    const host = new LocalAgentHost(store, { baseUrl: "http://127.0.0.1:1/v1", apiKey: "test", modelId: "wrong-model" });
+    const session = host.createSession("named");
+    updateSessionConfig(store, session.id, { providerId: selected.id, modelId: "selected-model", thinkingLevel: "high" });
+    await host.send(session.id, "first");
+    expect(requests.at(-1)).toMatchObject({ model: "selected-model", reasoning_effort: "high" });
+    updateSessionConfig(store, session.id, { thinkingLevel: "omit" });
+    await host.send(session.id, "second");
+    expect(requests.at(-1)?.model).toBe("selected-model");
+    expect(requests.at(-1)).not.toHaveProperty("reasoning_effort");
+  });
+
   it("streams a reply from an OpenAI-compatible provider", async () => {
     const host = new LocalAgentHost(new MemoryStore(), {
       baseUrl,

@@ -137,6 +137,19 @@ export function AppShell() {
     };
   }, [sidebarCollapsed, toggleSidebar]);
 
+  /**
+   * Desktop-only routes have no phone backend, so their drawer entries are
+   * hidden. The image workbench, the usage page and the notification ledger do
+   * run on the phone and stay reachable. A page restored from a previous session could still be one of them;
+   * land on the conversation instead of an empty shell.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (document.documentElement.dataset.surface !== "mobile") return;
+    const desktopOnly = new Set(["plugins"]);
+    if (desktopOnly.has(useAppStore.getState().page)) useAppStore.getState().setPage("chat");
+  }, []);
+
   useCopyTex();
   const petEnabled = useAppStore((state) => state.settings?.petEnabled === true);
 
@@ -228,7 +241,13 @@ export function AppShell() {
                     onNewTask={() => void runMenuCommand("newTask")}
                     onOpenSearch={() => setSearchOpen(true)}
                   />
-                ) : (
+                ) : document.documentElement.dataset.surface === "mobile" ? null : (
+                  /*
+                   * The titlebar exists to drag the window and to reach the sidebar
+                   * when it is collapsed. A phone has neither: every non-chat page
+                   * brings its own header, and a floating strip of window controls
+                   * over them only covers the content.
+                   */
                   <div
                     className={cx(
                       "main-titlebar",

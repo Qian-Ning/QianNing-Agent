@@ -10,7 +10,23 @@ import { initLanguageSync, resolveOsLocale } from "./lib/app-language";
 import { installScrollbarReveal } from "./lib/scrollbar-reveal";
 import "./styles/globals.css";
 
-const rendererSurface = new URLSearchParams(window.location.search).get("surface");
+/*
+  Which surface this build is drawing.
+
+  The desktop app never passes a parameter. The phone bundle is served by
+  Capacitor at its own origin, also with no parameter, so the query string
+  alone left the attribute unset on a real device and every
+  `:root[data-surface="mobile"]` rule inert — the desktop layout rendered into
+  a phone screen. Ask the native bridge when there is one; the phone's boot
+  script sets the same attribute even earlier, and this keeps the answer
+  correct if that script ever fails to load.
+*/
+const nativeShell = (window as unknown as {
+  Capacitor?: { isNativePlatform?: () => boolean };
+}).Capacitor;
+const rendererSurface =
+  new URLSearchParams(window.location.search).get("surface") ??
+  (nativeShell?.isNativePlatform?.() ? "mobile" : null);
 if (rendererSurface) document.documentElement.dataset.surface = rendererSurface;
 // First paint follows the OS: a fresh install on a light desktop must not
 // flash the dark palette before the shell resolves the stored preference.
