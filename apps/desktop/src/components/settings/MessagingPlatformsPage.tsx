@@ -51,7 +51,7 @@ import {
   type TelegramChatCandidate,
   type TelegramProbeFailure,
 } from "../../lib/messaging-platforms";
-import { channelStatus } from "../../lib/messaging-platforms";
+import { channelStatus, secretSlotFor } from "../../lib/messaging-platforms";
 import { MessagingPlatformIcon } from "./MessagingPlatformIcon";
 import {
   Badge,
@@ -711,7 +711,7 @@ function SupportedPanel({
     // below owns what is *not* a secret (the generated API token, and the plain
     // record fields), because a channel's credential ids must never have to be
     // listed here: DingTalk's AppKey is not a new case, it is a slot.
-    const secretSlot = platform.secrets.find((slot) => slot.id === field.id);
+    const secretSlot = secretSlotFor(platform, field.id);
     if (secretSlot && field.id !== "api-token") {
       return (
         <div className="settings-messaging-secret">
@@ -932,7 +932,7 @@ function SupportedPanel({
     // Only the single-control fields can be named by the label element; the
     // role and mode groups carry their own accessible name.
     const labelled =
-      platform.secrets.some((slot) => slot.id === field.id) ||
+      secretSlotFor(platform, field.id) !== null ||
       [
       "nick",
       "channels",

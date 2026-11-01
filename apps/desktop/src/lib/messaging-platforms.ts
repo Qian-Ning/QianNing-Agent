@@ -1717,6 +1717,23 @@ function gatewayChannelFor(id: MessagingPlatformId): MessagingGatewayChannel | n
   return GATEWAY_CHANNEL_BY_PLATFORM[id] ?? null;
 }
 
+/**
+ * The credential slot a field writes to, or `null` when the field is not a
+ * secret.
+ *
+ * The panel asks this instead of listing credential ids: a channel's AppKey is
+ * a slot, not a new case in a switch, so adding a platform cannot leave its
+ * credentials without a control. Fields that merely look like credentials
+ * (`destination`, `account`) are records and answer `null`, because they are
+ * readable in the settings file and must stay text inputs.
+ */
+export function secretSlotFor(
+  platform: MessagingPlatform,
+  fieldId: string,
+): MessagingSecretSlot | null {
+  return platform.secrets.find((slot) => slot.id === fieldId) ?? null;
+}
+
 /** The link roles the inbound driver accepts, in `RACP_ROLES` order. */
 export const MESSAGING_ROLES: RacpRole[] = ["viewer", "controller", "approver", "owner"];
 
