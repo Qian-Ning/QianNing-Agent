@@ -93,6 +93,7 @@ export type MessagingPlatformId =
 /** The one settings section key each channel's record lives under, inside `app`. */
 export type MessagingSectionKey =
   | "messagingTelegram"
+  | "messagingDingtalk"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -119,7 +120,9 @@ export type MessagingSecretSlot = {
     | "server-password"
     | "password"
     | "api-token"
-    | "signing-secret";
+    | "signing-secret"
+    | "client-id"
+    | "client-secret";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -1006,6 +1009,23 @@ const homeAssistantSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const dingtalkSecrets: MessagingSecretSlot[] = [
+  {
+    id: "client-id",
+    ref: "secret:messaging-dingtalk:client-id",
+    labelKey: "settings.messaging.dingtalkClientId",
+    hintKey: "settings.messaging.dingtalkClientIdHint",
+    placeholderKey: "settings.messaging.dingtalkClientIdPlaceholder",
+  },
+  {
+    id: "client-secret",
+    ref: "secret:messaging-dingtalk:client-secret",
+    labelKey: "settings.messaging.dingtalkClientSecret",
+    hintKey: "settings.messaging.dingtalkClientSecretHint",
+    placeholderKey: "settings.messaging.dingtalkClientSecretPlaceholder",
+  },
+];
+
 const slackSecrets: MessagingSecretSlot[] = [
   {
     id: "app-token",
@@ -1260,14 +1280,29 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "dingtalk",
-    support: "unsupported",
+    support: "supported",
+    section: "messagingDingtalk",
+    format: "pi-desktop-messaging-dingtalk",
+    version: 1,
+    defaultEndpoint: "https://api.dingtalk.com",
     labelKey: "settings.messaging.platformDingtalk",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "publicCallback",
-    requirementKey: "settings.messaging.needsWebhook",
-    guideUrl: "https://open.dingtalk.com/document/",
-    credentialStepKeys: [],
-    secrets: [],
+    blurbKey: "settings.messaging.blurbDingtalk",
+    guideUrl: "https://open.dingtalk.com/document/orgapp/stream",
+    credentialStepKeys: [
+      "settings.messaging.stepDingtalk1",
+      "settings.messaging.stepDingtalk2",
+      "settings.messaging.stepDingtalk3",
+      "settings.messaging.stepDingtalk4",
+    ],
+    secrets: dingtalkSecrets,
+    fields: channelFields({
+      secrets: dingtalkSecrets,
+      destinationLabelKey: "settings.messaging.channelId",
+      destinationHelpKey: "settings.messaging.channelIdHelp",
+      destinationPlaceholderKey: "settings.messaging.channelIdPlaceholder",
+      subjectPlaceholderKey: "settings.messaging.subjectPlaceholderDingtalk",
+      endpointPlaceholderKey: "settings.messaging.endpointPlaceholderDingtalk",
+    }),
   },
   {
     id: "feishu",
@@ -1565,6 +1600,7 @@ export type MessagingGatewayChannel =
   | "telegram"
   | "slack"
   | "discord"
+  | "dingtalk"
   | "mattermost"
   | "matrix"
   | "irc"
@@ -1587,6 +1623,7 @@ export type MessagingGatewaySnapshot = {
   slack: boolean;
   discord: boolean;
   mattermost: boolean;
+  dingtalk: boolean;
   matrix: boolean;
   irc: boolean;
   homeAssistant: boolean;
@@ -1613,6 +1650,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   telegram: false,
   slack: false,
   discord: false,
+  dingtalk: false,
   mattermost: false,
   matrix: false,
   irc: false,
@@ -1657,6 +1695,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   telegram: "telegram",
   slack: "slack",
   discord: "discord",
+  dingtalk: "dingtalk",
   mattermost: "mattermost",
   matrix: "matrix",
   irc: "irc",

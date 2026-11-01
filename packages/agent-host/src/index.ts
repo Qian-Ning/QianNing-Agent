@@ -19,6 +19,7 @@ export * from "./messaging-discord-send.js";
 export * from "./messaging-irc-inbound.js";
 export * from "./messaging-irc-send.js";
 export * from "./messaging-mattermost-inbound.js";
+export * from "./messaging-dingtalk-inbound.js";
 export * from "./messaging-mattermost-send.js";
 export * from "./messaging-matrix-inbound.js";
 export * from "./messaging-matrix-send.js";
