@@ -200,6 +200,28 @@ export const IPC = {
      */
     messagingTelegramProbe: "pi-desktop/messaging/telegramProbe",
     /**
+     * Signal device pairing.
+     *
+     * Signal is the one channel a person can set up by scanning: `signal-cli
+     * link` emits a `sgnl://linkdevice` URI that the phone app consumes, and the
+     * process reports the account it bound to. The channel carries an action
+     * (`start` / `status` / `cancel`) and returns the current snapshot, so the
+     * renderer polls one source instead of assembling state from events. The
+     * child process lives in the main process; the renderer never sees a
+     * handle, a PID, or the CLI's raw output.
+     */
+    messagingSignalLink: "pi-desktop/messaging/signalLink",
+    /**
+     * The daemon half of Signal setup.
+     *
+     * `signal-cli daemon` exposes the JSON-RPC endpoint the channel already
+     * talks to at `127.0.0.1:8080`. Starting it is the difference between a
+     * linked account and a channel that receives anything, so the app owns the
+     * process: `start` resolves on a listening socket, `status` reads the same
+     * snapshot, `stop` takes it down.
+     */
+    messagingSignalBridge: "pi-desktop/messaging/signalBridge",
+    /**
      * Bind the one linked messaging conversation to the session its inbound
      * commands act on (ADR 0205 D375 item 9). The conversation-to-session
      * binding lives in the shared `app` settings row; this is the host-internal

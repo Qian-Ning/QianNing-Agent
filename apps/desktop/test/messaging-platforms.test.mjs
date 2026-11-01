@@ -1615,16 +1615,17 @@ test("the one-line status reads the three dimensions in the order a person needs
     count: 2,
   });
 
-  // Off wins over everything: the channel was not asked to be anything else.
+  // Off wins over everything, and it reads as "never configured": switching a
+  // channel off deletes its record, so there is nothing left to call stopped.
   assert.deepEqual(channelStatus({ ...base, enabled: "off", setup: "incomplete", missing: ["link"] }), {
     tone: "neutral",
-    key: "settings.messaging.statusDisabled",
+    key: "settings.messaging.statusNotConfigured",
   });
 
-  // A catalogue entry with no record at all was never set up.
+  // A catalogue entry with no record at all says the same thing.
   assert.deepEqual(channelStatus({ enabled: "off", setup: "notStarted", gateway: "stopped", missing: [] }), {
     tone: "neutral",
-    key: "settings.messaging.statusDisabled",
+    key: "settings.messaging.statusNotConfigured",
   });
 
   // A record this build cannot parse is an error, not a neutral "off".
@@ -1641,6 +1642,11 @@ test("the rail renders a brand tile and the one-line status, and groups the cata
     "utf8",
   );
   assert.match(page, /<MessagingPlatformIcon id=\{entry\.id\}/);
+  // Quick setup is scannable: a verified bot renders the t.me link as a QR, and
+  // the panel watches for the START message instead of asking for a second click.
+  assert.match(page, /import QRCode from "qrcode"/);
+  assert.match(page, /https:\/\/t\.me\/\$\{bot\.username\}/);
+  assert.match(page, /settings-messaging-quick-qr/);
   assert.match(page, /channelStatus\(state\)/);
   assert.match(page, /settings\.messaging\.groupAvailable/);
   assert.match(page, /settings\.messaging\.groupUnsupported/);

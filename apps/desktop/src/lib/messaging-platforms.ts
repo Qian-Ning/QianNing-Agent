@@ -2106,7 +2106,6 @@ export const MESSAGING_STATUS_KEYS = {
   running: "settings.messaging.statusRunning",
   stopped: "settings.messaging.statusStopped",
   incomplete: "settings.messaging.statusIncomplete",
-  disabled: "settings.messaging.statusDisabled",
   notConfigured: "settings.messaging.statusNotConfigured",
   unreadable: "settings.messaging.statusUnreadable",
 } as const;
@@ -2115,10 +2114,11 @@ export function channelStatus(state: MessagingChannelState): MessagingStatus {
   if (state.enabled === "unreadable" || state.setup === "unknown") {
     return { tone: "error", key: MESSAGING_STATUS_KEYS.unreadable };
   }
-  if (state.enabled === "off") {
-    return { tone: "neutral", key: MESSAGING_STATUS_KEYS.disabled };
-  }
-  if (state.setup === "notStarted") {
+  // Turning a channel off deletes its record, so "off" and "never stored" are
+  // the same state — and only one of them is true to a person who never set the
+  // channel up. The card says 未配置, not 已停用: nothing was ever running to
+  // stop, and the switch beside it already shows it is off.
+  if (state.enabled === "off" || state.setup === "notStarted") {
     return { tone: "neutral", key: MESSAGING_STATUS_KEYS.notConfigured };
   }
   if (state.setup === "incomplete") {
@@ -2404,3 +2404,97 @@ export type TelegramProbeResult =
 export type TelegramChatsResult =
   | { ok: true; chats: TelegramChatCandidate[] }
   | { ok: false; reason: TelegramProbeFailure };
+
+/**
+ * The URL a person opens to install the bot. Scopes and nothing else: asking
+ * for permissions up front would decide for the server owner what the bot may
+ * do, and Discord's consent screen is where that decision belongs.
+ */
+export function discordInstallUrl(applicationId: string): string {
+  return `https://discord.com/oauth2/authorize?client_id=${encodeURIComponent(applicationId)}&scope=bot`;
+}
+
+/**
+ * The application id inside a bot token.
+ *
+ * A bot's token opens with the base64url of its own user id, and for a bot that
+ * user id *is* its application id — the two are one identity, not a coincidence
+ * a caller has to trust. Discord documents the relationship; decoding it here
+ * is what lets the install URL exist without a round trip, which matters
+ * because the install page is opened on the phone and the desktop has no part
+ * in it after the code is on screen.
+ *
+ * Anything that is not a decimal id is a token this page cannot use, and the
+ * caller says so instead of rendering a link that would 404.
+ */
+/**
+ * Where a platform's credentials are actually created.
+ *
+ * Four channels begin the same way: open a page on the web, make the
+ * application, copy the token out. That page is the first step of setup and
+ * the step a phone does better than a desktop, so it gets a QR the same way
+ * the pairing step does. Channels whose credentials come from a server the
+ * person already runs — Mattermost, Matrix, Signal, the generic API ones —
+ * have no such page, and inventing one would be worse than showing nothing.
+ */
+export const MESSAGING_START_SCAN: Record<string, { url: string; hintKey: string }> = {
+  telegram: {
+    url: "https://t.me/BotFather",
+    hintKey: "settings.messaging.quickScanBotFather",
+  },
+  discord: {
+    url: "https://discord.com/developers/applications",
+    hintKey: "settings.messaging.discordScanPortal",
+  },
+  slack: {
+    url: "https://api.slack.com/apps",
+    hintKey: "settings.messaging.slackScanPortal",
+  },
+  homeAssistant: {
+    url: "https://my.home-assistant.io/redirect/profile/",
+    hintKey: "settings.messaging.homeAssistantScanPortal",
+  },
+};
+
+/**
+ * Signal device pairing, as the renderer sees it.
+ *
+ * `waiting` means a `sgnl://` URI exists and a phone has not scanned it yet;
+ * `linked` carries the number the device bound to, which is the account value
+ * the channel needs. Every other state is either idle or finished.
+ */
+export type SignalLinkSnapshot = {
+  state: "idle" | "starting" | "waiting" | "linked" | "failed";
+  url: string | null;
+  account: string | null;
+  reason: "missing-cli" | "exited" | "timeout" | "cancelled" | null;
+};
+
+/**
+ * The daemon behind the Signal channel, as the renderer sees it.
+ *
+ * `running` means the bridge port answers; `failed` carries why. The reason
+ * values are what the panel turns into a sentence, so they stay enumerated
+ * rather than free text.
+ */
+export type SignalBridgeSnapshot = {
+  state: "idle" | "starting" | "running" | "failed";
+  host: string;
+  port: number;
+  account: string | null;
+  reason: "missing-cli" | "no-account" | "port-in-use" | "exited" | null;
+};
+
+export function discordApplicationIdFromToken(token: string): string | null {
+  const first = token.trim().split(".")[0];
+  if (!first) return null;
+  const padded = first.replace(/-/g, "+").replace(/_/g, "/");
+  const withPadding = padded + "=".repeat((4 - (padded.length % 4)) % 4);
+  let decoded: string;
+  try {
+    decoded = typeof atob === "function" ? atob(withPadding) : "";
+  } catch {
+    return null;
+  }
+  return /^\d{5,25}$/.test(decoded) ? decoded : null;
+}

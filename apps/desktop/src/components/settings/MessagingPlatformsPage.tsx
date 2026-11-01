@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import QRCode from "qrcode";
 import { useTranslation } from "react-i18next";
 
 import { useAppStore } from "../../stores/app-store";
@@ -21,7 +22,12 @@ import {
   MESSAGING_ROLES,
   SUPPORTED_MESSAGING_PLATFORMS,
   canSave,
+  MESSAGING_START_SCAN,
+  type SignalBridgeSnapshot,
+  type SignalLinkSnapshot,
   deriveChannelState,
+  discordApplicationIdFromToken,
+  discordInstallUrl,
   draftFrom,
   draftMissing,
   fieldsInGroup,
@@ -153,6 +159,13 @@ export function MessagingPlatformsPage() {
   const settings = useAppStore((state) => state.settings);
   const showToast = useAppStore((state) => state.showToast);
   const [selectedId, setSelectedId] = useState<MessagingPlatformId>("telegram");
+  const [railNotice, setRailNotice] = useState<{ id: string; platform: string } | null>(null);
+  // The remark borrows the row's status line, so it has to give it back.
+  useEffect(() => {
+    if (!railNotice) return;
+    const timer = window.setTimeout(() => setRailNotice(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [railNotice]);
   const [secretPresent, setSecretPresent] = useState<Record<string, boolean>>({});
   const [gateway, setGateway] = useState<MessagingGatewaySnapshot>(MESSAGING_GATEWAY_OFF);
   const [saving, setSaving] = useState(false);
@@ -277,10 +290,9 @@ export function MessagingPlatformsPage() {
   return (
     <div className="settings-messaging">
       <div className="settings-messaging-chooser">
-        <div className="settings-messaging-chooser-head">
-          <h3 className="settings-card-heading">{t("settings.messaging.listTitle")}</h3>
-          <p className="settings-messaging-chooser-note">{t("settings.messaging.railNote")}</p>
-        </div>
+        {/* The page title already says 消息平台; a second heading and a sentence
+            explaining what the line under each card means were the first two
+            things a reader had to get past before reaching a platform. */}
         <div
           className="settings-messaging-list"
           role="tablist"
@@ -293,7 +305,7 @@ export function MessagingPlatformsPage() {
               className="settings-messaging-group-rail"
               aria-labelledby={`messaging-group-${group.id}`}
             >
-              <p className="settings-messaging-group-label" id={`messaging-group-${group.id}`}>
+<p className="settings-messaging-group-label" id={`messaging-group-${group.id}`}>
                 {t(group.labelKey, { count: group.entries.length })}
               </p>
               <div
@@ -354,11 +366,59 @@ export function MessagingPlatformsPage() {
                         <strong className="settings-messaging-item-name">
                           {t(entry.labelKey)}
                         </strong>
-                        <span className="settings-messaging-item-status" data-tone={status?.tone ?? "neutral"}>
-                          <span className="settings-messaging-item-dot" aria-hidden="true" />
-                          <span className="settings-messaging-item-line">{line}</span>
-                        </span>
+                        {railNotice?.id === entry.id ? (
+                          <span className="settings-messaging-rail-tip" role="status">
+                            {t("settings.messaging.railNeedsFields", {
+                              platform: railNotice.platform,
+                            })}
+                          </span>
+                        ) : (
+                          <span
+                            className="settings-messaging-item-status"
+                            data-tone={status?.tone ?? "neutral"}
+                          >
+                            <span className="settings-messaging-item-dot" aria-hidden="true" />
+                            <span className="settings-messaging-item-line">{line}</span>
+                          </span>
+                        )}
                       </span>
+                      {/* The switch lives with the platform's identity, where a
+                          person decides whether Telegram is on at all. The config
+                          pane below then only holds configuration. */}
+                      {entry.support === "supported" ? (
+                        <span
+                          className="settings-messaging-item-switch"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <SettingsToggle
+                            checked={state?.enabled === "on"}
+                            label={t("settings.messaging.headerSwitchLabel", {
+                              platform: t(entry.labelKey),
+                            })}
+                            onChange={() => {
+                              const next = state?.enabled !== "on";
+                              const target = entry as SupportedMessagingPlatform;
+                              const entryDraft = draftFrom(
+                                target,
+                                settings?.[entry.section] as MessagingPlatformRecord | undefined,
+                              );
+                              // Turning a channel on writes this draft. When the
+                              // draft is incomplete the save would fail silently,
+                              // so say which fields are missing and leave the
+                              // switch where it is.
+                              if (next) {
+                                const missingFields = draftMissing(target, entryDraft);
+                                if (missingFields.length > 0) {
+                                  setRailNotice({ id: entry.id, platform: t(entry.labelKey) });
+                                  return;
+                                }
+                              }
+                              setRailNotice(null);
+                              void save(target, entryDraft, next);
+                            }}
+                          />
+                        </span>
+                      ) : null}
                     </button>
                   );
                 })}
@@ -967,17 +1027,37 @@ function SupportedPanel({
 
       <h4 className="settings-messaging-block-title">{t("settings.messaging.blockCredentials")}</h4>
 
+      <StartScanCard key={platform.id} platformId={platform.id} />
+
       {platform.id === "telegram" ? (
         <TelegramQuickSetup
+          token={draft.secrets["bot-token"] ?? ""}
           disabled={saving}
           onApply={(next) => onDraftChange(next)}
         />
       ) : null}
 
-      <section className="settings-messaging-steps">
-        <p className="settings-messaging-section-title">
+      {platform.id === "discord" ? (
+        <DiscordQuickSetup
+          token={draft.secrets["bot-token"] ?? ""}
+          disabled={saving}
+          onApply={(next) => onDraftChange(next)}
+        />
+      ) : null}
+
+      {platform.id === "signal" ? (
+        <SignalQuickSetup
+          disabled={saving}
+          onApply={(next) => onDraftChange(next)}
+        />
+      ) : null}
+
+      {/* Reference material, not a step in the form: it opens on a click and
+          stays closed otherwise, so the page reads as fields first. */}
+      <details className="settings-messaging-steps">
+        <summary className="settings-messaging-section-title settings-messaging-steps-summary">
           {t("settings.messaging.getCredentials")}
-        </p>
+        </summary>
         <ol className="settings-messaging-step-list">
           {platform.credentialStepKeys.map((key) => (
             <li key={key} className="settings-messaging-step">
@@ -997,7 +1077,7 @@ function SupportedPanel({
             <IconExternal size={12} aria-hidden="true" className="settings-messaging-guide-mark" />
           </a>
         ) : null}
-      </section>
+      </details>
 
       {platform.noteKey ? (
         <p className="settings-messaging-note">{t(platform.noteKey)}</p>
@@ -1018,17 +1098,19 @@ function SupportedPanel({
           {required.map(renderField)}
         </fieldset>
 
-        <h4 className="settings-messaging-block-title">{t("settings.messaging.blockBehaviour")}</h4>
-
-        <fieldset className="settings-messaging-group" disabled={saving}>
-          <legend className="settings-messaging-group-title">
-            {t("settings.messaging.recommendedGroup")}
-            <span className="settings-messaging-group-note">
-              {t("settings.messaging.recommendedNote")}
-            </span>
-          </legend>
-          {recommended.map(renderField)}
-        </fieldset>
+        {/* Everything below the two required fields has a sane default, so it
+            waits behind one line instead of competing with them. */}
+        <details className="settings-messaging-advanced">
+          <summary className="settings-messaging-block-title settings-messaging-steps-summary">
+            {t("settings.messaging.blockBehaviour")}
+          </summary>
+          <fieldset className="settings-messaging-group" disabled={saving}>
+            <legend className="settings-messaging-group-title">
+              {t("settings.messaging.recommendedGroup")}
+            </legend>
+            {recommended.map(renderField)}
+          </fieldset>
+        </details>
 
         <div className="settings-messaging-footer">
           {/* The process card (ADR 0340) is a per-channel choice, so it sits with
@@ -1182,19 +1264,88 @@ const PROBE_FAILURE_KEY: Record<TelegramProbeFailure, string> = {
  * bottom is still the only writer.
  */
 function TelegramQuickSetup({
+  token,
   disabled,
   onApply,
 }: {
+  /**
+   * The token from the required field below, not a second box of its own: one
+   * credential is typed once, and every action here reads that one.
+   */
+  token: string;
   disabled: boolean;
   onApply: (next: { destination?: string; secrets?: Record<string, string> }) => void;
 }) {
   const { t } = useTranslation();
-  const [token, setToken] = useState("");
   const [busy, setBusy] = useState<"bot" | "chats" | null>(null);
   const [bot, setBot] = useState<{ username: string; name: string } | null>(null);
   const [failure, setFailure] = useState<TelegramProbeFailure | null>(null);
   const [chat, setChat] = useState<TelegramChatCandidate | null>(null);
   const [noChat, setNoChat] = useState(false);
+  const [qr, setQr] = useState<string | null>(null);
+  const [waiting, setWaiting] = useState(false);
+  const applyRef = useRef(onApply);
+  applyRef.current = onApply;
+
+  /*
+    A verified bot gets a scannable link. Opening it on the phone is not a
+    shortcut around configuration — it is the only way the conversation this
+    page has to bind can exist at all, and it removes the need to type an
+    @username into a phone keyboard.
+  */
+  useEffect(() => {
+    if (!bot) {
+      setQr(null);
+      return;
+    }
+    let cancelled = false;
+    void QRCode.toDataURL(`https://t.me/${bot.username}`, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 232,
+    })
+      .then((url) => {
+        if (!cancelled) setQr(url);
+      })
+      .catch(() => {
+        if (!cancelled) setQr(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bot]);
+
+  /*
+    Nobody should have to press 查找会话 ID after scanning. The link opens the
+    bot; pressing START there is the only step left, so watch for that message
+    instead of asking the person to come back and click.
+  */
+  useEffect(() => {
+    if (!waiting || !bot || chat) return;
+    let stopped = false;
+    let timer = 0;
+    const tick = async () => {
+      if (stopped) return;
+      try {
+        const result = await api.probeTelegram(token, "chats");
+        if (!stopped && result.ok && "chats" in result && result.chats[0]) {
+          const found = result.chats[0];
+          setChat(found);
+          setWaiting(false);
+          applyRef.current({ destination: found.id });
+          return;
+        }
+      } catch {
+        // A dropped probe is not a reason to stop watching.
+      }
+      if (!stopped) timer = window.setTimeout(() => void tick(), 3000);
+    };
+    timer = window.setTimeout(() => void tick(), 2500);
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+    };
+  }, [waiting, bot, chat, token]);
 
   const check = async () => {
     setBusy("bot");
@@ -1205,6 +1356,7 @@ function TelegramQuickSetup({
       const result = await api.probeTelegram(token, "bot");
       if (result.ok && "bot" in result) {
         setBot({ username: result.bot.username, name: result.bot.name });
+        setWaiting(true);
         onApply({ secrets: { "bot-token": token.trim() } });
       } else {
         setBot(null);
@@ -1247,18 +1399,7 @@ function TelegramQuickSetup({
       <h4 className="settings-messaging-section-title">
         {t("settings.messaging.quickTitle")}
       </h4>
-      <p className="settings-messaging-quick-body">{t("settings.messaging.quickBody")}</p>
       <div className="settings-messaging-quick-row">
-        <PasswordInput
-          value={token}
-          aria-label={t("settings.messaging.botToken")}
-          placeholder={t("settings.messaging.telegramTokenPlaceholder")}
-          autoComplete="off"
-          showLabel={t("settings.messaging.showSecret")}
-          hideLabel={t("settings.messaging.hideSecret")}
-          disabled={disabled || busy !== null}
-          onChange={(event) => setToken(event.target.value)}
-        />
         <Button
           type="button"
           variant="secondary"
@@ -1281,6 +1422,14 @@ function TelegramQuickSetup({
           {t("settings.messaging.quickVerified", { username: bot.username })}
         </p>
       ) : null}
+      {qr && bot && !chat ? (
+        <div className="settings-messaging-quick-qr">
+          <img src={qr} alt={t("settings.messaging.quickTitle")} width={116} height={116} />
+          <p className="settings-messaging-quick-qr-copy">
+            {t("settings.messaging.quickNoChat", { username: bot.username })}
+          </p>
+        </div>
+      ) : null}
       {chat ? (
         <p className="settings-messaging-quick-note ok" role="status">
           {t("settings.messaging.quickFound", { chat: chat.title, id: chat.id })}
@@ -1294,6 +1443,326 @@ function TelegramQuickSetup({
       {failure ? (
         <p className="settings-messaging-quick-note bad" role="status">
           {t(PROBE_FAILURE_KEY[failure])}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * The first step of setup, as a QR.
+ *
+ * A person setting up a channel is holding a phone that already knows who they
+ * are. Making them find a page on the desktop, then retype a token, is the part
+ * where setup stops. The page goes on the phone's screen; the token comes back
+ * pasted once.
+ */
+function StartScanCard({ platformId }: { platformId: string }) {
+  const { t } = useTranslation();
+  const start = MESSAGING_START_SCAN[platformId];
+  const [qr, setQr] = useState<string | null>(null);
+  const url = start?.url ?? null;
+
+  useEffect(() => {
+    if (url === null) {
+      setQr(null);
+      return;
+    }
+    let cancelled = false;
+    void QRCode.toDataURL(url, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 232,
+    })
+      .then((next) => {
+        if (!cancelled) setQr(next);
+      })
+      .catch(() => {
+        if (!cancelled) setQr(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  if (!start || !qr) return null;
+
+  return (
+    <section className="settings-messaging-quick">
+      <h4 className="settings-messaging-section-title">
+        {t("settings.messaging.quickScanStart")}
+      </h4>
+      <div className="settings-messaging-quick-qr">
+        <img src={qr} alt={t("settings.messaging.quickScanStart")} width={116} height={116} />
+        <p className="settings-messaging-quick-qr-copy">{t(start.hintKey)}</p>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Signal's quick setup: the only channel here that a phone can finish.
+ *
+ * `signal-cli link` prints a `sgnl://` URI and waits. Scanning it in the Signal
+ * app links this machine as a device; the process then reports the number it
+ * bound to, which is exactly the `account` field the channel needs. So the
+ * panel starts the process, draws the URI, polls the same snapshot, and writes
+ * the account back when the phone confirms — no number typed by hand.
+ */
+function SignalQuickSetup({
+  disabled,
+  onApply,
+}: {
+  disabled: boolean;
+  onApply: (next: { account?: string }) => void;
+}) {
+  const { t } = useTranslation();
+  const [link, setLink] = useState<SignalLinkSnapshot | null>(null);
+  const [bridge, setBridge] = useState<SignalBridgeSnapshot | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [qr, setQr] = useState<string | null>(null);
+  const applyRef = useRef(onApply);
+  applyRef.current = onApply;
+  const linkedAccount = link?.state === "linked" ? link.account : null;
+
+  // One poller, alive only while a URI is on screen. The main process owns the
+  // attempt; this loop just reads it, so a dropped poll cannot corrupt state.
+  useEffect(() => {
+    if (link?.state !== "waiting") return;
+    const timer = setInterval(() => {
+      void api
+        .signalLink("status")
+        .then((next) => setLink(next))
+        .catch(() => undefined);
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [link?.state]);
+
+  useEffect(() => {
+    const url = link?.url;
+    if (!url) {
+      setQr(null);
+      return;
+    }
+    let cancelled = false;
+    void QRCode.toDataURL(url, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 232,
+    })
+      .then((next) => {
+        if (!cancelled) setQr(next);
+      })
+      .catch(() => {
+        if (!cancelled) setQr(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [link?.url]);
+
+  useEffect(() => {
+    if (linkedAccount) applyRef.current({ account: linkedAccount });
+  }, [linkedAccount]);
+
+  /*
+    A linked account alone receives nothing: the channel talks JSON-RPC to
+    `signal-cli daemon` on the bridge port. Starting it here is what turns
+    "配对成功" into a channel that actually works, and the same call reports a
+    port that is already taken instead of leaving the panel guessing.
+  */
+  useEffect(() => {
+    if (!linkedAccount) return;
+    let cancelled = false;
+    void api
+      .signalBridge("start", linkedAccount)
+      .then((next) => {
+        if (!cancelled) setBridge(next);
+      })
+      .catch(() => {
+        if (!cancelled) setBridge(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [linkedAccount]);
+
+  const start = async () => {
+    setBusy(true);
+    try {
+      setLink(await api.signalLink("start"));
+    } catch {
+      setLink({ state: "failed", url: null, account: null, reason: "exited" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancel = async () => {
+    setBusy(true);
+    try {
+      setLink(await api.signalLink("cancel"));
+    } catch {
+      setLink(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const failure = link?.state === "failed" ? link.reason : null;
+
+  return (
+    <section className="settings-messaging-quick">
+      <h4 className="settings-messaging-section-title">
+        {t("settings.messaging.quickTitle")}
+      </h4>
+      <div className="settings-messaging-quick-row">
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={disabled || busy}
+          onClick={link?.state === "waiting" ? () => void cancel() : () => void start()}
+        >
+          {link?.state === "waiting"
+            ? t("settings.messaging.signalLinkCancel")
+            : t("settings.messaging.signalLinkStart")}
+        </Button>
+      </div>
+      {qr && link?.state === "waiting" ? (
+        <div className="settings-messaging-quick-qr">
+          <img src={qr} alt={t("settings.messaging.signalLinkStart")} width={116} height={116} />
+          <p className="settings-messaging-quick-qr-copy">
+            {t("settings.messaging.signalLinkWaiting")}
+          </p>
+        </div>
+      ) : null}
+      {linkedAccount ? (
+        <p className="settings-messaging-quick-note ok" role="status">
+          {t("settings.messaging.signalLinkLinked", { account: linkedAccount })}
+        </p>
+      ) : null}
+      {bridge?.state === "running" ? (
+        <p className="settings-messaging-quick-note ok" role="status">
+          {t("settings.messaging.signalBridgeRunning", {
+            host: bridge.host,
+            port: bridge.port,
+          })}
+        </p>
+      ) : null}
+      {bridge?.state === "failed" && bridge.reason === "port-in-use" ? (
+        <p className="settings-messaging-quick-note bad" role="status">
+          {t("settings.messaging.signalBridgePortInUse", { port: bridge.port })}
+        </p>
+      ) : null}
+      {bridge?.state === "failed" && bridge.reason === "no-account" ? (
+        <p className="settings-messaging-quick-note bad" role="status">
+          {t("settings.messaging.signalBridgeNoAccount")}
+        </p>
+      ) : null}
+      {bridge?.state === "failed" && bridge.reason !== "port-in-use" && bridge.reason !== "no-account" ? (
+        <p className="settings-messaging-quick-note bad" role="status">
+          {t("settings.messaging.signalBridgeFailed")}
+        </p>
+      ) : null}
+      {failure === "missing-cli" ? (
+        <p className="settings-messaging-quick-note bad" role="status">
+          {t("settings.messaging.signalLinkMissingCli")}
+        </p>
+      ) : null}
+      {failure === "timeout" || failure === "cancelled" || failure === "exited" ? (
+        <p className="settings-messaging-quick-note bad" role="status">
+          {t("settings.messaging.signalLinkExpired")}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * Discord's quick setup: turn the token into the install link, and show that
+ * link as a QR.
+ *
+ * Discord has no device authorization. A bot joins a server by opening an
+ * OAuth2 URL and choosing which server — a step that works from a phone while
+ * the desktop sits here. The application id the URL needs is carried inside the
+ * bot token itself, so the code appears without waiting on a request, and the
+ * token still travels only where it belongs: into the draft's secret slot.
+ */
+function DiscordQuickSetup({
+  token,
+  disabled,
+  onApply,
+}: {
+  /** The same single token box the required field owns; see TelegramQuickSetup. */
+  token: string;
+  disabled: boolean;
+  onApply: (next: { secrets?: Record<string, string> }) => void;
+}) {
+  const { t } = useTranslation();
+  const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [rejected, setRejected] = useState(false);
+  const [qr, setQr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!applicationId) {
+      setQr(null);
+      return;
+    }
+    let cancelled = false;
+    void QRCode.toDataURL(discordInstallUrl(applicationId), {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 232,
+    })
+      .then((url) => {
+        if (!cancelled) setQr(url);
+      })
+      .catch(() => {
+        if (!cancelled) setQr(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [applicationId]);
+
+  const build = () => {
+    const id = discordApplicationIdFromToken(token);
+    if (id === null) {
+      setApplicationId(null);
+      setRejected(true);
+      return;
+    }
+    setRejected(false);
+    setApplicationId(id);
+    onApply({ secrets: { "bot-token": token.trim() } });
+  };
+
+  return (
+    <section className="settings-messaging-quick">
+      <h4 className="settings-messaging-section-title">
+        {t("settings.messaging.quickTitle")}
+      </h4>
+      <div className="settings-messaging-quick-row">
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={disabled || token.trim() === ""}
+          onClick={build}
+        >
+          {t("settings.messaging.quickCheck")}
+        </Button>
+      </div>
+      {qr ? (
+        <div className="settings-messaging-quick-qr">
+          <img src={qr} alt={t("settings.messaging.quickTitle")} width={116} height={116} />
+          <p className="settings-messaging-quick-qr-copy">
+            {t("settings.messaging.discordInviteHint")}
+          </p>
+        </div>
+      ) : null}
+      {rejected ? (
+        <p className="settings-messaging-quick-note bad" role="status">
+          {t("settings.messaging.discordProbeMalformed")}
         </p>
       ) : null}
     </section>
