@@ -25,6 +25,17 @@ import {
   reconcileMessagingChannelSection,
 } from "../messaging-inbound-lifecycle";
 import { messagingGateway } from "../messaging-gateway";
+import {
+  disposeSignalBridge,
+  signalBridgeSnapshot,
+  startSignalBridge,
+  stopSignalBridge,
+} from "../messaging-signal-bridge";
+import {
+  cancelSignalLink,
+  signalLinkSnapshot,
+  startSignalLink,
+} from "../messaging-signal-link";
 import { discoverTelegramChats, probeTelegramBot } from "../messaging-telegram-probe";
 import type { AgentSidecar } from "../agent-sidecar";
 import type { HostProcess } from "../host-process";
@@ -230,6 +241,51 @@ export function registerSettingsIpc({
       if (action === "bot") return probeTelegramBot(input?.token, { fetch });
       if (action === "chats") return discoverTelegramChats(input?.token, { fetch });
       throw Object.assign(new Error("unknown Telegram probe action"), {
+        errorCode: "INVALID_PARAMS",
+      });
+    },
+  );
+
+  /*
+    Signal device pairing. One long-lived child process holds the link attempt;
+    the renderer drives it with three verbs and reads the same snapshot back, so
+    there is no second source of truth to reconcile after a reload.
+  */
+  handle(
+    IPC.invoke.messagingSignalLink,
+    async (input: { action?: unknown; cliPath?: unknown }) => {
+      const action = input?.action;
+      if (action === "start") {
+        const cliPath = typeof input?.cliPath === "string" ? input.cliPath : undefined;
+        return startSignalLink(cliPath);
+      }
+      if (action === "status") return signalLinkSnapshot();
+      if (action === "cancel") return cancelSignalLink();
+      throw Object.assign(new Error("unknown Signal link action"), {
+        errorCode: "INVALID_PARAMS",
+      });
+    },
+  );
+
+  /*
+    Signal's daemon. Unlike the pairing attempt this one is meant to outlive the
+    panel — the channel reads it while messages arrive — so it is started when a
+    pairing lands and torn down with the app.
+  */
+  handle(
+    IPC.invoke.messagingSignalBridge,
+    async (input: { action?: unknown; account?: unknown; cliPath?: unknown }) => {
+      const action = input?.action;
+      if (action === "start") {
+        return startSignalBridge({
+          account: typeof input?.account === "string" ? input.account : undefined,
+          cliPath: typeof input?.cliPath === "string" ? input.cliPath : undefined,
+        });
+      }
+      if (action === "status") return signalBridgeSnapshot();
+      if (action === "stop") return stopSignalBridge();
+      if (action === "dispose") return disposeSignalBridge();
+      throw Object.assign(new Error("unknown Signal bridge action"), {
         errorCode: "INVALID_PARAMS",
       });
     },
