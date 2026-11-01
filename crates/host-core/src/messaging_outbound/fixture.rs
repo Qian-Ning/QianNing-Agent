@@ -25,6 +25,10 @@ pub(crate) struct SeenRequest {
     pub path: String,
     pub content_type: Option<String>,
     pub authorization: Option<String>,
+    /// Every header line, name lowercased, in arrival order. A channel whose
+    /// credential rides a platform-specific header (DingTalk's
+    /// `x-acs-dingtalk-access-token`) is only observable here.
+    pub headers: Vec<(String, String)>,
     pub body: Vec<u8>,
 }
 
@@ -107,12 +111,15 @@ async fn read_request(stream: &mut TcpStream) -> Option<SeenRequest> {
     let mut content_length = 0usize;
     let mut content_type = None;
     let mut authorization = None;
+    let mut headers: Vec<(String, String)> = Vec::new();
     for line in lines {
         let Some((name, value)) = line.split_once(':') else {
             continue;
         };
         let value = value.trim().to_string();
-        match name.trim().to_ascii_lowercase().as_str() {
+        let name = name.trim().to_ascii_lowercase();
+        headers.push((name.clone(), value.clone()));
+        match name.as_str() {
             "content-length" => content_length = value.parse().unwrap_or(0),
             "content-type" => content_type = Some(value),
             "authorization" => authorization = Some(value),
@@ -132,6 +139,7 @@ async fn read_request(stream: &mut TcpStream) -> Option<SeenRequest> {
         path: target.split('?').next().unwrap_or_default().to_string(),
         content_type,
         authorization,
+        headers,
         body: buffer[header_end..header_end + content_length].to_vec(),
     })
 }
