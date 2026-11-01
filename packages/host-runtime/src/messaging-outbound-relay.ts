@@ -14,6 +14,9 @@ import {
   MessagingRedactor,
   type Principal,
   type HostRpcPort,
+  MESSAGING_DINGTALK_FORMAT,
+  MESSAGING_DINGTALK_FORMAT_VERSION,
+  MESSAGING_DINGTALK_SECTION,
 } from "@pi-desktop/agent-host";
 import type { AgentHost } from "@pi-desktop/agent-host";
 
@@ -141,6 +144,12 @@ export const MESSAGING_OUTBOUND_CHANNELS: readonly MessagingOutboundChannel[] = 
     section: MESSAGING_DISCORD_SECTION,
     format: MESSAGING_DISCORD_FORMAT,
     version: MESSAGING_DISCORD_FORMAT_VERSION,
+  },
+  {
+    channel: "dingtalk",
+    section: MESSAGING_DINGTALK_SECTION,
+    format: MESSAGING_DINGTALK_FORMAT,
+    version: MESSAGING_DINGTALK_FORMAT_VERSION,
   },
   {
     channel: "mattermost",

@@ -142,9 +142,23 @@ import {
   type IngressMessage,
   type IngressWebhookAddress,
   type IngressWebhookReceiverOptions,
+  DINGTALK_HANDLED_CAPACITY,
+  MESSAGING_DINGTALK_CLIENT_ID_SECRET_REF,
+  MESSAGING_DINGTALK_CLIENT_SECRET_SECRET_REF,
+  MESSAGING_DINGTALK_FORMAT,
+  MESSAGING_DINGTALK_FORMAT_VERSION,
+  MESSAGING_DINGTALK_SECTION,
+  createDingtalkGatewayOpener,
+  createDingtalkInboundPushTransport,
+  createWsDingtalkSocketFactory,
 } from "@pi-desktop/agent-host";
 
 import type { AgentHost } from "@pi-desktop/agent-host";
+import type {
+  DingtalkOpenGateway,
+  IngressAudit,
+  IngressSocketFactory,
+} from "@pi-desktop/agent-host";
 import { allowInsecureUserEndpoints, ErrorCodes } from "@pi-desktop/shared";
 
 // The reply seam's turn surface, re-exported: the composition roots name it when
@@ -1141,6 +1155,96 @@ export function createMattermostInboundWiring(
     ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
     transport: options.transport ?? createConfiguredMattermostTransport(options),
     failureLabel: "inbound mattermost loop failed",
+  });
+}
+
+/** The DingTalk channel's descriptor, selected by its own bind channel. */
+export const DINGTALK_INBOUND_CHANNEL: MessagingInboundChannel = {
+  section: MESSAGING_DINGTALK_SECTION,
+  format: MESSAGING_DINGTALK_FORMAT,
+  version: MESSAGING_DINGTALK_FORMAT_VERSION,
+};
+
+/** The audit sink for the DingTalk stream client. */
+export function createDingtalkInboundAudit(log?: MessagingInboundWiringLog): IngressAudit {
+  if (!log) return () => {};
+  return (entry) => {
+    const level = entry.kind === "filtered" ? "info" : "warn";
+    log(level, "inbound dingtalk channel", { ...entry });
+  };
+}
+
+/**
+ * The DingTalk transport, gated on the app's client id and secret.
+ *
+ * Stream Mode names no endpoint: the gateway hands one back per connection, so
+ * the record carries no URL and there is nothing to validate up front. Both
+ * credentials are secrets; with either missing the loop does not start, the way
+ * any channel with no token behaves.
+ */
+function createConfiguredDingtalkTransport(
+  options: MessagingDingtalkWiringOptions,
+): MessagingInboundPushTransport {
+  return {
+    async start(onMessage, signal): Promise<void> {
+      let clientId: string | null = null;
+      let clientSecret: string | null = null;
+      try {
+        clientId = await options.secrets(MESSAGING_DINGTALK_CLIENT_ID_SECRET_REF);
+        clientSecret = await options.secrets(MESSAGING_DINGTALK_CLIENT_SECRET_SECRET_REF);
+      } catch {
+        return;
+      }
+      if (!clientId?.trim() || !clientSecret?.trim()) return;
+      await createDingtalkInboundPushTransport({
+        credentials: { clientId: clientId.trim(), clientSecret: clientSecret.trim() },
+        openGateway: options.openGateway ?? createDingtalkGatewayOpener(),
+        connect: options.connect ?? createWsDingtalkSocketFactory(),
+        handled: createSettingsHandledMessageStore({
+          settings: options.settings,
+          section: MESSAGING_DINGTALK_SECTION,
+          capacity: DINGTALK_HANDLED_CAPACITY,
+        }),
+        audit: createDingtalkInboundAudit(options.log),
+        ...(options.wait ? { wait: options.wait } : {}),
+      }).start(onMessage, signal);
+    },
+  };
+}
+
+/**
+ * The wiring for the inbound DingTalk channel over Stream Mode. The same
+ * driver, binding and target resolver as every other channel, over a websocket
+ * push; the section (`messagingDingtalk`) and the two secret refs are the only
+ * differences.
+ */
+export type MessagingDingtalkWiringOptions = {
+  agentHost: MessagingInboundHostSurface;
+  settings: HostSettingsSurface;
+  secrets: HostSecretReader;
+  signal: AbortSignal;
+  log?: MessagingInboundWiringLog;
+  /** Test seam: the gateway handshake, in place of the production one. */
+  openGateway?: DingtalkOpenGateway;
+  /** Test seam: the websocket client factory, in place of the production one. */
+  connect?: IngressSocketFactory;
+  /** Test seam: how the reconnect loop waits. */
+  wait?: (ms: number) => Promise<void>;
+  /** Test seam: a push transport in place of the one built from the settings. */
+  transport?: MessagingInboundPushTransport;
+};
+
+export function createDingtalkInboundWiring(
+  options: MessagingDingtalkWiringOptions,
+): MessagingInboundWiring {
+  return createIngressWiring({
+    agentHost: options.agentHost,
+    settings: options.settings,
+    signal: options.signal,
+    ...(options.log ? { log: options.log } : {}),
+    channel: DINGTALK_INBOUND_CHANNEL,
+    transport: options.transport ?? createConfiguredDingtalkTransport(options),
+    failureLabel: "inbound dingtalk loop failed",
   });
 }
 

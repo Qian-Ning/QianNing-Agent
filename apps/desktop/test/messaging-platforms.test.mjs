@@ -100,6 +100,7 @@ const GATEWAY_UP = {
   telegram: true,
   slack: true,
   discord: true,
+  dingtalk: true,
   mattermost: true,
   matrix: true,
   irc: true,
@@ -112,6 +113,7 @@ const GATEWAY_DOWN = {
   telegram: false,
   slack: false,
   discord: false,
+  dingtalk: false,
   mattermost: false,
   matrix: false,
   irc: false,
@@ -171,6 +173,7 @@ const SUPPORTED_IDS = [
   "signal",
   "homeAssistant",
   "email",
+  "dingtalk",
   "apiServer",
   "webhooks",
   "irc",
@@ -258,7 +261,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   ]);
   assert.deepEqual(byClass.publicCallback, [
     "sms",
-    "dingtalk",
     "feishu",
     "googleChat",
     "wecomGroup",

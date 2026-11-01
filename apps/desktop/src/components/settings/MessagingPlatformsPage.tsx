@@ -707,6 +707,41 @@ function SupportedPanel({
   const fieldControl = (field: MessagingField) => {
     const id = `messaging-${platform.id}-${field.id}`;
     const label = t(field.labelKey);
+    // Any field whose id names a credential slot is a password input. The switch
+    // below owns what is *not* a secret (the generated API token, and the plain
+    // record fields), because a channel's credential ids must never have to be
+    // listed here: DingTalk's AppKey is not a new case, it is a slot.
+    const secretSlot = platform.secrets.find((slot) => slot.id === field.id);
+    if (secretSlot && field.id !== "api-token") {
+      return (
+        <div className="settings-messaging-secret">
+          <PasswordInput
+            id={id}
+            value={draft.secrets[secretSlot.id] ?? ""}
+            aria-label={label}
+            autoComplete="off"
+            placeholder={t(secretSlot.placeholderKey)}
+            showLabel={t("settings.messaging.showSecret")}
+            hideLabel={t("settings.messaging.hideSecret")}
+            disabled={saving}
+            onChange={(event) =>
+              patch({ secrets: { ...draft.secrets, [secretSlot.id]: event.target.value } })
+            }
+          />
+          <span className="settings-messaging-secret-state">
+            {secretPresent[secretSlot.ref]
+              ? t("settings.messaging.secretStored")
+              : t("settings.messaging.secretMissing")}
+            <span className="settings-messaging-secret-ref">{secretSlot.ref}</span>
+          </span>
+          <p className="settings-messaging-secret-hint">
+            {secretPresent[secretSlot.ref]
+              ? t("settings.messaging.secretStoredHint")
+              : t("settings.messaging.secretNotStoredHint")}
+          </p>
+        </div>
+      );
+    }
     switch (field.id) {
       case "api-token": {
         // The one credential this app makes for the user. It is shown in full
@@ -746,41 +781,6 @@ function SupportedPanel({
               {t("settings.messaging.apiServerTokenReplace")}
             </Button>
             <span className="settings-messaging-secret-ref">{slot.ref}</span>
-          </div>
-        );
-      }
-      case "bot-token":
-      case "app-token":
-      case "access-token":
-      case "server-password": {
-        const slot = platform.secrets.find((entry) => entry.id === field.id);
-        if (!slot) return null;
-        return (
-          <div className="settings-messaging-secret">
-            <PasswordInput
-              id={id}
-              value={draft.secrets[slot.id] ?? ""}
-              aria-label={label}
-              autoComplete="off"
-              placeholder={t(slot.placeholderKey)}
-              showLabel={t("settings.messaging.showSecret")}
-              hideLabel={t("settings.messaging.hideSecret")}
-              disabled={saving}
-              onChange={(event) =>
-                patch({ secrets: { ...draft.secrets, [slot.id]: event.target.value } })
-              }
-            />
-            <span className="settings-messaging-secret-state">
-              {secretPresent[slot.ref]
-                ? t("settings.messaging.secretStored")
-                : t("settings.messaging.secretMissing")}
-              <span className="settings-messaging-secret-ref">{slot.ref}</span>
-            </span>
-            <p className="settings-messaging-secret-hint">
-              {secretPresent[slot.ref]
-                ? t("settings.messaging.secretStoredHint")
-                : t("settings.messaging.secretNotStoredHint")}
-            </p>
           </div>
         );
       }
@@ -931,11 +931,9 @@ function SupportedPanel({
     const id = `messaging-${platform.id}-${field.id}`;
     // Only the single-control fields can be named by the label element; the
     // role and mode groups carry their own accessible name.
-    const labelled = [
-      "bot-token",
-      "app-token",
-      "access-token",
-      "server-password",
+    const labelled =
+      platform.secrets.some((slot) => slot.id === field.id) ||
+      [
       "nick",
       "channels",
       "destination",
@@ -945,7 +943,7 @@ function SupportedPanel({
       "requestTimeoutMs",
       "port",
       "bindAddress",
-    ].includes(field.id);
+      ].includes(field.id);
     const consequenceKey = field.id === "requestTimeoutMs" && !timeoutValid
       ? "settings.messaging.timeoutInvalid"
       : field.consequenceKey;
