@@ -83,8 +83,8 @@
       "max": 1033
     },
     "crates/host-core/src/messaging_outbound.rs": {
-      "reason": "Outbound record and its validation. Just over the limit after the channel catalogue grew; it holds one table and the rules over it.",
-      "max": 1007
+      "reason": "Outbound record and its validation. Just over the limit after the channel catalogue grew; it holds one table and the rules over it. Raised by nine lines for the pooled-socket idle bound the channel client needs.",
+      "max": 1016
     }
   }
 }

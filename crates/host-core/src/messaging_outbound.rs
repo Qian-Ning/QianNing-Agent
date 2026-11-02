@@ -85,19 +85,11 @@ pub(crate) const MAX_REQUEST_TIMEOUT_MS: u64 = 60_000;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 /// How long a pooled socket may sit idle before the client retires it.
 ///
-/// Two sends on one channel are normally a driver tick apart, not milliseconds
-/// apart, and a server closes idle keep-alive sockets on its own schedule: Node
-/// answers its last request and then hangs up after five seconds by default.
-/// A pool that keeps a socket longer than the server does hands the next request
-/// a connection that looks usable and is already closed. reqwest reports the
-/// result — the request written, the answer never read — as `is_request` with no
-/// timeout, connection, or body marker, which [`classify_transport`] can only
-/// resolve as terminal: the delivery is failed on its first attempt and never
-/// retried, so the message is simply lost.
-///
-/// Retiring idle sockets below the shortest common server idle timeout (five
-/// seconds) keeps reuse honest instead of paying for it with dropped messages.
-/// Bursts still reuse: a card's updates land well inside this window.
+/// Servers hang up idle keep-alive sockets on their own schedule — Node does it
+/// after five seconds. A pool that keeps one longer hands the next request a
+/// connection that is already closed, and reqwest reports that with no marker
+/// [`classify_transport`] can read as retryable, so the delivery fails
+/// terminally and the message is lost.
 const POOL_IDLE_TIMEOUT: Duration = Duration::from_secs(4);
 /// How long `send` waits for the worker on top of the request timeout. The
 /// request's own timeout should always fire first; this is the slack that keeps
