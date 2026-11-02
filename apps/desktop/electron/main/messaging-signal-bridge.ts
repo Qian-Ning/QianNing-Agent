@@ -1,6 +1,7 @@
-import { existsSync } from "node:fs";
+import { accessSync, constants, existsSync } from "node:fs";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { connect } from "node:net";
+import { delimiter, join } from "node:path";
 
 /**
  * The Signal bridge.
@@ -81,8 +82,25 @@ function stop(child: ChildProcess | null) {
 
 function cliExists(cli: string): boolean {
   if (cli.includes("/") || cli.includes("\\")) return existsSync(cli);
-  if (process.platform !== "win32") return true;
-  return spawnSync("where.exe", [cli], { stdio: "ignore", windowsHide: true }).status === 0;
+  if (process.platform === "win32") {
+    return spawnSync("where.exe", [cli], { stdio: "ignore", windowsHide: true }).status === 0;
+  }
+  // A bare name is only a command if PATH can execute it. Answering `true`
+  // without looking deferred the discovery to `spawn`, whose ENOENT arrives
+  // after the caller is already waiting on readiness — a missing binary then
+  // reads as a timeout instead of a fact.
+  const path = process.env.PATH ?? "";
+  return path.split(delimiter).some((dir) => {
+    if (!dir) return false;
+    const candidate = join(dir, cli);
+    if (!existsSync(candidate)) return false;
+    try {
+      accessSync(candidate, constants.X_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  });
 }
 
 function canConnect(host: string, port: number): Promise<boolean> {
@@ -150,6 +168,10 @@ export async function startSignalBridge(input?: {
   };
   session = current;
 
+  // Filled in once the readiness promise exists; a failure that lands before
+  // the caller is waiting still has to reach it.
+  let settleCurrent: ((snapshot: SignalBridgeSnapshot) => void) | null = null;
+
   if (!cliExists(cli)) {
     current.snapshot = { ...current.snapshot, state: "failed", reason: "missing-cli" };
     return { ...current.snapshot };
@@ -180,7 +202,12 @@ export async function startSignalBridge(input?: {
     stop(child);
     current.child = null;
     current.snapshot = { ...current.snapshot, state: "failed", reason };
-    return { ...current.snapshot };
+    const settled = { ...current.snapshot };
+    // Whoever is waiting has its answer now. Without this the readiness loop
+    // sees a failed snapshot on its next tick, returns early, and the caller
+    // waits for a resolution that no longer has a path to it.
+    settleCurrent?.(settled);
+    return settled;
   };
 
   child.once("error", () => fail("missing-cli"));
@@ -188,18 +215,13 @@ export async function startSignalBridge(input?: {
     if (session !== current) return;
     // Whoever is waiting needs a fact, not a handle that looks alive.
     current.child = null;
-    if (current.snapshot.state === "running") {
-      // The daemon died on its own after serving; say so rather than claim it
-      // is still up.
-      if (current.timer) clearInterval(current.timer);
-      current.timer = null;
-      current.child = null;
-      current.snapshot = { ...current.snapshot, state: "failed", reason: "exited" };
-      return;
+    if (current.snapshot.state === "starting" || current.snapshot.state === "running") {
+      fail(classify(current.output));
     }
   });
 
   return new Promise<SignalBridgeSnapshot>((resolve) => {
+    settleCurrent = resolve;
     const deadline = Date.now() + READY_DEADLINE_MS;
     const tick = async () => {
       if (session !== current || current.snapshot.state !== "starting") return;
