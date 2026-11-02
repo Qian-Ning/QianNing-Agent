@@ -167,6 +167,8 @@ import type {
   MessagingGatewaySnapshot,
   MessagingSectionKey,
   TelegramChatsResult,
+  SignalBridgeSnapshot,
+  SignalLinkSnapshot,
   TelegramProbeResult,
 } from "./messaging-platforms";
 
@@ -1974,6 +1976,20 @@ export const api = {
       token,
       action,
     }),
+  /**
+   * Drive Signal device pairing. `start` runs `signal-cli link` in the main
+   * process and resolves once the `sgnl://` URI exists; `status` reads the same
+   * snapshot the UI polls; `cancel` ends an attempt nobody scanned.
+   */
+  signalLink: (action: "start" | "status" | "cancel") =>
+    invoke<SignalLinkSnapshot>(IPC.invoke.messagingSignalLink, { action }),
+  /**
+   * Start or read the `signal-cli daemon` that the Signal channel talks to. It
+   * is the second half of setup: a linked account receives nothing until this
+   * is listening on the bridge port.
+   */
+  signalBridge: (action: "start" | "status" | "stop", account?: string) =>
+    invoke<SignalBridgeSnapshot>(IPC.invoke.messagingSignalBridge, { action, account }),
   /**
    * Write one credential to the host's secret store, under a `secret:` ref.
    * The value never crosses back: `hasSecret` answers presence only.

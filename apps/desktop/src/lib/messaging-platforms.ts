@@ -93,6 +93,7 @@ export type MessagingPlatformId =
 /** The one settings section key each channel's record lives under, inside `app`. */
 export type MessagingSectionKey =
   | "messagingTelegram"
+  | "messagingDingtalk"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -119,7 +120,9 @@ export type MessagingSecretSlot = {
     | "server-password"
     | "password"
     | "api-token"
-    | "signing-secret";
+    | "signing-secret"
+    | "client-id"
+    | "client-secret";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -256,6 +259,19 @@ export const MESSAGING_REQUIREMENT_CLASS_KEYS: Record<MessagingRequirementClass,
   bridgeOrPoll: "settings.messaging.requirementClassBridge",
   transport: "settings.messaging.requirementClassTransport",
   platformApproval: "settings.messaging.requirementClassApproval",
+};
+
+/**
+ * The rail's version of the requirement classes: the same five gaps, named in
+ * a few words so a card's second line fits. The full sentence still uses
+ * MESSAGING_REQUIREMENT_CLASS_KEYS in the detail panel.
+ */
+export const MESSAGING_REQUIREMENT_SHORT_KEYS: Record<MessagingRequirementClass, string> = {
+  longConnection: "settings.messaging.requirementShortLongConnection",
+  publicCallback: "settings.messaging.requirementShortPublicCallback",
+  bridgeOrPoll: "settings.messaging.requirementShortBridge",
+  transport: "settings.messaging.requirementShortTransport",
+  platformApproval: "settings.messaging.requirementShortApproval",
 };
 
 export type UnsupportedMessagingPlatform = PlatformBase & {
@@ -993,6 +1009,23 @@ const homeAssistantSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const dingtalkSecrets: MessagingSecretSlot[] = [
+  {
+    id: "client-id",
+    ref: "secret:messaging-dingtalk:client-id",
+    labelKey: "settings.messaging.dingtalkClientId",
+    hintKey: "settings.messaging.dingtalkClientIdHint",
+    placeholderKey: "settings.messaging.dingtalkClientIdPlaceholder",
+  },
+  {
+    id: "client-secret",
+    ref: "secret:messaging-dingtalk:client-secret",
+    labelKey: "settings.messaging.dingtalkClientSecret",
+    hintKey: "settings.messaging.dingtalkClientSecretHint",
+    placeholderKey: "settings.messaging.dingtalkClientSecretPlaceholder",
+  },
+];
+
 const slackSecrets: MessagingSecretSlot[] = [
   {
     id: "app-token",
@@ -1247,14 +1280,29 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "dingtalk",
-    support: "unsupported",
+    support: "supported",
+    section: "messagingDingtalk",
+    format: "pi-desktop-messaging-dingtalk",
+    version: 1,
+    defaultEndpoint: "https://api.dingtalk.com",
     labelKey: "settings.messaging.platformDingtalk",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "publicCallback",
-    requirementKey: "settings.messaging.needsWebhook",
-    guideUrl: "https://open.dingtalk.com/document/",
-    credentialStepKeys: [],
-    secrets: [],
+    blurbKey: "settings.messaging.blurbDingtalk",
+    guideUrl: "https://open.dingtalk.com/document/orgapp/stream",
+    credentialStepKeys: [
+      "settings.messaging.stepDingtalk1",
+      "settings.messaging.stepDingtalk2",
+      "settings.messaging.stepDingtalk3",
+      "settings.messaging.stepDingtalk4",
+    ],
+    secrets: dingtalkSecrets,
+    fields: channelFields({
+      secrets: dingtalkSecrets,
+      destinationLabelKey: "settings.messaging.channelId",
+      destinationHelpKey: "settings.messaging.channelIdHelp",
+      destinationPlaceholderKey: "settings.messaging.channelIdPlaceholder",
+      subjectPlaceholderKey: "settings.messaging.subjectPlaceholderDingtalk",
+      endpointPlaceholderKey: "settings.messaging.endpointPlaceholderDingtalk",
+    }),
   },
   {
     id: "feishu",
@@ -1552,6 +1600,7 @@ export type MessagingGatewayChannel =
   | "telegram"
   | "slack"
   | "discord"
+  | "dingtalk"
   | "mattermost"
   | "matrix"
   | "irc"
@@ -1574,6 +1623,7 @@ export type MessagingGatewaySnapshot = {
   slack: boolean;
   discord: boolean;
   mattermost: boolean;
+  dingtalk: boolean;
   matrix: boolean;
   irc: boolean;
   homeAssistant: boolean;
@@ -1600,6 +1650,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   telegram: false,
   slack: false,
   discord: false,
+  dingtalk: false,
   mattermost: false,
   matrix: false,
   irc: false,
@@ -1644,6 +1695,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   telegram: "telegram",
   slack: "slack",
   discord: "discord",
+  dingtalk: "dingtalk",
   mattermost: "mattermost",
   matrix: "matrix",
   irc: "irc",
@@ -1665,6 +1717,23 @@ function gatewayChannelFor(id: MessagingPlatformId): MessagingGatewayChannel | n
   return GATEWAY_CHANNEL_BY_PLATFORM[id] ?? null;
 }
 
+/**
+ * The credential slot a field writes to, or `null` when the field is not a
+ * secret.
+ *
+ * The panel asks this instead of listing credential ids: a channel's AppKey is
+ * a slot, not a new case in a switch, so adding a platform cannot leave its
+ * credentials without a control. Fields that merely look like credentials
+ * (`destination`, `account`) are records and answer `null`, because they are
+ * readable in the settings file and must stay text inputs.
+ */
+export function secretSlotFor(
+  platform: MessagingPlatform,
+  fieldId: string,
+): MessagingSecretSlot | null {
+  return platform.secrets.find((slot) => slot.id === fieldId) ?? null;
+}
+
 /** The link roles the inbound driver accepts, in `RACP_ROLES` order. */
 export const MESSAGING_ROLES: RacpRole[] = ["viewer", "controller", "approver", "owner"];
 
@@ -1684,6 +1753,11 @@ export const MESSAGING_MAX_TIMEOUT_MS = 60_000;
  * is emptied after a successful save and is never merged into the record.
  */
 export type MessagingDraft = {
+  /**
+   * Whether this channel shows a process card (ADR 0340). The runtime reads it
+   * from the same section, so the draft carries it like any other field.
+   */
+  card: boolean;
   endpoint: string;
   /** IRC only: the nick to register. Empty for every other channel. */
   nick: string;
@@ -1767,6 +1841,9 @@ export function draftFrom(
           ),
     bindAddress: trimmed(channel?.bindAddress) || "127.0.0.1",
     sessionId: trimmed(channel?.inbound?.sessionId),
+    // Read structurally: a stored record may carry the switch even when the
+    // settings type this build links against predates it.
+    card: (channel as unknown as Record<string, unknown> | undefined)?.card === true,
     secrets: {},
   };
 }
@@ -2064,6 +2141,56 @@ export function gatewayPresentation(state: MessagingChannelState): MessagingGate
 }
 
 /**
+ * The one sentence a platform card shows.
+ *
+ * The three dimensions stay three facts — `deriveChannelState` still reports
+ * them separately and the detail panel still lists them as three rows. This is
+ * only the order a person needs them in while scanning a list: a channel that
+ * is switched off is off before it is "incomplete", and a channel that was
+ * never asked to run is not broken.
+ */
+export type MessagingStatusTone = "success" | "warning" | "neutral" | "error";
+
+export type MessagingStatus = {
+  tone: MessagingStatusTone;
+  key: string;
+  /** How many fields are still missing, when the sentence counts them. */
+  count?: number;
+};
+
+export const MESSAGING_STATUS_KEYS = {
+  running: "settings.messaging.statusRunning",
+  stopped: "settings.messaging.statusStopped",
+  incomplete: "settings.messaging.statusIncomplete",
+  notConfigured: "settings.messaging.statusNotConfigured",
+  unreadable: "settings.messaging.statusUnreadable",
+} as const;
+
+export function channelStatus(state: MessagingChannelState): MessagingStatus {
+  if (state.enabled === "unreadable" || state.setup === "unknown") {
+    return { tone: "error", key: MESSAGING_STATUS_KEYS.unreadable };
+  }
+  // Turning a channel off deletes its record, so "off" and "never stored" are
+  // the same state — and only one of them is true to a person who never set the
+  // channel up. The card says 未配置, not 已停用: nothing was ever running to
+  // stop, and the switch beside it already shows it is off.
+  if (state.enabled === "off" || state.setup === "notStarted") {
+    return { tone: "neutral", key: MESSAGING_STATUS_KEYS.notConfigured };
+  }
+  if (state.setup === "incomplete") {
+    return {
+      tone: "warning",
+      key: MESSAGING_STATUS_KEYS.incomplete,
+      count: state.missing.length,
+    };
+  }
+  if (state.gateway === "running") {
+    return { tone: "success", key: MESSAGING_STATUS_KEYS.running };
+  }
+  return { tone: "warning", key: MESSAGING_STATUS_KEYS.stopped };
+}
+
+/**
  * The record a save writes. It carries no credential: the token fields of the
  * draft are not read here at all, so a value typed into the form cannot reach
  * the settings row even by mistake.
@@ -2074,6 +2201,18 @@ export function gatewayPresentation(state: MessagingChannelState): MessagingGate
  * key, so the whole section has to be rebuilt rather than patched.
  */
 export function buildSectionWrite(
+  platform: SupportedMessagingPlatform,
+  draft: MessagingDraft,
+  existing: MessagingPlatformRecord | null | undefined,
+): MessagingPlatformRecord & { card?: boolean } {
+  const section = buildSectionWriteBase(platform, draft, existing);
+  // Written only when on. The section is rebuilt from the draft on every save,
+  // so omitting the key is what turns the switch off — and a channel that never
+  // asked for a card keeps the record shape it always had.
+  return { ...section, ...(draft.card ? { card: true } : {}) };
+}
+
+function buildSectionWriteBase(
   platform: SupportedMessagingPlatform,
   draft: MessagingDraft,
   existing: MessagingPlatformRecord | null | undefined,
@@ -2321,3 +2460,97 @@ export type TelegramProbeResult =
 export type TelegramChatsResult =
   | { ok: true; chats: TelegramChatCandidate[] }
   | { ok: false; reason: TelegramProbeFailure };
+
+/**
+ * The URL a person opens to install the bot. Scopes and nothing else: asking
+ * for permissions up front would decide for the server owner what the bot may
+ * do, and Discord's consent screen is where that decision belongs.
+ */
+export function discordInstallUrl(applicationId: string): string {
+  return `https://discord.com/oauth2/authorize?client_id=${encodeURIComponent(applicationId)}&scope=bot`;
+}
+
+/**
+ * The application id inside a bot token.
+ *
+ * A bot's token opens with the base64url of its own user id, and for a bot that
+ * user id *is* its application id — the two are one identity, not a coincidence
+ * a caller has to trust. Discord documents the relationship; decoding it here
+ * is what lets the install URL exist without a round trip, which matters
+ * because the install page is opened on the phone and the desktop has no part
+ * in it after the code is on screen.
+ *
+ * Anything that is not a decimal id is a token this page cannot use, and the
+ * caller says so instead of rendering a link that would 404.
+ */
+/**
+ * Where a platform's credentials are actually created.
+ *
+ * Four channels begin the same way: open a page on the web, make the
+ * application, copy the token out. That page is the first step of setup and
+ * the step a phone does better than a desktop, so it gets a QR the same way
+ * the pairing step does. Channels whose credentials come from a server the
+ * person already runs — Mattermost, Matrix, Signal, the generic API ones —
+ * have no such page, and inventing one would be worse than showing nothing.
+ */
+export const MESSAGING_START_SCAN: Record<string, { url: string; hintKey: string }> = {
+  telegram: {
+    url: "https://t.me/BotFather",
+    hintKey: "settings.messaging.quickScanBotFather",
+  },
+  discord: {
+    url: "https://discord.com/developers/applications",
+    hintKey: "settings.messaging.discordScanPortal",
+  },
+  slack: {
+    url: "https://api.slack.com/apps",
+    hintKey: "settings.messaging.slackScanPortal",
+  },
+  homeAssistant: {
+    url: "https://my.home-assistant.io/redirect/profile/",
+    hintKey: "settings.messaging.homeAssistantScanPortal",
+  },
+};
+
+/**
+ * Signal device pairing, as the renderer sees it.
+ *
+ * `waiting` means a `sgnl://` URI exists and a phone has not scanned it yet;
+ * `linked` carries the number the device bound to, which is the account value
+ * the channel needs. Every other state is either idle or finished.
+ */
+export type SignalLinkSnapshot = {
+  state: "idle" | "starting" | "waiting" | "linked" | "failed";
+  url: string | null;
+  account: string | null;
+  reason: "missing-cli" | "exited" | "timeout" | "cancelled" | null;
+};
+
+/**
+ * The daemon behind the Signal channel, as the renderer sees it.
+ *
+ * `running` means the bridge port answers; `failed` carries why. The reason
+ * values are what the panel turns into a sentence, so they stay enumerated
+ * rather than free text.
+ */
+export type SignalBridgeSnapshot = {
+  state: "idle" | "starting" | "running" | "failed";
+  host: string;
+  port: number;
+  account: string | null;
+  reason: "missing-cli" | "no-account" | "port-in-use" | "exited" | null;
+};
+
+export function discordApplicationIdFromToken(token: string): string | null {
+  const first = token.trim().split(".")[0];
+  if (!first) return null;
+  const padded = first.replace(/-/g, "+").replace(/_/g, "/");
+  const withPadding = padded + "=".repeat((4 - (padded.length % 4)) % 4);
+  let decoded: string;
+  try {
+    decoded = typeof atob === "function" ? atob(withPadding) : "";
+  } catch {
+    return null;
+  }
+  return /^\d{5,25}$/.test(decoded) ? decoded : null;
+}

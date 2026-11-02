@@ -32,6 +32,7 @@ export type MessagingGatewayChannel =
   | "slack"
   | "discord"
   | "mattermost"
+  | "dingtalk"
   | "matrix"
   | "irc"
   | "homeAssistant"
@@ -48,6 +49,7 @@ export type MessagingGatewaySnapshot = {
   slack: boolean;
   discord: boolean;
   mattermost: boolean;
+  dingtalk: boolean;
   matrix: boolean;
   irc: boolean;
   homeAssistant: boolean;
@@ -181,6 +183,7 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
       slack: this.running.has("slack"),
       discord: this.running.has("discord"),
       mattermost: this.running.has("mattermost"),
+      dingtalk: this.running.has("dingtalk"),
       matrix: this.running.has("matrix"),
       irc: this.running.has("irc"),
       homeAssistant: this.running.has("homeAssistant"),
