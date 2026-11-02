@@ -1181,6 +1181,7 @@ export const DINGTALK_INBOUND_CHANNEL: MessagingInboundChannel = {
   section: MESSAGING_DINGTALK_SECTION,
   format: MESSAGING_DINGTALK_FORMAT,
   version: MESSAGING_DINGTALK_FORMAT_VERSION,
+  platform: "dingtalk",
 };
 
 /** The audit sink for the DingTalk stream client. */
