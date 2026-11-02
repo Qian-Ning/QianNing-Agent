@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, chmodSync } from "node:fs";
-import { createServer } from "node:net";
+import { createServer, connect } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -75,6 +75,32 @@ function holdPort() {
   });
 }
 
+function portAnswers() {
+  return new Promise((resolve) => {
+    const socket = connect({ host: "127.0.0.1", port: PORT });
+    const done = (value) => {
+      socket.destroy();
+      resolve(value);
+    };
+    socket.setTimeout(300);
+    socket.once("connect", () => done(true));
+    socket.once("timeout", () => done(false));
+    socket.once("error", () => done(false));
+  });
+}
+
+/* A daemon killed in the previous test frees its port asynchronously. Waiting
+   here keeps each case about its own setup instead of the previous one's
+   teardown: a port that still answers reads as running, not as port-in-use. */
+async function waitForPortFree(deadlineMs = 5_000) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    if (!(await portAnswers())) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`port ${PORT} never stopped answering`);
+}
+
 test("a port that already answers is reported as running, without spawning", async () => {
   const link = await loadModule();
   const server = await holdPort();
@@ -103,6 +129,7 @@ test("a daemon that opens the port is reported as running", async () => {
 });
 
 test("a port already taken by another process fails as port-in-use", async () => {
+  await waitForPortFree();
   const link = await loadModule();
   const dir = mkdtempSync(path.join(tmpdir(), "signal-cli-"));
   const cli = fakeCli(dir, { listen: false });
@@ -120,6 +147,7 @@ test("a missing binary is a fact, not a timeout", async () => {
 });
 
 test("a daemon that dies while starting settles instead of waiting out the deadline", async () => {
+  await waitForPortFree();
   const dir = mkdtempSync(path.join(tmpdir(), "signal-bridge-dying-"));
   const cli = fakeCli(dir, { listen: false });
   const link = await loadModule();
