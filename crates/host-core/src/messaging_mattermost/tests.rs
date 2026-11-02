@@ -110,7 +110,7 @@ async fn a_two_hundred_delivers_the_summary_to_the_channel_target() {
 
     assert_eq!(
         deliver(&adapter, summary()).await,
-        SendResult::Delivered,
+        SendResult::Delivered { remote_id: None },
         "a 2xx delivers the summary; Mattermost answers a created post with 201"
     );
 
@@ -160,7 +160,10 @@ async fn the_configured_base_path_survives_into_the_send_url() {
         None,
     ));
 
-    assert_eq!(deliver(&adapter, summary()).await, SendResult::Delivered);
+    assert_eq!(
+        deliver(&adapter, summary()).await,
+        SendResult::Delivered { remote_id: None }
+    );
     assert_eq!(
         fixture.requests()[0].path,
         "/chat/api/v4/posts",

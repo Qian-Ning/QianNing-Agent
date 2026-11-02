@@ -1717,6 +1717,23 @@ function gatewayChannelFor(id: MessagingPlatformId): MessagingGatewayChannel | n
   return GATEWAY_CHANNEL_BY_PLATFORM[id] ?? null;
 }
 
+/**
+ * The credential slot a field writes to, or `null` when the field is not a
+ * secret.
+ *
+ * The panel asks this instead of listing credential ids: a channel's AppKey is
+ * a slot, not a new case in a switch, so adding a platform cannot leave its
+ * credentials without a control. Fields that merely look like credentials
+ * (`destination`, `account`) are records and answer `null`, because they are
+ * readable in the settings file and must stay text inputs.
+ */
+export function secretSlotFor(
+  platform: MessagingPlatform,
+  fieldId: string,
+): MessagingSecretSlot | null {
+  return platform.secrets.find((slot) => slot.id === fieldId) ?? null;
+}
+
 /** The link roles the inbound driver accepts, in `RACP_ROLES` order. */
 export const MESSAGING_ROLES: RacpRole[] = ["viewer", "controller", "approver", "owner"];
 
@@ -1736,6 +1753,11 @@ export const MESSAGING_MAX_TIMEOUT_MS = 60_000;
  * is emptied after a successful save and is never merged into the record.
  */
 export type MessagingDraft = {
+  /**
+   * Whether this channel shows a process card (ADR 0340). The runtime reads it
+   * from the same section, so the draft carries it like any other field.
+   */
+  card: boolean;
   endpoint: string;
   /** IRC only: the nick to register. Empty for every other channel. */
   nick: string;
@@ -1819,6 +1841,9 @@ export function draftFrom(
           ),
     bindAddress: trimmed(channel?.bindAddress) || "127.0.0.1",
     sessionId: trimmed(channel?.inbound?.sessionId),
+    // Read structurally: a stored record may carry the switch even when the
+    // settings type this build links against predates it.
+    card: (channel as unknown as Record<string, unknown> | undefined)?.card === true,
     secrets: {},
   };
 }
@@ -2176,6 +2201,18 @@ export function channelStatus(state: MessagingChannelState): MessagingStatus {
  * key, so the whole section has to be rebuilt rather than patched.
  */
 export function buildSectionWrite(
+  platform: SupportedMessagingPlatform,
+  draft: MessagingDraft,
+  existing: MessagingPlatformRecord | null | undefined,
+): MessagingPlatformRecord & { card?: boolean } {
+  const section = buildSectionWriteBase(platform, draft, existing);
+  // Written only when on. The section is rebuilt from the draft on every save,
+  // so omitting the key is what turns the switch off — and a channel that never
+  // asked for a card keeps the record shape it always had.
+  return { ...section, ...(draft.card ? { card: true } : {}) };
+}
+
+function buildSectionWriteBase(
   platform: SupportedMessagingPlatform,
   draft: MessagingDraft,
   existing: MessagingPlatformRecord | null | undefined,

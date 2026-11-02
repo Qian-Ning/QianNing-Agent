@@ -51,7 +51,7 @@ import {
   type TelegramChatCandidate,
   type TelegramProbeFailure,
 } from "../../lib/messaging-platforms";
-import { channelStatus } from "../../lib/messaging-platforms";
+import { channelStatus, secretSlotFor } from "../../lib/messaging-platforms";
 import { MessagingPlatformIcon } from "./MessagingPlatformIcon";
 import {
   Badge,
@@ -711,7 +711,7 @@ function SupportedPanel({
     // below owns what is *not* a secret (the generated API token, and the plain
     // record fields), because a channel's credential ids must never have to be
     // listed here: DingTalk's AppKey is not a new case, it is a slot.
-    const secretSlot = platform.secrets.find((slot) => slot.id === field.id);
+    const secretSlot = secretSlotFor(platform, field.id);
     if (secretSlot && field.id !== "api-token") {
       return (
         <div className="settings-messaging-secret">
@@ -932,7 +932,7 @@ function SupportedPanel({
     // Only the single-control fields can be named by the label element; the
     // role and mode groups carry their own accessible name.
     const labelled =
-      platform.secrets.some((slot) => slot.id === field.id) ||
+      secretSlotFor(platform, field.id) !== null ||
       [
       "nick",
       "channels",
@@ -1111,6 +1111,30 @@ function SupportedPanel({
         </details>
 
         <div className="settings-messaging-footer">
+          {/* The process card (ADR 0340) is a per-channel choice, so it sits with
+              the enable switch: this save writes it, and only the channels that
+              asked for one get the extra message and the extra edits. */}
+          <div className="settings-messaging-enable">
+            <SettingsToggle
+              checked={draft.card}
+              busy={saving}
+              label={t("settings.messaging.cardToggle", { platform: t(platform.labelKey) })}
+              onChange={() => onDraftChange({ card: !draft.card })}
+            />
+            <div className="settings-messaging-enable-copy">
+              <span className="settings-messaging-enable-heading">
+                <span className="settings-messaging-enable-title">
+                  {t("settings.messaging.cardTitle")}
+                </span>
+                <Badge tone={draft.card ? "success" : "neutral"}>
+                  {t(draft.card ? "settings.messaging.enabledOn" : "settings.messaging.enabledOff")}
+                </Badge>
+              </span>
+              <span className="settings-messaging-enable-note">
+                {t("settings.messaging.cardNote")}
+              </span>
+            </div>
+          </div>
           <div className="settings-messaging-enable">
             <SettingsToggle
               checked={enabled}

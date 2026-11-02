@@ -40,6 +40,7 @@ import {
   SUPPORTED_MESSAGING_PLATFORMS,
   UNSUPPORTED_MESSAGING_PLATFORMS,
   buildSectionWrite,
+  secretSlotFor,
   canSave,
   channelStatus,
   deriveChannelState,
@@ -739,6 +740,34 @@ test("Signal's sender allowlist is required, normalised, and explained as fail-c
   assert.match(en.settings.messaging.signalAllowedSendersHint, /group/i);
   assert.match(en.settings.messaging.signalAllowedSendersHint, /sent it, not the group/i);
   assert.match(en.settings.messaging.signalLimitations, /empty list refuses everyone/i);
+});
+
+/** The process card switch (ADR 0340): written when on, gone when off. */
+test("the card switch is written only when it is on", () => {
+  const draft = { ...draftFrom(telegram, null), destination: "42", subject: "ops" };
+
+  const off = buildSectionWrite(telegram, { ...draft, card: false }, null);
+  assert.equal(
+    Object.hasOwn(off, "card"),
+    false,
+    "a channel that never asked for a card keeps the record shape it always had",
+  );
+
+  const on = buildSectionWrite(telegram, { ...draft, card: true }, null);
+  assert.equal(on.card, true);
+
+  // The section is rebuilt from the draft on every save, so omitting the key is
+  // what turns the switch off: saving from an on-record with the switch off
+  // must not carry the old value forward.
+  const turnedOff = buildSectionWrite(telegram, { ...draft, card: false }, on);
+  assert.equal(Object.hasOwn(turnedOff, "card"), false);
+});
+
+/** Reading a stored record back into the form. */
+test("a stored card switch comes back into the draft", () => {
+  const stored = { ...buildSectionWrite(telegram, { ...draftFrom(telegram, null), destination: "42" }, null), card: true };
+  assert.equal(draftFrom(telegram, stored).card, true);
+  assert.equal(draftFrom(telegram, null).card, false);
 });
 
 /** The record shape is the host's, not an invention of the form. */
@@ -1640,4 +1669,71 @@ test("the detail panel is split into overview, credentials and behaviour", () =>
   }
   const headings = page.match(/settings-messaging-block-title/g) ?? [];
   assert.equal(headings.length, 3);
+});
+
+/**
+ * A channel's credentials get a control because their id names a slot, not
+ * because the panel happens to list that id.
+ *
+ * The panel used to enumerate four credential ids and return `null` for the
+ * rest, which left DingTalk's AppKey, the email password and the webhook
+ * signing secret with no input at all. Nothing in the catalogue could notice:
+ * the field existed, the secret existed, only the control was missing. This is
+ * the assertion that would have failed.
+ */
+test("every credential slot a supported channel declares is a secret field", () => {
+  for (const platform of SUPPORTED_MESSAGING_PLATFORMS) {
+    assert.ok(platform.secrets.length > 0, `${platform.id} declares no credential`);
+    for (const slot of platform.secrets) {
+      const found = secretSlotFor(platform, slot.id);
+      assert.deepEqual(found, slot, `${platform.id}.${slot.id} would render no control`);
+    }
+  }
+});
+
+test("a readable record field is never mistaken for a credential", () => {
+  for (const platform of SUPPORTED_MESSAGING_PLATFORMS) {
+    for (const field of platform.fields) {
+      const slot = secretSlotFor(platform, field.id);
+      const declared = platform.secrets.some((entry) => entry.id === field.id);
+      assert.equal(
+        slot !== null,
+        declared,
+        `${platform.id}.${field.id} disagrees with the channel's secret slots`,
+      );
+    }
+  }
+  // The two ids that read like credentials but live in the settings record.
+  const telegram = MESSAGING_PLATFORMS.find((entry) => entry.id === "telegram");
+  assert.equal(secretSlotFor(telegram, "destination"), null);
+  assert.equal(secretSlotFor(telegram, "bot-token")?.id, "bot-token");
+});
+
+/**
+ * The panel must ask the catalogue, not carry its own list of credential ids.
+ *
+ * The predicate test above only guards the catalogue. This one guards the other
+ * half: a switch that names `bot-token` and returns `null` for everything else
+ * is how three channels lost their inputs, and it compiles perfectly.
+ */
+test("the panel decides a field is a secret by the slot, not by a fixed id list", () => {
+  const source = readFileSync(
+    new URL("../src/components/settings/MessagingPlatformsPage.tsx", import.meta.url),
+    "utf8",
+  );
+  // Only the control renderer is under test: the label helper legitimately maps
+  // ids to their own label keys, and that is a different decision.
+  const start = source.indexOf("const fieldControl = (field: MessagingField) => {");
+  const end = source.indexOf("const renderField = (field: MessagingField) => {");
+  assert.ok(start > 0 && end > start, "the control renderer moved; update this test");
+  const control = source.slice(start, end);
+
+  assert.match(control, /secretSlotFor\(platform, field\.id\)/);
+  for (const id of ["bot-token", "app-token", "access-token", "server-password", "client-id"]) {
+    assert.equal(
+      control.includes(`case "${id}":`),
+      false,
+      `the control renderer still enumerates the credential id "${id}"`,
+    );
+  }
 });

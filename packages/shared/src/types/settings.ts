@@ -144,6 +144,13 @@ export type MessagingChannelSettings = {
   maxBodyBytes?: number;
   maxConcurrent?: number;
   inbound?: MessagingInboundSettings;
+  /**
+   * Show a process card on this channel (ADR 0340): one message the host
+   * creates when a turn starts, rewrites while it works, and replaces with the
+   * answer. Absent or false means no card, which is the default.
+   */
+  card?: boolean;
+
 };
 
 /**

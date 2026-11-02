@@ -1805,3 +1805,46 @@ fn a_v16_file_gains_the_provider_owner_column() {
         .unwrap();
     assert!(owner.is_none());
 }
+
+#[test]
+fn the_v25_migration_adds_the_delivery_operation_columns() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    {
+        let db = Database::open(&path).unwrap();
+        db.conn()
+            .execute_batch(
+                "INSERT INTO delivery_ledger (id, channel, payload_json, state, created_at, updated_at)
+                     VALUES ('legacy-send', 'telegram', '{}', 'delivered', 1, 1);
+                 ALTER TABLE delivery_ledger DROP COLUMN operation;
+                 ALTER TABLE delivery_ledger DROP COLUMN remote_id;",
+            )
+            .unwrap();
+        db.conn().pragma_update(None, "user_version", 24).unwrap();
+    }
+    let db = Database::open(&path).unwrap();
+    assert_eq!(schema_version(db.conn()), SCHEMA_VERSION);
+    assert!(migration_backup_path(&path, 24).exists());
+    let columns: i64 = db
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('delivery_ledger')
+             WHERE name IN ('operation', 'remote_id')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(columns, 2, "both columns exist after v25");
+    let operation: String = db
+        .conn()
+        .query_row(
+            "SELECT operation FROM delivery_ledger WHERE id = 'legacy-send'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        operation, "send",
+        "a row written before the column existed is a send"
+    );
+}
