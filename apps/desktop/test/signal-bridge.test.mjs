@@ -118,3 +118,16 @@ test("a missing binary is a fact, not a timeout", async () => {
   assert.equal(snapshot.state, "failed");
   assert.equal(snapshot.reason, "missing-cli");
 });
+
+test("a daemon that dies while starting settles instead of waiting out the deadline", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "signal-bridge-dying-"));
+  const cli = fakeCli(dir, { listen: false });
+  const link = await loadModule();
+  const started = Date.now();
+  const snapshot = await link.startSignalBridge({ cliPath: cli });
+  assert.equal(snapshot.state, "failed");
+  assert.equal(snapshot.reason, "port-in-use");
+  // The readiness deadline is far longer than this; landing on a reason proves
+  // the close event reached the caller rather than the timer.
+  assert.ok(Date.now() - started < 10_000);
+});
