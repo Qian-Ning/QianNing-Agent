@@ -1,5 +1,5 @@
 import { createServer, type Server } from "node:http";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AskToolResolution, PlanningStateEvent, RacpPermissionMode } from "@pi-desktop/shared";
 
 import { AgentHost } from "./agent-host.js";
@@ -187,6 +187,7 @@ function buildDriver(options: {
   config?: MessagingInboundConfig | null;
   target?: Record<string, string>;
   audit?: MessagingInboundAuditEntry[];
+  notifyTyping?: (chatId: string) => void;
 }): { driver: MessagingInboundDriver; audit: MessagingInboundAuditEntry[] } {
   const audit = options.audit ?? [];
   const driver = new MessagingInboundDriver({
@@ -198,6 +199,7 @@ function buildDriver(options: {
     audit: (entry) => audit.push(entry),
     ids: new SeqIds(),
     wait: async () => {},
+    ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
   });
   return { driver, audit };
 }
@@ -308,6 +310,80 @@ describe("MessagingInboundDriver routing", () => {
     expect(runtime.prompts[0].content).toBe("do the thing");
     expect(runtime.prompts[0].principal).toEqual(LINKED_PRINCIPAL);
     expect(audit).toEqual([{ kind: "operation", messageId: "m1", operation: "turn/start" }]);
+  });
+
+  it("asks the channel for its working indicator once per accepted message", async () => {
+    const { surface } = buildHost();
+    const hints: string[] = [];
+    const { driver } = buildDriver({
+      surface,
+      notifyTyping: (chatId) => hints.push(chatId),
+    });
+
+    await driver.handleMessage(inboundMessage({ text: "/start do the thing" }));
+    await driver.handleMessage(inboundMessage({ text: "/start do the thing" }));
+
+    expect(hints).toEqual([CHAT_ID]);
+  });
+
+  it("keeps the turn when the channel's indicator throws", async () => {
+    const { surface } = buildHost();
+    const { driver } = buildDriver({
+      surface,
+      notifyTyping: () => {
+        throw new Error("the socket is gone");
+      },
+    });
+
+    const outcome = await driver.handleMessage(inboundMessage({ text: "/start do the thing" }));
+
+    expect(outcome).toEqual({ kind: "invoked", messageId: "m1", operation: "turn/start" });
+  });
+
+  it("renews the indicator while the turn runs and lowers it when the turn settles", async () => {
+    const { surface } = buildHost();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const slowSurface: MessagingInboundOperationSurface = {
+      ...surface,
+      startTurn: async (principal, params) => {
+        await gate;
+        return surface.startTurn(principal, params);
+      },
+    };
+    const hints: string[] = [];
+    const { driver } = buildDriver({
+      surface: slowSurface,
+      notifyTyping: (chatId) => hints.push(chatId),
+    });
+
+    vi.useFakeTimers();
+    try {
+      const done = driver.handleMessage(inboundMessage({ text: "/start do the thing" }));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(hints).toEqual([CHAT_ID]);
+
+      await vi.advanceTimersByTimeAsync(8_000);
+      expect(hints).toEqual([CHAT_ID, CHAT_ID, CHAT_ID]);
+
+      release();
+      await done;
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(hints).toHaveLength(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("asks for no indicator when it has none to ask with", async () => {
+    const { surface } = buildHost();
+    const { driver } = buildDriver({ surface });
+
+    const outcome = await driver.handleMessage(inboundMessage({ text: "/start do the thing" }));
+
+    expect(outcome).toEqual({ kind: "invoked", messageId: "m1", operation: "turn/start" });
   });
 
   it("carries the out-of-band mode onto a contract approval, and only where it is needed", async () => {

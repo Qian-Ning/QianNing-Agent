@@ -289,6 +289,7 @@ describe("the outbound messaging relay", () => {
       "telegram",
       "slack",
       "discord",
+      "dingtalk",
       "mattermost",
     ]);
     expect(MESSAGING_OUTBOUND_CHANNELS.every((entry) => entry.section && entry.format && entry.version > 0)).toBe(true);

@@ -5,6 +5,7 @@ import { AgentHost } from "./agent-host.js";
 import type { ApprovalPort } from "./approvals.js";
 import { EventHub, type SubscriptionSink } from "./event-log.js";
 import {
+  CARD_NOTE_LIMIT,
   FORWARDED_EVENT_KINDS,
   MESSAGING_ENQUEUE_METHOD,
   MessagingRedactor,
@@ -374,5 +375,105 @@ describe("MessagingRedactor", () => {
 
     expect(errors).toHaveLength(1);
     expect(String(errors[0])).toContain("host unavailable");
+  });
+});
+
+/**
+ * The process card (ADR 0340). A card is the only feature that reads an
+ * envelope payload, so these tests are as much about what cannot cross as about
+ * what does: three named keys, strings only, each cut to length.
+ */
+describe("MessagingRedactor cards", () => {
+  function cardRedactor(cards: boolean) {
+    const call = vi.fn(async () => ({}));
+    const redactor = new MessagingRedactor({ call } as unknown as HostRpcPort, "telegram", undefined, cards);
+    return { call, redactor };
+  }
+
+  function event(kind: "turn.started" | "tool.progress" | "turn.completed", payload: unknown) {
+    const events = new EventHub({ clock: new FixedClock(), ids: new SeqIds() });
+    return events.publish({
+      scope: "host",
+      sessionId: "session-1",
+      turnId: "turn-1",
+      revision: 12,
+      kind,
+      agentName: "worker",
+      payload,
+    } as never);
+  }
+
+  it("does not forward a card kind while the card is off", () => {
+    const { call, redactor } = cardRedactor(false);
+    redactor.deliver(event("turn.started", {}));
+    redactor.deliver(event("tool.progress", { tool: "shell" }));
+    expect(call).not.toHaveBeenCalled();
+  });
+
+  it("opens a card when the turn starts", () => {
+    const { call, redactor } = cardRedactor(true);
+    redactor.deliver(event("turn.started", {}));
+    const [, params] = call.mock.calls[0] as unknown as [string, { payload: MessageDeliverySummary }];
+    expect(params.payload.kind).toBe("turn.started");
+    expect(params.payload.status).toBe("running");
+  });
+
+  it("carries the three card fields and nothing else from the payload", () => {
+    const { call, redactor } = cardRedactor(true);
+    redactor.deliver(
+      event("tool.progress", {
+        phase: "reading",
+        tool: "shell",
+        note: "reading the file",
+        args: { secret: SENTINEL },
+        result: SENTINEL,
+        text: SENTINEL,
+      }),
+    );
+    const [, params] = call.mock.calls[0] as unknown as [string, { payload: MessageDeliverySummary }];
+    expect(params.payload.phase).toBe("reading");
+    expect(params.payload.tool).toBe("shell");
+    expect(params.payload.note).toBe("reading the file");
+    expect(JSON.stringify(params.payload)).not.toContain(SENTINEL.slice(0, 24));
+  });
+
+  it("cuts the note at the boundary instead of trusting it to be short", () => {
+    const { call, redactor } = cardRedactor(true);
+    redactor.deliver(event("tool.progress", { note: "n".repeat(400) }));
+    const [, params] = call.mock.calls[0] as unknown as [string, { payload: MessageDeliverySummary }];
+    expect(params.payload.note).toHaveLength(CARD_NOTE_LIMIT);
+    expect(params.payload.note?.endsWith("…")).toBe(true);
+  });
+
+  it("drops a field that is not a string rather than stringifying it", () => {
+    const { call, redactor } = cardRedactor(true);
+    redactor.deliver(event("tool.progress", { tool: { name: SENTINEL }, phase: 7 }));
+    const [, params] = call.mock.calls[0] as unknown as [string, { payload: MessageDeliverySummary }];
+    expect(params.payload.tool).toBeUndefined();
+    expect(params.payload.phase).toBeUndefined();
+  });
+
+  it("hands a card event to the card instead of enqueueing it", () => {
+    const call = vi.fn(async () => ({}));
+    const absorb = vi.fn(() => true);
+    const redactor = new MessagingRedactor(
+      { call } as unknown as HostRpcPort,
+      "telegram",
+      undefined,
+      true,
+      { absorb },
+    );
+    redactor.deliver(event("turn.started", {}));
+    expect(absorb).toHaveBeenCalledTimes(1);
+    expect(call).not.toHaveBeenCalled();
+  });
+
+  it("delivers a summary itself when no card took it", () => {
+    const call = vi.fn(async () => ({}));
+    const redactor = new MessagingRedactor({ call } as unknown as HostRpcPort, "telegram", undefined, true, {
+      absorb: () => false,
+    });
+    redactor.deliver(event("turn.completed", {}));
+    expect(call).toHaveBeenCalledTimes(1);
   });
 });

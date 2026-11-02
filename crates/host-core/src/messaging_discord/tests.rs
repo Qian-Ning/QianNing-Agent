@@ -109,7 +109,7 @@ async fn a_two_hundred_delivers_the_summary_to_the_channel_target() {
 
     assert_eq!(
         deliver(&adapter, summary()).await,
-        SendResult::Delivered,
+        SendResult::Delivered { remote_id: None },
         "an HTTP 200 delivers the summary"
     );
 
@@ -158,7 +158,10 @@ async fn a_thread_id_is_the_target_of_the_reply() {
     .await;
     let adapter = Arc::new(adapter(&fixture.endpoint, "token", THREAD_ID, None));
 
-    assert_eq!(deliver(&adapter, summary()).await, SendResult::Delivered);
+    assert_eq!(
+        deliver(&adapter, summary()).await,
+        SendResult::Delivered { remote_id: None }
+    );
 
     let seen = fixture.requests();
     assert_eq!(
@@ -187,7 +190,10 @@ async fn the_configured_base_path_survives_into_the_send_url() {
         None,
     ));
 
-    assert_eq!(deliver(&adapter, summary()).await, SendResult::Delivered);
+    assert_eq!(
+        deliver(&adapter, summary()).await,
+        SendResult::Delivered { remote_id: None }
+    );
     assert_eq!(
         fixture.requests()[0].path,
         format!("/api/v10/channels/{CHANNEL_ID}/messages"),

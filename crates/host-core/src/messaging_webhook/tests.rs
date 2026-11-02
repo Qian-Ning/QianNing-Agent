@@ -283,7 +283,7 @@ async fn a_two_hundred_delivers_the_summary_as_json_to_the_configured_path() {
 
     assert_eq!(
         deliver(&adapter, summary()).await,
-        SendResult::Delivered,
+        SendResult::Delivered { remote_id: None },
         "a 2xx is the receiver's acceptance"
     );
 
@@ -437,7 +437,7 @@ async fn a_two_hundred_family_status_other_than_200_delivers() {
 
     assert_eq!(
         deliver(&adapter, summary()).await,
-        SendResult::Delivered,
+        SendResult::Delivered { remote_id: None },
         "every 2xx is the receiver's acceptance, not only 200"
     );
     let seen = fixture.requests();
@@ -612,7 +612,10 @@ async fn a_host_with_no_token_posts_without_an_authorization_header() {
     let fixture = fixture(200).await;
     let adapter = Arc::new(adapter(&fixture.endpoint, None, None));
 
-    assert_eq!(deliver(&adapter, summary()).await, SendResult::Delivered);
+    assert_eq!(
+        deliver(&adapter, summary()).await,
+        SendResult::Delivered { remote_id: None }
+    );
     let seen = fixture.requests();
     assert_eq!(seen.len(), 1);
     assert_eq!(
@@ -1089,7 +1092,7 @@ impl OutboundAdapter for RecordingAdapter {
             .expect("recording")
             .sent
             .push(message.clone());
-        SendResult::Delivered
+        SendResult::Delivered { remote_id: None }
     }
 }
 
