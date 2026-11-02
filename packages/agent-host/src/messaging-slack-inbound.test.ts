@@ -530,6 +530,7 @@ describe("driver runs a push transport", () => {
       },
     };
     const driver = new MessagingInboundDriver({
+      channelLabel: "slack",
       agentHost: {} as MessagingInboundOperationSurface,
       transport: push,
       readConfig: async () => ({ link: null }),

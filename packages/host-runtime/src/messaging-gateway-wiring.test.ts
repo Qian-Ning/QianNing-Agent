@@ -276,7 +276,13 @@ describe("discord inbound wiring", () => {
     factory.last.deliver(READY);
     factory.last.deliver(discordMessage("m-1", "human-1", "/start hello"));
     await settle();
-    expect(routed).toEqual([{ operation: "turn/start", sessionId: SESSION_ID, text: "hello" }]);
+    expect(routed).toEqual([
+      {
+        operation: "turn/start",
+        sessionId: SESSION_ID,
+        text: '<msg channel="discord">\nhello\n</msg>',
+      },
+    ]);
 
     factory.last.deliver(discordMessage("m-2", "bot-1", "/start own"));
     await settle();
@@ -441,7 +447,13 @@ describe("mattermost inbound wiring", () => {
       },
     });
     await settle();
-    expect(routed).toEqual([{ operation: "turn/start", sessionId: SESSION_ID, text: "hi" }]);
+    expect(routed).toEqual([
+      {
+        operation: "turn/start",
+        sessionId: SESSION_ID,
+        text: '<msg channel="mattermost">\nhi\n</msg>',
+      },
+    ]);
 
     factory.last.deliver({
       event: "posted",
@@ -619,7 +631,13 @@ describe("irc inbound wiring", () => {
 
     socket.send(":human-1!u@host PRIVMSG #pi-desktop :/start hi");
     await settle();
-    expect(routed).toEqual([{ operation: "turn/start", sessionId: SESSION_ID, text: "hi" }]);
+    expect(routed).toEqual([
+      {
+        operation: "turn/start",
+        sessionId: SESSION_ID,
+        text: '<msg channel="irc">\nhi\n</msg>',
+      },
+    ]);
 
     // Our own nick, echoed with the server's casing, is not a command.
     socket.send(":PI-BOT!bot@host PRIVMSG #pi-desktop :/start own");
@@ -803,7 +821,13 @@ describe("home assistant inbound wiring", () => {
       context: { id: "01JEVENT" },
     });
     await settle();
-    expect(routed).toEqual([{ operation: "turn/start", sessionId: SESSION_ID, text: "hi" }]);
+    expect(routed).toEqual([
+      {
+        operation: "turn/start",
+        sessionId: SESSION_ID,
+        text: '<msg channel="homeAssistant">\nhi\n</msg>',
+      },
+    ]);
 
     // The same event redelivered is not a second command.
     socket.emitEvent({

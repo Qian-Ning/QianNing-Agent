@@ -49,9 +49,11 @@
  * One inbound message, channel-neutral: the fields every receive path shares,
  * whatever transport delivered it.
  *
- * The text is the message's own text and nothing else. No transcript, no
- * attachment, no envelope: a channel that needed more would grow this shape
- * deliberately rather than smuggle fields through it.
+ * The text is the message's own text and nothing else. The metadata beside it
+ * is the platform's own answer to who sent the message, in what kind of
+ * conversation, and when: filled where the payload carries it, absent where it
+ * does not, never inferred. `messaging-envelope.ts` turns it into the prompt
+ * header; a channel that cannot fill a field simply grows a shorter header.
  */
 export type IngressMessage = {
   /** The message's own id; with the conversation, the replay guard's key. */
@@ -60,6 +62,30 @@ export type IngressMessage = {
   chatId: string;
   /** The message text exactly as received. */
   text: string;
+  /** Who sent it, when the platform names them. */
+  sender?: IngressSender;
+  /** When the platform says it was sent, in epoch milliseconds. */
+  sentAt?: number;
+  /** The conversation's shape, when the platform distinguishes it. */
+  chatKind?: "private" | "group" | "channel";
+  /** The thread or topic the message belongs to, when the platform has them. */
+  threadId?: string;
+};
+
+/**
+ * The sender, in the platform's own terms.
+ *
+ * Three fields because platforms disagree about which ones exist: Telegram has
+ * a display name and a username, IRC has only a nick, Matrix has a user id.
+ * `id` is the one field a channel must have if it fills this at all.
+ */
+export type IngressSender = {
+  /** Platform-stable id of the sender. */
+  id: string;
+  /** Human-facing name, when the platform gives one. */
+  name?: string;
+  /** The platform's @handle, when it has one. */
+  handle?: string;
 };
 
 /**

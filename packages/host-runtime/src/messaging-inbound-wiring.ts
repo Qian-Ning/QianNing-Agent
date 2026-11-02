@@ -370,13 +370,25 @@ async function patchSection(
  * the exact shape they had; a second channel (Slack, ADR 0326) is selected by
  * passing its descriptor rather than by restating the reader.
  */
-export type MessagingInboundChannel = { section: string; format: string; version: number };
+export type MessagingInboundChannel = {
+  section: string;
+  format: string;
+  version: number;
+  /**
+   * The platform's own name (`telegram`, `slack`, …), carried into the context
+   * envelope so a session reachable from more than one channel can say which
+   * one a message arrived on. Not derived from `section`: a settings key is not
+   * a platform name, and the two are allowed to diverge.
+   */
+  platform: string;
+};
 
 /** The Telegram channel's descriptor: the default the bind path uses. */
 export const TELEGRAM_INBOUND_CHANNEL: MessagingInboundChannel = {
   section: MESSAGING_TELEGRAM_SECTION,
   format: MESSAGING_TELEGRAM_FORMAT,
   version: MESSAGING_TELEGRAM_FORMAT_VERSION,
+  platform: "telegram",
 };
 
 /** The Slack channel's descriptor (ADR 0326), selected by its own bind channel. */
@@ -384,6 +396,7 @@ export const SLACK_INBOUND_CHANNEL: MessagingInboundChannel = {
   section: MESSAGING_SLACK_SECTION,
   format: MESSAGING_SLACK_FORMAT,
   version: MESSAGING_SLACK_FORMAT_VERSION,
+  platform: "slack",
 };
 
 /** The Discord channel's descriptor, selected by its own bind channel. */
@@ -391,6 +404,7 @@ export const DISCORD_INBOUND_CHANNEL: MessagingInboundChannel = {
   section: MESSAGING_DISCORD_SECTION,
   format: MESSAGING_DISCORD_FORMAT,
   version: MESSAGING_DISCORD_FORMAT_VERSION,
+  platform: "discord",
 };
 
 /** The Mattermost channel's descriptor, selected by its own bind channel. */
@@ -398,6 +412,7 @@ export const MATTERMOST_INBOUND_CHANNEL: MessagingInboundChannel = {
   section: MESSAGING_MATTERMOST_SECTION,
   format: MESSAGING_MATTERMOST_FORMAT,
   version: MESSAGING_MATTERMOST_FORMAT_VERSION,
+  platform: "mattermost",
 };
 
 /** The Home Assistant channel's descriptor, selected by its own bind channel. */
@@ -405,6 +420,7 @@ export const HOME_ASSISTANT_INBOUND_CHANNEL: MessagingInboundChannel = {
   section: MESSAGING_HOME_ASSISTANT_SECTION,
   format: MESSAGING_HOME_ASSISTANT_FORMAT,
   version: MESSAGING_HOME_ASSISTANT_FORMAT_VERSION,
+  platform: "homeAssistant",
 };
 
 /** The Matrix channel's descriptor, selected by its own bind channel. */
@@ -412,6 +428,7 @@ export const MATRIX_INBOUND_CHANNEL: MessagingInboundChannel = {
   section: MESSAGING_MATRIX_SECTION,
   format: MESSAGING_MATRIX_FORMAT,
   version: MESSAGING_MATRIX_FORMAT_VERSION,
+  platform: "matrix",
 };
 
 /**
@@ -744,6 +761,7 @@ function createIngressWiring(options: {
   const binding = createSettingsSessionBindingStore(options.settings, section);
   const targets = createAgentHostTargets(options.agentHost, () => binding.load());
   const driver = new MessagingInboundDriver({
+    channelLabel: options.channel.platform,
     ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
     agentHost: options.agentHost,
     transport: options.transport,
@@ -1163,6 +1181,7 @@ export const DINGTALK_INBOUND_CHANNEL: MessagingInboundChannel = {
   section: MESSAGING_DINGTALK_SECTION,
   format: MESSAGING_DINGTALK_FORMAT,
   version: MESSAGING_DINGTALK_FORMAT_VERSION,
+  platform: "dingtalk",
 };
 
 /** The audit sink for the DingTalk stream client. */
@@ -1397,6 +1416,7 @@ export const NTFY_INBOUND_CHANNEL: MessagingInboundChannel = {
   section: MESSAGING_NTFY_SECTION,
   format: MESSAGING_NTFY_FORMAT,
   version: MESSAGING_NTFY_FORMAT_VERSION,
+  platform: "ntfy",
 };
 
 /**
@@ -1566,6 +1586,7 @@ export const EMAIL_INBOUND_CHANNEL: MessagingInboundChannel = {
   section: MESSAGING_EMAIL_SECTION,
   format: MESSAGING_EMAIL_FORMAT,
   version: MESSAGING_EMAIL_FORMAT_VERSION,
+  platform: "email",
 };
 
 /**
@@ -1770,6 +1791,7 @@ export const SIGNAL_INBOUND_CHANNEL: MessagingInboundChannel = {
   section: MESSAGING_SIGNAL_SECTION,
   format: MESSAGING_SIGNAL_FORMAT,
   version: MESSAGING_SIGNAL_FORMAT_VERSION,
+  platform: "signal",
 };
 
 /**
@@ -1942,6 +1964,7 @@ export const IRC_INBOUND_CHANNEL: MessagingInboundChannel = {
   section: MESSAGING_IRC_SECTION,
   format: MESSAGING_IRC_FORMAT,
   version: MESSAGING_IRC_FORMAT_VERSION,
+  platform: "irc",
 };
 
 /** The audit sink for the IRC client: structure and ids only, never a password. */

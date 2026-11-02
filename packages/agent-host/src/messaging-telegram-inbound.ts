@@ -20,7 +20,12 @@
  * still can, and there is no runtime cycle between the two.
  */
 
-import { ingressMessageKey, type IngressNormalisation, type PollIngressAdapter } from "./messaging-ingress.js";
+import {
+  ingressMessageKey,
+  type IngressNormalisation,
+  type IngressSender,
+  type PollIngressAdapter,
+} from "./messaging-ingress.js";
 import type { TelegramInboundTransport } from "./messaging-inbound.js";
 
 /**
@@ -29,6 +34,69 @@ import type { TelegramInboundTransport } from "./messaging-inbound.js";
  * so this adapter declares the limit without growing a second sender.
  */
 export const TELEGRAM_MESSAGE_LIMIT = 4096;
+
+
+/** The conversation kinds the shared shape names, read from a raw value. */
+function chatKindOf(value: unknown): "private" | "group" | "channel" | undefined {
+  return value === "private" || value === "group" || value === "channel" ? value : undefined;
+}
+
+/**
+ * Telegram's answer to who sent the message, in what kind of chat, and when.
+ *
+ * Every field is optional and independently checked: a payload missing `from`
+ * still contributes its date, and a chat with an unknown `type` contributes no
+ * kind rather than a guessed one. A group's message and a private one are
+ * otherwise identical on the wire, which is why the envelope needs this.
+ */
+function telegramMetadata(message: Record<string, unknown>): {
+  sender?: IngressSender;
+  sentAt?: number;
+  chatKind?: "private" | "group" | "channel";
+  threadId?: string;
+} {
+  const metadata: {
+    sender?: IngressSender;
+    sentAt?: number;
+    chatKind?: "private" | "group" | "channel";
+    threadId?: string;
+  } = {};
+
+  const from = isRecord(message.from) ? message.from : undefined;
+  if (from) {
+    const id =
+      typeof from.id === "number" || typeof from.id === "string" ? String(from.id) : "";
+    if (id) {
+      const name = [from.first_name, from.last_name]
+        .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+        .join(" ");
+      metadata.sender = {
+        id,
+        ...(name ? { name } : {}),
+        ...(typeof from.username === "string" && from.username ? { handle: from.username } : {}),
+      };
+    }
+  }
+
+  // Telegram's `date` is Unix seconds; the shared shape carries milliseconds.
+  if (typeof message.date === "number" && Number.isFinite(message.date)) {
+    metadata.sentAt = message.date * 1000;
+  }
+
+  const chat = isRecord(message.chat) ? message.chat : undefined;
+  if (chat?.type === "private") metadata.chatKind = "private";
+  else if (chat?.type === "group" || chat?.type === "supergroup") metadata.chatKind = "group";
+  else if (chat?.type === "channel") metadata.chatKind = "channel";
+
+  if (
+    typeof message.message_thread_id === "number" ||
+    typeof message.message_thread_id === "string"
+  ) {
+    metadata.threadId = String(message.message_thread_id);
+  }
+
+  return metadata;
+}
 
 /**
  * Project one Telegram update onto the shared shape.
@@ -75,7 +143,7 @@ export function normaliseTelegramUpdate(entry: unknown): TelegramUpdateNormalisa
     updateId,
     normalisation: {
       kind: "message",
-      message: { messageId, chatId, text },
+      message: { messageId, chatId, text, ...telegramMetadata(message) },
       key: ingressMessageKey(chatId, messageId),
     },
   };
@@ -103,10 +171,18 @@ export function createTelegramIngressAdapter(options: {
       // envelope), so a message is accepted as itself and an update is
       // projected the way the transport projects it.
       if (isRecord(raw) && typeof raw.messageId === "string" && typeof raw.chatId === "string") {
+        // The poll result is already projected, so its metadata is carried
+        // through as it arrived rather than re-derived from a shape it no
+        // longer has.
+        const chatKind = chatKindOf(raw.chatKind);
         const message = {
           messageId: raw.messageId,
           chatId: raw.chatId,
           text: typeof raw.text === "string" ? raw.text : "",
+          ...(isRecord(raw.sender) ? { sender: raw.sender as IngressSender } : {}),
+          ...(typeof raw.sentAt === "number" ? { sentAt: raw.sentAt } : {}),
+          ...(chatKind ? { chatKind } : {}),
+          ...(typeof raw.threadId === "string" ? { threadId: raw.threadId } : {}),
         };
         return { kind: "message", message, key: ingressMessageKey(message.chatId, message.messageId) };
       }
