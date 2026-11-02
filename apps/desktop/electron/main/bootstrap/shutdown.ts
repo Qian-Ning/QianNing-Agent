@@ -14,6 +14,8 @@ import type { UserMcpRuntime } from "../user-mcp";
 import type { McpControlServer } from "../mcp-control";
 import type { McpOAuthManager } from "../mcp-oauth";
 import { getActiveRemoteHostsBoot, setActiveRemoteHostsBoot } from "./remote-hosts";
+import { disposeSignalBridge } from "../messaging-signal-bridge";
+import { disposeSignalLink } from "../messaging-signal-link";
 import { uninstallMediaAssetProtocol } from "../media-asset-protocol";
 import { uninstallInlineVizProtocol } from "../inline-viz-protocol";
 
@@ -116,6 +118,11 @@ export function registerShutdownHandlers({
     // the shutdown sequence below would write into the running instance's data
     // directory. Let it exit straight away.
     if (!hasSingleInstanceLock) return;
+    // A Signal pairing attempt holds a JVM and a provisioning socket, and the
+    // bridge daemon holds the channel's only transport. The quit path is the
+    // last moment this process can take them down cleanly.
+    disposeSignalLink();
+    disposeSignalBridge();
     if (state.shutdownComplete) return;
     event.preventDefault();
     if (state.shutdownPromise) return;

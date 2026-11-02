@@ -466,6 +466,7 @@ export type AppSettings = {
   messagingTelegram?: MessagingChannelSettings;
   messagingSlack?: MessagingChannelSettings;
   messagingDiscord?: MessagingChannelSettings;
+  messagingDingtalk?: MessagingChannelSettings;
   messagingMattermost?: MessagingChannelSettings;
   messagingMatrix?: MessagingChannelSettings;
   messagingIrc?: MessagingChannelSettings;

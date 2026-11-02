@@ -7,6 +7,7 @@ import type {
   DiscordSocket,
   DiscordSocketFactory,
 } from "./messaging-discord-inbound.js";
+import type { IngressSocket } from "./messaging-ingress-socket.js";
 import type {
   MattermostFetch,
   MattermostIdentityLookup,
@@ -72,6 +73,11 @@ export function createWsDiscordSocketFactory(): DiscordSocketFactory {
 /** The production websocket client for the Mattermost API. */
 export function createWsMattermostSocketFactory(): MattermostSocketFactory {
   return wsSocketFactory<MattermostSocket>();
+}
+
+/** The production websocket client for DingTalk Stream Mode. */
+export function createWsDingtalkSocketFactory(): (url: string) => IngressSocket {
+  return wsSocketFactory<IngressSocket>();
 }
 
 /** The production websocket client for Home Assistant's `/api/websocket`. */
