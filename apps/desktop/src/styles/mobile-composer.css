@@ -315,5 +315,5 @@
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-all;
-  line-height: 1.35;
+  line-height: var(--leading-compact-plus);
 }

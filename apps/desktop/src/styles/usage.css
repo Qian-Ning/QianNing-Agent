@@ -928,8 +928,8 @@
 }
 
 :root[data-surface="mobile"] .usage-subtitle {
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
 }
 
 :root[data-surface="mobile"] .usage-filters {
@@ -943,7 +943,7 @@
 
 :root[data-surface="mobile"] .usage-table {
   min-width: 460px;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 :root[data-surface="mobile"] .usage-table th,
@@ -966,7 +966,7 @@
 }
 
 :root[data-surface="mobile"] .usage-hero-v {
-  font-size: 26px;
+  font-size: var(--text-2xl);
 }
 
 :root[data-surface="mobile"] .usage-mini {
