@@ -3,6 +3,7 @@ import { loadProvider } from "../agent/settings";
 import { requestNoticePermission } from "../agent/system-notices";
 import { BrowserStore } from "../agent/store";
 import { PhoneBridge } from "./desktop-bridge";
+import { installNativeChatFetch, isNativeShell, primeChatTransport } from "./native-fetch";
 import { ProviderBook } from "./providers";
 
 /**
@@ -14,6 +15,33 @@ import { ProviderBook } from "./providers";
  * script, so the object exists by the time the first component mounts.
  */
 const VERSION = "2.2.0";
+
+/*
+  Tell the shared renderer it is running on a phone.
+
+  Every mobile layout rule is gated on `:root[data-surface="mobile"]`, and the
+  renderer only sets that attribute from a `?surface=` query parameter. The
+  desktop app never needs one; the audit harness and the smoke test always pass
+  one; the installed phone loads `index.html` from the bundle with no query
+  string at all. So on a real device the attribute stayed unset, the whole
+  mobile stylesheet was inert, and the desktop layout rendered into a 390px
+  screen — two-column settings panes stacked on each other and list rows
+  overlapping, which no CSS fix could reach because none of it applied.
+
+  This file runs before the renderer's own script, so setting it here lands
+  before the first paint. An explicit query parameter still wins, so the audit
+  and smoke harnesses keep controlling the surface they render.
+*/
+const querySurface = new URLSearchParams(window.location.search).get("surface");
+document.documentElement.dataset.surface = querySurface || "mobile";
+
+/*
+  Chat turns on a phone go through CapacitorHttp, which buffers the whole body
+  before the promise settles. A streaming completion never settles, so the turn
+  spun at "正在处理…" forever. Install the non-streaming bridge before anything
+  can issue a model request.
+*/
+if (isNativeShell(window)) installNativeChatFetch(window);
 
 const store = new BrowserStore();
 
@@ -33,6 +61,22 @@ if (legacy && book.list().length === 0) {
 }
 
 const active = book.active();
+/*
+  Warm the chat transport while the shell is still painting: this asks the
+  provider whether the WebView's own network stack may read its responses. When
+  it may, chat rides the platform stack (VPN/proxy aware, real token stream);
+  when it may not, the native buffered path takes over. Fire and forget — the
+  first message awaits the same promise, so nothing is wasted.
+*/
+if (active?.baseUrl) {
+  const base = active.baseUrl.replace(/\/+$/, "");
+  const modelsUrl = /\/v\d+$/.test(base) ? `${base}/models` : `${base}/v1/models`;
+  void primeChatTransport(
+    window,
+    modelsUrl,
+    active.apiKey ? { Authorization: `Bearer ${active.apiKey}` } : undefined,
+  );
+}
 const initialConfig: ProviderConfig | null =
   active && active.baseUrl && active.apiKey && active.defaultModelId
     ? { baseUrl: active.baseUrl, apiKey: active.apiKey, modelId: active.defaultModelId }

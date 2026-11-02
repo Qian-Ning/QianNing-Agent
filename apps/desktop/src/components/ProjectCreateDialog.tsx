@@ -11,7 +11,7 @@ import {
   resolveProjectName,
 } from "../lib/project-name";
 import { useAppStore } from "../stores/app-store";
-import { Button, TooltipButton } from "./ui";
+import { Button, Input, TooltipButton } from "./ui";
 import {
   IconBranch,
   IconClose,
@@ -56,6 +56,8 @@ export function ProjectCreateDialog() {
   const [cloneParent, setCloneParent] = useState("");
   const [busy, setBusy] = useState(false);
   const [folderPickerBusy, setFolderPickerBusy] = useState(false);
+  // Phone only: the name being typed for a new workspace folder. `null` closes
+  // the inline field; an empty string opens it.
   const inputRef = useRef<HTMLInputElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const busyRef = useRef(false);
@@ -134,6 +136,9 @@ export function ProjectCreateDialog() {
 
   const addFolders = async () => {
     if (busyRef.current || folderPickerInFlightRef.current) return;
+    // A phone cannot browse directories: every workspace folder lives in app
+    // storage, so "add folder" means "name one".
+    if (phoneSurface) return;
     folderPickerInFlightRef.current = true;
     setFolderPickerBusy(true);
     try {
@@ -178,7 +183,9 @@ export function ProjectCreateDialog() {
     if (!projectName || busyRef.current) return;
     if (source === "git") {
       if (!cloneTarget || !cloneParent) return;
-    } else if (folders.length === 0) {
+    } else if (folders.length === 0 && !phoneSurface) {
+      // A phone names the project and owns storage; the host derives the folder
+      // when none was added, so an empty list is not a blocker there.
       return;
     }
     busyRef.current = true;
@@ -283,6 +290,9 @@ export function ProjectCreateDialog() {
               />
             </section>
 
+            {/* A phone has no sources to choose between: no drives, no git, and
+                the only workspace root it can offer is its own storage. */}
+            {phoneSurface ? null : (
             <section
               className="project-create-dialog-section project-create-dialog-source-section"
               aria-labelledby="project-create-source-heading"
@@ -333,6 +343,7 @@ export function ProjectCreateDialog() {
                 )}
               </div>
             </section>
+            )}
 
             {source === "local" ? (
               <section
@@ -361,7 +372,9 @@ export function ProjectCreateDialog() {
                   </span>
                 </div>
 
-                {folders.length > 0 ? (
+                {phoneSurface ? (
+                  <p className="project-create-phone-note">{t("project.createPhoneStorageNote")}</p>
+                ) : folders.length > 0 ? (
                   <div className="project-create-dialog-folder-list" role="list">
                     {folders.map((path, index) => (
                       <div
@@ -399,6 +412,7 @@ export function ProjectCreateDialog() {
                   </div>
                 ) : null}
 
+                {phoneSurface ? null : (
                 <button
                   type="button"
                   aria-label={t("project.createAddFolder")}
@@ -415,6 +429,7 @@ export function ProjectCreateDialog() {
                     </span>
                   </span>
                 </button>
+                )}
               </section>
             ) : (
               <section

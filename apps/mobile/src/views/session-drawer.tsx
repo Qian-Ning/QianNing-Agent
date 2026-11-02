@@ -11,6 +11,8 @@ type Props = {
   onSelect: (session: { id: string; title: string }) => void;
   onNew: () => void;
   onSettings: () => void;
+  onTerminal: () => void;
+  onBrowser: () => void;
   onClose: () => void;
 };
 
@@ -42,6 +44,8 @@ export function SessionDrawer({
   onSelect,
   onNew,
   onSettings,
+  onTerminal,
+  onBrowser,
   onClose,
 }: Props) {
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
@@ -107,6 +111,26 @@ export function SessionDrawer({
         </div>
 
         <footer className="drawer-foot">
+          <div className="drawer-tools">
+            <button
+              className="ghost"
+              onClick={() => {
+                onTerminal();
+                onClose();
+              }}
+            >
+              {t("terminal.title")}
+            </button>
+            <button
+              className="ghost"
+              onClick={() => {
+                onBrowser();
+                onClose();
+              }}
+            >
+              {t("browser.title")}
+            </button>
+          </div>
           <button
             className="primary wide"
             onClick={() => {

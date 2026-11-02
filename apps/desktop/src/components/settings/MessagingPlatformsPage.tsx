@@ -159,6 +159,8 @@ export function MessagingPlatformsPage() {
   const settings = useAppStore((state) => state.settings);
   const showToast = useAppStore((state) => state.showToast);
   const [selectedId, setSelectedId] = useState<MessagingPlatformId>("telegram");
+  // Phone only: which platform's detail page is open. `null` is the list.
+  const [openPlatform, setOpenPlatform] = useState<MessagingPlatformId | null>(null);
   const [railNotice, setRailNotice] = useState<{ id: string; platform: string } | null>(null);
   // The remark borrows the row's status line, so it has to give it back.
   useEffect(() => {
@@ -287,8 +289,46 @@ export function MessagingPlatformsPage() {
     },
   ];
 
-  return (
-    <div className="settings-messaging">
+  /*
+    A phone has no room for two panes side by side: the list and a full config
+    form cannot share 390px. So the phone drills down instead — the list is the
+    first page, a platform is the second, and back returns to the list. The
+    desktop keeps both panes, which is the whole point of its width.
+  */
+  const isPhone =
+    typeof document !== "undefined" &&
+    document.documentElement.dataset.surface === "mobile";
+
+  const openPlatformPage = (id: MessagingPlatformId) => {
+    setSelectedId(id);
+    setOpenPlatform(id);
+    // The list may be scrolled halfway down; its position means nothing on the
+    // platform's own page.
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(".settings-content")?.scrollTo({ top: 0 });
+    });
+  };
+
+  /*
+   * Android's back gesture never touches the browser history: the native shell
+   * calls `window.__qianningBack`, which reaches the settings page and unwinds
+   * one screen. A platform's page is one screen below the list, so it has to
+   * claim the gesture before the settings page does — otherwise back leaves the
+   * section entirely and lands on the settings directory.
+   */
+  useEffect(() => {
+    if (!isPhone || openPlatform === null) return;
+    const host = window as unknown as { __qianningPlatformBack?: () => boolean };
+    host.__qianningPlatformBack = () => {
+      setOpenPlatform(null);
+      return true;
+    };
+    return () => {
+      delete host.__qianningPlatformBack;
+    };
+  }, [isPhone, openPlatform]);
+
+  const chooser = (
       <div className="settings-messaging-chooser">
         {/* The page title already says 消息平台; a second heading and a sentence
             explaining what the line under each card means were the first two
@@ -348,7 +388,7 @@ export function MessagingPlatformsPage() {
                       key={entry.id}
                       type="button"
                       role="tab"
-                      aria-selected={entry.id === platform.id}
+                      aria-selected={!isPhone && entry.id === platform.id}
                       data-nav={`messaging-platform-${entry.id}`}
                       data-support={entry.support}
                       data-tone={status?.tone ?? "neutral"}
@@ -356,10 +396,10 @@ export function MessagingPlatformsPage() {
                       title={detail}
                       className={cx(
                         "settings-messaging-item",
-                        entry.id === platform.id && "active",
+                        !isPhone && entry.id === platform.id && "active",
                         entry.support === "unsupported" && "is-unsupported",
                       )}
-                      onClick={() => setSelectedId(entry.id)}
+                      onClick={() => openPlatformPage(entry.id)}
                     >
                       <MessagingPlatformIcon id={entry.id} label={t(entry.labelKey)} />
                       <span className="settings-messaging-item-copy">
@@ -427,7 +467,9 @@ export function MessagingPlatformsPage() {
           ))}
         </div>
       </div>
+  );
 
+  const detail = (
       <section
         ref={detailRef}
         className="settings-messaging-detail"
@@ -449,6 +491,22 @@ export function MessagingPlatformsPage() {
           <UnsupportedPanel platform={platform} />
         )}
       </section>
+  );
+
+  if (isPhone) {
+    return openPlatform === null ? (
+      <div className="settings-messaging is-phone">{chooser}</div>
+    ) : (
+      // The platform's own header carries its name; a back control would sit
+      // above it saying the same thing twice. Back is the system gesture.
+      <div className="settings-messaging is-phone">{detail}</div>
+    );
+  }
+
+  return (
+    <div className="settings-messaging">
+      {chooser}
+      {detail}
     </div>
   );
 }

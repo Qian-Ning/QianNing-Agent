@@ -99,7 +99,9 @@
   right: auto;
   bottom: auto;
   z-index: 40;
-  width: min(120px, calc(100vw - 24px));
+  /* Wide enough for a three-character CJK label on one line: at 120px the
+     label wrapped to two lines and the row grew to a ragged stack. */
+  width: min(180px, calc(100vw - 24px));
   max-height: min(520px, calc(100vh - 92px));
   overflow-y: auto;
   padding: 6px;
@@ -111,6 +113,18 @@
   opacity: 0;
   pointer-events: none;
   visibility: hidden;
+}
+
+/* The label keeps its own line and the check mark keeps its edge: a row is a
+   line, never a stack of one-glyph columns. */
+.composer-permission-menu .composer-plus-item {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.composer-permission-menu .composer-plus-item > span {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .composer-model-menu {

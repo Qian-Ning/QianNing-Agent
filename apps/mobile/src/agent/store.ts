@@ -17,6 +17,13 @@ export type StoredMessage = {
   toolName?: string;
   toolDetail?: string;
   toolFailed?: boolean;
+  /**
+   * Which provider and model produced this message. Usage statistics group by
+   * them, and a transcript that cannot say which model wrote it cannot report
+   * anything but a single anonymous bucket.
+   */
+  providerId?: string;
+  modelId?: string;
   /** Token accounting for this message, as the shared context ring reads it. */
   usage?: {
     inputTokens: number;

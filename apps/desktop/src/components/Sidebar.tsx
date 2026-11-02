@@ -237,6 +237,14 @@ export function Sidebar({
   className?: string;
   onAnimationEnd?: ReactAnimationEventHandler<HTMLElement>;
 }) {
+  /*
+    The phone has no backend for plugins, skins, the image workbench, relay
+    connections, schedules or the notification ledger — those pages open empty
+    or fail. Until each one has a real phone implementation, the drawer offers
+    only the two that work, so a tap never lands on a shell.
+  */
+  const phoneSurface = document.documentElement.dataset.surface === "mobile";
+
   const { t } = useTranslation();
   const sessions = useAppStore((s) => s.sessions);
   const activeSessionId = useAppStore((s) => s.activeSessionId);
@@ -2468,31 +2476,33 @@ export function Sidebar({
             >
               <IconSettings size={14} aria-hidden />
             </TooltipButton>
-            <TooltipButton
-              type="button"
-              className={`footer-action ${page === "plugins" ? "active" : ""}`}
-              data-nav="plugins"
-              tooltip={t("nav.plugins")}
-              ariaLabel={t("nav.plugins")}
-              onClick={() => page === "plugins"
-                ? (canNavBack() ? navBack() : setPage("chat"))
-                : setPage("plugins")}
-              aria-pressed={page === "plugins"}
-            >
-              <IconPlug size={14} aria-hidden />
-            </TooltipButton>
+            {phoneSurface ? null : (
+              <TooltipButton
+                type="button"
+                className={`footer-action ${page === "plugins" ? "active" : ""}`}
+                data-nav="plugins"
+                tooltip={t("nav.plugins")}
+                ariaLabel={t("nav.plugins")}
+                onClick={() => page === "plugins"
+                  ? (canNavBack() ? navBack() : setPage("chat"))
+                  : setPage("plugins")}
+                aria-pressed={page === "plugins"}
+              >
+                <IconPlug size={14} aria-hidden />
+              </TooltipButton>
+            )}
             <TooltipButton
               type="button"
               className={`footer-action ${page === "skins" ? "active" : ""}`}
               data-nav="skins"
-              tooltip={t("nav.skins")}
-              ariaLabel={t("nav.skins")}
-              onClick={() => page === "skins"
-                ? (canNavBack() ? navBack() : setPage("chat"))
-                : setPage("skins")}
-              aria-pressed={page === "skins"}
-            >
-              <IconPalette size={14} aria-hidden />
+                tooltip={t("nav.skins")}
+                ariaLabel={t("nav.skins")}
+                onClick={() => page === "skins"
+                  ? (canNavBack() ? navBack() : setPage("chat"))
+                  : setPage("skins")}
+                aria-pressed={page === "skins"}
+              >
+                <IconPalette size={14} aria-hidden />
             </TooltipButton>
             <TooltipButton
               type="button"
@@ -2508,28 +2518,30 @@ export function Sidebar({
               <IconImage size={14} aria-hidden />
             </TooltipButton>
             <TooltipButton
-              type="button"
-              className={`footer-action ${page === "connections" ? "active" : ""}`}
-              data-nav="connections"
-              tooltip={t("connections.title")}
-              ariaLabel={t("connections.title")}
-              onClick={() => page === "connections"
-                ? (canNavBack() ? navBack() : setPage("chat"))
-                : setPage("connections")}
-              aria-pressed={page === "connections"}
-            >
-              <IconServer size={14} aria-hidden />
-            </TooltipButton>
+                type="button"
+                className={`footer-action ${page === "connections" ? "active" : ""}`}
+                data-nav="connections"
+                tooltip={t("connections.title")}
+                ariaLabel={t("connections.title")}
+                onClick={() => page === "connections"
+                  ? (canNavBack() ? navBack() : setPage("chat"))
+                  : setPage("connections")}
+                aria-pressed={page === "connections"}
+              >
+                <IconServer size={14} aria-hidden />
+              </TooltipButton>
             <TooltipButton
               type="button"
               className={`footer-action ${page === "scheduled" ? "active" : ""}`}
               data-nav="scheduled"
-              tooltip={t("scheduled.title")}
-              ariaLabel={t("scheduled.title")}
-              onClick={() => setPage("scheduled")}
-              aria-pressed={page === "scheduled"}
-            >
-              <IconClock size={14} aria-hidden />
+                tooltip={t("scheduled.title")}
+                ariaLabel={t("scheduled.title")}
+                onClick={() => page === "scheduled"
+                  ? (canNavBack() ? navBack() : setPage("chat"))
+                  : setPage("scheduled")}
+                aria-pressed={page === "scheduled"}
+              >
+                <IconClock size={14} aria-hidden />
             </TooltipButton>
             <NotificationCenter onBeforeOpen={() => closeMenus(false)} />
             <TooltipButton

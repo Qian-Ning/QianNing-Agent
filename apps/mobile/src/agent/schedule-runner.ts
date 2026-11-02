@@ -1,6 +1,14 @@
 import type { HostClient } from "../lib/racp";
 import { pushNotice } from "./notifications";
-import { dueAt, isDue, loadSchedules, saveSchedule, type Schedule } from "./schedules";
+import {
+  dueAt,
+  finishRun,
+  isDue,
+  loadSchedules,
+  saveSchedule,
+  startRun,
+  type Schedule,
+} from "./schedules";
 
 /**
  * One pass over the schedule list: run whatever is due, in order.
@@ -27,10 +35,12 @@ export async function runDueSchedules(options: {
 
   for (const schedule of loadSchedules()) {
     if (!isDue(schedule, now())) continue;
+    const run = startRun({ taskId: schedule.id, sessionId: schedule.sessionId, at: now() });
     try {
       const sessionId = schedule.sessionId ?? (await createSession(options.client, schedule));
       await sendTurn(options.client, sessionId, schedule);
       saveSchedule({ ...schedule, sessionId, lastRunAt: now() });
+      finishRun(run.id, "completed", { sessionId, at: now() });
       notify({
         title: schedule.title,
         body: schedule.prompt.slice(0, 120),
@@ -41,6 +51,10 @@ export async function runDueSchedules(options: {
     } catch (cause) {
       // Leave it due: a failed provider call should retry on the next tick, not
       // skip a whole period. The failure is visible in the notification list.
+      finishRun(run.id, "error", {
+        at: now(),
+        errorCode: cause instanceof Error ? cause.message.slice(0, 120) : "SCHEDULE_FAILED",
+      });
       notify({
         title: schedule.title,
         body: cause instanceof Error ? cause.message : String(cause),
@@ -51,6 +65,43 @@ export async function runDueSchedules(options: {
   }
 
   return ran;
+}
+
+/**
+ * Run one task right now, from the page's own button.
+ *
+ * Shares the send path with the due pass, so a manual run writes the same
+ * record and lands in the same conversation the schedule would use.
+ */
+export async function runScheduleNow(options: {
+  client: HostClient;
+  schedule: Schedule;
+  now?: () => number;
+  onNotice?: (notice: NoticeInput) => unknown;
+}): Promise<string> {
+  const now = options.now ?? Date.now;
+  const notify = options.onNotice ?? pushNotice;
+  const { schedule } = options;
+  const run = startRun({ taskId: schedule.id, sessionId: schedule.sessionId, at: now() });
+  try {
+    const sessionId = schedule.sessionId ?? (await createSession(options.client, schedule));
+    await sendTurn(options.client, sessionId, schedule);
+    saveSchedule({ ...schedule, sessionId, lastRunAt: now() });
+    finishRun(run.id, "completed", { sessionId, at: now() });
+    notify({
+      title: schedule.title,
+      body: schedule.prompt.slice(0, 120),
+      sessionId,
+      at: now(),
+    });
+    return sessionId;
+  } catch (cause) {
+    finishRun(run.id, "error", {
+      at: now(),
+      errorCode: cause instanceof Error ? cause.message.slice(0, 120) : "SCHEDULE_FAILED",
+    });
+    throw cause;
+  }
 }
 
 async function createSession(client: HostClient, schedule: Schedule): Promise<string> {

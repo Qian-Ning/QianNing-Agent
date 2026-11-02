@@ -1,5 +1,3 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
 import type {
   AppSettings,
   GlobalPermissionMode,
@@ -7,57 +5,58 @@ import type {
   RedactionTableStatus,
   ShortcutPlatform,
 } from "@pi-desktop/shared";
-import { useAppStore } from "../../stores/app-store";
-import { api } from "../../lib/api";
-import { RemoteAccessCard } from "./RemoteAccessCard";
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-  isSettingsDestinationHidden,
-  SETTINGS_NAV_GROUP_LABELS,
-  visibleSettingsNav,
-  type SettingsNavGroupId,
-} from "../../lib/settings-search";
-import { pluginViewIcon } from "../../lib/plugin-view-icons";
-import {
-  calculateContextUsage,
-  latestMessageUsage,
-  resolveContextWindow,
-} from "../../lib/context-usage";
-import {
-  IconArchive,
   IconActivity,
-  IconChartColumn,
+  IconArchive,
   IconBookOpen,
   IconBot,
-  IconChevronLeft,
-  IconDownload,
+  IconChartColumn,
   IconChat,
+  IconChevronLeft,
+  IconCloudDown,
+  IconDownload,
   IconInfo,
   IconKeyboard,
+  IconMic,
   IconPalette,
   IconSearch,
   IconServer,
   IconSliders,
-  IconSparkles,
-  IconCloudDown,
-  IconMic,
   IconSmartphone,
+  IconSparkles,
 } from "../../components/icons";
-import { Badge, Button, cx, SegmentedControl, SettingsToggle } from "../../components/ui";
-import { ModelConfigPage } from "../../components/settings/ModelConfigPage";
-import { KeyboardShortcutsSection } from "../../components/settings/KeyboardShortcutsSection";
+import { AgentMcpPage } from "../../components/settings/AgentMcpPage";
+import { AgentSkillsPage } from "../../components/settings/AgentSkillsPage";
+import { AgentSubagentsPage } from "../../components/settings/AgentSubagentsPage";
+import { ConfigSyncPage } from "../../components/settings/ConfigSyncPage";
 import { FontFamilyRow } from "../../components/settings/FontFamilyRow";
-import { ThinkingDisplayModeRow } from "../../components/settings/ThinkingDisplayModeRow";
 import { FontSizeRow } from "../../components/settings/FontSizeRow";
+import { KeyboardShortcutsSection } from "../../components/settings/KeyboardShortcutsSection";
 import { LanguageRow } from "../../components/settings/LanguageRow";
+import { MessagingPlatformsPage } from "../../components/settings/MessagingPlatformsPage";
+import { ModelConfigPage } from "../../components/settings/ModelConfigPage";
+import { NetworkProxySection } from "../../components/settings/NetworkProxySection";
+import { PluginScenicThemesDestination } from "../../components/settings/PluginScenicThemesDestination";
 import { SettingsMenuSelect } from "../../components/settings/SettingsMenuSelect";
 import { ThemeRow } from "../../components/settings/ThemeRow";
-import { NetworkProxySection } from "../../components/settings/NetworkProxySection";
+import { ThinkingDisplayModeRow } from "../../components/settings/ThinkingDisplayModeRow";
+import { UsagePage } from "../../components/settings/UsagePage";
+import { Badge, Button, cx, SegmentedControl, SettingsToggle } from "../../components/ui";
+import { api } from "../../lib/api";
+import { pluginViewIcon } from "../../lib/plugin-view-icons";
+import {
+  isSettingsDestinationHidden,
+  SETTINGS_NAV_GROUP_LABELS,
+  type SettingsNavGroupId,
+  visibleSettingsNav,
+} from "../../lib/settings-search";
 import { ProjectsPage } from "../../pages/ProjectsPage";
-import { AgentSkillsPage } from "../../components/settings/AgentSkillsPage";
-import { AgentMcpPage } from "../../components/settings/AgentMcpPage";
-import { AgentSubagentsPage } from "../../components/settings/AgentSubagentsPage";
-import { MessagingPlatformsPage } from "../../components/settings/MessagingPlatformsPage";
-import { VoiceSettingsSection } from "./voice/VoiceSettingsSection";
+import { useAppStore } from "../../stores/app-store";
+import { UpdatesRow } from "./agent-sections";
+import { CloseBehaviorSection, DeveloperSection } from "./developer-sections";
+import { ImportSection } from "./import-page";
 import {
   CommandShellRow,
   ContextUsageDisplayRow,
@@ -66,21 +65,10 @@ import {
   SettingsCard,
   SettingsRow,
 } from "./primitives";
-import { UpdatesRow } from "./agent-sections";
-import { ImportSection } from "./import-page";
-import { CloseBehaviorSection, DeveloperSection } from "./developer-sections";
-import { PluginScenicThemesDestination } from "../../components/settings/PluginScenicThemesDestination";
-import { ConfigSyncPage } from "../../components/settings/ConfigSyncPage";
-import { UsagePage } from "../../components/settings/UsagePage";
+import { RemoteAccessCard } from "./RemoteAccessCard";
+import { VoiceSettingsSection } from "./voice/VoiceSettingsSection";
 
 type SettingsTab = ReturnType<typeof useAppStore.getState>["settingsTab"];
-
-/** 15_600 → "15.6k"; the row has one line and no room for six digits. */
-function compactTokenLabel(tokens: number): string {
-  if (!Number.isFinite(tokens) || tokens <= 0) return "0";
-  if (tokens < 1000) return String(Math.round(tokens));
-  return (tokens / 1000).toFixed(tokens < 10_000 ? 1 : 0) + "k";
-}
 
 type NavItem = {
   id: SettingsTab;
@@ -104,21 +92,7 @@ export function SettingsPage() {
   const settings = useAppStore((s) => s.settings);
   const version = useAppStore((s) => s.version);
   const refreshProviders = useAppStore((s) => s.refreshProviders);
-  const liveMessages = useAppStore((s) => s.messages);
-  const providers = useAppStore((s) => s.providers);
-  const providerModels = useAppStore((s) => s.providerModels);
-  const activeSessionId = useAppStore((s) => s.activeSessionId);
-  const isRunning = useAppStore((s) => s.isRunning);
-  const compactContext = useAppStore((s) => s.compactContext);
   const platform = (window.piDesktop?.platform ?? "darwin") as ShortcutPlatform;
-  // The phone hides the composer's context ring to keep the toolbar to one row,
-  // so the figures live here instead — same numbers, a surface with room.
-  const contextUsage = useMemo(() => {
-    const usage = latestMessageUsage(liveMessages);
-    if (!usage) return null;
-    const window = resolveContextWindow(undefined, undefined, providerModels, providers);
-    return { ...calculateContextUsage(usage, window), window };
-  }, [liveMessages, providerModels, providers]);
 
   // Experimental feature surfaces remain available in development builds only.
   const includeDevelopmentOnly = import.meta.env.DEV;
@@ -374,6 +348,11 @@ export function SettingsPage() {
     if (mobileView !== "content") return;
     const host = window as unknown as { __qianningSettingsBack?: () => boolean };
     host.__qianningSettingsBack = () => {
+      // A section can own deeper screens of its own (a platform's settings, for
+      // one). It claims the gesture first and returns true when it consumed it.
+      const inner = (window as unknown as { __qianningPlatformBack?: () => boolean })
+        .__qianningPlatformBack;
+      if (inner && inner()) return true;
       setMobileView("nav");
       return true;
     };
@@ -595,28 +574,6 @@ export function SettingsPage() {
                   />
                 </SettingsRow>
               </SettingsCard>
-
-              {surface === "mobile" ? (
-                <SettingsCard title={t("settings.contextWindow")}>
-                  <SettingsRow
-                    title={t("settings.contextWindow")}
-                    detail={
-                      contextUsage
-                        ? `${contextUsage.usedPercent}% · ${compactTokenLabel(contextUsage.usedTokens)} / ${compactTokenLabel(contextUsage.window)}`
-                        : "—"
-                    }
-                  >
-                    <button
-                      type="button"
-                      className="settings-text-action"
-                      disabled={!activeSessionId || isRunning || !contextUsage}
-                      onClick={() => void compactContext()}
-                    >
-                      {t("chat.builtin.compact")}
-                    </button>
-                  </SettingsRow>
-                </SettingsCard>
-              ) : null}
 
               {/* Computer control drives this machine's pointer and keyboard.
                   A phone has no such target, so the card is desktop-only. */}

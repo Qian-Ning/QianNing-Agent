@@ -1,4 +1,5 @@
 import { PROTOCOL_VERSION } from "@pi-desktop/shared";
+import type { HostClient } from "../lib/racp";
 import type { AgentStore } from "../agent/store";
 import { toDesktopEvents, type LocalEvent } from "./agent-events";
 import {
@@ -7,8 +8,60 @@ import {
   toProjectRecord,
   toWorkspace,
 } from "../agent/projects";
-import { bundledSkills, findBundledSkill } from "../agent/skills";
+import { findBundledSkill } from "../agent/skills";
 import { ProviderBook, listModels, toPublic } from "./providers";
+import { deletePreset, listPresets, savePreset } from "./prompt-presets";
+import { readSessionConfig, updateSessionConfig } from "../agent/session-config";
+import { collectTurns, tokenUsageHistory, usageBreakdown, type UsageTurn } from "../agent/usage-report";
+import {
+  createSchedule,
+  dueAt,
+  loadRuns,
+  loadSchedules,
+  removeSchedule,
+  saveSchedule,
+  type Schedule,
+  type ScheduleCadence,
+} from "../agent/schedules";
+import { runScheduleNow } from "../agent/schedule-runner";
+import {
+  deleteSshProfile,
+  disconnectSsh,
+  ensureSsh,
+  hasSsh,
+  isConnected,
+  listSshProfiles,
+  probeSsh,
+  runSsh,
+  saveSshProfile,
+} from "../agent/connections";
+import {
+  loadNotices,
+  markAllRead,
+  markRead,
+  unreadCount as unreadNotices,
+} from "../agent/notifications";
+import {
+  cancelWorkbench,
+  clearLibrary,
+  generate as generateMedia,
+  library as mediaLibrary,
+  removeFromLibrary,
+} from "../media/workbench";
+import {
+  fetchSessions,
+  hasRemoteHost,
+  listComputers,
+  pairComputer,
+  removeComputer,
+} from "../remote/computers";
+import type { ModelPricingRow } from "@pi-desktop/shared";
+import {
+  pickDeviceFiles,
+  readDeviceText,
+  readDeviceDataUrl,
+  type PickedFile,
+} from "../lib/files";
 
 /**
  * The desktop interface's host, implemented for the phone.
@@ -92,6 +145,9 @@ export class PhoneBridge {
   private host?: AgentHostLike;
   /** The user's own settings, persisted where the phone can keep them. */
   private readonly settings: Record<string, unknown>;
+  /** Picked files waiting for the composer to import them, keyed by token. */
+  private readonly picked = new Map<string, PickedFile[]>();
+
   private readonly projects: ProjectBook;
 
   constructor(env: BridgeEnvironment) {
@@ -166,6 +222,40 @@ export class PhoneBridge {
     }
   }
 
+  /**
+   * The local host, wearing the client interface the schedule runner speaks.
+   *
+   * The runner was written against RACP's HTTP surface so it could drive either
+   * host; on the phone those two routes are the bridge's own channels, and this
+   * adapter is the whole translation between them.
+   */
+  private localClient(): HostClient {
+    const call = async (channel: string, input?: unknown): Promise<Record<string, unknown>> => {
+      const answer = await this.invoke(`pi-desktop/${channel}`, input);
+      if (!answer.ok) throw new Error(answer.error.message);
+      return (answer.data ?? {}) as Record<string, unknown>;
+    };
+    return {
+      call: async (path, init) => {
+        if (path === "/v1/sessions" && init?.method === "POST") {
+          const body = init.body as { title?: string } | undefined;
+          return (await call("session/create", { title: body?.title })) as never;
+        }
+        const turns = /^\/v1\/sessions\/([^/]+)\/turns$/.exec(path);
+        if (turns && init?.method === "POST") {
+          const body = init.body as { input?: { text?: string } } | undefined;
+          await call("agent/prompt", {
+            sessionId: decodeURIComponent(turns[1]!),
+            content: body?.input?.text ?? "",
+          });
+          return {} as never;
+        }
+        throw new Error(`the phone host has no route for ${path}`);
+      },
+      stream: () => () => {},
+    };
+  }
+
   private readonly handlers: Record<string, (...args: unknown[]) => unknown> = {
     "app/getVersion": () => ({
       name: "QianNing Agent",
@@ -225,15 +315,290 @@ export class PhoneBridge {
       return { ok: resolved === true };
     },
 
+    /*
+     * Usage statistics. The desktop reads a turn ledger; the phone folds its own
+     * transcripts, where every assistant message already carries the token
+     * counts pi reported for that turn.
+     */
+    "stats/getTokenUsageHistory": (query?: unknown) =>
+      tokenUsageHistory(this.usageTurns(), (query ?? {}) as Record<string, never>),
+
+    "stats/getUsageBreakdown": (query?: unknown) =>
+      usageBreakdown(this.usageTurns(), (query ?? {}) as Record<string, never>),
+
+    "stats/getModelPricing": () => ({ models: this.readPricing() }),
+
+    "stats/updateModelPricing": (row?: unknown) => {
+      const next = row as ModelPricingRow;
+      if (!next || typeof next.modelId !== "string" || !next.modelId) {
+        throw new Error("a pricing row needs a model id");
+      }
+      const rows = this.readPricing().filter((entry) => entry.modelId !== next.modelId);
+      rows.push(next);
+      this.writePricing(rows);
+      return { models: rows };
+    },
+
+    "stats/deleteModelPricing": (modelId?: unknown) => {
+      const id = String(modelId ?? "");
+      const rows = this.readPricing().filter((entry) => entry.modelId !== id);
+      this.writePricing(rows);
+      return { models: rows };
+    },
+
+    /*
+     * Paired computers. On a phone the remote-access page is the *client* side:
+     * these computers are desktops this phone drives, not devices dialing in.
+     */
+    "remoteHost/list": () => ({
+      supported: hasRemoteHost(),
+      hosts: listComputers().map((computer) => ({
+        hostKey: computer.key,
+        label: computer.label,
+        url: computer.url,
+        fingerprint: computer.fingerprint,
+        connected: true,
+      })),
+    }),
+
+    "remoteHost/pair": async (input?: unknown) => {
+      const request = (input ?? {}) as { url?: unknown; token?: unknown; label?: unknown };
+      const computer = await pairComputer({
+        url: String(request.url ?? ""),
+        token: String(request.token ?? ""),
+        ...(typeof request.label === "string" ? { label: request.label } : {}),
+      });
+      return {
+        host: {
+          hostKey: computer.key,
+          label: computer.label,
+          url: computer.url,
+          fingerprint: computer.fingerprint,
+          connected: true,
+        },
+      };
+    },
+
+    "remoteHost/remove": (hostKey?: unknown) => {
+      const removed = removeComputer(String(hostKey ?? ""));
+      return { removed };
+    },
+
+    /** The paired computer's conversations — the proof the link is live. */
+    "remote/sessions": async (hostKey?: unknown) => {
+      const key = String(hostKey ?? "");
+      const computer = listComputers().find((entry) => entry.key === key);
+      if (!computer) throw new Error("that computer is not paired");
+      return { sessions: await fetchSessions(computer) };
+    },
+
+    /*
+     * The media workbench. The phone calls the provider's images endpoint
+     * directly and keeps the renders in its own files directory; the renderer
+     * sees the same shapes it sees on the desktop.
+     */
+    "workbench/generate": (input?: unknown) => generateMedia((input ?? {}) as never),
+    "workbench/cancel": () => cancelWorkbench(),
+    "workbench/library": () => mediaLibrary(),
+    "workbench/library/remove": (input?: unknown) => {
+      const record = (input ?? {}) as { ids?: unknown };
+      const ids = Array.isArray(record.ids) ? record.ids.filter((id): id is string => typeof id === "string") : [];
+      return removeFromLibrary(ids);
+    },
+    "workbench/library/clear": () => clearLibrary(),
+    /** Saving outside the library is a desktop dialog; the render itself is already kept. */
+    "workbench/saveAs": (input?: unknown) => ({
+      saved: false,
+      ...(input && typeof input === "object" ? {} : {}),
+    }),
+    "workbench/reveal": () => ({ revealed: false }),
+    "workbench/library/reveal": () => ({ revealed: false }),
+    "workbench/saveThumbnail": () => ({ saved: false }),
+
+    /*
+     * Scheduled tasks. The phone keeps an interval-plus-clock record and the
+     * page speaks cadence and clock time; the mapping lives here so neither side
+     * has to know the other's shape. Runs are recorded by the shared runner, so
+     * a due pass and the page's own button write the same history.
+     */
+    /*
+     * Skins live entirely in settings — the applied one is `activeSkinId`, the
+     * user's own are `customSkins` — so applying and editing already work here;
+     * only the file-shaped actions differ. Import reads a bundle the phone's own
+     * picker chose; exporting to a desktop filesystem has no phone equivalent,
+     * and the page says so instead of failing silently.
+     */
+    "skin/import": async () => {
+      const files = await pickDeviceFiles();
+      const first = files[0];
+      if (!first) return null;
+      const read = await readDeviceText(first.path);
+      if (!read) throw new Error("读不到那个皮肤文件");
+      const parsed = (() => {
+        try {
+          return JSON.parse(read) as { skin?: unknown } | unknown;
+        } catch {
+          return null;
+        }
+      })();
+      const skin = (parsed as { skin?: unknown } | null)?.skin ?? parsed;
+      if (!skin || typeof skin !== "object") throw new Error("这不是一个有效的皮肤文件");
+      return { skin };
+    },
+    "skin/export": () => {
+      throw new Error("手机不支持导出皮肤文件；桌面端可以");
+    },
+    "skin/importAsset": () => {
+      throw new Error("手机暂不支持皮肤背景图，先用纯色皮肤");
+    },
+    "skin/deleteAsset": () => ({ ok: true }),
+
+    /*
+     * SSH machines. The plugin owns the sockets and the credentials; these
+     * channels are the only thing the renderer sees, which keeps a password out
+     * of the page entirely — it can write one, never read one back.
+     */
+    "ssh/profiles": async () => ({
+      supported: hasSsh(),
+      profiles: (await listSshProfiles()).map((profile) => ({
+        ...profile,
+        connected: isConnected(profile.id),
+      })),
+    }),
+
+    "ssh/save": async (input?: unknown) => {
+      const request = (input ?? {}) as Record<string, unknown>;
+      const profile = await saveSshProfile({
+        ...(typeof request.id === "string" ? { id: request.id } : {}),
+        name: String(request.name ?? ""),
+        host: String(request.host ?? ""),
+        port: Number(request.port) || 22,
+        user: String(request.user ?? ""),
+        auth: request.auth === "key" ? "key" : "password",
+        ...(typeof request.password === "string" ? { password: request.password } : {}),
+        ...(typeof request.privateKey === "string" ? { privateKey: request.privateKey } : {}),
+        ...(typeof request.passphrase === "string" ? { passphrase: request.passphrase } : {}),
+      });
+      return { profile };
+    },
+
+    "ssh/delete": async (id?: unknown) => {
+      await deleteSshProfile(String(id ?? ""));
+      return { ok: true };
+    },
+
+    "ssh/probe": async (id?: unknown) => probeSsh(String(id ?? "")),
+
+    "ssh/connect": async (id?: unknown) => {
+      const key = String(id ?? "");
+      const sessionId = await ensureSsh(key);
+      const profile = (await listSshProfiles()).find((entry) => entry.id === key);
+      return { sessionId, fingerprint: profile?.fingerprint ?? "" };
+    },
+
+    "ssh/disconnect": async (id?: unknown) => {
+      await disconnectSsh(String(id ?? ""));
+      return { ok: true };
+    },
+
+    "ssh/run": async (input?: unknown) => {
+      const request = (input ?? {}) as { id?: unknown; command?: unknown; timeoutMs?: unknown };
+      const command = String(request.command ?? "");
+      if (!command.trim()) throw new Error("no command");
+      const timeout = Number(request.timeoutMs);
+      return runSsh(
+        String(request.id ?? ""),
+        command,
+        Number.isFinite(timeout) && timeout > 0 ? timeout : 30_000,
+      );
+    },
+
+    "scheduled/list": () => ({ tasks: loadSchedules().map(toScheduledTask) }),
+
+    "scheduled/create": (input?: unknown) => {
+      const request = (input ?? {}) as {
+        title?: unknown;
+        prompt?: unknown;
+        cadence?: unknown;
+        enabled?: unknown;
+        schedule?: { hour?: unknown; minute?: unknown; weekdays?: unknown; weekday?: unknown };
+      };
+      const cadence = cadenceOf(request.cadence);
+      const hour = clampInt(request.schedule?.hour, 0, 23, 9);
+      const minute = clampInt(request.schedule?.minute, 0, 59, 0);
+      const weekdays = weekdaysOf(request.schedule);
+      const created = createSchedule({
+        title: typeof request.title === "string" && request.title.trim() ? request.title : "定时任务",
+        prompt: typeof request.prompt === "string" ? request.prompt : "",
+        minutes: minutesFor(cadence),
+      });
+      const saved = saveSchedule({
+        ...created,
+        cadence,
+        hour,
+        minute,
+        ...(weekdays.length ? { weekdays } : {}),
+        enabled: request.enabled === false ? false : true,
+      });
+      return { task: toScheduledTask(saved.find((entry) => entry.id === created.id) ?? created) };
+    },
+
+    "scheduled/update": (input?: unknown) => {
+      const request = (input ?? {}) as Record<string, unknown>;
+      const id = typeof request.id === "string" ? request.id : "";
+      const current = loadSchedules().find((entry) => entry.id === id);
+      if (!current) throw new Error("that task no longer exists");
+      const scheduleInput = request.schedule as
+        | { hour?: unknown; minute?: unknown; weekdays?: unknown; weekday?: unknown }
+        | undefined;
+      const cadence = request.cadence === undefined ? current.cadence : cadenceOf(request.cadence);
+      const next: Schedule = {
+        ...current,
+        ...(typeof request.title === "string" ? { title: request.title } : {}),
+        ...(typeof request.prompt === "string" ? { prompt: request.prompt } : {}),
+        ...(typeof request.enabled === "boolean" ? { enabled: request.enabled } : {}),
+        ...(cadence ? { cadence, minutes: minutesFor(cadence) } : {}),
+        ...(scheduleInput
+          ? {
+              hour: clampInt(scheduleInput.hour, 0, 23, current.hour ?? 9),
+              minute: clampInt(scheduleInput.minute, 0, 59, current.minute ?? 0),
+              weekdays: weekdaysOf(scheduleInput),
+            }
+          : {}),
+      };
+      saveSchedule(next);
+      return { task: toScheduledTask(next) };
+    },
+
+    "scheduled/delete": (id?: unknown) => {
+      removeSchedule(String(id ?? ""));
+      return { ok: true };
+    },
+
+    "scheduled/listRuns": () => ({ runs: loadRuns() }),
+
+    /** Run it now and answer with the conversation it wrote into. */
+    "scheduled/execute": async (id?: unknown) => {
+      const schedule = loadSchedules().find((entry) => entry.id === String(id ?? ""));
+      if (!schedule) throw new Error("that task no longer exists");
+      const sessionId = await runScheduleNow({ client: this.localClient(), schedule });
+      return { sessionId };
+    },
+
+    "scheduled/run": async (id?: unknown) => {
+      const schedule = loadSchedules().find((entry) => entry.id === String(id ?? ""));
+      if (!schedule) throw new Error("that task no longer exists");
+      const sessionId = await runScheduleNow({ client: this.localClient(), schedule });
+      return { sessionId, prompt: schedule.prompt, task: toScheduledTask(schedule) };
+    },
+
     "session/list": () => ({
       sessions: this.env.store.listSessions().map((session) => ({
         id: session.id,
         title: session.title,
         projectPath: session.projectPath ?? null,
         messageCount: this.env.store.readMessages(session.id).length,
-        mode: "agent",
-        thinkingLevel: "medium",
-        permissionMode: "inherit",
+        ...readSessionConfig(this.env.store, session.id),
         updatedAt: session.updatedAt,
       })),
     }),
@@ -251,9 +616,10 @@ export class PhoneBridge {
         updatedAt: now,
         ...(projectPath ? { projectPath } : {}),
       };
+      const config = updateSessionConfig(this.env.store, session.id, input);
       this.env.store.writeSession(session);
       this.env.store.writeMessages(session.id, []);
-      return { session: { ...session, messageCount: 0, mode: "agent", thinkingLevel: "medium", permissionMode: "inherit" } };
+      return { session: { ...session, messageCount: 0, ...config } };
     },
 
     "session/delete": (input) => {
@@ -272,13 +638,7 @@ export class PhoneBridge {
       const session = this.env.store.readSession(sessionId);
       if (!session) throw new Error(`unknown session ${sessionId}`);
 
-      const patch = (config ?? {}) as {
-        mode?: string;
-        providerId?: string;
-        modelId?: string;
-        thinkingLevel?: string;
-      };
-      this.env.store.writeValue(`qn.local.sessionConfig.${sessionId}`, JSON.stringify(patch));
+      const patch = updateSessionConfig(this.env.store, sessionId, config);
       if (patch.providerId) this.providers.setActive(patch.providerId);
       if (patch.providerId && patch.modelId) {
         this.providers.update({ id: patch.providerId, defaultModelId: patch.modelId });
@@ -287,10 +647,7 @@ export class PhoneBridge {
       return {
         session: {
           ...session,
-          mode: patch.mode ?? "agent",
-          thinkingLevel: patch.thinkingLevel ?? "medium",
-          providerId: patch.providerId,
-          modelId: patch.modelId,
+          ...patch,
           messageCount: this.env.store.readMessages(sessionId).length,
         },
       };
@@ -315,9 +672,7 @@ export class PhoneBridge {
           id: session.id,
           title: session.title,
           messageCount: messages.length,
-          mode: "agent",
-          thinkingLevel: "medium",
-          permissionMode: "inherit",
+          ...readSessionConfig(this.env.store, sessionId),
           systemPrompt: session.systemPrompt ?? null,
           createdAt: session.createdAt,
           updatedAt: session.updatedAt,
@@ -354,8 +709,11 @@ export class PhoneBridge {
     "project-group/list": () => ({ groups: this.projects.list().map(toProjectGroup) }),
 
     "project-group/create": (input) => {
-      const request = (input ?? {}) as { name?: string };
-      return { group: toProjectGroup(this.projects.create({ name: request.name ?? "" })) };
+      const request = (input ?? {}) as { name?: string; folders?: string[] };
+      const folders = Array.isArray(request.folders) ? request.folders : [];
+      return {
+        group: toProjectGroup(this.projects.create({ name: request.name ?? "", folders })),
+      };
     },
 
     "project-group/rename": (input) => {
@@ -537,9 +895,75 @@ export class PhoneBridge {
         providerId?: string;
         baseUrl?: string;
         apiKey?: string;
+        apiStyle?: string;
+        source?: "cache" | "refresh";
       };
       const stored = request.providerId ? this.providers.get(request.providerId) : null;
-      return listModels({ baseUrl: request.baseUrl, apiKey: request.apiKey, provider: stored });
+      // Bootstrap requests local cache before publishing ready. Never discover
+      // remote models here: an offline service must not hold the shell hostage.
+      if (request.source === "cache") {
+        // The service's last answer, not just the ids the user typed. This is
+        // what lets the page paint a full list before any network call.
+        const known = stored ? this.providers.knownModels(stored.id) : [];
+        return {
+          source: "cache",
+          models:
+            known.length > 0
+              ? known
+              : (stored?.models ?? []).map((id) => ({
+                  modelId: id,
+                  displayName: id,
+                  providerId: stored?.id ?? "",
+                  capabilities: ["text" as const],
+                  source: "discovered" as const,
+                })),
+        };
+      }
+      // A service with a stored catalogue answers from it and refreshes behind
+      // the page. The sheet used to await the network, sit on "连接中", and then
+      // report a timeout — a minute of waiting for a list that was already on
+      // disk. The refresh still runs, but it can no longer hold the page.
+      const known = stored ? this.providers.knownModels(stored.id) : [];
+      if (stored && known.length > 0) {
+        const refresh = listModels({
+          baseUrl: request.baseUrl ?? stored.baseUrl,
+          apiKey: request.apiKey ?? stored.apiKey,
+          apiStyle: request.apiStyle ?? stored.apiStyle,
+          provider: stored,
+        })
+          .then((answer) => {
+            if (answer.source === "remote" && answer.models.length > 0) {
+              this.providers.rememberModels(stored.id, answer.models);
+            }
+            return answer;
+          })
+          .catch(() => null);
+        // Give a healthy service enough time to answer, and never more.
+        const fresh = await Promise.race([
+          refresh,
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 6_000)),
+        ]);
+        if (fresh && fresh.source === "remote" && fresh.models.length > 0) {
+          return { source: "remote", models: fresh.models };
+        }
+        return { source: "cache", models: known, refreshing: true };
+      }
+      // The live branch must carry the wire style: a provider whose address is
+      // Anthropic-style or Google-style cannot be probed with the OpenAI
+      // `/models` + bearer rule. The stored provider wins over an empty form
+      // field, because the form has no style until the user picks one.
+      const answer = await listModels({
+        baseUrl: request.baseUrl ?? stored?.baseUrl,
+        apiKey: request.apiKey ?? stored?.apiKey,
+        apiStyle: request.apiStyle ?? stored?.apiStyle,
+        provider: stored,
+      });
+      // Keep the answer, so the next visit is instant even offline. Only a real
+      // remote list is worth remembering; a fallback answer is not a catalogue.
+      if (stored && answer.source === "remote" && answer.models.length > 0) {
+        this.providers.rememberModels(stored.id, answer.models);
+      }
+      return answer;
     },
 
     "providers/testConnection": async (input) => {
@@ -558,20 +982,11 @@ export class PhoneBridge {
     // failing with "does not implement".
     // The first-party skills ship inside the app, so the list is real: it is the
     // same set the system prompt advertises, not a placeholder.
-    "skill/list": () => ({
-      skills: bundledSkills().map((skill) => ({
-        id: skill.id,
-        name: skill.name,
-        description: skill.description,
-        level: "user",
-        enabled: true,
-        source: "imported",
-        path: skill.file,
-      })),
-    }),
-    "skill/catalog": () => ({
-      skills: bundledSkills().map((skill) => ({ id: skill.id, name: skill.name })),
-    }),
+    // The bundled skills are part of the product, not a shelf the reader manages:
+    // they stay available to the runtime (the `skill` tool still reads them) but
+    // the phone's settings page lists none of them.
+    "skill/list": () => ({ skills: [] }),
+    "skill/catalog": () => ({ skills: [] }),
     "skill/read": (input) => {
       const request = (input ?? {}) as { id?: string };
       const found = findBundledSkill(String(request.id ?? ""));
@@ -583,6 +998,23 @@ export class PhoneBridge {
     "subagent/list": () => ({ subagents: [] }),
     "subagent/catalog": () => ({ subagents: [], builtins: [] }),
     "subagent/read": () => ({ subagent: null }),
+
+    // The per-conversation prompt shelf. Desktop keeps it in SQLite; the phone
+    // keeps the same records in local storage and answers the same shape.
+    "promptPreset/list": () => ({ presets: listPresets() }),
+    "promptPreset/save": (input) => {
+      const request = (input ?? {}) as { name?: string; text?: string };
+      const text = typeof request.text === "string" ? request.text : "";
+      if (!text.trim()) {
+        return { ok: false, error: { code: "INVALID_PARAMS", message: "text required" } };
+      }
+      const preset = savePreset(typeof request.name === "string" ? request.name : "", text);
+      return { preset };
+    },
+    "promptPreset/delete": (input) => {
+      const request = (input ?? {}) as { id?: string };
+      return { ok: deletePreset(String(request.id ?? "")) };
+    },
 
     "secrets/has": (input) => {
       const ref = String(input ?? "");
@@ -605,13 +1037,76 @@ export class PhoneBridge {
 
     "composer/commands": () => ({ commands: [] }),
 
+    /*
+     * Attaching a file on the phone: the system picker copies the document into
+     * app storage and hands back its path, which is then the chip's path and
+     * what the agent reads. The token keeps the pick out of the page's memory
+     * until the composer imports it.
+     */
+    "composer/pickFiles": async () => {
+      const files = await pickDeviceFiles();
+      if (files.length === 0) return { token: null, canceled: true };
+      const token = `picked-${Date.now()}-${this.picked.size}`;
+      this.picked.set(token, files);
+      return { token };
+    },
+
+    "composer/importFiles": (input) => {
+      const request = (input ?? {}) as { token?: string };
+      const files = (request.token && this.picked.get(request.token)) || [];
+      if (request.token) this.picked.delete(request.token);
+      return {
+        files: files.map((file) => ({
+          path: file.path,
+          name: file.name,
+          kind: file.mimeType?.startsWith("image/") ? "image" : "file",
+          mimeType: file.mimeType ?? "application/octet-stream",
+          size: file.size,
+        })),
+      };
+    },
+
+    "fs/readImageDataUrl": async (input) => {
+      const request = (input ?? {}) as { ref?: string; mimeType?: string };
+      return readDeviceDataUrl(request.ref ?? "", request.mimeType);
+    },
+
     "notification/setViewingSession": () => null,
 
     "plugin/list": () => ({ plugins: [] }),
     "plugin/themes": () => [],
     "plugin/views": () => [],
     "plans/pending": () => ({ plans: [] }),
-    "notification/list": () => ({ notifications: [], unreadCount: 0 }),
+    /*
+     * The notification centre reads the phone's own ledger: every finished or
+     * failed background task already writes one, so the page has something real
+     * to show instead of an empty list.
+     */
+    "notification/list": () => ({
+      notifications: loadNotices().map((notice) => ({
+        id: notice.id,
+        kind: /失败|failed|error/i.test(notice.title) ? "task.failed" : "task.completed",
+        sessionId: notice.sessionId ?? "",
+        sessionTitle: notice.title,
+        turnId: notice.id,
+        createdAt: new Date(notice.at).toISOString(),
+        readAt: notice.read ? new Date(notice.at).toISOString() : null,
+      })),
+      unreadCount: unreadNotices(),
+    }),
+    "notification/markRead": (input?: unknown) => {
+      const id = (input as { id?: unknown } | undefined)?.id;
+      if (typeof id === "string") markRead(id);
+      return { ok: true };
+    },
+    "notification/markAllRead": () => {
+      markAllRead();
+      return { ok: true };
+    },
+    "notification/clear": () => {
+      markAllRead();
+      return { ok: true };
+    },
 
     "agent/prompt": async (input) => {
       const request = input as { sessionId?: string; content?: string } | undefined;
@@ -685,6 +1180,40 @@ export class PhoneBridge {
   }
 
   /** Settings are read once at start; a missing blob means defaults. */
+  /** Every stored turn, with the model that produced it. */
+  private usageTurns(): UsageTurn[] {
+    return collectTurns(
+      this.env.store.listSessions(),
+      (sessionId) => this.env.store.readMessages(sessionId),
+      (sessionId) => {
+        const config = readSessionConfig(this.env.store, sessionId);
+        return {
+          providerId: config.providerId ?? this.providers.active()?.id ?? null,
+          modelId: config.modelId ?? this.providers.active()?.defaultModelId ?? null,
+        };
+      },
+    );
+  }
+
+  /** Per-model prices the user typed in, kept beside the rest of the phone's data. */
+  private readPricing(): ModelPricingRow[] {
+    try {
+      const parsed: unknown = JSON.parse(this.env.store.readValue("qn.local.modelPricing") ?? "[]");
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((entry): entry is ModelPricingRow => {
+        if (!entry || typeof entry !== "object") return false;
+        const row = entry as Partial<ModelPricingRow>;
+        return typeof row.modelId === "string" && row.modelId.length > 0;
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  private writePricing(rows: ModelPricingRow[]): void {
+    this.env.store.writeValue("qn.local.modelPricing", JSON.stringify(rows));
+  }
+
   private readSettings(): Record<string, unknown> {
     const raw = this.env.store.readValue("qn.local.settings");
     if (!raw) return {};
@@ -721,4 +1250,76 @@ export class PhoneBridge {
 
 function strip(channel: string): string {
   return channel.startsWith(PREFIX) ? channel.slice(PREFIX.length) : channel;
+}
+
+/* ── scheduled tasks: one record, two vocabularies ──────────────────────── */
+
+function cadenceOf(value: unknown): ScheduleCadence {
+  return value === "manual" || value === "hourly" || value === "weekly" ? value : "daily";
+}
+
+/** The legacy interval a cadence maps to, for anything that still reads it. */
+function minutesFor(cadence: ScheduleCadence): number {
+  if (cadence === "hourly") return 60;
+  if (cadence === "weekly") return 7 * 24 * 60;
+  if (cadence === "manual") return 365 * 24 * 60;
+  return 24 * 60;
+}
+
+function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(number)));
+}
+
+/** Monday = 0 on the wire; duplicates and out-of-range days are dropped. */
+function weekdaysOf(schedule: { weekdays?: unknown; weekday?: unknown } | undefined): number[] {
+  const raw = schedule?.weekdays;
+  const list = Array.isArray(raw)
+    ? raw
+    : typeof schedule?.weekday === "number"
+      ? [schedule.weekday]
+      : [];
+  const seen = new Set<number>();
+  for (const entry of list) {
+    const day = typeof entry === "number" ? entry : Number(entry);
+    if (!Number.isInteger(day) || day < 0 || day > 6) continue;
+    seen.add(day);
+  }
+  return [...seen].sort((left, right) => left - right);
+}
+
+/** The phone's record, in the shape the desktop's scheduled page reads. */
+function toScheduledTask(schedule: Schedule): Record<string, unknown> {
+  const cadence: ScheduleCadence =
+    schedule.cadence ??
+    (schedule.minutes === 60
+      ? "hourly"
+      : schedule.minutes === 7 * 24 * 60
+        ? "weekly"
+        : schedule.minutes === 24 * 60
+          ? "daily"
+          : "manual");
+  const hour = schedule.hour ?? 9;
+  const minute = schedule.minute ?? 0;
+  const next = dueAt(schedule);
+  const iso = (value: number) => new Date(value).toISOString();
+  return {
+    id: schedule.id,
+    title: schedule.title,
+    prompt: schedule.prompt,
+    cadence,
+    mode: "agent",
+    enabled: schedule.enabled,
+    createdAt: iso(schedule.createdAt),
+    updatedAt: iso(schedule.lastRunAt ?? schedule.createdAt),
+    ...(schedule.lastRunAt ? { lastRunAt: iso(schedule.lastRunAt) } : {}),
+    schedule: {
+      hour,
+      minute,
+      weekday: schedule.weekdays?.[0] ?? 0,
+      ...(schedule.weekdays?.length ? { weekdays: schedule.weekdays } : {}),
+    },
+    ...(Number.isFinite(next) ? { nextRunAt: iso(next) } : {}),
+  };
 }

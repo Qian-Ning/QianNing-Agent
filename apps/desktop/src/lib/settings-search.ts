@@ -137,6 +137,7 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
   },
   {
     id: "voice",
+    desktopOnly: true,
     labelKey: "settings.nav.voice",
     titleKey: "settings.voice",
     group: "preferences",
@@ -271,10 +272,15 @@ export const SETTINGS_NAV: SettingsNavEntry[] = [
     ],
   },
   {
+    // Import scans the *machine's* other agents — Codex, Claude Code, OpenCode,
+    // cc-switch — for sessions, models, skills and MCP servers. A phone has
+    // none of those installs, so the destination is desktop-only rather than a
+    // page whose every action answers with a bridge error.
     id: "import",
     labelKey: "settings.nav.import",
     titleKey: "settings.import",
     group: "workspace",
+    desktopOnly: true,
     keywordKeys: [
       "settings.importTitle",
       "settings.importModelsTitle",
@@ -405,6 +411,7 @@ export type SettingsSearchOptions = {
   developerMode?: boolean;
   /** Packaged builds omit experimental surfaces, even with developer mode on. */
   includeDevelopmentOnly?: boolean;
+  surface?: "desktop" | "mobile";
 };
 
 export function searchSettings(
@@ -414,12 +421,13 @@ export function searchSettings(
     limit = 8,
     developerMode = false,
     includeDevelopmentOnly = true,
+    surface = "desktop",
   }: SettingsSearchOptions = {},
 ): SettingsSearchHit[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const hits: SettingsSearchHit[] = [];
-  for (const entry of visibleSettingsNav(developerMode, includeDevelopmentOnly)) {
+  for (const entry of visibleSettingsNav(developerMode, includeDevelopmentOnly, surface)) {
     if (t(entry.labelKey).toLowerCase().includes(q)) {
       hits.push({ tab: entry.id, tabLabelKey: entry.labelKey, rowKey: null });
     }

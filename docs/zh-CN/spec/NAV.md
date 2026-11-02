@@ -56,6 +56,7 @@
 ## 4. 用户体验
 - [README.md](/zh-CN/spec/04-ux/README)
 - [01-ui-ia.md](/zh-CN/spec/04-ux/01-ui-ia)
+- [25-mobile-composer-layout.md](/zh-CN/spec/04-ux/25-mobile-composer-layout)
 - [02-i18n-english-first.md](/zh-CN/spec/04-ux/02-i18n-english-first)
 - [03-permission-ux.md](/zh-CN/spec/04-ux/03-permission-ux)
 - [04-builtin-commands.md](/zh-CN/spec/04-ux/04-builtin-commands)

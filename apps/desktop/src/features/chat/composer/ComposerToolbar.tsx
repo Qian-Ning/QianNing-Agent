@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import type { TFunction } from "i18next";
 import {
   keybindingDisplayParts,
@@ -17,13 +17,10 @@ import {
   IconPlus,
   IconStop,
 } from "../../../components/icons";
-import { ModeIcon } from "./ComposerModeIcon";
+import { ComposerModePicker } from "./ComposerModePicker";
 import { VoiceMicButton } from "../../voice/VoiceMicButton";
 import { ComposerModelPicker } from "./ComposerModelPicker";
-import {
-  MODE_LABEL_KEYS,
-  nextMode,
-} from "./model";
+
 import type { useComposerModelMenu } from "./hooks/useComposerModelMenu";
 import type { VoicePhase } from "../../voice/useVoiceInput";
 
@@ -108,6 +105,7 @@ export function ComposerToolbar({
   onVoiceCancel,
 }: ComposerToolbarProps) {
   const phoneSurface = document.documentElement.dataset.surface === "mobile";
+  const [modeOpen, setModeOpen] = useState(false);
   const platform = (window.piDesktop?.platform ?? "darwin") as ShortcutPlatform;
   const steeringShortcut = keybindingDisplayParts("Alt+Enter", platform).join("+");
   return (
@@ -122,13 +120,14 @@ export function ComposerToolbar({
             disabled={controlsBlocked || pasting}
             onClick={() => {
               setPermissionOpen(false);
+              setModeOpen(false);
               void pickAndAttach();
             }}
           >
-            <IconPlus size={15} aria-hidden="true" />
+            <IconPlus size="var(--composer-glyph, 15px)" aria-hidden="true" />
           </TooltipButton>
         </div>
-        {voiceEnabled && (
+        {!phoneSurface && voiceEnabled && (
           <VoiceMicButton
             t={t}
             phase={voicePhase}
@@ -137,18 +136,13 @@ export function ComposerToolbar({
             onCancel={onVoiceCancel}
           />
         )}
-        <TooltipButton
-          type="button"
-          className="icon-btn mode-chip composer-mode-chip"
-          data-mode={mode}
-          data-planning={planningLive ? "true" : undefined}
-          tooltip={planningLive ? t(`${mode}.planning`) : t("settings.mode")}
-          ariaLabel={planningLive ? t(`${mode}.planning`) : t("settings.mode")}
-          disabled={controlsBlocked}
-          onClick={async () => {
+        <ComposerModePicker t={t} mode={mode} planningLive={planningLive} phoneSurface={phoneSurface}
+          open={modeOpen} setOpen={setModeOpen} disabled={controlsBlocked}
+          onCloseOtherMenus={() => {
             modelMenu.closeMenus();
             setPermissionOpen(false);
-            const next: Mode = nextMode(mode);
+          }}
+          onSelect={async (next) => {
             try {
               await configureActiveSession({
                 mode: next,
@@ -162,18 +156,11 @@ export function ComposerToolbar({
               });
             }
           }}
-        >
-          <span className="composer-mode-chip-face" key={mode}>
-            <ModeIcon mode={mode} />
-            <span className="composer-mode-chip-label text-sm">
-              {t(MODE_LABEL_KEYS[mode])}
-            </span>
-          </span>
-        </TooltipButton>
+        />
         <ComposerPermissionPicker t={t} mode={mode}
           composerPermissionMode={composerPermissionMode}
           permissionOpen={permissionOpen} setPermissionOpen={setPermissionOpen}
-          controlsBlocked={controlsBlocked} onCloseOtherMenus={() => modelMenu.closeMenus()}
+          controlsBlocked={controlsBlocked} onCloseOtherMenus={() => { modelMenu.closeMenus(); setModeOpen(false); }}
           onSelect={async (candidate) => {
                 try {
                   await configureActiveSession({
@@ -206,7 +193,7 @@ export function ComposerToolbar({
           selectedProviderId={providerId}
           selectedModelId={modelId}
           controlsBlocked={controlsBlocked}
-          onCloseOtherMenus={() => setPermissionOpen(false)}
+          onCloseOtherMenus={() => { setPermissionOpen(false); setModeOpen(false); }}
         />
         {runActive && !hasDraftContent ? (
           <TooltipButton

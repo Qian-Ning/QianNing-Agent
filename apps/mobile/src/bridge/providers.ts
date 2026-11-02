@@ -12,10 +12,27 @@
  * require re-entering a key.
  */
 
-import type { ModelBinding, ModelInfo, ProviderPublic } from "@pi-desktop/shared";
+import {
+  discoveryProbeUrl,
+  discoveryStyleForApiStyle,
+  type ModelBinding,
+  type ModelInfo,
+  type ProviderPublic,
+} from "@pi-desktop/shared";
+import { hasNativeHttp, nativeRequest } from "./native-http";
 
 const STORE_KEY = "qn.local.providers";
 const ACTIVE_KEY = "qn.local.activeProvider";
+/**
+ * The last answer each service gave to "what do you serve?", kept on the phone.
+ *
+ * The desktop answers the settings page from a persisted catalogue, paints it
+ * at once, and refreshes in the background — that is why its list appears in
+ * about a second. The phone used to keep only the model ids the user had typed,
+ * so every visit waited on the network. This is the same cache the desktop has,
+ * in the place the phone can keep it.
+ */
+const CATALOG_KEY = "qn.local.modelCatalog";
 
 /** What a phone provider row is, before it is dressed up as a desktop one. */
 export type PhoneProvider = {
@@ -69,6 +86,37 @@ export function toPublic(provider: PhoneProvider): ProviderPublic {
   };
 }
 
+type CatalogEntry = { models: ModelInfo[]; fetchedAt: string };
+type Catalog = Record<string, CatalogEntry>;
+
+function readCatalog(store: ProviderStore): Catalog {
+  const raw = store.readValue(CATALOG_KEY);
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const out: Catalog = {};
+    for (const [id, entry] of Object.entries(parsed as Record<string, unknown>)) {
+      const candidate = entry as Partial<CatalogEntry>;
+      if (!Array.isArray(candidate?.models)) continue;
+      out[id] = {
+        models: candidate.models.filter(
+          (model): model is ModelInfo =>
+            typeof (model as Partial<ModelInfo>)?.modelId === "string",
+        ),
+        fetchedAt: typeof candidate.fetchedAt === "string" ? candidate.fetchedAt : "",
+      };
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function writeCatalog(store: ProviderStore, catalog: Catalog): void {
+  store.writeValue(CATALOG_KEY, JSON.stringify(catalog));
+}
+
 function readJson(store: ProviderStore, key: string): PhoneProvider[] {
   const raw = store.readValue(key);
   if (!raw) return [];
@@ -89,6 +137,36 @@ export class ProviderBook {
 
   list(): PhoneProvider[] {
     return readJson(this.store, STORE_KEY);
+  }
+
+  /**
+   * The models this service answered with last time, from the phone's cache.
+   *
+   * Empty when the service has never been asked. The settings page treats a
+   * non-empty answer as "paint now, refresh behind it", which is the whole
+   * point: the list is on screen before the network is consulted.
+   */
+  knownModels(providerId: string): ModelInfo[] {
+    return readCatalog(this.store)[providerId]?.models ?? [];
+  }
+
+  /** Records what a service answered, so the next visit paints from disk. */
+  rememberModels(providerId: string, models: ModelInfo[]): void {
+    if (!providerId || models.length === 0) return;
+    const catalog = readCatalog(this.store);
+    catalog[providerId] = {
+      models,
+      fetchedAt: new Date().toISOString(),
+    };
+    writeCatalog(this.store, catalog);
+  }
+
+  /** Drops a service's cached list, for when its address or key changes. */
+  forgetModels(providerId: string): void {
+    const catalog = readCatalog(this.store);
+    if (!(providerId in catalog)) return;
+    delete catalog[providerId];
+    writeCatalog(this.store, catalog);
   }
 
   get(id: string): PhoneProvider | null {
@@ -197,34 +275,107 @@ function hostOf(baseUrl: string): string {
 }
 
 /**
+ * How long one model-list probe may take.
+ *
+ * The desktop answers in about a second; a phone on a slow link needs more than
+ * the eight seconds that used to be enough to prove "stuck", but a probe that
+ * never returns leaves the page pinned on "connecting". The ceiling here is
+ * the point where the page reports the failure and stays usable.
+ */
+const MODEL_PROBE_TIMEOUT_MS = 60_000;
+
+/**
  * Asks the service what it serves.
  *
- * Returns an empty list with an error instead of throwing: the settings page
- * shows the reason next to the refresh button, and a provider that cannot list
- * models can still be used with a hand-typed id.
+ * The URL and the auth headers come from the shared discovery rules, the same
+ * ones the desktop probe uses, so a provider that loads on the desktop loads
+ * on the phone too: an Anthropic-style base URL is asked at `/v1/models` with
+ * `x-api-key`, a Google-style one at `/models?pageSize=1000&key=...`, and an
+ * OpenAI-compatible one at `/models` with a bearer token.
  */
+async function probeFetch(
+  url: string,
+  headers: Record<string, string>,
+  timeoutMs: number,
+): Promise<unknown> {
+  const response = await fetch(url, {
+    headers: Object.keys(headers).length > 0 ? headers : undefined,
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return (await response.json()) as unknown;
+}
+
+/**
+ * The plugin's own call: no localhost proxy, no mixed-content rule, and a
+ * connect budget separate from the read budget so a dead endpoint fails in
+ * seconds instead of pinning the page.
+ */
+async function probeNative(
+  url: string,
+  headers: Record<string, string>,
+  timeoutMs: number,
+): Promise<unknown> {
+  const response = await nativeRequest(url, {
+    method: "GET",
+    headers: Object.keys(headers).length > 0 ? headers : undefined,
+    connectTimeoutMs: 8_000,
+    readTimeoutMs: timeoutMs,
+  });
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return typeof response.data === "string" ? (JSON.parse(response.data) as unknown) : response.data;
+}
+
 export async function listModels(input: {
   baseUrl?: string;
   apiKey?: string;
+  apiStyle?: string;
   provider?: PhoneProvider | null;
 }): Promise<{ models: ModelInfo[]; source: "remote" | "fallback"; error?: string }> {
   const baseUrl = (input.baseUrl ?? input.provider?.baseUrl ?? "").trim().replace(/\/+$/, "");
   const apiKey = input.apiKey ?? input.provider?.apiKey ?? "";
+  const apiStyle = input.apiStyle ?? input.provider?.apiStyle;
   if (!baseUrl) return { models: [], source: "fallback", error: "baseUrl is required" };
 
-  try {
-    const response = await fetch(`${baseUrl}/models`, {
-      headers: apiKey ? { authorization: `Bearer ${apiKey}` } : undefined,
-    });
-    if (!response.ok) {
-      return { models: [], source: "fallback", error: `HTTP ${response.status}` };
+  const discoveryStyle = discoveryStyleForApiStyle(apiStyle);
+  let url = discoveryProbeUrl(baseUrl, discoveryStyle);
+  const headers: Record<string, string> = {};
+  if (apiKey) {
+    if (discoveryStyle === "anthropic_models") {
+      headers["x-api-key"] = apiKey;
+      headers["anthropic-version"] = "2023-06-01";
+    } else if (discoveryStyle === "google_models") {
+      // Google carries the key in the query string, not in a header.
+      const params = new URLSearchParams({ pageSize: "1000", key: apiKey });
+      url = `${url}?${params}`;
+    } else {
+      headers.Authorization = `Bearer ${apiKey}`;
     }
-    const body: unknown = await response.json();
-    const rows = (body as { data?: unknown }).data;
-    if (!Array.isArray(rows)) return { models: [], source: "fallback", error: "unexpected model list" };
+  }
 
-    const models: ModelInfo[] = rows
-      .map((row) => (row as { id?: unknown }).id)
+  try {
+    // On the phone the patched `fetch` goes through the local http proxy and
+    // never settles; the plugin itself is the path that works. Desktop/CI keep
+    // plain fetch, which is what the tests exercise.
+    const body = hasNativeHttp()
+      ? await probeNative(url, headers, MODEL_PROBE_TIMEOUT_MS)
+      : await probeFetch(url, headers, MODEL_PROBE_TIMEOUT_MS);
+    const rows = (body as { data?: unknown; models?: unknown }).data ??
+      (body as { models?: unknown }).models;
+    const list = Array.isArray(rows) ? rows : [];
+    const models: ModelInfo[] = list
+      .map((row) => {
+        if (typeof row === "string") return row;
+        const item = row as { id?: unknown; slug?: unknown; display_name?: unknown };
+        const id = typeof item.id === "string" && item.id
+          ? item.id
+          : typeof item.slug === "string"
+            ? item.slug
+            : "";
+        return id;
+      })
       .filter((id): id is string => typeof id === "string" && id.length > 0)
       .map((id) => ({
         modelId: id,
