@@ -1,6 +1,6 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { build } from "esbuild";
+import { build, stop } from "esbuild";
 import { mkdtempSync, writeFileSync, readFileSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -19,8 +19,34 @@ const sourcePath = path.resolve(
   "../electron/main/messaging-signal-link.ts",
 );
 
+/*
+  The esbuild JS API keeps a service child process alive until `stop()` is
+  called. A file that leaves it running never lets its own process exit, and
+  node's runner waits on that process before it reports the file — on CI this
+  reads as a suite that goes silent rather than a test that failed.
+*/
+after(() => stop());
+
+/// A build that never settles would stall the whole file; fail it instead.
+const BUILD_DEADLINE_MS = 30_000;
+
+async function safeBuild(options) {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`esbuild did not finish within ${BUILD_DEADLINE_MS}ms`)),
+      BUILD_DEADLINE_MS,
+    );
+  });
+  try {
+    return await Promise.race([build(options), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function loadModule() {
-  const { outputFiles } = await build({
+  const { outputFiles } = await safeBuild({
     entryPoints: [sourcePath],
     bundle: true,
     platform: "node",
