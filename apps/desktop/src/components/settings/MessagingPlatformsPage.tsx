@@ -732,7 +732,6 @@ function SupportedPanel({
             {secretPresent[secretSlot.ref]
               ? t("settings.messaging.secretStored")
               : t("settings.messaging.secretMissing")}
-            <span className="settings-messaging-secret-ref">{secretSlot.ref}</span>
           </span>
           <p className="settings-messaging-secret-hint">
             {secretPresent[secretSlot.ref]
@@ -780,7 +779,6 @@ function SupportedPanel({
             >
               {t("settings.messaging.apiServerTokenReplace")}
             </Button>
-            <span className="settings-messaging-secret-ref">{slot.ref}</span>
           </div>
         );
       }
