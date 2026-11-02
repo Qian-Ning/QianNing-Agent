@@ -1,4 +1,4 @@
-# ADR: A messaging turn shows its progress as one editable card
+# ADR 0340: A messaging turn shows its progress as one editable card
 
 - Status: Accepted
 - Date: 2026-11-01

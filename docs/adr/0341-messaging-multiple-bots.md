@@ -1,4 +1,4 @@
-# ADR: More than one bot per messaging channel
+# ADR 0341: More than one bot per messaging channel
 
 - Status: Accepted
 - Date: 2026-11-01
