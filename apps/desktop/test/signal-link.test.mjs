@@ -1,6 +1,5 @@
-import { after, test } from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
-import { build, stop } from "esbuild";
 import { mkdtempSync, writeFileSync, readFileSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -20,45 +19,21 @@ const sourcePath = path.resolve(
 );
 
 /*
-  The esbuild JS API keeps a service child process alive until `stop()` is
-  called. A file that leaves it running never lets its own process exit, and
-  node's runner waits on that process before it reports the file — on CI this
-  reads as a suite that goes silent rather than a test that failed.
+  Node strips the module's types itself, so the test loads the source it is
+  about instead of bundling a copy first. A bundler here would mean a build step
+  in front of every assertion, and a stalled build would look like a suite that
+  went quiet rather than a test that failed.
+
+  The counter keeps each load a fresh module: the link flow holds process-wide
+  state, and one test must not inherit the previous one's.
 */
-after(() => stop());
-
-/// A build that never settles would stall the whole file; fail it instead.
-const BUILD_DEADLINE_MS = 30_000;
-
-async function safeBuild(options) {
-  let timer;
-  const deadline = new Promise((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`esbuild did not finish within ${BUILD_DEADLINE_MS}ms`)),
-      BUILD_DEADLINE_MS,
-    );
-  });
-  try {
-    return await Promise.race([build(options), deadline]);
-  } finally {
-    clearTimeout(timer);
-  }
-}
+let loads = 0;
 
 async function loadModule() {
-  const { outputFiles } = await safeBuild({
-    entryPoints: [sourcePath],
-    bundle: true,
-    platform: "node",
-    format: "esm",
-    write: false,
-    logLevel: "silent",
-  });
-  const dir = mkdtempSync(path.join(tmpdir(), "signal-link-"));
-  const file = path.join(dir, "module.mjs");
-  writeFileSync(file, outputFiles[0].text);
-  return import(pathToFileURL(file).href);
+  loads += 1;
+  return import(`${pathToFileURL(sourcePath).href}?load=${loads}`);
 }
+
 
 function fakeCli(dir) {
   const script = path.join(dir, "fake-link.js");
