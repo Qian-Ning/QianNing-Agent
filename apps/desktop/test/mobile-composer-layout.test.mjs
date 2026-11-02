@@ -37,8 +37,10 @@ test("the phone model-service sheet shows both model panes inside the viewport",
   // fold with no way to reach it.
   assert.match(responsive, /:root\[data-surface="mobile"\] \.provider-setup-dialog[\s\S]*?height: 100dvh/);
   assert.match(responsive, /:root\[data-surface="mobile"\] \.provider-setup-body[\s\S]*?overflow-y: auto/);
-  // Each list gets a real share of the sheet instead of a collapsed two-row box.
-  assert.match(responsive, /:root\[data-surface="mobile"\] \.provider-models-list[\s\S]*?min-height: 34vh/);
+  // Each list owns a real height and scrolls inside it; a flex share collapsed
+  // the chosen pane, whose header and search ate all but a few pixels.
+  assert.match(responsive, /:root\[data-surface="mobile"\] \.provider-models-list[\s\S]*?height: 260px/);
+  assert.match(responsive, /:root\[data-surface="mobile"\] \.provider-models-list[\s\S]*?overflow-y: auto/);
   // The narrow-window desktop rule must not cap the phone sheet's height.
   assert.match(modelConfig, /:root\[data-surface="mobile"\] \.provider-setup-dialog[\s\S]*?height: 100dvh/);
 });

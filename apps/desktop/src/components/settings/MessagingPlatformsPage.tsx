@@ -388,7 +388,7 @@ export function MessagingPlatformsPage() {
                       key={entry.id}
                       type="button"
                       role="tab"
-                      aria-selected={entry.id === platform.id}
+                      aria-selected={!isPhone && entry.id === platform.id}
                       data-nav={`messaging-platform-${entry.id}`}
                       data-support={entry.support}
                       data-tone={status?.tone ?? "neutral"}
@@ -396,7 +396,7 @@ export function MessagingPlatformsPage() {
                       title={detail}
                       className={cx(
                         "settings-messaging-item",
-                        entry.id === platform.id && "active",
+                        !isPhone && entry.id === platform.id && "active",
                         entry.support === "unsupported" && "is-unsupported",
                       )}
                       onClick={() => openPlatformPage(entry.id)}
