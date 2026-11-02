@@ -33,6 +33,8 @@ describe("session drawer", () => {
         onSelect={() => {}}
         onNew={() => {}}
         onSettings={() => {}}
+        onTerminal={() => {}}
+        onBrowser={() => {}}
         onClose={() => {}}
       />,
     );
@@ -56,6 +58,8 @@ describe("session drawer", () => {
         onSelect={onSelect}
         onNew={() => {}}
         onSettings={() => {}}
+        onTerminal={() => {}}
+        onBrowser={() => {}}
         onClose={() => {}}
       />,
     );
@@ -76,6 +80,8 @@ describe("session drawer", () => {
         onSelect={() => {}}
         onNew={() => {}}
         onSettings={() => {}}
+        onTerminal={() => {}}
+        onBrowser={() => {}}
         onClose={() => {}}
       />,
     );

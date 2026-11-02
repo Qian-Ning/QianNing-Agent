@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { hasBrowser, openBrowser } from "./shell";
 
 /**
  * A small Markdown renderer for agent output.
@@ -133,7 +134,19 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
       const safe = /^https?:\/\//i.test(href);
       nodes.push(
         safe ? (
-          <a key={key} href={href} target="_blank" rel="noreferrer noopener">
+          <a
+            key={key}
+            href={href}
+            target="_blank"
+            rel="noreferrer noopener"
+            onClick={(event) => {
+              // A link in a reply opens the app's own browser window: the
+              // conversation stays behind it, and back returns in one gesture.
+              if (!hasBrowser()) return;
+              event.preventDefault();
+              void openBrowser(href);
+            }}
+          >
             {label?.[1] ?? href}
           </a>
         ) : (

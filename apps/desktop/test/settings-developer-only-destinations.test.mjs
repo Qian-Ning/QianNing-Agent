@@ -31,6 +31,13 @@ const composer = readFileSync(
 
 const identity = (key) => key;
 
+test("mobile excludes voice from settings navigation and search without changing desktop", () => {
+  assert.equal(visibleSettingsNav(false, false, "mobile").some((entry) => entry.id === "voice"), false);
+  assert.equal(isSettingsDestinationHidden("voice", false, false, "mobile"), true);
+  assert.deepEqual(searchSettings("settings.voiceEnable", identity, { surface: "mobile" }), []);
+  assert.equal(visibleSettingsNav(false, false, "desktop").some((entry) => entry.id === "voice"), true);
+});
+
 test("cloud sync is absent from the directory in every mode", () => {
   for (const developerMode of [false, true]) {
     for (const includeDevelopmentOnly of [true, false]) {
@@ -69,7 +76,7 @@ test("build visibility is still wired where it is still used", () => {
   assert.match(settingsPage, /isSettingsDestinationHidden\([\s\S]*includeDevelopmentOnly/);
   assert.match(settingsPage, /setSettingsTab\("general"\)/);
   assert.match(searchDialog, /includeDevelopmentOnly: import\.meta\.env\.DEV/);
-  assert.match(composer, /const voiceEnabled = !!settings\?\.voice\?\.enabled/);
+  assert.match(composer, /const voiceEnabled = document\.documentElement\.dataset\.surface !== "mobile" && !!settings\?\.voice\?\.enabled/);
   assert.match(composer, /<VoiceOverlay t=\{t\} state=\{voice\.state\} onCancel=\{voice\.cancel\} \/>/);
   assert.doesNotMatch(composer, /import\.meta\.env\.DEV && !!settings\?\.voice\?\.enabled/);
 });

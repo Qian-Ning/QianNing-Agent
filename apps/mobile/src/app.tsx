@@ -21,10 +21,16 @@ import { ProviderSheet } from "./views/provider-sheet";
 import { ModelSheet } from "./views/model-sheet";
 import { SettingsView } from "./views/settings";
 import { SessionDrawer } from "./views/session-drawer";
+import { TerminalView } from "./views/terminal";
+import { BrowserSheet } from "./views/browser-sheet";
 import { runDueSchedules } from "./agent/schedule-runner";
 import { syncAlarms } from "./agent/alarms";
 
-type Screen = { name: "sessions" } | { name: "chat"; session: SessionSummary } | { name: "settings" };
+type Screen =
+  | { name: "sessions" }
+  | { name: "chat"; session: SessionSummary }
+  | { name: "terminal" }
+  | { name: "settings" };
 
 /** Which agent this phone is talking to: the one here, or the one at home. */
 type Host =
@@ -61,6 +67,7 @@ export function App() {
   const [modelOpen, setModelOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [browserOpen, setBrowserOpen] = useState(false);
 
   const lang = useMemo(() => detectLang(), []);
   const t = useMemo(() => createTranslator(lang), [lang]);
@@ -164,6 +171,10 @@ export function App() {
     />
   ) : null;
 
+  if (screen.name === "terminal") {
+    return <TerminalView t={t} onClose={() => setScreen({ name: "sessions" })} />;
+  }
+
   if (screen.name === "settings") {
     return (
       <SettingsView
@@ -236,9 +247,18 @@ export function App() {
               setDrawerOpen(false);
               setScreen({ name: "settings" });
             }}
+            onTerminal={() => {
+              setDrawerOpen(false);
+              setScreen({ name: "terminal" });
+            }}
+            onBrowser={() => {
+              setDrawerOpen(false);
+              setBrowserOpen(true);
+            }}
             onClose={() => setDrawerOpen(false)}
           />
         ) : null}
+        {browserOpen ? <BrowserSheet t={t} onClose={() => setBrowserOpen(false)} /> : null}
         {setupSheet}
         {modelOpen && host.kind === "local" ? (
           <ModelSheet
@@ -269,6 +289,7 @@ export function App() {
       onRequestSetup={() => setSetupOpen(true)}
       onOpen={(session) => setScreen({ name: "chat", session })}
       onOpenSettings={() => setScreen({ name: "settings" })}
+      onOpenTerminal={() => setScreen({ name: "terminal" })}
       onSignOut={() => {
         clearConnection();
         clearProvider();

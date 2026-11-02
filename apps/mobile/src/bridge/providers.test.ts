@@ -100,9 +100,111 @@ describe("listModels", () => {
     const result = await listModels({ baseUrl: "" });
     expect(result.error).toContain("baseUrl");
   });
+
+  it("asks an Anthropic-style address at /v1/models with its own auth header", async () => {
+    const fetcher = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: [{ id: "claude-sonnet-4-6" }] }),
+    }));
+    vi.stubGlobal("fetch", fetcher);
+    try {
+      const result = await listModels({
+        baseUrl: "https://api.anthropic.test",
+        apiKey: "secret-value",
+        apiStyle: "anthropic_messages",
+      });
+
+      expect(result.source).toBe("remote");
+      const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+      expect(url).toBe("https://api.anthropic.test/v1/models");
+      const headers = init.headers as Record<string, string>;
+      expect(headers["x-api-key"]).toBe("secret-value");
+      expect(headers["anthropic-version"]).toBe("2023-06-01");
+      expect(headers.Authorization).toBeUndefined();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("carries a Google-style key in the query string", async () => {
+    const fetcher = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ models: [{ name: "gemini-3-pro" }] }),
+    }));
+    vi.stubGlobal("fetch", fetcher);
+    try {
+      const result = await listModels({
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+        apiKey: "secret-value",
+        apiStyle: "google_generative_ai",
+      });
+
+      expect(result.source).toBe("remote");
+      const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+      expect(url).toContain("key=secret-value");
+      expect(url).toContain("pageSize=1000");
+      expect((init.headers as Record<string, string> | undefined)?.Authorization).toBeUndefined();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("reads a slug-shaped id from a Responses-style list", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [{ slug: "glm-5.3" }, { id: "gpt-6.1" }] }),
+      })),
+    );
+    try {
+      const result = await listModels({ baseUrl: "https://api.example/v1" });
+      expect(result.models.map((model) => model.modelId)).toEqual(["glm-5.3", "gpt-6.1"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 describe("provider channels", () => {
+  it("returns an empty boot cache and keeps explicit refresh remote", async () => {
+    const store = new MemoryStore();
+    const provider = new ProviderBook(store).create({ name: "Empty", baseUrl: "https://offline.example/v1" });
+    const api = new PhoneBridge({ store, platform: "android", version: "2.2.0" });
+    const fetcher = vi.fn(async () => ({ ok: true, json: async () => ({ data: [{ id: "remote-model" }] }) }));
+    vi.stubGlobal("fetch", fetcher);
+    try {
+      expect(await api.invoke("pi-desktop/providers/listModels", { providerId: provider.id, source: "cache" }))
+        .toEqual({ ok: true, data: { source: "cache", models: [] } });
+      expect(fetcher).not.toHaveBeenCalled();
+      expect(await api.invoke("pi-desktop/providers/listModels", { providerId: provider.id, source: "refresh" }))
+        .toMatchObject({ ok: true, data: { source: "remote", models: [{ modelId: "remote-model" }] } });
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("reads boot model cache without contacting an unavailable provider", async () => {
+    const store = new MemoryStore();
+    const provider = new ProviderBook(store).create({
+      name: "Offline", baseUrl: "https://offline.example/v1", models: [{ id: "cached-model" }],
+    });
+    const api = new PhoneBridge({ store, platform: "android", version: "2.2.0" });
+    const fetcher = vi.fn(async () => { throw new Error("network must not be used"); });
+    vi.stubGlobal("fetch", fetcher);
+    try {
+      const result = await api.invoke("pi-desktop/providers/listModels", { providerId: provider.id, source: "cache" });
+      expect(result).toMatchObject({ ok: true, data: { source: "cache", models: [{ modelId: "cached-model", providerId: provider.id }] } });
+      expect(fetcher).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   function bridge() {
     const store = new MemoryStore();
     return new PhoneBridge({ store, platform: "android", version: "2.2.0", now: () => 1_700_000_000_000 });
@@ -244,5 +346,57 @@ describe("provider channels", () => {
     const opened = await api.invoke("pi-desktop/session/get", { sessionId: id });
 
     expect((opened as unknown as { data: { session: { title: string } } }).data.session.title).toBe("新名");
+  });
+});
+
+/*
+  The phone keeps the last discovery answer. Without it every visit to the
+  settings page started from an empty list and waited on the network, which is
+  why the desktop (which answers from a persisted catalogue) showed its models
+  in a second and the phone did not.
+*/
+describe("discovered model catalogue", () => {
+  const discovered = (id: string) => ({
+    modelId: id,
+    displayName: id,
+    providerId: "pv_1",
+    capabilities: ["text" as const],
+    source: "discovered" as const,
+  });
+
+  it("keeps what a service answered and returns it on the next visit", () => {
+    const providers = book();
+    providers.rememberModels("pv_1", [discovered("agnes-3.0-flash")]);
+
+    expect(providers.knownModels("pv_1").map((model) => model.modelId)).toEqual([
+      "agnes-3.0-flash",
+    ]);
+  });
+
+  it("survives a restart, because the cache outlives the object", () => {
+    const store = new MemoryStore();
+    new ProviderBook(store).rememberModels("pv_1", [discovered("agnes-3.0-pro")]);
+
+    expect(new ProviderBook(store).knownModels("pv_1")).toHaveLength(1);
+  });
+
+  it("has nothing to say about a service it never asked", () => {
+    expect(book().knownModels("pv_unknown")).toEqual([]);
+  });
+
+  it("does not remember an empty answer, which is not a catalogue", () => {
+    const providers = book();
+    providers.rememberModels("pv_1", [discovered("agnes-3.0-flash")]);
+    providers.rememberModels("pv_1", []);
+
+    expect(providers.knownModels("pv_1")).toHaveLength(1);
+  });
+
+  it("forgets a service's list when asked to", () => {
+    const providers = book();
+    providers.rememberModels("pv_1", [discovered("agnes-3.0-flash")]);
+    providers.forgetModels("pv_1");
+
+    expect(providers.knownModels("pv_1")).toEqual([]);
   });
 });

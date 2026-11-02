@@ -199,6 +199,7 @@ export function ModelPricingEditor({ onBack }: { onBack: () => void }) {
           <div className="usage-card-t">{t("settings.usageStats.pricing.title")}</div>
           <div className="usage-card-r">{t("settings.usageStats.pricing.unit")}</div>
         </div>
+        <div className="usage-table-scroll">
         <table className="usage-table usage-pricing-table">
           <thead>
             <tr>
@@ -300,6 +301,7 @@ export function ModelPricingEditor({ onBack }: { onBack: () => void }) {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

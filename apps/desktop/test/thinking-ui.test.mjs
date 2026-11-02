@@ -15,6 +15,7 @@ import { loadStyles } from "./helpers/styles.mjs";
 const composerSource = await readComposerSource();
 const composerToolbarSource = await readComposerModule("ComposerToolbar.tsx");
 const composerModelPickerSource = await readComposerModule("ComposerModelPicker.tsx");
+const composerModePickerSource = await readComposerModule("ComposerModePicker.tsx");
 const composerPermissionPickerSource = await readComposerModule("ComposerPermissionPicker.tsx");
 const scheduledModelPickerSource = await readFile(
   new URL("../src/features/scheduled/ScheduledModelPicker.tsx", import.meta.url),
@@ -102,8 +103,12 @@ test("Composer owns the mode and model controls", () => {
     composerToolbarSource.indexOf('<div className="composer-left">'),
     composerToolbarSource.indexOf('<div className="composer-right">'),
   );
-  const modeControl = leftToolbar.indexOf(
-    'className="icon-btn mode-chip composer-mode-chip"',
+  // The chip is its own component now (cycle on desktop, menu on the phone),
+  // so the toolbar places it and the component keeps the chip markup.
+  const modeControl = leftToolbar.indexOf("<ComposerModePicker");
+  assert.match(
+    composerModePickerSource,
+    /className="icon-btn mode-chip composer-mode-chip"/,
   );
   const permissionControl = leftToolbar.indexOf("<ComposerPermissionPicker");
   const rightToolbar = composerToolbarSource.slice(

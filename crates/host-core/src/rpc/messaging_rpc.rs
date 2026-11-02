@@ -34,8 +34,9 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
 use super::{rpc_err, AppState, JsonRpcError};
+use crate::delivery_ledger::DeliveryOperation;
 use crate::messaging_adapter::{
-    begin_attempt, enqueue_for, finish_attempt, AttemptOutcome, AttemptStart,
+    begin_attempt, enqueue_for_with, finish_attempt, AttemptOutcome, AttemptStart, EnqueueOptions,
 };
 
 /// How often the host's background driver runs one tick of the outbound
@@ -46,6 +47,88 @@ const DRIVER_TICK: Duration = Duration::from_secs(30);
 /// The lease owner name the outbound attempt cycle claims deliveries under.
 const DRIVER_WORKER: &str = "messaging-outbound";
 
+/// The optional half of `messaging.enqueue`: who the delivery is, and whether it
+/// creates a message or rewrites one.
+///
+/// A card needs all four. The caller mints the delivery id because it must
+/// address every later edit to a name it already knows, without a reply to learn
+/// it from; it names the creating delivery as `cardOf` because the platform's
+/// own message id never leaves the host.
+fn enqueue_options(params: &Value) -> Result<EnqueueOptions, JsonRpcError> {
+    let operation = match params.get("operation").and_then(Value::as_str) {
+        None => None,
+        Some("send") => Some(DeliveryOperation::Send),
+        Some("edit") => Some(DeliveryOperation::Edit),
+        Some(other) => {
+            return Err(rpc_err(
+                1002,
+                format!("operation must be send or edit, not {other}"),
+                "INVALID_PARAMS",
+            ))
+        }
+    };
+    let id = optional_text(params, "id")?;
+    let card_of = optional_text(params, "cardOf")?;
+    let max_attempts = match params.get("maxAttempts") {
+        None => None,
+        Some(value) => Some(value.as_i64().filter(|bound| *bound > 0).ok_or_else(|| {
+            rpc_err(
+                1002,
+                "maxAttempts must be a positive integer",
+                "INVALID_PARAMS",
+            )
+        })?),
+    };
+    if operation == Some(DeliveryOperation::Edit) && card_of.is_none() {
+        return Err(rpc_err(
+            1002,
+            "an edit must name the card it rewrites",
+            "INVALID_PARAMS",
+        ));
+    }
+    Ok(EnqueueOptions {
+        id,
+        operation,
+        card_of,
+        max_attempts,
+    })
+}
+
+/// One optional non-blank string argument.
+fn optional_text(params: &Value, field: &str) -> Result<Option<String>, JsonRpcError> {
+    match params.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => value
+            .as_str()
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .map(|text| Some(text.to_string()))
+            .ok_or_else(|| {
+                rpc_err(
+                    1002,
+                    format!("{field} must be a non-blank string"),
+                    "INVALID_PARAMS",
+                )
+            }),
+    }
+}
+
+/// The `channel` argument both verbs take, or the same refusal for a missing one.
+fn required_channel(params: &Value) -> Result<&str, JsonRpcError> {
+    params
+        .get("channel")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|channel| !channel.is_empty())
+        .ok_or_else(|| {
+            rpc_err(
+                1002,
+                "channel is required and must not be blank",
+                "INVALID_PARAMS",
+            )
+        })
+}
+
 /// Handles the `messaging.*` family.
 pub(super) async fn handle(
     state: &Arc<Mutex<AppState>>,
@@ -54,26 +137,47 @@ pub(super) async fn handle(
 ) -> Result<Value, JsonRpcError> {
     match method {
         "messaging.enqueue" => {
-            let channel = params
-                .get("channel")
-                .and_then(Value::as_str)
-                .map(str::trim)
-                .filter(|channel| !channel.is_empty())
-                .ok_or_else(|| {
-                    rpc_err(
-                        1002,
-                        "channel is required and must not be blank",
-                        "INVALID_PARAMS",
-                    )
-                })?;
+            let channel = required_channel(&params)?;
             let payload = params
                 .get("payload")
                 .cloned()
                 .ok_or_else(|| rpc_err(1002, "payload is required", "INVALID_PARAMS"))?;
+            let options = enqueue_options(&params)?;
             let st = state.lock().await;
-            let delivery = enqueue_for(&st.db, &st.messaging, channel, payload)
+            let delivery = enqueue_for_with(&st.db, &st.messaging, channel, payload, options)
                 .map_err(|error| rpc_err(1000, error.to_string(), "INTERNAL"))?;
             Ok(json!({ "delivery": delivery }))
+        }
+        // A "working on it" indicator: not a delivery, so it never touches the
+        // ledger, is never retried, and reports only whether the platform took
+        // it. The adapter is taken out of the registry as a shared handle and
+        // the host lock is dropped before the request, the same discipline the
+        // attempt cycle keeps for a send.
+        "messaging.typing" => {
+            let channel = required_channel(&params)?;
+            let chat_id = params
+                .get("chatId")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|chat| !chat.is_empty())
+                .ok_or_else(|| {
+                    rpc_err(
+                        1002,
+                        "chatId is required and must not be blank",
+                        "INVALID_PARAMS",
+                    )
+                })?;
+            let adapter = {
+                let st = state.lock().await;
+                st.messaging.get_shared(channel).ok_or_else(|| {
+                    rpc_err(
+                        1002,
+                        format!("no outbound channel is registered as {channel}"),
+                        "NOT_FOUND",
+                    )
+                })?
+            };
+            Ok(json!({ "dispatched": adapter.typing(chat_id) }))
         }
         _ => Err(rpc_err(
             -32601,
@@ -152,6 +256,8 @@ mod tests {
     #[derive(Default)]
     struct FakeChannel {
         sent: Vec<OutboundMessage>,
+        /// The chats whose indicator was asked for, in order.
+        typing: Vec<String>,
         /// Results to return, one per `send`, oldest first. Empty means accept.
         script: VecDeque<SendResult>,
     }
@@ -175,7 +281,15 @@ mod tests {
         fn send(&self, message: &OutboundMessage) -> SendResult {
             let mut state = self.state.lock().unwrap();
             state.sent.push(message.clone());
-            state.script.pop_front().unwrap_or(SendResult::Delivered)
+            state
+                .script
+                .pop_front()
+                .unwrap_or(SendResult::Delivered { remote_id: None })
+        }
+
+        fn typing(&self, chat: &str) -> bool {
+            self.state.lock().unwrap().typing.push(chat.to_string());
+            true
         }
 
         fn attempt_bound(&self) -> i64 {
@@ -434,7 +548,7 @@ mod tests {
             // unrelated host call runs to completion while this waits.
             self.started.notify_one();
             let _ = self.release.lock().unwrap().recv();
-            SendResult::Delivered
+            SendResult::Delivered { remote_id: None }
         }
     }
 
@@ -503,5 +617,140 @@ mod tests {
         let st = state.lock().await;
         let stored = delivery_ledger::get(&st.db, &id).unwrap().unwrap();
         assert_eq!(stored.state, DeliveryState::Delivered);
+    }
+
+    /// The indicator is its own verb, not a delivery: it reaches the channel
+    /// directly and writes nothing to the ledger.
+    #[tokio::test]
+    async fn the_typing_verb_reaches_the_channel_without_touching_the_ledger() {
+        let (_dir, state, channel) = state_with_channel("primary", 3);
+
+        let result = handle(
+            &state,
+            "messaging.typing",
+            json!({ "channel": "primary", "chatId": "9001" }),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result["dispatched"], json!(true));
+        assert_eq!(
+            channel.lock().unwrap().typing,
+            vec!["9001".to_string()],
+            "the channel is asked for its indicator for that chat"
+        );
+        assert_eq!(
+            delivery_count(&state).await,
+            0,
+            "a hint is never a delivery"
+        );
+    }
+
+    /// A channel this Host has no adapter for is refused, rather than answered
+    /// as if something had been shown.
+    #[tokio::test]
+    async fn the_typing_verb_refuses_an_unregistered_channel() {
+        let (_dir, state, _channel) = state_with_channel("primary", 3);
+
+        let error = handle(
+            &state,
+            "messaging.typing",
+            json!({ "channel": "telegram", "chatId": "9001" }),
+        )
+        .await
+        .expect_err("an unregistered channel has no indicator");
+
+        assert_eq!(error.code, 1002);
+        assert!(
+            error.message.contains("telegram"),
+            "the refusal names the channel: {}",
+            error.message
+        );
+    }
+
+    /// A blank chat is refused before any channel is consulted.
+    #[tokio::test]
+    async fn the_typing_verb_requires_a_chat() {
+        let (_dir, state, channel) = state_with_channel("primary", 3);
+
+        let error = handle(&state, "messaging.typing", json!({ "channel": "primary" }))
+            .await
+            .expect_err("a hint without a chat has nowhere to go");
+
+        assert_eq!(error.code, 1002);
+        assert!(channel.lock().unwrap().typing.is_empty());
+    }
+
+    #[tokio::test]
+    async fn an_edit_is_enqueued_against_the_card_it_names() {
+        let (_dir, state, _channel) = state_with_channel("primary", 3);
+
+        let result = handle(
+            &state,
+            "messaging.enqueue",
+            json!({
+                "channel": "primary",
+                "payload": { "kind": "tool.progress", "tool": "shell" },
+                "id": "edit-1",
+                "operation": "edit",
+                "cardOf": "card-1",
+            }),
+        )
+        .await
+        .unwrap();
+
+        let delivery = &result["delivery"];
+        assert_eq!(delivery["id"], json!("edit-1"));
+        assert_eq!(delivery["operation"], json!("edit"));
+        assert_eq!(delivery["cardOf"], json!("card-1"));
+        assert_eq!(
+            delivery["maxAttempts"],
+            json!(1),
+            "an edit gets one attempt: a late frame is worth nothing"
+        );
+        assert_eq!(delivery["state"], json!("pending"));
+    }
+
+    #[tokio::test]
+    async fn an_edit_that_names_no_card_is_refused() {
+        let (_dir, state, _channel) = state_with_channel("primary", 3);
+
+        let error = handle(
+            &state,
+            "messaging.enqueue",
+            json!({
+                "channel": "primary",
+                "payload": { "kind": "tool.progress" },
+                "operation": "edit",
+            }),
+        )
+        .await
+        .expect_err("an edit with nothing to rewrite is not a delivery");
+
+        assert_eq!(error.code, 1002);
+        assert!(
+            error.message.contains("card"),
+            "the refusal names what is missing: {}",
+            error.message
+        );
+    }
+
+    #[tokio::test]
+    async fn an_unknown_operation_is_refused() {
+        let (_dir, state, _channel) = state_with_channel("primary", 3);
+
+        let error = handle(
+            &state,
+            "messaging.enqueue",
+            json!({
+                "channel": "primary",
+                "payload": { "kind": "turn.completed" },
+                "operation": "delete",
+            }),
+        )
+        .await
+        .expect_err("there are two operations, not three");
+
+        assert_eq!(error.code, 1002);
     }
 }

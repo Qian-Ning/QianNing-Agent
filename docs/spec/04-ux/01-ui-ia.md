@@ -322,14 +322,15 @@ destinations alongside Instructions and Model configuration; selecting one
 changes the page destination rather than a tab inside a shared capability panel.
 
 Messaging platforms is a chooser plus a panel: the platform list — the product's
-own catalogue, thirty-three entries in its order, marked with which platforms
-this build actually runs (Telegram, Discord, Slack, Mattermost, Matrix and IRC) —
-and the
-selected platform's configuration, which
-shows three independently derived states (enabled, setup, gateway), a numbered
-walkthrough for getting that platform's credentials with a link to its own guide,
-required and recommended fields that each state the consequence of being blank, and
-the enable toggle with save at the bottom. A platform this build does not run opens a
+own catalogue, thirty-three entries in its order, grouped into what this build
+runs and what it does not, every entry a card carrying the platform's mark, its
+name, and one sentence of state (running, enabled but not connected, still
+missing a count of fields, disabled, or unreadable) — and the selected
+platform's configuration, which opens with the three independently derived
+states (enabled, setup, gateway) as rows under **Overview**, then **Credentials**
+with a numbered walkthrough and a link to the platform's own guide, then
+**Behaviour**, with required and recommended fields that each state the
+consequence of being blank, and the enable toggle with save at the bottom. A platform this build does not run opens a
 statement of that fact — what it would need and what kind of requirement that is —
 never a form.
 Appearance lives inside General; global AI behavior (permissions and context

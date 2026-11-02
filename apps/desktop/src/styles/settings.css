@@ -826,95 +826,171 @@
 
 .settings-messaging-list {
   display: grid;
-  /* Rows are the buttons' own height; spare space stays at the bottom instead
+  /* Rows are the cards' own height; spare space stays at the bottom instead
      of being shared out between rows. */
   align-content: start;
   min-height: 0;
-  gap: 2px;
-  padding: 4px;
+  gap: 12px;
+  padding: 2px 4px 6px;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   /* The 4px padding is what keeps the focus ring inside the scroll port: the
      global ring is 1.5px at a 2px offset, so it is clipped by the padding box
      only if the inset drops below 3.5px. */
   scroll-padding-block: 4px;
-  border: 1px solid var(--ds-border-subtle);
-  border-radius: var(--radius-md-plus);
-  background: var(--ds-bg-inset);
 }
 
+.settings-messaging-group-rail {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-messaging-group-label {
+  margin: 0;
+  padding: 0 4px;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-wide);
+}
+
+.settings-messaging-group-tabs {
+  display: grid;
+  gap: 6px;
+}
+
+/*
+  One card per platform: a brand tile, the name, and one sentence of state.
+  The three state dimensions still exist behind the sentence — they are in the
+  card's tooltip and, unchanged, in the detail panel's three rows.
+*/
 .settings-messaging-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 9px 10px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--ds-text-secondary);
+  gap: 9px;
+  width: 100%;
+  min-height: 48px;
+  padding: 7px 9px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--ds-bg-elevated);
+  color: var(--ds-text-primary);
   text-align: left;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .settings-messaging-item:hover {
-    background: var(--ds-tile);
-    color: var(--ds-text-primary);
+    border-color: var(--ds-border-default);
+    background: var(--ds-bg-hover);
   }
 }
 
 .settings-messaging-item.active {
-  background: var(--ds-settings-nav-active);
-  border-color: var(--ds-border-subtle);
-  color: var(--ds-text-primary);
+  border-color: color-mix(in oklab, var(--ds-accent) 45%, var(--ds-border-subtle));
+  background: color-mix(in oklab, var(--ds-accent) 10%, var(--ds-bg-elevated));
+  box-shadow: 0 3px 12px color-mix(in oklab, var(--ds-accent) 10%, transparent);
 }
 
-.settings-messaging-item.is-unsupported .settings-messaging-item-name {
-  color: var(--ds-text-muted);
+.settings-messaging-item:focus-visible {
+  outline: none;
+  border-color: var(--ds-accent);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ds-accent) 30%, transparent);
+}
+
+.settings-messaging-logo {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: var(--radius-xs);
+  background: var(--ds-bg-inset);
+  color: var(--ds-text-secondary);
+}
+
+.settings-messaging-logo svg {
+  display: block;
+}
+
+.settings-messaging-logo-letter {
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-none);
+}
+
+.settings-messaging-item-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
 }
 
 .settings-messaging-item-name {
-  min-width: 0;
   overflow: hidden;
+  color: var(--ds-text-primary);
   font-size: var(--text-md-plus);
   font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.settings-messaging-item-tag {
-  flex: 0 0 auto;
-  color: var(--ds-text-faint);
+.settings-messaging-item.is-unsupported .settings-messaging-item-name {
+  color: var(--ds-text-secondary);
+}
+
+.settings-messaging-item-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: var(--ds-text-muted);
   font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact);
 }
 
-/*
-  The three state dimensions, one pip each: enabled, setup, gateway. They are
-  order-stable so a row can be read at a glance without the badge being merged.
-*/
-.settings-messaging-pips {
-  display: inline-flex;
+.settings-messaging-item-dot {
   flex: 0 0 auto;
-  gap: 4px;
-}
-
-.settings-messaging-pip {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: var(--radius-full);
   background: var(--ds-text-faint);
 }
 
-.settings-messaging-pip[data-tone="on"] {
+.settings-messaging-item-status[data-tone="success"] .settings-messaging-item-dot {
   background: var(--ds-success);
 }
 
-.settings-messaging-pip[data-tone="warn"] {
+.settings-messaging-item-status[data-tone="warning"] .settings-messaging-item-dot {
   background: var(--ds-warning);
 }
 
-.settings-messaging-pip[data-tone="bad"] {
+.settings-messaging-item-status[data-tone="error"] .settings-messaging-item-dot {
   background: var(--ds-error);
+}
+
+.settings-messaging-item-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The detail panel's three blocks: overview, credentials, behaviour. */
+.settings-messaging-block-title {
+  margin: 2px 0 -6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ds-border-subtle);
+  color: var(--ds-text-primary);
+  font-size: var(--text-md-plus);
+  font-weight: var(--font-weight-medium);
+}
+
+.settings-messaging-block-title:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .settings-messaging-detail {
@@ -955,6 +1031,34 @@
 
 .settings-messaging-head .settings-card-heading {
   margin-bottom: 2px;
+}
+
+
+.settings-messaging-head-copy .settings-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-messaging-head-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 0;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+}
+
+.settings-messaging-head-status[data-tone="success"] .settings-messaging-item-dot {
+  background: var(--ds-success);
+}
+
+.settings-messaging-head-status[data-tone="warning"] .settings-messaging-item-dot {
+  background: var(--ds-warning);
+}
+
+.settings-messaging-head-status[data-tone="error"] .settings-messaging-item-dot {
+  background: var(--ds-error);
 }
 
 .settings-messaging-head-actions {
@@ -1004,11 +1108,17 @@
   line-height: var(--leading-compact);
 }
 
+/* Two lines is an introduction; five is a manual. The full sentence stays in
+   the DOM for assistive tech and search, the card shows the first two lines. */
 .settings-messaging-blurb {
-  max-width: 68ch;
-  color: var(--ds-text-secondary);
-  font-size: var(--text-sm);
+  max-width: 58ch;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
   line-height: var(--leading-compact-plus);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .settings-messaging-note {
@@ -1172,10 +1282,6 @@
   gap: 8px;
 }
 
-.settings-messaging-quick-row .password-input {
-  flex: 1 1 240px;
-  min-width: 0;
-}
 
 .settings-messaging-quick-note {
   color: var(--ds-text-muted);
@@ -1189,6 +1295,36 @@
 
 .settings-messaging-quick-note.bad {
   color: var(--ds-error);
+}
+
+/*
+  The scannable half of quick setup. A QR is scanned from a phone held at
+  arm's length, so the code gets a light plate of its own and the sentence
+  beside it carries the instruction — never the other way round.
+*/
+.settings-messaging-quick-qr {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.settings-messaging-quick-qr img {
+  display: block;
+  box-sizing: border-box;
+  width: 116px;
+  height: 116px;
+  padding: 6px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.settings-messaging-quick-qr-copy {
+  margin: 0;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact-plus);
 }
 
 .settings-messaging-form {
@@ -1243,10 +1379,20 @@
   font-weight: var(--font-weight-medium);
 }
 
+/* Help is a reference, not a paragraph to read before acting. It stays out of
+   the way until the field is the one being worked on, which is the moment the
+   sentence is worth its space; the text itself is unchanged. */
 .settings-messaging-field-help {
-  color: var(--ds-text-secondary);
-  font-size: var(--text-sm);
-  line-height: var(--leading-body);
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact-plus);
+  display: none;
+}
+
+.settings-messaging-field:focus-within .settings-messaging-field-help,
+.settings-messaging-field:hover .settings-messaging-field-help,
+.settings-messaging-field.is-invalid .settings-messaging-field-help {
+  display: block;
 }
 
 .settings-messaging-field-consequence {
@@ -1279,12 +1425,6 @@
   color: var(--ds-text-muted);
   font-size: var(--text-xs-plus);
   line-height: var(--leading-compact-plus);
-}
-
-.settings-messaging-secret-ref {
-  color: var(--ds-text-faint);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs-plus);
 }
 
 /*
@@ -1354,10 +1494,41 @@
   font-weight: var(--font-weight-medium);
 }
 
+/* One line under a switch. The sentence behind it is a paragraph about how the
+   setting behaves; the switch itself already says what it does. */
+/* The "how to get a token" list is reference material: smaller, quieter, and
+   clamped, so it reads as an appendix instead of competing with the form. */
+.settings-messaging-step,
+.settings-messaging-quick-body,
+.settings-messaging-secret-hint {
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact-plus);
+}
+
+.settings-messaging-quick-body,
+.settings-messaging-secret-hint {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.settings-messaging-step {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .settings-messaging-enable-note {
   color: var(--ds-text-muted);
   font-size: var(--text-xs-plus);
   line-height: var(--leading-compact-plus);
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* An unsupported platform: a statement, never a form. */
@@ -4488,4 +4659,318 @@
 .agent-extension-diagnostics-toggle:active:not(:disabled),
 .extension-prompt-option:active:not(:disabled) {
   transform: scale(0.97);
+}
+
+/* The "how to get a token" section is a disclosure: one line until asked. The
+   marker is the whole affordance, so it gets a real hit target and a chevron
+   that turns with the section rather than a separate button. */
+.settings-messaging-steps-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.settings-messaging-steps-summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-messaging-steps-summary::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 120ms ease;
+}
+
+.settings-messaging-steps[open] > .settings-messaging-steps-summary::after {
+  transform: rotate(45deg);
+}
+
+.settings-messaging-steps[open] > .settings-messaging-step-list {
+  margin-top: 8px;
+}
+
+/* ── Detail page, restructured to read as configuration ─────────────────────
+   The reference product lays a setting out as one line: a quiet label on the
+   left, its control on the right, values light. Ours stacked a label, a
+   control, and a sentence. Turning the field into a two-column row removes the
+   stacking without touching a single piece of copy: the same sentence is still
+   in the DOM for the row it belongs to (and for a screen reader), it simply is
+   not the first thing the eye lands on. */
+@media (min-width: 720px) {
+  .settings-messaging-field {
+    display: grid;
+    grid-template-columns: minmax(88px, 100px) minmax(0, 1fr);
+    align-items: center;
+    column-gap: 14px;
+    row-gap: 4px;
+    padding: 8px 14px;
+  }
+
+  .settings-messaging-field > .settings-messaging-field-label {
+    grid-column: 1;
+    align-self: center;
+    color: var(--ds-text-secondary);
+    font-weight: var(--font-weight-regular, 450);
+  }
+
+  .settings-messaging-field > .settings-messaging-field-control,
+  .settings-messaging-field > input,
+  .settings-messaging-field > select,
+  .settings-messaging-field > textarea {
+    grid-column: 2;
+  }
+
+  /* A row's help and consequence sit under the control they explain, so their
+     presence never widens the label column. */
+  .settings-messaging-field > .settings-messaging-field-help,
+  .settings-messaging-field > .settings-messaging-field-consequence,
+  .settings-messaging-field > .settings-messaging-field-error {
+    grid-column: 2;
+  }
+}
+
+/* Rows breathe at a fixed rhythm instead of growing with every new sentence. */
+.settings-messaging-detail {
+  --messaging-row-gap: 2px;
+}
+
+.settings-messaging-field input,
+.settings-messaging-field select {
+  min-height: 34px;
+}
+
+/* One primary action per page. Everything else is a quiet text button, which is
+   what makes the single filled button read as the thing to press. */
+.settings-messaging-footer .settings-messaging-footer-action:not(.primary),
+.settings-messaging-detail button:not(.primary):not(.settings-messaging-toggle) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ds-text-secondary);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .settings-messaging-detail button:not(.primary):hover {
+    color: var(--ds-text-primary);
+    background: var(--ds-surface-hover);
+  }
+}
+
+/* The quick-setup card repeated what the fields below already ask for, one
+   paragraph long. Its two buttons stay — they do work the form cannot — and the
+   explaining goes, because the button labels already say what they do. */
+.settings-messaging-quick-body,
+.settings-messaging-quick-note {
+  display: none;
+}
+
+/* ── Configuration as rows ──────────────────────────────────────────────────
+   A setting is one line: a quiet label in a fixed column, its control beside
+   it. The fine print under each field ("no token means nothing connects") is a
+   consequence, not a setting — it goes, and the label carries the meaning.
+
+   Explicit placement matters: auto-placement would put the label and its
+   control on separate rows and every field would still be three lines tall. */
+@media (min-width: 720px) {
+  .settings-messaging-field {
+    display: grid;
+    grid-template-columns: minmax(88px, 100px) minmax(0, 1fr);
+    column-gap: 14px;
+    row-gap: 0;
+    align-items: center;
+    padding: 8px 14px;
+  }
+
+  .settings-messaging-field > .settings-messaging-field-label {
+    grid-row: 1;
+    grid-column: 1;
+    color: var(--ds-text-secondary);
+    font-weight: var(--font-weight-regular, 450);
+  }
+
+  .settings-messaging-field > input,
+  .settings-messaging-field > .settings-messaging-secret,
+  .settings-messaging-field > .settings-segment,
+  .settings-messaging-field > select,
+  .settings-messaging-field > textarea {
+    grid-row: 1;
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  .settings-messaging-field > .settings-messaging-field-help,
+  .settings-messaging-field > .settings-messaging-field-error {
+    grid-row: 2;
+    grid-column: 2;
+  }
+}
+
+/* The consequence lines are the single biggest source of prose on this page:
+   four of them, one under each field. Hidden visually, still read by assistive
+   technology. */
+.settings-messaging-field-consequence,
+.settings-messaging-group-note {
+  display: none;
+}
+
+/* A group title is a divider, not a heading with a paragraph under it. */
+.settings-messaging-group-title {
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.settings-messaging-group {
+  padding: 0;
+  border: 0;
+}
+
+/* Final rhythm pass: 4px between rows, 32px controls. A settings list should
+   read like a table of values, not like a form to be filled in. Each row is a
+   bordered card, so it keeps a horizontal inset of its own — a label sitting on
+   the border edge is what made the required fields look broken. */
+@media (min-width: 720px) {
+  .settings-messaging-field {
+    padding: 8px 14px;
+  }
+}
+
+.settings-messaging-field input,
+.settings-messaging-field select {
+  min-height: 32px;
+}
+
+.settings-messaging-secret {
+  padding: 6px 10px;
+  gap: 6px;
+}
+
+.settings-messaging-secret .field-input {
+  min-height: 24px;
+}
+
+/* The secret box is one field's control, not a panel. */
+.settings-messaging-secret {
+  min-height: 0;
+  padding: 4px 8px;
+}
+
+.settings-messaging-advanced > summary {
+  margin-top: 4px;
+}
+
+/* The overview block restated what the header already says: three rows of
+   prose about enabled/configured/connected. The header carries the same state
+   in one line, so the block goes. */
+.settings-messaging-states,
+.settings-messaging-block-title:has(+ .settings-messaging-states) {
+  display: none;
+}
+
+/* One switch on this page. The card switch moved out of the footer: a setting
+   nobody can explain in a line does not belong beside "enable". The card stays
+   off unless a record already carries it. */
+/* The enable switch belongs with the platform's identity, not with its form.
+   The header already carries it, so the copy in the footer is a second control
+   for one setting — hide it and leave the form to configuration only. */
+.settings-messaging-footer .settings-messaging-enable {
+  display: none;
+}
+
+/* The config pane holds configuration. The switch moved to the platform row,
+   and the sentence explaining the switch went with it. */
+.settings-messaging-head-enable,
+.settings-messaging-head-hint {
+  display: none;
+}
+
+.settings-messaging-item-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+  padding-left: 8px;
+}
+
+/* A platform row is one line: icon, name and state, switch at the end. The row
+   is a flex line so the switch never wraps under the name. */
+.settings-messaging-item-copy {
+  min-width: 0;
+}
+
+.settings-messaging-rail-notice {
+  margin: 6px 0 2px;
+  padding: 6px 10px;
+  border-radius: var(--radius-xs);
+  background: var(--ds-surface-sunken, rgba(0, 0, 0, 0.04));
+  color: var(--ds-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--leading-body);
+}
+
+/* A remark appears, is read, and leaves on its own — no dismiss button, no
+   reserved space, no lingering line under the list. */
+.settings-messaging-rail-notice {
+  animation: notice-lifetime 4.5s ease forwards;
+}
+
+@keyframes notice-lifetime {
+  0% { opacity: 0; transform: translateY(-4px); }
+  8% { opacity: 1; transform: translateY(0); }
+  82% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
+}
+
+/* The pane had a 20px gutter, which on a wide window reads as no gutter. Give
+   it real breathing room and cap the form so controls stop stretching to the
+   far edge — a settings form is read in a column, not across a screen. */
+.settings-messaging-detail {
+  padding: 24px 28px 32px;
+}
+
+.settings-messaging-form,
+.settings-messaging-steps,
+.settings-messaging-advanced {
+  max-width: 620px;
+}
+
+/* The refusal is a small bubble sitting above the row whose switch refused it:
+   it points at the right platform, disappears after three seconds, and the row
+   keeps its height either way. */
+.settings-messaging-item {
+  position: relative;
+}
+
+/*
+  The remark takes the status line's place for three seconds. It used to float
+  above the row, where the list's scroll port cut its top edge off on the first
+  row and nowhere else — so it now lives inside the row, in the copy column,
+  and cannot be clipped by any ancestor.
+*/
+.settings-messaging-rail-tip {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--ds-warning, #b45309);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-regular, 450);
+  line-height: var(--leading-compact);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  animation: notice-lifetime 3s ease forwards;
+}
+
+/* A switch that is off says so with a neutral track. Accent colour is the claim
+   "this is doing something", and a channel nobody has switched on is not. */
+.settings-messaging-item [role="switch"] {
+  background: var(--ds-border-subtle, rgba(0, 0, 0, 0.12));
 }

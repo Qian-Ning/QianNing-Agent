@@ -19,6 +19,7 @@ export function UsageProjectTable({ rows }: { rows: UsageProjectStat[] }) {
       <div className="usage-card-h">
         <div className="usage-card-t">{t("settings.usageStats.byProject")}</div>
       </div>
+      <div className="usage-table-scroll">
       <table className="usage-table">
         <thead>
           <tr>
@@ -52,6 +53,7 @@ export function UsageProjectTable({ rows }: { rows: UsageProjectStat[] }) {
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

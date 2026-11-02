@@ -89,7 +89,7 @@ async fn a_two_hundred_delivers_the_summary_as_json_to_the_send_path() {
 
     assert_eq!(
         deliver(&adapter, summary()).await,
-        SendResult::Delivered,
+        SendResult::Delivered { remote_id: None },
         "a 2xx is the receiver's acceptance"
     );
 
@@ -129,7 +129,7 @@ async fn a_two_hundred_family_status_other_than_200_delivers() {
 
     assert_eq!(
         deliver(&adapter, summary()).await,
-        SendResult::Delivered,
+        SendResult::Delivered { remote_id: None },
         "every 2xx is the receiver's acceptance, not only 200"
     );
     assert_eq!(
@@ -614,4 +614,129 @@ async fn the_attempt_cycle_releases_the_host_lock_across_a_blocking_send() {
     assert_eq!(outcome, AttemptOutcome::Delivered { id: id.clone() });
 
     fixture.stop();
+}
+
+/// The indicator is a hint, not a delivery: it reaches the platform's own
+/// action method with the chat it belongs to, and nothing about it is recorded.
+#[tokio::test]
+async fn typing_posts_the_platform_action_to_that_chat() {
+    let fixture = fixture(200).await;
+    let adapter = adapter(&fixture.endpoint, "s3cret-token", "9001", None);
+
+    assert!(adapter.typing("9001"), "the hint is dispatched");
+
+    // The request is made on the hint's own thread, so wait for it rather than
+    // assume it has landed by the time `typing` returns.
+    let mut seen = fixture.requests();
+    for _ in 0..100 {
+        if !seen.is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        seen = fixture.requests();
+    }
+    assert_eq!(seen.len(), 1, "one hint, one request");
+    let request = &seen[0];
+    assert_eq!(request.method, "POST");
+    assert_eq!(
+        request.path, "/bots3cret-token/sendChatAction",
+        "the hint addresses the platform's action method, not the send method"
+    );
+    let body: serde_json::Value =
+        serde_json::from_slice(&request.body).expect("request body is JSON");
+    assert_eq!(
+        body,
+        json!({ "chat_id": "9001", "action": "typing" }),
+        "the body names the chat and the action, and carries no text"
+    );
+}
+
+/// A channel that was never configured has no indicator to show, and says so
+/// rather than pretending the request went somewhere.
+#[test]
+fn a_channel_without_a_hint_dispatches_nothing() {
+    let adapter = HttpChannelAdapter::new("test");
+    assert!(!adapter.typing("9001"));
+}
+
+/// A send that the channel answers with the created message names that message,
+/// which is the only handle a later edit has on it.
+#[tokio::test]
+async fn a_send_reports_the_message_the_channel_created() {
+    let fixture = fixture_answering(FixtureState {
+        status: 200,
+        body: r#"{"ok":true,"result":{"message_id":4711}}"#.to_string(),
+        ..FixtureState::default()
+    })
+    .await;
+    let adapter = Arc::new(adapter(&fixture.endpoint, "s3cret-token", "9001", None));
+
+    assert_eq!(
+        deliver(&adapter, summary()).await,
+        SendResult::Delivered {
+            remote_id: Some("4711".into())
+        }
+    );
+}
+
+/// A channel that answers without a message names nothing, and says so rather
+/// than inventing an id an edit could never use.
+#[tokio::test]
+async fn a_send_without_a_message_in_the_answer_reports_no_name() {
+    let fixture = fixture_answering(FixtureState {
+        status: 200,
+        body: r#"{"ok":true,"result":true}"#.to_string(),
+        ..FixtureState::default()
+    })
+    .await;
+    let adapter = Arc::new(adapter(&fixture.endpoint, "s3cret-token", "9001", None));
+
+    assert_eq!(
+        deliver(&adapter, summary()).await,
+        SendResult::Delivered { remote_id: None }
+    );
+}
+
+/// The edit addresses the platform's own method, names the message it rewrites,
+/// and carries the same text a send would have carried.
+#[tokio::test]
+async fn an_edit_posts_to_the_edit_method_with_the_message_it_rewrites() {
+    let fixture = fixture_answering(FixtureState {
+        status: 200,
+        body: r#"{"ok":true,"result":{"message_id":4711}}"#.to_string(),
+        ..FixtureState::default()
+    })
+    .await;
+    let adapter = Arc::new(adapter(&fixture.endpoint, "s3cret-token", "9001", None));
+
+    // The edit blocks on its worker, exactly as a send does, so it is driven off
+    // the async runtime thread for the same reason the send helper is.
+    let editing = adapter.clone();
+    let result = tokio::task::spawn_blocking(move || editing.edit(&summary(), "4711"))
+        .await
+        .expect("edit task");
+    assert_eq!(result, SendResult::Delivered { remote_id: None });
+
+    let mut seen = fixture.requests();
+    for _ in 0..100 {
+        if !seen.is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        seen = fixture.requests();
+    }
+    assert_eq!(seen.len(), 1);
+    assert_eq!(seen[0].method, "POST");
+    assert_eq!(
+        seen[0].path, "/bots3cret-token/editMessageText",
+        "an edit names the edit method, not the send method"
+    );
+    let body: serde_json::Value =
+        serde_json::from_slice(&seen[0].body).expect("request body is JSON");
+    assert_eq!(body["message_id"], json!("4711"));
+    assert_eq!(body["chat_id"], json!("9001"));
+    assert!(
+        body["text"].as_str().is_some_and(|text| !text.is_empty()),
+        "the edit carries the text that would otherwise been sent"
+    );
 }

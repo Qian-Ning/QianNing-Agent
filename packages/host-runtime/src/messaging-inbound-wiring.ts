@@ -142,9 +142,23 @@ import {
   type IngressMessage,
   type IngressWebhookAddress,
   type IngressWebhookReceiverOptions,
+  DINGTALK_HANDLED_CAPACITY,
+  MESSAGING_DINGTALK_CLIENT_ID_SECRET_REF,
+  MESSAGING_DINGTALK_CLIENT_SECRET_SECRET_REF,
+  MESSAGING_DINGTALK_FORMAT,
+  MESSAGING_DINGTALK_FORMAT_VERSION,
+  MESSAGING_DINGTALK_SECTION,
+  createDingtalkGatewayOpener,
+  createDingtalkInboundPushTransport,
+  createWsDingtalkSocketFactory,
 } from "@pi-desktop/agent-host";
 
 import type { AgentHost } from "@pi-desktop/agent-host";
+import type {
+  DingtalkOpenGateway,
+  IngressAudit,
+  IngressSocketFactory,
+} from "@pi-desktop/agent-host";
 import { allowInsecureUserEndpoints, ErrorCodes } from "@pi-desktop/shared";
 
 // The reply seam's turn surface, re-exported: the composition roots name it when
@@ -591,6 +605,12 @@ export type MessagingInboundWiringOptions = {
   log?: MessagingInboundWiringLog;
   /** Test seam: a transport in place of the one built from the settings. */
   transport?: MessagingInboundTransport;
+  /**
+   * Ask the channel to show its "working on it" indicator for a chat, once per
+   * accepted message. Optional: a root that has no host RPC handle simply
+   * leaves it out and the channel shows nothing.
+   */
+  notifyTyping?: (chatId: string) => void;
 };
 
 /** A built driver and the loop that runs it, for the root that owns the signal. */
@@ -734,12 +754,15 @@ function createIngressWiring(options: {
   cursor?: boolean;
   /** The loop's failure line, e.g. `inbound slack loop failed`. */
   failureLabel: string;
+  /** Ask the channel to show its "working on it" indicator for a chat. */
+  notifyTyping?: (chatId: string) => void;
 }): MessagingInboundWiring {
   const section = options.bindingSection ?? options.channel.section;
   const binding = createSettingsSessionBindingStore(options.settings, section);
   const targets = createAgentHostTargets(options.agentHost, () => binding.load());
   const driver = new MessagingInboundDriver({
     channelLabel: options.channel.platform,
+    ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
     agentHost: options.agentHost,
     transport: options.transport,
     readConfig: async () => ({
@@ -791,6 +814,7 @@ export function createMessagingInboundWiring(
     signal: options.signal,
     ...(options.log ? { log: options.log } : {}),
     channel: TELEGRAM_INBOUND_CHANNEL,
+    ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
     transport: options.transport ?? createConfiguredTransport(options),
     cursor: true,
     failureLabel: "inbound messaging loop failed",
@@ -889,6 +913,8 @@ export type MessagingSlackWiringOptions = {
   signal: AbortSignal;
   /** Where audit records go; absent means the records are dropped. */
   log?: MessagingInboundWiringLog;
+  /** Ask the channel to show its "working on it" indicator for a chat. */
+  notifyTyping?: (chatId: string) => void;
   /** The Slack Web API base the handshake posts to; defaults to Slack's own. */
   endpoint?: string;
   /** Test seam: the `apps.connections.open` call, in place of the production one. */
@@ -914,6 +940,7 @@ export function createSlackInboundWiring(options: MessagingSlackWiringOptions): 
     signal: options.signal,
     ...(options.log ? { log: options.log } : {}),
     channel: SLACK_INBOUND_CHANNEL,
+    ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
     transport: options.transport ?? createConfiguredSlackTransport(options),
     failureLabel: "inbound slack loop failed",
   });
@@ -1013,6 +1040,8 @@ export type MessagingDiscordWiringOptions = {
   secrets: HostSecretReader;
   signal: AbortSignal;
   log?: MessagingInboundWiringLog;
+  /** Ask the channel to show its "working on it" indicator for a chat. */
+  notifyTyping?: (chatId: string) => void;
   /** The Discord API base the Gateway lookup posts to; defaults to the record's. */
   endpoint?: string;
   /** Test seam: the `/gateway/bot` lookup, in place of the production one. */
@@ -1032,6 +1061,7 @@ export function createDiscordInboundWiring(options: MessagingDiscordWiringOption
     signal: options.signal,
     ...(options.log ? { log: options.log } : {}),
     channel: DISCORD_INBOUND_CHANNEL,
+    ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
     transport: options.transport ?? createConfiguredDiscordTransport(options),
     failureLabel: "inbound discord loop failed",
   });
@@ -1119,6 +1149,8 @@ export type MessagingMattermostWiringOptions = {
   secrets: HostSecretReader;
   signal: AbortSignal;
   log?: MessagingInboundWiringLog;
+  /** Ask the channel to show its "working on it" indicator for a chat. */
+  notifyTyping?: (chatId: string) => void;
   /** Test seam: the `GET /users/me` lookup, in place of the production one. */
   resolveIdentity?: MattermostIdentityLookup;
   /** Test seam: the websocket client factory, in place of the production one. */
@@ -1138,8 +1170,99 @@ export function createMattermostInboundWiring(
     signal: options.signal,
     ...(options.log ? { log: options.log } : {}),
     channel: MATTERMOST_INBOUND_CHANNEL,
+    ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
     transport: options.transport ?? createConfiguredMattermostTransport(options),
     failureLabel: "inbound mattermost loop failed",
+  });
+}
+
+/** The DingTalk channel's descriptor, selected by its own bind channel. */
+export const DINGTALK_INBOUND_CHANNEL: MessagingInboundChannel = {
+  section: MESSAGING_DINGTALK_SECTION,
+  format: MESSAGING_DINGTALK_FORMAT,
+  version: MESSAGING_DINGTALK_FORMAT_VERSION,
+};
+
+/** The audit sink for the DingTalk stream client. */
+export function createDingtalkInboundAudit(log?: MessagingInboundWiringLog): IngressAudit {
+  if (!log) return () => {};
+  return (entry) => {
+    const level = entry.kind === "filtered" ? "info" : "warn";
+    log(level, "inbound dingtalk channel", { ...entry });
+  };
+}
+
+/**
+ * The DingTalk transport, gated on the app's client id and secret.
+ *
+ * Stream Mode names no endpoint: the gateway hands one back per connection, so
+ * the record carries no URL and there is nothing to validate up front. Both
+ * credentials are secrets; with either missing the loop does not start, the way
+ * any channel with no token behaves.
+ */
+function createConfiguredDingtalkTransport(
+  options: MessagingDingtalkWiringOptions,
+): MessagingInboundPushTransport {
+  return {
+    async start(onMessage, signal): Promise<void> {
+      let clientId: string | null = null;
+      let clientSecret: string | null = null;
+      try {
+        clientId = await options.secrets(MESSAGING_DINGTALK_CLIENT_ID_SECRET_REF);
+        clientSecret = await options.secrets(MESSAGING_DINGTALK_CLIENT_SECRET_SECRET_REF);
+      } catch {
+        return;
+      }
+      if (!clientId?.trim() || !clientSecret?.trim()) return;
+      await createDingtalkInboundPushTransport({
+        credentials: { clientId: clientId.trim(), clientSecret: clientSecret.trim() },
+        openGateway: options.openGateway ?? createDingtalkGatewayOpener(),
+        connect: options.connect ?? createWsDingtalkSocketFactory(),
+        handled: createSettingsHandledMessageStore({
+          settings: options.settings,
+          section: MESSAGING_DINGTALK_SECTION,
+          capacity: DINGTALK_HANDLED_CAPACITY,
+        }),
+        audit: createDingtalkInboundAudit(options.log),
+        ...(options.wait ? { wait: options.wait } : {}),
+      }).start(onMessage, signal);
+    },
+  };
+}
+
+/**
+ * The wiring for the inbound DingTalk channel over Stream Mode. The same
+ * driver, binding and target resolver as every other channel, over a websocket
+ * push; the section (`messagingDingtalk`) and the two secret refs are the only
+ * differences.
+ */
+export type MessagingDingtalkWiringOptions = {
+  agentHost: MessagingInboundHostSurface;
+  settings: HostSettingsSurface;
+  secrets: HostSecretReader;
+  signal: AbortSignal;
+  log?: MessagingInboundWiringLog;
+  /** Test seam: the gateway handshake, in place of the production one. */
+  openGateway?: DingtalkOpenGateway;
+  /** Test seam: the websocket client factory, in place of the production one. */
+  connect?: IngressSocketFactory;
+  /** Test seam: how the reconnect loop waits. */
+  wait?: (ms: number) => Promise<void>;
+  /** Test seam: a push transport in place of the one built from the settings. */
+  transport?: MessagingInboundPushTransport;
+};
+
+export function createDingtalkInboundWiring(
+  options: MessagingDingtalkWiringOptions,
+): MessagingInboundWiring {
+  return createIngressWiring({
+    agentHost: options.agentHost,
+    settings: options.settings,
+    signal: options.signal,
+    ...(options.log ? { log: options.log } : {}),
+    channel: DINGTALK_INBOUND_CHANNEL,
+    transport: options.transport ?? createConfiguredDingtalkTransport(options),
+    failureLabel: "inbound dingtalk loop failed",
   });
 }
 
@@ -1262,6 +1385,8 @@ export type MessagingMatrixWiringOptions = {
   secrets: HostSecretReader;
   signal: AbortSignal;
   log?: MessagingInboundWiringLog;
+  /** Ask the channel to show its "working on it" indicator for a chat. */
+  notifyTyping?: (chatId: string) => void;
   /** Test seam: the `whoami` lookup, in place of the production one. */
   resolveIdentity?: MatrixIdentityLookup;
   /** Test seam: how the loop waits. */
@@ -1279,6 +1404,7 @@ export function createMatrixInboundWiring(
     signal: options.signal,
     ...(options.log ? { log: options.log } : {}),
     channel: MATRIX_INBOUND_CHANNEL,
+    ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
     transport: options.transport ?? createConfiguredMatrixTransport(options),
     failureLabel: "inbound matrix loop failed",
   });
@@ -1424,6 +1550,8 @@ export type MessagingNtfyWiringOptions = {
   secrets: HostSecretReader;
   signal: AbortSignal;
   log?: MessagingInboundWiringLog;
+  /** Ask the channel to show its "working on it" indicator for a chat. */
+  notifyTyping?: (chatId: string) => void;
   /** Test seam: the HTTP client, in place of the platform fetch. */
   fetchImpl?: NtfyFetch;
   /** Test seam: how the long-poll loop waits. */
@@ -1439,6 +1567,7 @@ export function createNtfyInboundWiring(options: MessagingNtfyWiringOptions): Me
     signal: options.signal,
     ...(options.log ? { log: options.log } : {}),
     channel: NTFY_INBOUND_CHANNEL,
+    ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
     transport: options.transport ?? createConfiguredNtfyTransport(options),
     failureLabel: "inbound ntfy loop failed",
   });
@@ -1631,6 +1760,8 @@ export type MessagingEmailWiringOptions = {
   secrets: HostSecretReader;
   signal: AbortSignal;
   log?: MessagingInboundWiringLog;
+  /** Ask the channel to show its "working on it" indicator for a chat. */
+  notifyTyping?: (chatId: string) => void;
   /** Test seam: the IMAP connection factory, in place of the TLS one. */
   connect?: ImapSocketFactory;
   /** Test seam: the SMTP connection factory, in place of the TLS one. */
@@ -1648,6 +1779,7 @@ export function createEmailInboundWiring(options: MessagingEmailWiringOptions): 
     signal: options.signal,
     ...(options.log ? { log: options.log } : {}),
     channel: EMAIL_INBOUND_CHANNEL,
+    ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
     transport: options.transport ?? createConfiguredEmailTransport(options),
     failureLabel: "inbound email loop failed",
   });
@@ -1803,6 +1935,8 @@ export type MessagingSignalWiringOptions = {
   secrets: HostSecretReader;
   signal: AbortSignal;
   log?: MessagingInboundWiringLog;
+  /** Ask the channel to show its "working on it" indicator for a chat. */
+  notifyTyping?: (chatId: string) => void;
   /** Test seam: the HTTP call, so a suite can drive a loopback fake bridge. */
   fetchImpl?: SignalFetch;
   /** Test seam: how the poll loop waits. */
@@ -1818,6 +1952,7 @@ export function createSignalInboundWiring(options: MessagingSignalWiringOptions)
     signal: options.signal,
     ...(options.log ? { log: options.log } : {}),
     channel: SIGNAL_INBOUND_CHANNEL,
+    ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
     transport: options.transport ?? createConfiguredSignalTransport(options),
     failureLabel: "inbound signal loop failed",
   });
@@ -1927,6 +2062,8 @@ export type MessagingIrcWiringOptions = {
   secrets: HostSecretReader;
   signal: AbortSignal;
   log?: MessagingInboundWiringLog;
+  /** Ask the channel to show its "working on it" indicator for a chat. */
+  notifyTyping?: (chatId: string) => void;
   /** Test seam: the raw socket factory, in place of the TLS one. */
   connect?: IrcSocketFactory;
   /** Test seam: how the reconnect loop waits. */
@@ -1942,6 +2079,7 @@ export function createIrcInboundWiring(options: MessagingIrcWiringOptions): Mess
     signal: options.signal,
     ...(options.log ? { log: options.log } : {}),
     channel: IRC_INBOUND_CHANNEL,
+    ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
     transport: options.transport ?? createConfiguredIrcTransport(options),
     failureLabel: "inbound irc loop failed",
   });
@@ -2065,6 +2203,8 @@ export type MessagingHomeAssistantWiringOptions = {
   secrets: HostSecretReader;
   signal: AbortSignal;
   log?: MessagingInboundWiringLog;
+  /** Ask the channel to show its "working on it" indicator for a chat. */
+  notifyTyping?: (chatId: string) => void;
   /** Test seam: the websocket client factory, in place of the `ws` one. */
   connect?: HomeAssistantSocketFactory;
   /** Test seam: the HTTP client, in place of the platform fetch. */
@@ -2084,6 +2224,7 @@ export function createHomeAssistantInboundWiring(
     signal: options.signal,
     ...(options.log ? { log: options.log } : {}),
     channel: HOME_ASSISTANT_INBOUND_CHANNEL,
+    ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
     transport: options.transport ?? createConfiguredHomeAssistantTransport(options),
     failureLabel: "inbound home assistant loop failed",
   });
@@ -2138,6 +2279,8 @@ export type MessagingApiServerWiringOptions = {
   secrets: HostSecretReader;
   signal: AbortSignal;
   log?: MessagingInboundWiringLog;
+  /** Ask the channel to show its "working on it" indicator for a chat. */
+  notifyTyping?: (chatId: string) => void;
   /** The listener bound; the root clears any recorded failure. */
   onListening?: (address: { host: string; port: number }) => void;
   /** The listener could not bind, or has no credential to authenticate with. */
@@ -2313,6 +2456,8 @@ export type MessagingWebhookReceiverWiringOptions = {
   secrets: HostSecretReader;
   signal: AbortSignal;
   log?: MessagingInboundWiringLog;
+  /** Ask the channel to show its "working on it" indicator for a chat. */
+  notifyTyping?: (chatId: string) => void;
   /** Called with the address actually bound, once the receiver is listening. */
   onListening?: (address: IngressWebhookAddress) => void;
   /** Called when the receiver could not start, with the reason a person needs. */

@@ -1916,6 +1916,26 @@
   }
 }
 
+/*
+  A phone gets a full-height sheet, not a short one: the width breakpoint above
+  is about the two-pane desktop layout, and its height cap left the phone's
+  "模型设置" pane below the fold with no way to reach it. The phone rules live
+  in the surface-scoped stylesheet and own the phone.
+*/
+@media (max-width: 940px) {
+  :root[data-surface="mobile"] .provider-setup-dialog,
+  :root[data-surface="mobile"] .vendor-account-dialog {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+
+  :root[data-surface="mobile"] .provider-models-list,
+  :root[data-surface="mobile"] .provider-chosen-list {
+    min-height: 34vh;
+    max-height: 46vh;
+  }
+}
+
 @media (max-width: 720px) {
   /* Both searches take their own row instead of squeezing their header. */
   .provider-models-search-wrap,

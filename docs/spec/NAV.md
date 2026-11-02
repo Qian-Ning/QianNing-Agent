@@ -53,6 +53,7 @@
 ## 4. UX
 - [README.md](04-ux/README.md)
 - [01-ui-ia.md](04-ux/01-ui-ia.md)
+- [25-mobile-composer-layout.md](04-ux/25-mobile-composer-layout.md)
 - [02-i18n-english-first.md](04-ux/02-i18n-english-first.md)
 - [03-permission-ux.md](04-ux/03-permission-ux.md)
 - [04-builtin-commands.md](04-ux/04-builtin-commands.md)

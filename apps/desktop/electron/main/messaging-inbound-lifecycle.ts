@@ -28,6 +28,7 @@ import {
   createHostSecretReader,
   createHostSettingsSurface,
   createIrcInboundWiring,
+  createDingtalkInboundWiring,
   createMattermostInboundWiring,
   createMatrixInboundWiring,
   createMessagingInboundReadiness,
@@ -86,14 +87,27 @@ export function createMessagingInboundSupervisor(
     secrets,
     ...(options.log ? { log: options.log } : {}),
   };
+  // The "working on it" hint is a per-channel RPC: the Host resolves the
+  // channel's adapter and the adapter decides whether it has an indicator at
+  // all, so the main process never keeps a second copy of that knowledge.
+  // Only Telegram has one today; the rest keep showing nothing rather than
+  // paying a round trip that cannot change anything.
+  const typing = (channel: string) => (chatId: string) => {
+    const host = options.getHost();
+    if (!host) {
+      return;
+    }
+    void host.call("messaging.typing", { channel, chatId }).catch(() => {});
+  };
   return new MessagingInboundSupervisor({
     readiness: createMessagingInboundReadiness({ settings, secrets }),
     gateway: messagingGateway,
     ...(options.log ? { log: options.log } : {}),
     starters: {
-      telegram: (signal) => createMessagingInboundWiring({ ...common, signal }),
+      telegram: (signal) => createMessagingInboundWiring({ ...common, signal, notifyTyping: typing("telegram") }),
       slack: (signal) => createSlackInboundWiring({ ...common, signal }),
       discord: (signal) => createDiscordInboundWiring({ ...common, signal }),
+      dingtalk: (signal) => createDingtalkInboundWiring({ ...common, signal }),
       mattermost: (signal) => createMattermostInboundWiring({ ...common, signal }),
       matrix: (signal) => createMatrixInboundWiring({ ...common, signal }),
       irc: (signal) => createIrcInboundWiring({ ...common, signal }),

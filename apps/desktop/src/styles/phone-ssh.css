@@ -1,0 +1,237 @@
+/* ---------------------------------------------------------------
+   Connections (phone): SSH client. The desktop page is a host
+   manager; this one is a terminal that reaches your own machines.
+   --------------------------------------------------------------- */
+:root[data-surface="mobile"] .phone-ssh {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+:root[data-surface="mobile"] .phone-ssh-head h1 {
+  margin: 0;
+  font-size: var(--text-lg-plus);
+  font-weight: var(--font-weight-semibold);
+  color: var(--foreground);
+}
+
+:root[data-surface="mobile"] .phone-ssh-head p {
+  margin: 4px 0 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  color: var(--muted-foreground);
+}
+
+:root[data-surface="mobile"] .phone-ssh-error,
+:root[data-surface="mobile"] .phone-ssh-notice {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  word-break: break-word;
+}
+
+:root[data-surface="mobile"] .phone-ssh-error {
+  color: var(--destructive, #d9534f);
+  background: color-mix(in srgb, var(--destructive, #d9534f) 12%, transparent);
+}
+
+:root[data-surface="mobile"] .phone-ssh-notice {
+  color: var(--muted-foreground);
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+}
+
+:root[data-surface="mobile"] .phone-ssh-toolbar {
+  display: flex;
+  justify-content: flex-start;
+}
+
+:root[data-surface="mobile"] .phone-ssh-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+
+:root[data-surface="mobile"] .phone-ssh-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
+:root[data-surface="mobile"] .phone-ssh-key {
+  width: 100%;
+  min-height: 84px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-xs);
+  line-height: var(--leading-compact-plus);
+  resize: vertical;
+}
+
+:root[data-surface="mobile"] .phone-ssh-auth {
+  display: flex;
+  gap: 6px;
+}
+
+:root[data-surface="mobile"] .phone-ssh-auth button {
+  flex: 1;
+  padding: 6px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+}
+
+:root[data-surface="mobile"] .phone-ssh-auth button.is-active {
+  border-color: var(--accent);
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+:root[data-surface="mobile"] .phone-ssh-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:root[data-surface="mobile"] .phone-ssh-empty {
+  padding: 16px 10px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
+:root[data-surface="mobile"] .phone-ssh-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+
+:root[data-surface="mobile"] .phone-ssh-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+:root[data-surface="mobile"] .phone-ssh-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--foreground);
+}
+
+:root[data-surface="mobile"] .phone-ssh-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
+}
+
+:root[data-surface="mobile"] .phone-ssh-dot.is-live {
+  background: #3fb950;
+}
+
+:root[data-surface="mobile"] .phone-ssh-addr,
+:root[data-surface="mobile"] .phone-ssh-fp {
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-surface="mobile"] .phone-ssh-actions {
+  display: flex;
+  gap: 6px;
+}
+
+:root[data-surface="mobile"] .phone-ssh-actions button {
+  flex: 1;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--foreground);
+  font-size: var(--text-sm);
+}
+
+:root[data-surface="mobile"] .phone-ssh-actions .phone-ssh-primary {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+:root[data-surface="mobile"] .phone-ssh-terminal {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  overflow: hidden;
+}
+
+:root[data-surface="mobile"] .phone-ssh-terminal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+
+:root[data-surface="mobile"] .phone-ssh-terminal header button {
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: var(--text-xs);
+}
+
+:root[data-surface="mobile"] .phone-ssh-log {
+  margin: 0;
+  max-height: 46vh;
+  min-height: 120px;
+  padding: 8px 10px;
+  overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  color: var(--foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+:root[data-surface="mobile"] .phone-ssh-input {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+}

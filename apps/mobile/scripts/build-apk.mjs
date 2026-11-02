@@ -7,7 +7,7 @@
  * which is the classic way to ship a fix that is not in the APK.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,6 +25,32 @@ function run(command, args, cwd) {
 
 if (!process.env.ANDROID_HOME && !process.env.ANDROID_SDK_ROOT) {
   console.error("ANDROID_HOME is not set; the Android SDK is required to build the APK.");
+  process.exit(1);
+}
+
+/*
+  The phone runs the desktop renderer through the bridge bundle. An APK without
+  that bootstrap loads the renderer with no `window.piDesktop`, and every screen
+  that talks to the host comes up empty — the app looks installed and works.
+  The check is cheap and catches the failure before it reaches a device.
+*/
+const sharedIndex = join(root, "public/shared/index.html");
+if (!existsSync(sharedIndex)) {
+  console.error(
+    "public/shared/index.html is missing; run `pnpm build:shared` before building the APK.",
+  );
+  process.exit(1);
+}
+const sharedHtml = readFileSync(sharedIndex, "utf8");
+if (!sharedHtml.includes("bridge-boot.js")) {
+  console.error(
+    "public/shared/index.html does not reference bridge-boot.js; the phone would ship without its host bridge.",
+  );
+  process.exit(1);
+}
+const bridgeBundle = join(root, "public/shared/bridge-boot.js");
+if (!existsSync(bridgeBundle)) {
+  console.error("public/shared/bridge-boot.js is missing; the phone would ship without its host bridge.");
   process.exit(1);
 }
 

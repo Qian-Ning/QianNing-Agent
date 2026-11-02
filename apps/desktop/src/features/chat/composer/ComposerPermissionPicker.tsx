@@ -58,7 +58,7 @@ export function ComposerPermissionPicker({t, mode, composerPermissionMode,
             >
               {/* The icon is what a phone shows; the word stays for the desktop,
                   where there is room for it next to the glyph. */}
-              <IconShield size={16} aria-hidden="true" />
+              <IconShield size="var(--composer-glyph, 16px)" aria-hidden="true" />
               <span className="text-sm composer-permission-label">
                 {t(PERMISSION_MODE_I18N_KEYS[composerPermissionMode])}
               </span>
