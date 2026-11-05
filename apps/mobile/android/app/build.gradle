@@ -7,7 +7,7 @@ android {
         applicationId "app.qianning.agent"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
+        versionCode 3
         versionName "2.2.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -20,6 +20,14 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            /*
+              Signed with the debug keystore so a sideloaded build installs
+              without a release keystore in the tree. This is a distributable
+              preview, not a store upload: Android still shows "unknown source"
+              and any future store build will need a different signature, so it
+              cannot upgrade over this one.
+            */
+            signingConfig signingConfigs.debug
         }
     }
 }

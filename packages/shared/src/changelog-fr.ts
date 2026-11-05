@@ -2,6 +2,18 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "2.2.0",
+    date: "2026-11-06",
+    highlights: [
+      "Le centre d'apparences est désormais une galerie : chaque thème s'affiche sur la surface qu'il peint vraiment, et un fond animé tourne derrière le sélecteur au lieu d'une image fixe. Modifier, importer et supprimer vivent sur la carte qu'ils concernent — un thème n'est plus un nom à retenir.",
+      "Un projet de fond animé peut être une scène ou une page web, et devient directement l'arrière-plan d'un thème : depuis un dossier, depuis un ZIP, ou en le glissant sur la fenêtre. Les projets sans image d'aperçu en reçoivent une à l'import, pour que chaque carte montre la surface qu'elle peindra.",
+      "Cinq fonds animés choisis accompagnent l'application, avec leurs auteurs crédités à côté.",
+      "L'application mobile termine une longue réponse en arrière-plan au lieu de la perdre quand on change d'application, et une tâche planifiée s'ouvre maintenant à l'heure, plus quelques minutes plus tard.",
+      "Le premier lancement sur Android s'explique en trois écrans : notifications, rester éveillé pendant qu'une tâche tourne, et heures de planification exactes. Chacun montre ce que le système autorise à cet instant, et tous peuvent être passés.",
+      "L'apparence 千凝 (renard) a été retirée.",
+    ],
+  },
+  {
     version: "2.1.0",
     date: "2026-10-27",
     highlights: [

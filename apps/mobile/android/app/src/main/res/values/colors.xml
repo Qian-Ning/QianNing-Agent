@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The plate the product icon sits on, and the ink of its wordmark. -->
+    <color name="brand_paper">#FFFFFF</color>
+    <color name="brand_ink">#0B0B0C</color>
+</resources>
