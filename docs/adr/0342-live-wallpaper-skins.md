@@ -179,6 +179,21 @@ decides by `background.kind`. Both funnel through `save`, so the replaced
 background is released by the same "still referenced?" test — no separate
 cleanup path for the newer verb.
 
+**21. A project with no still is captured, not withheld.** Cards need a
+picture, and workshop projects do not always ship one. On import the project is
+loaded once in a hidden window — JavaScript off, no preload, destroyed after the
+frame — and `capturePage` writes `preview.png` back into the copied project. The
+URL is the same `wallpaper://` root the app would mount, so the still cannot
+drift from what the engine paints. Scenes often open on a dark frame (the
+bundled sample fades in over 18 s), so three frames are sampled and the
+brightest kept; a capture failure leaves the import intact, only the card falls
+back to the palette.
+
+**22. The gallery paints photographs, not swatches.** Each bundled preset sends
+its 640 px still inline as a data URL (~60 KB per card, once) instead of opening
+a second protocol that would exist only to serve five images. The tile keeps its
+accent colour underneath, so a card is never blank while the still decodes.
+
 ## Consequences
 
 - Skins keep working unchanged: the persisted shape only gained an optional

@@ -1218,6 +1218,9 @@
   height: 86px;
   border-radius: var(--radius-md);
   border: 1px solid var(--ds-border-subtle);
+  /* A shipped still replaces the gradient inline; these keep it framed. */
+  background-size: cover;
+  background-position: center;
   background-image: radial-gradient(
       120% 130% at 22% 18%,
       rgba(255, 255, 255, 0.22) 0%,

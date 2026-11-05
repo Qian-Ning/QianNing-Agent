@@ -1,12 +1,16 @@
 import { dialog } from "electron";
+import { join } from "node:path";
 import { IPC } from "@pi-desktop/shared";
 import {
   deleteWallpaperProject,
   importWallpaperSource,
+  readWallpaperEntryFile,
+  readWallpaperProjectMeta,
   registerWallpaperProject,
   seedDemoWallpaper,
   type WallpaperProject,
 } from "../wallpaper-store";
+import { captureWallpaperPreview } from "../wallpaper-thumbnail";
 import { wallpaperRoots } from "../wallpaper-protocol";
 import { installWallpaperPreset, listWallpaperPresets } from "../wallpaper-presets";
 import type { IpcRegistrar } from "./types";
@@ -59,7 +63,7 @@ export function registerSkinWallpaperIpc({
       }
       const project = importWallpaperSource(dataDir, sourcePath);
       registerWallpaperProject(dataDir, project.projectId, wallpaperRoots);
-      return project;
+      return withPreview(dataDir, project);
     },
   );
 
@@ -67,7 +71,7 @@ export function registerSkinWallpaperIpc({
   registrar.handle(IPC.invoke.skinSeedWallpaper, async (): Promise<WallpaperProject> => {
     const project = seedDemoWallpaper(dataDir, demoWallpaperRoot);
     registerWallpaperProject(dataDir, project.projectId, wallpaperRoots);
-    return project;
+    return withPreview(dataDir, project);
   });
 
   // The bundled gallery. Listing is metadata only: the renderer never learns a
@@ -83,7 +87,7 @@ export function registerSkinWallpaperIpc({
       const id = typeof request?.id === "string" ? request.id : "";
       const project = installWallpaperPreset(dataDir, presetWallpaperRoot, id);
       registerWallpaperProject(dataDir, project.projectId, wallpaperRoots);
-      return project;
+      return withPreview(dataDir, project);
     },
   );
 
@@ -98,6 +102,26 @@ export function registerSkinWallpaperIpc({
       return { ok };
     },
   );
+}
+
+
+/**
+ * A project that ships no still gets one captured from its own first frame.
+ *
+ * The capture runs after the project is registered, because it loads the very
+ * `wallpaper://` URL the app would mount — a still taken from any other source
+ * could drift from what the engine paints. Failure is silent by design: the
+ * import already succeeded and a card without a picture is cosmetic.
+ */
+async function withPreview(dataDir: string, project: WallpaperProject): Promise<WallpaperProject> {
+  if (project.hasPreview) return project;
+  const dir = join(dataDir, "wallpapers", project.projectId);
+  const entry = readWallpaperEntryFile(dir);
+  if (!entry) return project;
+  const name = await captureWallpaperPreview(dir, project.projectId, entry);
+  if (!name) return project;
+  const meta = readWallpaperProjectMeta(dir);
+  return { ...project, hasPreview: meta.preview !== null, preview: meta.preview };
 }
 
 /**

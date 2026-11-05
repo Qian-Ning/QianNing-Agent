@@ -72,8 +72,10 @@ export type SkinBackgroundKind = "none" | "image" | "video" | "scene" | "web";
 export type SkinWallpaperPreset = {
   id: string;
   title: string;
-  /** A colour sampled from the artwork, used before the preset is added. */
+  /** A colour sampled from the artwork, used under the card while it loads. */
   accent: string;
+  /** The preset's still as a data URL, so the card shows the real artwork. */
+  preview?: string | null;
   bytes: number;
 };
 

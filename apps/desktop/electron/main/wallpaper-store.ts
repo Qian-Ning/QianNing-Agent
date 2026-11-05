@@ -94,6 +94,20 @@ export function readWallpaperProjectMeta(dir: string): WallpaperProjectMeta {
   return { title, kind, preview };
 }
 
+/**
+ * The file the engine is asked to load, relative to the project root.
+ *
+ * `project.json` names it for most workshop projects; a bare folder of HTML is
+ * accepted as `index.html`, which is the same assumption the import makes.
+ */
+export function readWallpaperEntryFile(dir: string): string | null {
+  const manifest = readJson(join(dir, "project.json"));
+  const declared = typeof manifest?.file === "string" ? manifest.file.trim() : "";
+  if (declared && existsSync(join(dir, declared))) return declared;
+  if (existsSync(join(dir, "index.html"))) return "index.html";
+  return null;
+}
+
 /** Why a folder that looks close to a project still cannot be served. */
 export type WallpaperProblem = "packaged" | "unknown";
 

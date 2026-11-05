@@ -37,6 +37,9 @@ test("every shipped preset is a servable web project", () => {
     assert.ok(preset.title.trim(), `${preset.id} needs a title`);
     assert.match(preset.accent, /^#[0-9a-f]{6}$/i, `${preset.id} needs a tile colour`);
     assert.ok(preset.bytes > 0, `${preset.id} should report its size`);
+    // The card paints the photograph, not a swatch: the still travels inline so
+    // the gallery needs no second protocol to show it.
+    assert.match(preset.preview ?? "", /^data:image\/jpeg;base64,/, `${preset.id} needs a still`);
 
     const dir = join(GALLERY, preset.id);
     const manifest = JSON.parse(readFileSync(join(dir, "project.json"), "utf8"));

@@ -185,7 +185,12 @@ export function SkinCenterPage() {
                 >
                   <span
                     className="sk-preset-art"
-                    style={{ ["--sk-preset-accent" as string]: preset.accent }}
+                    style={{
+                      ["--sk-preset-accent" as string]: preset.accent,
+                      ...(preset.preview
+                        ? { backgroundImage: `url("${preset.preview}")` }
+                        : {}),
+                    }}
                   />
                   <span className="sk-preset-name">{preset.title}</span>
                 </button>

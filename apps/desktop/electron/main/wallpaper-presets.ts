@@ -14,8 +14,10 @@ import { importWallpaperSource, type WallpaperProject } from "./wallpaper-store"
 export type WallpaperPreset = {
   id: string;
   title: string;
-  /** A dark colour from the photograph, used for the tile before it is added. */
+  /** A dark colour from the photograph, used under the tile while it loads. */
   accent: string;
+  /** The preset's own 640 px still, inlined so the card shows real artwork. */
+  preview: string | null;
   /** Bytes of the background, so the gallery can say how much this costs. */
   bytes: number;
 };
@@ -37,7 +39,13 @@ export function listWallpaperPresets(root: string): WallpaperPreset[] {
     } catch {
       continue;
     }
-    let manifest: { title?: unknown; accent?: unknown; type?: unknown; file?: unknown } | null = null;
+    let manifest: {
+      title?: unknown;
+      accent?: unknown;
+      type?: unknown;
+      file?: unknown;
+      preview?: unknown;
+    } | null = null;
     try {
       manifest = JSON.parse(readFileSync(join(dir, "project.json"), "utf8"));
     } catch {
@@ -49,9 +57,37 @@ export function listWallpaperPresets(root: string): WallpaperPreset[] {
     const accent = typeof manifest.accent === "string" && /^#[0-9a-f]{6}$/i.test(manifest.accent)
       ? manifest.accent
       : DEFAULT_ACCENT;
-    presets.push({ id, title, accent, bytes: projectBytes(dir) });
+    presets.push({ id, title, accent, preview: readStill(dir, manifest.preview), bytes: projectBytes(dir) });
   }
   return presets;
+}
+
+/**
+ * Inline a preset's still so the gallery card paints the photograph itself.
+ *
+ * The file is already in the app bundle; sending it over IPC as a data URL costs
+ * ~60 KB per card once and avoids a second protocol that would exist only to
+ * serve five images.
+ */
+function readStill(dir: string, declared: unknown): string | null {
+  const name =
+    typeof declared === "string" && /^[\w.-]{1,64}$/.test(declared)
+      ? declared
+      : ["preview.jpg", "preview.png", "preview.webp"].find((candidate) =>
+          existsSync(join(dir, candidate)),
+        );
+  if (!name) return null;
+  try {
+    const bytes = readFileSync(join(dir, name));
+    const mime = name.endsWith(".png")
+      ? "image/png"
+      : name.endsWith(".webp")
+        ? "image/webp"
+        : "image/jpeg";
+    return `data:${mime};base64,${bytes.toString("base64")}`;
+  } catch {
+    return null;
+  }
 }
 
 function projectBytes(dir: string): number {
