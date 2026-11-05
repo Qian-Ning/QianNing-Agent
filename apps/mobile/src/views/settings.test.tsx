@@ -50,7 +50,7 @@ describe("settings", () => {
   it("applies the desktop skin the reader picks", () => {
     renderSettings();
     fireEvent.click(screen.getByText("外观与皮肤"));
-    fireEvent.click(screen.getByText("森绿"));
+    fireEvent.click(screen.getByText("松林"));
     expect(localStorage.getItem("qn.mobile.skin")).toBeTruthy();
     expect(document.documentElement.dataset.theme).toBeTruthy();
   });
