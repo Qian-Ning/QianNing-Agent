@@ -24,6 +24,7 @@ import { api } from "../../lib/api";
 import { PortalVisibilityProvider } from "../../lib/portal-visibility";
 import { CollapsedTitlebarActions, RoutePending } from "./chrome";
 import { useAppShellRuntime } from "./useAppShellRuntime";
+import { useSkinRotation } from "../skins/useSkinRotation";
 
 const SettingsPage = lazy(() =>
   import("../../pages/SettingsPage").then((module) => ({
@@ -118,7 +119,23 @@ export function AppShell() {
           window as unknown as { __qianningSettingsBack?: () => boolean }
         ).__qianningSettingsBack;
         if (settingsBack && settingsBack()) return true;
+        if (store.canNavBack()) {
+          store.navBack();
+          return true;
+        }
         store.setPage("chat");
+        return true;
+      }
+      /*
+        Every other full-page surface (skins, connections, scheduled tasks, the
+        workbench, the notification ledger) is a step away from the conversation.
+        Unwinding through the navigation stack returns to the page the user came
+        from; a page that was entered directly falls back to the conversation
+        instead of letting the system close the app.
+      */
+      if (store.page !== "chat") {
+        if (store.canNavBack()) store.navBack();
+        else store.setPage("chat");
         return true;
       }
       if (!sidebarCollapsed) {
@@ -131,9 +148,27 @@ export function AppShell() {
       }
       return false;
     };
-    (window as unknown as { __qianningBack?: () => boolean }).__qianningBack = back;
+    /*
+      Two shells can install a back handler: this renderer and, on the phone, the
+      host shell around it. Whichever mounts last used to win outright, so a page
+      this renderer could unwind was dropped on the floor and the system closed
+      the app. Keep a chain instead — each handler gets a turn, and the outermost
+      responder wins only if nobody closer consumed the gesture.
+    */
+    const host = window as unknown as {
+      __qianningBack?: () => boolean;
+      __qianningSurfaceBack?: () => boolean;
+      __qianningSurfaceBackPrev?: () => boolean;
+    };
+    host.__qianningSurfaceBack = back;
+    const previous = host.__qianningBack;
+    host.__qianningBack =
+      previous && previous !== back
+        ? () => back() || previous()
+        : back;
     return () => {
-      delete (window as unknown as { __qianningBack?: () => boolean }).__qianningBack;
+      if (host.__qianningSurfaceBack === back) delete host.__qianningSurfaceBack;
+      if (host.__qianningBack === previous) delete host.__qianningBack;
     };
   }, [sidebarCollapsed, toggleSidebar]);
 
@@ -151,6 +186,7 @@ export function AppShell() {
   }, []);
 
   useCopyTex();
+  useSkinRotation();
   const petEnabled = useAppStore((state) => state.settings?.petEnabled === true);
 
   // A boot that never reaches the shell gets a surface it can act on instead of
@@ -367,20 +403,28 @@ export function AppShell() {
               />
             )}
 
-            <TooltipButton
-              type="button"
-              className="app-work-panel-toggle no-drag"
-              tooltip={workPanelToggleTooltip}
-              ariaLabel={workPanelToggleTooltip}
-              aria-pressed={workPanelOpen || presentedWorkPanelOpen}
-              disabled={!activeSessionId && !presentedWorkPanelOpen && !workPanelExiting}
-              onClick={togglePresentedWorkPanel}
-            >
-              <span className="app-work-panel-toggle-icon" aria-hidden>
-                <IconPanel size={15} />
-                <IconPanelOpen size={15} />
-              </span>
-            </TooltipButton>
+            {/*
+              The work panel belongs to a conversation. On a full-page surface
+              (settings, skins, connections, scheduled tasks) there is no panel to
+              open, and the button only competes with the page's own header
+              action — most visibly on a phone, where it sits right above it.
+            */}
+            {page === "chat" ? (
+              <TooltipButton
+                type="button"
+                className="app-work-panel-toggle no-drag"
+                tooltip={workPanelToggleTooltip}
+                ariaLabel={workPanelToggleTooltip}
+                aria-pressed={workPanelOpen || presentedWorkPanelOpen}
+                disabled={!activeSessionId && !presentedWorkPanelOpen && !workPanelExiting}
+                onClick={togglePresentedWorkPanel}
+              >
+                <span className="app-work-panel-toggle-icon" aria-hidden>
+                  <IconPanel size={15} />
+                  <IconPanelOpen size={15} />
+                </span>
+              </TooltipButton>
+            ) : null}
 
             {petEnabled && page === "chat" && !workPanelMaximized ? <DesktopPet /> : null}
           </div>
@@ -413,6 +457,7 @@ export function AppShell() {
       style={{ "--ds-sidebar-width": `${sidebarWidth}px` } as CSSProperties}
     >
       <div className="app-scenic-backdrop" aria-hidden />
+
       {shell}
       {/* Outside pane stacking; skip splash so the band cannot cover boot chrome. */}
       {/* `showSplash` stays true for as long as the shell is not ready, so a

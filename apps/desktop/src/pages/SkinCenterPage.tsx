@@ -1,162 +1,267 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BUILTIN_SKINS,
   NO_SKIN_ID,
-  sanitizeSkin,
   type Skin,
+  type SkinWallpaperPreset,
 } from "@pi-desktop/shared";
-import { useAppStore } from "../stores/app-store";
 import { api } from "../lib/api";
-import { Button } from "../components/ui";
-import { IconDownload, IconPalette, IconPlus } from "../components/icons";
+import { Button, SettingsToggle } from "../components/ui";
+import { IconDownload, IconImage, IconPlus } from "../components/icons";
+import { SkinPreview } from "../features/skins/SkinPreview";
+import { SkinTile } from "../features/skins/SkinTile";
 import { SkinEditorDialog } from "../features/skins/SkinEditorDialog";
-import { SkinCard } from "../features/skins/SkinCard";
+import { hasWallpaper, skinTypeKey } from "../features/skins/model";
+import { useSkinLibrary } from "../features/skins/useSkinLibrary";
 
 /**
- * The skin center: a full page (its own sidebar entry) that lets the user swap
- * the whole look — colours plus an optional image/video wallpaper — build their
- * own, and share skins as files. It is distinct from the theme picker: applying
- * a skin never changes light/dark; it layers on top.
+ * The skin center is a gallery, not a settings form.
+ *
+ * One large stage shows what is on right now — the actual window, drawn with the
+ * skin's own palette, because a colour swatch cannot tell you whether a theme is
+ * pleasant. Below it, two rails of thumbnails: shipped looks and your own. Tiles
+ * are pictures; every verb lives behind the ⋯ menu, so the page reads as a
+ * wardrobe instead of a control panel.
+ *
+ * Persistence, asset ownership and write ordering live in `useSkinLibrary`;
+ * this file is layout and intent only.
  */
 export function SkinCenterPage() {
   const { t } = useTranslation();
-  const settings = useAppStore((s) => s.settings);
-  const showToast = useAppStore((s) => s.showToast);
+  const library = useSkinLibrary();
   const [editing, setEditing] = useState<Skin | "new" | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [dropping, setDropping] = useState(false);
+  // Bundled artwork ships with the app; the list is read once because it only
+  // changes when the app does. A missing gallery is not an error — the page
+  // simply shows the two rails it always had.
+  const [presets, setPresets] = useState<SkinWallpaperPreset[]>([]);
+  useEffect(() => {
+    let alive = true;
+    api
+      .listSkinWallpaperPresets()
+      .then((list) => {
+        if (alive) setPresets(list);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  const activeSkinId = settings?.activeSkinId ?? NO_SKIN_ID;
-  const customSkins = useMemo(() => settings?.customSkins ?? [], [settings?.customSkins]);
+  // Rotation walks the skins that actually carry a background; with fewer than
+  // two of them the switch would look alive and never change anything.
+  const rotatePool = library.customSkins.filter((skin) => skin.background?.kind !== "none").length;
 
-  const persist = async (patch: {
-    activeSkinId?: string;
-    customSkins?: Skin[];
-  }) => {
-    if (!settings) return;
-    const next = { ...settings, ...patch };
-    await api.setSettings(next);
-    useAppStore.setState({ settings: next });
-  };
-
-  const applyAndSave = async (id: string) => {
-    try {
-      await persist({ activeSkinId: id });
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : String(error), { variant: "error" });
-    }
-  };
-
-  const saveSkin = async (skin: Skin) => {
-    const safe = sanitizeSkin(skin);
-    if (!safe) return;
-    const rest = customSkins.filter((entry) => entry.id !== safe.id);
-    const nextCustom = [...rest, safe];
-    await persist({ customSkins: nextCustom, activeSkinId: safe.id });
-    setEditing(null);
-  };
-
-  const deleteSkin = async (id: string) => {
-    const target = customSkins.find((entry) => entry.id === id);
-    const nextCustom = customSkins.filter((entry) => entry.id !== id);
-    const nextActive = activeSkinId === id ? NO_SKIN_ID : activeSkinId;
-    try {
-      await persist({ customSkins: nextCustom, activeSkinId: nextActive });
-      // Free the background asset the deleted skin owned.
-      if (target?.background.assetId && target.background.ext) {
-        await api.deleteSkinAsset(target.background.assetId, target.background.ext).catch(() => undefined);
-      }
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : String(error), { variant: "error" });
-    }
-  };
-
-  const exportSkin = async (skin: Skin) => {
-    try {
-      const result = await api.exportSkin(skin);
-      if (result.ok) showToast(t("skins.exported"), { variant: "success" });
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : String(error), { variant: "error" });
-    }
-  };
-
-  const importSkin = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const result = await api.importSkin();
-      if (!result) return;
-      const safe = sanitizeSkin(result.skin);
-      if (!safe) throw new Error(t("skins.importInvalid"));
-      // Give the imported skin a fresh id so it never clobbers an existing one.
-      const imported: Skin = { ...safe, id: freshId(), builtin: false };
-      const nextCustom = [...customSkins, imported];
-      await persist({ customSkins: nextCustom, activeSkinId: imported.id });
-      showToast(t("skins.imported"), { variant: "success" });
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : String(error), { variant: "error" });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (!settings) return null;
+  const active = library.activeSkin;
+  const activeLabel = active.id === NO_SKIN_ID ? t("skins.followTheme") : active.name;
+  const duplicate = (skin: Skin) => void library.duplicate(skin).then((copy) => copy && setEditing(copy));
 
   return (
-    <div className="thread-scroll">
-      <div className="page-frame skin-center">
-        <div className="page-header skin-center-header">
-          <div className="skin-center-title-block">
-            <span className="skin-center-title-icon" aria-hidden>
-              <IconPalette size={14} />
-            </span>
-            <div className="skin-center-title-copy">
-              <h1 className="page-title">{t("skins.title")}</h1>
-              <p className="dest-row-meta">{t("skins.subtitle")}</p>
-            </div>
+    <div
+      className="thread-scroll"
+      onDragOver={(event) => {
+        if (!Array.from(event.dataTransfer.types).includes("Files")) return;
+        event.preventDefault();
+        setDropping(true);
+      }}
+      onDragLeave={(event) => {
+        // Dragging over a child fires `dragleave` on the parent; only a leave
+        // that actually exits the page should hide the target.
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+        setDropping(false);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setDropping(false);
+        const file = event.dataTransfer.files?.[0] as (File & { path?: string }) | undefined;
+        // Electron removed `File.path` in 32; the preload resolves a real
+        // dropped file through webUtils, and returns null for anything else.
+        const path = file ? api.getDroppedFilePath(file) : null;
+        if (path) void library.importWallpaper("path", path);
+      }}
+    >
+      <div className="page-frame sk-page">
+        {dropping ? (
+          <div className="sk-drop" aria-hidden>
+            <span>{t("skins.dropHint")}</span>
           </div>
-          <div className="skin-center-actions">
-            <Button variant="secondary" size="sm" onClick={() => void importSkin()} disabled={busy}>
+        ) : null}
+        <header className="sk-head">
+          <div className="sk-head-copy">
+            <h1 className="page-title">{t("skins.title")}</h1>
+            <p className="dest-row-meta">{t("skins.subtitle")}</p>
+          </div>
+          <div className="sk-head-actions">
+            <Button variant="secondary" size="sm" onClick={() => void library.importWallpaper("pick")}>
+              <IconImage size={14} aria-hidden /> {t("skins.importWallpaper")}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => void library.importFromFile()}>
               <IconDownload size={14} aria-hidden /> {t("skins.import")}
             </Button>
             <Button variant="primary" size="sm" onClick={() => setEditing("new")}>
               <IconPlus size={14} aria-hidden /> {t("skins.create")}
             </Button>
+            {/* Rotation is one switch, not a scheduler: turn it on, pick a pace.
+                The interval appears only when rotation is on, so the default
+                header stays three buttons wide. */}
+            <span className="sk-rotate">
+              <SettingsToggle
+                checked={library.rotation.enabled}
+                disabled={rotatePool < 2}
+                label={t("skins.rotate")}
+                onChange={() =>
+                  void library.setRotation({
+                    ...library.rotation,
+                    enabled: !library.rotation.enabled,
+                  })
+                }
+              />
+              <span className="sk-rotate-label">{t("skins.rotate")}</span>
+              {rotatePool < 2 ? (
+                <span className="sk-rotate-hint">{t("skins.rotateNeedsTwo")}</span>
+              ) : library.rotation.enabled ? (
+                <select
+                  className="sk-rotate-interval"
+                  aria-label={t("skins.rotateInterval")}
+                  value={library.rotation.minutes}
+                  onChange={(event) =>
+                    void library.setRotation({
+                      ...library.rotation,
+                      minutes: Number(event.target.value),
+                    })
+                  }
+                >
+                  {[15, 30, 60, 120, 240].map((minutes) => (
+                    <option key={minutes} value={minutes}>
+                      {t("skins.rotateEvery", { minutes })}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+            </span>
           </div>
-        </div>
+        </header>
 
-        <section className="skin-grid" aria-label={t("skins.builtinHeading")}>
-          <h2 className="skin-grid-heading">{t("skins.builtinHeading")}</h2>
-          <div className="skin-grid-cards">
+        <section className="sk-stage" aria-label={`${t("skins.current")}: ${activeLabel}`}>
+          {/* Caption and tools live inside the preview, not beside it: they paint
+              with the skin's own `--sk-*` variables, which only exist in there. */}
+          <SkinPreview skin={active} variant="stage">
+            <div className="sk-stage-caption">
+              <span className="sk-stage-eyebrow">{t("skins.current")}</span>
+              <strong className="sk-stage-name">{activeLabel}</strong>
+              <span className="sk-stage-type">{t(skinTypeKey(active))}</span>
+            </div>
+            {active.id !== NO_SKIN_ID ? (
+              <div className="sk-stage-tools">
+                {active.builtin ? (
+                  <Button variant="secondary" size="sm" onClick={() => duplicate(active)}>
+                    {t("skins.duplicate")}
+                  </Button>
+                ) : (
+                  <Button variant="secondary" size="sm" onClick={() => setEditing(active)}>
+                    {t("skins.edit")}
+                  </Button>
+                )}
+              </div>
+            ) : null}
+          </SkinPreview>
+        </section>
+
+        {presets.length > 0 ? (
+          <section className="sk-preset-rail" aria-label={t("skins.presetsHeading")}>
+            <div className="sk-rail-head">
+              <h2>{t("skins.presetsHeading")}</h2>
+              <span className="sk-rail-hint">{t("skins.presetsHint")}</span>
+            </div>
+            <div className="sk-rail">
+              {presets.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  className="sk-preset"
+                  onClick={() => void library.installPreset(preset)}
+                  title={preset.title}
+                >
+                  <span
+                    className="sk-preset-art"
+                    style={{ ["--sk-preset-accent" as string]: preset.accent }}
+                  />
+                  <span className="sk-preset-name">{preset.title}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="sk-rail-block" aria-label={t("skins.builtinHeading")}>
+          <div className="sk-rail-head">
+            <h2>{t("skins.builtinHeading")}</h2>
+          </div>
+          <div className="sk-rail">
             {BUILTIN_SKINS.map((skin) => (
-              <SkinCard
+              <SkinTile
                 key={skin.id}
                 skin={skin}
-                active={activeSkinId === skin.id}
-                onApply={() => void applyAndSave(skin.id)}
-                typeLabel={skinTypeLabel(skin, t)}
+                label={skin.id === NO_SKIN_ID ? t("skins.followTheme") : skin.name}
+                active={library.isActive(skin.id)}
+                onApply={() => void library.apply(skin.id)}
+                actions={skin.id === NO_SKIN_ID ? {} : { onDuplicate: () => duplicate(skin) }}
               />
             ))}
           </div>
         </section>
 
-        <section className="skin-grid" aria-label={t("skins.customHeading")}>
-          <h2 className="skin-grid-heading">{t("skins.customHeading")}</h2>
-          {customSkins.length === 0 ? (
-            <p className="skin-empty">{t("skins.customEmpty")}</p>
+        <section className="sk-rail-block" aria-label={t("skins.customHeading")}>
+          <div className="sk-rail-head">
+            <h2>{t("skins.customHeading")}</h2>
+            {library.customSkins.length > 0 ? (
+              <span className="sk-rail-count">{t("skins.count", { count: library.customSkins.length })}</span>
+            ) : null}
+          </div>
+
+          {library.customSkins.length === 0 ? (
+            <div className="sk-empty">
+              <div className="sk-empty-copy">
+                <p className="sk-empty-title">{t("skins.customEmptyTitle")}</p>
+                <p className="sk-empty-hint">{t("skins.customEmpty")}</p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={() => void library.importWallpaper("demo")}>
+                <IconImage size={14} aria-hidden /> {t("skins.tryDemoWallpaper")}
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setEditing("new")}>
+                <IconPlus size={14} aria-hidden /> {t("skins.create")}
+              </Button>
+            </div>
           ) : (
-            <div className="skin-grid-cards">
-              {customSkins.map((skin) => (
-                <SkinCard
+            <div className="sk-rail">
+              {library.customSkins.map((skin) => (
+                <SkinTile
                   key={skin.id}
                   skin={skin}
-                  active={activeSkinId === skin.id}
-                  onApply={() => void applyAndSave(skin.id)}
-                  onEdit={() => setEditing(skin)}
-                  onExport={() => void exportSkin(skin)}
-                  onDelete={() => void deleteSkin(skin.id)}
-                  typeLabel={skinTypeLabel(skin, t)}
-                  editable
+                  label={skin.name}
+                  active={library.isActive(skin.id)}
+                  onApply={() => void library.apply(skin.id)}
+                  actions={{
+                    onEdit: () => setEditing(skin),
+                    // Every skin that already carries a background can swap it
+                    // in place; a colour-only skin gains one in the editor. The
+                    // two sources stay distinct: a project goes through the
+                    // wallpaper picker, a photo or clip through the media one.
+                    onChangeWallpaper: hasWallpaper(skin)
+                      ? () =>
+                          void (skin.background.kind === "image" || skin.background.kind === "video"
+                            ? library.changeMediaWallpaper(skin)
+                            : library.changeWallpaper(skin))
+                      : undefined,
+                    onDuplicate: () => duplicate(skin),
+                    onExport: () => void library.exportToFile(skin),
+                    onRemove: () => {
+                      if (window.confirm(t("skins.deleteConfirm", { name: skin.name }))) {
+                        void library.remove(skin.id);
+                      }
+                    },
+                  }}
                 />
               ))}
             </div>
@@ -165,24 +270,17 @@ export function SkinCenterPage() {
 
         {editing ? (
           <SkinEditorDialog
+            key={editing === "new" ? "new" : editing.id}
             initial={editing === "new" ? null : editing}
+            startSession={library.startSession}
             onCancel={() => setEditing(null)}
-            onSave={saveSkin}
+            onSave={async (skin, session) => {
+              await library.save(skin, session, editing === "new" ? null : editing);
+              setEditing(null);
+            }}
           />
         ) : null}
       </div>
     </div>
   );
-}
-
-function skinTypeLabel(skin: Skin, t: (key: string) => string): string {
-  if (skin.background.kind === "video") return t("skins.typeVideo");
-  if (skin.background.kind === "image") return t("skins.typeImage");
-  return t("skins.typeColor");
-}
-
-/** A random custom-skin id that never collides with a built-in reserved id. */
-function freshId(): string {
-  const rand = Math.random().toString(36).slice(2, 10);
-  return `diy-${Date.now().toString(36)}-${rand}`;
 }
