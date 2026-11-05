@@ -62,12 +62,19 @@ const BUILTIN_APPEARANCE_BY_ID: Record<BuiltinAppearance, BuiltinAppearanceDef> 
   fox: { base: "dark", windowBackground: "#0a1024" },
 };
 
-/** Picker order for the built-in section, ahead of any contributed theme. */
+/**
+ * Picker order for the built-in section, ahead of any contributed theme.
+ *
+ * The 千凝 (fox) appearance was retired from the picker: its navy dressing read
+ * as a slightly blue dark theme and competed with the presets in the skin
+ * center, which is where a colour identity belongs now. A settings row that
+ * still holds `fox` keeps resolving (see `isBuiltinAppearance`) so nobody's
+ * window changes palette on upgrade; it simply no longer has a button.
+ */
 export const BUILTIN_THEME_PREFERENCES: readonly BuiltinThemePreference[] = [
   "system",
   BUILTIN_THEME_BY_ID.light.id,
   BUILTIN_THEME_BY_ID.dark.id,
-  "fox",
 ];
 
 export const BUILTIN_THEMES: readonly BuiltinTheme[] = [

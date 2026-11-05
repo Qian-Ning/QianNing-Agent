@@ -190,6 +190,22 @@ test("packaging keeps only shipped locales and excludes non-runtime artifacts", 
   // sidecar.js loads in packaged installs (issue #507). Contract tests live
   // in agent-runtime-bundle-package.test.mjs.
   assert.deepEqual(packageJson.build.extraResources, [
+    // The phone shell ships beside the desktop so one install can serve the
+    // WebView bundle over the LAN.
+    {
+      from: "../mobile/dist",
+      to: "mobile-shell",
+    },
+    // Wallpaper projects are read from disk by the wallpaper:// handler, and
+    // the bundled samples are what the skin center offers out of the box.
+    {
+      from: "resources/wallpaper-demo",
+      to: "wallpaper-demo",
+    },
+    {
+      from: "resources/wallpapers",
+      to: "wallpapers",
+    },
     {
       from: "build/icon.png",
       to: "tray-icon.png",

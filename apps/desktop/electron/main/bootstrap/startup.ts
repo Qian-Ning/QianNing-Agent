@@ -21,6 +21,13 @@ import {
   installSkinAssetProtocol,
   registerSkinAssetScheme,
 } from "../skin-asset-protocol";
+import { flushPrivilegedSchemes } from "../protocol-schemes";
+import {
+  installWallpaperProtocol,
+  registerWallpaperScheme,
+  wallpaperRoots,
+} from "../wallpaper-protocol";
+import { registerStoredWallpapers } from "../wallpaper-store";
 import {
   installMediaAssetProtocol,
   registerMediaAssetScheme,
@@ -165,6 +172,9 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
   registerPluginAssetScheme();
   // Reserve the skin-center background scheme in the same pre-ready window.
   registerSkinAssetScheme();
+  // Reserve the wallpaper-project scheme before app-ready for the same reason:
+  // a live wallpaper is a directory tree, not a single confined asset.
+  registerWallpaperScheme();
   // Reserve the media-library scheme in the same pre-ready window (ADR 0322): it
   // maps the library root into the renderer so a finished clip can play in place.
   registerMediaAssetScheme();
@@ -172,6 +182,10 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
   // (ADR 0328): it streams inline-visualization artifacts into the preview
   // iframe under the network-closed CSP.
   registerInlineVizScheme();
+  // One declaration, not five: `registerSchemesAsPrivileged` replaces the whole
+  // list on every call, so the five `register*Scheme()` calls above only queue
+  // their entries. Flushing here is what actually privileges all of them.
+  flushPrivilegedSchemes();
   // Crashpad ships with Electron, so the reporter needs no native dependency.
   // Dumps stay local (`uploadToServer: false`) under the installation data
   // directory so a `PI_DESKTOP_DATA_DIR` profile does not share them. Started
@@ -244,6 +258,12 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
     // Serve skin-center background media over its own confined scheme, reserved
     // alongside the plugin asset scheme in `registerApplicationStartup`.
     installSkinAssetProtocol(dataDir);
+    // Serve wallpaper projects. Roots are registered by main-process code only;
+    // the renderer can name a root id, never a filesystem path.
+    // Every wallpaper project copied into this profile becomes a servable root,
+    // so a skin saved last session still resolves after a restart.
+    registerStoredWallpapers(dataDir, wallpaperRoots);
+    installWallpaperProtocol(wallpaperRoots);
     // Serve the media library over its confined scheme so the workbench can play
     // a finished clip; reserved in `registerApplicationStartup` (ADR 0322).
     installMediaAssetProtocol(dataDir);

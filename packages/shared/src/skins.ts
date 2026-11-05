@@ -61,7 +61,34 @@ export const SKIN_TOKEN_CSS_VARS: Record<SkinTokenKey, readonly string[]> = {
   focus: ["--ds-focus"],
 };
 
-export type SkinBackgroundKind = "none" | "image" | "video";
+export type SkinBackgroundKind = "none" | "image" | "video" | "scene" | "web";
+
+/**
+ * What the host reports after copying a wallpaper project into the profile.
+ * The renderer turns this into a skin; the directory behind it never crosses
+ * the IPC boundary.
+ */
+/** One entry of the bundled gallery. Metadata only — never a path. */
+export type SkinWallpaperPreset = {
+  id: string;
+  title: string;
+  /** A colour sampled from the artwork, used under the card while it loads. */
+  accent: string;
+  /** The preset's still as a data URL, so the card shows the real artwork. */
+  preview?: string | null;
+  bytes: number;
+};
+
+export type SkinWallpaperProject = {
+  projectId: string;
+  title: string;
+  kind: "scene" | "web";
+  bytes: number;
+  /** True when the project ships a still preview the skin card can paint. */
+  hasPreview: boolean;
+  /** That file's name, so the card can request it over `wallpaper://`. */
+  preview: string | null;
+};
 
 /** Bounds for the background media controls, shared by editor UI and validator. */
 export const SKIN_BG_LIMITS = {
@@ -90,6 +117,11 @@ export type SkinBackground = {
   assetName?: string;
   /** Media file extension, used to build the `skin-asset://` URL. */
   ext?: string;
+  /**
+   * File name of the project's still preview (`preview.jpg` …), when it ships
+   * one. Only the name is stored; the bytes are served by `wallpaper://`.
+   */
+  preview?: string;
   opacity?: number;
   blur?: number;
   scrim?: number;
@@ -100,6 +132,15 @@ export type SkinBackground = {
    * the navigation text legible. Ignored when `kind === "none"`.
    */
   sidebarTint?: number;
+  /**
+   * A live wallpaper project (Wallpaper Engine scene/web) stored by the host
+   * under `dataDir/wallpapers/<projectId>`. The renderer only ever names this
+   * opaque id; the host maps it to a directory and serves it over
+   * `wallpaper://project/<projectId>/…`. Required for `scene`/`web`.
+   */
+  projectId?: string;
+  /** Display title read from the project's `project.json`. */
+  projectTitle?: string;
 };
 
 export type Skin = {
@@ -115,6 +156,14 @@ export type Skin = {
 
 /** The reserved id that means "no skin — follow the plain theme". */
 export const NO_SKIN_ID = "none";
+
+/**
+ * The id shape a live wallpaper project may have. The host mints hex ids and
+ * also exposes the fixed `demo` root, so the grammar is lowercase + dashes; the
+ * sanitizer and the store both enforce it so a hand-edited skin cannot name a
+ * path or a traversal.
+ */
+export const LIVE_WALLPAPER_ID = /^[a-z0-9][a-z0-9-]{3,63}$/;
 
 /**
  * The URL scheme (with trailing colon) the host serves skin background media
@@ -199,9 +248,37 @@ export function sanitizeSkin(input: unknown): Skin | null {
       ? (raw.background as Record<string, unknown>)
       : {};
   const kind: SkinBackgroundKind =
-    rawBg.kind === "image" || rawBg.kind === "video" ? rawBg.kind : "none";
+    rawBg.kind === "image" ||
+    rawBg.kind === "video" ||
+    rawBg.kind === "scene" ||
+    rawBg.kind === "web"
+      ? rawBg.kind
+      : "none";
   const background: SkinBackground = { kind };
-  if (kind !== "none") {
+  if (kind === "scene" || kind === "web") {
+    // A live wallpaper is a stored project directory, not a single asset. An
+    // unknown id is dropped to `none` for the same reason a dangling assetId is:
+    // a partially copied skin keeps its colours instead of painting nothing.
+    const projectId = typeof rawBg.projectId === "string" ? rawBg.projectId.trim() : "";
+    if (!LIVE_WALLPAPER_ID.test(projectId)) {
+      background.kind = "none";
+    } else {
+      background.projectId = projectId;
+      if (typeof rawBg.projectTitle === "string") {
+        background.projectTitle = rawBg.projectTitle.trim().slice(0, 80);
+      }
+      // A bare file name, never a path: the protocol joins it onto the project
+      // root and rejects traversal, so this only has to stay a plain name.
+      if (typeof rawBg.preview === "string" && /^[\w.-]{1,64}$/.test(rawBg.preview)) {
+        background.preview = rawBg.preview;
+      }
+      background.opacity = clamp(rawBg.opacity, SKIN_BG_LIMITS.opacity.min, SKIN_BG_LIMITS.opacity.max, SKIN_BG_LIMITS.opacity.default);
+      background.blur = clamp(rawBg.blur, SKIN_BG_LIMITS.blur.min, SKIN_BG_LIMITS.blur.max, SKIN_BG_LIMITS.blur.default);
+      background.scrim = clamp(rawBg.scrim, SKIN_BG_LIMITS.scrim.min, SKIN_BG_LIMITS.scrim.max, SKIN_BG_LIMITS.scrim.default);
+      background.sidebarTint = clamp(rawBg.sidebarTint, SKIN_BG_LIMITS.sidebarTint.min, SKIN_BG_LIMITS.sidebarTint.max, SKIN_BG_LIMITS.sidebarTint.default);
+    }
+  }
+  if (kind !== "none" && background.kind !== "none" && kind !== "scene" && kind !== "web") {
     const assetId = typeof rawBg.assetId === "string" ? rawBg.assetId.trim() : "";
     // A media skin with no stored asset is downgraded to none rather than
     // rejected, so a partially-copied skin still applies its colours.
@@ -258,7 +335,9 @@ export type SkinImportAssetResult = {
   bytes: number;
 };
 
-export function skinMediaKindForExtension(ext: string): SkinBackgroundKind {
+export function skinMediaKindForExtension(
+  ext: string,
+): "image" | "video" | "none" {
   const clean = ext.replace(/^\./, "").toLowerCase();
   if ((SKIN_IMAGE_EXTENSIONS as readonly string[]).includes(clean)) return "image";
   if ((SKIN_VIDEO_EXTENSIONS as readonly string[]).includes(clean)) return "video";
@@ -268,32 +347,84 @@ export function skinMediaKindForExtension(ext: string): SkinBackgroundKind {
 /**
  * The shipped preset skins. Colours are literal so the presets are self-contained;
  * `none` is the reserved "follow the theme" identity and carries no overrides.
- * The 千凝 preset mirrors the fox appearance so the skin center and the theme
- * picker agree on that palette.
+ * The ids are stable API: `paper` is the phone shell's default and the others are
+ * referenced by name in tests, so a palette may be re-tuned but an id may not be
+ * renamed without a migration.
  */
 export const BUILTIN_SKINS: readonly Skin[] = [
   { id: NO_SKIN_ID, name: "跟随主题", base: "dark", tokens: {}, background: { kind: "none" }, builtin: true },
   {
-    id: "qianning",
-    name: "千凝",
-    base: "fox",
-    tokens: { accent: "#5b8def", bg: "#0a1024", panel: "#111a33", fg: "#eef3fd", focus: "#3cc0ea" },
+    id: "midnight",
+    name: "极夜",
+    base: "dark",
+    tokens: {
+      accent: "#7c6cf5",
+      accentHover: "#8f81ff",
+      bg: "#0a0b10",
+      panel: "#14161f",
+      fg: "#edeef6",
+      focus: "#a396ff",
+    },
+    background: { kind: "none" },
+    builtin: true,
+  },
+  {
+    id: "abyss",
+    name: "深渊",
+    base: "dark",
+    tokens: {
+      accent: "#1fc8e3",
+      accentHover: "#3ad7ef",
+      bg: "#05131a",
+      panel: "#0b1e29",
+      fg: "#e4f3f8",
+      focus: "#58e2f7",
+    },
     background: { kind: "none" },
     builtin: true,
   },
   {
     id: "amber",
-    name: "暖橙",
+    name: "琥珀",
     base: "dark",
-    tokens: { accent: "#e8873c", accentHover: "#ff9d55", bg: "#1a1614", panel: "#241d18", fg: "#f2e8df", focus: "#ffb066" },
+    tokens: {
+      accent: "#f0913f",
+      accentHover: "#ffa85c",
+      bg: "#17110b",
+      panel: "#22190f",
+      fg: "#f6ece0",
+      focus: "#ffbd7d",
+    },
     background: { kind: "none" },
     builtin: true,
   },
   {
     id: "forest",
-    name: "森绿",
+    name: "松林",
     base: "dark",
-    tokens: { accent: "#40c977", accentHover: "#5bd98c", bg: "#0f1712", panel: "#16211a", fg: "#e6f2ea", focus: "#5bd98c" },
+    tokens: {
+      accent: "#3ecf8e",
+      accentHover: "#55e0a0",
+      bg: "#07130e",
+      panel: "#0d1f16",
+      fg: "#e6f4ec",
+      focus: "#74ecb4",
+    },
+    background: { kind: "none" },
+    builtin: true,
+  },
+  {
+    id: "blossom",
+    name: "绯樱",
+    base: "dark",
+    tokens: {
+      accent: "#f472b6",
+      accentHover: "#ff8cc6",
+      bg: "#160f14",
+      panel: "#241721",
+      fg: "#fbeaf2",
+      focus: "#ffa8d5",
+    },
     background: { kind: "none" },
     builtin: true,
   },
@@ -301,7 +432,14 @@ export const BUILTIN_SKINS: readonly Skin[] = [
     id: "paper",
     name: "米纸",
     base: "light",
-    tokens: { accent: "#c2603a", accentHover: "#d6704a", bg: "#f7f2ea", panel: "#efe7db", fg: "#2c2620", focus: "#c2603a" },
+    tokens: {
+      accent: "#b4532a",
+      accentHover: "#c96442",
+      bg: "#f6f1e7",
+      panel: "#fffdf8",
+      fg: "#221d18",
+      focus: "#b4532a",
+    },
     background: { kind: "none" },
     builtin: true,
   },
@@ -318,8 +456,38 @@ export function builtinSkinById(id: string): Skin | undefined {
  * host writes and reads this; both sides re-validate through {@link sanitizeSkin}
  * so a hand-edited or hostile bundle cannot smuggle anything past the allowlist.
  */
+/** Rotation bounds: fast enough to feel alive, slow enough to be a wallpaper. */
+export const SKIN_ROTATION_MIN_MINUTES = 5;
+export const SKIN_ROTATION_MAX_MINUTES = 24 * 60;
+
+/** Automatic skin rotation (see `AppSettings.skinRotation`). */
+export type SkinRotationSettings = {
+  enabled: boolean;
+  minutes: number;
+};
+
+/**
+ * Validate a persisted rotation. A value outside the bounds is clamped rather
+ * than dropped: the user asked for rotation and a stale interval is not a
+ * reason to switch the feature off silently.
+ */
+export function sanitizeSkinRotation(input: unknown): SkinRotationSettings | null {
+  if (!input || typeof input !== "object") return null;
+  const raw = input as Record<string, unknown>;
+  const minutes = Number(raw.minutes);
+  if (!Number.isFinite(minutes)) return null;
+  return {
+    enabled: raw.enabled === true,
+    minutes: Math.min(
+      SKIN_ROTATION_MAX_MINUTES,
+      Math.max(SKIN_ROTATION_MIN_MINUTES, Math.round(minutes)),
+    ),
+  };
+}
+
+
 export const QNSKIN_MAGIC = "qnskin";
-export const QNSKIN_VERSION = 1;
+export const QNSKIN_VERSION = 2;
 
 export type QnskinBundle = {
   magic: typeof QNSKIN_MAGIC;
@@ -330,6 +498,16 @@ export type QnskinBundle = {
     ext: string;
     /** base64-encoded media bytes. */
     data: string;
+  };
+  /**
+   * Present only when the skin carries a live wallpaper. The project's own files
+   * travel with the bundle, base64-encoded, so a shared skin still has a scene
+   * to mount on a machine that never saw the original folder.
+   */
+  wallpaper?: {
+    /** The exporting installation's id; the importer assigns its own. */
+    projectId: string;
+    files: { path: string; data: string }[];
   };
 };
 
@@ -344,7 +522,21 @@ export function sanitizeQnskinBundle(input: unknown): QnskinBundle | null {
   const bundle: QnskinBundle = { magic: QNSKIN_MAGIC, version: QNSKIN_VERSION, skin };
   const rawAsset =
     raw.asset && typeof raw.asset === "object" ? (raw.asset as Record<string, unknown>) : null;
-  if (skin.background.kind !== "none" && rawAsset) {
+  const live = skin.background.kind === "scene" || skin.background.kind === "web";
+  const rawWallpaper =
+    raw.wallpaper && typeof raw.wallpaper === "object"
+      ? (raw.wallpaper as Record<string, unknown>)
+      : null;
+  if (live) {
+    const files = sanitizeWallpaperFiles(rawWallpaper?.files);
+    if (files) {
+      bundle.wallpaper = { projectId: skin.background.projectId ?? "", files };
+    } else {
+      // A live skin whose project did not travel degrades to its colours, the
+      // same way a missing image asset does — it never renders an empty frame.
+      bundle.skin = { ...skin, background: { kind: "none" } };
+    }
+  } else if (skin.background.kind !== "none" && rawAsset) {
     const ext = typeof rawAsset.ext === "string" ? rawAsset.ext.replace(/^\./, "").toLowerCase() : "";
     const data = typeof rawAsset.data === "string" ? rawAsset.data : "";
     if (ext && data && skinMediaKindForExtension(ext) === skin.background.kind) {
@@ -357,4 +549,36 @@ export function sanitizeQnskinBundle(input: unknown): QnskinBundle | null {
     bundle.skin = { ...skin, background: { kind: "none" } };
   }
   return bundle;
+}
+
+/** Bundle caps: a skin should travel as a skin, not as somebody's library. */
+const QNSKIN_MAX_FILES = 4096;
+const QNSKIN_MAX_BYTES = 256 * 1024 * 1024;
+
+/**
+ * Validate the file list a live-wallpaper bundle carries. Every path must stay
+ * relative and inside the project root; the byte cap keeps a malicious bundle
+ * from expanding into memory before the host ever writes a file.
+ */
+export function sanitizeWallpaperFiles(
+  input: unknown,
+): { path: string; data: string }[] | null {
+  if (!Array.isArray(input) || input.length === 0) return null;
+  if (input.length > QNSKIN_MAX_FILES) return null;
+  const files: { path: string; data: string }[] = [];
+  let bytes = 0;
+  for (const entry of input) {
+    if (!entry || typeof entry !== "object") return null;
+    const raw = entry as Record<string, unknown>;
+    const path = typeof raw.path === "string" ? raw.path : "";
+    const data = typeof raw.data === "string" ? raw.data : "";
+    if (!path || !data || path.length > 240) return null;
+    if (path.includes("\\") || path.startsWith("/") || /^[a-zA-Z]:/.test(path)) return null;
+    const parts = path.split("/");
+    if (parts.some((part) => !part || part === "." || part === "..")) return null;
+    bytes += Math.floor((data.length * 3) / 4);
+    if (bytes > QNSKIN_MAX_BYTES) return null;
+    files.push({ path, data });
+  }
+  return files;
 }

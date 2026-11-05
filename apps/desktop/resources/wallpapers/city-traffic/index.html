@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <title>夜城车流</title>
+    <style>
+      /*
+       * A photograph that keeps moving without a single script.
+       *
+       * `webwallgl` mounts web projects with `scripts: false`, so any animation
+       * here has to be CSS on a composited layer: the photo is one transform,
+       * the vignette is a static gradient. That keeps the frame advancing on the
+       * GPU while the wallpaper never runs code from a third party.
+       */
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #1a1a22;
+      }
+
+      .scene {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        overflow: hidden;
+      }
+
+      .photo {
+        position: absolute;
+        top: -5%;
+        left: -5%;
+        width: 110%;
+        height: 110%;
+        background: url("assets/bg.jpg") center / cover no-repeat;
+        animation: drift 64s ease-in-out infinite alternate;
+        will-change: transform;
+      }
+
+      /* A second, slower pass in the opposite direction keeps the motion from
+         reading as a single mechanical zoom. */
+      .photo::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        background: inherit;
+        opacity: 0.28;
+        mix-blend-mode: screen;
+        animation: shimmer 96s ease-in-out infinite alternate;
+      }
+
+      @keyframes drift {
+        from { transform: scale(1.02) translate3d(-1.4%, 0.8%, 0); }
+        to   { transform: scale(1.10) translate3d(1.6%, -1.2%, 0); }
+      }
+
+      @keyframes shimmer {
+        from { transform: translate3d(2%, -1.5%, 0) scale(1.04); }
+        to   { transform: translate3d(-2.5%, 1.5%, 0) scale(1.08); }
+      }
+
+      .veil {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        background: radial-gradient(125% 95% at 50% 42%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.46) 100%);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="scene">
+      <div class="photo"></div>
+      <div class="veil"></div>
+    </div>
+  </body>
+</html>

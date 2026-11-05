@@ -1,0 +1,10 @@
+{
+  "type": "web",
+  "title": "湖光山色",
+  "file": "index.html",
+  "accent": "#2b3a44",
+  "general": {
+    "properties": {}
+  },
+  "preview": "preview.jpg"
+}

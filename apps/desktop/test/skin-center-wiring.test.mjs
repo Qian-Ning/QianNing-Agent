@@ -11,10 +11,15 @@ const runtime = await read("../src/features/app/useAppShellRuntime.tsx");
 const skinEngine = await read("../src/lib/skin-engine.ts");
 const skinPage = await read("../src/pages/SkinCenterPage.tsx");
 const skinEditor = await read("../src/features/skins/SkinEditorDialog.tsx");
+const skinModel = await read("../src/features/skins/model.ts");
+const skinLibrary = await read("../src/features/skins/useSkinLibrary.ts");
+const skinWriter = await read("../src/features/skins/skin-settings-writer.ts");
 const api = await read("../src/lib/api.ts");
 const protocol = await read("../../../packages/shared/src/protocol.ts");
 const assetProtocol = await read("../electron/main/skin-asset-protocol.ts");
-const skinIpc = await read("../electron/main/ipc/skin-ipc.ts");
+const skinIpc =
+  (await read("../electron/main/ipc/skin-ipc.ts")) +
+  (await read("../electron/main/ipc/skin-wallpaper-ipc.ts"));
 const register = await read("../electron/main/ipc/register.ts");
 const startup = await read("../electron/main/bootstrap/startup.ts");
 const settingsType = await read("../../../packages/shared/src/types/settings.ts");
@@ -38,10 +43,16 @@ test("the skin center has its own dedicated sidebar entry, distinct from setting
 });
 
 test("applying a skin persists activeSkinId through settings, not a theme change", () => {
-  // The page writes activeSkinId via setSettings and never touches themePreference.
-  assert.match(skinPage, /activeSkinId/);
-  assert.match(skinPage, /api\.setSettings/);
-  assert.doesNotMatch(skinPage, /themePreference/);
+  // The library writes activeSkinId via setSettings and never touches themePreference.
+  // (The page itself is layout only since the skin center was rebuilt; persistence
+  // moved to useSkinLibrary so writes could be serialized.)
+  assert.match(skinLibrary, /activeSkinId/);
+  // The write itself lives in the shared writer (one queue for library,
+  // import, and rotation), so the library only names the patch.
+  assert.match(skinLibrary, /writeSkinSettings/);
+  assert.match(skinWriter, /api\.setSettings/);
+  assert.doesNotMatch(skinLibrary, /themePreference/);
+  assert.match(skinPage, /useSkinLibrary/);
   // The runtime applies the active skin on settings change.
   assert.match(runtime, /applySkin/);
   assert.match(runtime, /resolveSkin/);
@@ -119,7 +130,8 @@ test("the DIY editor has no base-theme picker (a skin is not a theme)", () => {
   // colour instead.
   assert.doesNotMatch(skinEditor, /skin-editor-base-opt/);
   assert.doesNotMatch(skinEditor, /setBase\(/);
-  assert.match(skinEditor, /deriveSkinBase/);
+  // The derivation now lives in the model the editor reads.
+  assert.match(skinModel, /deriveSkinBase/);
   assert.match(skinsShared, /export function deriveSkinBase/);
   // The sidebar-backing slider is still present and backed by the shared limit.
   assert.match(skinEditor, /sidebarTint/);
@@ -162,16 +174,16 @@ test("the skin IPC surface is registered and whitelisted", () => {
 test("import/export re-validate through the shared sanitizer (never trust a file)", () => {
   assert.match(skinIpc, /sanitizeSkin/);
   assert.match(skinIpc, /sanitizeQnskinBundle/);
-  // The DIY editor sanitizes before handing a skin up.
-  assert.match(skinEditor, /sanitizeSkin/);
+  // The draft-to-skin step sanitizes before a skin is handed up.
+  assert.match(skinModel, /sanitizeSkin/);
 });
 
 test("the DIY editor exposes only allowlisted colour tokens", () => {
   // The editor edits a fixed allowlisted set; assert the keys and the exported
   // constant are present in source (the file is TSX, not importable here).
-  assert.match(skinEditor, /EDITOR_TOKEN_KEYS/);
+  assert.match(skinModel, /EDITOR_TOKEN_KEYS/);
   for (const key of ["accent", "bg", "panel", "fg", "focus"]) {
-    assert.match(skinEditor, new RegExp(`key: "${key}"`), `editor must expose ${key}`);
+    assert.match(skinModel, new RegExp(`key: "${key}"`), `editor must expose ${key}`);
   }
   // It must not offer a raw CSS or free-text style field.
   assert.doesNotMatch(skinEditor, /customCss|rawCss|styleSheet/i);
@@ -191,7 +203,8 @@ test("skin styling is wired and the skins i18n namespace exists in en and zh-CN"
 test("the skin center page components exist on disk", async () => {
   for (const rel of [
     "../src/pages/SkinCenterPage.tsx",
-    "../src/features/skins/SkinCard.tsx",
+    "../src/features/skins/SkinTile.tsx",
+    "../src/features/skins/SkinPreview.tsx",
     "../src/features/skins/SkinEditorDialog.tsx",
     "../src/lib/skin-engine.ts",
     "../src/styles/skins.css",
@@ -201,4 +214,29 @@ test("the skin center page components exist on disk", async () => {
   ]) {
     await assert.doesNotReject(access(new URL(rel, import.meta.url)), `${rel} must exist`);
   }
+});
+
+test("a wallpaper can be dropped onto the skin center", () => {
+  assert.match(skinPage, /onDragOver=/);
+  assert.match(skinPage, /onDrop=/);
+  // Electron 32 removed `File.path`; the preload resolves the real path through
+  // webUtils, so the drop must go through that bridge and not a property read.
+  assert.match(skinPage, /api\.getDroppedFilePath\(file\)/);
+  assert.match(skinPage, /importWallpaper\("path", path\)/);
+  assert.match(skinPage, /skins\.dropHint/);
+});
+
+test("rotation explains why it is unavailable below two wallpapers", () => {
+  assert.match(skinPage, /rotatePool < 2/);
+  assert.match(skinPage, /disabled=\{rotatePool < 2\}/);
+  assert.match(skinPage, /skins\.rotateNeedsTwo/);
+});
+
+test("every skin with a background can swap it, from the right source", () => {
+  assert.match(skinPage, /onChangeWallpaper: hasWallpaper\(skin\)/);
+  // A project and a photo are different pickers: the first copies a folder, the
+  // second stores one file, and their ownership rules differ.
+  assert.match(skinPage, /kind === "image" \|\| skin\.background\.kind === "video"/);
+  assert.match(skinPage, /library\.changeMediaWallpaper\(skin\)/);
+  assert.match(skinPage, /library\.changeWallpaper\(skin\)/);
 });

@@ -36,12 +36,12 @@ test("theme is a searchable picker row, not a card grid", () => {
   assert.doesNotMatch(styles, /\.settings-theme-card\s*\{/);
 });
 
-test("the fox appearance is offered as a built-in picker option", () => {
-  // The shipped 千凝 theme is a built-in appearance, not a plugin theme, so the
-  // picker labels it from settings.themeFox and it stays searchable by mascot.
-  assert.match(rowSource, /id === "fox"/);
-  assert.match(rowSource, /settings\.themeFox/);
-  assert.match(rowSource, /settings\.themeFoxHint/);
+test("the retired 千凝 appearance is no longer offered", () => {
+  // It was removed from BUILTIN_THEME_PREFERENCES, so the picker must not carry
+  // a hard-coded branch for it any more. A stored `fox` row still resolves to
+  // dark (theme.test.ts), which is why the runtime keeps the classification.
+  assert.doesNotMatch(rowSource, /id === "fox"/);
+  assert.doesNotMatch(rowSource, /settings\.themeFox/);
 });
 
 test("plugin themes join the same searchable list after the built-ins", () => {

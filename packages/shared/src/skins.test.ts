@@ -9,6 +9,7 @@ import {
   isSkinColor,
   sanitizeQnskinBundle,
   sanitizeSkin,
+  sanitizeSkinRotation,
   skinBaseScheme,
   deriveSkinBase,
   skinCssVariables,
@@ -19,7 +20,16 @@ describe("skins", () => {
   it("ships the reserved no-skin identity plus the named presets", () => {
     expect(builtinSkinById(NO_SKIN_ID)?.tokens).toEqual({});
     expect(BUILTIN_SKINS.every((skin) => skin.builtin)).toBe(true);
-    expect(BUILTIN_SKINS.map((skin) => skin.id)).toContain("qianning");
+    // Presets are a designed set, not a colour-swapped placeholder list: every
+    // one of them must carry a full palette and an accent distinct from its base.
+    const presets = BUILTIN_SKINS.filter((skin) => skin.id !== NO_SKIN_ID);
+    expect(presets.length).toBeGreaterThanOrEqual(4);
+    for (const preset of presets) {
+      expect(preset.tokens.accent).toBeTruthy();
+      expect(preset.tokens.bg).toBeTruthy();
+      expect(preset.tokens.fg).toBeTruthy();
+    }
+    expect(BUILTIN_SKINS.map((skin) => skin.id)).not.toContain("qianning");
   });
 
   it("resolves fox and light bases to their color scheme", () => {
@@ -106,6 +116,33 @@ describe("skins", () => {
       background: { kind: "video" },
     })!;
     expect(skin.background.kind).toBe("none");
+  });
+
+  it("keeps a live wallpaper whose project id is well-formed", () => {
+    const skin = sanitizeSkin({
+      id: "diy-live",
+      name: "Aurora",
+      base: "dark",
+      tokens: {},
+      background: { kind: "scene", projectId: "a1b2c3d4e5f6a7b8", projectTitle: "Test", scrim: 0.3 },
+    })!;
+    expect(skin.background.kind).toBe("scene");
+    expect(skin.background.projectId).toBe("a1b2c3d4e5f6a7b8");
+    expect(skin.background.projectTitle).toBe("Test");
+    expect(skin.background.scrim).toBeCloseTo(0.3);
+  });
+
+  it("drops a live wallpaper whose project id could name a path", () => {
+    for (const projectId of ["../etc", "C:/x", "a", "A1B2C3D4", "a/b"]) {
+      const skin = sanitizeSkin({
+        id: "diy-live",
+        name: "Bad",
+        base: "dark",
+        tokens: {},
+        background: { kind: "web", projectId },
+      })!;
+      expect(skin.background.kind).toBe("none");
+    }
   });
 
   it("clamps background media controls into range", () => {
@@ -195,5 +232,89 @@ describe("skins", () => {
     // Declared video but the asset is an image -> collapse to colours-only.
     expect(bundle?.skin.background.kind).toBe("none");
     expect(bundle?.asset).toBeUndefined();
+  });
+});
+
+describe("live wallpapers in a .qnskin bundle", () => {
+  const liveSkin = {
+    id: "sk_live1",
+    name: "Night Scene",
+    builtin: false,
+    base: "dark" as const,
+    tokens: {},
+    background: {
+      kind: "scene" as const,
+      projectId: "0123456789abcdef",
+      projectTitle: "Night Scene",
+    },
+  };
+
+  it("carries the project files so another machine can mount the scene", () => {
+    const bundle = sanitizeQnskinBundle({
+      magic: QNSKIN_MAGIC,
+      version: QNSKIN_VERSION,
+      skin: liveSkin,
+      wallpaper: {
+        projectId: "0123456789abcdef",
+        files: [
+          { path: "project.json", data: "eyJ0eXBlIjoid2ViIn0=" },
+          { path: "textures/a.png", data: "AAAA" },
+        ],
+      },
+    });
+    expect(bundle?.wallpaper?.files).toHaveLength(2);
+    expect(bundle?.skin.background.kind).toBe("scene");
+  });
+
+  it("drops the wallpaper when the project did not travel", () => {
+    const bundle = sanitizeQnskinBundle({
+      magic: QNSKIN_MAGIC,
+      version: QNSKIN_VERSION,
+      skin: liveSkin,
+    });
+    expect(bundle?.skin.background.kind).toBe("none");
+    expect(bundle?.wallpaper).toBeUndefined();
+  });
+
+  it("refuses a traversal path and keeps only the colours", () => {
+    const bundle = sanitizeQnskinBundle({
+      magic: QNSKIN_MAGIC,
+      version: QNSKIN_VERSION,
+      skin: liveSkin,
+      wallpaper: {
+        projectId: "0123456789abcdef",
+        files: [{ path: "../../secrets.txt", data: "AAAA" }],
+      },
+    });
+    expect(bundle?.skin.background.kind).toBe("none");
+    expect(bundle?.wallpaper).toBeUndefined();
+  });
+
+  it("refuses an absolute path", () => {
+    const bundle = sanitizeQnskinBundle({
+      magic: QNSKIN_MAGIC,
+      version: QNSKIN_VERSION,
+      skin: liveSkin,
+      wallpaper: {
+        projectId: "0123456789abcdef",
+        files: [{ path: "C:/Windows/win.ini", data: "AAAA" }],
+      },
+    });
+    expect(bundle?.skin.background.kind).toBe("none");
+  });
+});
+
+describe("skin rotation settings", () => {
+  it("clamps an out-of-range interval instead of dropping the feature", () => {
+    expect(sanitizeSkinRotation({ enabled: true, minutes: 0 })?.minutes).toBe(5);
+    expect(sanitizeSkinRotation({ enabled: true, minutes: 99999 })?.minutes).toBe(1440);
+  });
+
+  it("treats a non-boolean enabled as off and rejects non-numeric minutes", () => {
+    expect(sanitizeSkinRotation({ enabled: "yes", minutes: 30 })).toEqual({
+      enabled: false,
+      minutes: 30,
+    });
+    expect(sanitizeSkinRotation({ enabled: true, minutes: "many" })).toBeNull();
   });
 });

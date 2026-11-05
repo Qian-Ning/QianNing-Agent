@@ -7,7 +7,7 @@
  * which is the classic way to ship a fix that is not in the APK.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -52,6 +52,24 @@ const bridgeBundle = join(root, "public/shared/bridge-boot.js");
 if (!existsSync(bridgeBundle)) {
   console.error("public/shared/bridge-boot.js is missing; the phone would ship without its host bridge.");
   process.exit(1);
+}
+
+/*
+  A stale shared surface packages yesterday's renderer without a word: the APK
+  installs, boots, and quietly lacks every feature merged since the last
+  `build:shared`. Compare the desktop build that feeds it against the copy that
+  ships, and refuse rather than produce a plausible-looking old bundle.
+*/
+const rendererIndex = join(root, "../../apps/desktop/out/renderer/index.html");
+if (existsSync(rendererIndex)) {
+  const desktopBuiltAt = statSync(rendererIndex).mtimeMs;
+  const sharedBuiltAt = statSync(sharedIndex).mtimeMs;
+  if (desktopBuiltAt > sharedBuiltAt + 1000) {
+    console.error(
+      "public/shared is older than apps/desktop/out/renderer; run `pnpm build:shared` before building the APK.",
+    );
+    process.exit(1);
+  }
 }
 
 run("pnpm", ["build"], root);

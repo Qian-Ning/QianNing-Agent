@@ -1,581 +1,1274 @@
 /*
-  Skin center (D635) — page, card wall, and DIY editor styling.
+  Skin center — a gallery: one stage, two rails, one editor.
 
-  Colour comes exclusively from the live `--ds-*` tokens (and the skin's own
-  `--sk-*` preview vars set inline in TSX), so the style-token guard passes and
-  every surface follows the active theme/skin. No literal hex here.
+  Structure replaced the old card wall: a single large "stage" renders the live
+  palette as a miniature app window, and the presets sit in a horizontal rail of
+  pictures instead of a grid of bordered cards with four icon buttons each.
+
+  Colour rules:
+    * chrome uses the app's own `--ds-*` tokens;
+    * everything inside a preview uses the skin's `--sk-*` properties, which
+      model.previewVariables() writes inline, so a tile cannot drift from what
+      applying it will look like.
+
+  Geometry rules: one radius scale (12/16/20), one rail gap (12), one tile width
+  (152 desktop / 132 phone). No literal line-heights — the token guard runs on
+  this file.
 */
 
-.skin-center {
+.sk-page {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-6, 1.5rem);
+  gap: 24px;
+  padding-bottom: 8px;
 }
 
-.skin-center-header {
-  align-items: flex-start;
-}
+/* --- header --- */
 
-.skin-center-title-block {
+.sk-head {
   display: flex;
-  gap: var(--space-3, 0.75rem);
-  align-items: flex-start;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sk-head-copy {
   min-width: 0;
 }
 
-.skin-center-title-icon {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  flex: 0 0 auto;
-  border-radius: var(--radius-sm);
-  background: color-mix(in oklab, var(--ds-accent) 16%, transparent);
-  color: var(--ds-accent);
-}
-
-.skin-center-title-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.skin-center-actions {
-  display: flex;
-  gap: var(--space-2, 0.5rem);
-  flex: 0 0 auto;
-}
-
-.skin-grid {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3, 0.75rem);
-}
-
-.skin-grid-heading {
-  font-size: var(--text-sm, 0.875rem);
-  font-weight: var(--font-weight-semibold);
-  color: var(--ds-text-secondary);
+.sk-head-copy .page-title {
   margin: 0;
 }
 
-.skin-empty {
-  font-size: var(--text-sm, 0.875rem);
-  color: var(--ds-text-tertiary, var(--ds-text-secondary));
-  margin: 0;
+.sk-head-copy .dest-row-meta {
+  margin: 4px 0 0;
+  line-height: var(--leading-body);
 }
 
-.skin-grid-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--space-4, 1rem);
-}
-
-/* --- card --- */
-.skin-card {
+.sk-head-actions {
   display: flex;
-  flex-direction: column;
-  border: 1px solid var(--ds-border-default);
-  border-radius: var(--radius-lg, 12px);
-  overflow: hidden;
+  flex: none;
+  gap: 8px;
+}
+
+.sk-head-actions .btn {
+  white-space: nowrap;
+}
+
+/* --- stage: the live look, drawn as the window it will paint --- */
+
+.sk-stage {
+  position: relative;
+  height: 0;
+  padding-top: 37%;
+  border-radius: var(--radius-xl);
   background: var(--ds-bg-secondary);
-  transition: border-color 120ms ease, transform 120ms ease;
+  box-shadow: 0 24px 48px -32px rgba(0, 0, 0, 0.7);
+}
+
+/* `height: auto` on purpose: the stage is a 0-height box with a padding-top
+   ratio, so a percentage height would resolve to 0 and the preview would
+   vanish. With all four offsets set, `auto` stretches to the padding box. */
+.sk-stage > .skp {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: auto;
+  padding-top: 0;
+  border-radius: var(--radius-xl);
+}
+
+.sk-stage-caption {
+  position: absolute;
+  z-index: 2;
+  left: 16px;
+  bottom: 16px;
+  display: flex;
+  max-width: 62%;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 12px;
+  border: 1px solid var(--sk-line);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--sk-fg);
+  isolation: isolate;
+}
+
+/* A translucent pane instead of a solid chip: the caption should read as a
+   label on the window, not a sticker applied over it. `color-mix()` is not
+   available on the phone WebView, so the tint is a separate layer with its
+   own opacity. */
+.sk-stage-caption::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: inherit;
+  background: var(--sk-panel);
+  opacity: 0.86;
+}
+
+.sk-stage-eyebrow {
+  font-size: var(--text-2xs, var(--text-xs));
+  color: var(--sk-fg);
+  opacity: 0.72;
+}
+
+.sk-stage-name {
+  overflow: hidden;
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-semibold, var(--font-weight-medium));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sk-stage-type {
+  font-size: var(--text-xs);
+  color: var(--sk-fg);
+  opacity: 0.6;
+}
+
+.sk-stage-tools {
+  position: absolute;
+  z-index: 2;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.sk-stage-tools .btn {
+  border: 1px solid var(--sk-line);
+  background: var(--sk-panel);
+  color: var(--sk-fg);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  /* Pointer-gated hover (design-system §8.7): a touch tap latches
-     `:hover` until the next tap, so an ungated reveal sticks. */
-.skin-card:hover {
-  border-color: var(--ds-accent);
-  transform: translateY(-1px);
-}
+  .sk-stage-tools .btn:hover {
+    background: var(--sk-panel);
+    color: var(--sk-accent);
+  }
 }
 
-.skin-card.is-active {
-  border-color: var(--ds-accent);
-  box-shadow: 0 0 0 1px var(--ds-accent);
+/* --- rails --- */
+
+.sk-rail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.skin-card-preview {
+.sk-rail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sk-rail-head h2 {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--ds-text-secondary);
+}
+
+.sk-rail-count {
+  font-size: var(--text-xs);
+  color: var(--ds-text-tertiary, var(--ds-text-secondary));
+}
+
+.sk-rail {
+  display: flex;
+  gap: 12px;
+  margin: 0 -2px;
+  padding: 4px 2px 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-padding-left: 2px;
+  scroll-snap-type: x proximity;
+}
+
+.sk-rail::-webkit-scrollbar {
+  display: none;
+}
+
+/* --- tile --- */
+
+.sk-tile {
+  display: flex;
+  width: 152px;
+  flex: 0 0 152px;
+  flex-direction: column;
+  gap: 6px;
+  scroll-snap-align: start;
+}
+
+.sk-tile-hit {
   position: relative;
-  aspect-ratio: 16 / 10;
-  border: none;
+  display: block;
+  width: 100%;
   padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
   cursor: pointer;
-  overflow: hidden;
-  background: var(--sk-bg, var(--ds-bg-primary));
 }
 
-.skin-card-media {
+.sk-tile-hit .skp {
+  border: 1px solid var(--ds-border-subtle);
+  transition: border-color var(--motion-duration-fast, 120ms) var(--motion-ease-standard, ease),
+    transform var(--motion-duration-fast, 120ms) var(--motion-ease-standard, ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sk-tile:hover .skp {
+    border-color: var(--ds-border-strong);
+  }
+}
+
+/* Selection is carried by the badge, not by a frame. An accent hairline read as
+   a black border in the light theme (accent there is near-black) and fought the
+   thumbnails for attention; a slightly stronger neutral hairline is enough. */
+.sk-tile.is-active .skp {
+  border-color: var(--ds-border-strong);
+}
+
+.sk-tile-hit:focus-visible {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: 3px;
+}
+
+.sk-tile-check {
   position: absolute;
-  inset: 0;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  width: 15px;
+  height: 15px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--ds-bg-primary);
+  border-radius: var(--radius-round);
+  background: var(--ds-accent);
+  color: var(--ds-bg-primary);
+}
+
+.sk-tile-foot {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sk-tile-name {
+  overflow: hidden;
+  flex: 1;
+  font-size: var(--text-xs);
+  color: var(--ds-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sk-tile.is-active .sk-tile-name {
+  color: var(--ds-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.sk-tile-menu-anchor {
+  display: flex;
+  flex: none;
+}
+
+.sk-tile-more {
+  display: flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-2xs);
+  background: transparent;
+  color: var(--ds-text-tertiary, var(--ds-text-secondary));
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sk-tile-more:hover {
+    background: var(--ds-tile, rgba(127, 127, 127, 0.12));
+    color: var(--ds-text-primary);
+  }
+}
+
+/* --- tile menu (portaled to body) --- */
+
+/* Portaled to <body>, so it carries its own fixed positioning: without
+   `position: fixed` the surface renders as a full-width block at the end of the
+   document (top/left do nothing on a static box). `.is-open` is added by
+   AnchoredMenu once the surface is measured. */
+.sk-tile-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  display: flex;
+  width: min(176px, calc(100vw - 24px));
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--ds-bg-elevated-opaque, var(--ds-bg-secondary));
+  box-shadow: var(--ds-shadow-dialog, 0 16px 36px -18px rgba(0, 0, 0, 0.6));
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.sk-tile-menu.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.sk-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--radius-2xs);
+  background: transparent;
+  color: var(--ds-text-primary);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sk-menu-item:hover,
+  .sk-menu-item:focus-visible {
+    background: var(--ds-tile, rgba(127, 127, 127, 0.12));
+    outline: none;
+  }
+}
+
+.sk-menu-item.is-danger {
+  color: var(--destructive, #d9534f);
+}
+
+/* --- empty state --- */
+
+.sk-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px dashed var(--ds-border-default);
+  border-radius: var(--radius-md);
+}
+
+.sk-empty-copy {
+  min-width: 0;
+}
+
+.sk-empty-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ds-text-primary);
+}
+
+.sk-empty-hint {
+  margin: 2px 0 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-body);
+  color: var(--ds-text-secondary);
+}
+
+/* --- the miniature window --- */
+
+.skp {
+  position: relative;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--sk-bg);
+  color: var(--sk-fg);
+  isolation: isolate;
+}
+
+.skp--tile {
+  height: 0;
+  padding-top: 62.5%;
+}
+
+.skp--stage,
+.skp--editor {
+  height: 100%;
+  border-radius: var(--radius-xl);
+}
+
+.skp-media {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.9;
 }
 
-/* The little fake window that shows the palette at a glance. */
-.skin-card-mini {
+.skp-scrim {
   position: absolute;
-  inset: 14% 12%;
-  display: flex;
-  border-radius: var(--radius-xs);
-  overflow: hidden;
-  box-shadow: 0 6px 18px rgb(0 0 0 / 0.28);
-  background: var(--sk-bg, var(--ds-bg-primary));
-}
-
-.skin-card-mini-side {
-  width: 26%;
-  background: color-mix(in oklab, var(--sk-panel) 88%, var(--sk-bg));
-  border-right: 1px solid color-mix(in oklab, var(--sk-fg) 12%, transparent);
-}
-
-.skin-card-mini-main {
-  flex: 1;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   background: var(--sk-bg);
 }
 
-.skin-card-mini-bar {
-  height: 6px;
-  width: 60%;
-  border-radius: var(--radius-3xs);
-  background: color-mix(in oklab, var(--sk-fg) 30%, transparent);
+.skp-veil {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--sk-veil);
 }
 
-.skin-card-mini-bubble {
-  height: 18px;
-  width: 80%;
+.skp-window {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+}
+
+.skp-rail {
+  display: flex;
+  width: 25%;
+  flex: none;
+  flex-direction: column;
+  gap: 6%;
+  padding: 7% 5%;
+  background: var(--sk-panel);
+  border-right: 1px solid var(--sk-line);
+}
+
+.skp-brand {
+  width: 26%;
+  padding-top: 26%;
+  border-radius: var(--radius-round);
+  background: var(--sk-accent);
+}
+
+.skp-nav {
+  width: 100%;
+  height: 6%;
+  min-height: 3px;
   border-radius: var(--radius-2xs);
-  background: color-mix(in oklab, var(--sk-panel) 80%, var(--sk-bg));
+  background: var(--sk-fg);
+  opacity: 0.16;
 }
 
-.skin-card-mini-accent {
-  height: 10px;
-  width: 34%;
+.skp-nav.is-active {
+  background: var(--sk-accent);
+  opacity: 0.9;
+}
+
+.skp-nav.is-short {
+  width: 62%;
+}
+
+.skp-rail-foot {
+  width: 30%;
+  padding-top: 30%;
+  margin-top: auto;
+  border-radius: var(--radius-round);
+  background: var(--sk-fg);
+  opacity: 0.14;
+}
+
+.skp-body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5%;
+  padding: 4% 5%;
+  background: var(--sk-bg);
+}
+
+.skp.has-media .skp-body {
+  background: transparent;
+}
+
+.skp-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 3%;
+  border-bottom: 1px solid var(--sk-line);
+}
+
+.skp-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.skp-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: var(--radius-round);
+  background: var(--sk-accent);
+}
+
+.skp-name {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--sk-fg);
+}
+
+.skp-status {
+  font-size: var(--text-2xs);
+  color: var(--sk-fg);
+  opacity: 0.5;
+}
+
+/* Centred, not spread and not bottom-stacked: `space-between` opened gaps three
+   times the bubble height in the short stage, and flex-end left a dead band
+   under the header. */
+.skp-chat {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 7px;
+  min-height: 0;
+  justify-content: center;
+}
+
+.skp-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.skp-row.is-me {
+  justify-content: flex-end;
+}
+
+.skp-avatar {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: var(--radius-round);
+  background: var(--sk-accent-weak);
+  border: 1px solid var(--sk-line);
+}
+
+.skp-bubble {
+  max-width: 74%;
+  padding: 5px 8px;
+  border: 1px solid var(--sk-line);
+  border-radius: var(--radius-sm);
+  background: var(--sk-panel);
+  color: var(--sk-fg);
+}
+
+.skp-bubble.is-accent {
+  background: var(--sk-accent);
+  border-color: var(--sk-accent);
+  color: var(--sk-bg);
+}
+
+.skp-text {
+  display: block;
+  overflow: hidden;
+  font-size: var(--text-2xs);
+  line-height: var(--leading-body);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skp-composer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 7px;
+  border: 1px solid var(--sk-line);
+  border-radius: var(--radius-sm);
+  background: var(--sk-panel);
+}
+
+.skp-placeholder {
+  overflow: hidden;
+  flex: 1;
+  font-size: var(--text-2xs);
+  color: var(--sk-fg);
+  opacity: 0.55;
+  white-space: nowrap;
+}
+
+.skp-send {
+  width: 18px;
+  height: 11px;
+  flex: none;
   border-radius: var(--radius-2xs);
   background: var(--sk-accent);
 }
 
-.skin-card-check {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-round);
-  color: var(--ds-accent-contrast, var(--ds-bg-primary));
-  background: var(--ds-accent);
-}
+/* dense (tile) geometry: bars instead of type */
 
-.skin-card-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2, 0.5rem);
-  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
-}
-
-.skin-card-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.skin-card-name {
-  font-size: var(--text-sm, 0.875rem);
-  font-weight: var(--font-weight-medium);
-  color: var(--ds-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.skin-card-type {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--text-xs, 0.75rem);
-  color: var(--ds-text-secondary);
-}
-
-.skin-card-tools {
-  display: flex;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.skin-card-tool {
-  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border: none;
+.skp-bar {
+  display: block;
+  height: 4px;
   border-radius: var(--radius-2xs);
-  background: transparent;
-  color: var(--ds-text-secondary);
-  cursor: pointer;
+  background: currentColor;
+  opacity: 0.35;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  /* Pointer-gated hover (design-system §8.7): a touch tap latches
-     `:hover` until the next tap, so an ungated reveal sticks. */
-.skin-card-tool:hover {
-  background: color-mix(in oklab, var(--ds-text-primary) 10%, transparent);
-  color: var(--ds-text-primary);
-}
+.skp-bar.is-name {
+  width: 46px;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  /* Pointer-gated hover (design-system §8.7): a touch tap latches
-     `:hover` until the next tap, so an ungated reveal sticks. */
-.skin-card-tool.is-danger:hover {
-  color: var(--ds-danger, var(--ds-text-primary));
-}
+.skp-bar.is-status {
+  width: 26px;
+  opacity: 0.2;
 }
 
-/* --- editor dialog --- */
-/* The scrim uses the shared `.overlay` host (fixed, centered, scrim fill, and
-   crucially pointer-events:auto inside the pointer-events:none portal root).
-   Only the panel sizing is skin-specific. */
-.skin-editor {
-  width: min(860px, 96vw);
-  max-height: 92vh;
+.skp-bar.is-80 {
+  width: 80%;
+}
+
+.skp-bar.is-60 {
+  width: 60%;
+}
+
+.skp-bar.is-50 {
+  width: 50%;
+}
+
+.skp-bar.is-40 {
+  width: 40%;
+}
+
+.skp--tile .skp-rail {
+  gap: 7%;
+  padding: 8% 6%;
+}
+
+.skp--tile .skp-brand {
+  width: 30%;
+  padding-top: 30%;
+}
+
+.skp--tile .skp-body {
+  gap: 6%;
+  padding: 6% 7%;
+}
+
+.skp--tile .skp-top {
+  padding-bottom: 4%;
+}
+
+.skp--tile .skp-avatar {
+  width: 11px;
+  height: 11px;
+}
+
+.skp--tile .skp-bubble {
+  padding: 4px 6px;
+  border-radius: var(--radius-2xs);
+}
+
+.skp--tile .skp-composer {
+  padding: 4px 6px;
+}
+
+.skp--tile .skp-send {
+  width: 12px;
+  height: 8px;
+}
+
+/* --- editor --- */
+
+.sk-editor {
   display: flex;
+  width: min(880px, calc(100vw - 48px));
+  max-height: calc(100vh - 64px);
   flex-direction: column;
-  border-radius: var(--radius-lg, 12px);
   border: 1px solid var(--ds-border-default);
-  background: var(--ds-bg-secondary);
+  border-radius: var(--radius-xl);
+  background: var(--ds-bg-elevated-opaque, var(--ds-bg-secondary));
   overflow: hidden;
 }
 
-.skin-editor-head {
+.sk-editor-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-4, 1rem);
+  gap: 12px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--ds-border-subtle);
 }
 
-.skin-editor-head h2 {
+.sk-editor-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sk-editor-heading-icon {
+  display: flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-2xs);
+  background: var(--ds-tile, rgba(127, 127, 127, 0.1));
+  color: var(--ds-text-secondary);
+}
+
+.sk-editor-heading h2 {
   margin: 0;
-  font-size: var(--text-base, 1rem);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-medium);
   color: var(--ds-text-primary);
 }
 
-.skin-editor-close {
-  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
-  border: none;
+.sk-editor-close {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-2xs);
   background: transparent;
   color: var(--ds-text-secondary);
   cursor: pointer;
-  padding: 4px;
-  border-radius: var(--radius-2xs);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  /* Pointer-gated hover (design-system §8.7): a touch tap latches
-     `:hover` until the next tap, so an ungated reveal sticks. */
-.skin-editor-close:hover {
-  background: color-mix(in oklab, var(--ds-text-primary) 10%, transparent);
-}
+  .sk-editor-close:hover {
+    background: var(--ds-tile, rgba(127, 127, 127, 0.12));
+    color: var(--ds-text-primary);
+  }
 }
 
-.skin-editor-body {
+.sk-editor-body {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-4, 1rem);
-  padding: var(--space-4, 1rem);
-  overflow-y: auto;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+  gap: 18px;
+  padding: 16px;
+  overflow: auto;
 }
 
-.skin-editor-controls {
+.sk-editor-preview {
+  position: sticky;
+  top: 0;
+  height: 340px;
+  align-self: start;
+  min-width: 0;
+}
+
+.sk-field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4, 1rem);
+  gap: 6px;
 }
 
-.skin-editor-field {
+.sk-field-label {
+  font-size: var(--text-xs);
+  color: var(--ds-text-secondary);
+}
+
+.sk-editor-form {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sk-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2, 0.5rem);
+  gap: 10px;
 }
 
-.skin-editor-field > span {
-  font-size: var(--text-sm, 0.875rem);
+.sk-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sk-section-head h3 {
+  margin: 0;
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   color: var(--ds-text-secondary);
 }
 
-.skin-editor-colors {
+.sk-section-reset {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sk-section-reset:hover {
+    color: var(--ds-text-primary);
+  }
+}
+
+.sk-swatches {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-2, 0.5rem);
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 8px;
 }
 
-/* While a wallpaper is attached the palette does not apply (the theme owns the
-   colours), so dim the swatches to show they are inactive until the wallpaper
-   is removed. Kept interactive so the user can still pre-set colours. */
-.skin-editor-colors[data-muted="true"] {
-  opacity: 0.5;
+.sk-swatches[data-muted="true"] {
+  opacity: 0.55;
 }
 
-.skin-editor-color {
+.sk-swatch {
   display: flex;
   align-items: center;
-  gap: var(--space-2, 0.5rem);
+  gap: 8px;
   padding: 6px 8px;
-  border-radius: var(--radius-xs);
   border: 1px solid var(--ds-border-subtle);
-  background: var(--ds-bg-primary);
+  border-radius: var(--radius-sm);
+  background: var(--ds-tile, rgba(127, 127, 127, 0.05));
+  cursor: pointer;
 }
 
-.skin-editor-color input[type="color"] {
-  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
-  width: 26px;
-  height: 26px;
-  border: none;
+.sk-swatch-chip {
+  position: relative;
+  display: block;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  overflow: hidden;
+  border: 1px solid var(--ds-border-subtle);
   border-radius: var(--radius-2xs);
+}
+
+.sk-swatch-chip input[type="color"] {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  bottom: -6px;
+  left: -6px;
+  width: calc(100% + 12px);
+  height: calc(100% + 12px);
   padding: 0;
+  border: 0;
   background: transparent;
   cursor: pointer;
 }
 
-.skin-editor-color-label {
-  flex: 1;
-  font-size: var(--text-sm, 0.875rem);
+.sk-swatch-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sk-swatch-label {
+  font-size: var(--text-sm);
   color: var(--ds-text-primary);
 }
 
-.skin-editor-color-hex {
-  font-size: var(--text-xs, 0.75rem);
-  font-variant-numeric: tabular-nums;
+.sk-swatch-hex {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--text-xs);
+  color: var(--ds-text-secondary);
+  text-transform: lowercase;
+}
+
+.sk-media {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.sk-media-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sk-media-icon {
+  display: flex;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-2xs);
+  background: var(--ds-tile, rgba(127, 127, 127, 0.1));
   color: var(--ds-text-secondary);
 }
 
-.skin-editor-media {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2, 0.5rem);
-  padding: var(--space-3, 0.75rem);
-  border-radius: var(--radius-xs);
-  border: 1px solid var(--ds-border-subtle);
-  background: var(--ds-bg-primary);
-}
-
-.skin-editor-media-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2, 0.5rem);
-}
-
-.skin-editor-media-name {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--text-sm, 0.875rem);
-  color: var(--ds-text-primary);
-  min-width: 0;
+.sk-media-name {
   overflow: hidden;
+  flex: 1;
+  font-size: var(--text-sm);
+  color: var(--ds-text-primary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.skin-editor-media-remove {
-  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
-  border: none;
+.sk-media-remove {
+  display: flex;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-2xs);
   background: transparent;
   color: var(--ds-text-secondary);
   cursor: pointer;
-  padding: 4px;
-  border-radius: var(--radius-2xs);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  /* Pointer-gated hover (design-system §8.7): a touch tap latches
-     `:hover` until the next tap, so an ungated reveal sticks. */
-.skin-editor-media-remove:hover {
-  color: var(--ds-danger, var(--ds-text-primary));
-}
+  .sk-media-remove:hover {
+    color: var(--destructive, #d9534f);
+  }
 }
 
-.skin-editor-slider {
+.sk-slider {
   display: grid;
-  grid-template-columns: 64px 1fr;
+  grid-template-columns: 72px minmax(0, 1fr) 42px;
   align-items: center;
-  gap: var(--space-2, 0.5rem);
-  font-size: var(--text-xs, 0.75rem);
+  gap: 8px;
+  font-size: var(--text-xs);
   color: var(--ds-text-secondary);
 }
 
-.skin-editor-slider input[type="range"] {
+.sk-slider input[type="range"] {
   width: 100%;
   accent-color: var(--ds-accent);
 }
 
-.skin-editor-hint {
+.sk-slider-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ds-text-primary);
+}
+
+.sk-hint {
   margin: 0;
-  font-size: var(--text-xs, 0.75rem);
-  color: var(--ds-text-tertiary, var(--ds-text-secondary));
+  font-size: var(--text-xs);
+  line-height: var(--leading-body);
+  color: var(--ds-text-secondary);
 }
 
-/* live preview pane */
-.skin-editor-preview {
-  position: relative;
-  border-radius: var(--radius-lg, 12px);
-  overflow: hidden;
-  min-height: 260px;
-  border: 1px solid var(--ds-border-default);
-  background: var(--sk-bg, var(--ds-bg-primary));
-}
-
-.skin-editor-preview-media {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.skin-editor-preview-scrim {
-  position: absolute;
-  inset: 0;
-  background: var(--sk-bg, var(--ds-bg-primary));
-}
-
-/* A miniature two-column app: sidebar + chat, so the sidebar-transparency
-   slider is visible in the preview exactly as it applies to the live shell. */
-.skin-editor-preview-app {
-  position: relative;
-  display: grid;
-  grid-template-columns: 84px 1fr;
-  min-height: 260px;
-}
-
-.skin-editor-preview-side {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: var(--space-3, 0.75rem) 10px;
-  /* Opaque panel by default; over a wallpaper it drops to the tinted glass the
-     live sidebar uses, driven by the same --sk-side-tint the slider sets. */
-  background: color-mix(in oklab, var(--sk-panel) 92%, var(--sk-bg));
-  border-right: 1px solid color-mix(in oklab, var(--sk-fg) 12%, transparent);
-}
-
-.skin-editor-preview-side[data-has-bg="true"] {
-  /* Mirror the live shell: over a wallpaper the sidebar is glass-clear by default
-     (--sk-side-tint 0) and the rows carry a halo so they stay legible. */
-  background: color-mix(
-    in oklab,
-    var(--sk-panel) calc(var(--sk-side-tint, 0) * 100%),
-    transparent
-  );
-  border-right: none;
-}
-
-.skin-editor-preview-side-row {
-  height: 12px;
-  border-radius: var(--radius-2xs);
-  background: color-mix(in oklab, var(--sk-fg) 22%, transparent);
-}
-
-.skin-editor-preview-side[data-has-bg="true"] .skin-editor-preview-side-row {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
-}
-
-.skin-editor-preview-side-row.is-active {
-  background: var(--sk-accent);
-  opacity: 0.85;
-}
-
-.skin-editor-preview-ui {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3, 0.75rem);
-  padding: var(--space-4, 1rem);
-}
-
-.skin-editor-preview-topbar {
+.sk-editor-foot {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: var(--text-sm, 0.875rem);
-  font-weight: var(--font-weight-semibold);
-  color: var(--sk-fg);
-}
-
-.skin-editor-preview-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: var(--radius-round);
-  background: var(--sk-focus, var(--sk-accent));
-}
-
-.skin-editor-preview-msg {
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm, 0.875rem);
-  max-width: 85%;
-}
-
-.skin-editor-preview-msg.user {
-  align-self: flex-end;
-  background: var(--sk-accent);
-  color: var(--sk-bg);
-}
-
-.skin-editor-preview-msg.bot {
-  align-self: flex-start;
-  background: color-mix(in oklab, var(--sk-panel) 85%, var(--sk-bg));
-  color: var(--sk-fg);
-}
-
-.skin-editor-preview-cta {
-  align-self: flex-start;
-  padding: 6px 14px;
-  border-radius: var(--radius-xs);
-  font-size: var(--text-sm, 0.875rem);
-  font-weight: var(--font-weight-medium);
-  background: var(--sk-accent);
-  color: var(--sk-bg);
-}
-
-.skin-editor-foot {
-  display: flex;
   justify-content: flex-end;
-  gap: var(--space-2, 0.5rem);
-  padding: var(--space-4, 1rem);
+  gap: 8px;
+  padding: 12px 16px;
   border-top: 1px solid var(--ds-border-subtle);
 }
 
+/* --- phone --- */
+
+:root[data-surface="mobile"] .sk-page {
+  gap: 18px;
+}
+
+:root[data-surface="mobile"] .sk-head {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+:root[data-surface="mobile"] .sk-head-copy .dest-row-meta {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+:root[data-surface="mobile"] .sk-head-actions {
+  width: 100%;
+}
+
+:root[data-surface="mobile"] .sk-head-actions .btn {
+  flex: 1;
+  justify-content: center;
+}
+
+:root[data-surface="mobile"] .sk-stage {
+  padding-top: 71%;
+  border-radius: var(--radius-lg-plus, var(--radius-xl));
+}
+
+:root[data-surface="mobile"] .sk-stage .skp {
+  border-radius: var(--radius-lg-plus, var(--radius-xl));
+}
+
+:root[data-surface="mobile"] .sk-stage-caption {
+  left: 10px;
+  bottom: 10px;
+  max-width: 60%;
+  padding: 6px 10px;
+}
+
+:root[data-surface="mobile"] .sk-stage-tools {
+  right: 10px;
+  bottom: 10px;
+}
+
+/* The rail bleeds off the right edge by design. The fade says "more to the
+   right" instead of leaving a thumbnail looking accidentally clipped. */
+:root[data-surface="mobile"] .sk-rail {
+  gap: 10px;
+  margin-right: -16px;
+  padding-right: 16px;
+  -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0, rgba(0, 0, 0, 1) calc(100% - 52px), rgba(0, 0, 0, 0));
+  mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0, rgba(0, 0, 0, 1) calc(100% - 52px), rgba(0, 0, 0, 0));
+}
+
+:root[data-surface="mobile"] .sk-tile {
+  width: 132px;
+  flex-basis: 132px;
+}
+
+:root[data-surface="mobile"] .sk-empty {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* The editor is a full-screen sheet on a phone: the preview pinned at the top,
+   controls scrolling underneath, actions always reachable at the bottom. */
+:root[data-surface="mobile"] .overlay.skin-editor-overlay {
+  padding: 0;
+  align-items: stretch;
+}
+
+:root[data-surface="mobile"] .sk-editor {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  border: 0;
+  border-radius: 0;
+}
+
+:root[data-surface="mobile"] .sk-editor-head {
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+}
+
+:root[data-surface="mobile"] .sk-editor-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 14px 20px;
+  overflow-y: auto;
+}
+
+/* `align-self: start` (the desktop sticky rule) collapses the width inside the
+   phone's column flex body; the sheet needs a full-width preview. */
+:root[data-surface="mobile"] .sk-editor-preview {
+  position: static;
+  width: 100%;
+  height: 196px;
+  align-self: stretch;
+}
+
+:root[data-surface="mobile"] .sk-swatches {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+:root[data-surface="mobile"] .sk-editor-foot {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+:root[data-surface="mobile"] .sk-editor-foot .btn {
+  flex: 1;
+  justify-content: center;
+}
+
+/* --- rotation: a switch and a pace, sitting with the header actions --- */
+
+.sk-rotate {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+  padding-left: 10px;
+  border-left: 1px solid var(--ds-border-subtle);
+}
+
+.sk-rotate-interval {
+  height: 28px;
+  max-width: 108px;
+  padding: 0 6px;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--ds-bg-secondary);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-xs);
+}
+
 @media (max-width: 720px) {
-  .skin-editor-body {
-    grid-template-columns: 1fr;
+  /* The header stacks on a phone. As a row it measured 691 px inside a 390 px
+     window and the actions were clipped by the page's overflow — import, new
+     skin and export existed but could not be reached. */
+  .sk-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .sk-head-actions {
+    flex-wrap: wrap;
+  }
+
+  /* The header wraps on a phone; rotation keeps its own line instead of
+     squeezing three buttons into one row. */
+  .sk-rotate {
+    border-left: 0;
+    padding-left: 0;
+    margin-left: 0;
   }
 }
 
-/*
- * Pressed feedback (design-system §8.7): a compact control dips under the
- * finger. `transform` is already in each base rule's transition above, so the
- * release eases back instead of snapping.
- */
-.skin-card-tool:active:not(:disabled),
-.skin-editor-close:active:not(:disabled),
-.skin-editor-color input[type="color"]:active:not(:disabled),
-.skin-editor-media-remove:active:not(:disabled) {
-  transform: scale(0.97);
+.sk-rotate-label {
+  margin-right: 4px;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+/* Drop target for a dragged wallpaper archive. `pointer-events: none` keeps the
+   drop landing on the page underneath instead of on this label. */
+.sk-drop {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--ds-accent);
+  border-radius: var(--radius-lg, 16px);
+  /* No backdrop: blanking the gallery while dragging hides the very thing the
+     user is deciding about. The dashed edge marks the target; the pill carries
+     the words. */
+  background: transparent;
+  pointer-events: none;
+}
+
+.sk-drop > span {
+  padding: 10px 18px;
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--ds-bg-elevated-opaque);
+  box-shadow: var(--ds-shadow-dialog);
+  color: var(--ds-text-primary);
+  font-size: var(--text-sm);
+}
+
+/* The switch is off and stays off until a second wallpaper-carrying skin
+   exists; this line is the reason, so the disabled state is not a mystery. */
+.sk-rotate-hint {
+  margin-left: 4px;
+  color: var(--ds-text-tertiary);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+
+/* --- bundled gallery --- */
+
+.sk-preset-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sk-rail-hint {
+  font-size: var(--text-xs);
+  color: var(--ds-text-tertiary, var(--ds-text-secondary));
+}
+
+.sk-preset {
+  display: flex;
+  width: 152px;
+  flex: 0 0 152px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
+
+/* The tile is the photograph's average colour, not a thumbnail: shipping the
+   images twice would double the installer for a strip you look at once. */
+.sk-preset-art {
+  position: relative;
+  display: block;
+  height: 86px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ds-border-subtle);
+  /* A shipped still replaces the gradient inline; these keep it framed. */
+  background-size: cover;
+  background-position: center;
+  background-image: radial-gradient(
+      120% 130% at 22% 18%,
+      rgba(255, 255, 255, 0.22) 0%,
+      rgba(255, 255, 255, 0) 58%
+    ),
+    linear-gradient(150deg, var(--sk-preset-accent) 0%, #060608 100%);
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sk-preset:hover .sk-preset-art {
+    border-color: var(--ds-border-strong);
+    transform: translateY(-1px);
+  }
+}
+
+.sk-preset:focus-visible .sk-preset-art {
+  outline: 2px solid var(--ds-accent);
+  outline-offset: 2px;
+}
+
+.sk-preset-name {
+  font-size: var(--text-xs);
+  color: var(--ds-text-secondary);
 }

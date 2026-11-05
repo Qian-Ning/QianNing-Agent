@@ -103,7 +103,6 @@ test("every theme surface defines the chart series palette", async () => {
   const surfaces = [
     /:root,\s*\n:root\[data-theme="dark"\]\s*\{([\s\S]*?)\n\}/,
     /:root\[data-theme="light"\]\s*\{([\s\S]*?)\n\}/,
-    /:root\[data-appearance="fox"\]\s*\{([\s\S]*?)\n\}/,
   ];
   const names = [
     "--ds-chart-input",

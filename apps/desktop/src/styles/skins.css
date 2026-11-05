@@ -23,12 +23,32 @@
 }
 
 .qn-skin-background > video,
-.qn-skin-background > .qn-skin-background-image {
+.qn-skin-background > .qn-skin-background-image,
+.qn-skin-background > .qn-live-wallpaper {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* A live wallpaper renders into a canvas (scene/web) or an iframe (web page).
+   Both must fill the layer; the layer itself stays pointer-transparent so the
+   wallpaper never steals a click from the interface. */
+.qn-skin-background > .qn-live-wallpaper {
+  opacity: var(--qn-live-opacity, 1);
+  filter: blur(var(--qn-live-blur, 0px));
+}
+
+.qn-live-wallpaper > canvas,
+.qn-live-wallpaper > iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
 }
 
 .qn-skin-background-image {
@@ -63,6 +83,16 @@
   what replaces the old sidebar tint: it keeps text and icons legible directly
   over the photo, so the sidebar itself can be glass-clear with no seam.
 */
+/*
+  The canvas itself must go clear. `html` carries the theme surface colour, and
+  a negative-z background layer paints *below* that canvas — leaving it opaque
+  is what made a live wallpaper invisible while every panel above it was
+  already transparent.
+*/
+:root[data-skin-bg] {
+  background-color: transparent;
+}
+
 :root[data-skin-bg] body,
 :root[data-skin-bg] #root,
 :root[data-skin-bg] .app-shell {
@@ -92,21 +122,102 @@
 }
 
 /*
-  The left sidebar (and the collapsed rail) is now GLASS-CLEAR over a wallpaper:
-  fully transparent by default (user: 左侧尽量透明不要形成遮挡 / 搞成透明), so the
-  photo flows through it exactly as it does through the main pane — no veil, no
-  blur, no seam. The optional per-skin --qn-skin-sidebar-tint (default 0) can add
-  a faint wash back if a busy wallpaper needs one, but it is off by default.
-  Legibility comes from the halo on the text, not from dimming the wallpaper.
+  The left sidebar and the collapsed rail are the thickest glass in the shell:
+  the wallpaper still flows through them, but blurred, so navigation text keeps
+  its footing over a busy scene. The per-skin --qn-skin-sidebar-tint can thicken
+  the wash; it cannot go below the theme's readable floor (see the glass block
+  below), because a skin that looks pretty with unreadable labels is a bug.
 */
+/*
+  Liquid glass. Over a wallpaper the chrome is not a photo viewer: it is a
+  sheet of frosted glass laid on the photo. A backdrop blur separates text from
+  the scene underneath without hiding it, and the veil alpha is tied to the
+  theme — a dark theme only needs a thin wash, a light theme needs a thicker
+  one because dark text on a dark wallpaper has nothing to sit on.
+*/
+:root[data-skin-bg][data-theme="dark"] {
+  --qn-glass-veil: 0.34;
+  --qn-glass-blur: 18px;
+}
+
+:root[data-skin-bg][data-theme="light"] {
+  --qn-glass-veil: 0.52;
+  --qn-glass-blur: 18px;
+}
+
 :root[data-skin-bg] .sidebar-surface,
 :root[data-skin-bg] .sidebar-rail {
+  /* A per-skin tint can thicken the glass, never thin it below the readable
+     floor — the veil is the contrast guarantee, not a decoration. */
   background-color: color-mix(
     in oklab,
-    var(--ds-bg-sidebar) calc(var(--qn-skin-sidebar-tint, 0) * 100%),
+    var(--ds-bg-sidebar)
+      calc(max(var(--qn-skin-sidebar-tint, 0), var(--qn-glass-veil, 0.34)) * 100%),
     transparent
   );
   background-image: none;
+  backdrop-filter: blur(var(--qn-glass-blur, 22px)) saturate(1.45);
+  -webkit-backdrop-filter: blur(var(--qn-glass-blur, 22px)) saturate(1.45);
+  box-shadow:
+    inset 0 1px 0 var(--ds-border-strong),
+    inset -1px 0 0 var(--ds-border-subtle),
+    inset 0 -1px 0 var(--ds-border-subtle);
+}
+
+/*
+  A light theme loses the crutch a dark one has: its secondary ink (a 36% grey)
+  is chosen to sit on a white page, and 0.72 frosted glass over a night scene is
+  still a mid grey. Over a wallpaper the light theme's muted labels borrow the
+  primary ink instead — same hierarchy, measured contrast.
+*/
+:root[data-skin-bg][data-theme="light"] .sidebar-surface .sidebar-list-label,
+:root[data-skin-bg][data-theme="light"] .sidebar-surface .sidebar-session-empty,
+:root[data-skin-bg][data-theme="light"] .sidebar-rail .sidebar-list-label {
+  color: var(--ds-text-primary);
+}
+
+/* The conversation top bar floats over the scene with controls on it; a half
+   -strength glass strip keeps those icons anchored without drawing a seam. */
+:root[data-skin-bg] .conversation-topbar {
+  background: color-mix(
+    in oklab,
+    var(--ds-bg-primary) calc(var(--qn-glass-veil, 0.34) * 0.55 * 100%),
+    transparent
+  );
+  backdrop-filter: blur(calc(var(--qn-glass-blur, 22px) * 0.5));
+  -webkit-backdrop-filter: blur(calc(var(--qn-glass-blur, 22px) * 0.5));
+}
+
+/* The composer is the one surface the eye sits on for minutes at a time. */
+:root[data-skin-bg] .composer-shell {
+  background: color-mix(
+    in oklab,
+    var(--ds-bg-composer) calc((var(--qn-glass-veil, 0.34) + 0.28) * 100%),
+    transparent
+  );
+  backdrop-filter: blur(calc(var(--qn-glass-blur, 22px) * 0.7)) saturate(1.35);
+  -webkit-backdrop-filter: blur(calc(var(--qn-glass-blur, 22px) * 0.7)) saturate(1.35);
+  border: 1px solid var(--ds-border-subtle);
+}
+
+@media (max-width: 720px) {
+  /* The phone pays for every blurred pixel with battery; a lighter blur still
+     separates text and keeps the wallpaper readable behind it. */
+  :root[data-skin-bg][data-theme="dark"],
+  :root[data-skin-bg][data-theme="light"] {
+    --qn-glass-blur: 14px;
+    --qn-glass-veil: 0.58;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-skin-bg] .sidebar-surface,
+  :root[data-skin-bg] .sidebar-rail {
+    background-color: color-mix(in oklab, var(--ds-bg-sidebar) 94%, transparent);
+  }
+  :root[data-skin-bg] .composer-shell {
+    background: color-mix(in oklab, var(--ds-bg-composer) 96%, transparent);
+  }
 }
 
 /*

@@ -10,7 +10,7 @@ import type { GlobalPermissionMode } from "./permissions.js";
 import type { PluginMarketSource } from "./plugins.js";
 import type { SpeechSettings } from "./speech.js";
 import type { ThinkingLevel } from "./models.js";
-import type { Skin } from "../skins.js";
+import type { Skin, SkinRotationSettings } from "../skins.js";
 import type { UpdatePreference } from "./platform.js";
 import type { RacpPermissionMode, RacpRole } from "../racp.js";
 
@@ -420,6 +420,13 @@ export type AppSettings = {
    */
   activeSkinId?: string;
   customSkins?: Skin[];
+  /**
+   * Automatic skin rotation. When enabled, the shell advances to the next
+   * custom skin that carries a background every `minutes`; skins without one
+   * are skipped, because cycling colour-only skins changes nothing visible on
+   * screen. Absent means off.
+   */
+  skinRotation?: SkinRotationSettings;
   /**
    * Monthly spend ceiling for the usage dashboard (D657). Absent, or a null
    * `monthlyUsd`, means no ceiling is set and the dashboard shows no alert.

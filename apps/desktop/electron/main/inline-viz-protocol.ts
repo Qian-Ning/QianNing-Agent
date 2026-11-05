@@ -19,6 +19,7 @@
 import { readFile, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { protocol } from "electron";
+import { queuePrivilegedScheme } from "./protocol-schemes";
 import {
   INLINE_VIZ_SCHEME,
   inlineVizMimeType,
@@ -38,8 +39,7 @@ function notFound(): Response {
  * reading as mixed content; the fetch/CORS pair lets the iframe load it.
  */
 export function registerInlineVizScheme(): void {
-  protocol.registerSchemesAsPrivileged([
-    {
+  queuePrivilegedScheme({
       scheme: INLINE_VIZ_SCHEME,
       privileges: {
         standard: true,
@@ -47,8 +47,7 @@ export function registerInlineVizScheme(): void {
         supportFetchAPI: true,
         corsEnabled: true,
       },
-    },
-  ]);
+    });
 }
 
 /**

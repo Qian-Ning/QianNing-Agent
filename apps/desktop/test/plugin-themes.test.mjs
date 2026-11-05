@@ -209,7 +209,11 @@ test("declared theme assets are served over a host-owned scheme", () => {
   // that only answers for paths the loaded plugin actually declared.
   assert.match(startupSrc, /registerPluginAssetScheme\(\);/);
   assert.match(startupSrc, /installPluginAssetProtocol\(/);
-  assert.match(protocolSrc, /registerSchemesAsPrivileged/);
+  // Privileges are queued here and emitted by one startup flush: Electron
+  // replaces the whole declaration on every `registerSchemesAsPrivileged`
+  // call, so five per-module calls would privilege only the last scheme.
+  assert.match(protocolSrc, /queuePrivilegedScheme\(/);
+  assert.match(startupSrc, /flushPrivilegedSchemes\(\);/);
   assert.match(protocolSrc, /protocol\.handle\(THEME_ASSET_SCHEME/);
   assert.match(protocolSrc, /resolve\(pluginId, assetPath\)/);
   assert.match(protocolSrc, /x-content-type-options/);

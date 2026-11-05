@@ -45,19 +45,13 @@ export function ThemeRow({
   const options = useMemo<ThemeOption[]>(() => {
     const builtins: ThemeOption[] = BUILTIN_THEME_PREFERENCES.map((id) => {
       const title = t(
-        id === "light"
-          ? "settings.themeLight"
-          : id === "dark"
-            ? "settings.themeDark"
-            : id === "fox"
-              ? "settings.themeFox"
-              : "settings.themeSystem",
+        id === "light" ? "settings.themeLight" : id === "dark" ? "settings.themeDark" : "settings.themeSystem",
       );
       return {
         id,
         title,
-        hint: id === "fox" ? t("settings.themeFoxHint") : null,
-        haystack: `${title} ${id} fox qianning 千凝 狐狸`.toLowerCase(),
+        hint: null,
+        haystack: `${title} ${id}`.toLowerCase(),
         kind: "builtin",
       };
     });

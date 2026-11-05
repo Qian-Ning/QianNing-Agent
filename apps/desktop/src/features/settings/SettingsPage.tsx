@@ -335,7 +335,28 @@ export function SettingsPage() {
    * section. Desktop ignores this — its rail and panel sit side by side — but
    * without it a 390px screen squeezes the panel into a sliver.
    */
-  const [mobileView, setMobileView] = useState<"nav" | "content">("nav");
+  const [mobileView, setMobileView] = useState<"nav" | "content">(() =>
+    typeof document !== "undefined" &&
+    document.documentElement.dataset.surface === "mobile" &&
+    tab !== "general"
+      ? "content"
+      : "nav",
+  );
+  const deepLinkNonce = useRef(settingsTabNonce);
+
+  /**
+   * Tapping a destination outside the settings page (the sidebar's usage icon,
+   * a notification that points at a platform) is a request for that section, not
+   * for the directory. The phone has to open on the section the caller asked
+   * for; landing on the list and making the user tap twice reads as a no-op.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (document.documentElement.dataset.surface !== "mobile") return;
+    if (deepLinkNonce.current === settingsTabNonce) return;
+    deepLinkNonce.current = settingsTabNonce;
+    setMobileView("content");
+  }, [settingsTabNonce]);
 
   /**
    * The phone has one back gesture and it must unwind one screen at a time. The

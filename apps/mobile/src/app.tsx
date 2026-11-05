@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   clearConnection,
   loadConnection,
@@ -9,6 +9,7 @@ import {
   type HostClient,
 } from "./lib/racp";
 import { createTranslator, detectLang } from "./lib/i18n";
+import { decideBack } from "./lib/back";
 import { ConnectView } from "./views/connect";
 import { ChatView } from "./views/chat";
 import { SessionsView, type SessionSummary } from "./views/sessions";
@@ -71,6 +72,46 @@ export function App() {
 
   const lang = useMemo(() => detectLang(), []);
   const t = useMemo(() => createTranslator(lang), [lang]);
+
+  /**
+   * Android hands the back gesture to the web layer first (MainActivity asks
+   * `window.__qianningBack`). The policy lives in `decideBack`; this only maps
+   * its answer onto state. An unhandled answer at the session list sends the
+   * activity to the background instead of finishing it — a back gesture used to
+   * close the whole app from anywhere.
+   */
+  const backHandler = useRef<() => boolean>(() => false);
+  useEffect(() => {
+    backHandler.current = () => {
+      const decision = decideBack({ drawerOpen, browserOpen, modelOpen, setupOpen, screen: screen.name });
+      if (decision.handled) {
+        if ("screen" in decision) setScreen({ name: decision.screen });
+        else if (decision.close === "drawer") setDrawerOpen(false);
+        else if (decision.close === "browser") setBrowserOpen(false);
+        else if (decision.close === "model") setModelOpen(false);
+        else setSetupOpen(false);
+        return true;
+      }
+      /*
+        The embedded workspace has pages of its own — skins, connections,
+        scheduled tasks, usage. It publishes its own gesture handler; ask it
+        before letting the system take the gesture as "leave the app".
+      */
+      const surface = (
+        window as unknown as { __qianningSurfaceBack?: () => boolean }
+      ).__qianningSurfaceBack;
+      if (typeof surface === "function" && surface()) return true;
+      return false;
+    };
+  });
+
+  useEffect(() => {
+    const host = window as unknown as { __qianningBack?: () => boolean };
+    host.__qianningBack = () => backHandler.current();
+    return () => {
+      delete host.__qianningBack;
+    };
+  }, []);
 
   /**
    * The phone's own Host is built once per provider and kept, because a running

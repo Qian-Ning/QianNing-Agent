@@ -254,6 +254,19 @@ export const IPC = {
     skinDeleteAsset: "pi-desktop/skin/deleteAsset",
     skinExport: "pi-desktop/skin/export",
     skinImport: "pi-desktop/skin/import",
+    /**
+     * Live wallpapers: a project directory (a Wallpaper Engine scene or a web
+     * wallpaper) is copied into the installation data directory and served over
+     * `wallpaper://project/<id>/…`. The renderer receives an opaque id and the
+     * project's display metadata, never a path.
+     */
+    skinImportWallpaper: "pi-desktop/skin/importWallpaper",
+    skinSeedWallpaper: "pi-desktop/skin/seedWallpaper",
+    /** Bundled gallery: metadata only, no paths. */
+    skinListWallpaperPresets: "pi-desktop/skin/listWallpaperPresets",
+    /** Copy one bundled preset into the profile, exactly like a dropped file. */
+    skinInstallWallpaperPreset: "pi-desktop/skin/installWallpaperPreset",
+    skinDeleteWallpaper: "pi-desktop/skin/deleteWallpaper",
     configSyncGetState: "pi-desktop/configSync/getState",
     configSyncConfigure: "pi-desktop/configSync/configure",
     configSyncTest: "pi-desktop/configSync/test",

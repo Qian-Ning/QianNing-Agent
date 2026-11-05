@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "1.4.0",
+    "webwallgl": "^3.0.0",
     "@pi-desktop/agent-host": "workspace:*",
     "@pi-desktop/agent-runtime": "workspace:*",
     "@pi-desktop/host-runtime": "workspace:*",
@@ -108,12 +109,6 @@
       "!**/node_modules/node-addon-api/*.{c,gyp,gypi,h,js,json}",
       "!**/node_modules/node-addon-api/README.md"
     ],
-    "extraResources": [
-      {
-        "from": "../mobile/dist",
-        "to": "mobile-shell"
-      }
-    ],
     "electronLanguages": [
       "en-US",
       "zh-CN",
@@ -129,6 +124,18 @@
       "pt_BR"
     ],
     "extraResources": [
+      {
+        "from": "../mobile/dist",
+        "to": "mobile-shell"
+      },
+      {
+        "from": "resources/wallpaper-demo",
+        "to": "wallpaper-demo"
+      },
+      {
+        "from": "resources/wallpapers",
+        "to": "wallpapers"
+      },
       {
         "from": "build/icon.png",
         "to": "tray-icon.png"

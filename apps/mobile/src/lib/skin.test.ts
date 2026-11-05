@@ -11,10 +11,10 @@ describe("the phone wears the desktop's skin", () => {
     expect(root.getAttribute("data-theme")).toBe("light");
     expect(root.getAttribute("data-skin")).toBe("paper");
     // The exact colours the desktop renders for the same skin.
-    expect(root.style.getPropertyValue("--ds-bg-primary")).toBe("#f7f2ea");
-    expect(root.style.getPropertyValue("--ds-bg-secondary")).toBe("#efe7db");
-    expect(root.style.getPropertyValue("--ds-text-primary")).toBe("#2c2620");
-    expect(root.style.getPropertyValue("--ds-accent")).toBe("#c2603a");
+    expect(root.style.getPropertyValue("--ds-bg-primary")).toBe("#f6f1e7");
+    expect(root.style.getPropertyValue("--ds-bg-secondary")).toBe("#fffdf8");
+    expect(root.style.getPropertyValue("--ds-text-primary")).toBe("#221d18");
+    expect(root.style.getPropertyValue("--ds-accent")).toBe("#b4532a");
   });
 
   it("switches base scheme with the skin instead of keeping the last one", () => {

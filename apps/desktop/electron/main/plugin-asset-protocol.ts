@@ -1,4 +1,5 @@
 import { protocol } from "electron";
+import { queuePrivilegedScheme } from "./protocol-schemes";
 import { THEME_ASSET_SCHEME } from "@pi-desktop/plugin-sdk";
 
 /**
@@ -48,8 +49,7 @@ function notFound(): Response {
  * a stylesheet `url()` and a cross-origin webfont need.
  */
 export function registerPluginAssetScheme(): void {
-  protocol.registerSchemesAsPrivileged([
-    {
+  queuePrivilegedScheme({
       scheme: THEME_ASSET_SCHEME,
       privileges: {
         standard: true,
@@ -58,8 +58,7 @@ export function registerPluginAssetScheme(): void {
         corsEnabled: true,
         stream: true,
       },
-    },
-  ]);
+    });
 }
 
 /** Install the request handler. Call once, after the app is ready. */
