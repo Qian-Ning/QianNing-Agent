@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync, writeFileSync, statSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { protocol } from "electron";
+import { queuePrivilegedScheme } from "./protocol-schemes";
 
 /**
  * The host-owned scheme that serves a skin's background image or video to the
@@ -74,8 +75,7 @@ function notFound(): Response {
  * a media element can both load the bytes.
  */
 export function registerSkinAssetScheme(): void {
-  protocol.registerSchemesAsPrivileged([
-    {
+  queuePrivilegedScheme({
       scheme: SKIN_ASSET_SCHEME,
       privileges: {
         standard: true,
@@ -84,8 +84,7 @@ export function registerSkinAssetScheme(): void {
         corsEnabled: true,
         stream: true,
       },
-    },
-  ]);
+    });
 }
 
 /**

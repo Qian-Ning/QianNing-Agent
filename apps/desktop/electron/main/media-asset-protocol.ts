@@ -11,6 +11,7 @@
  */
 import { open, readFile, realpath, stat } from "node:fs/promises";
 import { protocol } from "electron";
+import { queuePrivilegedScheme } from "./protocol-schemes";
 import {
   MEDIA_ASSET_HOST,
   MEDIA_ASSET_SCHEME,
@@ -36,8 +37,7 @@ function notFound(): Response {
  * mixed content, and the fetch/CORS pair lets a media element load the bytes.
  */
 export function registerMediaAssetScheme(): void {
-  protocol.registerSchemesAsPrivileged([
-    {
+  queuePrivilegedScheme({
       scheme: MEDIA_ASSET_SCHEME,
       privileges: {
         standard: true,
@@ -46,8 +46,7 @@ export function registerMediaAssetScheme(): void {
         corsEnabled: true,
         stream: true,
       },
-    },
-  ]);
+    });
 }
 
 /**

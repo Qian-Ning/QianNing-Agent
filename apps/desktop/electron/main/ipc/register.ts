@@ -1,5 +1,6 @@
 import { join } from "node:path";
-import { dialog, type BrowserWindow, type IpcMain, type IpcMainInvokeEvent } from "electron";
+import { app, dialog, type BrowserWindow, type IpcMain, type IpcMainInvokeEvent } from "electron";
+import { resolveDemoWallpaperRoot, resolveWallpaperPresetsRoot } from "../wallpaper-protocol";
 import { err, ErrorCodes, IPC, ok, type Result } from "@pi-desktop/shared";
 import type { AgentHostBridge } from "../agent-host-bridge";
 import type { RemoteListener } from "@pi-desktop/host-runtime";
@@ -332,7 +333,13 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
     markMenuRendererReady,
     executeNativeMenuAction,
   });
-  registerSkinIpc({ registrar, dataDir, getMainWindow });
+  registerSkinIpc({
+    registrar,
+    dataDir,
+    demoWallpaperRoot: resolveDemoWallpaperRoot(app.getAppPath(), process.resourcesPath),
+    presetWallpaperRoot: resolveWallpaperPresetsRoot(app.getAppPath(), process.resourcesPath),
+    getMainWindow,
+  });
   registerScheduledIpc({
     registrar,
     getHost,

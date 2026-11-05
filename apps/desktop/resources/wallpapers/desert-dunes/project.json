@@ -1,0 +1,10 @@
+{
+  "type": "web",
+  "title": "暮色沙丘",
+  "file": "index.html",
+  "accent": "#3a2f2c",
+  "general": {
+    "properties": {}
+  },
+  "preview": "preview.jpg"
+}

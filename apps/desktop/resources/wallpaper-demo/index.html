@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Aurora Lab</title>
+    <style>
+      /*
+       * A wallpaper demo that needs no script at all.
+       *
+       * `webwallgl` mounts web projects with `scripts: false` — a workshop page is
+       * code we did not write. CSS animation is not a script, so this page keeps
+       * moving under that policy: every frame here changes a transform or an
+       * opacity on a composited layer, which the GPU redraws without waking the
+       * main thread.
+       */
+      :root {
+        color-scheme: dark;
+      }
+
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #05060f;
+      }
+
+      .sky {
+        position: fixed;
+        top: -10%;
+        right: -10%;
+        bottom: -10%;
+        left: -10%;
+        background: radial-gradient(120% 80% at 50% 120%, #0d1030 0%, #05060f 60%, #01020a 100%);
+        animation: breathe 18s ease-in-out infinite alternate;
+      }
+
+      /* Stars: two tiled dot fields at different densities, twinkling out of phase. */
+      .stars,
+      .stars--far {
+        position: absolute;
+        top: -20%;
+        right: -20%;
+        bottom: -20%;
+        left: -20%;
+        background-repeat: repeat;
+        will-change: opacity;
+      }
+
+      .stars {
+        background-image: radial-gradient(1.4px 1.4px at 20px 30px, rgba(255, 255, 255, 0.85), transparent 55%),
+          radial-gradient(1.2px 1.2px at 130px 90px, rgba(190, 220, 255, 0.7), transparent 55%),
+          radial-gradient(1px 1px at 70px 160px, rgba(255, 255, 255, 0.6), transparent 55%),
+          radial-gradient(1.6px 1.6px at 180px 40px, rgba(220, 240, 255, 0.75), transparent 55%);
+        background-size: 220px 220px;
+        animation: twinkle 3.2s ease-in-out infinite alternate;
+      }
+
+      .stars--far {
+        background-image: radial-gradient(1px 1px at 40px 60px, rgba(255, 255, 255, 0.45), transparent 55%),
+          radial-gradient(0.9px 0.9px at 150px 130px, rgba(200, 230, 255, 0.4), transparent 55%),
+          radial-gradient(1.1px 1.1px at 90px 20px, rgba(255, 255, 255, 0.35), transparent 55%);
+        background-size: 170px 170px;
+        animation: twinkle 4.6s ease-in-out infinite alternate-reverse;
+      }
+
+      .aurora {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(60px);
+        mix-blend-mode: screen;
+        will-change: transform;
+      }
+
+      .aurora--violet {
+        top: 12%;
+        left: -8%;
+        width: 70vw;
+        height: 48vh;
+        background: radial-gradient(closest-side, rgba(124, 108, 245, 0.55), rgba(124, 108, 245, 0));
+        animation: drift-a 9s ease-in-out infinite alternate;
+      }
+
+      .aurora--teal {
+        right: -10%;
+        bottom: 6%;
+        width: 78vw;
+        height: 52vh;
+        background: radial-gradient(closest-side, rgba(31, 200, 227, 0.42), rgba(31, 200, 227, 0));
+        animation: drift-b 12s ease-in-out infinite alternate;
+      }
+
+      .aurora--rose {
+        top: 40%;
+        left: 34%;
+        width: 46vw;
+        height: 40vh;
+        background: radial-gradient(closest-side, rgba(244, 114, 182, 0.28), rgba(244, 114, 182, 0));
+        animation: drift-c 7s ease-in-out infinite alternate;
+      }
+
+      .vignette {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        background: radial-gradient(120% 90% at 50% 45%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.55) 100%);
+      }
+
+      @keyframes drift-a {
+        from {
+          transform: translate3d(-4%, 2%, 0) scale(1);
+        }
+        to {
+          transform: translate3d(10%, -6%, 0) scale(1.15);
+        }
+      }
+
+      @keyframes drift-b {
+        from {
+          transform: translate3d(6%, -3%, 0) scale(1.1);
+        }
+        to {
+          transform: translate3d(-8%, 5%, 0) scale(0.95);
+        }
+      }
+
+      @keyframes drift-c {
+        from {
+          transform: translate3d(0, 0, 0) scale(0.9);
+        }
+        to {
+          transform: translate3d(-12%, 8%, 0) scale(1.2);
+        }
+      }
+
+      @keyframes twinkle {
+        from {
+          opacity: 0.55;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes breathe {
+        from {
+          filter: brightness(0.92);
+        }
+        to {
+          filter: brightness(1.12);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .aurora,
+        .stars,
+        .stars--far,
+        .sky {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sky">
+      <div class="stars stars--far"></div>
+      <div class="stars"></div>
+      <div class="aurora aurora--violet"></div>
+      <div class="aurora aurora--teal"></div>
+      <div class="aurora aurora--rose"></div>
+      <div class="vignette"></div>
+    </div>
+  </body>
+</html>

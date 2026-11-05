@@ -40,6 +40,8 @@ import type {
   AppSettings,
   Skin,
   SkinImportAssetResult,
+  SkinWallpaperPreset,
+  SkinWallpaperProject,
   CommandShellCatalog,
   AppVersionInfo,
   BrowserAction,
@@ -858,6 +860,22 @@ export const api = {
   exportSkin: (skin: Skin) =>
     invoke<{ ok: boolean; path?: string }>(IPC.invoke.skinExport, { skin }),
   importSkin: () => invoke<{ skin: Skin } | null>(IPC.invoke.skinImport),
+  /**
+   * Live wallpapers: copy a project folder into the profile under an opaque id.
+   * Returns null when the picker was cancelled; the renderer turns the result
+   * into a skin, so the path never leaves the host.
+   */
+  importSkinWallpaper: (path?: string) =>
+    invoke<SkinWallpaperProject | null>(IPC.invoke.skinImportWallpaper, { path }),
+  seedSkinWallpaper: () => invoke<SkinWallpaperProject>(IPC.invoke.skinSeedWallpaper),
+  /** Bundled gallery: metadata only, no filesystem paths. */
+  listSkinWallpaperPresets: () =>
+    invoke<SkinWallpaperPreset[]>(IPC.invoke.skinListWallpaperPresets),
+  /** Copy one preset in through the same import path as a dropped folder. */
+  installSkinWallpaperPreset: (id: string) =>
+    invoke<SkinWallpaperProject>(IPC.invoke.skinInstallWallpaperPreset, { id }),
+  deleteSkinWallpaper: (projectId: string) =>
+    invoke<{ ok: boolean }>(IPC.invoke.skinDeleteWallpaper, { projectId }),
   /**
    * Connections (ADR 0320). The destination's own calls: every one of these is
    * a person acting, which is why they are reachable here and why the agent has

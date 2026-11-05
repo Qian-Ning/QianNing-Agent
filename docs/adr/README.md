@@ -371,3 +371,4 @@ Each ADR includes:
 | 0339 | [One interface, two surfaces](0339-one-interface-two-surfaces.md) | Proposed |
 | 0340 | [A messaging turn shows its progress as one editable card](0340-messaging-process-card.md) | Proposed |
 | 0341 | [More than one bot per messaging channel](0341-messaging-multiple-bots.md) | Proposed |
+| 0342 | [Live wallpapers as skin backgrounds](0342-live-wallpaper-skins.md) | Accepted |

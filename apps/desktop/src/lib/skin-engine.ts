@@ -1,3 +1,4 @@
+import { applyLiveWallpaper, clearLiveWallpaper } from "./wallpaper-runtime";
 import {
   BUILTIN_SKINS,
   NO_SKIN_ID,
@@ -116,7 +117,12 @@ function bindVideoFocusPause(video: HTMLVideoElement): void {
 
 function clearBackgroundMedia(layer: HTMLDivElement): void {
   boundVideo = null;
-  while (layer.firstChild) layer.removeChild(layer.firstChild);
+  // The live-wallpaper node is owned by `wallpaper-runtime`; removing it here
+  // would leave that module holding a destroyed canvas, so it is spared and torn
+  // down by its own `clearLiveWallpaper()`.
+  for (const child of [...layer.children]) {
+    if (!child.classList.contains("qn-live-wallpaper")) child.remove();
+  }
   layer.style.removeProperty("--qn-skin-scrim");
 }
 
@@ -128,7 +134,13 @@ function clearBackgroundMedia(layer: HTMLDivElement): void {
 export function applySkin(skin: Skin): void {
   const safe = sanitizeSkin(skin) ?? builtinSkinById(NO_SKIN_ID)!;
   const root = document.documentElement;
-  const hasWallpaper = safe.background.kind !== "none" && !!safe.background.assetId && !!safe.background.ext;
+  const isLive = safe.background.kind === "scene" || safe.background.kind === "web";
+  // A live wallpaper has no assetId: the host serves a whole project directory
+  // under `projectId`, so the two background families have different validity
+  // tests and must not share one.
+  const hasWallpaper =
+    safe.background.kind !== "none" &&
+    (isLive ? !!safe.background.projectId : !!safe.background.assetId && !!safe.background.ext);
 
   // --- palette layer ---
   // A WALLPAPER skin injects NO palette: the media is a theme-agnostic layer and
@@ -152,7 +164,8 @@ export function applySkin(skin: Skin): void {
   const layer = ensureBackgroundLayer();
   clearBackgroundMedia(layer);
   const bg = safe.background;
-  if (bg.kind === "none" || !bg.assetId || !bg.ext) {
+  if (!hasWallpaper) {
+    clearLiveWallpaper();
     layer.style.display = "none";
     delete root.dataset.skinBg;
     root.style.removeProperty("--qn-skin-sidebar-tint");
@@ -165,13 +178,28 @@ export function applySkin(skin: Skin): void {
   root.dataset.skinBg = bg.kind;
   const opacity = clampBg(bg.opacity, "opacity");
   const blur = clampBg(bg.blur, "blur");
-  const scrim = clampBg(bg.scrim, "scrim");
+  // A live wallpaper is the one background we cannot predict: a bright scene
+  // under a dark theme leaves white labels on a pale wash, so the scrim gets a
+  // floor there. Still images and video keep whatever the skin chose.
+  const scrim = isLive ? Math.max(clampBg(bg.scrim, "scrim"), 0.3) : clampBg(bg.scrim, "scrim");
   const sidebarTint = clampBg(bg.sidebarTint, "sidebarTint");
   layer.style.setProperty("--qn-skin-scrim", String(scrim));
+  // Published so the live wallpapers (a canvas inside a container) honour the
+  // same opacity/blur controls as a still image or a video.
+  layer.style.setProperty("--qn-live-opacity", String(opacity));
+  layer.style.setProperty("--qn-live-blur", blur > 0 ? `${blur}px` : "0px");
   // Publish the sidebar translucency on the root so the wallpaper flows under
   // the sidebar (no hard seam) while a backdrop blur keeps its text legible.
   root.style.setProperty("--qn-skin-sidebar-tint", String(sidebarTint));
-  const url = skinAssetUrl(bg.assetId, bg.ext);
+
+  // A scene/web project renders itself; the scrim and blur above still apply to
+  // the layer, which is what keeps foreground text legible over a busy scene.
+  if (isLive) {
+    applyLiveWallpaper(bg, layer);
+    return;
+  }
+  clearLiveWallpaper();
+  const url = skinAssetUrl(bg.assetId as string, bg.ext as string);
 
   if (bg.kind === "video") {
     const video = document.createElement("video");

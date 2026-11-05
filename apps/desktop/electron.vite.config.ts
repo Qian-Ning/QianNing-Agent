@@ -12,10 +12,10 @@ function tightenCsp(): Plugin {
     transformIndexHtml(html) {
       return html
         .replace(" 'unsafe-eval'", "")
-        .replace(
-          /connect-src [^;]*;/,
-          "connect-src 'self';",
-        );
+        // Production drops the dev-server origins but keeps `wallpaper:`:
+        // the live-wallpaper renderer fetches project.json and scene files
+        // over that scheme, and a bare 'self' silently kills every wallpaper.
+        .replace(/connect-src [^;]*;/, "connect-src 'self' wallpaper:;");
     },
   };
 }

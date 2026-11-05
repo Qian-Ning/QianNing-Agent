@@ -1,0 +1,10 @@
+{
+  "type": "web",
+  "title": "夜城车流",
+  "file": "index.html",
+  "accent": "#1a1a22",
+  "general": {
+    "properties": {}
+  },
+  "preview": "preview.jpg"
+}
