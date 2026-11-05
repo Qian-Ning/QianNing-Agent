@@ -150,7 +150,21 @@ export function AnchoredMenu({
     }
     // getBoundingClientRect includes the menu's entrance scale; anchoring must use its layout box.
     const menuWidth = menu.offsetWidth;
-    const menuHeight = menu.offsetHeight;
+    let menuHeight = menu.offsetHeight;
+    /*
+      A menu is never a sheet. On a phone surface the same component is the only
+      floating layer, and an environment that hands it a filled height (a WebView
+      resolving `vh` against a taller layout viewport, a host page's global rule)
+      would stretch three rows across most of the screen. Clamping in the inline
+      style is deliberate: it has to beat whatever stylesheet produced the height,
+      and the surface already scrolls (`overflow-y: auto`).
+    */
+    const heightCap = Math.round(window.innerHeight * 0.6);
+    if (menuHeight > heightCap) {
+      menu.style.maxHeight = `${heightCap}px`;
+      // Style writes flush before the next layout read, so this is the clamped box.
+      menuHeight = menu.offsetHeight;
+    }
     const width = matchAnchorWidth ? anchorRect.width : undefined;
     const surfaceWidth = width ?? menuWidth;
     const maxLeft = Math.max(MARGIN, window.innerWidth - surfaceWidth - MARGIN);

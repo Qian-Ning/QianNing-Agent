@@ -21,11 +21,15 @@ describe("built-in themes", () => {
     }
   });
 
-  it("keeps the picker order stable", () => {
-    expect(BUILTIN_THEME_PREFERENCES).toEqual(["system", "light", "dark", "fox"]);
+  it("keeps the picker order stable and no longer offers the 千凝 appearance", () => {
+    expect(BUILTIN_THEME_PREFERENCES).toEqual(["system", "light", "dark"]);
+    expect(BUILTIN_THEME_PREFERENCES).not.toContain("fox");
   });
 
-  it("classifies the fox appearance as built-in but not a colour scheme", () => {
+  // `fox` is retired from the picker but still classifiable: a settings row saved
+  // before the removal must keep resolving to its dark base instead of falling
+  // through to `system` and flipping the window to light.
+  it("still classifies a retired fox row as built-in, not a colour scheme", () => {
     expect(isBuiltinAppearance("fox")).toBe(true);
     expect(isBuiltinAppearance("dark")).toBe(false);
     expect(isThemeColorScheme("fox")).toBe(false);

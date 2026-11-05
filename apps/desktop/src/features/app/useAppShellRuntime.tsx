@@ -520,7 +520,11 @@ export function useAppShellRuntime() {
         : undefined;
     // A plugin theme whose provider was disabled or uninstalled falls back to
     // `system` instead of leaving the shell on a half-applied palette.
-    const appearance = pluginTheme ? undefined : (skinAppearance ?? appearanceFromPref);
+    // The 千凝 appearance is retired: a settings row that still stores it keeps
+    // its DARK base (the palette it always resolved to) but no longer stamps
+    // `data-appearance`, so the native plate follows the dark theme too.
+    const requestedAppearance = skinAppearance ?? appearanceFromPref;
+    const appearance = pluginTheme || requestedAppearance === "fox" ? undefined : requestedAppearance;
     const base: "system" | "light" | "dark" = pluginTheme
       ? pluginTheme.base
       : skinColorScheme
