@@ -8,6 +8,8 @@
  * network is accepted, and no plaintext fallback exists.
  */
 
+import { REMOTE_UNREACHABLE } from "@pi-desktop/shared";
+
 export type PairedComputer = {
   /** Stable key: the address the user paired. */
   key: string;
@@ -134,6 +136,22 @@ export async function pairComputer(input: {
   return computer;
 }
 
+/**
+ * Why the phone could not reach a paired computer, when the cause was the wire.
+ *
+ * The native side hands back the platform's own sentence — "failed to connect
+ * to /192.168.10.104 (port 6838) from /192.168.10.71 (port 47018) after 15000ms"
+ * — which names addresses and nothing a person can act on. A shared code lets
+ * the screen say what to check instead.
+ */
+function isWireFailure(message: string): boolean {
+  return (
+    /failed to connect/i.test(message) ||
+    /timed? ?out/i.test(message) ||
+    /ECONNREFUSED|EHOSTUNREACH|ENETUNREACH/i.test(message)
+  );
+}
+
 async function call(
   computer: PairedComputer,
   method: string,
@@ -142,14 +160,20 @@ async function call(
 ): Promise<unknown> {
   const bridge = plugin();
   if (!bridge) throw new Error("this build cannot reach a computer");
-  const answer = await bridge.request({
-    url: computer.url,
-    method,
-    path,
-    token: computer.token,
-    pem: computer.pem,
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
+  let answer: Awaited<ReturnType<QnRemotePlugin["request"]>>;
+  try {
+    answer = await bridge.request({
+      url: computer.url,
+      method,
+      path,
+      token: computer.token,
+      pem: computer.pem,
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    throw new Error(isWireFailure(message) ? REMOTE_UNREACHABLE : message);
+  }
   let parsed: unknown = null;
   try {
     parsed = answer.body ? JSON.parse(answer.body) : null;
@@ -175,10 +199,19 @@ function asSessions(value: unknown): RemoteSession[] {
     .map((entry) => {
       const row = entry as { id?: unknown; title?: unknown; updatedAt?: unknown; messageCount?: unknown };
       if (typeof row?.id !== "string") return null;
+      // The desktop reports `updatedAt` as an ISO string on newer hosts and as
+      // epoch milliseconds on older ones; both sort and render the same after
+      // this normalisation.
+      const updated =
+        typeof row.updatedAt === "number"
+          ? row.updatedAt
+          : typeof row.updatedAt === "string"
+            ? Date.parse(row.updatedAt)
+            : Number.NaN;
       return {
         id: row.id,
         title: typeof row.title === "string" && row.title ? row.title : "未命名会话",
-        ...(typeof row.updatedAt === "number" ? { updatedAt: row.updatedAt } : {}),
+        ...(Number.isFinite(updated) ? { updatedAt: updated } : {}),
         ...(typeof row.messageCount === "number" ? { messageCount: row.messageCount } : {}),
       };
     })
@@ -189,4 +222,101 @@ function asSessions(value: unknown): RemoteSession[] {
 export async function fetchSessions(computer: PairedComputer): Promise<RemoteSession[]> {
   const result = await call(computer, "GET", "/v1/sessions");
   return asSessions(result).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+}
+
+/** One line of a conversation, reduced to what a phone screen can show. */
+export type RemoteMessage = {
+  id: string;
+  role: "user" | "assistant" | "tool" | "note";
+  text: string;
+  at?: number;
+  /** The tool's name, when the line is a tool call. */
+  toolName?: string;
+};
+
+type Block = { type?: unknown; text?: unknown };
+
+/**
+ * Text out of one RACP message.
+ *
+ * A message's `content` is either a string or an array of blocks; thinking and
+ * image blocks carry no text a phone should read, so only text blocks survive.
+ * Unknown shapes yield "" rather than "[object Object]" in a bubble.
+ */
+function textOf(content: unknown): string {
+  if (typeof content === "string") return content.trim();
+  if (!Array.isArray(content)) return "";
+  const parts: string[] = [];
+  for (const block of content as Block[]) {
+    if (block?.type === "text" && typeof block.text === "string" && block.text.trim()) {
+      parts.push(block.text.trim());
+    }
+  }
+  return parts.join("\n\n");
+}
+
+function asMessages(value: unknown): RemoteMessage[] {
+  const items = (value as { items?: unknown } | null)?.items;
+  if (!Array.isArray(items)) return [];
+  const out: RemoteMessage[] = [];
+  for (const entry of items) {
+    const row = entry as {
+      id?: unknown;
+      itemType?: unknown;
+      createdAt?: unknown;
+      content?: unknown;
+    };
+    if (typeof row.id !== "string") continue;
+    const at = typeof row.createdAt === "string" ? Date.parse(row.createdAt) : Number.NaN;
+    const when = Number.isFinite(at) ? { at } : {};
+
+    if (row.itemType === "message") {
+      const message = (row.content ?? {}) as { role?: unknown; content?: unknown };
+      const role = message.role === "user" ? "user" : "assistant";
+      const text = textOf(message.content);
+      if (text) out.push({ id: row.id, role, text, ...when });
+      continue;
+    }
+    if (row.itemType === "tool") {
+      const tool = (row.content ?? {}) as { toolName?: unknown };
+      const name = typeof tool.toolName === "string" ? tool.toolName : "";
+      if (name) out.push({ id: row.id, role: "tool", text: name, toolName: name, ...when });
+      continue;
+    }
+    if (row.itemType === "compaction") {
+      out.push({ id: row.id, role: "note", text: "…", ...when });
+    }
+  }
+  return out;
+}
+
+/** The visible transcript of one conversation on the paired computer. */
+export async function fetchHistory(
+  computer: PairedComputer,
+  sessionId: string,
+): Promise<RemoteMessage[]> {
+  // The HTTP profile maps path parameters only, so paging is the host's
+  // decision; the phone renders what arrives, oldest first.
+  const result = await call(computer, "GET", `/v1/sessions/${encodeURIComponent(sessionId)}/history`);
+  return asMessages(result);
+}
+
+function requestId(): string {
+  const cryptoRef = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (cryptoRef?.randomUUID) return cryptoRef.randomUUID();
+  return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Send a prompt into a conversation that lives on the paired computer. */
+export async function sendTurn(
+  computer: PairedComputer,
+  sessionId: string,
+  text: string,
+): Promise<void> {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  await call(computer, "POST", `/v1/sessions/${encodeURIComponent(sessionId)}/turns`, {
+    input: { text: trimmed },
+    context: { requestId: requestId() },
+  });
 }

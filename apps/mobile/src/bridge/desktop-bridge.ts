@@ -49,11 +49,13 @@ import {
   removeFromLibrary,
 } from "../media/workbench";
 import {
+  fetchHistory,
   fetchSessions,
   hasRemoteHost,
   listComputers,
   pairComputer,
   removeComputer,
+  sendTurn,
 } from "../remote/computers";
 import type { ModelPricingRow } from "@pi-desktop/shared";
 import {
@@ -390,6 +392,27 @@ export class PhoneBridge {
       const computer = listComputers().find((entry) => entry.key === key);
       if (!computer) throw new Error("that computer is not paired");
       return { sessions: await fetchSessions(computer) };
+    },
+
+    /** One conversation's transcript, newest page included. */
+    "remote/history": async (input?: unknown) => {
+      const request = (input ?? {}) as { hostKey?: unknown; sessionId?: unknown };
+      const computer = listComputers().find((entry) => entry.key === String(request.hostKey ?? ""));
+      if (!computer) throw new Error("that computer is not paired");
+      const sessionId = String(request.sessionId ?? "");
+      if (!sessionId) throw new Error("a history request needs a session");
+      return { messages: await fetchHistory(computer, sessionId) };
+    },
+
+    /** A prompt typed on the phone, run by the desktop's agent. */
+    "remote/turn": async (input?: unknown) => {
+      const request = (input ?? {}) as { hostKey?: unknown; sessionId?: unknown; text?: unknown };
+      const computer = listComputers().find((entry) => entry.key === String(request.hostKey ?? ""));
+      if (!computer) throw new Error("that computer is not paired");
+      const sessionId = String(request.sessionId ?? "");
+      if (!sessionId) throw new Error("a turn needs a session");
+      await sendTurn(computer, sessionId, String(request.text ?? ""));
+      return { sent: true };
     },
 
     /*

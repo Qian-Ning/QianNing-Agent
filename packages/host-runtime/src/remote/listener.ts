@@ -12,7 +12,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { hostname, networkInterfaces } from "node:os";
 import { join } from "node:path";
 
@@ -84,6 +84,15 @@ export type RemoteListener = {
    * of the store that also holds the devices.
    */
   start(exposure?: "loopback" | "lan"): Promise<{ host: string; port: number; protocol: "http" | "https" }>;
+  /**
+   * Re-opens the listener the user left on before the app restarted.
+   *
+   * An open socket is process state, so a restart silently closed it while the
+   * pairings on the phone kept pointing at a port nothing answers on: the phone
+   * times out for a reason no screen explains. `enable` therefore records the
+   * choice, and boot asks for it back.
+   */
+  resume(): Promise<{ host: string; port: number; protocol: "http" | "https" } | null>;
   stop(): Promise<void>;
   listDevices(): Promise<DeviceRecord[]>;
   issueDevice(label: string, roles?: RacpRole[]): Promise<IssuedDevice>;
@@ -96,6 +105,15 @@ export type RemoteListener = {
 
 const LOOPBACK = "127.0.0.1";
 const EVERY_INTERFACE = "0.0.0.0";
+
+/**
+ * How long a LAN bind waits for the network to come up at boot.
+ *
+ * A laptop finishes launching before Wi-Fi associates, so "no non-loopback
+ * address" a second after boot is a timing fact, not a decision by the user.
+ * Giving up there would reopen the same silent failure in a different shape.
+ */
+const RESUME_DELAYS_MS = [0, 1_000, 2_000, 4_000, 8_000, 15_000];
 
 /**
  * A label for a device the user did not name.
@@ -183,6 +201,45 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
     }
   };
 
+  /**
+   * The user's last choice of exposure, kept so boot can restore it.
+   *
+   * Written on a successful start and removed on stop, so the file means "the
+   * user wants this listening" rather than "it happened to be listening once".
+   * A stale file after a failed start is the honest record: the next boot tries
+   * again instead of quietly leaving the phone unable to reach anything.
+   */
+  const enabledPath = join(remoteDir, "enabled.json");
+
+  const writeEnabled = async (exposure: "loopback" | "lan"): Promise<void> => {
+    try {
+      await mkdir(remoteDir, { recursive: true });
+      await writeFile(enabledPath, JSON.stringify({ exposure }), "utf8");
+    } catch (error) {
+      options.log("warn", "remote listener could not record that it is on", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  const clearEnabled = async (): Promise<void> => {
+    try {
+      await unlink(enabledPath);
+    } catch {
+      // Already absent, which is the state we wanted.
+    }
+  };
+
+  const readEnabled = async (): Promise<"loopback" | "lan" | null> => {
+    try {
+      const parsed = JSON.parse(await readFile(enabledPath, "utf8")) as { exposure?: unknown };
+      return parsed.exposure === "lan" || parsed.exposure === "loopback" ? parsed.exposure : null;
+    } catch {
+      // Missing or unreadable: remote access is off, which is not an error.
+      return null;
+    }
+  };
+
   const hostId = async (): Promise<string> => {
     const path = join(remoteDir, "host-id");
     try {
@@ -197,7 +254,9 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
     return minted;
   };
 
-  return {
+  const boundAddress = () => (binding ? binding.address : null);
+
+  const listener: RemoteListener = {
     async status() {
       const devices = await store.listDevices();
       return {
@@ -269,20 +328,61 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
 
       const preferred = options.port ?? (await readPort());
       try {
-        binding = await open(preferred, server);
+        try {
+          binding = await open(preferred, server);
+        } catch (error) {
+          if (preferred === 0) throw error;
+          // Something else holds the remembered port. Starting on a different one
+          // is better than not starting, but it has to be visible: a phone holding
+          // the old link will fail until it is re-paired.
+          options.log("warn", "remote listener port busy, asking the OS", { port: preferred });
+          binding = await open(0, server);
+        }
       } catch (error) {
-        if (preferred === 0) throw error;
-        // Something else holds the remembered port. Starting on a different one
-        // is better than not starting, but it has to be visible: a phone holding
-        // the old link will fail until it is re-paired.
-        options.log("warn", "remote listener port busy, asking the OS", { port: preferred });
-        binding = await open(0, server);
+        // Nothing bound, so nothing owns this server: leaving it behind would
+        // make every retry (resume after boot, a second attempt from Settings)
+        // build on top of a server the listener no longer refers to.
+        server.close();
+        server = null;
+        throw error;
       }
       await writePort(binding.address.port);
+      await writeEnabled(exposure);
       publicUrl = tls ? `https://${addresses[0]}:${binding.address.port}` : null;
       activeExposure = exposure;
       options.log("info", "remote listener started", { ...binding.address, exposure });
       return binding.address;
+    },
+
+    async resume() {
+      const saved = await readEnabled();
+      if (!saved) return null;
+      // Read through a call: `start()` assigns `binding`, and TypeScript's
+      // narrowing inside one function body cannot see that.
+      const already = boundAddress();
+      if (already) return already;
+      let lastError: unknown = null;
+      for (const delay of RESUME_DELAYS_MS) {
+        if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+        // Someone opened Settings and turned it on while this was waiting.
+        const openedMeanwhile = boundAddress();
+        if (openedMeanwhile) return openedMeanwhile;
+        try {
+          const address = await listener.start(saved);
+          options.log("info", "remote listener resumed after restart", {
+            ...address,
+            exposure: saved,
+          });
+          return address;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      options.log("warn", "remote listener could not resume", {
+        exposure: saved,
+        message: lastError instanceof Error ? lastError.message : String(lastError),
+      });
+      return null;
     },
 
     async stop() {
@@ -294,6 +394,7 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
       server = null;
       publicUrl = null;
       activeExposure = null;
+      await clearEnabled();
       options.log("info", "remote listener stopped");
     },
 
@@ -335,4 +436,6 @@ export function createRemoteListener(options: RemoteListenerOptions): RemoteList
       return removed;
     },
   };
+
+  return listener;
 }
