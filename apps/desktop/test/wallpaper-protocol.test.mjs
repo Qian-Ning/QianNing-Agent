@@ -13,7 +13,10 @@ const protocolSrc = read("electron/main/wallpaper-protocol.ts");
 const storeSrc = read("electron/main/wallpaper-store.ts");
 const runtimeSrc = read("src/lib/wallpaper-runtime.ts");
 const engineSrc = read("src/lib/skin-engine.ts");
-const skinIpcSrc = read("electron/main/ipc/skin-ipc.ts");
+// Wallpaper channels moved out of the skin registrar; the assertions below
+// look at both, because the boundary is an implementation detail from here.
+const skinIpcSrc =
+  read("electron/main/ipc/skin-ipc.ts") + read("electron/main/ipc/skin-wallpaper-ipc.ts");
 const startupSrc = read("electron/main/bootstrap/startup.ts");
 const htmlSrc = read("index.html");
 

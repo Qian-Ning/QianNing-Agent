@@ -17,7 +17,9 @@ const skinWriter = await read("../src/features/skins/skin-settings-writer.ts");
 const api = await read("../src/lib/api.ts");
 const protocol = await read("../../../packages/shared/src/protocol.ts");
 const assetProtocol = await read("../electron/main/skin-asset-protocol.ts");
-const skinIpc = await read("../electron/main/ipc/skin-ipc.ts");
+const skinIpc =
+  (await read("../electron/main/ipc/skin-ipc.ts")) +
+  (await read("../electron/main/ipc/skin-wallpaper-ipc.ts"));
 const register = await read("../electron/main/ipc/register.ts");
 const startup = await read("../electron/main/bootstrap/startup.ts");
 const settingsType = await read("../../../packages/shared/src/types/settings.ts");
