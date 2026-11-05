@@ -96,18 +96,20 @@ export function ScheduledPage() {
             <h1 className="page-title">{t("scheduled.title")}</h1>
             <p className="dest-row-meta">{t("scheduled.description")}</p>
           </div>
-          <Button
-            variant="primary"
-            disabled={busy}
-            onClick={() => {
-              setTab("tasks");
-              setEditor("new");
-            }}
-          >
-            {t("scheduled.create")}
-          </Button>
+          <div className="page-header-actions">
+            <Button
+              variant="primary"
+              disabled={busy}
+              onClick={() => {
+                setTab("tasks");
+                setEditor("new");
+              }}
+            >
+              {t("scheduled.create")}
+            </Button>
+          </div>
         </div>
-        <div className="mb-4 flex gap-2" role="group" aria-label={t("scheduled.title")}>
+        <div className="page-tabs mb-4 flex gap-2" role="group" aria-label={t("scheduled.title")}>
           <Button
             aria-pressed={tab === "tasks"}
             variant={tab === "tasks" ? "secondary" : "ghost"}

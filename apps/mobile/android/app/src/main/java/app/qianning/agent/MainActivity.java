@@ -9,13 +9,13 @@ public class MainActivity extends BridgeActivity {
     /**
      * The web layer decides what "back" means here: close a sheet, leave
      * settings, close the drawer, leave a conversation. Only when it answers
-     * "not handled" does the system get to finish the activity, so a back
-     * gesture inside the app no longer closes it.
+     * "not handled" does the activity go to the background — finishing it on
+     * the first back press from the sessions list closed the whole app.
      */
     @Override
     public void onBackPressed() {
         if (getBridge() == null || getBridge().getWebView() == null) {
-            super.onBackPressed();
+            moveTaskToBack(true);
             return;
         }
         getBridge()
@@ -25,13 +25,9 @@ public class MainActivity extends BridgeActivity {
                         value -> {
                             boolean handled = "\"true\"".equals(value) || "true".equals(value);
                             if (!handled) {
-                                runOnUiThread(MainActivity.this::systemBack);
+                                runOnUiThread(() -> moveTaskToBack(true));
                             }
                         });
-    }
-
-    private void systemBack() {
-        super.onBackPressed();
     }
 
     @Override

@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button, Input } from "../../components/ui";
+import { IconLink } from "../../components/icons";
 import { api } from "../../lib/api";
 
 type SshProfile = {
@@ -197,22 +198,23 @@ export function PhoneConnections() {
   return (
     <div className="phone-ssh">
       <header className="phone-ssh-head">
-        <h1>{t("connections.title")}</h1>
-        <p>{t("connections.phoneSubtitle")}</p>
+        <div className="phone-ssh-head-copy">
+          <h1>{t("connections.title")}</h1>
+          <p>{t("connections.phoneSubtitle")}</p>
+        </div>
+        <Button
+          type="button"
+          variant={draft ? "ghost" : "primary"}
+          size="sm"
+          onClick={() => setDraft((current) => (current ? null : { ...EMPTY_DRAFT }))}
+        >
+          {draft ? t("connections.phoneCancel") : t("connections.phoneAdd")}
+        </Button>
       </header>
 
       {supported ? null : <p className="phone-ssh-error">{t("connections.phoneUnsupported")}</p>}
       {error ? <p className="phone-ssh-error">{error}</p> : null}
       {notice ? <p className="phone-ssh-notice">{notice}</p> : null}
-
-      <div className="phone-ssh-toolbar">
-        <Button
-          type="button"
-          onClick={() => setDraft((current) => (current ? null : { ...EMPTY_DRAFT }))}
-        >
-          {draft ? t("connections.phoneCancel") : t("connections.phoneAdd")}
-        </Button>
-      </div>
 
       {draft ? (
         <div className="phone-ssh-form">
@@ -319,7 +321,12 @@ export function PhoneConnections() {
 
       <ul className="phone-ssh-list">
         {profiles.length === 0 ? (
-          <li className="phone-ssh-empty">{t("connections.phoneEmpty")}</li>
+          <li className="phone-ssh-empty">
+            <span className="phone-ssh-empty-icon" aria-hidden>
+              <IconLink size={18} />
+            </span>
+            <span className="phone-ssh-empty-title">{t("connections.phoneEmpty")}</span>
+          </li>
         ) : (
           profiles.map((profile) => (
             <li key={profile.id} className="phone-ssh-row">

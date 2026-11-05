@@ -1,0 +1,197 @@
+/*
+  Full-page destinations on a phone: connections, scheduled tasks, skins,
+  usage. The desktop rules assume a 980px frame with a 28px gutter and a
+  header that lets its action shrink; at 390px that leaves the title glued
+  to the edge and wraps labels like "创建任务" onto two lines.
+
+  One block, one place: every destination page shares `.page-frame`,
+  `.page-header` and `.dest-*`, so the geometry is fixed once here instead of
+  being re-tuned per page.
+*/
+:root[data-surface="mobile"] .route-scroll {
+  overscroll-behavior-y: contain;
+}
+
+:root[data-surface="mobile"] .page-frame {
+  width: 100%;
+  padding: 14px 16px calc(28px + env(safe-area-inset-bottom, 0px));
+  /* The phone shell already reserves the status bar and its own title bar. */
+  padding-top: 14px;
+}
+
+:root[data-surface="mobile"] .page-header {
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+:root[data-surface="mobile"] .page-header > div:first-child {
+  min-width: 0;
+}
+
+:root[data-surface="mobile"] .page-title {
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+}
+
+:root[data-surface="mobile"] .page-header .dest-row-meta {
+  display: -webkit-box;
+  margin-top: 3px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: var(--leading-compact-plus);
+}
+
+/*
+  A header action is a control, not a paragraph: it keeps its label on one
+  line and takes only the width it needs. Without `flex: none` the flex row
+  squeezes it until "创建任务" breaks after the third character.
+*/
+:root[data-surface="mobile"] .page-header .page-header-actions,
+:root[data-surface="mobile"] .page-header > button,
+:root[data-surface="mobile"] .page-header > div:last-child:not(:first-child) {
+  flex: none;
+}
+
+:root[data-surface="mobile"] .page-header .btn,
+:root[data-surface="mobile"] .page-header button {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* Cards: one radius, one hairline, consistent rhythm. */
+:root[data-surface="mobile"] .dest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+:root[data-surface="mobile"] .dest-row {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 12px);
+  background: var(--card);
+}
+
+:root[data-surface="mobile"] .dest-row-actions {
+  gap: 6px;
+}
+
+:root[data-surface="mobile"] .page-empty {
+  padding: 36px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 12px);
+  background: var(--card);
+}
+
+:root[data-surface="mobile"] .page-empty h2 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-medium);
+}
+
+:root[data-surface="mobile"] .page-empty .dest-row-meta {
+  margin-top: 4px;
+  max-width: 30ch;
+}
+
+/*
+  Tab strips (scheduled tasks / runs) read as one segmented control instead of
+  two loose buttons floating at the left edge.
+*/
+:root[data-surface="mobile"] .page-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 3px;
+  border-radius: var(--radius-full, 999px);
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+}
+
+:root[data-surface="mobile"] .page-tabs .btn {
+  flex: 1;
+  min-height: 32px;
+  border-radius: var(--radius-full, 999px);
+  justify-content: center;
+}
+
+/*
+  Connections header: title block on the left, the one action on the right,
+  on the same baseline as the title.
+*/
+:root[data-surface="mobile"] .phone-ssh {
+  gap: 12px;
+  padding: 14px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+}
+
+:root[data-surface="mobile"] .phone-ssh-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+:root[data-surface="mobile"] .phone-ssh-head-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+:root[data-surface="mobile"] .phone-ssh-head h1 {
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+}
+
+:root[data-surface="mobile"] .phone-ssh-head p {
+  display: -webkit-box;
+  margin-top: 3px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: var(--leading-compact-plus);
+}
+
+:root[data-surface="mobile"] .phone-ssh-head .btn {
+  flex: none;
+  white-space: nowrap;
+}
+
+:root[data-surface="mobile"] .phone-ssh-toolbar {
+  display: none;
+}
+
+:root[data-surface="mobile"] .phone-ssh-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 36px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 12px);
+  background: var(--card);
+  text-align: center;
+}
+
+:root[data-surface="mobile"] .phone-ssh-empty-icon {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 4px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-round, 999px);
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+  color: var(--muted-foreground);
+}
+
+:root[data-surface="mobile"] .phone-ssh-empty-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--foreground);
+}
+
+:root[data-surface="mobile"] .phone-ssh-empty-hint {
+  max-width: 28ch;
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  color: var(--muted-foreground);
+}

@@ -37,15 +37,19 @@ export function ComposerModePicker({ t, mode, planningLive, phoneSurface, open, 
     </TooltipButton>
   );
   if (!phoneSurface) return trigger();
-  return <AnchoredMenu className="composer-mode-anchor" open={open} onClose={() => setOpen(false)}
-    menuClassName="composer-permission-menu" label={t("settings.mode")} role="menu" align="start" side="top" trigger={trigger}>
-    {MODE_CYCLE.map((candidate) => <button key={candidate} type="button" role="menuitemradio"
-      data-mode-choice={candidate} aria-checked={mode === candidate} disabled={disabled}
-      className={`composer-plus-item ${mode === candidate ? "active" : ""}`}
-      onClick={() => { setOpen(false); void onSelect(candidate); }}>
-      <ModeIcon mode={candidate} />
-      <span className="flex-1 text-left">{t(MODE_LABEL_KEYS[candidate])}</span>
-      {mode === candidate ? <IconCheck size={13} /> : null}
-    </button>)}
-  </AnchoredMenu>;
+  return (
+    <>
+      <AnchoredMenu className="composer-mode-anchor" open={open} onClose={() => setOpen(false)}
+        menuClassName="composer-permission-menu" label={t("settings.mode")} role="menu" align="start" side="top" trigger={trigger}>
+        {MODE_CYCLE.map((candidate) => <button key={candidate} type="button" role="menuitemradio"
+          data-mode-choice={candidate} aria-checked={mode === candidate} disabled={disabled}
+          className={`composer-plus-item ${mode === candidate ? "active" : ""}`}
+          onClick={() => { setOpen(false); void onSelect(candidate); }}>
+          <ModeIcon mode={candidate} />
+          <span className="flex-1 text-left">{t(MODE_LABEL_KEYS[candidate])}</span>
+          {mode === candidate ? <IconCheck size={13} /> : null}
+        </button>)}
+      </AnchoredMenu>
+    </>
+  );
 }

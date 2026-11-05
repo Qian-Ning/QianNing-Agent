@@ -1060,3 +1060,44 @@
 .composer-model-fav:active:not(:disabled) {
   transform: scale(0.97);
 }
+
+/*
+  Phone: the mode menu is a three-row menu, not a sheet.
+
+  It is anchored above the chip and its height is whatever the rows need — the
+  surface never stretches to fill the viewport. `height: auto` is explicit
+  because the menu is a portaled fixed layer: any environment that hands it a
+  filled height (a WebView computing `vh` against the visual viewport) would
+  otherwise spread three rows across most of the screen. Rows get a finger-sized
+  minimum instead.
+*/
+/*
+  `width` + `max-width` rather than `min()`: the phone WebView that mis-sized the
+  glyphs also predates the `min()`/`inset` shorthands, and an unsupported
+  `min()` leaves the surface with no width at all.
+*/
+:root[data-surface="mobile"] .composer-permission-menu {
+  display: block;
+  width: 240px;
+  max-width: calc(100vw - 24px);
+  height: auto !important;
+  max-height: 40vh !important;
+}
+
+:root[data-surface="mobile"] .composer-permission-menu .composer-plus-item {
+  min-height: 44px;
+  max-height: 64px;
+  padding: 8px 12px;
+}
+
+/*
+  The glyph box is authored as `calc(var(--composer-glyph) * var(--font-scale))`
+  in an inline style. WebViews that cannot parse a var() fallback inside calc()
+  drop it and the SVG falls back to its intrinsic 300x150 box, which turns three
+  rows into a full-screen sheet. A plain length with !important is understood
+  everywhere and keeps the row at icon height.
+*/
+:root[data-surface="mobile"] .composer-permission-menu .composer-plus-item > svg {
+  width: var(--composer-glyph, 18px) !important;
+  height: var(--composer-glyph, 18px) !important;
+}
