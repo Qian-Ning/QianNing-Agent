@@ -1126,6 +1126,19 @@
 }
 
 @media (max-width: 720px) {
+  /* The header stacks on a phone. As a row it measured 691 px inside a 390 px
+     window and the actions were clipped by the page's overflow — import, new
+     skin and export existed but could not be reached. */
+  .sk-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .sk-head-actions {
+    flex-wrap: wrap;
+  }
+
   /* The header wraps on a phone; rotation keeps its own line instead of
      squeezing three buttons into one row. */
   .sk-rotate {
