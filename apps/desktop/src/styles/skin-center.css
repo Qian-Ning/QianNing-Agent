@@ -150,9 +150,11 @@
   color: var(--sk-fg);
 }
 
-.sk-stage-tools .btn:hover {
-  background: var(--sk-panel);
-  color: var(--sk-accent);
+@media (hover: hover) and (pointer: fine) {
+  .sk-stage-tools .btn:hover {
+    background: var(--sk-panel);
+    color: var(--sk-accent);
+  }
 }
 
 /* --- rails --- */
@@ -226,8 +228,10 @@
     transform var(--motion-duration-fast, 120ms) var(--motion-ease-standard, ease);
 }
 
-.sk-tile:hover .skp {
-  border-color: var(--ds-border-strong);
+@media (hover: hover) and (pointer: fine) {
+  .sk-tile:hover .skp {
+    border-color: var(--ds-border-strong);
+  }
 }
 
 /* Selection is carried by the badge, not by a frame. An accent hairline read as
@@ -295,9 +299,11 @@
   cursor: pointer;
 }
 
-.sk-tile-more:hover {
-  background: var(--ds-tile, rgba(127, 127, 127, 0.12));
-  color: var(--ds-text-primary);
+@media (hover: hover) and (pointer: fine) {
+  .sk-tile-more:hover {
+    background: var(--ds-tile, rgba(127, 127, 127, 0.12));
+    color: var(--ds-text-primary);
+  }
 }
 
 /* --- tile menu (portaled to body) --- */
@@ -345,10 +351,12 @@
   cursor: pointer;
 }
 
-.sk-menu-item:hover,
-.sk-menu-item:focus-visible {
-  background: var(--ds-tile, rgba(127, 127, 127, 0.12));
-  outline: none;
+@media (hover: hover) and (pointer: fine) {
+  .sk-menu-item:hover,
+  .sk-menu-item:focus-visible {
+    background: var(--ds-tile, rgba(127, 127, 127, 0.12));
+    outline: none;
+  }
 }
 
 .sk-menu-item.is-danger {
@@ -757,9 +765,11 @@
   cursor: pointer;
 }
 
-.sk-editor-close:hover {
-  background: var(--ds-tile, rgba(127, 127, 127, 0.12));
-  color: var(--ds-text-primary);
+@media (hover: hover) and (pointer: fine) {
+  .sk-editor-close:hover {
+    background: var(--ds-tile, rgba(127, 127, 127, 0.12));
+    color: var(--ds-text-primary);
+  }
 }
 
 .sk-editor-body {
@@ -825,8 +835,10 @@
   cursor: pointer;
 }
 
-.sk-section-reset:hover {
-  color: var(--ds-text-primary);
+@media (hover: hover) and (pointer: fine) {
+  .sk-section-reset:hover {
+    color: var(--ds-text-primary);
+  }
 }
 
 .sk-swatches {
@@ -944,8 +956,10 @@
   cursor: pointer;
 }
 
-.sk-media-remove:hover {
-  color: var(--destructive, #d9534f);
+@media (hover: hover) and (pointer: fine) {
+  .sk-media-remove:hover {
+    color: var(--destructive, #d9534f);
+  }
 }
 
 .sk-slider {
@@ -1243,9 +1257,11 @@
   transition: border-color 120ms ease, transform 120ms ease;
 }
 
-.sk-preset:hover .sk-preset-art {
-  border-color: var(--ds-border-strong);
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .sk-preset:hover .sk-preset-art {
+    border-color: var(--ds-border-strong);
+    transform: translateY(-1px);
+  }
 }
 
 .sk-preset:focus-visible .sk-preset-art {
