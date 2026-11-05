@@ -77,3 +77,8 @@ electron.vite.config.*.mjs
 worktrees
 # Generated from apps/desktop/resources/skills by apps/mobile/scripts/build-skills.mjs
 apps/mobile/src/agent/skills.generated.ts
+
+# A fallback-UI probe leaves a throwaway Electron profile behind.
+apps/desktop/.fallback-ui-*
+# MSYS bash writes a crash dump when a native child dies badly.
+*.stackdump
