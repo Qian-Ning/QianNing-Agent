@@ -389,6 +389,15 @@ Every change follows this sequence. Steps may be iterated if the implementation 
   no job in the pipeline observing it; the job makes a Windows-only regression
   fail CI instead of reaching a user.
 
+- Windows hosts that build `host-core` compile C through `cc`, and the shell
+  resolves the compiler through `PATH`. Git for Windows ships its own
+  `mingw64/bin` ahead of MSYS2's, so `gcc` starts but `cc1.exe` cannot load and
+  dies with **status 1 and no diagnostic at all** — it reads exactly like a
+  source error in `ring` and wastes a debugging session on the crate. Before
+  trusting such a failure, run `path/to/cc1.exe --version`: a silent exit means
+  the wrong `PATH`, not the wrong code. Prefix the build with
+  `PATH=/c/msys64/mingw64/bin:$PATH` and the same build succeeds.
+
 ### Marketplace/update diagnosis gate
 
 Plugin update incidents require an evidence-first prompt flow before code
