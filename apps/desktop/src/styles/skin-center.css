@@ -193,7 +193,6 @@
   overflow-y: hidden;
   scroll-padding-left: 2px;
   scroll-snap-type: x proximity;
-  scrollbar-width: none;
 }
 
 .sk-rail::-webkit-scrollbar {

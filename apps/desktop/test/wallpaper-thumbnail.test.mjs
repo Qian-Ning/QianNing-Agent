@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
+import { build } from "esbuild";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,22 +42,18 @@ test("every import path fills in a missing still", () => {
   assert.match(ipcSrc, /if \(project\.hasPreview\) return project;/);
 });
 
-test("the entry file is the one the manifest names", () => {
+test("the entry file is the one the manifest names", async () => {
   const work = mkdtempSync(join(tmpdir(), "wp-entry-"));
   const bundled = join(work, "store.cjs");
   try {
-    execFileSync(
-      process.execPath,
-      [
-        join(ROOT, "node_modules/esbuild/bin/esbuild"),
-        join(ROOT, "apps/desktop/electron/main/wallpaper-store.ts"),
-        "--bundle",
-        "--platform=node",
-        "--format=cjs",
-        `--outfile=${bundled}`,
-      ],
-      { stdio: "pipe" },
-    );
+    await build({
+      entryPoints: [join(ROOT, "apps/desktop/electron/main/wallpaper-store.ts")],
+      bundle: true,
+      platform: "node",
+      format: "cjs",
+      logLevel: "silent",
+      outfile: bundled,
+    });
     const store = createRequire(import.meta.url)(bundled);
 
     const named = join(work, "named");

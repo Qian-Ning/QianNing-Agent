@@ -378,7 +378,14 @@ test("motion feedback is composited, bounded, and accessible", () => {
   assert.match(styles, /@keyframes work-panel-out/);
   assert.match(styles, /translateX\(8px\)/);
   assert.match(styles, /\.composer-shell:focus-within/);
-  assert.doesNotMatch(styles, /backdrop-filter:\s*blur/);
+  // A blurred surface is only allowed while a skin background is mounted, and
+  // only under `[data-skin-bg]`: the glass is an opt-in effect whose cost the
+  // reader accepts with the wallpaper. Base chrome must stay unblurred, or
+  // every scroll re-samples the window behind it.
+  const chromeStyles = styles.replace(/:root\[data-skin-bg\][^{]*\{[^{}]*\}/g, "");
+  // A declaration starts after whitespace, `;` or `{`. The capability probe in
+  // `@supports not ((backdrop-filter: blur(1px)) ...)` does not.
+  assert.doesNotMatch(chromeStyles, /(?:^|[\s;{])-?(?:webkit-)?backdrop-filter:\s*blur/);
   assert.match(styles, /\.chat-error-notice > span[\s\S]*?overflow-wrap:\s*anywhere/);
   assert.match(
     styles,

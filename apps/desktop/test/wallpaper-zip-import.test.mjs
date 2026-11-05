@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { build } from "esbuild";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -16,18 +16,14 @@ const FIXTURE = join(ROOT, "apps/desktop/test/fixtures/wallpaper-aurora.zip");
 // a re-implementation of it.
 const work = mkdtempSync(join(tmpdir(), "wp-zip-"));
 const bundled = join(work, "store.cjs");
-execFileSync(
-  process.execPath,
-  [
-    join(ROOT, "node_modules/esbuild/bin/esbuild"),
-    STORE,
-    "--bundle",
-    "--platform=node",
-    "--format=cjs",
-    `--outfile=${bundled}`,
-  ],
-  { stdio: "pipe" },
-);
+await build({
+  entryPoints: [join(ROOT, "apps/desktop/electron/main/wallpaper-store.ts")],
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  logLevel: "silent",
+  outfile: bundled,
+});
 const store = await import(`file://${bundled.replace(/\\/g, "/")}`);
 
 function freshDataDir() {

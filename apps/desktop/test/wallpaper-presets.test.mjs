@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { build } from "esbuild";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -12,18 +12,14 @@ const GALLERY = join(ROOT, "apps/desktop/resources/wallpapers");
 
 const work = mkdtempSync(join(tmpdir(), "wp-presets-"));
 const bundled = join(work, "presets.cjs");
-execFileSync(
-  process.execPath,
-  [
-    join(ROOT, "node_modules/esbuild/bin/esbuild"),
-    MODULE,
-    "--bundle",
-    "--platform=node",
-    "--format=cjs",
-    `--outfile=${bundled}`,
-  ],
-  { stdio: "pipe" },
-);
+await build({
+  entryPoints: [join(ROOT, "apps/desktop/electron/main/wallpaper-presets.ts")],
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  logLevel: "silent",
+  outfile: bundled,
+});
 const presets = await import(`file://${bundled.replace(/\\/g, "/")}`);
 
 test.after(() => rmSync(work, { recursive: true, force: true }));
