@@ -11,6 +11,8 @@ import {
 import { createTranslator, detectLang } from "./lib/i18n";
 import { decideBack } from "./lib/back";
 import { ConnectView } from "./views/connect";
+import { OnboardingView } from "./views/onboarding";
+import { hasSeenOnboarding, markOnboardingSeen } from "./lib/onboarding";
 import { ChatView } from "./views/chat";
 import { SessionsView, type SessionSummary } from "./views/sessions";
 import { BrowserStore } from "./agent/store";
@@ -69,6 +71,7 @@ export function App() {
   const [setupOpen, setSetupOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [browserOpen, setBrowserOpen] = useState(false);
+  const [onboarded, setOnboarded] = useState(() => hasSeenOnboarding());
 
   const lang = useMemo(() => detectLang(), []);
   const t = useMemo(() => createTranslator(lang), [lang]);
@@ -85,8 +88,10 @@ export function App() {
     backHandler.current = () => {
       const decision = decideBack({ drawerOpen, browserOpen, modelOpen, setupOpen, screen: screen.name });
       if (decision.handled) {
-        if ("screen" in decision) setScreen({ name: decision.screen });
-        else if (decision.close === "drawer") setDrawerOpen(false);
+        // `decideBack` only ever sends the surface back to the session list.
+        if ("screen" in decision) {
+          setScreen({ name: "sessions" });
+        } else if (decision.close === "drawer") setDrawerOpen(false);
         else if (decision.close === "browser") setBrowserOpen(false);
         else if (decision.close === "model") setModelOpen(false);
         else setSetupOpen(false);
@@ -168,6 +173,20 @@ export function App() {
   useEffect(() => {
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
   }, [lang]);
+
+  // Before the model and before pairing: what the app is, then the two Android
+  // settings that otherwise make it look broken later.
+  if (!onboarded) {
+    return (
+      <OnboardingView
+        t={t}
+        onDone={() => {
+          markOnboardingSeen();
+          setOnboarded(true);
+        }}
+      />
+    );
+  }
 
   if (!host || !client) {
     return (

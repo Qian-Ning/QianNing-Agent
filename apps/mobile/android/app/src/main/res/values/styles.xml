@@ -9,14 +9,30 @@
         <item name="colorAccent">@color/colorAccent</item>
     </style>
 
+    <!--
+      The shell is a light surface with dark ink, so the system bars are painted
+      the page colour and their icons are told to stay dark. Without the second
+      half the status bar draws white icons on a white page — the clock and the
+      battery disappear.
+    -->
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
-        <item name="android:background">@null</item>
+        <item name="android:background">@color/brand_paper</item>
+        <item name="android:windowBackground">@color/brand_paper</item>
+        <item name="android:statusBarColor">@color/brand_paper</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 
-
+    <!--
+      Before Android 12 the system has no splash API, so the theme carries the
+      launch window: a centred mark on the paper colour, from drawable/splash.
+    -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <!-- Android 11 and older draw this drawable instead of the v31 splash. -->
         <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">@color/brand_paper</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>

@@ -2,6 +2,18 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.2.0",
+    date: "2026-11-06",
+    highlights: [
+      "Tema merkezi artık bir galeri: her tema, gerçekten boyadığı yüzeyin üzerinde görünüyor ve seçicinin arkasında düz bir görsel yerine canlı duvar kâğıdı çalışıyor. Düzenleme, içe aktarma ve silme ait oldukları kartın üzerinde duruyor; bir temayı hatırlamak için adını ezberlemek gerekmiyor.",
+      "Canlı duvar kâğıdı projesi bir sahne ya da bir web sayfası olabilir ve doğrudan tema arka planına dönüşür — bir klasörden, bir ZIP'ten ya da pencereye sürükleyerek. Önizlemesi olmayan projeler için içe aktarmada bir kare yakalanıyor, böylece her kart ileride boyayacağı yüzeyi gösteriyor.",
+      "Uygulamayla birlikte 5 seçkin duvar kâğıdı geliyor; yaratıcılarının adları hemen yanlarında.",
+      "Telefon uygulaması uzun bir yanıtı başka uygulamaya geçtiğinizde kaybetmek yerine arka planda bitiriyor; zamanlanmış görev de dakikalar sonra değil, saatinde açılıyor.",
+      "Android'de ilk açılış üç ekranda kendini anlatıyor: bildirimler, görev çalışırken uyanık kalma ve kesin zamanlama. Her ekran sistemin o anda neye izin verdiğini gösteriyor ve hepsi atlanabiliyor.",
+      "千凝 (tilki) görünümü kaldırıldı.",
+    ],
+  },
+  {
     version: "2.1.0",
     date: "2026-10-27",
     highlights: [

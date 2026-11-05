@@ -2,6 +2,18 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "2.2.0",
+    date: "2026-11-06",
+    highlights: [
+      "Das Erscheinungsbild-Zentrum ist eine Galerie: Jedes Skin erscheint auf der Fläche, die es tatsächlich malt, und hinter der Auswahl läuft ein lebendiges Hintergrundbild statt eines Standbilds. Bearbeiten, Importieren und Löschen sitzen auf der jeweiligen Karte — kein Skin-Name bleibt mehr im Gedächtnis zu halten.",
+      "Ein Live-Hintergrundprojekt darf eine Szene oder eine Webseite sein und wird direkt zum Skin-Hintergrund — aus einem Ordner, aus einem ZIP oder per Drag auf das Fenster. Projekte ohne Standbild bekommen beim Import eines aufgenommen, damit jede Karte die Fläche zeigt, die sie später malt.",
+      "Fünf kuratierte Hintergrundbilder liegen bei; die Namen ihrer Urheber stehen daneben.",
+      "Die Telefon-App beendet eine lange Antwort im Hintergrund, statt sie beim Umschalten zu verlieren; eine geplante Aufgabe öffnet pünktlich statt Minuten später.",
+      "Der erste Start unter Android erklärt sich in drei Bildschirmen: Benachrichtigungen, wach bleiben während eine Aufgabe läuft, genaue Terminzeiten. Jeder Bildschirm zeigt, was das System derzeit erlaubt, und jeder lässt sich überspringen.",
+      "Das 千凝-(Fuchs-)Erscheinungsbild wurde zurückgezogen.",
+    ],
+  },
+  {
     version: "2.1.0",
     date: "2026-10-27",
     highlights: [

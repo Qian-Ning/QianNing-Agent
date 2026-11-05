@@ -30,6 +30,18 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.2.0",
+    date: "2026-11-06",
+    highlights: [
+      "The skin centre is a gallery now: every skin is shown on the surface it actually paints, and the live wallpaper runs behind the picker instead of a flat still. Editing, importing and deleting sit on the card they belong to, so a skin is no longer a name to remember.",
+      "A live wallpaper project can be a scene or a web page, and it becomes a skin background directly — from a folder, from a ZIP, or by dragging it onto the window. Projects with no still get one captured on import, so every card shows the surface it will paint.",
+      "Five curated wallpapers ship with the app, their creators credited beside them.",
+      "The phone finishes a long answer in the background instead of losing it when you switch away, and a scheduled task now opens on time rather than minutes late.",
+      "First run on Android explains itself in three screens: notifications, staying awake while a task runs, and exact schedule times. Each one shows what the system currently allows, and every one can be skipped.",
+      "The 千凝 (fox) appearance has been retired.",
+    ],
+  },
+  {
     version: "2.1.0",
     date: "2026-10-27",
     highlights: [
@@ -1081,6 +1093,18 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.2.0",
+    date: "2026-11-06",
+    highlights: [
+      "皮肤中心改成了画廊：每个皮肤直接显示在它真正绘制的那块表面上，选皮肤时背后跑的是活的动态壁纸，不是一张静帧图。编辑、导入、删除都长在各自的卡片上，不用再记皮肤叫什么。",
+      "动态壁纸工程可以是 Scene，也可以是网页，能直接当成皮肤背景——从文件夹、从 ZIP、或者拖进窗口都行。没有静帧的工程会在导入时自动抓一帧，所以每张卡片看到的都是它将来会画出来的样子。",
+      "内置 5 张精选壁纸，随安装包一起走，署名就放在它们旁边。",
+      "手机版切到后台不会再把长回答掐断，定时任务也按点启动，不再晚几分钟。",
+      "安卓首次启动用三屏说清楚：通知、任务运行时不休眠、定时任务准点。每一屏都显示系统当前的真实状态，也都可以跳过。",
+      "「千凝」狐狸外观已退役。",
+    ],
+  },
+  {
     version: "2.1.0",
     date: "2026-10-27",
     highlights: [
@@ -2131,6 +2155,18 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.2.0",
+    date: "2026-11-06",
+    highlights: [
+      "外觀中心改成畫廊了：每個外觀直接顯示在它真正繪製的那塊表面上，選外觀時背後跑的是活的動態桌布，不是一張靜止圖。編輯、匯入、刪除都長在各自的卡片上，不用再記外觀叫什麼名字。",
+      "動態桌布專案可以是 Scene，也可以是網頁，能直接當成外觀背景——從資料夾、從 ZIP、或者拖進視窗都行。沒有預覽畫面的專案會在匯入時自動擷取一張，所以每張卡片看到的都是它將來會畫出來的樣子。",
+      "內建 5 張精選桌布，隨安裝包一起走，署名就放在它們旁邊。",
+      "手機版切到背景不會再把長回答掐斷，排定的任務也準時啟動，不再晚幾分鐘。",
+      "安卓首次啟動用三屏說清楚：通知、任務執行時不休眠、排程準點。每一屏都顯示系統目前的真實狀態，也都可以略過。",
+      "「千凝」狐狸外觀已退役。",
+    ],
+  },
   {
     version: "2.1.0",
     date: "2026-10-27",

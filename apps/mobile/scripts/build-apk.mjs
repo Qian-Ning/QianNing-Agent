@@ -11,22 +11,52 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { resolveToolchain } from "./android-env.mjs";
+
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
 const isWindows = process.platform === "win32";
 
-function run(command, args, cwd) {
-  const result = spawnSync(command, args, { cwd, stdio: "inherit", shell: isWindows });
+/*
+  `--release` builds the distributable variant: minified off, signed with the
+  debug keystore (see android/app/build.gradle), installable by sideload. The
+  default stays `assembleDebug` so a quick local round-trip does not pay for the
+  release pipeline.
+*/
+const release = process.argv.includes("--release");
+const variant = release ? "release" : "debug";
+const task = release ? "assembleRelease" : "assembleDebug";
+const artifact = release
+  ? "android/app/build/outputs/apk/release/app-release.apk"
+  : "android/app/build/outputs/apk/debug/app-debug.apk";
+
+function run(command, args, cwd, extraEnv) {
+  const result = spawnSync(command, args, {
+    cwd,
+    stdio: "inherit",
+    shell: isWindows,
+    env: extraEnv ? { ...process.env, ...extraEnv } : process.env,
+  });
   if (result.status !== 0) {
     console.error(`\n${command} ${args.join(" ")} failed with exit code ${result.status}`);
     process.exit(result.status ?? 1);
   }
 }
 
-if (!process.env.ANDROID_HOME && !process.env.ANDROID_SDK_ROOT) {
-  console.error("ANDROID_HOME is not set; the Android SDK is required to build the APK.");
+/*
+  Gradle needs a JDK 21+ and an Android SDK with build-tools 36 / platform 36.
+  The shell that runs this may export neither — resolve them and hand them to
+  the Gradle process explicitly instead of trusting whatever the profile loaded.
+*/
+let toolchain;
+try {
+  toolchain = resolveToolchain();
+} catch (error) {
+  console.error(`\n${error.message}\n`);
   process.exit(1);
 }
+console.log(`[apk] java     ${toolchain.javaHome}`);
+console.log(`[apk] android  ${toolchain.androidHome}`);
 
 /*
   The phone runs the desktop renderer through the bridge bundle. An APK without
@@ -80,8 +110,15 @@ if (!existsSync(gradlew)) {
   console.error("the Android project is missing; run `pnpm exec cap add android` first.");
   process.exit(1);
 }
-run(gradlew, ["assembleDebug"], join(root, "android"));
+run(gradlew, [task], join(root, "android"), {
+  JAVA_HOME: toolchain.javaHome,
+  ANDROID_HOME: toolchain.androidHome,
+  ANDROID_SDK_ROOT: toolchain.androidHome,
+});
 
-console.log(
-  "\nAPK: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk",
-);
+const apk = join(root, artifact);
+if (!existsSync(apk)) {
+  console.error(`\nthe ${variant} build finished but ${artifact} is missing.`);
+  process.exit(1);
+}
+console.log(`\nAPK (${variant}): ${artifact}  ${statSync(apk).size.toLocaleString()} bytes`);

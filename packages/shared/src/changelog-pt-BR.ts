@@ -2,6 +2,18 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "2.2.0",
+    date: "2026-11-06",
+    highlights: [
+      "A central de aparências agora é uma galeria: cada tema aparece na superfície que realmente pinta, e um papel de parede animado roda atrás do seletor em vez de uma imagem parada. Editar, importar e excluir ficam no próprio cartão, então um tema deixou de ser um nome para se decorar.",
+      "Um projeto de papel de parede animado pode ser uma cena ou uma página web, e vira fundo de tema direto: de uma pasta, de um ZIP ou arrastado para a janela. Projetos sem quadro de prévia ganham um na importação, de modo que cada cartão mostre a superfície que ele vai pintar.",
+      "Cinco papéis de parede selecionados vêm com o app, com os nomes de quem os fez logo ao lado.",
+      "O app do celular termina uma resposta longa em segundo plano em vez de perdê-la quando você troca de aplicativo, e uma tarefa agendada agora abre na hora, não minutos depois.",
+      "A primeira execução no Android se explica em três telas: notificações, permanecer acordado enquanto uma tarefa roda e horários exatos de agendamento. Cada uma mostra o que o sistema permite agora, e todas podem ser puladas.",
+      "A aparência 千凝 (raposa) foi aposentada.",
+    ],
+  },
+  {
     version: "2.1.0",
     date: "2026-10-27",
     highlights: [

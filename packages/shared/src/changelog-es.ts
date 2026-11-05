@@ -2,6 +2,18 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "2.2.0",
+    date: "2026-11-06",
+    highlights: [
+      "El centro de apariencias ahora es una galería: cada tema se muestra sobre la superficie que pinta de verdad, y detrás del selector corre un fondo animado en vez de una imagen fija. Editar, importar y borrar viven en su propia tarjeta, así que un tema ya no es un nombre que haya que recordar.",
+      "Un proyecto de fondo animado puede ser una escena o una página web, y se convierte en fondo de tema directamente: desde una carpeta, desde un ZIP o arrastrándolo a la ventana. Los proyectos sin fotograma de vista previa lo obtienen al importarse, de modo que cada tarjeta muestra la superficie que va a pintar.",
+      "Cinco fondos animados seleccionados vienen con la app, con sus autores acreditados al lado.",
+      "La app del teléfono termina una respuesta larga en segundo plano en lugar de perderla al cambiar de aplicación, y una tarea programada ya abre a su hora en vez de minutos después.",
+      "El primer arranque en Android se explica en tres pantallas: notificaciones, permanecer despierto mientras corre una tarea y horas exactas de programación. Cada una muestra lo que el sistema permite ahora mismo y todas se pueden saltar.",
+      "La apariencia 千凝 (zorro) se ha retirado.",
+    ],
+  },
+  {
     version: "2.1.0",
     date: "2026-10-27",
     highlights: [
