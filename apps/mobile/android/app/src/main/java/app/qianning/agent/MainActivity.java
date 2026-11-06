@@ -5,9 +5,12 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.core.splashscreen.SplashScreen;
 
 import com.getcapacitor.BridgeActivity;
+import com.journeyapps.barcodescanner.ScanContract;
+import com.journeyapps.barcodescanner.ScanOptions;
 
 public class MainActivity extends BridgeActivity {
 
@@ -20,6 +23,30 @@ public class MainActivity extends BridgeActivity {
      * and gives up after three and a half seconds either way.
      */
     private volatile boolean firstFrameDrawn = false;
+
+    /**
+     * The camera is opened by zxing's own activity, which returns the decoded
+     * text (or null when the user backs out). The launcher has to live here:
+     * `registerForActivityResult` is only valid before `onStart`, and a plugin
+     * is created after that.
+     */
+    private ActivityResultLauncher<ScanOptions> qrLauncher;
+    private QrScanPlugin qrCaller;
+
+    /** Starts a scan for `plugin`, which is resolved when the camera returns. */
+    void beginQrScan(QrScanPlugin plugin) {
+        if (qrLauncher == null) {
+            plugin.deliver(null);
+            return;
+        }
+        qrCaller = plugin;
+        ScanOptions options = new ScanOptions();
+        options.setDesiredBarcodeFormats(ScanOptions.QR_CODE);
+        options.setPrompt("");
+        options.setBeepEnabled(false);
+        options.setOrientationLocked(false);
+        qrLauncher.launch(options);
+    }
 
     /**
      * The web layer decides what "back" means here: close a sheet, leave
@@ -50,6 +77,14 @@ public class MainActivity extends BridgeActivity {
         SplashScreen splash = SplashScreen.installSplashScreen(this);
         splash.setKeepOnScreenCondition(() -> !firstFrameDrawn);
 
+        qrLauncher = registerForActivityResult(new ScanContract(), result -> {
+            QrScanPlugin caller = qrCaller;
+            qrCaller = null;
+            if (caller != null) {
+                caller.deliver(result.getContents());
+            }
+        });
+
         // Registered before the bridge starts so the WebView can call it on
         // its first render.
         registerPlugin(AgentKeepAlivePlugin.class);
@@ -61,6 +96,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(FilesPlugin.class);
         registerPlugin(RemoteHostPlugin.class);
         registerPlugin(SshPlugin.class);
+        registerPlugin(QrScanPlugin.class);
         super.onCreate(savedInstanceState);
         watchForFirstFrame();
     }

@@ -44,6 +44,8 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    // Pairing QR: zxing owns the camera activity, so this plugin stays small.
+    implementation "com.journeyapps:zxing-android-embedded:4.3.0"
     // SSH: the phone is a client for the user's own machines (connections page).
     implementation "com.github.mwiede:jsch:0.2.21"
     testImplementation "junit:junit:$junitVersion"
