@@ -33,6 +33,7 @@ export {
   type SourcedCatalogEntry,
 } from "./mcp-registry.js";
 export * from "./public-network.js";
+export * from "./pairing-link.js";
 export * from "./network-policy.js";
 export * from "./usage-budget.js";
 export * from "./skill-catalog.js";

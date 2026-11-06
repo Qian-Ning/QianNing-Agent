@@ -70,6 +70,24 @@ export function normalizeAddress(input: string): string {
   return `${url.protocol}//${url.host}`;
 }
 
+/** Opens the camera and returns the code it read; null when the user backs out. */
+export async function scanPairingCode(): Promise<string | null> {
+  const plugins = (globalThis as { window?: { Capacitor?: { Plugins?: Record<string, unknown> } } })
+    .window?.Capacitor?.Plugins;
+  const scanner = plugins?.QrScan as { scan?: () => Promise<{ text?: string }> } | undefined;
+  if (!scanner?.scan) throw new Error("this build cannot scan a code");
+  try {
+    const result = await scanner.scan();
+    return result?.text ?? null;
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    // Backing out of the camera is not a failure; a refused permission is.
+    if (/cancel/i.test(message)) return null;
+    if (/camera-denied/i.test(message)) throw new Error("camera-denied");
+    throw cause instanceof Error ? cause : new Error(message);
+  }
+}
+
 function read(): PairedComputer[] {
   try {
     const raw = localStorage.getItem(KEY);

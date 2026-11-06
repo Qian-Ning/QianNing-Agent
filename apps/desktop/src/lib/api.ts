@@ -817,6 +817,8 @@ export const api = {
   }) => invoke<{ profile: { id: string } }>("pi-desktop/ssh/save", input),
   sshDeleteProfile: (id: string) => invoke<{ ok: boolean }>("pi-desktop/ssh/delete", id),
 
+  /** Opens the phone's camera for the code the desktop draws. */
+  scanPairingCode: () => invoke<{ text: string | null }>("pi-desktop/remote/scan"),
   remoteSessions: (hostKey: string) =>
     invoke<{ sessions: Array<{ id: string; title: string; updatedAt?: number }> }>(
       "pi-desktop/remote/sessions",

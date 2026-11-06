@@ -55,6 +55,7 @@ import {
   listComputers,
   pairComputer,
   removeComputer,
+  scanPairingCode,
   sendTurn,
 } from "../remote/computers";
 import type { ModelPricingRow } from "@pi-desktop/shared";
@@ -393,6 +394,9 @@ export class PhoneBridge {
       if (!computer) throw new Error("that computer is not paired");
       return { sessions: await fetchSessions(computer) };
     },
+
+    /** Opens the camera for the code the desktop draws. */
+    "remote/scan": async () => ({ text: await scanPairingCode() }),
 
     /** One conversation's transcript, newest page included. */
     "remote/history": async (input?: unknown) => {
