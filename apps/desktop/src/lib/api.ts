@@ -838,6 +838,28 @@ export const api = {
   /** A prompt typed on the phone, executed by that computer's agent. */
   remoteSendTurn: (hostKey: string, sessionId: string, text: string) =>
     invoke<{ sent: boolean }>("pi-desktop/remote/turn", { hostKey, sessionId, text }),
+  /** The approvals that turn is blocked on. */
+  remoteApprovals: (hostKey: string, sessionId: string) =>
+    invoke<{
+      approvals: Array<{
+        id: string;
+        kind: "tool" | "plan" | "goal";
+        summary: string;
+        toolName?: string;
+        risk?: "low" | "medium" | "high";
+      }>;
+    }>("pi-desktop/remote/approvals", { hostKey, sessionId }),
+  /** Answers one of them. */
+  remoteRespondApproval: (
+    hostKey: string,
+    approvalId: string,
+    decision: "allow-once" | "allow-session" | "deny" | "approve" | "reject",
+  ) =>
+    invoke<{ answered: boolean }>("pi-desktop/remote/approve", {
+      hostKey,
+      approvalId,
+      decision,
+    }),
   enableRemoteAccess: (exposure?: "loopback" | "lan") =>
     invoke<RemoteAccessStatus>(IPC.invoke.remoteEnable, { exposure }),
   disableRemoteAccess: () => invoke<RemoteAccessStatus>(IPC.invoke.remoteDisable),

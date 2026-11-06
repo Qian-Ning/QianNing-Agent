@@ -49,14 +49,18 @@ import {
   removeFromLibrary,
 } from "../media/workbench";
 import {
+  APPROVAL_DECISIONS,
+  fetchApprovals,
   fetchHistory,
   fetchSessions,
   hasRemoteHost,
   listComputers,
   pairComputer,
   removeComputer,
+  respondApproval,
   scanPairingCode,
   sendTurn,
+  type ApprovalDecision,
 } from "../remote/computers";
 import type { ModelPricingRow } from "@pi-desktop/shared";
 import {
@@ -397,6 +401,33 @@ export class PhoneBridge {
 
     /** Opens the camera for the code the desktop draws. */
     "remote/scan": async () => ({ text: await scanPairingCode() }),
+
+    /** The approvals a running turn on that computer is blocked on. */
+    "remote/approvals": async (input?: unknown) => {
+      const request = (input ?? {}) as { hostKey?: unknown; sessionId?: unknown };
+      const computer = listComputers().find((entry) => entry.key === String(request.hostKey ?? ""));
+      if (!computer) throw new Error("that computer is not paired");
+      const sessionId = String(request.sessionId ?? "");
+      if (!sessionId) throw new Error("an approval request needs a session");
+      return { approvals: await fetchApprovals(computer, sessionId) };
+    },
+
+    /** Answers one of them. */
+    "remote/approve": async (input?: unknown) => {
+      const request = (input ?? {}) as {
+        hostKey?: unknown;
+        approvalId?: unknown;
+        decision?: unknown;
+      };
+      const computer = listComputers().find((entry) => entry.key === String(request.hostKey ?? ""));
+      if (!computer) throw new Error("that computer is not paired");
+      const approvalId = String(request.approvalId ?? "");
+      if (!approvalId) throw new Error("an approval answer needs an id");
+      const decision = String(request.decision ?? "");
+      if (!APPROVAL_DECISIONS.has(decision)) throw new Error("unknown approval decision");
+      await respondApproval(computer, approvalId, decision as ApprovalDecision);
+      return { answered: true };
+    },
 
     /** One conversation's transcript, newest page included. */
     "remote/history": async (input?: unknown) => {
