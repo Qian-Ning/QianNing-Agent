@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { REMOTE_UNREACHABLE } from "@pi-desktop/shared";
 
 import {
+  fetchApprovals,
   fetchHistory,
   fetchSessions,
   listComputers,
   normalizeAddress,
   pairComputer,
   removeComputer,
+  respondApproval,
   sendTurn,
 } from "./computers";
 
@@ -170,6 +172,12 @@ describe("talking to a paired computer", () => {
               {
                 id: "i2",
                 itemType: "message",
+                status: "streaming",
+                content: { role: "assistant", content: [{ type: "text", text: "" }] },
+              },
+              {
+                id: "i2",
+                itemType: "message",
                 content: {
                   role: "assistant",
                   content: [
@@ -178,7 +186,8 @@ describe("talking to a paired computer", () => {
                   ],
                 },
               },
-              { id: "i3", itemType: "tool", content: { toolName: "shell" } },
+              { id: "i3", itemType: "tool", content: { toolCallId: "i3", toolName: "shell", args: {} } },
+              { id: "i3", itemType: "tool", content: { toolCallId: "i3", result: "ok", isError: false } },
               { id: "i4", itemType: "compaction", content: {} },
               { id: "i5", itemType: "message", content: { role: "assistant", content: "" } },
               { id: "i6", itemType: "message", content: { role: "assistant", content: { odd: true } } },
@@ -213,5 +222,47 @@ describe("talking to a paired computer", () => {
     const payload = JSON.parse(post.body) as { input: { text: string }; context: { requestId: string } };
     expect(payload.input.text).toBe("继续");
     expect(payload.context.requestId).toBeTruthy();
+  });
+
+  it("reads the approvals a turn is blocked on", async () => {
+    stubRemote({
+      request: () => ({
+        status: 200,
+        body: JSON.stringify({
+          result: {
+            snapshot: {
+              pendingApprovals: [
+                { id: "ap1", kind: "tool", summary: "rm -rf build", toolName: "shell", risk: "high" },
+                { id: "ap2", kind: "plan", summary: "改动 3 个文件" },
+                { nope: true },
+              ],
+            },
+          },
+        }),
+      }),
+    });
+    await pairComputer({ url: "192.168.1.8:7317", token: "pdt1.one" });
+
+    const approvals = await fetchApprovals(listComputers()[0]!, "s1");
+
+    expect(approvals.map((entry) => entry.id)).toEqual(["ap1", "ap2"]);
+    expect(approvals[0]?.toolName).toBe("shell");
+    expect(approvals[1]?.kind).toBe("plan");
+  });
+
+  it("answers an approval at its own route", async () => {
+    const seen: Array<{ path: string; method: string; body?: string }> = [];
+    stubRemote({
+      request: (options) => {
+        seen.push(options as { path: string; method: string; body?: string });
+        return { status: 200, body: JSON.stringify({ result: { status: "resolved" } }) };
+      },
+    });
+    await pairComputer({ url: "192.168.1.8:7317", token: "pdt1.one" });
+    await respondApproval(listComputers()[0]!, "ap1", "allow-once");
+
+    const post = seen.at(-1) as { path: string; method: string; body: string };
+    expect(post.path).toBe("/v1/approvals/ap1:respond");
+    expect(JSON.parse(post.body).decision).toBe("allow-once");
   });
 });

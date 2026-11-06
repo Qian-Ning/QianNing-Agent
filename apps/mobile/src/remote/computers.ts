@@ -273,10 +273,20 @@ function textOf(content: unknown): string {
   return parts.join("\n\n");
 }
 
+/**
+ * The transcript, keyed by item id.
+ *
+ * The host records a message twice — `message_start` while it streams and
+ * `message_end` when it settles — and a tool twice for the same reason, so a
+ * naive walk of the page yields two rows with one id. React would warn about a
+ * duplicate key and the reader would see the same sentence twice, so later
+ * entries replace earlier ones and a tool row keeps the name its start carried
+ * even when the end carries only a result.
+ */
 function asMessages(value: unknown): RemoteMessage[] {
   const items = (value as { items?: unknown } | null)?.items;
   if (!Array.isArray(items)) return [];
-  const out: RemoteMessage[] = [];
+  const byId = new Map<string, RemoteMessage>();
   for (const entry of items) {
     const row = entry as {
       id?: unknown;
@@ -292,20 +302,26 @@ function asMessages(value: unknown): RemoteMessage[] {
       const message = (row.content ?? {}) as { role?: unknown; content?: unknown };
       const role = message.role === "user" ? "user" : "assistant";
       const text = textOf(message.content);
-      if (text) out.push({ id: row.id, role, text, ...when });
+      // A streaming message with no text yet must not erase the settled copy.
+      if (!text) continue;
+      byId.set(row.id, { id: row.id, role, text, ...when });
       continue;
     }
     if (row.itemType === "tool") {
       const tool = (row.content ?? {}) as { toolName?: unknown };
-      const name = typeof tool.toolName === "string" ? tool.toolName : "";
-      if (name) out.push({ id: row.id, role: "tool", text: name, toolName: name, ...when });
+      const previous = byId.get(row.id);
+      const name =
+        typeof tool.toolName === "string" && tool.toolName ? tool.toolName : (previous?.toolName ?? "");
+      // A tool that ended but never started here has no name to show.
+      if (!name) continue;
+      byId.set(row.id, { id: row.id, role: "tool", text: name, toolName: name, ...when });
       continue;
     }
     if (row.itemType === "compaction") {
-      out.push({ id: row.id, role: "note", text: "…", ...when });
+      byId.set(row.id, { id: row.id, role: "note", text: "…", ...when });
     }
   }
-  return out;
+  return [...byId.values()];
 }
 
 /** The visible transcript of one conversation on the paired computer. */
@@ -335,6 +351,82 @@ export async function sendTurn(
   if (!trimmed) return;
   await call(computer, "POST", `/v1/sessions/${encodeURIComponent(sessionId)}/turns`, {
     input: { text: trimmed },
+    context: { requestId: requestId() },
+  });
+}
+
+/** A question the desktop's agent is waiting on before it can continue. */
+export type RemoteApproval = {
+  id: string;
+  kind: "tool" | "plan" | "goal";
+  summary: string;
+  toolName?: string;
+  risk?: "low" | "medium" | "high";
+};
+
+/**
+ * The approvals a running turn is blocked on.
+ *
+ * `session/attach` answers with a snapshot that carries `pendingApprovals`;
+ * there is no separate list operation. The phone only asks while its own turn is
+ * in flight, because attach also resumes that session's queue — polling it at
+ * rest would nudge a session the user deliberately paused.
+ */
+export async function fetchApprovals(
+  computer: PairedComputer,
+  sessionId: string,
+): Promise<RemoteApproval[]> {
+  const result = await call(
+    computer,
+    "POST",
+    `/v1/sessions/${encodeURIComponent(sessionId)}:attach`,
+    { includeSnapshot: true, context: { requestId: requestId() } },
+  );
+  const pending = (result as { snapshot?: { pendingApprovals?: unknown } } | null)?.snapshot
+    ?.pendingApprovals;
+  if (!Array.isArray(pending)) return [];
+  return pending.flatMap((entry) => {
+    const row = entry as {
+      id?: unknown;
+      kind?: unknown;
+      summary?: unknown;
+      toolName?: unknown;
+      risk?: unknown;
+    };
+    if (typeof row.id !== "string") return [];
+    const kind = row.kind === "plan" || row.kind === "goal" ? row.kind : "tool";
+    return [
+      {
+        id: row.id,
+        kind,
+        summary: typeof row.summary === "string" ? row.summary : "",
+        ...(typeof row.toolName === "string" ? { toolName: row.toolName } : {}),
+        ...(row.risk === "low" || row.risk === "medium" || row.risk === "high"
+          ? { risk: row.risk }
+          : {}),
+      } satisfies RemoteApproval,
+    ];
+  });
+}
+
+/** Answers one approval; `decision` must be one that kind allows. */
+export const APPROVAL_DECISIONS: ReadonlySet<string> = new Set([
+  "allow-once",
+  "allow-session",
+  "deny",
+  "approve",
+  "reject",
+]);
+
+export type ApprovalDecision = "allow-once" | "allow-session" | "deny" | "approve" | "reject";
+
+export async function respondApproval(
+  computer: PairedComputer,
+  approvalId: string,
+  decision: ApprovalDecision,
+): Promise<void> {
+  await call(computer, "POST", `/v1/approvals/${encodeURIComponent(approvalId)}:respond`, {
+    decision,
     context: { requestId: requestId() },
   });
 }

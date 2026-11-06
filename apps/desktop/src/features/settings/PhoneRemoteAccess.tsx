@@ -41,6 +41,14 @@ type Message = {
   toolName?: string;
 };
 
+/** A decision the desktop is waiting on before the turn can continue. */
+type Approval = {
+  id: string;
+  kind: "tool" | "plan" | "goal";
+  summary: string;
+  toolName?: string;
+};
+
 type Screen =
   | { kind: "computers" }
   | { kind: "sessions"; host: PairedHost }
@@ -470,6 +478,7 @@ function RemoteConversation({
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [approvals, setApprovals] = useState<Approval[]>([]);
   const bottom = useRef<HTMLDivElement | null>(null);
   const alive = useRef(true);
 
@@ -516,11 +525,18 @@ function RemoteConversation({
       await api.remoteSendTurn(host.hostKey, session.id, text);
       setDraft("");
       // The reply is produced on the desktop, so read until two reads agree
-      // instead of guessing how long a turn takes.
+      // instead of guessing how long a turn takes. A turn that stops making
+      // progress is usually waiting on an approval, so each round asks for those
+      // too — that is the only window where the phone looks for them.
       let previous = -1;
       for (let attempt = 0; attempt < 40 && alive.current; attempt += 1) {
         await new Promise((resolve) => setTimeout(resolve, attempt < 4 ? 800 : 2_000));
         const next = await load();
+        const pending = await api
+          .remoteApprovals(host.hostKey, session.id)
+          .then((answer) => answer.approvals)
+          .catch(() => []);
+        if (alive.current) setApprovals(pending);
         if (next.length === previous && next.some((message) => message.role === "assistant")) break;
         previous = next.length;
       }
@@ -530,6 +546,22 @@ function RemoteConversation({
       if (alive.current) setSending(false);
     }
   }, [draft, sending, host.hostKey, session.id, load, describe]);
+
+  /**
+   * Answers one approval and drops it from the list immediately: the next poll
+   * confirms, but a card that lingers after a tap reads as a dead button.
+   */
+  const answer = useCallback(
+    async (approval: Approval, decision: "allow-once" | "allow-session" | "deny" | "approve" | "reject") => {
+      setApprovals((current) => current.filter((entry) => entry.id !== approval.id));
+      try {
+        await api.remoteRespondApproval(host.hostKey, approval.id, decision);
+      } catch (cause) {
+        setError(describe(cause));
+      }
+    },
+    [host.hostKey, describe],
+  );
 
   return (
     <>
@@ -569,6 +601,40 @@ function RemoteConversation({
       </div>
 
       {status === "ready" && error ? <p className="phone-remote-error">{error}</p> : null}
+
+      {approvals.map((approval) => (
+        <div key={approval.id} className="phone-remote-approval">
+          <p className="phone-remote-approval-head">
+            {t("settings.phoneApproval")}
+            {approval.toolName ? ` · ${approval.toolName}` : ""}
+          </p>
+          {approval.summary ? <p className="phone-remote-approval-body">{approval.summary}</p> : null}
+          <div className="phone-remote-approval-actions">
+            {approval.kind === "tool" ? (
+              <>
+                <Button type="button" variant="primary" onClick={() => void answer(approval, "allow-once")}>
+                  {t("settings.phoneAllowOnce")}
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => void answer(approval, "allow-session")}>
+                  {t("settings.phoneAllowSession")}
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => void answer(approval, "deny")}>
+                  {t("settings.phoneDeny")}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button type="button" variant="primary" onClick={() => void answer(approval, "approve")}>
+                  {t("settings.phoneApprove")}
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => void answer(approval, "reject")}>
+                  {t("settings.phoneReject")}
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      ))}
 
       <form
         className="phone-remote-compose"
