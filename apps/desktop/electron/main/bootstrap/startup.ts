@@ -384,6 +384,10 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
       },
       log: (level, message, data) => logger.app("runtime", level, message, { data }),
     });
+    // A socket is process state, so a restart closes it even though the phone
+    // kept its pairing. Restore what the user had switched on, without blocking
+    // the first window: the LAN bind may have to wait for Wi-Fi to associate.
+    void state.remoteListener.resume();
     const control = createMcpControlController({
       invoke: invokeIpc,
       channels: IPC.invoke,

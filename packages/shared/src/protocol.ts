@@ -652,6 +652,16 @@ export const IPC = {
   },
 } as const;
 
+/**
+ * The phone could not reach a paired computer at all.
+ *
+ * The native socket layer answers with the platform's own sentence — address,
+ * source port, elapsed milliseconds — which a person cannot act on. The phone
+ * bridge replaces that with this code, and the screen phrases it, so the two
+ * sides agree on one value instead of on the wording of a Java exception.
+ */
+export const REMOTE_UNREACHABLE = "remote-unreachable";
+
 export const IPC_WHITELIST = new Set<string>([
   ...Object.values(IPC.invoke),
   ...Object.values(IPC.event),

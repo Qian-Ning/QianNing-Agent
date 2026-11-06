@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { REMOTE_UNREACHABLE } from "@pi-desktop/shared";
+
 import {
+  fetchHistory,
   fetchSessions,
   listComputers,
   normalizeAddress,
   pairComputer,
   removeComputer,
+  sendTurn,
 } from "./computers";
 
 const store = new Map<string, string>();
@@ -139,5 +143,75 @@ describe("talking to a paired computer", () => {
     stubRemote({ request: () => ({ status: 401, body: "" }) });
     await pairComputer({ url: "192.168.1.8:7317", token: "pdt1.one" });
     await expect(fetchSessions(listComputers()[0]!)).rejects.toThrow(/device token/);
+  });
+
+  it("collapses a socket timeout into a code the screen can phrase", async () => {
+    // The platform's own wording names two ports and elapsed milliseconds, which
+    // is exactly what the phone showed when the desktop's listener was closed.
+    stubRemote({
+      request: () => {
+        throw new Error(
+          "failed to connect to /192.168.10.104 (port 6838) from /192.168.10.71 (port 47018) after 15000ms",
+        );
+      },
+    });
+    await pairComputer({ url: "192.168.1.8:7317", token: "pdt1.one" });
+    await expect(fetchSessions(listComputers()[0]!)).rejects.toThrow(REMOTE_UNREACHABLE);
+  });
+
+  it("reduces a transcript to the lines a phone can show", async () => {
+    stubRemote({
+      request: () => ({
+        status: 200,
+        body: JSON.stringify({
+          result: {
+            items: [
+              { id: "i1", itemType: "message", content: { role: "user", content: "把日志清一下" } },
+              {
+                id: "i2",
+                itemType: "message",
+                content: {
+                  role: "assistant",
+                  content: [
+                    { type: "thinking", thinking: "internal" },
+                    { type: "text", text: "清完了。" },
+                  ],
+                },
+              },
+              { id: "i3", itemType: "tool", content: { toolName: "shell" } },
+              { id: "i4", itemType: "compaction", content: {} },
+              { id: "i5", itemType: "message", content: { role: "assistant", content: "" } },
+              { id: "i6", itemType: "message", content: { role: "assistant", content: { odd: true } } },
+            ],
+          },
+        }),
+      }),
+    });
+    await pairComputer({ url: "192.168.1.8:7317", token: "pdt1.one" });
+
+    const messages = await fetchHistory(listComputers()[0]!, "s1");
+
+    expect(messages.map((message) => message.role)).toEqual(["user", "assistant", "tool", "note"]);
+    expect(messages[1]?.text).toBe("清完了。");
+    expect(messages[2]?.toolName).toBe("shell");
+  });
+
+  it("sends a prompt into a conversation on that computer", async () => {
+    const seen: Array<{ path: string; method: string; body?: unknown }> = [];
+    stubRemote({
+      request: (options) => {
+        seen.push(options as { path: string; method: string });
+        return { status: 200, body: JSON.stringify({ result: { turnId: "t1" } }) };
+      },
+    });
+    await pairComputer({ url: "192.168.1.8:7317", token: "pdt1.one" });
+    await sendTurn(listComputers()[0]!, "s1", "  继续  ");
+
+    const post = seen.at(-1) as { path: string; method: string; body: string };
+    expect(post.method).toBe("POST");
+    expect(post.path).toBe("/v1/sessions/s1/turns");
+    const payload = JSON.parse(post.body) as { input: { text: string }; context: { requestId: string } };
+    expect(payload.input.text).toBe("继续");
+    expect(payload.context.requestId).toBeTruthy();
   });
 });

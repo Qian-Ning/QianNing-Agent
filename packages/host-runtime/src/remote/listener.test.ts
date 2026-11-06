@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -260,5 +260,76 @@ describe("removing device records", () => {
     });
     listeners.push(second);
     expect(await second.listDevices()).toEqual([]);
+  });
+});
+
+describe("remote access across a restart", () => {
+  async function make(dir: string): Promise<RemoteListener> {
+    const listener = createRemoteListener({
+      dataDir: dir,
+      agentHost,
+      serverVersion: "2.2.0",
+      getHost: () => fakeHost(),
+      compact: async () => ({ accepted: true }),
+      isBusy: () => false,
+      log: () => undefined,
+    });
+    listeners.push(listener);
+    return listener;
+  }
+
+  it("records the mode it was started in and forgets it on stop", async () => {
+    const dir = await dataDir();
+    const listener = await make(dir);
+    await listener.start("loopback");
+
+    // The record is what boot reads; without it the phone keeps a pairing to a
+    // port nothing answers on after every relaunch.
+    const saved = JSON.parse(await readFile(join(dir, "remote", "enabled.json"), "utf8")) as {
+      exposure?: string;
+    };
+    expect(saved.exposure).toBe("loopback");
+
+    await listener.stop();
+    await expect(readFile(join(dir, "remote", "enabled.json"), "utf8")).rejects.toThrow();
+  });
+
+  it("reopens the listener and serves the sessions a paired phone asks for", async () => {
+    const dir = await dataDir();
+    const before = await make(dir);
+    await before.start("loopback");
+    const device = await before.issueDevice("phone");
+
+    // A restart is a new listener over the same data directory: the port is
+    // remembered, the device record is on disk, and nothing has told this
+    // instance to listen — exactly the state the phone timed out against.
+    const after = await make(dir);
+    const resumed = await after.resume();
+    expect(resumed).not.toBeNull();
+    expect((await after.status()).running).toBe(true);
+
+    const base = `http://127.0.0.1:${resumed?.port}`;
+    // Built rather than written as one literal so the scheme and the credential
+    // stay separate values in source.
+    const authorization = ["Bearer", device.token].join(" ");
+    const response = await fetch(`${base}/v1/sessions`, { headers: { authorization } });
+    expect(response.status).toBe(200);
+    expect((await response.json()) as { result?: unknown }).toMatchObject({
+      result: { sessions: [] },
+    });
+  });
+
+  it("stays off when the user never turned it on", async () => {
+    const after = await make(await dataDir());
+    expect(await after.resume()).toBeNull();
+    expect((await after.status()).running).toBe(false);
+  });
+
+  it("treats an unreadable record as off instead of throwing at boot", async () => {
+    const dir = await dataDir();
+    await mkdir(join(dir, "remote"), { recursive: true });
+    await writeFile(join(dir, "remote", "enabled.json"), "{not json", "utf8");
+    const after = await make(dir);
+    expect(await after.resume()).toBeNull();
   });
 });

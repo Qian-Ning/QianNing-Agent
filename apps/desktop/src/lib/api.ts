@@ -818,10 +818,24 @@ export const api = {
   sshDeleteProfile: (id: string) => invoke<{ ok: boolean }>("pi-desktop/ssh/delete", id),
 
   remoteSessions: (hostKey: string) =>
-    invoke<{ sessions: Array<{ id: string; title: string }> }>(
+    invoke<{ sessions: Array<{ id: string; title: string; updatedAt?: number }> }>(
       "pi-desktop/remote/sessions",
       hostKey,
     ),
+  /** One conversation's transcript on the paired computer. */
+  remoteHistory: (hostKey: string, sessionId: string) =>
+    invoke<{
+      messages: Array<{
+        id: string;
+        role: "user" | "assistant" | "tool" | "note";
+        text: string;
+        at?: number;
+        toolName?: string;
+      }>;
+    }>("pi-desktop/remote/history", { hostKey, sessionId }),
+  /** A prompt typed on the phone, executed by that computer's agent. */
+  remoteSendTurn: (hostKey: string, sessionId: string, text: string) =>
+    invoke<{ sent: boolean }>("pi-desktop/remote/turn", { hostKey, sessionId, text }),
   enableRemoteAccess: (exposure?: "loopback" | "lan") =>
     invoke<RemoteAccessStatus>(IPC.invoke.remoteEnable, { exposure }),
   disableRemoteAccess: () => invoke<RemoteAccessStatus>(IPC.invoke.remoteDisable),
