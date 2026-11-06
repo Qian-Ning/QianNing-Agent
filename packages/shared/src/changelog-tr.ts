@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.2.1",
+    date: "2026-11-06",
+    highlights: [
+      "Uzak erişim, bilgisayar yeniden başlatıldığında açık kalır. Açtığın dinleyici başlangıçta geri gelir ve ağ henüz hazır değilken yeniden dener; telefonun kimsenin yanıt vermediği bir bağlantı noktasını çalmasına kalmaz.",
+      "Telefonun uzak erişim sayfası yeniden yapıldı. Bir bilgisayar tek bir karttır; açıldığında o bilgisayarın konuşmalarını listeler, açılan konuşma geçmişi gösterir ve orada konuşmaya devam etmeni sağlar.",
+      "Ulaşılamayan bir bilgisayar artık soket katmanının bağlantı noktaları ve milisaniyeleri yerine neyi kontrol etmen gerektiğini söyler.",
+    ],
+  },
+  {
     version: "2.2.0",
     date: "2026-11-06",
     highlights: [

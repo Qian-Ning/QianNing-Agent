@@ -30,6 +30,15 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.2.1",
+    date: "2026-11-06",
+    highlights: [
+      "Remote access stays on across a desktop restart. A listener you switched on comes back at launch and keeps retrying while the network is still coming up, instead of leaving the phone dialing a port that nothing answers on.",
+      "The phone's remote page was rebuilt. A computer is one card; opening it lists that computer's conversations, and opening a conversation shows the transcript and lets you keep talking in it.",
+      "An unreachable computer now says what to check, instead of printing the socket layer's port numbers and elapsed milliseconds.",
+    ],
+  },
+  {
     version: "2.2.0",
     date: "2026-11-06",
     highlights: [
@@ -1093,6 +1102,15 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.2.1",
+    date: "2026-11-06",
+    highlights: [
+      "桌面端重启后，远程访问不会再自己关掉。设置里开着的监听会在启动时恢复；网卡还没起来时会一直重试，不会让手机一直去敲一个没人应答的端口。",
+      "手机上的远程访问页重做了。一台电脑就是一张卡，点开能看到它自己的对话列表，点进某段对话能读历史、也能继续说话。",
+      "连不上电脑时不再打印端口号和毫秒数，直接告诉你该去检查什么。",
+    ],
+  },
+  {
     version: "2.2.0",
     date: "2026-11-06",
     highlights: [
@@ -2155,6 +2173,15 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.2.1",
+    date: "2026-11-06",
+    highlights: [
+      "桌面端重新啟動後，遠端存取不會再自己關掉。設定裡開著的監聽會在啟動時恢復；網卡還沒起來時會一直重試，不會讓手機一直去敲一個沒人回應的埠。",
+      "手機上的遠端存取頁重做了。一台電腦就是一張卡，點開能看到它自己的對話清單，點進某段對話能讀歷史、也能繼續說話。",
+      "連不上電腦時不再印出埠號和毫秒數，直接告訴你該去檢查什麼。",
+    ],
+  },
   {
     version: "2.2.0",
     date: "2026-11-06",
