@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "2.2.2",
+    date: "2026-11-07",
+    highlights: [
+      "La page distante du téléphone compte désormais trois écrans au lieu d'une longue colonne : les ordinateurs, les conversations d'un ordinateur, et une conversation. Retour remonte d'un niveau, il ne sort pas.",
+      "L'appairage prend le lien que l'ordinateur copie : un collage porte l'adresse et le jeton, un code scanné apparie dans le même geste, et la saisie manuelle reste à un commutateur de là.",
+      "Un ordinateur avec des milliers de conversations n'affiche plus toutes les lignes d'un coup : le téléphone montre le début, filtre pendant la frappe et s'allonge au défilement.",
+    ],
+  },
+  {
     version: "2.2.1",
     date: "2026-11-06",
     highlights: [

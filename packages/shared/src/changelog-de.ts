@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "2.2.2",
+    date: "2026-11-07",
+    highlights: [
+      "Die Remote-Seite auf dem Telefon sind jetzt drei Bildschirme statt einer langen Spalte: die Rechner, die Unterhaltungen eines Rechners und eine Unterhaltung. Zurück geht eine Ebene hoch, nicht hinaus.",
+      "Die Kopplung nimmt den Link, den der Rechner kopiert: ein Einfügen trägt Adresse und Token, ein gescannter Code koppelt im selben Tipp, und Adresse plus Token von Hand stehen weiterhin einen Schalter entfernt.",
+      "Ein Rechner mit tausenden Unterhaltungen legt nicht mehr alle Zeilen auf einmal aus: das Telefon zeigt den Anfang, filtert beim Tippen und wächst beim Scrollen.",
+    ],
+  },
+  {
     version: "2.2.1",
     date: "2026-11-06",
     highlights: [

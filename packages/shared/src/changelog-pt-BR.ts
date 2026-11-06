@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "2.2.2",
+    date: "2026-11-07",
+    highlights: [
+      "A página remota do telefone agora tem três telas em vez de uma coluna comprida: os computadores, as conversas daquele computador e uma conversa. Voltar sobe um nível, não sai.",
+      "O pareamento aceita o link que o computador copia: uma colagem leva o endereço e o token, um código escaneado pareia no mesmo toque, e digitar os dois à mão continua a um interruptor de distância.",
+      "Um computador com milhares de conversas não coloca mais todas as linhas de uma vez: o telefone mostra o começo, filtra enquanto você digita e cresce ao rolar.",
+    ],
+  },
+  {
     version: "2.2.1",
     date: "2026-11-06",
     highlights: [
