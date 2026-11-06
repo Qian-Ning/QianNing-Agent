@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "2.2.1",
+    date: "2026-11-06",
+    highlights: [
+      "Der Remotezugriff bleibt über einen Neustart des Rechners hinweg an. Ein eingeschalteter Listener kommt beim Start zurück und versucht es weiter, während das Netz noch hochkommt — statt das Telefon auf einen Port zeigen zu lassen, an dem niemand antwortet.",
+      "Die Remote-Seite auf dem Telefon wurde neu gebaut. Ein Rechner ist eine Karte; aufgeklappt listet sie seine Unterhaltungen, und eine geöffnete Unterhaltung zeigt den Verlauf und lässt sich dort fortsetzen.",
+      "Ein nicht erreichbarer Rechner sagt jetzt, was zu prüfen ist, statt Portnummern und Millisekunden der Socket-Schicht auszugeben.",
+    ],
+  },
+  {
     version: "2.2.0",
     date: "2026-11-06",
     highlights: [

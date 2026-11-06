@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "2.2.1",
+    date: "2026-11-06",
+    highlights: [
+      "O acesso remoto sobrevive a uma reinicialização do computador. Um listener ligado volta na inicialização e continua tentando enquanto a rede ainda sobe, em vez de deixar o telefone discando uma porta onde ninguém responde.",
+      "A página remota do telefone foi refeita. Um computador é um cartão; ao abri-lo aparecem as conversas dele, e uma conversa aberta mostra o histórico e permite continuar falando nela.",
+      "Um computador inalcançável agora diz o que verificar, em vez de imprimir as portas e os milissegundos da camada de socket.",
+    ],
+  },
+  {
     version: "2.2.0",
     date: "2026-11-06",
     highlights: [

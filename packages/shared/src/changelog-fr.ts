@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "2.2.1",
+    date: "2026-11-06",
+    highlights: [
+      "L'accès distant survit au redémarrage de l'ordinateur. Un écouteur activé revient au lancement et réessaie pendant que le réseau se met en place, au lieu de laisser le téléphone appeler un port où personne ne répond.",
+      "La page distante du téléphone a été refaite. Un ordinateur est une carte ; ouverte, elle liste ses conversations, et une conversation ouverte affiche l'historique et permet de continuer à y parler.",
+      "Un ordinateur injoignable indique désormais quoi vérifier, au lieu d'afficher les numéros de port et les millisecondes de la couche socket.",
+    ],
+  },
+  {
     version: "2.2.0",
     date: "2026-11-06",
     highlights: [

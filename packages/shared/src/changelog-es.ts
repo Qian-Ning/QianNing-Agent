@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "2.2.1",
+    date: "2026-11-06",
+    highlights: [
+      "El acceso remoto sobrevive a un reinicio del equipo. Un listener que dejaste encendido vuelve al arrancar y sigue reintentando mientras la red aún está subiendo, en lugar de dejar al teléfono marcando un puerto donde nadie responde.",
+      "La página remota del teléfono se rehízo. Un equipo es una tarjeta; al abrirla lista sus conversaciones, y una conversación abierta muestra el historial y permite seguir hablando en ella.",
+      "Un equipo inalcanzable ahora dice qué revisar, en vez de imprimir los puertos y los milisegundos de la capa de socket.",
+    ],
+  },
+  {
     version: "2.2.0",
     date: "2026-11-06",
     highlights: [
