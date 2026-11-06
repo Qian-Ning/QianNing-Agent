@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "2.2.2",
+    date: "2026-11-07",
+    highlights: [
+      "La página remota del teléfono son ahora tres pantallas en vez de una columna larga: los equipos, las conversaciones de ese equipo y una conversación. Atrás sube un nivel, no sale.",
+      "El emparejamiento toma el enlace que copia el equipo: un pegado lleva la dirección y el token, un código escaneado empareja en el mismo toque, y escribir ambos a mano sigue a un interruptor de distancia.",
+      "Un equipo con miles de conversaciones ya no coloca todas las filas a la vez: el teléfono muestra el principio, filtra mientras escribes y crece al desplazarte.",
+    ],
+  },
+  {
     version: "2.2.1",
     date: "2026-11-06",
     highlights: [

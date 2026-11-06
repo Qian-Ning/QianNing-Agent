@@ -30,6 +30,15 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.2.2",
+    date: "2026-11-07",
+    highlights: [
+      "The phone's remote page is three screens now instead of one long column: the computers, that computer's conversations, and one conversation. Back goes up a level, not out.",
+      "Pairing takes the link the computer copies. One paste carries both the address and the token, a scanned code pairs in the same tap, and typing the two by hand is still there one switch away.",
+      "A computer with thousands of conversations no longer lays out every row at once: the phone shows the head of the list, filters as you type, and grows as you scroll.",
+    ],
+  },
+  {
     version: "2.2.1",
     date: "2026-11-06",
     highlights: [
@@ -1102,6 +1111,15 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.2.2",
+    date: "2026-11-07",
+    highlights: [
+      "手机上的远程访问页改成了三层：电脑、这台电脑的对话、一段对话。返回是回上一级，不是整个退出去。",
+      "配对只要粘电脑复制的那条链接——地址和令牌都在里面；扫码也一样，扫到就连。想手动填地址和令牌，仍有一个开关。",
+      "几千个对话不再一次性铺开：先显示开头，边打字边筛选，往下滚再续。",
+    ],
+  },
+  {
     version: "2.2.1",
     date: "2026-11-06",
     highlights: [
@@ -2173,6 +2191,15 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.2.2",
+    date: "2026-11-07",
+    highlights: [
+      "手機上的遠端存取頁改成三層：電腦、這台電腦的對話、一段對話。返回是回上一級，不是整個退出去。",
+      "配對只要貼上電腦複製的那條連結——位址和權杖都在裡面；掃碼也一樣，掃到就連。想手動填位址和權杖，仍有一個開關。",
+      "幾千個對話不再一次鋪開：先顯示開頭，邊打字邊篩選，往下滑再續。",
+    ],
+  },
   {
     version: "2.2.1",
     date: "2026-11-06",

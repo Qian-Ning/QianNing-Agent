@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.2.2",
+    date: "2026-11-07",
+    highlights: [
+      "Telefonun uzak sayfası artık tek uzun sütun değil, üç ekran: bilgisayarlar, o bilgisayarın konuşmaları ve tek bir konuşma. Geri bir üst seviyeye çıkar, dışarı çıkmaz.",
+      "Eşleştirme, bilgisayarın kopyaladığı bağlantıyı alır: tek yapıştırma adresi ve anahtarı birlikte taşır, taranan kod aynı dokunuşta eşleşir, elle yazma bir anahtar ötede durur.",
+      "Binlerce konuşması olan bir bilgisayar artık tüm satırları birden yerleştirmiyor: telefon listenin başını gösterir, sen yazarken süzer ve kaydırdıkça uzar.",
+    ],
+  },
+  {
     version: "2.2.1",
     date: "2026-11-06",
     highlights: [
