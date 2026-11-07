@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "2.2.4",
+    date: "2026-11-07",
+    highlights: [
+      "Le téléphone se met à jour tout seul. Les réglages interrogent la page des versions et, si une version plus récente existe, téléchargent l'APK et ouvrent l'installeur du système.",
+      "Les boutons de l'accès distant gardent leur libellé sur une ligne ; une colonne de contrôle étroite coupait 签发令牌 entre les caractères.",
+    ],
+  },
+  {
     version: "2.2.3",
     date: "2026-11-07",
     highlights: [

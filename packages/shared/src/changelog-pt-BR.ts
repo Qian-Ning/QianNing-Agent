@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "2.2.4",
+    date: "2026-11-07",
+    highlights: [
+      "O telefone agora se atualiza sozinho. As configurações consultam a página de versões e, quando há uma mais nova, baixam o APK e abrem o instalador do sistema.",
+      "Os botões do acesso remoto mantêm o texto em uma linha; uma coluna de controle estreita quebrava 签发令牌 letra por letra.",
+    ],
+  },
+  {
     version: "2.2.3",
     date: "2026-11-07",
     highlights: [

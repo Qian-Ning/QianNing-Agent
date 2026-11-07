@@ -30,6 +30,14 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.2.4",
+    date: "2026-11-07",
+    highlights: [
+      "The phone updates itself now. Settings asks the release page for the newest build, and when there is one it downloads the APK and opens the system installer, so a sideloaded copy no longer means re-downloading by hand.",
+      "The remote-access buttons keep their labels on one line; a squeezed control column used to break 签发令牌 between characters into a vertical stack.",
+    ],
+  },
+  {
     version: "2.2.3",
     date: "2026-11-07",
     highlights: [
@@ -1120,6 +1128,14 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.2.4",
+    date: "2026-11-07",
+    highlights: [
+      "手机端可以自己更新了：设置里会去发布页问最新版本，有更新的就下载并交给系统安装器，侧载的包不用再手动重下。",
+      "远程访问那两个按钮的标签不再竖排——控制列被压窄时，中文曾经逐字换行。",
+    ],
+  },
+  {
     version: "2.2.3",
     date: "2026-11-07",
     highlights: [
@@ -2209,6 +2225,14 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.2.4",
+    date: "2026-11-07",
+    highlights: [
+      "手機端可以自己更新了：設定裡會去發佈頁問最新版本，有更新的就下載並交給系統安裝程式，側載的包不用再手動重下。",
+      "遠端存取那兩個按鈕的標籤不再豎排——控制欄被壓窄時，中文曾經逐字換行。",
+    ],
+  },
   {
     version: "2.2.3",
     date: "2026-11-07",
