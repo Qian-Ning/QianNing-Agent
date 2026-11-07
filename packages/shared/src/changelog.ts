@@ -30,6 +30,13 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.2.8",
+    date: "2026-11-08",
+    highlights: [
+      "Opening a long conversation on the phone now asks the computer for its newest 200 messages instead of the whole transcript, because the HTTP profile finally forwards query parameters to the operation.",
+    ],
+  },
+  {
     version: "2.2.7",
     date: "2026-11-08",
     highlights: [
@@ -1150,6 +1157,13 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.2.8",
+    date: "2026-11-08",
+    highlights: [
+      "手机打开一段很长的对话时，现在只向电脑要最近 200 条，不再一次拉全部——HTTP 层终于把 query 参数转发给操作了。",
+    ],
+  },
+  {
     version: "2.2.7",
     date: "2026-11-08",
     highlights: [
@@ -2269,6 +2283,13 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.2.8",
+    date: "2026-11-08",
+    highlights: [
+      "手機開啟很長的對話時，現在只向電腦要最近 200 條，不再一次拉全部——HTTP 層終於把 query 參數轉發給操作了。",
+    ],
+  },
   {
     version: "2.2.7",
     date: "2026-11-08",

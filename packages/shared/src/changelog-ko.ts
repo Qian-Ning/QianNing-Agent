@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
   {
+    version: "2.2.8",
+    date: "2026-11-08",
+    highlights: [
+      "휴대폰에서 긴 대화를 열 때 전체 기록 대신 최근 200개 메시지만 요청합니다. HTTP 계층이 마침내 쿼리 매개변수를 작업으로 전달하기 때문입니다.",
+    ],
+  },
+  {
     version: "2.2.7",
     date: "2026-11-08",
     highlights: [
