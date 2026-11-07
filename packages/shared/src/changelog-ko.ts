@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
   {
+    version: "2.2.7",
+    date: "2026-11-08",
+    highlights: [
+      "페어링 두 줄이 다시 한 줄로 돌아왔습니다. 입력란과 토큰이 남은 폭을 차지하고 버튼은 줄 끝에서 제 너비를 지키며, 긴 토큰은 잘린 조각 대신 말줄임표로 끝납니다.",
+    ],
+  },
+  {
     version: "2.2.6",
     date: "2026-11-08",
     highlights: [

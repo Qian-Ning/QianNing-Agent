@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "2.2.7",
+    date: "2026-11-08",
+    highlights: [
+      "As duas linhas de pareamento voltam a uma só: o campo e o token ocupam o espaço restante, o botão mantém a largura no fim da linha, e um token longo termina em reticências em vez de uma coluna de fragmentos.",
+    ],
+  },
+  {
     version: "2.2.6",
     date: "2026-11-08",
     highlights: [

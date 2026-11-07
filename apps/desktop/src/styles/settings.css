@@ -1664,24 +1664,25 @@
   gap: 8px;
 }
 /*
-  The remote-access rows stack instead of sharing a line. Side by side, the
-  field was squeezed until it read as empty space and the button's label broke
-  between characters; stacked, each control gets the full width of the column
-  and the button sits at its end.
+  Both remote-access rows stay on one line: the field or token takes whatever
+  room is left, the button keeps its own width at the end. Side by side at this
+  width needs the controls to give way, not wrap — a wrapped button is a row
+  twice as tall for no reason.
 */
 .settings-row-control:has(> .remote-access-device),
 .settings-row-control:has(> .remote-access-token) {
-  flex: 1 1 320px;
-  max-width: min(100%, 360px);
-  flex-direction: column;
-  align-items: stretch;
+  flex: 1 1 360px;
+  max-width: min(100%, 460px);
+  align-items: center;
   gap: 10px;
 }
 
-.remote-access-device {
+.remote-access-device,
+.remote-access-token {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 10px;
   width: 100%;
   min-width: 0;
@@ -1690,7 +1691,7 @@
 /* The shared field surface is a tint against the tile; on this row that tint is
    invisible, so the field gets an edge of its own. */
 .remote-access-device .field-input {
-  width: 100%;
+  flex: 1 1 auto;
   min-width: 0;
   border: 1px solid var(--ds-border-default);
   background: var(--ds-bg-elevated-opaque);
@@ -1700,23 +1701,17 @@
   border-color: var(--ds-border-strong);
 }
 
-.remote-access-device .btn {
-  align-self: flex-end;
-  flex: none;
+.remote-access-device .btn,
+.remote-access-token .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
-.remote-access-token {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-  width: 100%;
-  min-width: 0;
-}
-
+/* A device token is 43 unbroken characters; it gets one line and an ellipsis
+   rather than a column of wrapped fragments. The full value is on the title. */
 .remote-access-token code {
-  display: block;
-  max-width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   padding: 8px 10px;
   border: 1px solid var(--ds-border-default);
   border-radius: var(--radius-sm);
@@ -1724,13 +1719,11 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: var(--text-sm);
   color: var(--ds-text-secondary);
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.remote-access-token .btn {
-  align-self: flex-end;
-  flex: none;
-}
 
 
 .settings-row-control .field-input {

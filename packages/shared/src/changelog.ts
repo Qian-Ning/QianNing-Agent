@@ -30,6 +30,13 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.2.7",
+    date: "2026-11-08",
+    highlights: [
+      "The two pairing rows sit on one line again: the field and the token take the room that is left, the button keeps its width at the end, and a long token ends in an ellipsis instead of a column of wrapped fragments.",
+    ],
+  },
+  {
     version: "2.2.6",
     date: "2026-11-08",
     highlights: [
@@ -1143,6 +1150,13 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.2.7",
+    date: "2026-11-08",
+    highlights: [
+      "配对的两行回到一行：输入框和令牌占剩下宽度，按钮固定在一行右端不再被挤下去；令牌过长时用省略号收尾，悬停看全文。",
+    ],
+  },
+  {
     version: "2.2.6",
     date: "2026-11-08",
     highlights: [
@@ -2255,6 +2269,13 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.2.7",
+    date: "2026-11-08",
+    highlights: [
+      "配對的兩行回到一行：輸入框和權杖佔剩下寬度，按鈕固定在一行右端不再被擠下去；權杖過長時用省略號收尾，懸停看全文。",
+    ],
+  },
   {
     version: "2.2.6",
     date: "2026-11-08",

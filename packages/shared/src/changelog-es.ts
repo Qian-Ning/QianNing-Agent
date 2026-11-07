@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "2.2.7",
+    date: "2026-11-08",
+    highlights: [
+      "Las dos filas de emparejamiento vuelven a una sola línea: el campo y el token ocupan el espacio libre, el botón conserva su ancho al final y un token largo termina en puntos suspensivos en lugar de una columna de fragmentos.",
+    ],
+  },
+  {
     version: "2.2.6",
     date: "2026-11-08",
     highlights: [
