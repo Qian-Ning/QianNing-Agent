@@ -141,6 +141,9 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  /* A label is one line: a squeezed button used to break CJK text between
+     characters, which reads as vertical text inside a box. */
+  white-space: nowrap;
   border-radius: var(--radius-sm);
   padding: 7px 12px;
   font-size: var(--text-md);
