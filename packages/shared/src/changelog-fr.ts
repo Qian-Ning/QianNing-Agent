@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "2.2.7",
+    date: "2026-11-08",
+    highlights: [
+      "Les deux lignes d'appairage reviennent sur une seule : le champ et le jeton prennent la place restante, le bouton garde sa largeur en fin de ligne, et un jeton trop long finit en points de suspension au lieu d'une colonne de fragments.",
+    ],
+  },
+  {
     version: "2.2.6",
     date: "2026-11-08",
     highlights: [

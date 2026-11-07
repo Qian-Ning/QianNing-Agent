@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "2.2.7",
+    date: "2026-11-08",
+    highlights: [
+      "Die beiden Kopplungszeilen stehen wieder in einer Zeile: Feld und Token nehmen den übrigen Platz, die Schaltfläche behält ihre Breite am Zeilenende, und ein langes Token endet mit Auslassungspunkten statt in einer Spalte umbrochener Fragmente.",
+    ],
+  },
+  {
     version: "2.2.6",
     date: "2026-11-08",
     highlights: [

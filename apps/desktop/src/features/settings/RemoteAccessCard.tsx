@@ -303,7 +303,9 @@ function DesktopRemoteAccessCard() {
           description={t("settings.remoteTokenDesc", { label: issued.label })}
         >
           <div className="remote-access-token">
-            <code data-testid="remote-issued-token">{issued.token}</code>
+            <code data-testid="remote-issued-token" title={issued.token}>
+              {issued.token}
+            </code>
             {pairingLink ? (
               <Button variant="primary" onClick={() => void copyPairing()}>
                 {copied ? t("settings.remotePairingCopied") : t("settings.remotePairingCopy")}

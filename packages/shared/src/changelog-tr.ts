@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.2.7",
+    date: "2026-11-08",
+    highlights: [
+      "İki eşleştirme satırı yeniden tek satırda: alan ve belirteç kalan genişliği alıyor, düğme satır sonunda kendi genişliğini koruyor ve uzun belirteç bölünmüş parçalar yerine üç noktayla bitiyor.",
+    ],
+  },
+  {
     version: "2.2.6",
     date: "2026-11-08",
     highlights: [
