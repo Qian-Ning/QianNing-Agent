@@ -372,3 +372,4 @@ Each ADR includes:
 | 0340 | [A messaging turn shows its progress as one editable card](0340-messaging-process-card.md) | Proposed |
 | 0341 | [More than one bot per messaging channel](0341-messaging-multiple-bots.md) | Proposed |
 | 0342 | [Live wallpapers as skin backgrounds](0342-live-wallpaper-skins.md) | Accepted |
+| 0343 | [The pairing link and the listener that survives a restart](0343-remote-pairing-link-and-listener-lifecycle.md) | Accepted |
