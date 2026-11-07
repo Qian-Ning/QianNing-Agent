@@ -376,7 +376,10 @@ export type RemoteApproval = {
   kind: "tool" | "plan" | "goal";
   summary: string;
   toolName?: string;
+  title?: string;
   risk?: "low" | "medium" | "high";
+  /** What the host will accept here; a decision outside this list is refused. */
+  allowed: string[];
 };
 
 /**
@@ -408,15 +411,22 @@ function asApprovals(pending: unknown): RemoteApproval[] {
       kind?: unknown;
       summary?: unknown;
       toolName?: unknown;
+      title?: unknown;
       risk?: unknown;
+      allowedDecisions?: unknown;
     };
     if (typeof row.id !== "string") return [];
     const kind = row.kind === "plan" || row.kind === "goal" ? row.kind : "tool";
+    const allowed = Array.isArray(row.allowedDecisions)
+      ? row.allowedDecisions.filter((decision): decision is string => typeof decision === "string")
+      : [];
     return [
       {
         id: row.id,
         kind,
         summary: typeof row.summary === "string" ? row.summary : "",
+        allowed,
+        ...(typeof row.title === "string" ? { title: row.title } : {}),
         ...(typeof row.toolName === "string" ? { toolName: row.toolName } : {}),
         ...(row.risk === "low" || row.risk === "medium" || row.risk === "high"
           ? { risk: row.risk }
@@ -454,11 +464,25 @@ export async function fetchChat(
   );
   const snapshot =
     (result as {
-      snapshot?: { items?: unknown; pendingApprovals?: unknown; activeTurn?: unknown; queuedTurns?: unknown };
+      snapshot?: {
+        items?: unknown;
+        activeItems?: unknown;
+        pendingApprovals?: unknown;
+        activeTurn?: unknown;
+        queuedTurns?: unknown;
+      };
     } | null)?.snapshot ?? {};
   const queued = Array.isArray(snapshot.queuedTurns) ? snapshot.queuedTurns.length : 0;
+  const messages = asMessages({ items: snapshot.items });
+  // A message being written lives in `activeItems`, not in `items`: the page
+  // would otherwise sit still until the whole answer landed. The settled copy
+  // wins when both carry the same id, so nothing is shown twice.
+  const settled = new Set(messages.map((message) => message.id));
+  for (const live of asMessages({ items: snapshot.activeItems })) {
+    if (!settled.has(live.id)) messages.push(live);
+  }
   return {
-    messages: asMessages({ items: snapshot.items }),
+    messages,
     approvals: asApprovals(snapshot.pendingApprovals),
     active: Boolean(snapshot.activeTurn) || queued > 0,
   };

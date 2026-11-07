@@ -41,12 +41,27 @@ type Message = {
   toolName?: string;
 };
 
+type Decision = "allow-once" | "allow-session" | "deny" | "approve" | "reject";
+
 /** A decision the desktop is waiting on before the turn can continue. */
 type Approval = {
   id: string;
   kind: "tool" | "plan" | "goal";
   summary: string;
   toolName?: string;
+  title?: string;
+  /** The host only accepts these; offering more would be a button that fails. */
+  allowed: string[];
+};
+
+const DECISION_ORDER: Decision[] = ["allow-once", "allow-session", "approve", "deny", "reject"];
+
+const DECISION_LABELS: Record<Decision, (t: (key: string) => string) => string> = {
+  "allow-once": (t) => t("settings.phoneAllowOnce"),
+  "allow-session": (t) => t("settings.phoneAllowSession"),
+  approve: (t) => t("settings.phoneApprove"),
+  deny: (t) => t("settings.phoneDeny"),
+  reject: (t) => t("settings.phoneReject"),
 };
 
 type Screen =
@@ -548,7 +563,7 @@ function RemoteConversation({
    * confirms, but a card that lingers after a tap reads as a dead button.
    */
   const answer = useCallback(
-    async (approval: Approval, decision: "allow-once" | "allow-session" | "deny" | "approve" | "reject") => {
+    async (approval: Approval, decision: Decision) => {
       setApprovals((current) => current.filter((entry) => entry.id !== approval.id));
       try {
         await api.remoteRespondApproval(host.hostKey, approval.id, decision);
@@ -602,31 +617,23 @@ function RemoteConversation({
         <div key={approval.id} className="phone-remote-approval">
           <p className="phone-remote-approval-head">
             {t("settings.phoneApproval")}
-            {approval.toolName ? ` · ${approval.toolName}` : ""}
+            {approval.title ?? approval.toolName ? ` · ${approval.title ?? approval.toolName}` : ""}
           </p>
           {approval.summary ? <p className="phone-remote-approval-body">{approval.summary}</p> : null}
           <div className="phone-remote-approval-actions">
-            {approval.kind === "tool" ? (
-              <>
-                <Button type="button" variant="primary" onClick={() => void answer(approval, "allow-once")}>
-                  {t("settings.phoneAllowOnce")}
+            {DECISION_ORDER.filter((decision) => approval.allowed.includes(decision)).map(
+              (decision, index) => (
+                <Button
+                  key={decision}
+                  type="button"
+                  variant={
+                    index === 0 ? "primary" : decision === "deny" || decision === "reject" ? "ghost" : "secondary"
+                  }
+                  onClick={() => void answer(approval, decision)}
+                >
+                  {DECISION_LABELS[decision](t)}
                 </Button>
-                <Button type="button" variant="secondary" onClick={() => void answer(approval, "allow-session")}>
-                  {t("settings.phoneAllowSession")}
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => void answer(approval, "deny")}>
-                  {t("settings.phoneDeny")}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button type="button" variant="primary" onClick={() => void answer(approval, "approve")}>
-                  {t("settings.phoneApprove")}
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => void answer(approval, "reject")}>
-                  {t("settings.phoneReject")}
-                </Button>
-              </>
+              ),
             )}
           </div>
         </div>
