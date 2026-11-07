@@ -451,12 +451,14 @@ export class PhoneBridge {
 
     /** One conversation's transcript, newest page included. */
     "remote/history": async (input?: unknown) => {
-      const request = (input ?? {}) as { hostKey?: unknown; sessionId?: unknown };
+      const request = (input ?? {}) as { hostKey?: unknown; sessionId?: unknown; limit?: unknown };
       const computer = listComputers().find((entry) => entry.key === String(request.hostKey ?? ""));
       if (!computer) throw new Error("that computer is not paired");
       const sessionId = String(request.sessionId ?? "");
       if (!sessionId) throw new Error("a history request needs a session");
-      return { messages: await fetchHistory(computer, sessionId) };
+      const requested = Number(request.limit);
+      const limit = Number.isFinite(requested) && requested > 0 ? requested : 200;
+      return { messages: await fetchHistory(computer, sessionId, limit) };
     },
 
     /** A prompt typed on the phone, run by the desktop's agent. */

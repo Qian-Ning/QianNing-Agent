@@ -343,10 +343,17 @@ function asMessages(value: unknown): RemoteMessage[] {
 export async function fetchHistory(
   computer: PairedComputer,
   sessionId: string,
+  limit?: number,
 ): Promise<RemoteMessage[]> {
-  // The HTTP profile maps path parameters only, so paging is the host's
-  // decision; the phone renders what arrives, oldest first.
-  const result = await call(computer, "GET", `/v1/sessions/${encodeURIComponent(sessionId)}/history`);
+  // Paging is asked for in the query string so a long conversation arrives as
+  // its most recent window instead of everything the host has ever stored. The
+  // phone renders what arrives, oldest first.
+  const query = limit && limit > 0 ? `?limit=${Math.floor(limit)}` : "";
+  const result = await call(
+    computer,
+    "GET",
+    `/v1/sessions/${encodeURIComponent(sessionId)}/history${query}`,
+  );
   return asMessages(result);
 }
 
