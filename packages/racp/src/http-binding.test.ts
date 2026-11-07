@@ -56,6 +56,22 @@ describe("RACP-HTTP over a loopback socket", () => {
     });
   });
 
+  it("passes query parameters to the operation", async () => {
+    await withBinding(async (base) => {
+      // `limit` is declared as an integer in the schema; a raw "3" would be a
+      // string and fail validation, so the binding converts it.
+      const accepted = await fetch(`${base}/v1/sessions/s1/history?limit=3`, {
+        headers: auth(),
+      });
+      expect(accepted.status).toBe(200);
+
+      const refused = await fetch(`${base}/v1/sessions/s1/history?limit=many`, {
+        headers: auth(),
+      });
+      expect(refused.status).toBe(400);
+    });
+  });
+
   it("streams events over SSE with the cursor as the event id", async () => {
     await withBinding(async (base, h) => {
       const controller = new AbortController();

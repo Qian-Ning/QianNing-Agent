@@ -426,6 +426,23 @@ export async function bindRacpHttp(options: HttpBindingOptions): Promise<HttpBin
     response.end(text);
   };
 
+/**
+ * Query strings carry everything as text. Numeric and boolean parameters are
+ * declared as numbers and booleans in the operation schemas, so a raw string
+ * would fail validation for a reason the caller cannot see; convert the shapes
+ * a caller can plausibly send and leave everything else alone.
+ */
+function readQuery(url: URL): Record<string, unknown> {
+  const query: Record<string, unknown> = {};
+  for (const [key, value] of url.searchParams) {
+    if (value === "true") query[key] = true;
+    else if (value === "false") query[key] = false;
+    else if (/^-?\d+$/.test(value)) query[key] = Number(value);
+    else query[key] = value;
+  }
+  return query;
+}
+
   const handler = (request: IncomingMessage, response: ServerResponse): void => {
     void (async () => {
       const url = new URL(request.url ?? "/", "http://localhost");
@@ -566,7 +583,8 @@ export async function bindRacpHttp(options: HttpBindingOptions): Promise<HttpBin
         return send(response, 404, { error: "METHOD_NOT_FOUND", path: url.pathname });
       }
       const operation = route.operation;
-      const params = { ...route.params, ...body };
+      // Path segments win over the query string and the body wins over both.
+      const params = { ...readQuery(url), ...route.params, ...body };
       try {
         const result = await session.call(operation, params);
         return send(response, 200, { result });

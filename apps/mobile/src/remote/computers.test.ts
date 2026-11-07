@@ -206,7 +206,7 @@ describe("talking to a paired computer", () => {
     });
     await pairComputer({ url: "192.168.1.8:7317", token: "pdt1.one" });
 
-    const messages = await fetchHistory(listComputers()[0]!, "s1");
+    const messages = await fetchHistory(listComputers()[0]!, "s1", 50);
 
     expect(messages.map((message) => message.role)).toEqual(["user", "assistant", "tool", "note", "tool"]);
     expect(messages[1]?.text).toBe("清完了。");
