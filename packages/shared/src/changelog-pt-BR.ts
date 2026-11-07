@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "2.2.3",
+    date: "2026-11-07",
+    highlights: [
+      "Um turno que para para perguntar agora pergunta também no telefone: o cartão mostra as decisões que aquele computador aceita de fato, e a resposta volta direto para o turno em andamento.",
+      "Uma resposta aparece enquanto está sendo escrita em vez de chegar em um bloco no fim, porque o telefone lê os itens ao vivo do host e não apenas o histórico já assentado.",
+      "A saída de uma ferramenta é uma linha discreta com o nome da ferramenta, e as mensagens de sistema do host ficam no computador em vez de virarem texto na conversa.",
+    ],
+  },
+  {
     version: "2.2.2",
     date: "2026-11-07",
     highlights: [

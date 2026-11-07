@@ -30,6 +30,15 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.2.3",
+    date: "2026-11-07",
+    highlights: [
+      "A turn that stops to ask now asks on the phone too: the approval card shows the decisions that computer will actually accept, and the answer goes straight back to the running turn.",
+      "An answer is visible while it is being written instead of arriving in one block when it finishes, because the phone reads the host's live items and not only the settled transcript.",
+      "Tool output is one quiet line carrying the tool's name, and the host's own system messages stay on the computer instead of appearing as prose in the conversation.",
+    ],
+  },
+  {
     version: "2.2.2",
     date: "2026-11-07",
     highlights: [
@@ -1111,6 +1120,15 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.2.3",
+    date: "2026-11-07",
+    highlights: [
+      "一轮停下来等确认时，手机上也会出现审批卡：只画那台电脑真正接受的决定，回答直接送回正在跑的那一轮。",
+      "回答边写边显示，不再等整段落定才出现一块——手机读的是 host 的实时条目，不只是定稿后的记录。",
+      "工具输出只剩一行工具名；host 自己的系统消息留在电脑上，不再混进对话正文。",
+    ],
+  },
+  {
     version: "2.2.2",
     date: "2026-11-07",
     highlights: [
@@ -2191,6 +2209,15 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.2.3",
+    date: "2026-11-07",
+    highlights: [
+      "一輪停下來等確認時，手機上也會出現審批卡：只畫那台電腦真正接受的決定，回答直接送回正在跑的那一輪。",
+      "回答邊寫邊顯示，不再等整段落定才出現一塊——手機讀的是 host 的即時條目，不只是定稿後的紀錄。",
+      "工具輸出只剩一行工具名；host 自己的系統訊息留在電腦上，不再混進對話正文。",
+    ],
+  },
   {
     version: "2.2.2",
     date: "2026-11-07",

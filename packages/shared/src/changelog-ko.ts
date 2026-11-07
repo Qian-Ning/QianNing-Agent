@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
   {
+    version: "2.2.3",
+    date: "2026-11-07",
+    highlights: [
+      "확인을 기다리며 멈춘 턴은 이제 휴대폰에서도 묻습니다. 카드에는 그 컴퓨터가 실제로 받아들이는 결정만 보이고, 답은 실행 중인 턴으로 곧장 돌아갑니다.",
+      "답변은 끝난 뒤 한 덩어리로 오지 않고 쓰이는 동안 보입니다. 휴대폰이 확정된 기록뿐 아니라 host의 실시간 항목을 읽기 때문입니다.",
+      "도구 출력은 도구 이름만 담은 조용한 한 줄이고, host의 시스템 메시지는 대화 본문으로 섞이지 않고 컴퓨터에 남습니다.",
+    ],
+  },
+  {
     version: "2.2.2",
     date: "2026-11-07",
     highlights: [
