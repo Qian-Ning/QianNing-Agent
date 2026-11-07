@@ -524,28 +524,24 @@ function RemoteConversation({
     try {
       await api.remoteSendTurn(host.hostKey, session.id, text);
       setDraft("");
-      // The reply is produced on the desktop, so read until two reads agree
-      // instead of guessing how long a turn takes. A turn that stops making
-      // progress is usually waiting on an approval, so each round asks for those
-      // too — that is the only window where the phone looks for them.
-      let previous = -1;
-      for (let attempt = 0; attempt < 40 && alive.current; attempt += 1) {
-        await new Promise((resolve) => setTimeout(resolve, attempt < 4 ? 800 : 2_000));
-        const next = await load();
-        const pending = await api
-          .remoteApprovals(host.hostKey, session.id)
-          .then((answer) => answer.approvals)
-          .catch(() => []);
-        if (alive.current) setApprovals(pending);
-        if (next.length === previous && next.some((message) => message.role === "assistant")) break;
-        previous = next.length;
+      // The host answers with the transcript, the questions it is waiting on and
+      // whether the turn is still running, so one read per tick is enough — and
+      // the stop condition is the host's own answer instead of a guess about
+      // when the words stopped changing.
+      for (let attempt = 0; attempt < 90 && alive.current; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, attempt < 4 ? 500 : 900));
+        const snapshot = await api.remoteChat(host.hostKey, session.id);
+        if (!alive.current) break;
+        setMessages(snapshot.messages);
+        setApprovals(snapshot.approvals);
+        if (!snapshot.active) break;
       }
     } catch (cause) {
       setError(describe(cause));
     } finally {
       if (alive.current) setSending(false);
     }
-  }, [draft, sending, host.hostKey, session.id, load, describe]);
+  }, [draft, sending, host.hostKey, session.id, describe]);
 
   /**
    * Answers one approval and drops it from the list immediately: the next poll

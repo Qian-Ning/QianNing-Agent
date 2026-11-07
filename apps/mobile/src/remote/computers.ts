@@ -299,7 +299,22 @@ function asMessages(value: unknown): RemoteMessage[] {
     const when = Number.isFinite(at) ? { at } : {};
 
     if (row.itemType === "message") {
-      const message = (row.content ?? {}) as { role?: unknown; content?: unknown };
+      const message = (row.content ?? {}) as {
+        role?: unknown;
+        content?: unknown;
+        toolName?: unknown;
+      };
+      // The host types a tool result as a message with `role: "tool"` whose
+      // content is the tool's JSON — not a sentence. It becomes one quiet line.
+      if (message.role === "tool") {
+        const name = typeof message.toolName === "string" ? message.toolName : "";
+        if (!name) continue;
+        byId.set(row.id, { id: row.id, role: "tool", text: name, toolName: name, ...when });
+        continue;
+      }
+      // System messages are the host talking to itself; a phone transcript is
+      // the user and the assistant.
+      if (message.role !== "user" && message.role !== "assistant") continue;
       const role = message.role === "user" ? "user" : "assistant";
       const text = textOf(message.content);
       // A streaming message with no text yet must not erase the settled copy.
@@ -382,8 +397,10 @@ export async function fetchApprovals(
     `/v1/sessions/${encodeURIComponent(sessionId)}:attach`,
     { includeSnapshot: true, context: { requestId: requestId() } },
   );
-  const pending = (result as { snapshot?: { pendingApprovals?: unknown } } | null)?.snapshot
-    ?.pendingApprovals;
+  return asApprovals((result as { snapshot?: { pendingApprovals?: unknown } } | null)?.snapshot?.pendingApprovals);
+}
+
+function asApprovals(pending: unknown): RemoteApproval[] {
   if (!Array.isArray(pending)) return [];
   return pending.flatMap((entry) => {
     const row = entry as {
@@ -407,6 +424,44 @@ export async function fetchApprovals(
       } satisfies RemoteApproval,
     ];
   });
+}
+
+/** One read of a conversation: what was said, what it waits on, whether it runs. */
+export type ChatSnapshot = {
+  messages: RemoteMessage[];
+  approvals: RemoteApproval[];
+  /** A turn is running or queued, so another read will show more. */
+  active: boolean;
+};
+
+/**
+ * The whole state of a conversation in one request.
+ *
+ * `session/attach` already answers with the transcript, the pending approvals
+ * and the active turn, so a turn in progress costs one request per tick instead
+ * of one for the words and another for the questions. It also removes the guess
+ * about when to stop: `active` is the host's own answer.
+ */
+export async function fetchChat(
+  computer: PairedComputer,
+  sessionId: string,
+): Promise<ChatSnapshot> {
+  const result = await call(
+    computer,
+    "POST",
+    `/v1/sessions/${encodeURIComponent(sessionId)}:attach`,
+    { includeSnapshot: true, context: { requestId: requestId() } },
+  );
+  const snapshot =
+    (result as {
+      snapshot?: { items?: unknown; pendingApprovals?: unknown; activeTurn?: unknown; queuedTurns?: unknown };
+    } | null)?.snapshot ?? {};
+  const queued = Array.isArray(snapshot.queuedTurns) ? snapshot.queuedTurns.length : 0;
+  return {
+    messages: asMessages({ items: snapshot.items }),
+    approvals: asApprovals(snapshot.pendingApprovals),
+    active: Boolean(snapshot.activeTurn) || queued > 0,
+  };
 }
 
 /** Answers one approval; `decision` must be one that kind allows. */

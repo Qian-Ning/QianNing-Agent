@@ -838,9 +838,15 @@ export const api = {
   /** A prompt typed on the phone, executed by that computer's agent. */
   remoteSendTurn: (hostKey: string, sessionId: string, text: string) =>
     invoke<{ sent: boolean }>("pi-desktop/remote/turn", { hostKey, sessionId, text }),
-  /** The approvals that turn is blocked on. */
-  remoteApprovals: (hostKey: string, sessionId: string) =>
+  /** One read of a conversation: transcript, approvals, and whether it runs. */
+  remoteChat: (hostKey: string, sessionId: string) =>
     invoke<{
+      messages: Array<{
+        id: string;
+        role: "user" | "assistant" | "tool" | "note";
+        text: string;
+        toolName?: string;
+      }>;
       approvals: Array<{
         id: string;
         kind: "tool" | "plan" | "goal";
@@ -848,7 +854,8 @@ export const api = {
         toolName?: string;
         risk?: "low" | "medium" | "high";
       }>;
-    }>("pi-desktop/remote/approvals", { hostKey, sessionId }),
+      active: boolean;
+    }>("pi-desktop/remote/chat", { hostKey, sessionId }),
   /** Answers one of them. */
   remoteRespondApproval: (
     hostKey: string,
