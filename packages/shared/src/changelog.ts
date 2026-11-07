@@ -30,6 +30,14 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.2.5",
+    date: "2026-11-07",
+    highlights: [
+      "The pairing rows stack: the device name field has an edge of its own so it reads as a field, and the buttons sit at the end of the row instead of being squeezed into it.",
+      "The pairing code is 132px — big enough to scan from a phone held beside the screen, small enough to leave the settings around it alone.",
+    ],
+  },
+  {
     version: "2.2.4",
     date: "2026-11-07",
     highlights: [
@@ -1128,6 +1136,14 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.2.5",
+    date: "2026-11-07",
+    highlights: [
+      "配对这两块改成上下排：设备名输入框有了自己的边框，一眼看得出它在哪儿；按钮落在行末，「签发令牌」不再被挤到逐字换行。",
+      "配对二维码缩到 132px——手机在旁边扫得到，也不再占掉周围的位置。",
+    ],
+  },
+  {
     version: "2.2.4",
     date: "2026-11-07",
     highlights: [
@@ -2225,6 +2241,14 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.2.5",
+    date: "2026-11-07",
+    highlights: [
+      "配對這兩塊改成上下排：設備名稱輸入框有了自己的邊框，一眼看得出它在哪裡；按鈕落在行末，「簽發權杖」不再被擠到逐字換行。",
+      "配對 QR 碼縮到 132px——手機在旁邊掃得到，也不再佔掉周圍的位置。",
+    ],
+  },
   {
     version: "2.2.4",
     date: "2026-11-07",

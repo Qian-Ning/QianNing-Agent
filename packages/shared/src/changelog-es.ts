@@ -2,11 +2,19 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "2.2.5",
+    date: "2026-11-07",
+    highlights: [
+      "Las filas de emparejamiento se apilan: el campo del nombre del dispositivo tiene borde propio y se reconoce como campo, y los botones quedan al final de la fila en vez de quedar apretados dentro.",
+      "El código de emparejamiento mide 132px: se escanea desde un teléfono junto a la pantalla y deja respirar los ajustes de al lado.",
+    ],
+  },
+  {
     version: "2.2.4",
     date: "2026-11-07",
     highlights: [
       "El teléfono ya se actualiza solo. Los ajustes preguntan a la página de versiones por la compilación más reciente y, si la hay, la descargan y abren el instalador del sistema.",
-      "Los botones del acceso remoto mantienen su texto en una línea; una columna de control estrecha partía 签发令牌 entre caracteres.",
+      "Los botones del acceso remoto mantienen su texto en una línea; una columna de control estrecha partía la etiqueta entre caracteres.",
     ],
   },
   {

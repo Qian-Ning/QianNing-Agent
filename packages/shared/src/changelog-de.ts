@@ -2,11 +2,19 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "2.2.5",
+    date: "2026-11-07",
+    highlights: [
+      "Die Kopplungszeilen stehen untereinander: das Gerätenamenfeld hat einen eigenen Rand und ist damit als Feld erkennbar, und die Schaltflächen sitzen am Zeilenende statt hineingequetscht zu werden.",
+      "Der Kopplungscode ist 132px groß — vom Telefon neben dem Bildschirm lesbar und klein genug, um die Einstellungen daneben in Ruhe zu lassen.",
+    ],
+  },
+  {
     version: "2.2.4",
     date: "2026-11-07",
     highlights: [
       "Das Telefon aktualisiert sich jetzt selbst. Die Einstellungen fragen die Release-Seite nach dem neuesten Build und laden ihn in den System-Installer, statt dass eine sideloaded Kopie von Hand neu geladen werden muss.",
-      "Die Schaltflächen im Remotezugriff behalten ihre Beschriftung in einer Zeile; eine enge Steuerspalte brach 签发令牌 zuvor zwischen den Zeichen um.",
+      "Die Schaltflächen im Remotezugriff behalten ihre Beschriftung in einer Zeile; eine enge Steuerspalte brach die Beschriftung zuvor zwischen den Zeichen um.",
     ],
   },
   {
