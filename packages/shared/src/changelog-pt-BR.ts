@@ -2,11 +2,19 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "2.2.5",
+    date: "2026-11-07",
+    highlights: [
+      "As linhas de pareamento empilham: o campo do nome do dispositivo ganha borda própria e se lê como campo, e os botões ficam no fim da linha em vez de serem espremidos dentro dela.",
+      "O código de pareamento tem 132px — dá para escanear de um telefone ao lado da tela e não aperta os ajustes em volta.",
+    ],
+  },
+  {
     version: "2.2.4",
     date: "2026-11-07",
     highlights: [
       "O telefone agora se atualiza sozinho. As configurações consultam a página de versões e, quando há uma mais nova, baixam o APK e abrem o instalador do sistema.",
-      "Os botões do acesso remoto mantêm o texto em uma linha; uma coluna de controle estreita quebrava 签发令牌 letra por letra.",
+      "Os botões do acesso remoto mantêm o texto em uma linha; uma coluna de controle estreita quebrava o rótulo letra por letra.",
     ],
   },
   {

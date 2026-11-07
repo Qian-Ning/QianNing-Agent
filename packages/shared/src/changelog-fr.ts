@@ -2,11 +2,19 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "2.2.5",
+    date: "2026-11-07",
+    highlights: [
+      "Les lignes d'appairage s'empilent : le champ du nom de l'appareil a sa propre bordure et se lit comme un champ, et les boutons se placent en fin de ligne au lieu d'y être comprimés.",
+      "Le code d'appairage fait 132px : scannable depuis un téléphone posé à côté de l'écran, sans écraser les réglages voisins.",
+    ],
+  },
+  {
     version: "2.2.4",
     date: "2026-11-07",
     highlights: [
       "Le téléphone se met à jour tout seul. Les réglages interrogent la page des versions et, si une version plus récente existe, téléchargent l'APK et ouvrent l'installeur du système.",
-      "Les boutons de l'accès distant gardent leur libellé sur une ligne ; une colonne de contrôle étroite coupait 签发令牌 entre les caractères.",
+      "Les boutons de l'accès distant gardent leur libellé sur une ligne ; une colonne de contrôle étroite coupait le libellé entre les caractères.",
     ],
   },
   {
