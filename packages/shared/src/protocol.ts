@@ -2,7 +2,7 @@ export const PROTOCOL_VERSION = 11 as const;
 export const SCHEMA_VERSION = 16 as const;
 export const APP_ID = "com.qianning.agent";
 export const APP_NAME = "QianNing Agent";
-export const APP_VERSION = "2.2.5";
+export const APP_VERSION = "2.2.6";
 
 export const APP_MENU_COMMANDS = [
   "newTask",

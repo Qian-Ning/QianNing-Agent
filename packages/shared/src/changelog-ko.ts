@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
   {
+    version: "2.2.6",
+    date: "2026-11-08",
+    highlights: [
+      "휴대폰에서 새 대화를 시작할 수 있습니다. 컴퓨터의 대화 목록에 '새로 만들기' 동작이 생겼고, 그 컴퓨터의 기본 모델로 세션이 만들어집니다.",
+    ],
+  },
+  {
     version: "2.2.5",
     date: "2026-11-07",
     highlights: [

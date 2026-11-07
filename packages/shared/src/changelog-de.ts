@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "2.2.6",
+    date: "2026-11-08",
+    highlights: [
+      "Ein Gespräch lässt sich jetzt vom Telefon aus beginnen: die Gesprächsliste eines Rechners hat eine Schaltfläche „Neu“, die die Sitzung dort mit den Modellvorgaben dieses Rechners anlegt.",
+    ],
+  },
+  {
     version: "2.2.5",
     date: "2026-11-07",
     highlights: [
