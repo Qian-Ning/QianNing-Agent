@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "2.2.8",
+    date: "2026-11-08",
+    highlights: [
+      "Abrir uma conversa longa no telefone agora pede ao computador as 200 mensagens mais recentes em vez do histórico inteiro, porque a camada HTTP passou a repassar os parâmetros de consulta à operação.",
+    ],
+  },
+  {
     version: "2.2.7",
     date: "2026-11-08",
     highlights: [

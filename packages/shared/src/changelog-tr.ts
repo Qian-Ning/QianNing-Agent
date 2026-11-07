@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.2.8",
+    date: "2026-11-08",
+    highlights: [
+      "Telefonda uzun bir konuşma açılırken artık tüm geçmiş yerine son 200 mesaj isteniyor; HTTP katmanı sorgu parametrelerini sonunda işleme aktarıyor.",
+    ],
+  },
+  {
     version: "2.2.7",
     date: "2026-11-08",
     highlights: [

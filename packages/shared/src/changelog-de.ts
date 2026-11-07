@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "2.2.8",
+    date: "2026-11-08",
+    highlights: [
+      "Ein langes Gespräch wird auf dem Telefon jetzt mit den neuesten 200 Nachrichten geladen statt mit dem ganzen Verlauf, weil die HTTP-Schicht endlich Abfrageparameter an die Operation weiterreicht.",
+    ],
+  },
+  {
     version: "2.2.7",
     date: "2026-11-08",
     highlights: [

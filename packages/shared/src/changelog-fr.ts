@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "2.2.8",
+    date: "2026-11-08",
+    highlights: [
+      "Ouvrir une longue conversation sur le téléphone demande désormais les 200 derniers messages à l'ordinateur au lieu de tout l'historique, la couche HTTP transmettant enfin les paramètres de requête à l'opération.",
+    ],
+  },
+  {
     version: "2.2.7",
     date: "2026-11-08",
     highlights: [
