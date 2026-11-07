@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.2.6",
+    date: "2026-11-08",
+    highlights: [
+      "Telefondan yeni bir konuşma başlatılabiliyor: bilgisayarın konuşma ekranında, oturumu o bilgisayarın varsayılan modelleriyle orada açan bir Yeni düğmesi var.",
+    ],
+  },
+  {
     version: "2.2.5",
     date: "2026-11-07",
     highlights: [

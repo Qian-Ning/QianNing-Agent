@@ -30,6 +30,13 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.2.6",
+    date: "2026-11-08",
+    highlights: [
+      "A conversation can be started from the phone: the computer's conversation screen has a New action, which creates the session there with that computer's own model defaults.",
+    ],
+  },
+  {
     version: "2.2.5",
     date: "2026-11-07",
     highlights: [
@@ -1136,6 +1143,13 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.2.6",
+    date: "2026-11-08",
+    highlights: [
+      "可以在手机上开新对话了：进入一台电脑后，标题栏右侧有「新建」，会话建在那台电脑上，用它自己的默认模型。",
+    ],
+  },
+  {
     version: "2.2.5",
     date: "2026-11-07",
     highlights: [
@@ -2241,6 +2255,13 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.2.6",
+    date: "2026-11-08",
+    highlights: [
+      "可以在手機上開新對話了：進入一台電腦後，標題列右側有「新增」，對話建在那台電腦上，用它自己的預設模型。",
+    ],
+  },
   {
     version: "2.2.5",
     date: "2026-11-07",

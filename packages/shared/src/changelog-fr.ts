@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "2.2.6",
+    date: "2026-11-08",
+    highlights: [
+      "Une conversation peut être lancée depuis le téléphone : l'écran des conversations d'un ordinateur propose une action Nouvelle, qui crée la session là-bas avec les modèles par défaut de cet ordinateur.",
+    ],
+  },
+  {
     version: "2.2.5",
     date: "2026-11-07",
     highlights: [

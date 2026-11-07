@@ -2,6 +2,13 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "2.2.6",
+    date: "2026-11-08",
+    highlights: [
+      "Dá para começar uma conversa pelo telefone: a tela de conversas de um computador tem a ação Nova, que cria a sessão lá com os modelos padrão daquele computador.",
+    ],
+  },
+  {
     version: "2.2.5",
     date: "2026-11-07",
     highlights: [
