@@ -50,7 +50,7 @@ import {
 } from "../media/workbench";
 import {
   APPROVAL_DECISIONS,
-  fetchApprovals,
+  fetchChat,
   fetchHistory,
   fetchSessions,
   hasRemoteHost,
@@ -402,14 +402,14 @@ export class PhoneBridge {
     /** Opens the camera for the code the desktop draws. */
     "remote/scan": async () => ({ text: await scanPairingCode() }),
 
-    /** The approvals a running turn on that computer is blocked on. */
-    "remote/approvals": async (input?: unknown) => {
+    /** One read of a conversation: transcript, approvals, and whether it runs. */
+    "remote/chat": async (input?: unknown) => {
       const request = (input ?? {}) as { hostKey?: unknown; sessionId?: unknown };
       const computer = listComputers().find((entry) => entry.key === String(request.hostKey ?? ""));
       if (!computer) throw new Error("that computer is not paired");
       const sessionId = String(request.sessionId ?? "");
-      if (!sessionId) throw new Error("an approval request needs a session");
-      return { approvals: await fetchApprovals(computer, sessionId) };
+      if (!sessionId) throw new Error("a conversation read needs a session");
+      return fetchChat(computer, sessionId);
     },
 
     /** Answers one of them. */

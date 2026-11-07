@@ -4,6 +4,7 @@ import { REMOTE_UNREACHABLE } from "@pi-desktop/shared";
 
 import {
   fetchApprovals,
+  fetchChat,
   fetchHistory,
   fetchSessions,
   listComputers,
@@ -191,6 +192,12 @@ describe("talking to a paired computer", () => {
               { id: "i4", itemType: "compaction", content: {} },
               { id: "i5", itemType: "message", content: { role: "assistant", content: "" } },
               { id: "i6", itemType: "message", content: { role: "assistant", content: { odd: true } } },
+              {
+                id: "i7",
+                itemType: "message",
+                content: { role: "tool", toolName: "Connection", content: '{"ok":true}' },
+              },
+              { id: "i8", itemType: "message", content: { role: "system", content: "runtime rules" } },
             ],
           },
         }),
@@ -200,9 +207,12 @@ describe("talking to a paired computer", () => {
 
     const messages = await fetchHistory(listComputers()[0]!, "s1");
 
-    expect(messages.map((message) => message.role)).toEqual(["user", "assistant", "tool", "note"]);
+    expect(messages.map((message) => message.role)).toEqual(["user", "assistant", "tool", "note", "tool"]);
     expect(messages[1]?.text).toBe("清完了。");
     expect(messages[2]?.toolName).toBe("shell");
+    // A tool result is a name, never its JSON payload.
+    expect(messages[4]?.toolName).toBe("Connection");
+    expect(messages[4]?.text).toBe("Connection");
   });
 
   it("sends a prompt into a conversation on that computer", async () => {
@@ -264,5 +274,45 @@ describe("talking to a paired computer", () => {
     const post = seen.at(-1) as { path: string; method: string; body: string };
     expect(post.path).toBe("/v1/approvals/ap1:respond");
     expect(JSON.parse(post.body).decision).toBe("allow-once");
+  });
+
+  it("reads a whole conversation in one attach", async () => {
+    stubRemote({
+      request: () => ({
+        status: 200,
+        body: JSON.stringify({
+          result: {
+            snapshot: {
+              items: [
+                { id: "m1", itemType: "message", content: { role: "user", content: "hi" } },
+                { id: "m2", itemType: "message", content: { role: "assistant", content: "在。" } },
+              ],
+              pendingApprovals: [{ id: "ap1", kind: "tool", summary: "run tests" }],
+              activeTurn: { id: "t1" },
+              queuedTurns: [],
+            },
+          },
+        }),
+      }),
+    });
+    await pairComputer({ url: "192.168.1.8:7317", token: "pdt1.one" });
+
+    const snapshot = await fetchChat(listComputers()[0]!, "s1");
+
+    expect(snapshot.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
+    expect(snapshot.approvals[0]?.id).toBe("ap1");
+    expect(snapshot.active).toBe(true);
+  });
+
+  it("reports an idle conversation as not running", async () => {
+    stubRemote({
+      request: () => ({
+        status: 200,
+        body: JSON.stringify({ result: { snapshot: { items: [], activeTurn: null, queuedTurns: [] } } }),
+      }),
+    });
+    await pairComputer({ url: "192.168.1.8:7317", token: "pdt1.one" });
+
+    expect((await fetchChat(listComputers()[0]!, "s1")).active).toBe(false);
   });
 });
