@@ -819,6 +819,14 @@ export const api = {
 
   /** Opens the phone's camera for the code the desktop draws. */
   scanPairingCode: () => invoke<{ text: string | null }>("pi-desktop/remote/scan"),
+  /** Phone only: is there a newer build on the release page? */
+  checkAppUpdate: () =>
+    invoke<{ available: boolean; version: string; url: string; size: number; current: string }>(
+      "pi-desktop/app/check-update",
+    ),
+  /** Phone only: download it and open the system installer. */
+  installAppUpdate: (url: string) =>
+    invoke<{ bytes: number }>("pi-desktop/app/install-update", { url }),
   remoteSessions: (hostKey: string) =>
     invoke<{ sessions: Array<{ id: string; title: string; updatedAt?: number }> }>(
       "pi-desktop/remote/sessions",

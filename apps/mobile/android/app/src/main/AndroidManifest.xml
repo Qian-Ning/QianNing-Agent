@@ -82,6 +82,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Scanning the pairing code the desktop draws. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- The phone updates itself from the release page; the system still asks. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />

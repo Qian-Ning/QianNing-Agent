@@ -284,15 +284,17 @@ function DesktopRemoteAccessCard() {
         description={t("settings.remoteDevicesDesc")}
         detail={t("settings.remoteDeviceCount", { n: status?.pairedDevices ?? 0 })}
       >
-        <Input
-          value={label}
-          placeholder={t("settings.remoteDeviceLabelHint")}
-          onChange={(event) => setLabel(event.target.value)}
-          aria-label={t("settings.remoteDeviceLabel")}
-        />
-        <Button variant="primary" onClick={() => void issue()} disabled={busy}>
-          {t("settings.remoteIssueDevice")}
-        </Button>
+        <div className="remote-access-device">
+          <Input
+            value={label}
+            placeholder={t("settings.remoteDeviceLabelHint")}
+            onChange={(event) => setLabel(event.target.value)}
+            aria-label={t("settings.remoteDeviceLabel")}
+          />
+          <Button variant="primary" onClick={() => void issue()} disabled={busy}>
+            {t("settings.remoteIssueDevice")}
+          </Button>
+        </div>
       </SettingsRow>
 
       {issued ? (
@@ -300,12 +302,14 @@ function DesktopRemoteAccessCard() {
           title={t("settings.remoteTokenTitle")}
           description={t("settings.remoteTokenDesc", { label: issued.label })}
         >
-          <code data-testid="remote-issued-token">{issued.token}</code>
-          {pairingLink ? (
-            <Button variant="primary" onClick={() => void copyPairing()}>
-              {copied ? t("settings.remotePairingCopied") : t("settings.remotePairingCopy")}
-            </Button>
-          ) : null}
+          <div className="remote-access-token">
+            <code data-testid="remote-issued-token">{issued.token}</code>
+            {pairingLink ? (
+              <Button variant="primary" onClick={() => void copyPairing()}>
+                {copied ? t("settings.remotePairingCopied") : t("settings.remotePairingCopy")}
+              </Button>
+            ) : null}
+          </div>
         </SettingsRow>
       ) : null}
 

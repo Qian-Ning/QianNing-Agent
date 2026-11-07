@@ -62,6 +62,7 @@ import {
   sendTurn,
   type ApprovalDecision,
 } from "../remote/computers";
+import { checkForUpdate, installUpdate } from "../update";
 import type { ModelPricingRow } from "@pi-desktop/shared";
 import {
   pickDeviceFiles,
@@ -401,6 +402,16 @@ export class PhoneBridge {
 
     /** Opens the camera for the code the desktop draws. */
     "remote/scan": async () => ({ text: await scanPairingCode() }),
+
+    /** Is there a newer build on the release page? */
+    "app/check-update": async () => checkForUpdate(),
+
+    /** Downloads it and opens the system installer. */
+    "app/install-update": async (input?: unknown) => {
+      const url = String((input as { url?: unknown } | null)?.url ?? "");
+      if (!url) throw new Error("an update needs a download url");
+      return installUpdate(url);
+    },
 
     /** One read of a conversation: transcript, approvals, and whether it runs. */
     "remote/chat": async (input?: unknown) => {

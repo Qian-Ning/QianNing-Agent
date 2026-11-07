@@ -65,6 +65,7 @@ import {
   SettingsCard,
   SettingsRow,
 } from "./primitives";
+import { MobileUpdateRow } from "./MobileUpdateRow";
 import { RemoteAccessCard } from "./RemoteAccessCard";
 import { VoiceSettingsSection } from "./voice/VoiceSettingsSection";
 
@@ -833,6 +834,7 @@ export function SettingsPage() {
                   settings={settings ?? null}
                   saveSettings={saveSettings}
                 />
+                <MobileUpdateRow />
               </SettingsCard>
 
               {settings && (

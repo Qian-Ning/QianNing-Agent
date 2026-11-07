@@ -97,6 +97,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(RemoteHostPlugin.class);
         registerPlugin(SshPlugin.class);
         registerPlugin(QrScanPlugin.class);
+        registerPlugin(AppUpdatePlugin.class);
         super.onCreate(savedInstanceState);
         watchForFirstFrame();
     }

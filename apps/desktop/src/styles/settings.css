@@ -1663,6 +1663,56 @@
 .settings-row-control:has(> .settings-toggle + .settings-icon-button) {
   gap: 8px;
 }
+/*
+  The remote-access rows hold a token or an input beside a button. The default
+  240px control column squeezed "签发令牌" until each character sat on its own
+  line, so these two rows get room and wrap as a block instead of shrinking the
+  button.
+*/
+.settings-row-control:has(> .remote-access-device),
+.settings-row-control:has(> .remote-access-token) {
+  flex: 0 1 460px;
+  max-width: min(100%, 460px);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.remote-access-device {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.remote-access-device .field-input {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.remote-access-device .btn {
+  flex: 0 0 auto;
+}
+
+.remote-access-token {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.remote-access-token code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-sm);
+  color: var(--ds-text-secondary);
+}
+
 .settings-row-control .field-input {
   width: 100%;
   min-width: 140px;
@@ -4973,4 +5023,28 @@
    "this is doing something", and a channel nobody has switched on is not. */
 .settings-messaging-item [role="switch"] {
   background: var(--ds-border-subtle, rgba(0, 0, 0, 0.12));
+}
+
+/* Phone update row: one version line, one button, one place for a failure. */
+.mobile-update {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mobile-update-version {
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.mobile-update-error {
+  margin: 0;
+  max-width: 260px;
+  color: var(--ds-error);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  text-align: right;
 }
