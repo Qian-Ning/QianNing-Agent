@@ -852,7 +852,9 @@ export const api = {
         kind: "tool" | "plan" | "goal";
         summary: string;
         toolName?: string;
+        title?: string;
         risk?: "low" | "medium" | "high";
+        allowed: string[];
       }>;
       active: boolean;
     }>("pi-desktop/remote/chat", { hostKey, sessionId }),

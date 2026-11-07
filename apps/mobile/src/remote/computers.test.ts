@@ -287,7 +287,17 @@ describe("talking to a paired computer", () => {
                 { id: "m1", itemType: "message", content: { role: "user", content: "hi" } },
                 { id: "m2", itemType: "message", content: { role: "assistant", content: "在。" } },
               ],
-              pendingApprovals: [{ id: "ap1", kind: "tool", summary: "run tests" }],
+              pendingApprovals: [
+                {
+                  id: "ap1",
+                  kind: "tool",
+                  summary: "run tests",
+                  allowedDecisions: ["allow-once", "deny"],
+                },
+              ],
+              activeItems: [
+                { id: "live1", itemType: "message", content: { role: "assistant", content: "正在" } },
+              ],
               activeTurn: { id: "t1" },
               queuedTurns: [],
             },
@@ -299,8 +309,10 @@ describe("talking to a paired computer", () => {
 
     const snapshot = await fetchChat(listComputers()[0]!, "s1");
 
-    expect(snapshot.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
+    expect(snapshot.messages.map((message) => message.role)).toEqual(["user", "assistant", "assistant"]);
+    expect(snapshot.messages[2]?.text).toBe("正在");
     expect(snapshot.approvals[0]?.id).toBe("ap1");
+    expect(snapshot.approvals[0]?.allowed).toEqual(["allow-once", "deny"]);
     expect(snapshot.active).toBe(true);
   });
 
