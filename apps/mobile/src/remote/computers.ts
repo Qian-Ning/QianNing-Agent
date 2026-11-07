@@ -509,3 +509,30 @@ export async function respondApproval(
     context: { requestId: requestId() },
   });
 }
+
+/**
+ * Starts a conversation on that computer.
+ *
+ * `session/create` takes the title and the permission mode; the provider and
+ * model come from the computer's own defaults, which is what a person expects
+ * when they start a chat from the phone.
+ */
+export async function createSession(
+  computer: PairedComputer,
+  title: string,
+): Promise<{ id: string; title: string }> {
+  const trimmed = title.trim();
+  const result = await call(computer, "POST", "/v1/sessions", {
+    ...(trimmed ? { title: trimmed } : {}),
+    mode: "agent",
+    permissionMode: "ask",
+  });
+  const session = (result as { session?: { id?: unknown; title?: unknown } } | null)?.session;
+  if (!session || typeof session.id !== "string") {
+    throw new Error("the computer did not return the new conversation");
+  }
+  return {
+    id: session.id,
+    title: typeof session.title === "string" && session.title ? session.title : trimmed,
+  };
+}

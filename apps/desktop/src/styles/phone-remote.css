@@ -207,6 +207,12 @@
   background: color-mix(in srgb, var(--ds-text-primary) 6%, transparent);
 }
 
+.phone-remote-new {
+  flex: none;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
 .phone-remote-head-copy {
   display: flex;
   flex-direction: column;

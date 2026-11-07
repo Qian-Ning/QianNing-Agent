@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { REMOTE_UNREACHABLE } from "@pi-desktop/shared";
 
 import {
+  createSession,
   fetchApprovals,
   fetchChat,
   fetchHistory,
@@ -326,5 +327,28 @@ describe("talking to a paired computer", () => {
     await pairComputer({ url: "192.168.1.8:7317", token: "pdt1.one" });
 
     expect((await fetchChat(listComputers()[0]!, "s1")).active).toBe(false);
+  });
+
+  it("starts a conversation on that computer", async () => {
+    const seen: Array<{ path: string; method: string; body?: string }> = [];
+    stubRemote({
+      request: (options) => {
+        seen.push(options as { path: string; method: string; body?: string });
+        return {
+          status: 200,
+          body: JSON.stringify({ result: { session: { id: "s9", title: "手机发起" } } }),
+        };
+      },
+    });
+    await pairComputer({ url: "192.168.1.8:7317", token: "pdt1.one" });
+
+    const created = await createSession(listComputers()[0]!, "  手机发起  ");
+
+    expect(created).toEqual({ id: "s9", title: "手机发起" });
+    const post = seen.at(-1) as { path: string; method: string; body: string };
+    expect(post.path).toBe("/v1/sessions");
+    const payload = JSON.parse(post.body) as { title: string; mode: string };
+    expect(payload.title).toBe("手机发起");
+    expect(payload.mode).toBe("agent");
   });
 });
