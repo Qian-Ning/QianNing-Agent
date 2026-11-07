@@ -1679,7 +1679,9 @@
 
 .remote-access-device {
   display: flex;
-  flex-wrap: wrap;
+  /* One line, always: the button keeps its width and the field gives way. A
+     wrapped button reads exactly like the broken vertical label it replaced. */
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
@@ -1688,7 +1690,7 @@
 }
 
 .remote-access-device .field-input {
-  flex: 1 1 160px;
+  flex: 1 1 120px;
   min-width: 0;
 }
 
@@ -5047,4 +5049,18 @@
   font-size: var(--text-sm);
   line-height: var(--leading-body);
   text-align: right;
+}
+
+/*
+  The pairing code is scanned from a phone held next to the screen, so it needs
+  to be big enough to read and no bigger: at 240px it dominated the card.
+*/
+.remote-pairing-qr {
+  display: block;
+  width: 148px;
+  height: 148px;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  padding: 6px;
+  box-sizing: content-box;
 }

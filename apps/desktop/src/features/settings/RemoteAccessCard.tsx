@@ -327,9 +327,10 @@ function DesktopRemoteAccessCard() {
           <img
             src={qr}
             alt={t("settings.remotePairingScan")}
-            width={240}
-            height={240}
+            width={148}
+            height={148}
             data-testid="remote-pairing-qr"
+            className="remote-pairing-qr"
           />
         </SettingsRow>
       ) : null}
