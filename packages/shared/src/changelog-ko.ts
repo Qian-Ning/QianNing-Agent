@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
   {
+    version: "2.2.4",
+    date: "2026-11-07",
+    highlights: [
+      "휴대폰이 스스로 업데이트합니다. 설정에서 릴리스 페이지에 최신 빌드를 묻고, 있으면 내려받아 시스템 설치 프로그램을 엽니다.",
+      "원격 접속 버튼의 레이블이 한 줄로 유지됩니다. 좁은 제어 열에서 签发令牌가 글자 단위로 끊기곤 했습니다.",
+    ],
+  },
+  {
     version: "2.2.3",
     date: "2026-11-07",
     highlights: [

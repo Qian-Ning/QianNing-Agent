@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.2.4",
+    date: "2026-11-07",
+    highlights: [
+      "Telefon artık kendini güncelliyor. Ayarlar sürüm sayfasına en yeni derlemeyi soruyor, varsa APK'yı indirip sistem kurucusunu açıyor.",
+      "Uzak erişim düğmeleri etiketlerini tek satırda tutuyor; dar kontrol sütunu 签发令牌 metnini harf harf kırıyordu.",
+    ],
+  },
+  {
     version: "2.2.3",
     date: "2026-11-07",
     highlights: [

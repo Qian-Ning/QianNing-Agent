@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "2.2.4",
+    date: "2026-11-07",
+    highlights: [
+      "El teléfono ya se actualiza solo. Los ajustes preguntan a la página de versiones por la compilación más reciente y, si la hay, la descargan y abren el instalador del sistema.",
+      "Los botones del acceso remoto mantienen su texto en una línea; una columna de control estrecha partía 签发令牌 entre caracteres.",
+    ],
+  },
+  {
     version: "2.2.3",
     date: "2026-11-07",
     highlights: [
