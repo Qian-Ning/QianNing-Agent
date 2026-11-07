@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "2.2.3",
+    date: "2026-11-07",
+    highlights: [
+      "Un turno que se detiene a preguntar ahora también pregunta en el teléfono: la tarjeta muestra las decisiones que ese equipo acepta de verdad, y la respuesta vuelve directo al turno en curso.",
+      "Una respuesta se ve mientras se escribe en vez de llegar en un bloque al terminar, porque el teléfono lee los elementos en vivo del host y no solo el historial ya asentado.",
+      "La salida de una herramienta es una línea discreta con el nombre de la herramienta, y los mensajes de sistema del host se quedan en el equipo en lugar de aparecer como prosa en la conversación.",
+    ],
+  },
+  {
     version: "2.2.2",
     date: "2026-11-07",
     highlights: [

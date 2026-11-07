@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "2.2.3",
+    date: "2026-11-07",
+    highlights: [
+      "Ein Turn, der auf eine Antwort wartet, fragt jetzt auch auf dem Telefon: die Karte zeigt die Entscheidungen, die dieser Rechner wirklich annimmt, und die Antwort geht direkt an den laufenden Turn zurück.",
+      "Eine Antwort ist schon beim Schreiben sichtbar statt erst am Ende als Block, weil das Telefon die laufenden Einträge des Hosts liest und nicht nur das fertige Transkript.",
+      "Werkzeugausgaben sind eine leise Zeile mit dem Namen des Werkzeugs, und die Systemnachrichten des Hosts bleiben auf dem Rechner statt als Prosa im Gespräch zu erscheinen.",
+    ],
+  },
+  {
     version: "2.2.2",
     date: "2026-11-07",
     highlights: [

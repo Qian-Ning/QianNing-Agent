@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "2.2.3",
+    date: "2026-11-07",
+    highlights: [
+      "Un tour qui s'arrête pour demander quelque chose le demande aussi sur le téléphone : la carte montre les décisions que cet ordinateur accepte vraiment, et la réponse repart directement vers le tour en cours.",
+      "Une réponse est visible pendant qu'elle s'écrit au lieu d'arriver d'un bloc à la fin, parce que le téléphone lit les éléments en direct de l'hôte et pas seulement l'historique stabilisé.",
+      "La sortie d'un outil tient en une ligne discrète portant le nom de l'outil, et les messages système de l'hôte restent sur l'ordinateur au lieu d'apparaître comme du texte dans la conversation.",
+    ],
+  },
+  {
     version: "2.2.2",
     date: "2026-11-07",
     highlights: [

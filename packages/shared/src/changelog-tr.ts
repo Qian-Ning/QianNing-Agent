@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.2.3",
+    date: "2026-11-07",
+    highlights: [
+      "Soru sormak için duran bir tur artık telefonda da soruyor: kart yalnızca o bilgisayarın gerçekten kabul ettiği kararları gösteriyor ve yanıt doğrudan süren tura dönüyor.",
+      "Yanıt bittiğinde tek blok halinde gelmek yerine yazılırken görünüyor, çünkü telefon yalnızca oturmuş geçmişi değil host'un canlı öğelerini okuyor.",
+      "Araç çıktısı, aracın adını taşıyan sakin bir satır oldu; host'un sistem mesajları konuşma metnine karışmadan bilgisayarda kalıyor.",
+    ],
+  },
+  {
     version: "2.2.2",
     date: "2026-11-07",
     highlights: [
