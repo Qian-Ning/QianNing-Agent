@@ -846,6 +846,9 @@ export const api = {
   /** A prompt typed on the phone, executed by that computer's agent. */
   remoteSendTurn: (hostKey: string, sessionId: string, text: string) =>
     invoke<{ sent: boolean }>("pi-desktop/remote/turn", { hostKey, sessionId, text }),
+  /** Starts a conversation on the paired computer. */
+  remoteCreateSession: (hostKey: string, title: string) =>
+    invoke<{ id: string; title: string }>("pi-desktop/remote/create-session", { hostKey, title }),
   /** One read of a conversation: transcript, approvals, and whether it runs. */
   remoteChat: (hostKey: string, sessionId: string) =>
     invoke<{

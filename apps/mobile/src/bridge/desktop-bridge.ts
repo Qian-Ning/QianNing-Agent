@@ -50,6 +50,7 @@ import {
 } from "../media/workbench";
 import {
   APPROVAL_DECISIONS,
+  createSession,
   fetchChat,
   fetchHistory,
   fetchSessions,
@@ -411,6 +412,14 @@ export class PhoneBridge {
       const url = String((input as { url?: unknown } | null)?.url ?? "");
       if (!url) throw new Error("an update needs a download url");
       return installUpdate(url);
+    },
+
+    /** Starts a conversation on that computer. */
+    "remote/create-session": async (input?: unknown) => {
+      const request = (input ?? {}) as { hostKey?: unknown; title?: unknown };
+      const computer = listComputers().find((entry) => entry.key === String(request.hostKey ?? ""));
+      if (!computer) throw new Error("that computer is not paired");
+      return createSession(computer, String(request.title ?? ""));
     },
 
     /** One read of a conversation: transcript, approvals, and whether it runs. */

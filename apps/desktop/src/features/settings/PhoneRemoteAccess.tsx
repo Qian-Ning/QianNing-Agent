@@ -366,6 +366,7 @@ function RemoteSessions({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [shown, setShown] = useState(60);
+  const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
     setStatus("loading");
@@ -389,6 +390,23 @@ function RemoteSessions({
     void load();
   }, [load]);
 
+  /**
+   * A conversation started here belongs to that computer, with its own model
+   * defaults — the phone only supplies a title to tell it apart.
+   */
+  const startNew = useCallback(async () => {
+    setCreating(true);
+    try {
+      const created = await api.remoteCreateSession(host.hostKey, t("settings.phoneNewSessionTitle"));
+      onOpen({ id: created.id, title: created.title });
+    } catch (cause) {
+      setLoadError(describe(cause));
+      setStatus("error");
+    } finally {
+      setCreating(false);
+    }
+  }, [host.hostKey, onOpen, describe, t]);
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return items;
@@ -408,6 +426,16 @@ function RemoteSessions({
           <span className="phone-remote-head-title">{host.label}</span>
           <span className="phone-remote-head-sub">{host.url.replace(/^https?:\/\//, "")}</span>
         </span>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="phone-remote-new"
+          onClick={() => void startNew()}
+          disabled={creating}
+        >
+          {creating ? t("settings.phoneCreating") : t("settings.phoneNewSession")}
+        </Button>
       </header>
 
       <div className="phone-remote-body">
