@@ -139,6 +139,17 @@ import {
   FEISHU_FORMAT_VERSION,
   FEISHU_HANDLED_CAPACITY,
   FEISHU_SETTINGS_SECTION,
+  MESSAGING_WECOM_PLATFORM,
+  WECOM_ACCEPT_REPLY,
+  WECOM_AES_KEY_SECRET_REF,
+  WECOM_CORP_ID_SECRET_REF,
+  WECOM_FORMAT,
+  WECOM_FORMAT_VERSION,
+  WECOM_SETTINGS_SECTION,
+  WECOM_TOKEN_SECRET_REF,
+  createWecomAdapter,
+  createWecomHandshake,
+  createWecomVerifier,
   MESSAGING_FEISHU_PLATFORM,
   createFeishuAdapter,
   createFeishuVerifier,
@@ -2477,7 +2488,7 @@ export type MessagingWebhookReceiverWiringOptions = {
    * own: their inbound path is the receiver's, so their liveness is the
    * receiver's own mark rather than a second lifetime to keep in step.
    */
-  onPlatforms?: (channels: readonly "feishu"[]) => void;
+  onPlatforms?: (channels: readonly ("feishu" | "wecom")[]) => void;
   /** Test seam: a receiver factory in place of the one the wiring builds. */
   createReceiver?: (options: IngressWebhookReceiverOptions) => IngressWebhookReceiver;
 };
@@ -2525,6 +2536,78 @@ export type MessagingWebhookReceiverWiring = {
  * serves no Feishu path, and the panel says so instead of recording events
  * nobody will run.
  */
+/**
+ * The WeCom callback entry, when this Host has one configured.
+ *
+ * WeCom is the one channel whose body this receiver cannot read unaided: the
+ * payload is AES-encrypted XML, and the URL is verified with a GET before any
+ * event is sent. Both halves come from the app's own record — the corp id, the
+ * Token and the EncodingAESKey — so the entry is built only when all three are
+ * present and the channel names a session to act on.
+ */
+async function buildWecomCallbackPlatform(
+  options: MessagingWebhookReceiverWiringOptions,
+  ids: RandomIds,
+): Promise<IngressWebhookPlatform | null> {
+  let settings: unknown;
+  try {
+    settings = await options.settings.read();
+  } catch {
+    return null;
+  }
+  const section = readSection(settings, WECOM_SETTINGS_SECTION);
+  if (!section) return null;
+  if (section.format !== WECOM_FORMAT || section.version !== WECOM_FORMAT_VERSION) return null;
+
+  const inbound = readInbound(section);
+  const sessionId =
+    typeof inbound?.sessionId === "string" && inbound.sessionId.trim() !== ""
+      ? inbound.sessionId.trim()
+      : null;
+  if (!sessionId) return null;
+
+  const read = async (ref: string): Promise<string | null> => {
+    try {
+      const value = await options.secrets(ref);
+      return value && value.trim() !== "" ? value.trim() : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const [corpId, token, aesKey] = await Promise.all([
+    read(WECOM_CORP_ID_SECRET_REF),
+    read(WECOM_TOKEN_SECRET_REF),
+    read(WECOM_AES_KEY_SECRET_REF),
+  ]);
+  if (!corpId || !token || !aesKey) {
+    // Fail closed with a reason: a WeCom path that cannot decrypt would answer
+    // every callback with a 401, which reads on the platform as a dead URL.
+    options.onFailure?.("WeCom needs its corp id, token and EncodingAESKey stored");
+    return null;
+  }
+
+  const deliver = async (message: IngressMessage): Promise<void> => {
+    await options.agentHost.startTurn(
+      { subject: "wecom", roles: ["owner"] },
+      {
+        sessionId,
+        admission: "queue",
+        input: { text: message.text },
+        context: { requestId: ids.next("wecom") },
+      },
+    );
+  };
+
+  return {
+    verifier: createWecomVerifier(token),
+    adapter: createWecomAdapter({ encodingAesKey: aesKey, corpId }),
+    onMessage: deliver,
+    handshake: createWecomHandshake({ token, encodingAesKey: aesKey }),
+    reply: WECOM_ACCEPT_REPLY,
+  };
+}
+
 async function buildFeishuCallbackPlatform(
   options: MessagingWebhookReceiverWiringOptions,
   ids: RandomIds,
@@ -2661,6 +2744,7 @@ export function createWebhookReceiverWiring(
       // Feishu shares this listener: it has no socket of its own, and a second
       // port would be a second URL to configure for no benefit.
       const feishu = await buildFeishuCallbackPlatform(options, ids);
+      const wecom = await buildWecomCallbackPlatform(options, ids);
       const built = create({
         platforms: {
           [pathSegment]: {
@@ -2669,6 +2753,7 @@ export function createWebhookReceiverWiring(
             onMessage: deliver,
           },
           ...(feishu ? { [MESSAGING_FEISHU_PLATFORM]: feishu.platform } : {}),
+          ...(wecom ? { [MESSAGING_WECOM_PLATFORM]: wecom } : {}),
         },
         handled: createSettingsHandledMessageStore({
           settings: options.settings,
@@ -2693,7 +2778,10 @@ export function createWebhookReceiverWiring(
         return;
       }
       options.onListening?.(bound);
-      options.onPlatforms?.(feishu ? ["feishu"] : []);
+      options.onPlatforms?.([
+        ...(feishu ? (["feishu"] as const) : []),
+        ...(wecom ? (["wecom"] as const) : []),
+      ]);
       if (!options.signal.aborted) {
         await new Promise<void>((resolve) => {
           const onAbort = (): void => {

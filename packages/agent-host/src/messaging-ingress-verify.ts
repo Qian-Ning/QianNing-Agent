@@ -83,6 +83,11 @@ export type IngressVerifier = {
   verify(
     rawBody: Buffer,
     headers: IngressVerifierHeaders,
+    /**
+     * The request's own address, when the platform puts its signature in the
+     * query string rather than in a header — WeCom does.
+     */
+    url?: URL,
   ): IngressVerification | Promise<IngressVerification>;
 };
 

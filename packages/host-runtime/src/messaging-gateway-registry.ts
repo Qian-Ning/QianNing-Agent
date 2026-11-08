@@ -64,6 +64,8 @@ export type MessagingGatewaySnapshot = {
   webhookReceiver: boolean;
   /** Feishu runs on the shared receiver; it is live exactly while that is. */
   feishu: boolean;
+  /** WeCom runs on the same receiver, on the same terms. */
+  wecom: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — most often a port already taken. `null` for
@@ -128,7 +130,7 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
    * snapshot derives them from the receiver's own mark instead of inventing a
    * second lifetime to keep in step.
    */
-  private readonly callbackPlatforms = new Set<"feishu">();
+  private readonly callbackPlatforms = new Set<"feishu" | "wecom">();
 
   /** Record that host-core and the Agent Host came up. Idempotent. */
   markBooted(): void {
@@ -181,7 +183,7 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
   }
 
   /** Record which callback channels the receiver registered for this run. */
-  setCallbackPlatforms(channels: readonly "feishu"[]): void {
+  setCallbackPlatforms(channels: readonly ("feishu" | "wecom")[]): void {
     this.callbackPlatforms.clear();
     for (const channel of channels) this.callbackPlatforms.add(channel);
   }
@@ -208,6 +210,7 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
       apiServer: this.running.has("apiServer"),
       webhookReceiver: this.running.has("webhookReceiver"),
       feishu: this.callbackPlatforms.has("feishu") && this.running.has("webhookReceiver"),
+      wecom: this.callbackPlatforms.has("wecom") && this.running.has("webhookReceiver"),
       apiServerError: this.failures.get("apiServer") ?? null,
       webhookReceiverError: this.failures.get("webhookReceiver") ?? null,
     };
