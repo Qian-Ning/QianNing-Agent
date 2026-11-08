@@ -846,6 +846,14 @@ export const api = {
   /** A prompt typed on the phone, executed by that computer's agent. */
   remoteSendTurn: (hostKey: string, sessionId: string, text: string) =>
     invoke<{ sent: boolean }>("pi-desktop/remote/turn", { hostKey, sessionId, text }),
+  /** Renames a conversation on the paired computer. */
+  remoteRenameSession: (hostKey: string, sessionId: string, title: string) =>
+    invoke<{ renamed: boolean }>("pi-desktop/remote/rename-session", { hostKey, sessionId, title }),
+
+  /** Deletes a conversation on the paired computer. */
+  remoteDeleteSession: (hostKey: string, sessionId: string) =>
+    invoke<{ deleted: boolean }>("pi-desktop/remote/delete-session", { hostKey, sessionId }),
+
   /** Starts a conversation on the paired computer. */
   remoteCreateSession: (hostKey: string, title: string) =>
     invoke<{ id: string; title: string }>("pi-desktop/remote/create-session", { hostKey, title }),

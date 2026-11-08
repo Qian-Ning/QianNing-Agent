@@ -4,9 +4,11 @@ import { REMOTE_UNREACHABLE } from "@pi-desktop/shared";
 
 import {
   createSession,
+  deleteSession,
   fetchApprovals,
   fetchChat,
   fetchHistory,
+  renameSession,
   fetchSessions,
   listComputers,
   normalizeAddress,
@@ -350,5 +352,24 @@ describe("talking to a paired computer", () => {
     const payload = JSON.parse(post.body) as { title: string; mode: string };
     expect(payload.title).toBe("手机发起");
     expect(payload.mode).toBe("agent");
+  });
+
+  it("renames and deletes on that computer", async () => {
+    const seen: Array<{ path: string; method: string; body?: string }> = [];
+    stubRemote({
+      request: (options) => {
+        seen.push(options as { path: string; method: string; body?: string });
+        return { status: 200, body: JSON.stringify({ result: { ok: true } }) };
+      },
+    });
+    await pairComputer({ url: "192.168.1.8:7317", token: "pdt1.one" });
+    const computer = listComputers()[0]!;
+
+    await renameSession(computer, "s1", "  新名字  ");
+    expect(seen.at(-1)?.path).toBe("/v1/sessions/s1:rename");
+    expect(JSON.parse((seen.at(-1) as { body: string }).body)).toEqual({ title: "新名字" });
+
+    await deleteSession(computer, "s1");
+    expect(seen.at(-1)?.path).toBe("/v1/sessions/s1:delete");
   });
 });

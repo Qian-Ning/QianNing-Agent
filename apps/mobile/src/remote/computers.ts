@@ -543,3 +543,24 @@ export async function createSession(
     title: typeof session.title === "string" && session.title ? session.title : trimmed,
   };
 }
+
+/** Gives a conversation on that computer a new title. */
+export async function renameSession(
+  computer: PairedComputer,
+  sessionId: string,
+  title: string,
+): Promise<void> {
+  const trimmed = title.trim();
+  if (!trimmed) throw new Error("a conversation needs a title");
+  await call(computer, "POST", `/v1/sessions/${encodeURIComponent(sessionId)}:rename`, {
+    title: trimmed,
+  });
+}
+
+/** Removes a conversation from that computer, for every surface that reads it. */
+export async function deleteSession(
+  computer: PairedComputer,
+  sessionId: string,
+): Promise<void> {
+  await call(computer, "POST", `/v1/sessions/${encodeURIComponent(sessionId)}:delete`, {});
+}

@@ -16,6 +16,7 @@ import { REMOTE_UNREACHABLE, parsePairingLink } from "@pi-desktop/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Markdown } from "../../components/Markdown";
 import { Button, Input } from "../../components/ui";
 import { api } from "../../lib/api";
 import { SettingsCard } from "./primitives";
@@ -322,14 +323,24 @@ export function PhoneRemoteAccess() {
 
       {error ? <p className="phone-remote-error">{error}</p> : null}
 
-      {screen.kind !== "computers" ? (
+      {screen.kind === "sessions" ? (
         <div className="phone-remote-screen">
           <RemoteSessions
             host={screen.host}
-            openSession={screen.kind === "chat" ? screen.session : null}
             onOpen={(session) => setScreen({ kind: "chat", host: screen.host, session })}
             onBack={pop}
             onForget={() => void forget(screen.host)}
+            describe={describe}
+          />
+        </div>
+      ) : null}
+
+      {screen.kind === "chat" ? (
+        <div className="phone-remote-screen">
+          <RemoteConversation
+            host={screen.host}
+            session={screen.session}
+            onBack={pop}
             describe={describe}
           />
         </div>
@@ -347,14 +358,12 @@ export function PhoneRemoteAccess() {
  */
 function RemoteSessions({
   host,
-  openSession,
   onOpen,
   onBack,
   onForget,
   describe,
 }: {
   host: PairedHost;
-  openSession: SessionRow | null;
   onOpen: (session: SessionRow) => void;
   onBack: () => void;
   onForget: () => void;
@@ -367,6 +376,9 @@ function RemoteSessions({
   const [query, setQuery] = useState("");
   const [shown, setShown] = useState(60);
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<{ id: string; title: string } | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [rowBusy, setRowBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setStatus("loading");
@@ -406,6 +418,46 @@ function RemoteSessions({
       setCreating(false);
     }
   }, [host.hostKey, onOpen, describe, t]);
+
+  /**
+   * Rename and delete both run on the computer, so the change is the host's and
+   * every surface that reads it sees the same conversation. The list reloads
+   * from the host rather than patching its own copy.
+   */
+  const rename = useCallback(
+    async (id: string, title: string) => {
+      setRowBusy(id);
+      try {
+        await api.remoteRenameSession(host.hostKey, id, title);
+        setEditing(null);
+        await load();
+      } catch (cause) {
+        setLoadError(describe(cause));
+        setStatus("error");
+      } finally {
+        setRowBusy(null);
+      }
+    },
+    [host.hostKey, load, describe],
+  );
+
+  const remove = useCallback(
+    async (id: string) => {
+      setRowBusy(id);
+      try {
+        await api.remoteDeleteSession(host.hostKey, id);
+        setEditing(null);
+        setConfirming(null);
+        await load();
+      } catch (cause) {
+        setLoadError(describe(cause));
+        setStatus("error");
+      } finally {
+        setRowBusy(null);
+      }
+    },
+    [host.hostKey, load, describe],
+  );
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -467,14 +519,84 @@ function RemoteSessions({
 
         {visible.length > 0 ? (
           <ul className="phone-remote-sessions">
-            {visible.map((session) => (
-              <li key={session.id}>
-                <button type="button" className="phone-remote-session" onClick={() => onOpen(session)}>
-                  <span className="phone-remote-session-title">{session.title}</span>
-                  <span className="phone-remote-session-time">{relative(session.updatedAt, t)}</span>
-                </button>
-              </li>
-            ))}
+            {visible.map((session) =>
+              editing?.id === session.id ? (
+                <li key={session.id}>
+                  <div className="phone-remote-session-edit">
+                    <Input
+                      value={editing.title}
+                      onChange={(event) => setEditing({ id: session.id, title: event.target.value })}
+                      aria-label={t("settings.phoneRename")}
+                      disabled={rowBusy === session.id}
+                    />
+                    <div className="phone-remote-session-edit-actions">
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        onClick={() => void rename(session.id, editing.title)}
+                        disabled={rowBusy === session.id || !editing.title.trim()}
+                      >
+                        {t("settings.phoneRenameSave")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditing(null);
+                          setConfirming(null);
+                        }}
+                      >
+                        {t("settings.phoneRenameCancel")}
+                      </Button>
+                      {confirming === session.id ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="is-danger"
+                          onClick={() => void remove(session.id)}
+                          disabled={rowBusy === session.id}
+                        >
+                          {t("settings.phoneDeleteConfirm")}
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="is-danger"
+                          onClick={() => setConfirming(session.id)}
+                        >
+                          {t("settings.phoneDelete")}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ) : (
+                <li key={session.id}>
+                  <div className="phone-remote-session-row">
+                    <button type="button" className="phone-remote-session" onClick={() => onOpen(session)}>
+                      <span className="phone-remote-session-title">{session.title}</span>
+                      <span className="phone-remote-session-time">{relative(session.updatedAt, t)}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="phone-remote-session-more"
+                      aria-label={t("settings.phoneSessionActions")}
+                      onClick={() => {
+                        setEditing({ id: session.id, title: session.title });
+                        setConfirming(null);
+                      }}
+                    >
+                      ⋯
+                    </button>
+                  </div>
+                </li>
+              ),
+            )}
           </ul>
         ) : null}
 
@@ -489,9 +611,6 @@ function RemoteSessions({
         </button>
       </div>
 
-      {openSession ? (
-        <RemoteConversation host={host} session={openSession} onBack={onBack} describe={describe} />
-      ) : null}
     </>
   );
 }
@@ -632,7 +751,9 @@ function RemoteConversation({
             </p>
           ) : (
             <div key={message.id} className={`phone-remote-bubble is-${message.role}`}>
-              {message.text}
+              <div className="prose-chat">
+                <Markdown source={message.text} />
+              </div>
             </div>
           ),
         )}

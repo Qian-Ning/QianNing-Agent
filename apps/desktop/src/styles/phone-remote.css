@@ -412,3 +412,76 @@
   height: 40px;
   padding-inline: 18px;
 }
+
+/* A row owns its whole width: tapping the text opens the conversation, tapping
+   the end asks what to do with it. The editor replaces the row in place, so the
+   list does not jump. */
+.phone-remote-session-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+.phone-remote-session-row .phone-remote-session {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.phone-remote-session-more {
+  flex: 0 0 auto;
+  width: 36px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-lg);
+  line-height: var(--leading-none);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .phone-remote-session-more:hover {
+    background: var(--ds-tile-hover);
+    color: var(--ds-text-primary);
+  }
+}
+
+.phone-remote-session-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--radius-md);
+  background: var(--ds-bg-elevated-opaque);
+}
+
+.phone-remote-session-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.phone-remote-session-edit-actions .is-danger {
+  margin-left: auto;
+  color: var(--ds-error);
+}
+
+/* The transcript renders markdown, so a bubble carries the same reading surface
+   as the desktop transcript instead of a raw string of hashes and backticks. */
+.phone-remote-bubble .prose-chat {
+  font-size: var(--text-base);
+}
+
+.phone-remote-bubble .prose-chat > :first-child {
+  margin-top: 0;
+}
+
+.phone-remote-bubble .prose-chat > :last-child {
+  margin-bottom: 0;
+}

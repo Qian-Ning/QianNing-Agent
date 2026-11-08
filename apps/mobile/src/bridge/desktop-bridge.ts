@@ -51,6 +51,7 @@ import {
 import {
   APPROVAL_DECISIONS,
   createSession,
+  deleteSession,
   fetchChat,
   fetchHistory,
   fetchSessions,
@@ -58,6 +59,7 @@ import {
   listComputers,
   pairComputer,
   removeComputer,
+  renameSession,
   respondApproval,
   scanPairingCode,
   sendTurn,
@@ -447,6 +449,24 @@ export class PhoneBridge {
       if (!APPROVAL_DECISIONS.has(decision)) throw new Error("unknown approval decision");
       await respondApproval(computer, approvalId, decision as ApprovalDecision);
       return { answered: true };
+    },
+
+    /** Renames a conversation, on that computer. */
+    "remote/rename-session": async (input?: unknown) => {
+      const request = (input ?? {}) as { hostKey?: unknown; sessionId?: unknown; title?: unknown };
+      const computer = listComputers().find((entry) => entry.key === String(request.hostKey ?? ""));
+      if (!computer) throw new Error("that computer is not paired");
+      await renameSession(computer, String(request.sessionId ?? ""), String(request.title ?? ""));
+      return { renamed: true };
+    },
+
+    /** Deletes a conversation, on that computer. */
+    "remote/delete-session": async (input?: unknown) => {
+      const request = (input ?? {}) as { hostKey?: unknown; sessionId?: unknown };
+      const computer = listComputers().find((entry) => entry.key === String(request.hostKey ?? ""));
+      if (!computer) throw new Error("that computer is not paired");
+      await deleteSession(computer, String(request.sessionId ?? ""));
+      return { deleted: true };
     },
 
     /** One conversation's transcript, newest page included. */
