@@ -174,6 +174,7 @@ const SUPPORTED_IDS = [
   "signal",
   "homeAssistant",
   "email",
+  "sms",
   "dingtalk",
   "feishu",
   "wecomGroup",
@@ -265,7 +266,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
     "simplex",
   ]);
   assert.deepEqual(byClass.publicCallback, [
-    "sms",
     "googleChat",
     "microsoftGraph",
     "teams",
@@ -646,6 +646,16 @@ test("fields are grouped, and every field explains itself and its blank", () => 
         requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
         ["api-token"],
         "the local API's token is required, unlike ntfy's optional one",
+      );
+    } else if (platform.id === "sms") {
+      assert.deepEqual(requiredWithoutSecrets, ["destination", "subject", "roles", "sessionId"]);
+      assert.deepEqual(
+        requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
+        platform.secrets.map((slot) => slot.id),
+      );
+      assert.deepEqual(
+        recommended.map((field) => field.id),
+        ["permissionMode", "endpoint", "requestTimeoutMs"],
       );
     } else if (platform.id === "line") {
       assert.deepEqual(requiredWithoutSecrets, ["destination", "subject", "roles", "sessionId"]);
