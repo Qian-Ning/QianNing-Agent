@@ -14,6 +14,9 @@ import {
   MessagingRedactor,
   type Principal,
   type HostRpcPort,
+  FEISHU_FORMAT,
+  FEISHU_FORMAT_VERSION,
+  FEISHU_SETTINGS_SECTION,
   MESSAGING_DINGTALK_FORMAT,
   MESSAGING_DINGTALK_FORMAT_VERSION,
   MESSAGING_DINGTALK_SECTION,
@@ -150,6 +153,12 @@ export const MESSAGING_OUTBOUND_CHANNELS: readonly MessagingOutboundChannel[] = 
     section: MESSAGING_DINGTALK_SECTION,
     format: MESSAGING_DINGTALK_FORMAT,
     version: MESSAGING_DINGTALK_FORMAT_VERSION,
+  },
+  {
+    channel: "feishu",
+    section: FEISHU_SETTINGS_SECTION,
+    format: FEISHU_FORMAT,
+    version: FEISHU_FORMAT_VERSION,
   },
   {
     channel: "mattermost",

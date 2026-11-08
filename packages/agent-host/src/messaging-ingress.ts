@@ -109,7 +109,17 @@ export type IngressNormalisation =
        */
       key: string;
     }
-  | { kind: "filtered"; reason: string; channelId?: string };
+  | {
+      kind: "filtered";
+      reason: string;
+      channelId?: string;
+      /**
+       * The body the platform expects back for an event this channel does not
+       * act on but must answer — a URL-verification challenge being the one
+       * every callback platform has. Absent means an empty 200.
+       */
+      ack?: Record<string, unknown>;
+    };
 
 /** Project one raw platform event onto the shared shape. */
 export type IngressNormalise = (raw: unknown) => IngressNormalisation;

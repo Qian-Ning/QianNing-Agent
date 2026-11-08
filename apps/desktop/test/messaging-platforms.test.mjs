@@ -175,6 +175,7 @@ const SUPPORTED_IDS = [
   "homeAssistant",
   "email",
   "dingtalk",
+  "feishu",
   "apiServer",
   "webhooks",
   "irc",
@@ -262,7 +263,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   ]);
   assert.deepEqual(byClass.publicCallback, [
     "sms",
-    "feishu",
     "googleChat",
     "wecomGroup",
     "wecomApp",
@@ -615,6 +615,19 @@ test("fields are grouped, and every field explains itself and its blank", () => 
         requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
         ["api-token"],
         "the local API's token is required, unlike ntfy's optional one",
+      );
+    } else if (platform.id === "feishu") {
+      // Feishu answers in a chat and runs commands in a session on this
+      // machine: three of the four are the channel's own, the fourth is the
+      // binding an accepted event acts on.
+      assert.deepEqual(requiredWithoutSecrets, ["destination", "subject", "roles", "sessionId"]);
+      assert.deepEqual(
+        requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
+        platform.secrets.map((slot) => slot.id),
+      );
+      assert.deepEqual(
+        recommended.map((field) => field.id),
+        ["permissionMode", "endpoint", "requestTimeoutMs"],
       );
     } else if (platform.id === "webhooks") {
       // The receiver is a listener with one binding, not a chat peer: no
