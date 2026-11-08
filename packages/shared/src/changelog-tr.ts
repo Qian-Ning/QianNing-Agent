@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.2.9",
+    date: "2026-11-08",
+    highlights: [
+      "Telefonda bir konuşma açıldığında üstünde konuşma listesi kalmıyor; konuşma listeyi örtüyor, daha derin bir ekranın yapması gerektiği gibi.",
+      "Telefon görünümü markdown render ediyor; başlıklar, listeler, kod ve alıntılar ham diyez ve ters tırnak yerine biçimli metin olarak okunuyor.",
+      "Her konuşma telefonda yeniden adlandırılabilir veya silinebilir; ikisi de bilgisayarda session/rename ve session/delete ile çalışır, ardından liste yeniden yüklenir.",
+    ],
+  },
+  {
     version: "2.2.8",
     date: "2026-11-08",
     highlights: [

@@ -30,6 +30,15 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.2.9",
+    date: "2026-11-08",
+    highlights: [
+      "Opening a conversation on the phone no longer leaves the conversation list above it; the conversation covers the list the way a deeper screen should.",
+      "The phone transcript renders markdown, so headings, lists, code and quotes read as formatted text instead of raw hashes and backticks.",
+      "Each conversation on the phone can be renamed or deleted, and both run on the computer: session/rename and session/delete, followed by a reload from the host.",
+    ],
+  },
+  {
     version: "2.2.8",
     date: "2026-11-08",
     highlights: [
@@ -1157,6 +1166,15 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.2.9",
+    date: "2026-11-08",
+    highlights: [
+      "手机上点开对话，不会再在上面压着一排会话列表——对话覆盖列表，这才是更深一层该有的样子。",
+      "手机端的正文开始渲染 markdown：标题、列表、代码、引用都是排好的文字，不再是原始的井号和反引号。",
+      "手机上每条对话都能重命名或删除，操作跑在电脑上（session/rename、session/delete），改完从电脑重新拉列表。",
+    ],
+  },
+  {
     version: "2.2.8",
     date: "2026-11-08",
     highlights: [
@@ -2283,6 +2301,15 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.2.9",
+    date: "2026-11-08",
+    highlights: [
+      "手機上點開對話，不會再在上面壓著一排對話列表——對話覆蓋列表，這才是更深一層該有的樣子。",
+      "手機端的正文開始渲染 markdown：標題、列表、程式碼、引用都是排好的文字，不再是原始的井號和反引號。",
+      "手機上每條對話都能重新命名或刪除，操作跑在電腦上（session/rename、session/delete），改完從電腦重新拉列表。",
+    ],
+  },
   {
     version: "2.2.8",
     date: "2026-11-08",

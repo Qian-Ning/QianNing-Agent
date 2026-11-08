@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "2.2.9",
+    date: "2026-11-08",
+    highlights: [
+      "Abrir una conversación en el teléfono ya no deja la lista de conversaciones encima; la conversación cubre la lista, como debe hacer un nivel más profundo.",
+      "La transcripción del teléfono renderiza markdown: títulos, listas, código y citas se leen formateados en vez de como almohadillas y comillas invertidas.",
+      "Cada conversación se puede renombrar o eliminar desde el teléfono, y ambas cosas ocurren en el equipo mediante session/rename y session/delete, recargando luego la lista.",
+    ],
+  },
+  {
     version: "2.2.8",
     date: "2026-11-08",
     highlights: [

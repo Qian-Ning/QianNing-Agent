@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "2.2.9",
+    date: "2026-11-08",
+    highlights: [
+      "Ein auf dem Telefon geöffnetes Gespräch lässt die Gesprächsliste nicht mehr darüber stehen; das Gespräch deckt die Liste ab, wie es eine tiefere Ebene soll.",
+      "Die Telefonansicht rendert Markdown, sodass Überschriften, Listen, Code und Zitate als gesetzter Text erscheinen statt als rohe Rauten und Backticks.",
+      "Jedes Gespräch lässt sich auf dem Telefon umbenennen oder löschen; beides läuft auf dem Rechner über session/rename und session/delete, danach wird die Liste neu geladen.",
+    ],
+  },
+  {
     version: "2.2.8",
     date: "2026-11-08",
     highlights: [
