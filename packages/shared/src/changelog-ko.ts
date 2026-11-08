@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
   {
+    version: "2.2.9",
+    date: "2026-11-08",
+    highlights: [
+      "휴대폰에서 대화를 열어도 위에 대화 목록이 남지 않습니다. 더 깊은 화면이 그러하듯 대화가 목록을 덮습니다.",
+      "휴대폰 대화 본문이 마크다운을 렌더링합니다. 제목, 목록, 코드, 인용이 샵과 백틱 그대로가 아니라 서식 있는 텍스트로 보입니다.",
+      "각 대화를 휴대폰에서 이름을 바꾸거나 삭제할 수 있고, 두 작업 모두 컴퓨터에서 session/rename, session/delete로 실행된 뒤 목록을 다시 불러옵니다.",
+    ],
+  },
+  {
     version: "2.2.8",
     date: "2026-11-08",
     highlights: [
