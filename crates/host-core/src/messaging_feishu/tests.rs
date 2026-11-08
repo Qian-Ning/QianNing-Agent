@@ -47,8 +47,13 @@ fn record(endpoint: &str, destination: &str, timeout: Option<u64>) -> StoredConf
 }
 
 fn adapter(endpoint: &str, destination: &str, timeout: Option<u64>) -> FeishuAdapter {
-    configured_adapter(&record(endpoint, destination, timeout), APP_ID, APP_SECRET, true)
-        .expect("adapter")
+    configured_adapter(
+        &record(endpoint, destination, timeout),
+        APP_ID,
+        APP_SECRET,
+        true,
+    )
+    .expect("adapter")
 }
 
 fn summary() -> OutboundMessage {
@@ -185,7 +190,10 @@ async fn a_refused_credential_is_terminal_and_never_reaches_the_send() {
         SendResult::Failed { kind, detail } => {
             assert_eq!(kind, FailureKind::Terminal);
             assert!(detail.contains("99991661"), "{detail}");
-            assert!(!detail.contains(APP_SECRET), "the secret never reaches a detail");
+            assert!(
+                !detail.contains(APP_SECRET),
+                "the secret never reaches a detail"
+            );
         }
         other => panic!("expected a terminal refusal, got {other:?}"),
     }
@@ -258,9 +266,14 @@ async fn an_empty_destination_is_refused_before_any_request() {
 
 #[tokio::test]
 async fn plaintext_endpoints_are_refused_unless_relaxed() {
-    let error = configured_adapter(&record("http://open.feishu.cn", CHAT_ID, None), APP_ID, APP_SECRET, false)
-        .err()
-        .expect("http is refused");
+    let error = configured_adapter(
+        &record("http://open.feishu.cn", CHAT_ID, None),
+        APP_ID,
+        APP_SECRET,
+        false,
+    )
+    .err()
+    .expect("http is refused");
     assert!(format!("{error}").contains(CODE), "{error}");
 }
 

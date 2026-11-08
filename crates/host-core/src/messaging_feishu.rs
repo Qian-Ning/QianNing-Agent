@@ -324,7 +324,9 @@ impl FeishuAdapter {
             Err(_) => {
                 return failed(
                     FailureKind::Terminal,
-                    &bounded(&format!("{CODE}: the tenant token is not a valid header value")),
+                    &bounded(&format!(
+                        "{CODE}: the tenant token is not a valid header value"
+                    )),
                 );
             }
         };
@@ -374,11 +376,7 @@ fn tenant_token_in(body: &str) -> Option<String> {
 /// The message id Feishu returns for a delivered message, when it does.
 fn message_id_in(body: &str) -> Option<String> {
     let value: Value = serde_json::from_str(body).ok()?;
-    let id = value
-        .get("data")?
-        .get("message_id")?
-        .as_str()?
-        .trim();
+    let id = value.get("data")?.get("message_id")?.as_str()?.trim();
     if id.is_empty() {
         None
     } else {
