@@ -10,6 +10,7 @@ export * from "./messaging-ingress-webhook.js";
 export * from "./messaging-ingress-verify.js";
 export * from "./messaging-ingress-receiver.js";
 export * from "./messaging-webhook-inbound.js";
+export * from "./messaging-feishu-inbound.js";
 export * from "./messaging-inbound.js";
 export * from "./messaging-slack-inbound.js";
 export * from "./messaging-slack-store.js";

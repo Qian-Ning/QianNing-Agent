@@ -140,6 +140,9 @@ export function createMessagingInboundSupervisor(
           signal,
           onListening: () => messagingGateway.clearFailure("webhookReceiver"),
           onFailure: (reason) => messagingGateway.fail("webhookReceiver", reason),
+          // Feishu has no loop of its own: it is served by this listener, so
+          // its liveness is this listener's own mark.
+          onPlatforms: (channels) => messagingGateway.setCallbackPlatforms(channels),
           ...(options.log ? { log: options.log } : {}),
         }),
       },

@@ -481,6 +481,7 @@ export type AppSettings = {
   messagingSlack?: MessagingChannelSettings;
   messagingDiscord?: MessagingChannelSettings;
   messagingDingtalk?: MessagingChannelSettings;
+  messagingFeishu?: MessagingChannelSettings;
   messagingMattermost?: MessagingChannelSettings;
   messagingMatrix?: MessagingChannelSettings;
   messagingIrc?: MessagingChannelSettings;

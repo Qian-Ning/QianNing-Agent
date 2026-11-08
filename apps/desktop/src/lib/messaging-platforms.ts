@@ -94,6 +94,7 @@ export type MessagingPlatformId =
 export type MessagingSectionKey =
   | "messagingTelegram"
   | "messagingDingtalk"
+  | "messagingFeishu"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -122,7 +123,12 @@ export type MessagingSecretSlot = {
     | "api-token"
     | "signing-secret"
     | "client-id"
-    | "client-secret";
+    | "client-secret"
+    /* Feishu's three: the app's own pair, plus the verification token that
+       authenticates every inbound event. */
+    | "app-id"
+    | "app-secret"
+    | "verification-token";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -1026,6 +1032,30 @@ const dingtalkSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const feishuSecrets: MessagingSecretSlot[] = [
+  {
+    id: "app-id",
+    ref: "secret:messaging-feishu:app-id",
+    labelKey: "settings.messaging.feishuAppId",
+    hintKey: "settings.messaging.feishuAppIdHint",
+    placeholderKey: "settings.messaging.feishuAppIdPlaceholder",
+  },
+  {
+    id: "app-secret",
+    ref: "secret:messaging-feishu:app-secret",
+    labelKey: "settings.messaging.feishuAppSecret",
+    hintKey: "settings.messaging.feishuAppSecretHint",
+    placeholderKey: "settings.messaging.feishuAppSecretPlaceholder",
+  },
+  {
+    id: "verification-token",
+    ref: "secret:messaging-feishu:verification-token",
+    labelKey: "settings.messaging.feishuVerifyToken",
+    hintKey: "settings.messaging.feishuVerifyTokenHint",
+    placeholderKey: "settings.messaging.feishuVerifyTokenPlaceholder",
+  },
+];
+
 const slackSecrets: MessagingSecretSlot[] = [
   {
     id: "app-token",
@@ -1076,9 +1106,9 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
     secrets: telegramSecrets,
     fields: channelFields({
       secrets: telegramSecrets,
-      destinationLabelKey: "settings.messaging.chatId",
-      destinationHelpKey: "settings.messaging.chatIdHelp",
-      destinationPlaceholderKey: "settings.messaging.chatIdPlaceholder",
+      destinationLabelKey: "settings.messaging.feishuChatId",
+      destinationHelpKey: "settings.messaging.feishuChatIdHelp",
+      destinationPlaceholderKey: "settings.messaging.feishuChatIdPlaceholder",
       subjectPlaceholderKey: "settings.messaging.subjectPlaceholderTelegram",
     }),
   },
@@ -1306,14 +1336,41 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "feishu",
-    support: "unsupported",
+    support: "supported",
+    section: "messagingFeishu",
+    format: "pi-desktop-messaging-feishu",
+    version: 1,
+    defaultEndpoint: "https://open.feishu.cn",
     labelKey: "settings.messaging.platformFeishu",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "publicCallback",
-    requirementKey: "settings.messaging.needsWebhook",
+    blurbKey: "settings.messaging.blurbFeishu",
+    noteKey: "settings.messaging.feishuNote",
+    limitationKey: "settings.messaging.feishuLimitations",
     guideUrl: "https://open.feishu.cn/document/",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepFeishu1",
+      "settings.messaging.stepFeishu2",
+      "settings.messaging.stepFeishu3",
+      "settings.messaging.stepFeishu4",
+    ],
+    secrets: feishuSecrets,
+    fields: [
+      ...channelFields({
+        secrets: feishuSecrets,
+        destinationLabelKey: "settings.messaging.feishuChatId",
+        destinationHelpKey: "settings.messaging.feishuChatIdHelp",
+        destinationPlaceholderKey: "settings.messaging.feishuChatIdPlaceholder",
+        subjectPlaceholderKey: "settings.messaging.subjectPlaceholderFeishu",
+        endpointPlaceholderKey: "settings.messaging.endpointPlaceholderFeishu",
+      }),
+      {
+        id: "sessionId",
+        group: "required",
+        labelKey: "settings.messaging.feishuSession",
+        helpKey: "settings.messaging.feishuSessionHint",
+        placeholderKey: "settings.messaging.feishuSessionPlaceholder",
+        consequenceKey: "settings.messaging.consequenceWebhookSession",
+      },
+    ],
   },
   {
     id: "googleChat",
@@ -1609,7 +1666,9 @@ export type MessagingGatewayChannel =
   | "email"
   | "signal"
   | "apiServer"
-  | "webhookReceiver";
+  | "webhookReceiver"
+  /** Served by the shared receiver rather than a loop of its own. */
+  | "feishu";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -1633,6 +1692,8 @@ export type MessagingGatewaySnapshot = {
   apiServer: boolean;
   /** Whether the shared inbound-webhook receiver is listening. */
   webhookReceiver: boolean;
+  /** Feishu is served by that receiver, so it is live exactly while it is. */
+  feishu: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -1660,6 +1721,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   signal: false,
   apiServer: false,
   webhookReceiver: false,
+  feishu: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -1704,6 +1766,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   email: "email",
   signal: "signal",
   apiServer: "apiServer",
+  feishu: "feishu",
   webhooks: "webhookReceiver",
 };
 
@@ -2037,6 +2100,13 @@ export function missingFromRecord(
   // through the channel shape once: a field the receiver does not carry reads as
   // absent, which is what the completeness check wants.
   const channel = record as MessagingChannelSettings;
+  if (platform.id === "feishu") {
+    // Feishu answers in a chat and takes commands in a bound session, and both
+    // are required: an event with nowhere to run is not a configured channel.
+    if (trimmed(channel.destination) === "") missing.push("destination");
+    if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
+    if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
+  }
   if (platform.id === "webhooks") {
     // The receiver's own facts: a usable port, a bind address, and the one
     // session an accepted event acts on. The session lives inside `inbound`
@@ -2344,6 +2414,9 @@ function buildSectionWriteBase(
       ? { linkedPrincipal: { subject, roles } }
       : {}),
     permissionMode: draft.permissionMode,
+    // Only the channels whose form offers the field write it; for the rest the
+    // draft's value is empty and the stored binding rides through untouched.
+    ...(trimmed(draft.sessionId) !== "" ? { sessionId: trimmed(draft.sessionId) } : {}),
   };
   return {
     format: platform.format,

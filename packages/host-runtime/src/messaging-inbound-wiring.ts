@@ -135,6 +135,13 @@ import {
   RandomIds,
   WEBHOOK_HANDLED_CAPACITY,
   WEBHOOK_INBOUND_PLATFORM,
+  FEISHU_FORMAT,
+  FEISHU_FORMAT_VERSION,
+  FEISHU_HANDLED_CAPACITY,
+  FEISHU_SETTINGS_SECTION,
+  MESSAGING_FEISHU_PLATFORM,
+  createFeishuAdapter,
+  createFeishuVerifier,
   createGenericWebhookAdapter,
   createWebhookInboundVerifier,
   readIngressWebhookReceiverSettings,
@@ -142,6 +149,7 @@ import {
   type IngressMessage,
   type IngressWebhookAddress,
   type IngressWebhookReceiverOptions,
+  type IngressWebhookPlatform,
   DINGTALK_HANDLED_CAPACITY,
   MESSAGING_DINGTALK_CLIENT_ID_SECRET_REF,
   MESSAGING_DINGTALK_CLIENT_SECRET_SECRET_REF,
@@ -2463,6 +2471,13 @@ export type MessagingWebhookReceiverWiringOptions = {
   onListening?: (address: IngressWebhookAddress) => void;
   /** Called when the receiver could not start, with the reason a person needs. */
   onFailure?: (reason: string) => void;
+  /**
+   * Called with the callback channels the receiver is serving, once it is
+   * listening, and with none when it stops. Those channels have no loop of their
+   * own: their inbound path is the receiver's, so their liveness is the
+   * receiver's own mark rather than a second lifetime to keep in step.
+   */
+  onPlatforms?: (channels: readonly "feishu"[]) => void;
   /** Test seam: a receiver factory in place of the one the wiring builds. */
   createReceiver?: (options: IngressWebhookReceiverOptions) => IngressWebhookReceiver;
 };
@@ -2497,6 +2512,81 @@ export type MessagingWebhookReceiverWiring = {
  * rewritten while the loop runs — and a missing binding throws, which the gate
  * audits as a failed delivery and leaves unrecorded rather than swallowing.
  */
+/**
+ * The Feishu callback entry, when this Host has one configured.
+ *
+ * Feishu does not hold a socket: it posts events to the app's Request URL, so
+ * the channel's whole inbound path is one entry on the shared receiver. What it
+ * needs from its own record is the conversation it belongs to and the
+ * verification token the app prints on its event-subscription page; the app id
+ * and secret are the *send* side and live in host-core.
+ *
+ * A record that is missing, foreign or unbound answers `null`: the receiver then
+ * serves no Feishu path, and the panel says so instead of recording events
+ * nobody will run.
+ */
+async function buildFeishuCallbackPlatform(
+  options: MessagingWebhookReceiverWiringOptions,
+  ids: RandomIds,
+): Promise<{ platform: IngressWebhookPlatform; deliver: (message: IngressMessage) => Promise<void> } | null> {
+  let settings: unknown;
+  try {
+    settings = await options.settings.read();
+  } catch {
+    return null;
+  }
+  const section = readSection(settings, FEISHU_SETTINGS_SECTION);
+  if (!section) return null;
+  if (section.format !== FEISHU_FORMAT || section.version !== FEISHU_FORMAT_VERSION) return null;
+
+  const inbound = readInbound(section);
+  const sessionId =
+    typeof inbound?.sessionId === "string" && inbound.sessionId.trim() !== ""
+      ? inbound.sessionId.trim()
+      : null;
+  if (!sessionId) return null;
+
+  const tokenRef = "secret:messaging-feishu:verification-token";
+  let token: string | null = null;
+  try {
+    token = await options.secrets(tokenRef);
+  } catch {
+    token = null;
+  }
+  if (!token || token.trim() === "") {
+    // Fail closed: without the token every request would be refused, and a
+    // path that only answers 401 is worse than an absent one — the platform
+    // would retry forever and the panel would call it running.
+    options.onFailure?.("no Feishu verification token is stored");
+    return null;
+  }
+
+  const principal = {
+    subject: "feishu",
+    roles: ["owner"] as const,
+  };
+  const deliver = async (message: IngressMessage): Promise<void> => {
+    await options.agentHost.startTurn(
+      { subject: principal.subject, roles: [...principal.roles] },
+      {
+        sessionId,
+        admission: "queue",
+        input: { text: message.text },
+        context: { requestId: ids.next("feishu") },
+      },
+    );
+  };
+
+  return {
+    platform: {
+      verifier: createFeishuVerifier(token.trim()),
+      adapter: createFeishuAdapter(),
+      onMessage: deliver,
+    },
+    deliver,
+  };
+}
+
 export function createWebhookReceiverWiring(
   options: MessagingWebhookReceiverWiringOptions,
 ): MessagingWebhookReceiverWiring {
@@ -2568,6 +2658,9 @@ export function createWebhookReceiverWiring(
           ? section.path.trim()
           : WEBHOOK_INBOUND_PLATFORM;
       const create = options.createReceiver ?? ((o) => new IngressWebhookReceiver(o));
+      // Feishu shares this listener: it has no socket of its own, and a second
+      // port would be a second URL to configure for no benefit.
+      const feishu = await buildFeishuCallbackPlatform(options, ids);
       const built = create({
         platforms: {
           [pathSegment]: {
@@ -2575,6 +2668,7 @@ export function createWebhookReceiverWiring(
             adapter: createGenericWebhookAdapter(),
             onMessage: deliver,
           },
+          ...(feishu ? { [MESSAGING_FEISHU_PLATFORM]: feishu.platform } : {}),
         },
         handled: createSettingsHandledMessageStore({
           settings: options.settings,
@@ -2599,6 +2693,7 @@ export function createWebhookReceiverWiring(
         return;
       }
       options.onListening?.(bound);
+      options.onPlatforms?.(feishu ? ["feishu"] : []);
       if (!options.signal.aborted) {
         await new Promise<void>((resolve) => {
           const onAbort = (): void => {
@@ -2609,6 +2704,7 @@ export function createWebhookReceiverWiring(
         });
       }
       await built.stop();
+      options.onPlatforms?.([]);
       receiver = null;
     },
   };

@@ -105,7 +105,7 @@ export class WebhookIngressTransport {
         reason: normalisation.reason,
         ...(normalisation.channelId ? { channelId: normalisation.channelId } : {}),
       });
-      return { status: 200 };
+      return normalisation.ack ? { status: 200, body: normalisation.ack } : { status: 200 };
     }
     const outcome = await this.gate.ingest(normalisation.message, normalisation.key);
     if (outcome === "delivered" || outcome === "duplicate") return { status: 200 };

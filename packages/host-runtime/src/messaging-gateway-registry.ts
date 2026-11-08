@@ -62,6 +62,8 @@ export type MessagingGatewaySnapshot = {
    * surface two channels could share, so it is reported once, here.
    */
   webhookReceiver: boolean;
+  /** Feishu runs on the shared receiver; it is live exactly while that is. */
+  feishu: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — most often a port already taken. `null` for
@@ -120,6 +122,13 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
     "webhookReceiver",
   ];
   private readonly failures = new Map<MessagingGatewayChannel, string>();
+  /**
+   * The channels the shared receiver is currently serving. They have no loop of
+   * their own: their inbound path is live exactly while the receiver is, so the
+   * snapshot derives them from the receiver's own mark instead of inventing a
+   * second lifetime to keep in step.
+   */
+  private readonly callbackPlatforms = new Set<"feishu">();
 
   /** Record that host-core and the Agent Host came up. Idempotent. */
   markBooted(): void {
@@ -171,6 +180,12 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
     this.failures.set(channel, reason);
   }
 
+  /** Record which callback channels the receiver registered for this run. */
+  setCallbackPlatforms(channels: readonly "feishu"[]): void {
+    this.callbackPlatforms.clear();
+    for (const channel of channels) this.callbackPlatforms.add(channel);
+  }
+
   clearFailure(channel: MessagingGatewayChannel): void {
     if (!MessagingGatewayRegistry.FAILURE_CHANNELS.includes(channel)) return;
     this.failures.delete(channel);
@@ -192,6 +207,7 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
       signal: this.running.has("signal"),
       apiServer: this.running.has("apiServer"),
       webhookReceiver: this.running.has("webhookReceiver"),
+      feishu: this.callbackPlatforms.has("feishu") && this.running.has("webhookReceiver"),
       apiServerError: this.failures.get("apiServer") ?? null,
       webhookReceiverError: this.failures.get("webhookReceiver") ?? null,
     };
