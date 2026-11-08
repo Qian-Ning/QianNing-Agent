@@ -291,6 +291,7 @@ describe("the outbound messaging relay", () => {
       "discord",
       "dingtalk",
       "feishu",
+      "line",
       "wecom",
       "mattermost",
     ]);
