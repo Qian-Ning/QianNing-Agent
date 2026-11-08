@@ -95,6 +95,7 @@ export type MessagingSectionKey =
   | "messagingTelegram"
   | "messagingDingtalk"
   | "messagingFeishu"
+  | "messagingWecom"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -128,7 +129,13 @@ export type MessagingSecretSlot = {
        authenticates every inbound event. */
     | "app-id"
     | "app-secret"
-    | "verification-token";
+    | "verification-token"
+    /* WeCom's five: the corp pair, the agent, and the two callback secrets. */
+    | "corp-id"
+    | "corp-secret"
+    | "agent-id"
+    | "wecom-token"
+    | "encoding-aes-key";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -1056,6 +1063,44 @@ const feishuSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const wecomSecrets: MessagingSecretSlot[] = [
+  {
+    id: "corp-id",
+    ref: "secret:messaging-wecom:corp-id",
+    labelKey: "settings.messaging.wecomCorpId",
+    hintKey: "settings.messaging.wecomCorpIdHint",
+    placeholderKey: "settings.messaging.wecomCorpIdPlaceholder",
+  },
+  {
+    id: "corp-secret",
+    ref: "secret:messaging-wecom:corp-secret",
+    labelKey: "settings.messaging.wecomCorpSecret",
+    hintKey: "settings.messaging.wecomCorpSecretHint",
+    placeholderKey: "settings.messaging.wecomCorpSecretPlaceholder",
+  },
+  {
+    id: "agent-id",
+    ref: "secret:messaging-wecom:agent-id",
+    labelKey: "settings.messaging.wecomAgentId",
+    hintKey: "settings.messaging.wecomAgentIdHint",
+    placeholderKey: "settings.messaging.wecomAgentIdPlaceholder",
+  },
+  {
+    id: "wecom-token",
+    ref: "secret:messaging-wecom:token",
+    labelKey: "settings.messaging.wecomToken",
+    hintKey: "settings.messaging.wecomTokenHint",
+    placeholderKey: "settings.messaging.wecomTokenPlaceholder",
+  },
+  {
+    id: "encoding-aes-key",
+    ref: "secret:messaging-wecom:encoding-aes-key",
+    labelKey: "settings.messaging.wecomAesKey",
+    hintKey: "settings.messaging.wecomAesKeyHint",
+    placeholderKey: "settings.messaging.wecomAesKeyPlaceholder",
+  },
+];
+
 const slackSecrets: MessagingSecretSlot[] = [
   {
     id: "app-token",
@@ -1396,14 +1441,41 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "wecomApp",
-    support: "unsupported",
+    support: "supported",
+    section: "messagingWecom",
+    format: "pi-desktop-messaging-wecom",
+    version: 1,
+    defaultEndpoint: "https://qyapi.weixin.qq.com",
     labelKey: "settings.messaging.platformWecomApp",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "publicCallback",
-    requirementKey: "settings.messaging.needsWebhook",
+    blurbKey: "settings.messaging.blurbWecom",
+    noteKey: "settings.messaging.wecomNote",
+    limitationKey: "settings.messaging.wecomLimitations",
     guideUrl: "https://developer.work.weixin.qq.com/document/",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepWecom1",
+      "settings.messaging.stepWecom2",
+      "settings.messaging.stepWecom3",
+      "settings.messaging.stepWecom4",
+    ],
+    secrets: wecomSecrets,
+    fields: [
+      ...channelFields({
+        secrets: wecomSecrets,
+        destinationLabelKey: "settings.messaging.wecomUserId",
+        destinationHelpKey: "settings.messaging.wecomUserIdHelp",
+        destinationPlaceholderKey: "settings.messaging.wecomUserIdPlaceholder",
+        subjectPlaceholderKey: "settings.messaging.subjectPlaceholderWecom",
+        endpointPlaceholderKey: "settings.messaging.endpointPlaceholderWecom",
+      }),
+      {
+        id: "sessionId",
+        group: "required",
+        labelKey: "settings.messaging.feishuSession",
+        helpKey: "settings.messaging.feishuSessionHint",
+        placeholderKey: "settings.messaging.feishuSessionPlaceholder",
+        consequenceKey: "settings.messaging.consequenceWebhookSession",
+      },
+    ],
   },
   {
     id: "weixin",
@@ -1668,7 +1740,8 @@ export type MessagingGatewayChannel =
   | "apiServer"
   | "webhookReceiver"
   /** Served by the shared receiver rather than a loop of its own. */
-  | "feishu";
+  | "feishu"
+  | "wecom";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -1694,6 +1767,8 @@ export type MessagingGatewaySnapshot = {
   webhookReceiver: boolean;
   /** Feishu is served by that receiver, so it is live exactly while it is. */
   feishu: boolean;
+  /** WeCom is served by it too, on the same terms. */
+  wecom: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -1722,6 +1797,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   apiServer: false,
   webhookReceiver: false,
   feishu: false,
+  wecom: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -1767,6 +1843,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   signal: "signal",
   apiServer: "apiServer",
   feishu: "feishu",
+  wecomApp: "wecom",
   webhooks: "webhookReceiver",
 };
 
@@ -2100,6 +2177,11 @@ export function missingFromRecord(
   // through the channel shape once: a field the receiver does not carry reads as
   // absent, which is what the completeness check wants.
   const channel = record as MessagingChannelSettings;
+  if (platform.id === "wecomApp") {
+    if (trimmed(channel.destination) === "") missing.push("destination");
+    if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
+    if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
+  }
   if (platform.id === "feishu") {
     // Feishu answers in a chat and takes commands in a bound session, and both
     // are required: an event with nowhere to run is not a configured channel.

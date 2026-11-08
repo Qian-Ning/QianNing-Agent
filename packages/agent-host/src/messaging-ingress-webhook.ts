@@ -91,9 +91,9 @@ export class WebhookIngressTransport {
   async handle(request: IngressWebhookRequest): Promise<IngressWebhookResponse> {
     let raw: unknown;
     try {
-      raw = JSON.parse(request.body);
+      raw = this.adapter.parse ? this.adapter.parse(request.body) : JSON.parse(request.body);
     } catch {
-      this.audit({ kind: "malformed", reason: "the body is not JSON" });
+      this.audit({ kind: "malformed", reason: this.adapter.parse ? "the body could not be read" : "the body is not JSON" });
       return { status: 400 };
     }
     const normalisation = this.adapter.normalise(raw);

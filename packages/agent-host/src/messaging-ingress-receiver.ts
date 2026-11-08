@@ -108,6 +108,26 @@ export type IngressWebhookPlatform = {
   adapter: WebhookIngressAdapter;
   /** Where an accepted message goes; the routing path provides this. */
   onMessage: (message: IngressMessage) => Promise<void>;
+  /**
+   * A GET handshake, for the platforms that verify a URL before they will post
+   * to it. WeCom sends `?echostr=` and expects the decrypted text back, and it
+   * will not deliver an event until that succeeds. Absent means this receiver
+   * answers GET with 405.
+   */
+  handshake?: (url: URL, headers: IngressVerifierHeaders) => Promise<IngressHandshake> | IngressHandshake;
+  /**
+   * What to answer an accepted POST with. Absent means `{"ok":true}`, which is
+   * what a JSON callback expects; a platform that reads a plain-text body says
+   * so here instead of receiving JSON it will log as an error.
+   */
+  reply?: IngressHandshake;
+};
+
+/** A reply body this receiver sends as-is. */
+export type IngressHandshake = {
+  status: number;
+  body?: string;
+  contentType?: string;
 };
 
 export type IngressWebhookReceiverOptions = {
@@ -154,6 +174,10 @@ type RegisteredPlatform = {
   name: string;
   verifier: IngressVerifier;
   transport: WebhookIngressTransport;
+  /** The GET handshake, when the platform has one. */
+  handshake?: IngressWebhookPlatform["handshake"];
+  /** The body an accepted POST is answered with, when the platform reads one. */
+  reply?: IngressHandshake;
 };
 
 /** The four numbers the receiver's own settings section carries, clamped. */
@@ -327,6 +351,8 @@ export class IngressWebhookReceiver {
       registered.set(name, {
         name,
         verifier: platform.verifier,
+        ...(platform.handshake ? { handshake: platform.handshake } : {}),
+        ...(platform.reply ? { reply: platform.reply } : {}),
         transport: new WebhookIngressTransport(platform.adapter, {
           handled: options.handled,
           onMessage: platform.onMessage,
@@ -419,11 +445,28 @@ export class IngressWebhookReceiver {
   }
 
   private async serve(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const platform = this.matchPlatform(req.url);
+    if (req.method === "GET") {
+      // A handshake is the platform proving it reached this URL; it carries no
+      // event, and it is answered exactly as the platform documented.
+      if (!platform || !platform.handshake) {
+        this.respond(res, 405, { error: "method not allowed" });
+        return;
+      }
+      const address = new URL(req.url ?? "/", "http://localhost");
+      try {
+        const answer = await platform.handshake(address, lowercaseHeaders(req.headers));
+        this.respondText(res, answer);
+      } catch (error) {
+        this.audit({ kind: "auth-failed", error: ingressErrorMessage(error) });
+        this.respond(res, 401, { error: "unauthorized" });
+      }
+      return;
+    }
     if (req.method !== "POST") {
       this.respond(res, 405, { error: "method not allowed" });
       return;
     }
-    const platform = this.matchPlatform(req.url);
     if (!platform) {
       // One answer for every unknown path: the platform list is not a thing to
       // publish, and the path itself is not echoed back.
@@ -448,7 +491,11 @@ export class IngressWebhookReceiver {
 
     let verification: IngressVerification;
     try {
-      verification = await platform.verifier.verify(read.body, lowercaseHeaders(req.headers));
+      verification = await platform.verifier.verify(
+        read.body,
+        lowercaseHeaders(req.headers),
+        new URL(req.url ?? "/", "http://localhost"),
+      );
     } catch (error) {
       this.audit({ kind: "auth-failed", error: ingressErrorMessage(error) });
       this.respond(res, 401, { error: "unauthorized" });
@@ -471,7 +518,7 @@ export class IngressWebhookReceiver {
     const deliveryKey = this.deliveryKey(platform.name, verification.deliveryId);
     if (this.claims.has(deliveryKey)) {
       this.audit({ kind: "duplicate", eventId: deliveryKey });
-      this.respond(res, 200, { ok: true });
+      this.answerAccepted(res, platform);
       return;
     }
     // Claim synchronously, before the first await: two copies of one delivery
@@ -489,7 +536,7 @@ export class IngressWebhookReceiver {
     }
     if (seen) {
       this.audit({ kind: "duplicate", eventId: deliveryKey });
-      this.respond(res, 200, { ok: true });
+      this.answerAccepted(res, platform);
       return;
     }
     try {
@@ -506,7 +553,7 @@ export class IngressWebhookReceiver {
     // platform's retry policy reads this status, and a turn takes far longer
     // than a webhook deadline. The gate inside the transport still records the
     // message durably before it considers the delivery done.
-    this.respond(res, 200, { ok: true });
+    this.answerAccepted(res, platform);
     this.process(platform, read.body, deliveryKey);
   }
 
@@ -549,6 +596,27 @@ export class IngressWebhookReceiver {
   }
 
   /** Answer with JSON, and never with anything the request supplied. */
+  /** Answer an accepted delivery in whatever shape this platform reads. */
+  private answerAccepted(res: ServerResponse, platform: RegisteredPlatform): void {
+    const reply = platform.reply;
+    if (!reply) {
+      this.respond(res, 200, { ok: true });
+      return;
+    }
+    this.respondText(res, reply);
+  }
+
+  /** Answer with a caller-shaped body, which may be empty. */
+  private respondText(res: ServerResponse, answer: IngressHandshake): void {
+    if (res.headersSent) return;
+    const payload = answer.body ?? "";
+    res.writeHead(answer.status, {
+      "content-type": answer.contentType ?? "text/plain; charset=utf-8",
+      "content-length": Buffer.byteLength(payload),
+    });
+    res.end(payload);
+  }
+
   private respond(res: ServerResponse, status: number, body?: Record<string, unknown>): void {
     if (res.headersSent) return;
     const payload = body === undefined ? "" : JSON.stringify(body);

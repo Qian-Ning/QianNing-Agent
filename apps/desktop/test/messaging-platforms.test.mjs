@@ -176,6 +176,7 @@ const SUPPORTED_IDS = [
   "email",
   "dingtalk",
   "feishu",
+  "wecomApp",
   "apiServer",
   "webhooks",
   "irc",
@@ -265,7 +266,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
     "sms",
     "googleChat",
     "wecomGroup",
-    "wecomApp",
     "line",
     "microsoftGraph",
     "teams",
@@ -464,7 +464,8 @@ test("a channel reports its own gateway, never a sibling's", () => {
   // platform and the loop it rides is the shared inbound receiver. Every other
   // channel's key is its own id, so a channel added without a mapping still has
   // to declare one here.
-  const gatewayKey = (id) => (id === "webhooks" ? "webhookReceiver" : id);
+  const gatewayKey = (id) =>
+    id === "webhooks" ? "webhookReceiver" : id === "wecomApp" ? "wecom" : id;
 
   for (const platform of platforms) {
     assert.ok(
@@ -615,6 +616,18 @@ test("fields are grouped, and every field explains itself and its blank", () => 
         requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
         ["api-token"],
         "the local API's token is required, unlike ntfy's optional one",
+      );
+    } else if (platform.id === "wecomApp") {
+      // The same shape as Feishu: a chat to answer in, a session to act on, and
+      // the link's own principal.
+      assert.deepEqual(requiredWithoutSecrets, ["destination", "subject", "roles", "sessionId"]);
+      assert.deepEqual(
+        requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
+        platform.secrets.map((slot) => slot.id),
+      );
+      assert.deepEqual(
+        recommended.map((field) => field.id),
+        ["permissionMode", "endpoint", "requestTimeoutMs"],
       );
     } else if (platform.id === "feishu") {
       // Feishu answers in a chat and runs commands in a session on this

@@ -600,6 +600,13 @@ type IngressAdapterCommon = {
    */
   readonly normalise: IngressNormalise;
   /**
+   * Read one request body into the value `normalise` projects.
+   *
+   * Absent means JSON, which is what most callbacks post. A platform whose body
+   * is XML says so here instead of growing a second transport.
+   */
+  readonly parse?: (body: string) => unknown;
+  /**
    * Deliver one reply, chunked at [`messageLimit`]. Absent where replies leave
    * through another process — Telegram's and Slack's senders are host-core's —
    * and the channel declares no deliverer rather than growing a second one.
