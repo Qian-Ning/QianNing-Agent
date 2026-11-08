@@ -21,6 +21,7 @@ mod messaging_slack;
 mod messaging_telegram;
 mod messaging_webhook;
 mod messaging_wecom;
+mod messaging_wecom_group;
 mod network_policy;
 mod network_proxy;
 mod notifications;

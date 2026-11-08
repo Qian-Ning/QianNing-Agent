@@ -127,12 +127,14 @@ const GATEWAY_KEY: Record<MessagingGatewayDisplay, string> = {
   running: "settings.messaging.gatewayRunning",
   stopped: "settings.messaging.gatewayStopped",
   idle: "settings.messaging.gatewayIdle",
+  sendOnly: "settings.messaging.gatewaySendOnly",
 };
 
 const GATEWAY_NOTE_KEY: Record<MessagingGatewayDisplay, string> = {
   running: "settings.messaging.gatewayRunningNote",
   stopped: "settings.messaging.gatewayStoppedNote",
   idle: "settings.messaging.gatewayIdleNote",
+  sendOnly: "settings.messaging.gatewaySendOnlyNote",
 };
 
 function enabledTone(value: MessagingEnabledState): "neutral" | "success" | "warning" | "error" {
@@ -380,7 +382,12 @@ export function MessagingPlatformsPage() {
                   const detail =
                     state && status
                       ? `${t(ENABLED_KEY[state.enabled])} · ${t(SETUP_KEY[state.setup])} · ${t(
-                          GATEWAY_KEY[gatewayPresentation(state)],
+                          GATEWAY_KEY[
+                            gatewayPresentation(
+                              state,
+                              entry.support === "supported" ? entry : undefined,
+                            )
+                          ],
                         )}`
                       : t(entry.blurbKey);
                   return (
@@ -756,7 +763,7 @@ function SupportedPanel({
   const { t } = useTranslation();
   const timeoutValid = isTimeoutValid(draft);
   const ready = canSave(platform, draft);
-  const gateway = gatewayPresentation(state);
+  const gateway = gatewayPresentation(state, platform);
   const required = fieldsInGroup(platform, "required");
   const recommended = fieldsInGroup(platform, "recommended");
 

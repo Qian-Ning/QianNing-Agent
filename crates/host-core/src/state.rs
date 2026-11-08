@@ -167,6 +167,9 @@ impl AppState {
         if let Err(error) = crate::messaging_line::register(&mut messaging, &db, &secrets) {
             tracing::warn!(%error, "outbound line channel is not available");
         }
+        if let Err(error) = crate::messaging_wecom_group::register(&mut messaging, &db, &secrets) {
+            tracing::warn!(%error, "outbound wecom group robot is not available");
+        }
         if let Err(error) = messaging.connect_all() {
             tracing::warn!(%error, "an outbound channel failed to connect");
         }

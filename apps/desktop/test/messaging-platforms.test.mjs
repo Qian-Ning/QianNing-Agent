@@ -176,6 +176,7 @@ const SUPPORTED_IDS = [
   "email",
   "dingtalk",
   "feishu",
+  "wecomGroup",
   "wecomApp",
   "apiServer",
   "webhooks",
@@ -266,7 +267,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   assert.deepEqual(byClass.publicCallback, [
     "sms",
     "googleChat",
-    "wecomGroup",
     "microsoftGraph",
     "teams",
   ]);
@@ -472,6 +472,16 @@ test("a channel reports its own gateway, never a sibling's", () => {
         : id;
 
   for (const platform of platforms) {
+    if (platform.receive === "none") {
+      // A send-only channel has no loop; the panel says "sending only" and the
+      // snapshot has no key for it.
+      assert.equal(
+        gatewayPresentation({ enabled: "on", setup: "complete", gateway: "stopped", missing: [] }, platform),
+        "sendOnly",
+        `${platform.id} claims a receive loop it does not have`,
+      );
+      continue;
+    }
     assert.ok(
       channelKeys.includes(gatewayKey(platform.id)),
       `${platform.id} has no gateway key of its own in the snapshot`,
@@ -504,6 +514,22 @@ test("fields are grouped, and every field explains itself and its blank", () => 
   for (const platform of SUPPORTED_MESSAGING_PLATFORMS) {
     const required = fieldsInGroup(platform, "required");
     const recommended = fieldsInGroup(platform, "recommended");
+
+    if (platform.receive === "none") {
+      // Sending only: a credential and an endpoint, and nothing that names a
+      // conversation or a link, because this channel has neither.
+      assert.deepEqual(
+        required.map((field) => field.id).filter((id) => !platform.secrets.some((slot) => slot.id === id)),
+        [],
+        `${platform.id} asks for fields it cannot use`,
+      );
+      assert.deepEqual(
+        recommended.map((field) => field.id),
+        ["endpoint", "requestTimeoutMs"],
+        `${platform.id} recommended group`,
+      );
+      continue;
+    }
 
     // The credentials, the conversation and the link are always required; the
     // endpoint is required only where the platform has no public default

@@ -96,6 +96,7 @@ export type MessagingSectionKey =
   | "messagingDingtalk"
   | "messagingFeishu"
   | "messagingWecom"
+  | "messagingWecomGroup"
   | "messagingLine"
   | "messagingSlack"
   | "messagingDiscord"
@@ -137,6 +138,7 @@ export type MessagingSecretSlot = {
     | "agent-id"
     | "wecom-token"
     | "encoding-aes-key"
+    | "webhook-key"
     /* LINE's pair: the signature secret and the send token. */
     | "channel-secret"
     | "channel-token";
@@ -230,6 +232,14 @@ export type SupportedMessagingPlatform = PlatformBase & {
   version: number;
   /** The platform's own API base, as the form opens when nothing is stored. */
   defaultEndpoint: string;
+  /**
+   * How commands reach this channel, or that they cannot.
+   *
+   * `none` is a platform that only accepts a push: a group robot, a webhook
+   * endpoint with no event stream. It is supported — it delivers — but it has
+   * no receive loop, so the panel must not report one as dead.
+   */
+  receive?: "loop" | "callback" | "none";
   secrets: MessagingSecretSlot[];
   /** Every field the panel renders, required first. */
   fields: MessagingField[];
@@ -1067,6 +1077,16 @@ const feishuSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const wecomGroupSecrets: MessagingSecretSlot[] = [
+  {
+    id: "webhook-key",
+    ref: "secret:messaging-wecom-group:key",
+    labelKey: "settings.messaging.wecomGroupKey",
+    hintKey: "settings.messaging.wecomGroupKeyHint",
+    placeholderKey: "settings.messaging.wecomGroupKeyPlaceholder",
+  },
+];
+
 const wecomSecrets: MessagingSecretSlot[] = [
   {
     id: "corp-id",
@@ -1451,14 +1471,43 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "wecomGroup",
-    support: "unsupported",
+    support: "supported",
+    receive: "none",
+    section: "messagingWecomGroup",
+    format: "pi-desktop-messaging-wecom-group",
+    version: 1,
+    defaultEndpoint: "https://qyapi.weixin.qq.com",
     labelKey: "settings.messaging.platformWecomGroup",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "publicCallback",
-    requirementKey: "settings.messaging.needsWebhook",
+    blurbKey: "settings.messaging.blurbWecomGroup",
+    noteKey: "settings.messaging.wecomGroupNote",
+    limitationKey: "settings.messaging.wecomGroupLimitations",
     guideUrl: "https://developer.work.weixin.qq.com/document/path/91770",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepWecomGroup1",
+      "settings.messaging.stepWecomGroup2",
+      "settings.messaging.stepWecomGroup3",
+      "settings.messaging.stepWecomGroup4",
+    ],
+    secrets: wecomGroupSecrets,
+    fields: [
+      ...secretFields(wecomGroupSecrets),
+      {
+        id: "endpoint",
+        group: "recommended",
+        labelKey: "settings.messaging.endpoint",
+        helpKey: "settings.messaging.endpointHint",
+        placeholderKey: "settings.messaging.endpointPlaceholderWecomGroup",
+        consequenceKey: "settings.messaging.consequenceEndpoint",
+      },
+      {
+        id: "requestTimeoutMs",
+        group: "recommended",
+        labelKey: "settings.messaging.requestTimeout",
+        helpKey: "settings.messaging.requestTimeoutHint",
+        placeholderKey: "settings.messaging.requestTimeoutPlaceholder",
+        consequenceKey: "settings.messaging.consequenceTimeout",
+      },
+    ],
   },
   {
     id: "wecomApp",
@@ -2120,6 +2169,16 @@ export function draftMissing(
   draft: MessagingDraft,
 ): string[] {
   const missing: string[] = [];
+  if (platform.receive === "none") {
+    // Sending needs the endpoint and its credential, and nothing else: there is
+    // no conversation to name and no link to admit.
+    for (const field of platform.fields) {
+      if (field.group !== "required") continue;
+      if (platform.secrets.some((slot) => slot.id === field.id)) continue;
+      if (draftText(draft, field.id).trim() === "") missing.push(field.id);
+    }
+    return missing;
+  }
   if (platform.id === "apiServer") {
     // The local API has no destination and no link to name: the token is the
     // identity, and the conversation is the caller's to choose. What a record
@@ -2230,6 +2289,12 @@ export function missingFromRecord(
   // through the channel shape once: a field the receiver does not carry reads as
   // absent, which is what the completeness check wants.
   const channel = record as MessagingChannelSettings;
+  if (platform.receive === "none") {
+    // A send-only channel's record is its endpoint and its credential; there is
+    // no destination and no bound session, so neither can be missing.
+    if (trimmed(channel.endpoint) === "") missing.push("endpoint");
+    return missing;
+  }
   if (platform.id === "line") {
     if (trimmed(channel.destination) === "") missing.push("destination");
     if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
@@ -2328,7 +2393,7 @@ export function deriveChannelState(
         : "complete";
   // The channel's own key: one lookup, and a platform with no key of its own
   // reads as stopped instead of inheriting the last branch's flag.
-  const channel = gatewayChannelFor(platform.id);
+  const channel = platform.receive === "none" ? null : gatewayChannelFor(platform.id);
   const gatewayState: MessagingGatewayState =
     channel !== null && gateway.booted && gateway[channel] === true ? "running" : "stopped";
   return { enabled, setup, gateway: gatewayState, missing };
@@ -2343,9 +2408,15 @@ export function deriveChannelState(
  * it is a channel that has not been asked to run yet (`idle`). Only an enabled
  * channel whose loop is dead is a real warning. Nothing here invents "running".
  */
-export type MessagingGatewayDisplay = "running" | "stopped" | "idle";
+export type MessagingGatewayDisplay = "running" | "stopped" | "idle" | "sendOnly";
 
-export function gatewayPresentation(state: MessagingChannelState): MessagingGatewayDisplay {
+export function gatewayPresentation(
+  state: MessagingChannelState,
+  platform?: SupportedMessagingPlatform,
+): MessagingGatewayDisplay {
+  // A channel that cannot receive has no loop to be running or stopped; saying
+  // either would be a claim about something that does not exist.
+  if (platform?.receive === "none") return "sendOnly";
   if (state.gateway === "running") return "running";
   return state.enabled === "on" ? "stopped" : "idle";
 }
