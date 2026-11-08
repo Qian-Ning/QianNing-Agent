@@ -16,6 +16,9 @@ import {
   type HostRpcPort,
   FEISHU_FORMAT,
   WECOM_FORMAT,
+  WECOM_GROUP_FORMAT,
+  WECOM_GROUP_FORMAT_VERSION,
+  WECOM_GROUP_SETTINGS_SECTION,
   WECOM_FORMAT_VERSION,
   WECOM_SETTINGS_SECTION,
   FEISHU_FORMAT_VERSION,
@@ -168,6 +171,12 @@ export const MESSAGING_OUTBOUND_CHANNELS: readonly MessagingOutboundChannel[] = 
     section: WECOM_SETTINGS_SECTION,
     format: WECOM_FORMAT,
     version: WECOM_FORMAT_VERSION,
+  },
+  {
+    channel: "wecomGroup",
+    section: WECOM_GROUP_SETTINGS_SECTION,
+    format: WECOM_GROUP_FORMAT,
+    version: WECOM_GROUP_FORMAT_VERSION,
   },
   {
     channel: "mattermost",

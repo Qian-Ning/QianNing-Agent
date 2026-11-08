@@ -483,6 +483,7 @@ export type AppSettings = {
   messagingDingtalk?: MessagingChannelSettings;
   messagingFeishu?: MessagingChannelSettings;
   messagingWecom?: MessagingChannelSettings;
+  messagingWecomGroup?: MessagingChannelSettings;
   messagingMattermost?: MessagingChannelSettings;
   messagingMatrix?: MessagingChannelSettings;
   messagingIrc?: MessagingChannelSettings;

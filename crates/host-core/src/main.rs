@@ -18,6 +18,7 @@ mod messaging_mattermost;
 mod messaging_outbound;
 mod messaging_slack;
 mod messaging_telegram;
+mod messaging_wecom_group;
 mod messaging_webhook;
 mod messaging_wecom;
 mod network_policy;

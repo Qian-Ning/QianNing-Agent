@@ -37,6 +37,19 @@ export const MESSAGING_WECOM_PLATFORM = "wecom";
 /** The settings section a WeCom app record lives under. */
 export const WECOM_SETTINGS_SECTION = "messagingWecom";
 
+/**
+ * The settings section a WeCom **group robot** record lives under.
+ *
+ * It is a different channel from the app above: a robot is a webhook URL with a
+ * key, it only accepts a push, and it belongs to a group chat rather than to a
+ * person. The two share a platform and nothing else.
+ */
+export const WECOM_GROUP_SETTINGS_SECTION = "messagingWecomGroup";
+
+/** The group robot's own record format and version. */
+export const WECOM_GROUP_FORMAT = "pi-desktop-messaging-wecom-group";
+export const WECOM_GROUP_FORMAT_VERSION = 1;
+
 /** The record format and version this build writes and reads. */
 export const WECOM_FORMAT = "pi-desktop-messaging-wecom";
 export const WECOM_FORMAT_VERSION = 1;
