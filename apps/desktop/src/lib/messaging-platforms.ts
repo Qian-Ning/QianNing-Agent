@@ -96,6 +96,7 @@ export type MessagingSectionKey =
   | "messagingDingtalk"
   | "messagingFeishu"
   | "messagingWecom"
+  | "messagingLine"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -135,7 +136,10 @@ export type MessagingSecretSlot = {
     | "corp-secret"
     | "agent-id"
     | "wecom-token"
-    | "encoding-aes-key";
+    | "encoding-aes-key"
+    /* LINE's pair: the signature secret and the send token. */
+    | "channel-secret"
+    | "channel-token";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -1101,6 +1105,23 @@ const wecomSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const lineSecrets: MessagingSecretSlot[] = [
+  {
+    id: "channel-secret",
+    ref: "secret:messaging-line:channel-secret",
+    labelKey: "settings.messaging.lineChannelSecret",
+    hintKey: "settings.messaging.lineChannelSecretHint",
+    placeholderKey: "settings.messaging.lineChannelSecretPlaceholder",
+  },
+  {
+    id: "channel-token",
+    ref: "secret:messaging-line:channel-token",
+    labelKey: "settings.messaging.lineChannelToken",
+    hintKey: "settings.messaging.lineChannelTokenHint",
+    placeholderKey: "settings.messaging.lineChannelTokenPlaceholder",
+  },
+];
+
 const slackSecrets: MessagingSecretSlot[] = [
   {
     id: "app-token",
@@ -1611,14 +1632,41 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "line",
-    support: "unsupported",
+    support: "supported",
+    section: "messagingLine",
+    format: "pi-desktop-messaging-line",
+    version: 1,
+    defaultEndpoint: "https://api.line.me",
     labelKey: "settings.messaging.platformLine",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "publicCallback",
-    requirementKey: "settings.messaging.needsWebhook",
+    blurbKey: "settings.messaging.blurbLine",
+    noteKey: "settings.messaging.lineNote",
+    limitationKey: "settings.messaging.lineLimitations",
     guideUrl: "https://developers.line.biz/en/docs/messaging-api/",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepLine1",
+      "settings.messaging.stepLine2",
+      "settings.messaging.stepLine3",
+      "settings.messaging.stepLine4",
+    ],
+    secrets: lineSecrets,
+    fields: [
+      ...channelFields({
+        secrets: lineSecrets,
+        destinationLabelKey: "settings.messaging.lineTarget",
+        destinationHelpKey: "settings.messaging.lineTargetHelp",
+        destinationPlaceholderKey: "settings.messaging.lineTargetPlaceholder",
+        subjectPlaceholderKey: "settings.messaging.subjectPlaceholderLine",
+        endpointPlaceholderKey: "settings.messaging.endpointPlaceholderLine",
+      }),
+      {
+        id: "sessionId",
+        group: "required",
+        labelKey: "settings.messaging.feishuSession",
+        helpKey: "settings.messaging.feishuSessionHint",
+        placeholderKey: "settings.messaging.feishuSessionPlaceholder",
+        consequenceKey: "settings.messaging.consequenceWebhookSession",
+      },
+    ],
   },
   {
     id: "microsoftGraph",
@@ -1741,7 +1789,8 @@ export type MessagingGatewayChannel =
   | "webhookReceiver"
   /** Served by the shared receiver rather than a loop of its own. */
   | "feishu"
-  | "wecom";
+  | "wecom"
+  | "line";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -1769,6 +1818,8 @@ export type MessagingGatewaySnapshot = {
   feishu: boolean;
   /** WeCom is served by it too, on the same terms. */
   wecom: boolean;
+  /** LINE is served by it too. */
+  line: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -1798,6 +1849,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   webhookReceiver: false,
   feishu: false,
   wecom: false,
+  line: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -1844,6 +1896,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   apiServer: "apiServer",
   feishu: "feishu",
   wecomApp: "wecom",
+  line: "line",
   webhooks: "webhookReceiver",
 };
 
@@ -2177,6 +2230,11 @@ export function missingFromRecord(
   // through the channel shape once: a field the receiver does not carry reads as
   // absent, which is what the completeness check wants.
   const channel = record as MessagingChannelSettings;
+  if (platform.id === "line") {
+    if (trimmed(channel.destination) === "") missing.push("destination");
+    if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
+    if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
+  }
   if (platform.id === "wecomApp") {
     if (trimmed(channel.destination) === "") missing.push("destination");
     if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
