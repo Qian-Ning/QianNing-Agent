@@ -291,7 +291,9 @@ describe("the outbound messaging relay", () => {
       "discord",
       "dingtalk",
       "feishu",
+      "line",
       "wecom",
+      "wecomGroup",
       "mattermost",
     ]);
     expect(MESSAGING_OUTBOUND_CHANNELS.every((entry) => entry.section && entry.format && entry.version > 0)).toBe(true);

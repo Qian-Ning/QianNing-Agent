@@ -13,6 +13,7 @@ export * from "./messaging-webhook-inbound.js";
 export * from "./messaging-feishu-inbound.js";
 export * from "./messaging-wecom-crypto.js";
 export * from "./messaging-wecom-inbound.js";
+export * from "./messaging-line-inbound.js";
 export * from "./messaging-inbound.js";
 export * from "./messaging-slack-inbound.js";
 export * from "./messaging-slack-store.js";

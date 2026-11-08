@@ -69,7 +69,10 @@ fn check_record(record: &StoredConfig) -> Result<()> {
         bail!("{CODE}: unsupported record '{}'", record.format);
     }
     if record.version != FORMAT_VERSION {
-        bail!("{CODE}: settings version {} is not supported", record.version);
+        bail!(
+            "{CODE}: settings version {} is not supported",
+            record.version
+        );
     }
     Ok(())
 }
@@ -173,7 +176,10 @@ impl OutboundAdapter for WecomGroupAdapter {
 
 impl WecomGroupAdapter {
     fn attempt(&self, client: &Client, message: &OutboundMessage) -> SendResult {
-        let runtime = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
+        let runtime = match tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        {
             Ok(runtime) => runtime,
             Err(error) => {
                 return failed(
@@ -246,9 +252,9 @@ fn refusal_detail(body: &str) -> String {
         .and_then(Value::as_str)
         .map(|text| text.chars().take(120).collect::<String>());
     match (code, message) {
-        (Some(code), Some(message)) => {
-            bounded(&format!("the {LABEL} was refused (errcode {code}: {message})"))
-        }
+        (Some(code), Some(message)) => bounded(&format!(
+            "the {LABEL} was refused (errcode {code}: {message})"
+        )),
         (Some(code), None) => bounded(&format!("the {LABEL} was refused (errcode {code})")),
         _ => bounded(&format!("the {LABEL} was refused")),
     }

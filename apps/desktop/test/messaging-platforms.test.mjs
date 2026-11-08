@@ -181,6 +181,7 @@ const SUPPORTED_IDS = [
   "apiServer",
   "webhooks",
   "irc",
+  "line",
   "ntfy",
 ];
 
@@ -266,7 +267,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   assert.deepEqual(byClass.publicCallback, [
     "sms",
     "googleChat",
-    "line",
     "microsoftGraph",
     "teams",
   ]);
@@ -465,7 +465,11 @@ test("a channel reports its own gateway, never a sibling's", () => {
   // channel's key is its own id, so a channel added without a mapping still has
   // to declare one here.
   const gatewayKey = (id) =>
-    id === "webhooks" ? "webhookReceiver" : id === "wecomApp" ? "wecom" : id;
+    id === "webhooks"
+      ? "webhookReceiver"
+      : id === "wecomApp"
+        ? "wecom"
+        : id;
 
   for (const platform of platforms) {
     if (platform.receive === "none") {
@@ -642,6 +646,16 @@ test("fields are grouped, and every field explains itself and its blank", () => 
         requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
         ["api-token"],
         "the local API's token is required, unlike ntfy's optional one",
+      );
+    } else if (platform.id === "line") {
+      assert.deepEqual(requiredWithoutSecrets, ["destination", "subject", "roles", "sessionId"]);
+      assert.deepEqual(
+        requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
+        platform.secrets.map((slot) => slot.id),
+      );
+      assert.deepEqual(
+        recommended.map((field) => field.id),
+        ["permissionMode", "endpoint", "requestTimeoutMs"],
       );
     } else if (platform.id === "wecomApp") {
       // The same shape as Feishu: a chat to answer in, a session to act on, and

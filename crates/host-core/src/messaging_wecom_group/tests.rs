@@ -88,7 +88,10 @@ async fn a_bad_key_is_terminal_and_names_its_code() {
         SendResult::Failed { kind, detail } => {
             assert_eq!(kind, FailureKind::Terminal);
             assert!(detail.contains("93000"), "{detail}");
-            assert!(!detail.contains(WEBHOOK_KEY), "the key never reaches a detail");
+            assert!(
+                !detail.contains(WEBHOOK_KEY),
+                "the key never reaches a detail"
+            );
         }
         other => panic!("expected a terminal refusal, got {other:?}"),
     }

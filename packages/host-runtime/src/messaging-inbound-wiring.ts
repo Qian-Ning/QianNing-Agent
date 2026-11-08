@@ -139,6 +139,14 @@ import {
   FEISHU_FORMAT_VERSION,
   FEISHU_HANDLED_CAPACITY,
   FEISHU_SETTINGS_SECTION,
+  MESSAGING_LINE_PLATFORM,
+  LINE_ACCEPT_REPLY,
+  LINE_CHANNEL_SECRET_REF,
+  LINE_FORMAT,
+  LINE_FORMAT_VERSION,
+  LINE_SETTINGS_SECTION,
+  createLineAdapter,
+  createLineVerifier,
   MESSAGING_WECOM_PLATFORM,
   WECOM_ACCEPT_REPLY,
   WECOM_AES_KEY_SECRET_REF,
@@ -2488,7 +2496,7 @@ export type MessagingWebhookReceiverWiringOptions = {
    * own: their inbound path is the receiver's, so their liveness is the
    * receiver's own mark rather than a second lifetime to keep in step.
    */
-  onPlatforms?: (channels: readonly ("feishu" | "wecom")[]) => void;
+  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line")[]) => void;
   /** Test seam: a receiver factory in place of the one the wiring builds. */
   createReceiver?: (options: IngressWebhookReceiverOptions) => IngressWebhookReceiver;
 };
@@ -2545,6 +2553,64 @@ export type MessagingWebhookReceiverWiring = {
  * Token and the EncodingAESKey — so the entry is built only when all three are
  * present and the channel names a session to act on.
  */
+/**
+ * The LINE callback entry, when this Host has one configured.
+ *
+ * LINE has no socket and no handshake: it posts a batch of events to a webhook
+ * URL registered through its own API, signed with the channel secret. Two
+ * credentials, two directions — the secret authenticates what arrives, the
+ * channel access token sends, and both live in the secret store.
+ */
+async function buildLineCallbackPlatform(
+  options: MessagingWebhookReceiverWiringOptions,
+  ids: RandomIds,
+): Promise<IngressWebhookPlatform | null> {
+  let settings: unknown;
+  try {
+    settings = await options.settings.read();
+  } catch {
+    return null;
+  }
+  const section = readSection(settings, LINE_SETTINGS_SECTION);
+  if (!section) return null;
+  if (section.format !== LINE_FORMAT || section.version !== LINE_FORMAT_VERSION) return null;
+
+  const inbound = readInbound(section);
+  const sessionId =
+    typeof inbound?.sessionId === "string" && inbound.sessionId.trim() !== ""
+      ? inbound.sessionId.trim()
+      : null;
+  if (!sessionId) return null;
+
+  let secret: string | null = null;
+  try {
+    secret = await options.secrets(LINE_CHANNEL_SECRET_REF);
+  } catch {
+    secret = null;
+  }
+  if (!secret || secret.trim() === "") {
+    options.onFailure?.("no LINE channel secret is stored");
+    return null;
+  }
+
+  return {
+    verifier: createLineVerifier(secret.trim()),
+    adapter: createLineAdapter(),
+    onMessage: async (message) => {
+      await options.agentHost.startTurn(
+        { subject: "line", roles: ["owner"] },
+        {
+          sessionId,
+          admission: "queue",
+          input: { text: message.text },
+          context: { requestId: ids.next("line") },
+        },
+      );
+    },
+    reply: LINE_ACCEPT_REPLY,
+  };
+}
+
 async function buildWecomCallbackPlatform(
   options: MessagingWebhookReceiverWiringOptions,
   ids: RandomIds,
@@ -2745,6 +2811,7 @@ export function createWebhookReceiverWiring(
       // port would be a second URL to configure for no benefit.
       const feishu = await buildFeishuCallbackPlatform(options, ids);
       const wecom = await buildWecomCallbackPlatform(options, ids);
+      const line = await buildLineCallbackPlatform(options, ids);
       const built = create({
         platforms: {
           [pathSegment]: {
@@ -2754,6 +2821,7 @@ export function createWebhookReceiverWiring(
           },
           ...(feishu ? { [MESSAGING_FEISHU_PLATFORM]: feishu.platform } : {}),
           ...(wecom ? { [MESSAGING_WECOM_PLATFORM]: wecom } : {}),
+          ...(line ? { [MESSAGING_LINE_PLATFORM]: line } : {}),
         },
         handled: createSettingsHandledMessageStore({
           settings: options.settings,
@@ -2781,6 +2849,7 @@ export function createWebhookReceiverWiring(
       options.onPlatforms?.([
         ...(feishu ? (["feishu"] as const) : []),
         ...(wecom ? (["wecom"] as const) : []),
+        ...(line ? (["line"] as const) : []),
       ]);
       if (!options.signal.aborted) {
         await new Promise<void>((resolve) => {
