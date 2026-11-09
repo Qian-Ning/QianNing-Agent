@@ -126,6 +126,7 @@ const GATEWAY_DOWN = {
   whatsappCloud: false,
   weixin: false,
   microsoftGraph: false,
+  qqBot: false,
 };
 
 /**
@@ -186,6 +187,7 @@ const SUPPORTED_IDS = [
   "wecomGroup",
   "wecomApp",
   "weixin",
+  "qqBot",
   "apiServer",
   "webhooks",
   "irc",
@@ -284,10 +286,7 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   // channel now, not an honest absence, so the transport class is the two
   // protocols still lacking a local endpoint.
   assert.deepEqual(byClass.transport, ["a2a", "relay"]);
-  assert.deepEqual(byClass.platformApproval, [
-    "qqBot",
-    "yuanbao",
-  ]);
+  assert.deepEqual(byClass.platformApproval, ["yuanbao"]);
 
   // No class is invented. The converse is deliberately not asserted: a class
   // may legitimately have no members once every platform it described ships,
@@ -660,7 +659,8 @@ test("fields are grouped, and every field explains itself and its blank", () => 
       platform.id === "teams" ||
       platform.id === "whatsappCloud" ||
       platform.id === "weixin" ||
-      platform.id === "microsoftGraph"
+      platform.id === "microsoftGraph" ||
+      platform.id === "qqBot"
     ) {
       assert.deepEqual(requiredWithoutSecrets, ["destination", "subject", "roles", "sessionId"]);
       assert.deepEqual(

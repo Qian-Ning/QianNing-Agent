@@ -31,6 +31,9 @@ import {
   GRAPH_FORMAT,
   GRAPH_FORMAT_VERSION,
   GRAPH_SETTINGS_SECTION,
+  QQBOT_FORMAT,
+  QQBOT_FORMAT_VERSION,
+  QQBOT_SETTINGS_SECTION,
   SMS_FORMAT,
   SMS_FORMAT_VERSION,
   SMS_SETTINGS_SECTION,
@@ -222,6 +225,12 @@ export const MESSAGING_OUTBOUND_CHANNELS: readonly MessagingOutboundChannel[] = 
     section: GRAPH_SETTINGS_SECTION,
     format: GRAPH_FORMAT,
     version: GRAPH_FORMAT_VERSION,
+  },
+  {
+    channel: "qqBot",
+    section: QQBOT_SETTINGS_SECTION,
+    format: QQBOT_FORMAT,
+    version: QQBOT_FORMAT_VERSION,
   },
   {
     channel: "sms",

@@ -139,6 +139,15 @@ import {
   FEISHU_FORMAT_VERSION,
   FEISHU_HANDLED_CAPACITY,
   FEISHU_SETTINGS_SECTION,
+  MESSAGING_QQBOT_PLATFORM,
+  QQBOT_ACCEPT_REPLY,
+  QQBOT_APP_SECRET_SECRET_REF,
+  QQBOT_FORMAT,
+  QQBOT_FORMAT_VERSION,
+  QQBOT_SETTINGS_SECTION,
+  createQqbotAdapter,
+  createQqbotValidation,
+  createQqbotVerifier,
   MESSAGING_GRAPH_PLATFORM,
   GRAPH_ACCEPT_REPLY,
   GRAPH_CLIENT_ID_SECRET_REF,
@@ -2555,7 +2564,7 @@ export type MessagingWebhookReceiverWiringOptions = {
    * own: their inbound path is the receiver's, so their liveness is the
    * receiver's own mark rather than a second lifetime to keep in step.
    */
-  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams" | "whatsappCloud" | "weixin" | "microsoftGraph")[]) => void;
+  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams" | "whatsappCloud" | "weixin" | "microsoftGraph" | "qqBot")[]) => void;
   /** Test seam: a receiver factory in place of the one the wiring builds. */
   createReceiver?: (options: IngressWebhookReceiverOptions) => IngressWebhookReceiver;
 };
@@ -2972,6 +2981,64 @@ async function buildMicrosoftGraphCallbackPlatform(
   };
 }
 
+/**
+ * The QQ bot callback entry, when this Host has one configured.
+ *
+ * The Bot Secret is both directions' credential: it seeds the Ed25519 key that
+ * verifies every callback and signs the op-13 challenge the platform sends to
+ * prove the URL.
+ */
+async function buildQqbotCallbackPlatform(
+  options: MessagingWebhookReceiverWiringOptions,
+  ids: RandomIds,
+): Promise<IngressWebhookPlatform | null> {
+  let settings: unknown;
+  try {
+    settings = await options.settings.read();
+  } catch {
+    return null;
+  }
+  const section = readSection(settings, QQBOT_SETTINGS_SECTION);
+  if (!section) return null;
+  if (section.format !== QQBOT_FORMAT || section.version !== QQBOT_FORMAT_VERSION) return null;
+
+  const inbound = readInbound(section);
+  const sessionId =
+    typeof inbound?.sessionId === "string" && inbound.sessionId.trim() !== ""
+      ? inbound.sessionId.trim()
+      : null;
+  if (!sessionId) return null;
+
+  let appSecret: string | null = null;
+  try {
+    appSecret = await options.secrets(QQBOT_APP_SECRET_SECRET_REF);
+  } catch {
+    appSecret = null;
+  }
+  if (!appSecret || appSecret.trim() === "") {
+    options.onFailure?.("no QQ bot secret is stored");
+    return null;
+  }
+
+  return {
+    verifier: createQqbotVerifier({ appSecret: appSecret.trim() }),
+    adapter: createQqbotAdapter(),
+    validateRequest: createQqbotValidation({ appSecret: appSecret.trim() }),
+    onMessage: async (message) => {
+      await options.agentHost.startTurn(
+        { subject: "qqBot", roles: ["owner"] },
+        {
+          sessionId,
+          admission: "queue",
+          input: { text: message.text },
+          context: { requestId: ids.next("qqBot") },
+        },
+      );
+    },
+    reply: QQBOT_ACCEPT_REPLY,
+  };
+}
+
 async function buildSmsCallbackPlatform(
   options: MessagingWebhookReceiverWiringOptions,
   ids: RandomIds,
@@ -3279,6 +3346,7 @@ export function createWebhookReceiverWiring(
       const whatsappCloud = await buildWhatsappCloudCallbackPlatform(options, ids);
       const weixin = await buildWeixinCallbackPlatform(options, ids);
       const graph = await buildMicrosoftGraphCallbackPlatform(options, ids);
+      const qqbot = await buildQqbotCallbackPlatform(options, ids);
       const built = create({
         platforms: {
           [pathSegment]: {
@@ -3295,6 +3363,7 @@ export function createWebhookReceiverWiring(
           ...(whatsappCloud ? { [MESSAGING_WHATSAPP_CLOUD_PLATFORM]: whatsappCloud } : {}),
           ...(weixin ? { [MESSAGING_WEIXIN_PLATFORM]: weixin } : {}),
           ...(graph ? { [MESSAGING_GRAPH_PLATFORM]: graph.platform } : {}),
+          ...(qqbot ? { [MESSAGING_QQBOT_PLATFORM]: qqbot } : {}),
         },
         handled: createSettingsHandledMessageStore({
           settings: options.settings,
@@ -3339,6 +3408,7 @@ export function createWebhookReceiverWiring(
         ...(whatsappCloud ? (["whatsappCloud"] as const) : []),
         ...(weixin ? (["weixin"] as const) : []),
         ...(graph ? (["microsoftGraph"] as const) : []),
+        ...(qqbot ? (["qqBot"] as const) : []),
       ]);
       if (!options.signal.aborted) {
         await new Promise<void>((resolve) => {

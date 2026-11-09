@@ -491,6 +491,7 @@ export type AppSettings = {
   messagingWhatsappCloud?: MessagingChannelSettings;
   messagingWeixin?: MessagingChannelSettings;
   messagingMicrosoftGraph?: MessagingChannelSettings;
+  messagingQqbot?: MessagingChannelSettings;
   messagingMattermost?: MessagingChannelSettings;
   messagingMatrix?: MessagingChannelSettings;
   messagingIrc?: MessagingChannelSettings;
