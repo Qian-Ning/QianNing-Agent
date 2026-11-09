@@ -122,6 +122,7 @@ const GATEWAY_DOWN = {
   ntfy: false,
   signal: false,
   googleChat: false,
+  teams: false,
 };
 
 /**
@@ -185,6 +186,7 @@ const SUPPORTED_IDS = [
   "webhooks",
   "irc",
   "line",
+  "teams",
   "ntfy",
 ];
 
@@ -269,7 +271,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   ]);
   assert.deepEqual(byClass.publicCallback, [
     "microsoftGraph",
-    "teams",
   ]);
   assert.deepEqual(byClass.bridgeOrPoll, [
     "whatsapp",
@@ -648,7 +649,7 @@ test("fields are grouped, and every field explains itself and its blank", () => 
         ["api-token"],
         "the local API's token is required, unlike ntfy's optional one",
       );
-    } else if (platform.id === "sms" || platform.id === "googleChat") {
+    } else if (platform.id === "sms" || platform.id === "googleChat" || platform.id === "teams") {
       assert.deepEqual(requiredWithoutSecrets, ["destination", "subject", "roles", "sessionId"]);
       assert.deepEqual(
         requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),

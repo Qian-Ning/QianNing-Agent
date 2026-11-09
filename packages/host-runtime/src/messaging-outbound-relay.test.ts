@@ -293,6 +293,7 @@ describe("the outbound messaging relay", () => {
       "feishu",
       "line",
       "googleChat",
+      "teams",
       "sms",
       "wecom",
       "wecomGroup",

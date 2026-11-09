@@ -100,6 +100,7 @@ export type MessagingSectionKey =
   | "messagingLine"
   | "messagingSms"
   | "messagingGoogleChat"
+  | "messagingTeams"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -150,7 +151,10 @@ export type MessagingSecretSlot = {
     | "from-number"
     /* Google Chat's two: the service account, and the audience it asserts. */
     | "service-account"
-    | "audience";
+    | "audience"
+    /* Teams' bot registration. */
+    | "app-id"
+    | "app-password";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -1134,6 +1138,23 @@ const wecomSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const teamsSecrets: MessagingSecretSlot[] = [
+  {
+    id: "app-id",
+    ref: "secret:messaging-teams:app-id",
+    labelKey: "settings.messaging.teamsAppId",
+    hintKey: "settings.messaging.teamsAppIdHint",
+    placeholderKey: "settings.messaging.teamsAppIdPlaceholder",
+  },
+  {
+    id: "app-password",
+    ref: "secret:messaging-teams:app-password",
+    labelKey: "settings.messaging.teamsAppPassword",
+    hintKey: "settings.messaging.teamsAppPasswordHint",
+    placeholderKey: "settings.messaging.teamsAppPasswordPlaceholder",
+  },
+];
+
 const googleChatSecrets: MessagingSecretSlot[] = [
   {
     id: "service-account",
@@ -1836,14 +1857,42 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "teams",
-    support: "unsupported",
+    support: "supported",
+    receive: "callback",
+    section: "messagingTeams",
+    format: "pi-desktop-messaging-teams",
+    version: 1,
+    defaultEndpoint: "https://smba.trafficmanager.net/emea/",
     labelKey: "settings.messaging.platformTeams",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "publicCallback",
-    requirementKey: "settings.messaging.needsWebhook",
+    blurbKey: "settings.messaging.blurbTeams",
+    noteKey: "settings.messaging.teamsNote",
+    limitationKey: "settings.messaging.teamsLimitations",
     guideUrl: "https://learn.microsoft.com/microsoftteams/platform/bots/what-are-bots",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepTeams1",
+      "settings.messaging.stepTeams2",
+      "settings.messaging.stepTeams3",
+      "settings.messaging.stepTeams4",
+    ],
+    secrets: teamsSecrets,
+    fields: [
+      ...channelFields({
+        secrets: teamsSecrets,
+        destinationLabelKey: "settings.messaging.teamsConversation",
+        destinationHelpKey: "settings.messaging.teamsConversationHelp",
+        destinationPlaceholderKey: "settings.messaging.teamsConversationPlaceholder",
+        subjectPlaceholderKey: "settings.messaging.subjectPlaceholderTeams",
+        endpointPlaceholderKey: "settings.messaging.endpointPlaceholderTeams",
+      }),
+      {
+        id: "sessionId",
+        group: "required",
+        labelKey: "settings.messaging.feishuSession",
+        helpKey: "settings.messaging.feishuSessionHint",
+        placeholderKey: "settings.messaging.feishuSessionPlaceholder",
+        consequenceKey: "settings.messaging.consequenceWebhookSession",
+      },
+    ],
   },
   {
     id: "ntfy",
@@ -1947,7 +1996,8 @@ export type MessagingGatewayChannel =
   | "wecom"
   | "line"
   | "sms"
-  | "googleChat";
+  | "googleChat"
+  | "teams";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -1981,6 +2031,8 @@ export type MessagingGatewaySnapshot = {
   sms: boolean;
   /** Google Chat is served by it too. */
   googleChat: boolean;
+  /** Teams is served by it too. */
+  teams: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -2013,6 +2065,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   line: false,
   sms: false,
   googleChat: false,
+  teams: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -2062,6 +2115,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   line: "line",
   sms: "sms",
   googleChat: "googleChat",
+  teams: "teams",
   webhooks: "webhookReceiver",
 };
 
@@ -2410,6 +2464,11 @@ export function missingFromRecord(
     // no destination and no bound session, so neither can be missing.
     if (trimmed(channel.endpoint) === "") missing.push("endpoint");
     return missing;
+  }
+  if (platform.id === "teams") {
+    if (trimmed(channel.destination) === "") missing.push("destination");
+    if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
+    if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
   }
   if (platform.id === "googleChat") {
     if (trimmed(channel.destination) === "") missing.push("destination");

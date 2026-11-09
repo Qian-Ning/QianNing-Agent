@@ -1,5 +1,5 @@
 /**
- * Google Chat inbound: a JWT signed by Google, and the event body it guards.
+ * Google Chat inbound: the event body, and the assertion Google signs over it.
  *
  * # The credential is not ours
  *
@@ -10,22 +10,19 @@
  * not expired. Nothing secret is stored for the inbound direction at all — the
  * only value the record carries is the audience it expects.
  *
- * # The key set is fetched, and cached
- *
- * Keys rotate, so the set is fetched lazily and kept for an hour, refetched when
- * a `kid` is unknown. A fetch failure refuses the request rather than accepting
- * an unverified one: a verifier that falls open is not a verifier.
+ * The verification itself lives in `messaging-openid-jwt.ts`, shared with Teams:
+ * same bearer token, same key-set caching, same refusal when the keys cannot be
+ * fetched.
  */
 
-import { createPublicKey, verify as verifySignature } from "node:crypto";
-
+import { createJwtVerifier, type JsonFetcher } from "./messaging-openid-jwt.js";
 import {
   ingressMessageKey,
   type IngressMessage,
   type IngressNormalisation,
   type WebhookIngressAdapter,
 } from "./messaging-ingress.js";
-import type { IngressVerification, IngressVerifier } from "./messaging-ingress-verify.js";
+import type { IngressVerifier } from "./messaging-ingress-verify.js";
 
 /** The path segment this platform is served under: `/webhooks/google-chat`. */
 export const MESSAGING_GOOGLE_CHAT_PLATFORM = "google-chat";
@@ -53,31 +50,12 @@ export const GOOGLE_CHAT_MESSAGE_LIMIT = 4_000;
 /** The most delivery ids the durable replay guard remembers. */
 export const GOOGLE_CHAT_HANDLED_CAPACITY = 2_048;
 
-/** How long a fetched key set is reused before it is fetched again. */
-const KEY_SET_TTL_MS = 60 * 60 * 1000;
-
-/** The tolerance applied to `exp` and `iat`, in seconds. */
-const CLOCK_SKEW_SECONDS = 300;
-
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** One JWK, as far as this module needs it. */
-type Jwk = { kid?: string; kty?: string; n?: string; e?: string; alg?: string };
-
-/** Fetch a set of keys; injected so tests never touch the network. */
-export type GoogleChatKeyFetcher = (url: string) => Promise<{ keys?: Jwk[] }>;
-
-/** The default fetcher: plain HTTPS through `fetch`. */
-async function fetchKeys(url: string): Promise<{ keys?: Jwk[] }> {
-  const response = await fetch(url, { redirect: "error" });
-  if (!response.ok) throw new Error(`the key set answered ${response.status}`);
-  return (await response.json()) as { keys?: Jwk[] };
 }
 
 /**
@@ -89,86 +67,17 @@ async function fetchKeys(url: string): Promise<{ keys?: Jwk[] }> {
  */
 export function createGoogleChatVerifier(options: {
   audience: string;
-  fetchKeys?: GoogleChatKeyFetcher;
+  fetchKeys?: JsonFetcher;
   now?: () => number;
 }): IngressVerifier {
-  const expectedAudience = options.audience.trim();
-  const fetcher = options.fetchKeys ?? fetchKeys;
-  const now = options.now ?? (() => Date.now());
-  let cached: { keys: Jwk[]; at: number } | null = null;
-
-  const keys = async (force: boolean): Promise<Jwk[]> => {
-    if (!force && cached && now() - cached.at < KEY_SET_TTL_MS) return cached.keys;
-    const answer = await fetcher(GOOGLE_CHAT_JWKS_URL);
-    const set = Array.isArray(answer.keys) ? answer.keys : [];
-    if (set.length === 0) throw new Error("the key set carries no keys");
-    cached = { keys: set, at: now() };
-    return set;
-  };
-
-  return {
+  return createJwtVerifier({
+    jwksUrl: GOOGLE_CHAT_JWKS_URL,
+    issuer: GOOGLE_CHAT_ISSUER,
+    audience: options.audience,
     scheme: "google-jwt-rs256",
-    async verify(_rawBody: Buffer, headers): Promise<IngressVerification> {
-      if (expectedAudience === "") return { ok: false, reason: "signature-mismatch" };
-      const authorization = text(headers.authorization ?? null);
-      if (!authorization || !/^bearer /i.test(authorization)) {
-        return { ok: false, reason: "missing-signature" };
-      }
-      const token = authorization.slice(7).trim();
-      const parts = token.split(".");
-      if (parts.length !== 3) return { ok: false, reason: "malformed-timestamp" };
-      const [rawHeader, rawPayload, rawSignature] = parts as [string, string, string];
-
-      let header: Record<string, unknown>;
-      let payload: Record<string, unknown>;
-      try {
-        header = JSON.parse(Buffer.from(rawHeader, "base64url").toString("utf8")) as Record<string, unknown>;
-        payload = JSON.parse(Buffer.from(rawPayload, "base64url").toString("utf8")) as Record<string, unknown>;
-      } catch {
-        return { ok: false, reason: "malformed-timestamp" };
-      }
-
-      if (text(payload.iss) !== GOOGLE_CHAT_ISSUER) return { ok: false, reason: "signature-mismatch" };
-      const audience = Array.isArray(payload.aud) ? payload.aud.map(String) : [String(payload.aud ?? "")];
-      if (!audience.includes(expectedAudience)) return { ok: false, reason: "signature-mismatch" };
-
-      const expires = Number(payload.exp);
-      const seconds = Math.floor(now() / 1000);
-      if (!Number.isFinite(expires) || expires + CLOCK_SKEW_SECONDS < seconds) {
-        return { ok: false, reason: "malformed-timestamp" };
-      }
-      const issued = Number(payload.iat);
-      if (Number.isFinite(issued) && issued - CLOCK_SKEW_SECONDS > seconds) {
-        return { ok: false, reason: "malformed-timestamp" };
-      }
-
-      const kid = text(header.kid);
-      const signature = Buffer.from(rawSignature, "base64url");
-      const signed = Buffer.from(`${rawHeader}.${rawPayload}`, "utf8");
-      let verified = false;
-      try {
-        for (const candidate of [false, true]) {
-          const set = await keys(candidate);
-          const key = kid ? set.find((entry) => entry.kid === kid) : set[0];
-          if (!key) continue;
-          const publicKey = createPublicKey({ key: key as never, format: "jwk" });
-          if (verifySignature("RSA-SHA256", signed, publicKey, signature)) {
-            verified = true;
-            break;
-          }
-        }
-      } catch {
-        // A key set that cannot be fetched proves nothing, so the request is
-        // refused rather than accepted unverified.
-        return { ok: false, reason: "signature-mismatch" };
-      }
-      if (!verified) return { ok: false, reason: "signature-mismatch" };
-
-      const deliveryId = text(payload.jti) ?? text(payload.exp) ?? null;
-      if (!deliveryId) return { ok: false, reason: "missing-delivery-id" };
-      return { ok: true, timestampMs: now(), deliveryId };
-    },
-  };
+    ...(options.fetchKeys ? { fetchJson: options.fetchKeys } : {}),
+    ...(options.now ? { now: options.now } : {}),
+  });
 }
 
 /**
