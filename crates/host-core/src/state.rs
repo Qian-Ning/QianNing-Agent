@@ -176,6 +176,9 @@ impl AppState {
         if let Err(error) = crate::messaging_google_chat::register(&mut messaging, &db, &secrets) {
             tracing::warn!(%error, "outbound google chat channel is not available");
         }
+        if let Err(error) = crate::messaging_teams::register(&mut messaging, &db, &secrets) {
+            tracing::warn!(%error, "outbound teams channel is not available");
+        }
         if let Err(error) = messaging.connect_all() {
             tracing::warn!(%error, "an outbound channel failed to connect");
         }

@@ -139,6 +139,14 @@ import {
   FEISHU_FORMAT_VERSION,
   FEISHU_HANDLED_CAPACITY,
   FEISHU_SETTINGS_SECTION,
+  MESSAGING_TEAMS_PLATFORM,
+  TEAMS_ACCEPT_REPLY,
+  TEAMS_APP_ID_SECRET_REF,
+  TEAMS_FORMAT,
+  TEAMS_FORMAT_VERSION,
+  TEAMS_SETTINGS_SECTION,
+  createTeamsAdapter,
+  createTeamsVerifier,
   MESSAGING_GOOGLE_CHAT_PLATFORM,
   GOOGLE_CHAT_ACCEPT_REPLY,
   GOOGLE_CHAT_AUDIENCE_SECRET_REF,
@@ -2512,7 +2520,7 @@ export type MessagingWebhookReceiverWiringOptions = {
    * own: their inbound path is the receiver's, so their liveness is the
    * receiver's own mark rather than a second lifetime to keep in step.
    */
-  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat")[]) => void;
+  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams")[]) => void;
   /** Test seam: a receiver factory in place of the one the wiring builds. */
   createReceiver?: (options: IngressWebhookReceiverOptions) => IngressWebhookReceiver;
 };
@@ -2639,6 +2647,64 @@ async function buildGoogleChatCallbackPlatform(
       );
     },
     reply: GOOGLE_CHAT_ACCEPT_REPLY,
+  };
+}
+
+/**
+ * The Microsoft Teams callback entry, when this Host has one configured.
+ *
+ * The Connector signs every activity, and the audience it signs for is the
+ * bot's own app id — the same value the send path authenticates with. The
+ * service URL travels in each activity rather than in the record, so the
+ * receiver only has to know which session to open.
+ */
+async function buildTeamsCallbackPlatform(
+  options: MessagingWebhookReceiverWiringOptions,
+  ids: RandomIds,
+): Promise<IngressWebhookPlatform | null> {
+  let settings: unknown;
+  try {
+    settings = await options.settings.read();
+  } catch {
+    return null;
+  }
+  const section = readSection(settings, TEAMS_SETTINGS_SECTION);
+  if (!section) return null;
+  if (section.format !== TEAMS_FORMAT || section.version !== TEAMS_FORMAT_VERSION) return null;
+
+  const inbound = readInbound(section);
+  const sessionId =
+    typeof inbound?.sessionId === "string" && inbound.sessionId.trim() !== ""
+      ? inbound.sessionId.trim()
+      : null;
+  if (!sessionId) return null;
+
+  let appId: string | null = null;
+  try {
+    appId = await options.secrets(TEAMS_APP_ID_SECRET_REF);
+  } catch {
+    appId = null;
+  }
+  if (!appId || appId.trim() === "") {
+    options.onFailure?.("no Teams app id is stored");
+    return null;
+  }
+
+  return {
+    verifier: createTeamsVerifier({ appId: appId.trim() }),
+    adapter: createTeamsAdapter(),
+    onMessage: async (message) => {
+      await options.agentHost.startTurn(
+        { subject: "teams", roles: ["owner"] },
+        {
+          sessionId,
+          admission: "queue",
+          input: { text: message.text },
+          context: { requestId: ids.next("teams") },
+        },
+      );
+    },
+    reply: TEAMS_ACCEPT_REPLY,
   };
 }
 
@@ -2945,6 +3011,7 @@ export function createWebhookReceiverWiring(
       const line = await buildLineCallbackPlatform(options, ids);
       const sms = await buildSmsCallbackPlatform(options, ids);
       const googleChat = await buildGoogleChatCallbackPlatform(options, ids);
+      const teams = await buildTeamsCallbackPlatform(options, ids);
       const built = create({
         platforms: {
           [pathSegment]: {
@@ -2957,6 +3024,7 @@ export function createWebhookReceiverWiring(
           ...(line ? { [MESSAGING_LINE_PLATFORM]: line } : {}),
           ...(sms ? { [MESSAGING_SMS_PLATFORM]: sms } : {}),
           ...(googleChat ? { [MESSAGING_GOOGLE_CHAT_PLATFORM]: googleChat } : {}),
+          ...(teams ? { [MESSAGING_TEAMS_PLATFORM]: teams } : {}),
         },
         handled: createSettingsHandledMessageStore({
           settings: options.settings,
@@ -2987,6 +3055,7 @@ export function createWebhookReceiverWiring(
         ...(line ? (["line"] as const) : []),
         ...(sms ? (["sms"] as const) : []),
         ...(googleChat ? (["googleChat"] as const) : []),
+        ...(teams ? (["teams"] as const) : []),
       ]);
       if (!options.signal.aborted) {
         await new Promise<void>((resolve) => {

@@ -19,6 +19,9 @@ import {
   GOOGLE_CHAT_FORMAT,
   GOOGLE_CHAT_FORMAT_VERSION,
   GOOGLE_CHAT_SETTINGS_SECTION,
+  TEAMS_FORMAT,
+  TEAMS_FORMAT_VERSION,
+  TEAMS_SETTINGS_SECTION,
   SMS_FORMAT,
   SMS_FORMAT_VERSION,
   SMS_SETTINGS_SECTION,
@@ -186,6 +189,12 @@ export const MESSAGING_OUTBOUND_CHANNELS: readonly MessagingOutboundChannel[] = 
     section: GOOGLE_CHAT_SETTINGS_SECTION,
     format: GOOGLE_CHAT_FORMAT,
     version: GOOGLE_CHAT_FORMAT_VERSION,
+  },
+  {
+    channel: "teams",
+    section: TEAMS_SETTINGS_SECTION,
+    format: TEAMS_FORMAT,
+    version: TEAMS_FORMAT_VERSION,
   },
   {
     channel: "sms",
