@@ -123,6 +123,7 @@ const GATEWAY_DOWN = {
   signal: false,
   googleChat: false,
   teams: false,
+  whatsappCloud: false,
 };
 
 /**
@@ -188,6 +189,7 @@ const SUPPORTED_IDS = [
   "line",
   "teams",
   "ntfy",
+  "whatsappCloud",
 ];
 
 /** The whole catalogue, in rail order: thirty-three, eleven of them supported. */
@@ -285,7 +287,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
     "weixin",
     "qqBot",
     "yuanbao",
-    "whatsappCloud",
   ]);
 
   // No class is decorative and no class is invented.
@@ -649,7 +650,12 @@ test("fields are grouped, and every field explains itself and its blank", () => 
         ["api-token"],
         "the local API's token is required, unlike ntfy's optional one",
       );
-    } else if (platform.id === "sms" || platform.id === "googleChat" || platform.id === "teams") {
+    } else if (
+      platform.id === "sms" ||
+      platform.id === "googleChat" ||
+      platform.id === "teams" ||
+      platform.id === "whatsappCloud"
+    ) {
       assert.deepEqual(requiredWithoutSecrets, ["destination", "subject", "roles", "sessionId"]);
       assert.deepEqual(
         requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),

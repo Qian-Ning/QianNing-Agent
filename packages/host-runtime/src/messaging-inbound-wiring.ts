@@ -139,6 +139,16 @@ import {
   FEISHU_FORMAT_VERSION,
   FEISHU_HANDLED_CAPACITY,
   FEISHU_SETTINGS_SECTION,
+  MESSAGING_WHATSAPP_CLOUD_PLATFORM,
+  WHATSAPP_CLOUD_VERIFY_TOKEN_SECRET_REF,
+  WHATSAPP_CLOUD_ACCEPT_REPLY,
+  WHATSAPP_CLOUD_APP_SECRET_REF,
+  WHATSAPP_CLOUD_FORMAT,
+  WHATSAPP_CLOUD_FORMAT_VERSION,
+  WHATSAPP_CLOUD_SETTINGS_SECTION,
+  createWhatsappCloudAdapter,
+  createWhatsappCloudHandshake,
+  createWhatsappCloudVerifier,
   MESSAGING_TEAMS_PLATFORM,
   TEAMS_ACCEPT_REPLY,
   TEAMS_APP_ID_SECRET_REF,
@@ -2520,7 +2530,7 @@ export type MessagingWebhookReceiverWiringOptions = {
    * own: their inbound path is the receiver's, so their liveness is the
    * receiver's own mark rather than a second lifetime to keep in step.
    */
-  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams")[]) => void;
+  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams" | "whatsappCloud")[]) => void;
   /** Test seam: a receiver factory in place of the one the wiring builds. */
   createReceiver?: (options: IngressWebhookReceiverOptions) => IngressWebhookReceiver;
 };
@@ -2705,6 +2715,73 @@ async function buildTeamsCallbackPlatform(
       );
     },
     reply: TEAMS_ACCEPT_REPLY,
+  };
+}
+
+/**
+ * The WhatsApp Cloud callback entry, when this Host has one configured.
+ *
+ * Meta signs the body with the app secret and refuses to deliver at all until
+ * the URL answers its GET challenge, so this channel needs three stored values:
+ * the app secret to verify, the verify token to handshake, and the access token
+ * that host-core sends with.
+ */
+async function buildWhatsappCloudCallbackPlatform(
+  options: MessagingWebhookReceiverWiringOptions,
+  ids: RandomIds,
+): Promise<IngressWebhookPlatform | null> {
+  let settings: unknown;
+  try {
+    settings = await options.settings.read();
+  } catch {
+    return null;
+  }
+  const section = readSection(settings, WHATSAPP_CLOUD_SETTINGS_SECTION);
+  if (!section) return null;
+  if (section.format !== WHATSAPP_CLOUD_FORMAT || section.version !== WHATSAPP_CLOUD_FORMAT_VERSION) {
+    return null;
+  }
+
+  const inbound = readInbound(section);
+  const sessionId =
+    typeof inbound?.sessionId === "string" && inbound.sessionId.trim() !== ""
+      ? inbound.sessionId.trim()
+      : null;
+  if (!sessionId) return null;
+
+  let appSecret: string | null = null;
+  let verifyToken: string | null = null;
+  try {
+    appSecret = await options.secrets(WHATSAPP_CLOUD_APP_SECRET_REF);
+    verifyToken = await options.secrets(WHATSAPP_CLOUD_VERIFY_TOKEN_SECRET_REF);
+  } catch {
+    return null;
+  }
+  if (!appSecret || appSecret.trim() === "") {
+    options.onFailure?.("no WhatsApp app secret is stored");
+    return null;
+  }
+  if (!verifyToken || verifyToken.trim() === "") {
+    options.onFailure?.("no WhatsApp verify token is stored");
+    return null;
+  }
+
+  return {
+    verifier: createWhatsappCloudVerifier({ appSecret: appSecret.trim() }),
+    adapter: createWhatsappCloudAdapter(),
+    handshake: createWhatsappCloudHandshake({ verifyToken: verifyToken.trim() }),
+    onMessage: async (message) => {
+      await options.agentHost.startTurn(
+        { subject: "whatsappCloud", roles: ["owner"] },
+        {
+          sessionId,
+          admission: "queue",
+          input: { text: message.text },
+          context: { requestId: ids.next("whatsappCloud") },
+        },
+      );
+    },
+    reply: WHATSAPP_CLOUD_ACCEPT_REPLY,
   };
 }
 
@@ -3012,6 +3089,7 @@ export function createWebhookReceiverWiring(
       const sms = await buildSmsCallbackPlatform(options, ids);
       const googleChat = await buildGoogleChatCallbackPlatform(options, ids);
       const teams = await buildTeamsCallbackPlatform(options, ids);
+      const whatsappCloud = await buildWhatsappCloudCallbackPlatform(options, ids);
       const built = create({
         platforms: {
           [pathSegment]: {
@@ -3025,6 +3103,7 @@ export function createWebhookReceiverWiring(
           ...(sms ? { [MESSAGING_SMS_PLATFORM]: sms } : {}),
           ...(googleChat ? { [MESSAGING_GOOGLE_CHAT_PLATFORM]: googleChat } : {}),
           ...(teams ? { [MESSAGING_TEAMS_PLATFORM]: teams } : {}),
+          ...(whatsappCloud ? { [MESSAGING_WHATSAPP_CLOUD_PLATFORM]: whatsappCloud } : {}),
         },
         handled: createSettingsHandledMessageStore({
           settings: options.settings,
@@ -3056,6 +3135,7 @@ export function createWebhookReceiverWiring(
         ...(sms ? (["sms"] as const) : []),
         ...(googleChat ? (["googleChat"] as const) : []),
         ...(teams ? (["teams"] as const) : []),
+        ...(whatsappCloud ? (["whatsappCloud"] as const) : []),
       ]);
       if (!options.signal.aborted) {
         await new Promise<void>((resolve) => {

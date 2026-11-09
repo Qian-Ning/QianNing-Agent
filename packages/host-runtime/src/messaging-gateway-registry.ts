@@ -74,6 +74,8 @@ export type MessagingGatewaySnapshot = {
   googleChat: boolean;
   /** Teams runs on the same receiver, on the same terms. */
   teams: boolean;
+  /** WhatsApp Cloud runs on the same receiver, on the same terms. */
+  whatsappCloud: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — most often a port already taken. `null` for
@@ -138,7 +140,8 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
    * snapshot derives them from the receiver's own mark instead of inventing a
    * second lifetime to keep in step.
    */
-  private readonly callbackPlatforms = new Set<"feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams">();
+  private readonly callbackPlatforms = new Set<"feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams"
+  | "whatsappCloud">();
 
   /** Record that host-core and the Agent Host came up. Idempotent. */
   markBooted(): void {
@@ -191,7 +194,8 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
   }
 
   /** Record which callback channels the receiver registered for this run. */
-  setCallbackPlatforms(channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams")[]): void {
+  setCallbackPlatforms(channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams"
+  | "whatsappCloud")[]): void {
     this.callbackPlatforms.clear();
     for (const channel of channels) this.callbackPlatforms.add(channel);
   }
@@ -223,6 +227,8 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
       sms: this.callbackPlatforms.has("sms") && this.running.has("webhookReceiver"),
       googleChat: this.callbackPlatforms.has("googleChat") && this.running.has("webhookReceiver"),
       teams: this.callbackPlatforms.has("teams") && this.running.has("webhookReceiver"),
+      whatsappCloud:
+        this.callbackPlatforms.has("whatsappCloud") && this.running.has("webhookReceiver"),
       apiServerError: this.failures.get("apiServer") ?? null,
       webhookReceiverError: this.failures.get("webhookReceiver") ?? null,
     };

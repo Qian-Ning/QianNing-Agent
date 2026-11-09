@@ -101,6 +101,7 @@ export type MessagingSectionKey =
   | "messagingSms"
   | "messagingGoogleChat"
   | "messagingTeams"
+  | "messagingWhatsappCloud"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -154,7 +155,11 @@ export type MessagingSecretSlot = {
     | "audience"
     /* Teams' bot registration. */
     | "app-id"
-    | "app-password";
+    | "app-password"
+    /* WhatsApp Cloud: the app secret signs, the token sends, the token verifies the URL. */
+    | "app-secret"
+    | "access-token"
+    | "verify-token";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -1138,6 +1143,30 @@ const wecomSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const whatsappCloudSecrets: MessagingSecretSlot[] = [
+  {
+    id: "app-secret",
+    ref: "secret:messaging-whatsapp-cloud:app-secret",
+    labelKey: "settings.messaging.whatsappCloudAppSecret",
+    hintKey: "settings.messaging.whatsappCloudAppSecretHint",
+    placeholderKey: "settings.messaging.whatsappCloudAppSecretPlaceholder",
+  },
+  {
+    id: "access-token",
+    ref: "secret:messaging-whatsapp-cloud:access-token",
+    labelKey: "settings.messaging.whatsappCloudAccessToken",
+    hintKey: "settings.messaging.whatsappCloudAccessTokenHint",
+    placeholderKey: "settings.messaging.whatsappCloudAccessTokenPlaceholder",
+  },
+  {
+    id: "verify-token",
+    ref: "secret:messaging-whatsapp-cloud:verify-token",
+    labelKey: "settings.messaging.whatsappCloudVerifyToken",
+    hintKey: "settings.messaging.whatsappCloudVerifyTokenHint",
+    placeholderKey: "settings.messaging.whatsappCloudVerifyTokenPlaceholder",
+  },
+];
+
 const teamsSecrets: MessagingSecretSlot[] = [
   {
     id: "app-id",
@@ -1950,14 +1979,42 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "whatsappCloud",
-    support: "unsupported",
+    support: "supported",
+    receive: "callback",
+    section: "messagingWhatsappCloud",
+    format: "pi-desktop-messaging-whatsapp-cloud",
+    version: 1,
+    defaultEndpoint: "https://graph.facebook.com/v21.0",
     labelKey: "settings.messaging.platformWhatsappCloud",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "platformApproval",
-    requirementKey: "settings.messaging.needsBusinessAccount",
+    blurbKey: "settings.messaging.blurbWhatsappCloud",
+    noteKey: "settings.messaging.whatsappCloudNote",
+    limitationKey: "settings.messaging.whatsappCloudLimitations",
     guideUrl: "https://developers.facebook.com/docs/whatsapp/cloud-api",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepWhatsappCloud1",
+      "settings.messaging.stepWhatsappCloud2",
+      "settings.messaging.stepWhatsappCloud3",
+      "settings.messaging.stepWhatsappCloud4",
+    ],
+    secrets: whatsappCloudSecrets,
+    fields: [
+      ...channelFields({
+        secrets: whatsappCloudSecrets,
+        destinationLabelKey: "settings.messaging.whatsappCloudRecipient",
+        destinationHelpKey: "settings.messaging.whatsappCloudRecipientHelp",
+        destinationPlaceholderKey: "settings.messaging.whatsappCloudRecipientPlaceholder",
+        subjectPlaceholderKey: "settings.messaging.subjectPlaceholderWhatsappCloud",
+        endpointPlaceholderKey: "settings.messaging.endpointPlaceholderWhatsappCloud",
+      }),
+      {
+        id: "sessionId",
+        group: "required",
+        labelKey: "settings.messaging.feishuSession",
+        helpKey: "settings.messaging.feishuSessionHint",
+        placeholderKey: "settings.messaging.feishuSessionPlaceholder",
+        consequenceKey: "settings.messaging.consequenceWebhookSession",
+      },
+    ],
   },
 ];
 
@@ -1997,7 +2054,8 @@ export type MessagingGatewayChannel =
   | "line"
   | "sms"
   | "googleChat"
-  | "teams";
+  | "teams"
+  | "whatsappCloud";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -2033,6 +2091,8 @@ export type MessagingGatewaySnapshot = {
   googleChat: boolean;
   /** Teams is served by it too. */
   teams: boolean;
+  /** WhatsApp Cloud is served by it too. */
+  whatsappCloud: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -2066,6 +2126,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   sms: false,
   googleChat: false,
   teams: false,
+  whatsappCloud: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -2116,6 +2177,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   sms: "sms",
   googleChat: "googleChat",
   teams: "teams",
+  whatsappCloud: "whatsappCloud",
   webhooks: "webhookReceiver",
 };
 
@@ -2464,6 +2526,14 @@ export function missingFromRecord(
     // no destination and no bound session, so neither can be missing.
     if (trimmed(channel.endpoint) === "") missing.push("endpoint");
     return missing;
+  }
+  if (platform.id === "whatsappCloud") {
+    if (trimmed(channel.destination) === "") missing.push("destination");
+    if (trimmed(channel.destination) !== "" && !/^[0-9]+$/.test(trimmed(channel.destination))) {
+      missing.push("destination");
+    }
+    if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
+    if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
   }
   if (platform.id === "teams") {
     if (trimmed(channel.destination) === "") missing.push("destination");

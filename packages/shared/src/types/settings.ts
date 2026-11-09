@@ -488,6 +488,7 @@ export type AppSettings = {
   messagingSms?: MessagingChannelSettings;
   messagingGoogleChat?: MessagingChannelSettings;
   messagingTeams?: MessagingChannelSettings;
+  messagingWhatsappCloud?: MessagingChannelSettings;
   messagingMattermost?: MessagingChannelSettings;
   messagingMatrix?: MessagingChannelSettings;
   messagingIrc?: MessagingChannelSettings;
