@@ -22,6 +22,8 @@
 
 import { timingSafeEqual } from "node:crypto";
 
+import { parseFlatXml } from "./messaging-flat-xml.js";
+
 import {
   ingressMessageKey,
   type IngressMessage,
@@ -76,21 +78,11 @@ function text(value: unknown): string | null {
 /**
  * The flat XML WeCom posts, as a record.
  *
- * WeCom's payloads are one level deep: a single `<xml>` root and plain scalar
- * children, some in CDATA. A general XML parser would be a dependency and a
- * surface this channel does not need, so this reads exactly that shape and
- * ignores anything nested.
+ * The reading itself is `messaging-flat-xml.ts`, shared with the WeChat Official
+ * Account: same shape, same tags, one implementation.
  */
 export function parseWecomXml(xml: string): Record<string, string> {
-  const fields: Record<string, string> = {};
-  const pattern = /<([A-Za-z_][\w.-]*)>\s*(?:<!\[CDATA\[([\s\S]*?)\]\]>|([^<]*))\s*<\/\1>/g;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(xml)) !== null) {
-    const name = match[1];
-    const value = match[2] ?? match[3] ?? "";
-    if (name) fields[name] = value;
-  }
-  return fields;
+  return parseFlatXml(xml);
 }
 
 /** The encrypted payload inside a callback body, when it carries one. */

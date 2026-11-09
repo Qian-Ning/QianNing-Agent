@@ -139,6 +139,31 @@ import {
   FEISHU_FORMAT_VERSION,
   FEISHU_HANDLED_CAPACITY,
   FEISHU_SETTINGS_SECTION,
+  MESSAGING_GRAPH_PLATFORM,
+  GRAPH_ACCEPT_REPLY,
+  GRAPH_CLIENT_ID_SECRET_REF,
+  GRAPH_CLIENT_SECRET_SECRET_REF,
+  GRAPH_CLIENT_STATE_SECRET_REF,
+  GRAPH_FORMAT,
+  GRAPH_FORMAT_VERSION,
+  GRAPH_SETTINGS_SECTION,
+  GRAPH_PUBLIC_URL_SECRET_REF,
+  GRAPH_TENANT_ID_SECRET_REF,
+  createGraphAdapter,
+  createGraphClient,
+  createGraphSubscriptionLease,
+  createGraphValidation,
+  createGraphVerifier,
+  MESSAGING_WEIXIN_PLATFORM,
+  WEIXIN_ACCEPT_REPLY,
+  WEIXIN_APP_ID_SECRET_REF,
+  WEIXIN_FORMAT,
+  WEIXIN_FORMAT_VERSION,
+  WEIXIN_SETTINGS_SECTION,
+  WEIXIN_TOKEN_SECRET_REF,
+  createWeixinAdapter,
+  createWeixinHandshake,
+  createWeixinVerifier,
   MESSAGING_WHATSAPP_CLOUD_PLATFORM,
   WHATSAPP_CLOUD_VERIFY_TOKEN_SECRET_REF,
   WHATSAPP_CLOUD_ACCEPT_REPLY,
@@ -2530,7 +2555,7 @@ export type MessagingWebhookReceiverWiringOptions = {
    * own: their inbound path is the receiver's, so their liveness is the
    * receiver's own mark rather than a second lifetime to keep in step.
    */
-  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams" | "whatsappCloud")[]) => void;
+  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams" | "whatsappCloud" | "weixin" | "microsoftGraph")[]) => void;
   /** Test seam: a receiver factory in place of the one the wiring builds. */
   createReceiver?: (options: IngressWebhookReceiverOptions) => IngressWebhookReceiver;
 };
@@ -2782,6 +2807,168 @@ async function buildWhatsappCloudCallbackPlatform(
       );
     },
     reply: WHATSAPP_CLOUD_ACCEPT_REPLY,
+  };
+}
+
+/**
+ * The WeChat Official Account callback entry, when this Host has one configured.
+ *
+ * The signature covers only the query string, so the verifier needs the token
+ * and nothing else; the adapter needs the account id, because a body addressed
+ * to a different account is not a message for this Host. The app secret is the
+ * send side's, and lives in host-core.
+ */
+async function buildWeixinCallbackPlatform(
+  options: MessagingWebhookReceiverWiringOptions,
+  ids: RandomIds,
+): Promise<IngressWebhookPlatform | null> {
+  let settings: unknown;
+  try {
+    settings = await options.settings.read();
+  } catch {
+    return null;
+  }
+  const section = readSection(settings, WEIXIN_SETTINGS_SECTION);
+  if (!section) return null;
+  if (section.format !== WEIXIN_FORMAT || section.version !== WEIXIN_FORMAT_VERSION) return null;
+
+  const inbound = readInbound(section);
+  const sessionId =
+    typeof inbound?.sessionId === "string" && inbound.sessionId.trim() !== ""
+      ? inbound.sessionId.trim()
+      : null;
+  if (!sessionId) return null;
+
+  let token: string | null = null;
+  let accountId: string | null = null;
+  try {
+    token = await options.secrets(WEIXIN_TOKEN_SECRET_REF);
+    accountId = await options.secrets(WEIXIN_APP_ID_SECRET_REF);
+  } catch {
+    return null;
+  }
+  if (!token || token.trim() === "") {
+    options.onFailure?.("no WeChat token is stored");
+    return null;
+  }
+
+  return {
+    verifier: createWeixinVerifier({ token: token.trim() }),
+    adapter: createWeixinAdapter({ accountId: (accountId ?? "").trim() }),
+    handshake: createWeixinHandshake({ token: token.trim() }),
+    onMessage: async (message) => {
+      await options.agentHost.startTurn(
+        { subject: "weixin", roles: ["owner"] },
+        {
+          sessionId,
+          admission: "queue",
+          input: { text: message.text },
+          context: { requestId: ids.next("weixin") },
+        },
+      );
+    },
+    reply: WEIXIN_ACCEPT_REPLY,
+  };
+}
+
+/**
+ * The Microsoft Graph callback entry, and its subscription.
+ *
+ * This is the one channel whose *inbound* path needs a credential of its own:
+ * the notification names a resource, and reading the message is a Graph call
+ * with the app's token. The same credential creates and renews the subscription,
+ * which is why the entry comes with a lease rather than only a platform — a
+ * subscription that is created once and never renewed delivers for an hour and
+ * then goes quiet.
+ */
+async function buildMicrosoftGraphCallbackPlatform(
+  options: MessagingWebhookReceiverWiringOptions,
+  ids: RandomIds,
+): Promise<{ platform: IngressWebhookPlatform; start(): Promise<void>; stop(): void } | null> {
+  let settings: unknown;
+  try {
+    settings = await options.settings.read();
+  } catch {
+    return null;
+  }
+  const section = readSection(settings, GRAPH_SETTINGS_SECTION);
+  if (!section) return null;
+  if (section.format !== GRAPH_FORMAT || section.version !== GRAPH_FORMAT_VERSION) return null;
+
+  const inbound = readInbound(section);
+  const sessionId =
+    typeof inbound?.sessionId === "string" && inbound.sessionId.trim() !== ""
+      ? inbound.sessionId.trim()
+      : null;
+  if (!sessionId) return null;
+
+  const destination = typeof section.destination === "string" ? section.destination.trim() : "";
+  if (destination === "") {
+    options.onFailure?.("the Microsoft Graph channel names no team and channel");
+    return null;
+  }
+
+  let tenantId: string | null = null;
+  let clientId: string | null = null;
+  let clientSecret: string | null = null;
+  let clientState: string | null = null;
+  let publicUrl: string | null = null;
+  try {
+    tenantId = await options.secrets(GRAPH_TENANT_ID_SECRET_REF);
+    clientId = await options.secrets(GRAPH_CLIENT_ID_SECRET_REF);
+    clientSecret = await options.secrets(GRAPH_CLIENT_SECRET_SECRET_REF);
+    clientState = await options.secrets(GRAPH_CLIENT_STATE_SECRET_REF);
+    publicUrl = await options.secrets(GRAPH_PUBLIC_URL_SECRET_REF);
+  } catch {
+    return null;
+  }
+  if (!tenantId || !clientId || !clientSecret || !clientState || !publicUrl) {
+    options.onFailure?.("the Microsoft Graph channel is missing part of its registration");
+    return null;
+  }
+
+  const client = createGraphClient({
+    tenantId: tenantId.trim(),
+    clientId: clientId.trim(),
+    clientSecret: clientSecret.trim(),
+  });
+  const [team, channel] = destination.split("/");
+  if (!team || !channel) {
+    options.onFailure?.("the Microsoft Graph destination is not a team id and a channel id");
+    return null;
+  }
+  const lease = createGraphSubscriptionLease({
+    client,
+    notificationUrl: publicUrl.trim(),
+    resource: `/teams/${encodeURIComponent(team)}/channels/${encodeURIComponent(channel)}/messages`,
+    clientState: clientState.trim(),
+    onFailure: (error) => options.log?.("warn", "the Microsoft Graph subscription could not be renewed", { error }),
+  });
+
+  return {
+    platform: {
+      verifier: createGraphVerifier({ clientState: clientState.trim() }),
+      adapter: createGraphAdapter({ client }),
+      validateRequest: createGraphValidation(),
+      onMessage: async (message) => {
+        await options.agentHost.startTurn(
+          { subject: "microsoftGraph", roles: ["owner"] },
+          {
+            sessionId,
+            admission: "queue",
+            input: { text: message.text },
+            context: { requestId: ids.next("microsoftGraph") },
+          },
+        );
+      },
+      reply: GRAPH_ACCEPT_REPLY,
+    },
+    async start() {
+      await lease.ensure();
+    },
+    stop() {
+      lease.stop();
+    },
   };
 }
 
@@ -3090,6 +3277,8 @@ export function createWebhookReceiverWiring(
       const googleChat = await buildGoogleChatCallbackPlatform(options, ids);
       const teams = await buildTeamsCallbackPlatform(options, ids);
       const whatsappCloud = await buildWhatsappCloudCallbackPlatform(options, ids);
+      const weixin = await buildWeixinCallbackPlatform(options, ids);
+      const graph = await buildMicrosoftGraphCallbackPlatform(options, ids);
       const built = create({
         platforms: {
           [pathSegment]: {
@@ -3104,6 +3293,8 @@ export function createWebhookReceiverWiring(
           ...(googleChat ? { [MESSAGING_GOOGLE_CHAT_PLATFORM]: googleChat } : {}),
           ...(teams ? { [MESSAGING_TEAMS_PLATFORM]: teams } : {}),
           ...(whatsappCloud ? { [MESSAGING_WHATSAPP_CLOUD_PLATFORM]: whatsappCloud } : {}),
+          ...(weixin ? { [MESSAGING_WEIXIN_PLATFORM]: weixin } : {}),
+          ...(graph ? { [MESSAGING_GRAPH_PLATFORM]: graph.platform } : {}),
         },
         handled: createSettingsHandledMessageStore({
           settings: options.settings,
@@ -3128,6 +3319,16 @@ export function createWebhookReceiverWiring(
         return;
       }
       options.onListening?.(bound);
+      if (graph) {
+        // The subscription names a public URL, so it can only be created once the
+        // listener is up: Graph validates it immediately, and a failed
+        // validation is a subscription that never exists.
+        try {
+          await graph.start();
+        } catch (error) {
+          options.onFailure?.(error instanceof Error ? error.message : String(error));
+        }
+      }
       options.onPlatforms?.([
         ...(feishu ? (["feishu"] as const) : []),
         ...(wecom ? (["wecom"] as const) : []),
@@ -3136,6 +3337,8 @@ export function createWebhookReceiverWiring(
         ...(googleChat ? (["googleChat"] as const) : []),
         ...(teams ? (["teams"] as const) : []),
         ...(whatsappCloud ? (["whatsappCloud"] as const) : []),
+        ...(weixin ? (["weixin"] as const) : []),
+        ...(graph ? (["microsoftGraph"] as const) : []),
       ]);
       if (!options.signal.aborted) {
         await new Promise<void>((resolve) => {
@@ -3146,6 +3349,7 @@ export function createWebhookReceiverWiring(
           options.signal.addEventListener("abort", onAbort, { once: true });
         });
       }
+      graph?.stop();
       await built.stop();
       options.onPlatforms?.([]);
       receiver = null;

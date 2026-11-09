@@ -121,6 +121,15 @@ export type IngressWebhookPlatform = {
    * so here instead of receiving JSON it will log as an error.
    */
   reply?: IngressHandshake;
+  /**
+   * A URL validation that arrives as a POST rather than a GET.
+   *
+   * Microsoft Graph proves the notification URL by posting the token it was
+   * given to that same URL and reading it back — a GET handshake cannot answer
+   * it. Returning an answer here ends the request before the verifier runs; it
+   * echoes a value the caller supplied and changes no state.
+   */
+  validateRequest?: (url: URL, headers: IngressVerifierHeaders) => IngressHandshake | null;
 };
 
 /** A reply body this receiver sends as-is. */
@@ -178,6 +187,8 @@ type RegisteredPlatform = {
   handshake?: IngressWebhookPlatform["handshake"];
   /** The body an accepted POST is answered with, when the platform reads one. */
   reply?: IngressHandshake;
+  /** The POST-shaped URL validation, when the platform proves its URL that way. */
+  validateRequest?: IngressWebhookPlatform["validateRequest"];
 };
 
 /** The four numbers the receiver's own settings section carries, clamped. */
@@ -473,6 +484,19 @@ export class IngressWebhookReceiver {
       this.audit({ kind: "rejected", reason: "unknown-path" });
       this.respond(res, 404, { error: "not found" });
       return;
+    }
+
+    // A POST-shaped URL validation ends here: it carries no event, and the
+    // platform is waiting for its own token back, not for a verdict.
+    if (platform.validateRequest) {
+      const answer = platform.validateRequest(
+        new URL(req.url ?? "/", "http://localhost"),
+        lowercaseHeaders(req.headers),
+      );
+      if (answer) {
+        this.respondText(res, answer);
+        return;
+      }
     }
 
     const read = await readBody(req, this.maxBodyBytes);

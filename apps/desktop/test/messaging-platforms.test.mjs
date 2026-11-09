@@ -124,6 +124,8 @@ const GATEWAY_DOWN = {
   googleChat: false,
   teams: false,
   whatsappCloud: false,
+  weixin: false,
+  microsoftGraph: false,
 };
 
 /**
@@ -183,10 +185,12 @@ const SUPPORTED_IDS = [
   "googleChat",
   "wecomGroup",
   "wecomApp",
+  "weixin",
   "apiServer",
   "webhooks",
   "irc",
   "line",
+  "microsoftGraph",
   "teams",
   "ntfy",
   "whatsappCloud",
@@ -271,9 +275,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
     "raft",
     "simplex",
   ]);
-  assert.deepEqual(byClass.publicCallback, [
-    "microsoftGraph",
-  ]);
   assert.deepEqual(byClass.bridgeOrPoll, [
     "whatsapp",
     "blueBubbles",
@@ -284,16 +285,19 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   // protocols still lacking a local endpoint.
   assert.deepEqual(byClass.transport, ["a2a", "relay"]);
   assert.deepEqual(byClass.platformApproval, [
-    "weixin",
     "qqBot",
     "yuanbao",
   ]);
 
-  // No class is decorative and no class is invented.
-  assert.deepEqual(
-    Object.keys(byClass).sort(),
-    Object.keys(MESSAGING_REQUIREMENT_CLASS_KEYS).sort(),
-  );
+  // No class is invented. The converse is deliberately not asserted: a class
+  // may legitimately have no members once every platform it described ships,
+  // which is what happened when the public-callback platforms were built.
+  for (const used of Object.keys(byClass)) {
+    assert.ok(
+      Object.keys(MESSAGING_REQUIREMENT_CLASS_KEYS).includes(used),
+      `unsupported platforms are grouped under an unknown class: ${used}`,
+    );
+  }
 });
 
 /** An unsupported platform must never expose something a form could save. */
@@ -654,7 +658,9 @@ test("fields are grouped, and every field explains itself and its blank", () => 
       platform.id === "sms" ||
       platform.id === "googleChat" ||
       platform.id === "teams" ||
-      platform.id === "whatsappCloud"
+      platform.id === "whatsappCloud" ||
+      platform.id === "weixin" ||
+      platform.id === "microsoftGraph"
     ) {
       assert.deepEqual(requiredWithoutSecrets, ["destination", "subject", "roles", "sessionId"]);
       assert.deepEqual(

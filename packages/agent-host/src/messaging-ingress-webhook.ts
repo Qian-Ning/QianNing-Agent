@@ -96,7 +96,9 @@ export class WebhookIngressTransport {
       this.audit({ kind: "malformed", reason: this.adapter.parse ? "the body could not be read" : "the body is not JSON" });
       return { status: 400 };
     }
-    const normalisation = this.adapter.normalise(raw);
+    const normalisation = this.adapter.prepare
+      ? await this.adapter.prepare(raw)
+      : this.adapter.normalise(raw);
     if (normalisation.kind !== "message") {
       // A filtered or malformed event is answered 200: the platform should not
       // redeliver something this channel will never act on.

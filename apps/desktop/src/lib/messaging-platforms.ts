@@ -88,7 +88,9 @@ export type MessagingPlatformId =
   | "raft"
   | "relay"
   | "simplex"
-  | "whatsappCloud";
+  | "whatsappCloud"
+  | "weixin"
+  | "microsoftGraph";
 
 /** The one settings section key each channel's record lives under, inside `app`. */
 export type MessagingSectionKey =
@@ -102,6 +104,8 @@ export type MessagingSectionKey =
   | "messagingGoogleChat"
   | "messagingTeams"
   | "messagingWhatsappCloud"
+  | "messagingWeixin"
+  | "messagingMicrosoftGraph"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -159,7 +163,17 @@ export type MessagingSecretSlot = {
     /* WhatsApp Cloud: the app secret signs, the token sends, the token verifies the URL. */
     | "app-secret"
     | "access-token"
-    | "verify-token";
+    | "verify-token"
+    /* The WeChat Official Account: id, secret, and the token that signs. */
+    | "wechat-app-id"
+    | "wechat-app-secret"
+    | "wechat-token"
+    /* Microsoft Graph: the app registration, the shared state, and the public URL. */
+    | "graph-tenant-id"
+    | "graph-client-id"
+    | "graph-client-secret"
+    | "graph-client-state"
+    | "graph-public-url";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -1143,6 +1157,68 @@ const wecomSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const graphSecrets: MessagingSecretSlot[] = [
+  {
+    id: "graph-tenant-id",
+    ref: "secret:messaging-microsoft-graph:tenant-id",
+    labelKey: "settings.messaging.graphTenantId",
+    hintKey: "settings.messaging.graphTenantIdHint",
+    placeholderKey: "settings.messaging.graphTenantIdPlaceholder",
+  },
+  {
+    id: "graph-client-id",
+    ref: "secret:messaging-microsoft-graph:client-id",
+    labelKey: "settings.messaging.graphClientId",
+    hintKey: "settings.messaging.graphClientIdHint",
+    placeholderKey: "settings.messaging.graphClientIdPlaceholder",
+  },
+  {
+    id: "graph-client-secret",
+    ref: "secret:messaging-microsoft-graph:client-secret",
+    labelKey: "settings.messaging.graphClientSecret",
+    hintKey: "settings.messaging.graphClientSecretHint",
+    placeholderKey: "settings.messaging.graphClientSecretPlaceholder",
+  },
+  {
+    id: "graph-client-state",
+    ref: "secret:messaging-microsoft-graph:client-state",
+    labelKey: "settings.messaging.graphClientState",
+    hintKey: "settings.messaging.graphClientStateHint",
+    placeholderKey: "settings.messaging.graphClientStatePlaceholder",
+  },
+  {
+    id: "graph-public-url",
+    ref: "secret:messaging-microsoft-graph:public-url",
+    labelKey: "settings.messaging.graphPublicUrl",
+    hintKey: "settings.messaging.graphPublicUrlHint",
+    placeholderKey: "settings.messaging.graphPublicUrlPlaceholder",
+  },
+];
+
+const weixinSecrets: MessagingSecretSlot[] = [
+  {
+    id: "wechat-app-id",
+    ref: "secret:messaging-weixin:app-id",
+    labelKey: "settings.messaging.weixinAppId",
+    hintKey: "settings.messaging.weixinAppIdHint",
+    placeholderKey: "settings.messaging.weixinAppIdPlaceholder",
+  },
+  {
+    id: "wechat-app-secret",
+    ref: "secret:messaging-weixin:app-secret",
+    labelKey: "settings.messaging.weixinAppSecret",
+    hintKey: "settings.messaging.weixinAppSecretHint",
+    placeholderKey: "settings.messaging.weixinAppSecretPlaceholder",
+  },
+  {
+    id: "wechat-token",
+    ref: "secret:messaging-weixin:token",
+    labelKey: "settings.messaging.weixinToken",
+    hintKey: "settings.messaging.weixinTokenHint",
+    placeholderKey: "settings.messaging.weixinTokenPlaceholder",
+  },
+];
+
 const whatsappCloudSecrets: MessagingSecretSlot[] = [
   {
     id: "app-secret",
@@ -1705,14 +1781,42 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "weixin",
-    support: "unsupported",
+    support: "supported",
+    receive: "callback",
+    section: "messagingWeixin",
+    format: "pi-desktop-messaging-weixin",
+    version: 1,
+    defaultEndpoint: "https://api.weixin.qq.com",
     labelKey: "settings.messaging.platformWeixin",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "platformApproval",
-    requirementKey: "settings.messaging.needsPlatformApproval",
+    blurbKey: "settings.messaging.blurbWeixin",
+    noteKey: "settings.messaging.weixinNote",
+    limitationKey: "settings.messaging.weixinLimitations",
     guideUrl: "https://developers.weixin.qq.com/doc/offiaccount/Getting_Started/Overview.html",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepWeixin1",
+      "settings.messaging.stepWeixin2",
+      "settings.messaging.stepWeixin3",
+      "settings.messaging.stepWeixin4",
+    ],
+    secrets: weixinSecrets,
+    fields: [
+      ...channelFields({
+        secrets: weixinSecrets,
+        destinationLabelKey: "settings.messaging.weixinOpenId",
+        destinationHelpKey: "settings.messaging.weixinOpenIdHelp",
+        destinationPlaceholderKey: "settings.messaging.weixinOpenIdPlaceholder",
+        subjectPlaceholderKey: "settings.messaging.subjectPlaceholderWeixin",
+        endpointPlaceholderKey: "settings.messaging.endpointPlaceholderWeixin",
+      }),
+      {
+        id: "sessionId",
+        group: "required",
+        labelKey: "settings.messaging.feishuSession",
+        helpKey: "settings.messaging.feishuSessionHint",
+        placeholderKey: "settings.messaging.feishuSessionPlaceholder",
+        consequenceKey: "settings.messaging.consequenceWebhookSession",
+      },
+    ],
   },
   {
     id: "qqBot",
@@ -1875,14 +1979,42 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "microsoftGraph",
-    support: "unsupported",
+    support: "supported",
+    receive: "callback",
+    section: "messagingMicrosoftGraph",
+    format: "pi-desktop-messaging-microsoft-graph",
+    version: 1,
+    defaultEndpoint: "https://graph.microsoft.com/v1.0",
     labelKey: "settings.messaging.platformMicrosoftGraph",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "publicCallback",
-    requirementKey: "settings.messaging.needsWebhook",
-    guideUrl: "https://learn.microsoft.com/graph/",
-    credentialStepKeys: [],
-    secrets: [],
+    blurbKey: "settings.messaging.blurbMicrosoftGraph",
+    noteKey: "settings.messaging.graphNote",
+    limitationKey: "settings.messaging.graphLimitations",
+    guideUrl: "https://learn.microsoft.com/graph/change-notifications-overview",
+    credentialStepKeys: [
+      "settings.messaging.stepGraph1",
+      "settings.messaging.stepGraph2",
+      "settings.messaging.stepGraph3",
+      "settings.messaging.stepGraph4",
+    ],
+    secrets: graphSecrets,
+    fields: [
+      ...channelFields({
+        secrets: graphSecrets,
+        destinationLabelKey: "settings.messaging.graphDestination",
+        destinationHelpKey: "settings.messaging.graphDestinationHelp",
+        destinationPlaceholderKey: "settings.messaging.graphDestinationPlaceholder",
+        subjectPlaceholderKey: "settings.messaging.subjectPlaceholderGraph",
+        endpointPlaceholderKey: "settings.messaging.endpointPlaceholderGraph",
+      }),
+      {
+        id: "sessionId",
+        group: "required",
+        labelKey: "settings.messaging.feishuSession",
+        helpKey: "settings.messaging.feishuSessionHint",
+        placeholderKey: "settings.messaging.feishuSessionPlaceholder",
+        consequenceKey: "settings.messaging.consequenceWebhookSession",
+      },
+    ],
   },
   {
     id: "teams",
@@ -2055,7 +2187,9 @@ export type MessagingGatewayChannel =
   | "sms"
   | "googleChat"
   | "teams"
-  | "whatsappCloud";
+  | "whatsappCloud"
+  | "weixin"
+  | "microsoftGraph";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -2093,6 +2227,10 @@ export type MessagingGatewaySnapshot = {
   teams: boolean;
   /** WhatsApp Cloud is served by it too. */
   whatsappCloud: boolean;
+  /** The WeChat Official Account is served by it too. */
+  weixin: boolean;
+  /** Microsoft Graph is served by it too. */
+  microsoftGraph: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -2127,6 +2265,8 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   googleChat: false,
   teams: false,
   whatsappCloud: false,
+  weixin: false,
+  microsoftGraph: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -2178,6 +2318,8 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   googleChat: "googleChat",
   teams: "teams",
   whatsappCloud: "whatsappCloud",
+  weixin: "weixin",
+  microsoftGraph: "microsoftGraph",
   webhooks: "webhookReceiver",
 };
 
@@ -2527,11 +2669,21 @@ export function missingFromRecord(
     if (trimmed(channel.endpoint) === "") missing.push("endpoint");
     return missing;
   }
+  if (platform.id === "weixin") {
+    if (trimmed(channel.destination) === "") missing.push("destination");
+    if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
+    if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
+  }
   if (platform.id === "whatsappCloud") {
     if (trimmed(channel.destination) === "") missing.push("destination");
     if (trimmed(channel.destination) !== "" && !/^[0-9]+$/.test(trimmed(channel.destination))) {
       missing.push("destination");
     }
+    if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
+    if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
+  }
+  if (platform.id === "microsoftGraph") {
+    if (trimmed(channel.destination) === "") missing.push("destination");
     if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
     if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
   }
