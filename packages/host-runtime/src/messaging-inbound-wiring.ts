@@ -139,6 +139,14 @@ import {
   FEISHU_FORMAT_VERSION,
   FEISHU_HANDLED_CAPACITY,
   FEISHU_SETTINGS_SECTION,
+  MESSAGING_GOOGLE_CHAT_PLATFORM,
+  GOOGLE_CHAT_ACCEPT_REPLY,
+  GOOGLE_CHAT_AUDIENCE_SECRET_REF,
+  GOOGLE_CHAT_FORMAT,
+  GOOGLE_CHAT_FORMAT_VERSION,
+  GOOGLE_CHAT_SETTINGS_SECTION,
+  createGoogleChatAdapter,
+  createGoogleChatVerifier,
   MESSAGING_SMS_PLATFORM,
   SMS_ACCEPT_REPLY,
   SMS_AUTH_TOKEN_SECRET_REF,
@@ -2504,7 +2512,7 @@ export type MessagingWebhookReceiverWiringOptions = {
    * own: their inbound path is the receiver's, so their liveness is the
    * receiver's own mark rather than a second lifetime to keep in step.
    */
-  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line" | "sms")[]) => void;
+  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat")[]) => void;
   /** Test seam: a receiver factory in place of the one the wiring builds. */
   createReceiver?: (options: IngressWebhookReceiverOptions) => IngressWebhookReceiver;
 };
@@ -2576,6 +2584,64 @@ export type MessagingWebhookReceiverWiring = {
  * every parameter, so the channel's credential is the auth token and its
  * conversation is the sender's number — a reply goes back to whoever wrote.
  */
+/**
+ * The Google Chat callback entry, when this Host has one configured.
+ *
+ * Every request carries an assertion Google signed, so there is no shared secret
+ * to store for the inbound direction: the record names the audience the
+ * assertion must be minted for, and the verifier fetches Google's keys. The
+ * service account is the *send* side and lives in host-core.
+ */
+async function buildGoogleChatCallbackPlatform(
+  options: MessagingWebhookReceiverWiringOptions,
+  ids: RandomIds,
+): Promise<IngressWebhookPlatform | null> {
+  let settings: unknown;
+  try {
+    settings = await options.settings.read();
+  } catch {
+    return null;
+  }
+  const section = readSection(settings, GOOGLE_CHAT_SETTINGS_SECTION);
+  if (!section) return null;
+  if (section.format !== GOOGLE_CHAT_FORMAT || section.version !== GOOGLE_CHAT_FORMAT_VERSION) return null;
+
+  const inbound = readInbound(section);
+  const sessionId =
+    typeof inbound?.sessionId === "string" && inbound.sessionId.trim() !== ""
+      ? inbound.sessionId.trim()
+      : null;
+  if (!sessionId) return null;
+
+  let audience: string | null = null;
+  try {
+    audience = await options.secrets(GOOGLE_CHAT_AUDIENCE_SECRET_REF);
+  } catch {
+    audience = null;
+  }
+  if (!audience || audience.trim() === "") {
+    options.onFailure?.("no Google Chat audience is stored");
+    return null;
+  }
+
+  return {
+    verifier: createGoogleChatVerifier({ audience: audience.trim() }),
+    adapter: createGoogleChatAdapter(),
+    onMessage: async (message) => {
+      await options.agentHost.startTurn(
+        { subject: "googleChat", roles: ["owner"] },
+        {
+          sessionId,
+          admission: "queue",
+          input: { text: message.text },
+          context: { requestId: ids.next("googleChat") },
+        },
+      );
+    },
+    reply: GOOGLE_CHAT_ACCEPT_REPLY,
+  };
+}
+
 async function buildSmsCallbackPlatform(
   options: MessagingWebhookReceiverWiringOptions,
   ids: RandomIds,
@@ -2878,6 +2944,7 @@ export function createWebhookReceiverWiring(
       const wecom = await buildWecomCallbackPlatform(options, ids);
       const line = await buildLineCallbackPlatform(options, ids);
       const sms = await buildSmsCallbackPlatform(options, ids);
+      const googleChat = await buildGoogleChatCallbackPlatform(options, ids);
       const built = create({
         platforms: {
           [pathSegment]: {
@@ -2889,6 +2956,7 @@ export function createWebhookReceiverWiring(
           ...(wecom ? { [MESSAGING_WECOM_PLATFORM]: wecom } : {}),
           ...(line ? { [MESSAGING_LINE_PLATFORM]: line } : {}),
           ...(sms ? { [MESSAGING_SMS_PLATFORM]: sms } : {}),
+          ...(googleChat ? { [MESSAGING_GOOGLE_CHAT_PLATFORM]: googleChat } : {}),
         },
         handled: createSettingsHandledMessageStore({
           settings: options.settings,
@@ -2918,6 +2986,7 @@ export function createWebhookReceiverWiring(
         ...(wecom ? (["wecom"] as const) : []),
         ...(line ? (["line"] as const) : []),
         ...(sms ? (["sms"] as const) : []),
+        ...(googleChat ? (["googleChat"] as const) : []),
       ]);
       if (!options.signal.aborted) {
         await new Promise<void>((resolve) => {

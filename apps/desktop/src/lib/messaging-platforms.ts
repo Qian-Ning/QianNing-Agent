@@ -99,6 +99,7 @@ export type MessagingSectionKey =
   | "messagingWecomGroup"
   | "messagingLine"
   | "messagingSms"
+  | "messagingGoogleChat"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -146,7 +147,10 @@ export type MessagingSecretSlot = {
     /* Twilio's three: the account pair and the sending number. */
     | "account-sid"
     | "auth-token"
-    | "from-number";
+    | "from-number"
+    /* Google Chat's two: the service account, and the audience it asserts. */
+    | "service-account"
+    | "audience";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -1130,6 +1134,23 @@ const wecomSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const googleChatSecrets: MessagingSecretSlot[] = [
+  {
+    id: "service-account",
+    ref: "secret:messaging-google-chat:service-account",
+    labelKey: "settings.messaging.googleChatServiceAccount",
+    hintKey: "settings.messaging.googleChatServiceAccountHint",
+    placeholderKey: "settings.messaging.googleChatServiceAccountPlaceholder",
+  },
+  {
+    id: "audience",
+    ref: "secret:messaging-google-chat:audience",
+    labelKey: "settings.messaging.googleChatAudience",
+    hintKey: "settings.messaging.googleChatAudienceHint",
+    placeholderKey: "settings.messaging.googleChatAudiencePlaceholder",
+  },
+];
+
 const smsSecrets: MessagingSecretSlot[] = [
   {
     id: "account-sid",
@@ -1517,14 +1538,42 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "googleChat",
-    support: "unsupported",
+    support: "supported",
+    receive: "callback",
+    section: "messagingGoogleChat",
+    format: "pi-desktop-messaging-google-chat",
+    version: 1,
+    defaultEndpoint: "https://chat.googleapis.com",
     labelKey: "settings.messaging.platformGoogleChat",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "publicCallback",
-    requirementKey: "settings.messaging.needsWebhook",
+    blurbKey: "settings.messaging.blurbGoogleChat",
+    noteKey: "settings.messaging.googleChatNote",
+    limitationKey: "settings.messaging.googleChatLimitations",
     guideUrl: "https://developers.google.com/chat",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepGoogleChat1",
+      "settings.messaging.stepGoogleChat2",
+      "settings.messaging.stepGoogleChat3",
+      "settings.messaging.stepGoogleChat4",
+    ],
+    secrets: googleChatSecrets,
+    fields: [
+      ...channelFields({
+        secrets: googleChatSecrets,
+        destinationLabelKey: "settings.messaging.googleChatSpace",
+        destinationHelpKey: "settings.messaging.googleChatSpaceHelp",
+        destinationPlaceholderKey: "settings.messaging.googleChatSpacePlaceholder",
+        subjectPlaceholderKey: "settings.messaging.subjectPlaceholderGoogleChat",
+        endpointPlaceholderKey: "settings.messaging.endpointPlaceholderGoogleChat",
+      }),
+      {
+        id: "sessionId",
+        group: "required",
+        labelKey: "settings.messaging.feishuSession",
+        helpKey: "settings.messaging.feishuSessionHint",
+        placeholderKey: "settings.messaging.feishuSessionPlaceholder",
+        consequenceKey: "settings.messaging.consequenceWebhookSession",
+      },
+    ],
   },
   {
     id: "wecomGroup",
@@ -1897,7 +1946,8 @@ export type MessagingGatewayChannel =
   | "feishu"
   | "wecom"
   | "line"
-  | "sms";
+  | "sms"
+  | "googleChat";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -1929,6 +1979,8 @@ export type MessagingGatewaySnapshot = {
   line: boolean;
   /** SMS is served by it too. */
   sms: boolean;
+  /** Google Chat is served by it too. */
+  googleChat: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -1960,6 +2012,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   wecom: false,
   line: false,
   sms: false,
+  googleChat: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -2008,6 +2061,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   wecomApp: "wecom",
   line: "line",
   sms: "sms",
+  googleChat: "googleChat",
   webhooks: "webhookReceiver",
 };
 
@@ -2356,6 +2410,11 @@ export function missingFromRecord(
     // no destination and no bound session, so neither can be missing.
     if (trimmed(channel.endpoint) === "") missing.push("endpoint");
     return missing;
+  }
+  if (platform.id === "googleChat") {
+    if (trimmed(channel.destination) === "") missing.push("destination");
+    if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
+    if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
   }
   if (platform.id === "sms") {
     if (trimmed(channel.destination) === "") missing.push("destination");

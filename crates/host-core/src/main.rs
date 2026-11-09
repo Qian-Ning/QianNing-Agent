@@ -14,6 +14,7 @@ mod messaging_adapter;
 mod messaging_dingtalk;
 mod messaging_discord;
 mod messaging_feishu;
+mod messaging_google_chat;
 mod messaging_line;
 mod messaging_mattermost;
 mod messaging_outbound;
