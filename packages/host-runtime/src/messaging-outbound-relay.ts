@@ -28,6 +28,9 @@ import {
   WEIXIN_FORMAT,
   WEIXIN_FORMAT_VERSION,
   WEIXIN_SETTINGS_SECTION,
+  GRAPH_FORMAT,
+  GRAPH_FORMAT_VERSION,
+  GRAPH_SETTINGS_SECTION,
   SMS_FORMAT,
   SMS_FORMAT_VERSION,
   SMS_SETTINGS_SECTION,
@@ -213,6 +216,12 @@ export const MESSAGING_OUTBOUND_CHANNELS: readonly MessagingOutboundChannel[] = 
     section: WEIXIN_SETTINGS_SECTION,
     format: WEIXIN_FORMAT,
     version: WEIXIN_FORMAT_VERSION,
+  },
+  {
+    channel: "microsoftGraph",
+    section: GRAPH_SETTINGS_SECTION,
+    format: GRAPH_FORMAT,
+    version: GRAPH_FORMAT_VERSION,
   },
   {
     channel: "sms",

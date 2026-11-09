@@ -186,6 +186,11 @@ impl AppState {
         if let Err(error) = crate::messaging_weixin::register(&mut messaging, &db, &secrets) {
             tracing::warn!(%error, "outbound wechat channel is not available");
         }
+        if let Err(error) =
+            crate::messaging_microsoft_graph::register(&mut messaging, &db, &secrets)
+        {
+            tracing::warn!(%error, "outbound microsoft graph channel is not available");
+        }
         if let Err(error) = messaging.connect_all() {
             tracing::warn!(%error, "an outbound channel failed to connect");
         }

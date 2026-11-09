@@ -490,6 +490,7 @@ export type AppSettings = {
   messagingTeams?: MessagingChannelSettings;
   messagingWhatsappCloud?: MessagingChannelSettings;
   messagingWeixin?: MessagingChannelSettings;
+  messagingMicrosoftGraph?: MessagingChannelSettings;
   messagingMattermost?: MessagingChannelSettings;
   messagingMatrix?: MessagingChannelSettings;
   messagingIrc?: MessagingChannelSettings;

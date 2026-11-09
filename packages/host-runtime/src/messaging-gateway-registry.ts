@@ -78,6 +78,8 @@ export type MessagingGatewaySnapshot = {
   whatsappCloud: boolean;
   /** The WeChat Official Account runs on the same receiver, on the same terms. */
   weixin: boolean;
+  /** Microsoft Graph runs on the same receiver, on the same terms. */
+  microsoftGraph: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — most often a port already taken. `null` for
@@ -144,7 +146,8 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
    */
   private readonly callbackPlatforms = new Set<"feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams"
   | "whatsappCloud"
-  | "weixin">();
+  | "weixin"
+  | "microsoftGraph">();
 
   /** Record that host-core and the Agent Host came up. Idempotent. */
   markBooted(): void {
@@ -199,7 +202,8 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
   /** Record which callback channels the receiver registered for this run. */
   setCallbackPlatforms(channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams"
   | "whatsappCloud"
-  | "weixin")[]): void {
+  | "weixin"
+  | "microsoftGraph")[]): void {
     this.callbackPlatforms.clear();
     for (const channel of channels) this.callbackPlatforms.add(channel);
   }
@@ -234,6 +238,8 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
       whatsappCloud:
         this.callbackPlatforms.has("whatsappCloud") && this.running.has("webhookReceiver"),
       weixin: this.callbackPlatforms.has("weixin") && this.running.has("webhookReceiver"),
+      microsoftGraph:
+        this.callbackPlatforms.has("microsoftGraph") && this.running.has("webhookReceiver"),
       apiServerError: this.failures.get("apiServer") ?? null,
       webhookReceiverError: this.failures.get("webhookReceiver") ?? null,
     };

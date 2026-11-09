@@ -89,7 +89,8 @@ export type MessagingPlatformId =
   | "relay"
   | "simplex"
   | "whatsappCloud"
-  | "weixin";
+  | "weixin"
+  | "microsoftGraph";
 
 /** The one settings section key each channel's record lives under, inside `app`. */
 export type MessagingSectionKey =
@@ -104,6 +105,7 @@ export type MessagingSectionKey =
   | "messagingTeams"
   | "messagingWhatsappCloud"
   | "messagingWeixin"
+  | "messagingMicrosoftGraph"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -165,7 +167,13 @@ export type MessagingSecretSlot = {
     /* The WeChat Official Account: id, secret, and the token that signs. */
     | "wechat-app-id"
     | "wechat-app-secret"
-    | "wechat-token";
+    | "wechat-token"
+    /* Microsoft Graph: the app registration, the shared state, and the public URL. */
+    | "graph-tenant-id"
+    | "graph-client-id"
+    | "graph-client-secret"
+    | "graph-client-state"
+    | "graph-public-url";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -1149,6 +1157,44 @@ const wecomSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const graphSecrets: MessagingSecretSlot[] = [
+  {
+    id: "graph-tenant-id",
+    ref: "secret:messaging-microsoft-graph:tenant-id",
+    labelKey: "settings.messaging.graphTenantId",
+    hintKey: "settings.messaging.graphTenantIdHint",
+    placeholderKey: "settings.messaging.graphTenantIdPlaceholder",
+  },
+  {
+    id: "graph-client-id",
+    ref: "secret:messaging-microsoft-graph:client-id",
+    labelKey: "settings.messaging.graphClientId",
+    hintKey: "settings.messaging.graphClientIdHint",
+    placeholderKey: "settings.messaging.graphClientIdPlaceholder",
+  },
+  {
+    id: "graph-client-secret",
+    ref: "secret:messaging-microsoft-graph:client-secret",
+    labelKey: "settings.messaging.graphClientSecret",
+    hintKey: "settings.messaging.graphClientSecretHint",
+    placeholderKey: "settings.messaging.graphClientSecretPlaceholder",
+  },
+  {
+    id: "graph-client-state",
+    ref: "secret:messaging-microsoft-graph:client-state",
+    labelKey: "settings.messaging.graphClientState",
+    hintKey: "settings.messaging.graphClientStateHint",
+    placeholderKey: "settings.messaging.graphClientStatePlaceholder",
+  },
+  {
+    id: "graph-public-url",
+    ref: "secret:messaging-microsoft-graph:public-url",
+    labelKey: "settings.messaging.graphPublicUrl",
+    hintKey: "settings.messaging.graphPublicUrlHint",
+    placeholderKey: "settings.messaging.graphPublicUrlPlaceholder",
+  },
+];
+
 const weixinSecrets: MessagingSecretSlot[] = [
   {
     id: "wechat-app-id",
@@ -1933,14 +1979,42 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "microsoftGraph",
-    support: "unsupported",
+    support: "supported",
+    receive: "callback",
+    section: "messagingMicrosoftGraph",
+    format: "pi-desktop-messaging-microsoft-graph",
+    version: 1,
+    defaultEndpoint: "https://graph.microsoft.com/v1.0",
     labelKey: "settings.messaging.platformMicrosoftGraph",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "publicCallback",
-    requirementKey: "settings.messaging.needsWebhook",
-    guideUrl: "https://learn.microsoft.com/graph/",
-    credentialStepKeys: [],
-    secrets: [],
+    blurbKey: "settings.messaging.blurbMicrosoftGraph",
+    noteKey: "settings.messaging.graphNote",
+    limitationKey: "settings.messaging.graphLimitations",
+    guideUrl: "https://learn.microsoft.com/graph/change-notifications-overview",
+    credentialStepKeys: [
+      "settings.messaging.stepGraph1",
+      "settings.messaging.stepGraph2",
+      "settings.messaging.stepGraph3",
+      "settings.messaging.stepGraph4",
+    ],
+    secrets: graphSecrets,
+    fields: [
+      ...channelFields({
+        secrets: graphSecrets,
+        destinationLabelKey: "settings.messaging.graphDestination",
+        destinationHelpKey: "settings.messaging.graphDestinationHelp",
+        destinationPlaceholderKey: "settings.messaging.graphDestinationPlaceholder",
+        subjectPlaceholderKey: "settings.messaging.subjectPlaceholderGraph",
+        endpointPlaceholderKey: "settings.messaging.endpointPlaceholderGraph",
+      }),
+      {
+        id: "sessionId",
+        group: "required",
+        labelKey: "settings.messaging.feishuSession",
+        helpKey: "settings.messaging.feishuSessionHint",
+        placeholderKey: "settings.messaging.feishuSessionPlaceholder",
+        consequenceKey: "settings.messaging.consequenceWebhookSession",
+      },
+    ],
   },
   {
     id: "teams",
@@ -2114,7 +2188,8 @@ export type MessagingGatewayChannel =
   | "googleChat"
   | "teams"
   | "whatsappCloud"
-  | "weixin";
+  | "weixin"
+  | "microsoftGraph";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -2154,6 +2229,8 @@ export type MessagingGatewaySnapshot = {
   whatsappCloud: boolean;
   /** The WeChat Official Account is served by it too. */
   weixin: boolean;
+  /** Microsoft Graph is served by it too. */
+  microsoftGraph: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -2189,6 +2266,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   teams: false,
   whatsappCloud: false,
   weixin: false,
+  microsoftGraph: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -2241,6 +2319,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   teams: "teams",
   whatsappCloud: "whatsappCloud",
   weixin: "weixin",
+  microsoftGraph: "microsoftGraph",
   webhooks: "webhookReceiver",
 };
 
@@ -2600,6 +2679,11 @@ export function missingFromRecord(
     if (trimmed(channel.destination) !== "" && !/^[0-9]+$/.test(trimmed(channel.destination))) {
       missing.push("destination");
     }
+    if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
+    if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
+  }
+  if (platform.id === "microsoftGraph") {
+    if (trimmed(channel.destination) === "") missing.push("destination");
     if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
     if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
   }

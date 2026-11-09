@@ -17,6 +17,7 @@ mod messaging_feishu;
 mod messaging_google_chat;
 mod messaging_line;
 mod messaging_mattermost;
+mod messaging_microsoft_graph;
 mod messaging_outbound;
 mod messaging_slack;
 mod messaging_sms;

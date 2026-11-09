@@ -600,6 +600,15 @@ type IngressAdapterCommon = {
    */
   readonly normalise: IngressNormalise;
   /**
+   * A projection that has to make a request first.
+   *
+   * Microsoft Graph notifies with a resource path and no text, so reading the
+   * message takes a second call and the projection cannot be synchronous. A
+   * platform that supplies this is projected through it; every other platform
+   * keeps `normalise`, and neither has to know about the other's shape.
+   */
+  readonly prepare?: (raw: unknown) => Promise<IngressNormalisation>;
+  /**
    * Read one request body into the value `normalise` projects.
    *
    * Absent means JSON, which is what most callbacks post. A platform whose body
