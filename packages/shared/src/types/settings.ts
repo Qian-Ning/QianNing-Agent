@@ -486,6 +486,7 @@ export type AppSettings = {
   messagingWecomGroup?: MessagingChannelSettings;
   messagingLine?: MessagingChannelSettings;
   messagingSms?: MessagingChannelSettings;
+  messagingGoogleChat?: MessagingChannelSettings;
   messagingMattermost?: MessagingChannelSettings;
   messagingMatrix?: MessagingChannelSettings;
   messagingIrc?: MessagingChannelSettings;

@@ -121,6 +121,7 @@ const GATEWAY_DOWN = {
   homeAssistant: false,
   ntfy: false,
   signal: false,
+  googleChat: false,
 };
 
 /**
@@ -177,6 +178,7 @@ const SUPPORTED_IDS = [
   "sms",
   "dingtalk",
   "feishu",
+  "googleChat",
   "wecomGroup",
   "wecomApp",
   "apiServer",
@@ -266,7 +268,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
     "simplex",
   ]);
   assert.deepEqual(byClass.publicCallback, [
-    "googleChat",
     "microsoftGraph",
     "teams",
   ]);
@@ -647,7 +648,7 @@ test("fields are grouped, and every field explains itself and its blank", () => 
         ["api-token"],
         "the local API's token is required, unlike ntfy's optional one",
       );
-    } else if (platform.id === "sms") {
+    } else if (platform.id === "sms" || platform.id === "googleChat") {
       assert.deepEqual(requiredWithoutSecrets, ["destination", "subject", "roles", "sessionId"]);
       assert.deepEqual(
         requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),

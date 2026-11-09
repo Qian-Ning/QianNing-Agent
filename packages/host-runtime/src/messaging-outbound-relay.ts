@@ -16,6 +16,9 @@ import {
   type HostRpcPort,
   FEISHU_FORMAT,
   LINE_FORMAT,
+  GOOGLE_CHAT_FORMAT,
+  GOOGLE_CHAT_FORMAT_VERSION,
+  GOOGLE_CHAT_SETTINGS_SECTION,
   SMS_FORMAT,
   SMS_FORMAT_VERSION,
   SMS_SETTINGS_SECTION,
@@ -177,6 +180,12 @@ export const MESSAGING_OUTBOUND_CHANNELS: readonly MessagingOutboundChannel[] = 
     section: LINE_SETTINGS_SECTION,
     format: LINE_FORMAT,
     version: LINE_FORMAT_VERSION,
+  },
+  {
+    channel: "googleChat",
+    section: GOOGLE_CHAT_SETTINGS_SECTION,
+    format: GOOGLE_CHAT_FORMAT,
+    version: GOOGLE_CHAT_FORMAT_VERSION,
   },
   {
     channel: "sms",
