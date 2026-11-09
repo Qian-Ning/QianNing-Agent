@@ -90,7 +90,8 @@ export type MessagingPlatformId =
   | "simplex"
   | "whatsappCloud"
   | "weixin"
-  | "microsoftGraph";
+  | "microsoftGraph"
+  | "qqBot";
 
 /** The one settings section key each channel's record lives under, inside `app`. */
 export type MessagingSectionKey =
@@ -106,6 +107,7 @@ export type MessagingSectionKey =
   | "messagingWhatsappCloud"
   | "messagingWeixin"
   | "messagingMicrosoftGraph"
+  | "messagingQqbot"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -173,7 +175,10 @@ export type MessagingSecretSlot = {
     | "graph-client-id"
     | "graph-client-secret"
     | "graph-client-state"
-    | "graph-public-url";
+    | "graph-public-url"
+    /* The QQ bot: its app id, and the secret that seeds the signing key. */
+    | "qq-app-id"
+    | "qq-app-secret";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -1157,6 +1162,23 @@ const wecomSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const qqbotSecrets: MessagingSecretSlot[] = [
+  {
+    id: "qq-app-id",
+    ref: "secret:messaging-qqbot:app-id",
+    labelKey: "settings.messaging.qqbotAppId",
+    hintKey: "settings.messaging.qqbotAppIdHint",
+    placeholderKey: "settings.messaging.qqbotAppIdPlaceholder",
+  },
+  {
+    id: "qq-app-secret",
+    ref: "secret:messaging-qqbot:app-secret",
+    labelKey: "settings.messaging.qqbotAppSecret",
+    hintKey: "settings.messaging.qqbotAppSecretHint",
+    placeholderKey: "settings.messaging.qqbotAppSecretPlaceholder",
+  },
+];
+
 const graphSecrets: MessagingSecretSlot[] = [
   {
     id: "graph-tenant-id",
@@ -1820,14 +1842,42 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "qqBot",
-    support: "unsupported",
+    support: "supported",
+    receive: "callback",
+    section: "messagingQqbot",
+    format: "pi-desktop-messaging-qqbot",
+    version: 1,
+    defaultEndpoint: "https://api.sgroup.qq.com",
     labelKey: "settings.messaging.platformQqBot",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "platformApproval",
-    requirementKey: "settings.messaging.needsPlatformApproval",
+    blurbKey: "settings.messaging.blurbQqBot",
+    noteKey: "settings.messaging.qqbotNote",
+    limitationKey: "settings.messaging.qqbotLimitations",
     guideUrl: "https://bot.q.qq.com/wiki/",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepQqbot1",
+      "settings.messaging.stepQqbot2",
+      "settings.messaging.stepQqbot3",
+      "settings.messaging.stepQqbot4",
+    ],
+    secrets: qqbotSecrets,
+    fields: [
+      ...channelFields({
+        secrets: qqbotSecrets,
+        destinationLabelKey: "settings.messaging.qqbotOpenId",
+        destinationHelpKey: "settings.messaging.qqbotOpenIdHelp",
+        destinationPlaceholderKey: "settings.messaging.qqbotOpenIdPlaceholder",
+        subjectPlaceholderKey: "settings.messaging.subjectPlaceholderQqbot",
+        endpointPlaceholderKey: "settings.messaging.endpointPlaceholderQqbot",
+      }),
+      {
+        id: "sessionId",
+        group: "required",
+        labelKey: "settings.messaging.feishuSession",
+        helpKey: "settings.messaging.feishuSessionHint",
+        placeholderKey: "settings.messaging.feishuSessionPlaceholder",
+        consequenceKey: "settings.messaging.consequenceWebhookSession",
+      },
+    ],
   },
   {
     id: "yuanbao",
@@ -2189,7 +2239,8 @@ export type MessagingGatewayChannel =
   | "teams"
   | "whatsappCloud"
   | "weixin"
-  | "microsoftGraph";
+  | "microsoftGraph"
+  | "qqBot";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -2231,6 +2282,8 @@ export type MessagingGatewaySnapshot = {
   weixin: boolean;
   /** Microsoft Graph is served by it too. */
   microsoftGraph: boolean;
+  /** The QQ bot is served by it too. */
+  qqBot: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -2267,6 +2320,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   whatsappCloud: false,
   weixin: false,
   microsoftGraph: false,
+  qqBot: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -2320,6 +2374,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   whatsappCloud: "whatsappCloud",
   weixin: "weixin",
   microsoftGraph: "microsoftGraph",
+  qqBot: "qqBot",
   webhooks: "webhookReceiver",
 };
 
@@ -2679,6 +2734,11 @@ export function missingFromRecord(
     if (trimmed(channel.destination) !== "" && !/^[0-9]+$/.test(trimmed(channel.destination))) {
       missing.push("destination");
     }
+    if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
+    if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
+  }
+  if (platform.id === "qqBot") {
+    if (trimmed(channel.destination) === "") missing.push("destination");
     if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
     if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
   }

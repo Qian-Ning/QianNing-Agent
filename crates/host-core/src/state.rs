@@ -191,6 +191,9 @@ impl AppState {
         {
             tracing::warn!(%error, "outbound microsoft graph channel is not available");
         }
+        if let Err(error) = crate::messaging_qqbot::register(&mut messaging, &db, &secrets) {
+            tracing::warn!(%error, "outbound qq bot channel is not available");
+        }
         if let Err(error) = messaging.connect_all() {
             tracing::warn!(%error, "an outbound channel failed to connect");
         }

@@ -129,7 +129,11 @@ export type IngressWebhookPlatform = {
    * it. Returning an answer here ends the request before the verifier runs; it
    * echoes a value the caller supplied and changes no state.
    */
-  validateRequest?: (url: URL, headers: IngressVerifierHeaders) => IngressHandshake | null;
+  validateRequest?: (
+    url: URL,
+    headers: IngressVerifierHeaders,
+    rawBody: Buffer,
+  ) => IngressHandshake | null | Promise<IngressHandshake | null>;
 };
 
 /** A reply body this receiver sends as-is. */
@@ -486,18 +490,6 @@ export class IngressWebhookReceiver {
       return;
     }
 
-    // A POST-shaped URL validation ends here: it carries no event, and the
-    // platform is waiting for its own token back, not for a verdict.
-    if (platform.validateRequest) {
-      const answer = platform.validateRequest(
-        new URL(req.url ?? "/", "http://localhost"),
-        lowercaseHeaders(req.headers),
-      );
-      if (answer) {
-        this.respondText(res, answer);
-        return;
-      }
-    }
 
     const read = await readBody(req, this.maxBodyBytes);
     if (!read.ok) {
@@ -511,6 +503,22 @@ export class IngressWebhookReceiver {
       // The body was never read, so the connection cannot be reused.
       res.once("finish", () => req.destroy());
       return;
+    }
+
+    // A POST-shaped URL validation ends here: it carries no event, and the
+    // platform is waiting for its own value back, not for a verdict. It runs on
+    // the verified-by-construction body because one of these platforms signs the
+    // challenge it sends.
+    if (platform.validateRequest) {
+      const answer = await platform.validateRequest(
+        new URL(req.url ?? "/", "http://localhost"),
+        lowercaseHeaders(req.headers),
+        read.body,
+      );
+      if (answer) {
+        this.respondText(res, answer);
+        return;
+      }
     }
 
     let verification: IngressVerification;

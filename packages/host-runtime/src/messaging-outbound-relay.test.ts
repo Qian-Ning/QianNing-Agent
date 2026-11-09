@@ -297,6 +297,7 @@ describe("the outbound messaging relay", () => {
       "whatsappCloud",
       "weixin",
       "microsoftGraph",
+      "qqBot",
       "sms",
       "wecom",
       "wecomGroup",
