@@ -292,6 +292,7 @@ describe("the outbound messaging relay", () => {
       "dingtalk",
       "feishu",
       "line",
+      "sms",
       "wecom",
       "wecomGroup",
       "mattermost",

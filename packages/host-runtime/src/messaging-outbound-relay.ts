@@ -16,6 +16,9 @@ import {
   type HostRpcPort,
   FEISHU_FORMAT,
   LINE_FORMAT,
+  SMS_FORMAT,
+  SMS_FORMAT_VERSION,
+  SMS_SETTINGS_SECTION,
   LINE_FORMAT_VERSION,
   LINE_SETTINGS_SECTION,
   WECOM_FORMAT,
@@ -174,6 +177,12 @@ export const MESSAGING_OUTBOUND_CHANNELS: readonly MessagingOutboundChannel[] = 
     section: LINE_SETTINGS_SECTION,
     format: LINE_FORMAT,
     version: LINE_FORMAT_VERSION,
+  },
+  {
+    channel: "sms",
+    section: SMS_SETTINGS_SECTION,
+    format: SMS_FORMAT,
+    version: SMS_FORMAT_VERSION,
   },
   {
     channel: "wecom",

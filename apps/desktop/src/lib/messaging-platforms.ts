@@ -98,6 +98,7 @@ export type MessagingSectionKey =
   | "messagingWecom"
   | "messagingWecomGroup"
   | "messagingLine"
+  | "messagingSms"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -141,7 +142,11 @@ export type MessagingSecretSlot = {
     | "webhook-key"
     /* LINE's pair: the signature secret and the send token. */
     | "channel-secret"
-    | "channel-token";
+    | "channel-token"
+    /* Twilio's three: the account pair and the sending number. */
+    | "account-sid"
+    | "auth-token"
+    | "from-number";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -1125,6 +1130,30 @@ const wecomSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const smsSecrets: MessagingSecretSlot[] = [
+  {
+    id: "account-sid",
+    ref: "secret:messaging-sms:account-sid",
+    labelKey: "settings.messaging.smsAccountSid",
+    hintKey: "settings.messaging.smsAccountSidHint",
+    placeholderKey: "settings.messaging.smsAccountSidPlaceholder",
+  },
+  {
+    id: "auth-token",
+    ref: "secret:messaging-sms:auth-token",
+    labelKey: "settings.messaging.smsAuthToken",
+    hintKey: "settings.messaging.smsAuthTokenHint",
+    placeholderKey: "settings.messaging.smsAuthTokenPlaceholder",
+  },
+  {
+    id: "from-number",
+    ref: "secret:messaging-sms:from-number",
+    labelKey: "settings.messaging.smsFromNumber",
+    hintKey: "settings.messaging.smsFromNumberHint",
+    placeholderKey: "settings.messaging.smsFromNumberPlaceholder",
+  },
+];
+
 const lineSecrets: MessagingSecretSlot[] = [
   {
     id: "channel-secret",
@@ -1385,14 +1414,42 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "sms",
-    support: "unsupported",
+    support: "supported",
+    receive: "callback",
+    section: "messagingSms",
+    format: "pi-desktop-messaging-sms",
+    version: 1,
+    defaultEndpoint: "https://api.twilio.com",
     labelKey: "settings.messaging.platformSms",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "publicCallback",
-    requirementKey: "settings.messaging.needsWebhook",
+    blurbKey: "settings.messaging.blurbSms",
+    noteKey: "settings.messaging.smsNote",
+    limitationKey: "settings.messaging.smsLimitations",
     guideUrl: "https://www.twilio.com/docs/messaging",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepSms1",
+      "settings.messaging.stepSms2",
+      "settings.messaging.stepSms3",
+      "settings.messaging.stepSms4",
+    ],
+    secrets: smsSecrets,
+    fields: [
+      ...channelFields({
+        secrets: smsSecrets,
+        destinationLabelKey: "settings.messaging.smsRecipient",
+        destinationHelpKey: "settings.messaging.smsRecipientHelp",
+        destinationPlaceholderKey: "settings.messaging.smsRecipientPlaceholder",
+        subjectPlaceholderKey: "settings.messaging.subjectPlaceholderSms",
+        endpointPlaceholderKey: "settings.messaging.endpointPlaceholderSms",
+      }),
+      {
+        id: "sessionId",
+        group: "required",
+        labelKey: "settings.messaging.feishuSession",
+        helpKey: "settings.messaging.feishuSessionHint",
+        placeholderKey: "settings.messaging.feishuSessionPlaceholder",
+        consequenceKey: "settings.messaging.consequenceWebhookSession",
+      },
+    ],
   },
   {
     id: "dingtalk",
@@ -1839,7 +1896,8 @@ export type MessagingGatewayChannel =
   /** Served by the shared receiver rather than a loop of its own. */
   | "feishu"
   | "wecom"
-  | "line";
+  | "line"
+  | "sms";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -1869,6 +1927,8 @@ export type MessagingGatewaySnapshot = {
   wecom: boolean;
   /** LINE is served by it too. */
   line: boolean;
+  /** SMS is served by it too. */
+  sms: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -1899,6 +1959,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   feishu: false,
   wecom: false,
   line: false,
+  sms: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -1946,6 +2007,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   feishu: "feishu",
   wecomApp: "wecom",
   line: "line",
+  sms: "sms",
   webhooks: "webhookReceiver",
 };
 
@@ -2294,6 +2356,11 @@ export function missingFromRecord(
     // no destination and no bound session, so neither can be missing.
     if (trimmed(channel.endpoint) === "") missing.push("endpoint");
     return missing;
+  }
+  if (platform.id === "sms") {
+    if (trimmed(channel.destination) === "") missing.push("destination");
+    if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
+    if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
   }
   if (platform.id === "line") {
     if (trimmed(channel.destination) === "") missing.push("destination");

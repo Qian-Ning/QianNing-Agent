@@ -139,6 +139,14 @@ import {
   FEISHU_FORMAT_VERSION,
   FEISHU_HANDLED_CAPACITY,
   FEISHU_SETTINGS_SECTION,
+  MESSAGING_SMS_PLATFORM,
+  SMS_ACCEPT_REPLY,
+  SMS_AUTH_TOKEN_SECRET_REF,
+  SMS_FORMAT,
+  SMS_FORMAT_VERSION,
+  SMS_SETTINGS_SECTION,
+  createSmsAdapter,
+  createSmsVerifier,
   MESSAGING_LINE_PLATFORM,
   LINE_ACCEPT_REPLY,
   LINE_CHANNEL_SECRET_REF,
@@ -2496,7 +2504,7 @@ export type MessagingWebhookReceiverWiringOptions = {
    * own: their inbound path is the receiver's, so their liveness is the
    * receiver's own mark rather than a second lifetime to keep in step.
    */
-  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line")[]) => void;
+  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line" | "sms")[]) => void;
   /** Test seam: a receiver factory in place of the one the wiring builds. */
   createReceiver?: (options: IngressWebhookReceiverOptions) => IngressWebhookReceiver;
 };
@@ -2561,6 +2569,63 @@ export type MessagingWebhookReceiverWiring = {
  * credentials, two directions — the secret authenticates what arrives, the
  * channel access token sends, and both live in the secret store.
  */
+/**
+ * The SMS callback entry, when this Host has one configured.
+ *
+ * Twilio posts a form-encoded body signed with HMAC-SHA1 over the request URL and
+ * every parameter, so the channel's credential is the auth token and its
+ * conversation is the sender's number — a reply goes back to whoever wrote.
+ */
+async function buildSmsCallbackPlatform(
+  options: MessagingWebhookReceiverWiringOptions,
+  ids: RandomIds,
+): Promise<IngressWebhookPlatform | null> {
+  let settings: unknown;
+  try {
+    settings = await options.settings.read();
+  } catch {
+    return null;
+  }
+  const section = readSection(settings, SMS_SETTINGS_SECTION);
+  if (!section) return null;
+  if (section.format !== SMS_FORMAT || section.version !== SMS_FORMAT_VERSION) return null;
+
+  const inbound = readInbound(section);
+  const sessionId =
+    typeof inbound?.sessionId === "string" && inbound.sessionId.trim() !== ""
+      ? inbound.sessionId.trim()
+      : null;
+  if (!sessionId) return null;
+
+  let token: string | null = null;
+  try {
+    token = await options.secrets(SMS_AUTH_TOKEN_SECRET_REF);
+  } catch {
+    token = null;
+  }
+  if (!token || token.trim() === "") {
+    options.onFailure?.("no Twilio auth token is stored");
+    return null;
+  }
+
+  return {
+    verifier: createSmsVerifier(token.trim()),
+    adapter: createSmsAdapter(),
+    onMessage: async (message) => {
+      await options.agentHost.startTurn(
+        { subject: "sms", roles: ["owner"] },
+        {
+          sessionId,
+          admission: "queue",
+          input: { text: message.text },
+          context: { requestId: ids.next("sms") },
+        },
+      );
+    },
+    reply: SMS_ACCEPT_REPLY,
+  };
+}
+
 async function buildLineCallbackPlatform(
   options: MessagingWebhookReceiverWiringOptions,
   ids: RandomIds,
@@ -2812,6 +2877,7 @@ export function createWebhookReceiverWiring(
       const feishu = await buildFeishuCallbackPlatform(options, ids);
       const wecom = await buildWecomCallbackPlatform(options, ids);
       const line = await buildLineCallbackPlatform(options, ids);
+      const sms = await buildSmsCallbackPlatform(options, ids);
       const built = create({
         platforms: {
           [pathSegment]: {
@@ -2822,6 +2888,7 @@ export function createWebhookReceiverWiring(
           ...(feishu ? { [MESSAGING_FEISHU_PLATFORM]: feishu.platform } : {}),
           ...(wecom ? { [MESSAGING_WECOM_PLATFORM]: wecom } : {}),
           ...(line ? { [MESSAGING_LINE_PLATFORM]: line } : {}),
+          ...(sms ? { [MESSAGING_SMS_PLATFORM]: sms } : {}),
         },
         handled: createSettingsHandledMessageStore({
           settings: options.settings,
@@ -2850,6 +2917,7 @@ export function createWebhookReceiverWiring(
         ...(feishu ? (["feishu"] as const) : []),
         ...(wecom ? (["wecom"] as const) : []),
         ...(line ? (["line"] as const) : []),
+        ...(sms ? (["sms"] as const) : []),
       ]);
       if (!options.signal.aborted) {
         await new Promise<void>((resolve) => {
