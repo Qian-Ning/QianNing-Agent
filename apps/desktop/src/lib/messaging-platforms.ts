@@ -88,7 +88,8 @@ export type MessagingPlatformId =
   | "raft"
   | "relay"
   | "simplex"
-  | "whatsappCloud";
+  | "whatsappCloud"
+  | "weixin";
 
 /** The one settings section key each channel's record lives under, inside `app`. */
 export type MessagingSectionKey =
@@ -102,6 +103,7 @@ export type MessagingSectionKey =
   | "messagingGoogleChat"
   | "messagingTeams"
   | "messagingWhatsappCloud"
+  | "messagingWeixin"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -159,7 +161,11 @@ export type MessagingSecretSlot = {
     /* WhatsApp Cloud: the app secret signs, the token sends, the token verifies the URL. */
     | "app-secret"
     | "access-token"
-    | "verify-token";
+    | "verify-token"
+    /* The WeChat Official Account: id, secret, and the token that signs. */
+    | "wechat-app-id"
+    | "wechat-app-secret"
+    | "wechat-token";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -1143,6 +1149,30 @@ const wecomSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const weixinSecrets: MessagingSecretSlot[] = [
+  {
+    id: "wechat-app-id",
+    ref: "secret:messaging-weixin:app-id",
+    labelKey: "settings.messaging.weixinAppId",
+    hintKey: "settings.messaging.weixinAppIdHint",
+    placeholderKey: "settings.messaging.weixinAppIdPlaceholder",
+  },
+  {
+    id: "wechat-app-secret",
+    ref: "secret:messaging-weixin:app-secret",
+    labelKey: "settings.messaging.weixinAppSecret",
+    hintKey: "settings.messaging.weixinAppSecretHint",
+    placeholderKey: "settings.messaging.weixinAppSecretPlaceholder",
+  },
+  {
+    id: "wechat-token",
+    ref: "secret:messaging-weixin:token",
+    labelKey: "settings.messaging.weixinToken",
+    hintKey: "settings.messaging.weixinTokenHint",
+    placeholderKey: "settings.messaging.weixinTokenPlaceholder",
+  },
+];
+
 const whatsappCloudSecrets: MessagingSecretSlot[] = [
   {
     id: "app-secret",
@@ -1705,14 +1735,42 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "weixin",
-    support: "unsupported",
+    support: "supported",
+    receive: "callback",
+    section: "messagingWeixin",
+    format: "pi-desktop-messaging-weixin",
+    version: 1,
+    defaultEndpoint: "https://api.weixin.qq.com",
     labelKey: "settings.messaging.platformWeixin",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "platformApproval",
-    requirementKey: "settings.messaging.needsPlatformApproval",
+    blurbKey: "settings.messaging.blurbWeixin",
+    noteKey: "settings.messaging.weixinNote",
+    limitationKey: "settings.messaging.weixinLimitations",
     guideUrl: "https://developers.weixin.qq.com/doc/offiaccount/Getting_Started/Overview.html",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepWeixin1",
+      "settings.messaging.stepWeixin2",
+      "settings.messaging.stepWeixin3",
+      "settings.messaging.stepWeixin4",
+    ],
+    secrets: weixinSecrets,
+    fields: [
+      ...channelFields({
+        secrets: weixinSecrets,
+        destinationLabelKey: "settings.messaging.weixinOpenId",
+        destinationHelpKey: "settings.messaging.weixinOpenIdHelp",
+        destinationPlaceholderKey: "settings.messaging.weixinOpenIdPlaceholder",
+        subjectPlaceholderKey: "settings.messaging.subjectPlaceholderWeixin",
+        endpointPlaceholderKey: "settings.messaging.endpointPlaceholderWeixin",
+      }),
+      {
+        id: "sessionId",
+        group: "required",
+        labelKey: "settings.messaging.feishuSession",
+        helpKey: "settings.messaging.feishuSessionHint",
+        placeholderKey: "settings.messaging.feishuSessionPlaceholder",
+        consequenceKey: "settings.messaging.consequenceWebhookSession",
+      },
+    ],
   },
   {
     id: "qqBot",
@@ -2055,7 +2113,8 @@ export type MessagingGatewayChannel =
   | "sms"
   | "googleChat"
   | "teams"
-  | "whatsappCloud";
+  | "whatsappCloud"
+  | "weixin";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -2093,6 +2152,8 @@ export type MessagingGatewaySnapshot = {
   teams: boolean;
   /** WhatsApp Cloud is served by it too. */
   whatsappCloud: boolean;
+  /** The WeChat Official Account is served by it too. */
+  weixin: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -2127,6 +2188,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   googleChat: false,
   teams: false,
   whatsappCloud: false,
+  weixin: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -2178,6 +2240,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   googleChat: "googleChat",
   teams: "teams",
   whatsappCloud: "whatsappCloud",
+  weixin: "weixin",
   webhooks: "webhookReceiver",
 };
 
@@ -2526,6 +2589,11 @@ export function missingFromRecord(
     // no destination and no bound session, so neither can be missing.
     if (trimmed(channel.endpoint) === "") missing.push("endpoint");
     return missing;
+  }
+  if (platform.id === "weixin") {
+    if (trimmed(channel.destination) === "") missing.push("destination");
+    if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
+    if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
   }
   if (platform.id === "whatsappCloud") {
     if (trimmed(channel.destination) === "") missing.push("destination");

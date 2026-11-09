@@ -139,6 +139,16 @@ import {
   FEISHU_FORMAT_VERSION,
   FEISHU_HANDLED_CAPACITY,
   FEISHU_SETTINGS_SECTION,
+  MESSAGING_WEIXIN_PLATFORM,
+  WEIXIN_ACCEPT_REPLY,
+  WEIXIN_APP_ID_SECRET_REF,
+  WEIXIN_FORMAT,
+  WEIXIN_FORMAT_VERSION,
+  WEIXIN_SETTINGS_SECTION,
+  WEIXIN_TOKEN_SECRET_REF,
+  createWeixinAdapter,
+  createWeixinHandshake,
+  createWeixinVerifier,
   MESSAGING_WHATSAPP_CLOUD_PLATFORM,
   WHATSAPP_CLOUD_VERIFY_TOKEN_SECRET_REF,
   WHATSAPP_CLOUD_ACCEPT_REPLY,
@@ -2530,7 +2540,7 @@ export type MessagingWebhookReceiverWiringOptions = {
    * own: their inbound path is the receiver's, so their liveness is the
    * receiver's own mark rather than a second lifetime to keep in step.
    */
-  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams" | "whatsappCloud")[]) => void;
+  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams" | "whatsappCloud" | "weixin")[]) => void;
   /** Test seam: a receiver factory in place of the one the wiring builds. */
   createReceiver?: (options: IngressWebhookReceiverOptions) => IngressWebhookReceiver;
 };
@@ -2782,6 +2792,67 @@ async function buildWhatsappCloudCallbackPlatform(
       );
     },
     reply: WHATSAPP_CLOUD_ACCEPT_REPLY,
+  };
+}
+
+/**
+ * The WeChat Official Account callback entry, when this Host has one configured.
+ *
+ * The signature covers only the query string, so the verifier needs the token
+ * and nothing else; the adapter needs the account id, because a body addressed
+ * to a different account is not a message for this Host. The app secret is the
+ * send side's, and lives in host-core.
+ */
+async function buildWeixinCallbackPlatform(
+  options: MessagingWebhookReceiverWiringOptions,
+  ids: RandomIds,
+): Promise<IngressWebhookPlatform | null> {
+  let settings: unknown;
+  try {
+    settings = await options.settings.read();
+  } catch {
+    return null;
+  }
+  const section = readSection(settings, WEIXIN_SETTINGS_SECTION);
+  if (!section) return null;
+  if (section.format !== WEIXIN_FORMAT || section.version !== WEIXIN_FORMAT_VERSION) return null;
+
+  const inbound = readInbound(section);
+  const sessionId =
+    typeof inbound?.sessionId === "string" && inbound.sessionId.trim() !== ""
+      ? inbound.sessionId.trim()
+      : null;
+  if (!sessionId) return null;
+
+  let token: string | null = null;
+  let accountId: string | null = null;
+  try {
+    token = await options.secrets(WEIXIN_TOKEN_SECRET_REF);
+    accountId = await options.secrets(WEIXIN_APP_ID_SECRET_REF);
+  } catch {
+    return null;
+  }
+  if (!token || token.trim() === "") {
+    options.onFailure?.("no WeChat token is stored");
+    return null;
+  }
+
+  return {
+    verifier: createWeixinVerifier({ token: token.trim() }),
+    adapter: createWeixinAdapter({ accountId: (accountId ?? "").trim() }),
+    handshake: createWeixinHandshake({ token: token.trim() }),
+    onMessage: async (message) => {
+      await options.agentHost.startTurn(
+        { subject: "weixin", roles: ["owner"] },
+        {
+          sessionId,
+          admission: "queue",
+          input: { text: message.text },
+          context: { requestId: ids.next("weixin") },
+        },
+      );
+    },
+    reply: WEIXIN_ACCEPT_REPLY,
   };
 }
 
@@ -3090,6 +3161,7 @@ export function createWebhookReceiverWiring(
       const googleChat = await buildGoogleChatCallbackPlatform(options, ids);
       const teams = await buildTeamsCallbackPlatform(options, ids);
       const whatsappCloud = await buildWhatsappCloudCallbackPlatform(options, ids);
+      const weixin = await buildWeixinCallbackPlatform(options, ids);
       const built = create({
         platforms: {
           [pathSegment]: {
@@ -3104,6 +3176,7 @@ export function createWebhookReceiverWiring(
           ...(googleChat ? { [MESSAGING_GOOGLE_CHAT_PLATFORM]: googleChat } : {}),
           ...(teams ? { [MESSAGING_TEAMS_PLATFORM]: teams } : {}),
           ...(whatsappCloud ? { [MESSAGING_WHATSAPP_CLOUD_PLATFORM]: whatsappCloud } : {}),
+          ...(weixin ? { [MESSAGING_WEIXIN_PLATFORM]: weixin } : {}),
         },
         handled: createSettingsHandledMessageStore({
           settings: options.settings,
@@ -3136,6 +3209,7 @@ export function createWebhookReceiverWiring(
         ...(googleChat ? (["googleChat"] as const) : []),
         ...(teams ? (["teams"] as const) : []),
         ...(whatsappCloud ? (["whatsappCloud"] as const) : []),
+        ...(weixin ? (["weixin"] as const) : []),
       ]);
       if (!options.signal.aborted) {
         await new Promise<void>((resolve) => {

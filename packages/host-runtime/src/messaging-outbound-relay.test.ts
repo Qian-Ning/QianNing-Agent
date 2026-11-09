@@ -295,6 +295,7 @@ describe("the outbound messaging relay", () => {
       "googleChat",
       "teams",
       "whatsappCloud",
+      "weixin",
       "sms",
       "wecom",
       "wecomGroup",

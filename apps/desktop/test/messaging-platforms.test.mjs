@@ -124,6 +124,7 @@ const GATEWAY_DOWN = {
   googleChat: false,
   teams: false,
   whatsappCloud: false,
+  weixin: false,
 };
 
 /**
@@ -183,6 +184,7 @@ const SUPPORTED_IDS = [
   "googleChat",
   "wecomGroup",
   "wecomApp",
+  "weixin",
   "apiServer",
   "webhooks",
   "irc",
@@ -284,7 +286,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   // protocols still lacking a local endpoint.
   assert.deepEqual(byClass.transport, ["a2a", "relay"]);
   assert.deepEqual(byClass.platformApproval, [
-    "weixin",
     "qqBot",
     "yuanbao",
   ]);
@@ -654,7 +655,8 @@ test("fields are grouped, and every field explains itself and its blank", () => 
       platform.id === "sms" ||
       platform.id === "googleChat" ||
       platform.id === "teams" ||
-      platform.id === "whatsappCloud"
+      platform.id === "whatsappCloud" ||
+      platform.id === "weixin"
     ) {
       assert.deepEqual(requiredWithoutSecrets, ["destination", "subject", "roles", "sessionId"]);
       assert.deepEqual(
