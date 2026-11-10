@@ -197,6 +197,9 @@ impl AppState {
         if let Err(error) = crate::messaging_bluebubbles::register(&mut messaging, &db, &secrets) {
             tracing::warn!(%error, "outbound bluebubbles channel is not available");
         }
+        if let Err(error) = crate::messaging_simplex::register(&mut messaging, &db, &secrets) {
+            tracing::warn!(%error, "outbound simplex channel is not available");
+        }
         if let Err(error) = messaging.connect_all() {
             tracing::warn!(%error, "an outbound channel failed to connect");
         }

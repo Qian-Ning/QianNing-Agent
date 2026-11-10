@@ -191,6 +191,15 @@ export const MESSAGING_INBOUND_START_GATES: Record<MessagingGatewayChannel, Mess
     fields: ["endpoint", "destination"],
     secrets: [MESSAGING_MATRIX_ACCESS_TOKEN_SECRET_REF],
   },
+  // SimpleX is a socket to the user's own daemon: no credential exists, and the
+  // record's endpoint and chat are the whole gate.
+  simplex: {
+    section: "messagingSimplex",
+    format: "pi-desktop-messaging-simplex",
+    version: 1,
+    fields: ["endpoint", "destination"],
+    secrets: [],
+  },
   irc: {
     section: MESSAGING_IRC_SECTION,
     format: MESSAGING_IRC_FORMAT,

@@ -40,6 +40,7 @@ export type MessagingGatewayChannel =
   | "email"
   | "signal"
   | "apiServer"
+  | "simplex"
   | "webhookReceiver";
 
 /** The answer the renderer reads. */
@@ -84,6 +85,8 @@ export type MessagingGatewaySnapshot = {
   qqBot: boolean;
   /** BlueBubbles runs on the same receiver, on the same terms. */
   blueBubbles: boolean;
+  /** SimpleX runs its own socket loop, not on the receiver. */
+  simplex: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — most often a port already taken. `null` for
@@ -153,7 +156,8 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
   | "weixin"
   | "microsoftGraph"
   | "qqBot"
-  | "blueBubbles">();
+  | "blueBubbles"
+  | "simplex">();
 
   /** Record that host-core and the Agent Host came up. Idempotent. */
   markBooted(): void {
@@ -211,7 +215,8 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
   | "weixin"
   | "microsoftGraph"
   | "qqBot"
-  | "blueBubbles")[]): void {
+  | "blueBubbles"
+  | "simplex")[]): void {
     this.callbackPlatforms.clear();
     for (const channel of channels) this.callbackPlatforms.add(channel);
   }
@@ -251,6 +256,7 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
       qqBot: this.callbackPlatforms.has("qqBot") && this.running.has("webhookReceiver"),
       blueBubbles:
         this.callbackPlatforms.has("blueBubbles") && this.running.has("webhookReceiver"),
+      simplex: this.running.has("simplex"),
       apiServerError: this.failures.get("apiServer") ?? null,
       webhookReceiverError: this.failures.get("webhookReceiver") ?? null,
     };
