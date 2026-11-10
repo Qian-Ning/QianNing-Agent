@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "2.3.1",
+    date: "2026-11-10",
+    highlights: [
+      "Zwei weitere Kanäle: BlueBubbles für iMessage über einen Mac und SimpleX über den Daemon, den du betreibst — beide empfangen und senden.",
+      "BlueBubbles ist die Brücke, die iMessage-Clients ohnehin nutzen: der Server läuft auf einem in Nachrichten angemeldeten Mac, und dieses Host ist sein Client. Eine Antwort wird als Echo der Brücke erkannt und nie als Befehl zurückgelesen.",
+      "SimpleX ist der erste Kanal, der in beiden Richtungen nur über einen WebSocket spricht: der Daemon besitzt die Identität, also gibt es keine öffentliche URL und keine Zugangsdatei zu speichern.",
+      "Das Messaging-Kapitel der Einstellungs-Spezifikation sagt jetzt, was ausgeliefert ist — 25 Kanäle, die Signaturverfahren des gemeinsamen Empfängers und die bedingten Sendungen (WeChats 48 Stunden, QQs Monatsgrenze, WhatsApps Erst-schreiben-Regel, Graphs erneuerbare Stunde).",
+    ],
+  },
+  {
     version: "2.3.0",
     date: "2026-11-10",
     highlights: [

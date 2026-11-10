@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.3.1",
+    date: "2026-11-10",
+    highlights: [
+      "İki kanal daha: Mac üzerinden iMessage için BlueBubbles ve kendi çalıştırdığınız servis üzerinden SimpleX — hem alıyor hem gönderiyor.",
+      "BlueBubbles, iMessage istemcilerinin zaten kullandığı köprüdür: sunucu Mesajlar'a giriş yapmış bir Mac'te çalışır ve bu makine onun istemcisidir. Bir yanıt köprünün kendi yankısı olarak tanınır ve komut olarak geri okunmaz.",
+      "SimpleX, iki yönde de yalnızca WebSocket konuşan ilk kanaldır: kimlik servise ait olduğu için genel URL ve saklanacak kimlik bilgisi yoktur.",
+      "Ayarlar şartnamesinin mesajlaşma bölümü artık neyin çıktığını söylüyor: 25 kanal, ortak alıcının imza şemaları ve koşullu gönderimler (WeChat'in 48 saati, QQ'nun aylık kotası, WhatsApp'ın önce-yaz kuralı, Graph'ın yenilenen saati).",
+    ],
+  },
+  {
     version: "2.3.0",
     date: "2026-11-10",
     highlights: [

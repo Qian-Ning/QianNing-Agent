@@ -30,6 +30,16 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.3.1",
+    date: "2026-11-10",
+    highlights: [
+      "Two more channels: BlueBubbles for iMessage through a Mac, and SimpleX through the daemon you run — both receive and send.",
+      "BlueBubbles is the bridge iMessage clients already use: the server runs on a Mac signed into Messages, and this Host is its client. A reply is recognised as the bridge's own echo and never read back as a command.",
+      "SimpleX is the first channel that speaks only over a WebSocket, in both directions: the daemon owns the identity, so there is no public URL and no credential to store.",
+      "The messaging chapter of the settings spec now states what shipped — 25 channels, the shared receiver's signature schemes, and the conditional sends (WeChat's 48 hours, QQ's monthly cap, WhatsApp's write-first rule, Graph's renewable hour).",
+    ],
+  },
+  {
     version: "2.3.0",
     date: "2026-11-10",
     highlights: [
@@ -1176,6 +1186,16 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.3.1",
+    date: "2026-11-10",
+    highlights: [
+      "又两个通道：Mac 上的 iMessage 走 BlueBubbles，SimpleX 走你自己跑的守护进程——收发都做完了。",
+      "BlueBubbles 就是 iMessage 客户端一直在用的那座桥：服务端跑在登录了「信息」的 Mac 上，这台机器是它的客户端。回复会被识别成桥自己的回声，不会被读回来当成命令。",
+      "SimpleX 是第一个收发都只走 WebSocket 的通道：身份归守护进程所有，所以没有公网地址，也没有要存的凭据。",
+      "设置页规格文档的消息章节已经追上现实——25 个通道、共享接收器里每个平台的签名方案、以及那些条件式发送（微信 48 小时、QQ 每月配额、WhatsApp 需对方先发、Graph 一小时自续期）。",
+    ],
+  },
+  {
     version: "2.3.0",
     date: "2026-11-10",
     highlights: [
@@ -2321,6 +2341,16 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.3.1",
+    date: "2026-11-10",
+    highlights: [
+      "又兩個通道：Mac 上的 iMessage 走 BlueBubbles，SimpleX 走你自己跑的守護程序——收發都做完了。",
+      "BlueBubbles 就是 iMessage 用戶端一直在用的那座橋：伺服器跑在登入了「訊息」的 Mac 上，這台機器是它的用戶端。回覆會被識別成橋自己的回聲，不會被讀回來當成指令。",
+      "SimpleX 是第一個收發都只走 WebSocket 的通道：身分歸守護程序所有，所以沒有公開位址，也沒有要存的憑證。",
+      "設定頁規格文件的消息章節已經追上現實——25 個通道、共用接收器裡每個平台的簽章方案、以及那些條件式傳送（微信 48 小時、QQ 每月配額、WhatsApp 需對方先傳、Graph 一小時自續期）。",
+    ],
+  },
   {
     version: "2.3.0",
     date: "2026-11-10",
