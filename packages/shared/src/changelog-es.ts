@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "2.3.0",
+    date: "2026-11-10",
+    highlights: [
+      "Diez canales nuevos — Feishu, apps de WeCom, LINE, SMS de Twilio, Google Chat, Microsoft Teams, WhatsApp Cloud, cuentas oficiales de WeChat, bots de QQ y Microsoft Graph — recibiendo y enviando.",
+      "Un receptor de llamadas compartido los sostiene todos: una plataforma aporta solo su comprobación de firma y su proyección, así que la ventana de repetición, la deduplicación duradera y el límite de cuerpo se escriben una vez en lugar de diez.",
+      "La suscripción de Microsoft Graph se renueva sola: vive una hora, se extiende a los cuatro quintos y se recrea cuando la plataforma dice que ya no está.",
+      "Cada nombre de la lista de plataformas dice ahora lo que realmente hace: los canales que funcionan se pueden configurar, y los que no, indican qué falta.",
+    ],
+  },
+  {
     version: "2.2.9",
     date: "2026-11-08",
     highlights: [

@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.3.0",
+    date: "2026-11-10",
+    highlights: [
+      "On yeni kanal — Feishu, WeCom uygulamaları, LINE, Twilio SMS, Google Chat, Microsoft Teams, WhatsApp Cloud, WeChat resmî hesapları, QQ botları ve Microsoft Graph — hem alıyor hem gönderiyor.",
+      "Bunların hepsini tek bir ortak geri çağrı alıcısı taşır: platform yalnızca imza kontrolünü ve projeksiyonunu verir, böylece yeniden oynatma penceresi, kalıcı tekilleştirme ve gövde sınırı on kez değil bir kez yazılır.",
+      "Microsoft Graph aboneliği kendini yeniler — bir saat yaşar, bu yüzden beşte dördünde uzatılır ve platform yok olduğunu söylerse yeniden oluşturulur.",
+      "Platform listesindeki her ad artık gerçekte ne yaptığını söylüyor: çalışan kanallar yapılandırılabiliyor, çalışmayanlar neyin eksik olduğunu yazıyor.",
+    ],
+  },
+  {
     version: "2.2.9",
     date: "2026-11-08",
     highlights: [

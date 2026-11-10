@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "2.3.0",
+    date: "2026-11-10",
+    highlights: [
+      "Zehn neue Kanäle — Feishu, WeCom-Apps, LINE, Twilio-SMS, Google Chat, Microsoft Teams, WhatsApp Cloud, WeChat-Official-Accounts, QQ-Bots und Microsoft Graph — jeweils empfangen und senden.",
+      "Ein gemeinsamer Rückruf-Empfänger trägt alle: eine Plattform liefert nur ihre Signaturprüfung und ihre Projektion, sodass Replay-Fenster, dauerhafte Deduplizierung und Body-Limit einmal statt zehnmal geschrieben sind.",
+      "Das Microsoft-Graph-Abonnement erneuert sich selbst — es lebt eine Stunde, wird also bei vier Fünfteln verlängert und neu angelegt, wenn die Plattform es als weg meldet.",
+      "Jeder Name in der Plattformliste sagt jetzt, was er wirklich tut: die funktionierenden Kanäle lassen sich einrichten, die anderen nennen, was fehlt.",
+    ],
+  },
+  {
     version: "2.2.9",
     date: "2026-11-08",
     highlights: [
