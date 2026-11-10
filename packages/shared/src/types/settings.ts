@@ -493,6 +493,7 @@ export type AppSettings = {
   messagingMicrosoftGraph?: MessagingChannelSettings;
   messagingQqbot?: MessagingChannelSettings;
   messagingBluebubbles?: MessagingChannelSettings;
+  messagingSimplex?: MessagingChannelSettings;
   messagingMattermost?: MessagingChannelSettings;
   messagingMatrix?: MessagingChannelSettings;
   messagingIrc?: MessagingChannelSettings;

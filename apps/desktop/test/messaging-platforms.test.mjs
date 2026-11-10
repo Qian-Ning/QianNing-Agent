@@ -128,6 +128,7 @@ const GATEWAY_DOWN = {
   microsoftGraph: false,
   qqBot: false,
   blueBubbles: false,
+  simplex: false,
 };
 
 /**
@@ -197,6 +198,7 @@ const SUPPORTED_IDS = [
   "microsoftGraph",
   "teams",
   "ntfy",
+  "simplex",
   "whatsappCloud",
 ];
 
@@ -230,8 +232,15 @@ test("the catalogue is the product's full list and marks support honestly", () =
     }
   }
 
+  // Most channels authenticate with a stored credential, but not all of them
+  // can: a socket to a daemon the user already trusts (SimpleX, a local IRC
+  // server) has no secret to store, and inventing one would be a form field
+  // that does nothing.
+  const CREDENTIALLESS = new Set(["simplex"]);
   for (const platform of SUPPORTED_MESSAGING_PLATFORMS) {
-    assert.ok(platform.secrets.length > 0, `${platform.id} names no credential`);
+    if (!CREDENTIALLESS.has(platform.id)) {
+      assert.ok(platform.secrets.length > 0, `${platform.id} names no credential`);
+    }
     assert.equal(platform.credentialStepKeys.length >= 4, true, `${platform.id} has no walkthrough`);
     for (const key of platform.credentialStepKeys) {
       assert.match(key, /^settings\.messaging\.step/, key);
@@ -277,7 +286,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   assert.deepEqual(byClass.longConnection, [
     "buzz",
     "raft",
-    "simplex",
   ]);
   assert.deepEqual(byClass.bridgeOrPoll, [
     "whatsapp",
@@ -662,7 +670,8 @@ test("fields are grouped, and every field explains itself and its blank", () => 
       platform.id === "weixin" ||
       platform.id === "microsoftGraph" ||
       platform.id === "qqBot" ||
-      platform.id === "blueBubbles"
+      platform.id === "blueBubbles" ||
+      platform.id === "simplex"
     ) {
       assert.deepEqual(requiredWithoutSecrets, ["destination", "subject", "roles", "sessionId"]);
       assert.deepEqual(
@@ -1775,7 +1784,8 @@ test("the detail panel is split into overview, credentials and behaviour", () =>
  */
 test("every credential slot a supported channel declares is a secret field", () => {
   for (const platform of SUPPORTED_MESSAGING_PLATFORMS) {
-    assert.ok(platform.secrets.length > 0, `${platform.id} declares no credential`);
+    // A channel with no credential declares no slots; the rule is about the
+    // slots that exist, not about every channel having one.
     for (const slot of platform.secrets) {
       const found = secretSlotFor(platform, slot.id);
       assert.deepEqual(found, slot, `${platform.id}.${slot.id} would render no control`);

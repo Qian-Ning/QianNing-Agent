@@ -92,7 +92,8 @@ export type MessagingPlatformId =
   | "weixin"
   | "microsoftGraph"
   | "qqBot"
-  | "blueBubbles";
+  | "blueBubbles"
+  | "simplex";
 
 /** The one settings section key each channel's record lives under, inside `app`. */
 export type MessagingSectionKey =
@@ -110,6 +111,7 @@ export type MessagingSectionKey =
   | "messagingMicrosoftGraph"
   | "messagingQqbot"
   | "messagingBluebubbles"
+  | "messagingSimplex"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -2192,14 +2194,42 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "simplex",
-    support: "unsupported",
+    support: "supported",
+    receive: "loop",
+    section: "messagingSimplex",
+    format: "pi-desktop-messaging-simplex",
+    version: 1,
+    defaultEndpoint: "ws://127.0.0.1:5225",
     labelKey: "settings.messaging.platformSimplex",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "longConnection",
-    requirementKey: "settings.messaging.needsSocket",
+    blurbKey: "settings.messaging.blurbSimplex",
+    noteKey: "settings.messaging.simplexNote",
+    limitationKey: "settings.messaging.simplexLimitations",
     guideUrl: "https://simplex.chat/docs/",
-    credentialStepKeys: [],
+    credentialStepKeys: [
+      "settings.messaging.stepSimplex1",
+      "settings.messaging.stepSimplex2",
+      "settings.messaging.stepSimplex3",
+      "settings.messaging.stepSimplex4",
+    ],
     secrets: [],
+    fields: [
+      ...channelFields({
+        secrets: [],
+        destinationLabelKey: "settings.messaging.simplexChat",
+        destinationHelpKey: "settings.messaging.simplexChatHelp",
+        destinationPlaceholderKey: "settings.messaging.simplexChatPlaceholder",
+        subjectPlaceholderKey: "settings.messaging.subjectPlaceholderSimplex",
+        endpointPlaceholderKey: "settings.messaging.endpointPlaceholderSimplex",
+      }),
+      {
+        id: "sessionId",
+        group: "required",
+        labelKey: "settings.messaging.feishuSession",
+        helpKey: "settings.messaging.feishuSessionHint",
+        placeholderKey: "settings.messaging.feishuSessionPlaceholder",
+        consequenceKey: "settings.messaging.consequenceWebhookSession",
+      },
+    ],
   },
   {
     id: "whatsappCloud",
@@ -2283,7 +2313,8 @@ export type MessagingGatewayChannel =
   | "weixin"
   | "microsoftGraph"
   | "qqBot"
-  | "blueBubbles";
+  | "blueBubbles"
+  | "simplex";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -2329,6 +2360,8 @@ export type MessagingGatewaySnapshot = {
   qqBot: boolean;
   /** BlueBubbles is served by it too. */
   blueBubbles: boolean;
+  /** SimpleX runs its own loop, not on the receiver. */
+  simplex: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -2367,6 +2400,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   microsoftGraph: false,
   qqBot: false,
   blueBubbles: false,
+  simplex: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -2422,6 +2456,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   microsoftGraph: "microsoftGraph",
   qqBot: "qqBot",
   blueBubbles: "blueBubbles",
+  simplex: "simplex",
   webhooks: "webhookReceiver",
 };
 
@@ -2781,6 +2816,12 @@ export function missingFromRecord(
     if (trimmed(channel.destination) !== "" && !/^[0-9]+$/.test(trimmed(channel.destination))) {
       missing.push("destination");
     }
+    if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
+    if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
+  }
+  if (platform.id === "simplex") {
+    if (trimmed(channel.destination) === "") missing.push("destination");
+    if (trimmed(channel.endpoint) === "") missing.push("endpoint");
     if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
     if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
   }

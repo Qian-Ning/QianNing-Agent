@@ -139,6 +139,13 @@ import {
   FEISHU_FORMAT_VERSION,
   FEISHU_HANDLED_CAPACITY,
   FEISHU_SETTINGS_SECTION,
+  MESSAGING_SIMPLEX_PLATFORM,
+  SIMPLEX_FORMAT,
+  SIMPLEX_FORMAT_VERSION,
+  SIMPLEX_SETTINGS_SECTION,
+  SimplexClient,
+  createSimplexAdapter,
+  createSimplexSocketFactory,
   MESSAGING_BLUEBUBBLES_PLATFORM,
   BLUEBUBBLES_ACCEPT_REPLY,
   BLUEBUBBLES_FORMAT,
@@ -1167,6 +1174,97 @@ export function createDiscordInboundWiring(options: MessagingDiscordWiringOption
     ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
     transport: options.transport ?? createConfiguredDiscordTransport(options),
     failureLabel: "inbound discord loop failed",
+  });
+}
+
+/** The channel record a SimpleX loop reads its link from. */
+const SIMPLEX_INBOUND_CHANNEL = {
+  platform: MESSAGING_SIMPLEX_PLATFORM,
+  section: SIMPLEX_SETTINGS_SECTION,
+  format: SIMPLEX_FORMAT,
+  version: SIMPLEX_FORMAT_VERSION,
+} as const;
+
+export type MessagingSimplexWiringOptions = {
+  agentHost: MessagingInboundHostSurface;
+  settings: HostSettingsSurface;
+  secrets: HostSecretReader;
+  signal: AbortSignal;
+  log?: MessagingInboundWiringLog;
+  /** Test seam: the socket factory, in place of the `ws`-backed one. */
+  connect?: IngressSocketFactory;
+  /** Test seam: how the reconnect loop waits. */
+  wait?: (ms: number) => Promise<void>;
+  /** Test seam: a push transport in place of the one built from the settings. */
+  transport?: MessagingInboundPushTransport;
+};
+
+/**
+ * The SimpleX transport: one socket to the daemon, reopened when it drops.
+ *
+ * The daemon is the user's own process, so the only configuration is its
+ * address. Nothing is bound and no credential exists: the socket is local, and
+ * the daemon owns the identity.
+ */
+function createConfiguredSimplexTransport(
+  options: MessagingSimplexWiringOptions,
+): MessagingInboundPushTransport {
+  return {
+    async start(onMessage, signal: AbortSignal): Promise<void> {
+      let settings: unknown;
+      try {
+        settings = await options.settings.read();
+      } catch {
+        return;
+      }
+      const record = readTransportRecord(settings, SIMPLEX_SETTINGS_SECTION);
+      const endpoint = record.endpoint?.trim() ?? "";
+      if (endpoint === "") return;
+      const factory = options.connect ?? (await createSimplexSocketFactory());
+      const wait = options.wait ?? ((ms: number) => waitOrAbort(ms, signal));
+      let delay = 2_000;
+      while (!signal.aborted) {
+        const adapter = createSimplexAdapter({
+          openClient: (deliver) => {
+            const client = new SimplexClient({
+              open: () => factory(endpoint),
+              onMessage: deliver,
+            });
+            return client;
+          },
+        });
+        const client = adapter.openClient(onMessage);
+        try {
+          await client.connect();
+          delay = 2_000;
+        } catch (error) {
+          options.log?.("warn", "inbound simplex connect failed", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+          await wait(delay);
+          delay = Math.min(delay * 2, 60_000);
+          continue;
+        }
+        await client.waitForClose(signal);
+        if (signal.aborted) return;
+        await wait(delay);
+        delay = Math.min(delay * 2, 60_000);
+      }
+    },
+  };
+}
+
+export function createSimplexInboundWiring(
+  options: MessagingSimplexWiringOptions,
+): MessagingInboundWiring {
+  return createIngressWiring({
+    agentHost: options.agentHost,
+    settings: options.settings,
+    signal: options.signal,
+    ...(options.log ? { log: options.log } : {}),
+    channel: SIMPLEX_INBOUND_CHANNEL,
+    transport: options.transport ?? createConfiguredSimplexTransport(options),
+    failureLabel: "inbound simplex loop failed",
   });
 }
 
