@@ -740,3 +740,41 @@ async fn an_edit_posts_to_the_edit_method_with_the_message_it_rewrites() {
         "the edit carries the text that would otherwise been sent"
     );
 }
+
+/// One send against the real Bot API, when this machine is pointed at it.
+///
+/// Ignored by default and skipped without its two variables: CI has no token, and
+/// the fixture tests above already prove the shape. What this proves is the other
+/// half — that the adapter `register` builds speaks to the platform, that the
+/// token lands where Telegram expects it, and that a body carrying non-ASCII text
+/// arrives intact. `HTTPS_PROXY` is honoured by the client's system-proxy
+/// default, which is how it reaches the API from a network that needs one.
+#[tokio::test]
+#[ignore = "live: needs QN_TELEGRAM_LIVE_TOKEN and QN_TELEGRAM_LIVE_CHAT"]
+async fn a_live_send_reaches_the_chat_the_record_names() {
+    let Ok(token) = std::env::var("QN_TELEGRAM_LIVE_TOKEN") else {
+        eprintln!("no QN_TELEGRAM_LIVE_TOKEN; nothing to send");
+        return;
+    };
+    let Ok(chat) = std::env::var("QN_TELEGRAM_LIVE_CHAT") else {
+        eprintln!("no QN_TELEGRAM_LIVE_CHAT; nowhere to send");
+        return;
+    };
+
+    let adapter = Arc::new(
+        configured_adapter(
+            &record("https://api.telegram.org", &chat, Some(20_000)),
+            &token,
+            false,
+        )
+        .expect("adapter"),
+    );
+
+    match deliver(&adapter, summary()).await {
+        SendResult::Delivered { remote_id } => {
+            let remote_id = remote_id.expect("the platform names the message it created");
+            eprintln!("delivered as message {remote_id} to chat {chat}");
+        }
+        other => panic!("the live send failed: {other:?}"),
+    }
+}

@@ -873,6 +873,14 @@ system while preserving their different data ownership:
   in the request path; the answer is projected onto ids and usernames, never a
   response body and never the token. Quick setup writes nothing — it fills the
   form, and Save stays the only writer.
+- Telegram is the channel checked against the live platform rather than against
+  fixtures alone. One long poll from an empty cursor returned both updates that
+  had been sent to the bot, advanced the cursor past the highest update id, and
+  produced a replay key that was identical when the same update was projected
+  twice; one send through the adapter the host registers created a message the
+  API named, with non-ASCII text intact. The live send lives in
+  `crates/host-core/src/messaging_telegram/tests.rs` behind `#[ignore]` and reads
+  its token and chat from the environment, so CI runs the fixture half only.
 - The enable toggle and the save action sit together at the bottom of the panel.
   Turning the toggle off and saving clears the channel's settings section; the
   host then reads no section, registers nothing and polls nothing. Credentials
