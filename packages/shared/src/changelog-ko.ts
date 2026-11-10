@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
   {
+    version: "2.3.1",
+    date: "2026-11-10",
+    highlights: [
+      "채널 두 개 추가: Mac을 통한 iMessage는 BlueBubbles, 직접 실행하는 데몬은 SimpleX — 수신과 발신을 모두 지원합니다.",
+      "BlueBubbles는 iMessage 클라이언트가 이미 쓰는 브리지입니다. 서버는 메시지에 로그인된 Mac에서 돌고, 이 호스트는 그 클라이언트입니다. 답변은 브리지의 에코로 인식되어 명령으로 다시 읽히지 않습니다.",
+      "SimpleX는 양방향 모두 WebSocket만 사용하는 첫 채널입니다. 데몬이 신원을 소유하므로 공개 URL도, 저장할 자격 증명도 없습니다.",
+      "설정 명세의 메시징 장이 이제 실제로 출시된 것을 말합니다. 25개 채널, 공용 수신기의 서명 방식, 그리고 조건부 발신(WeChat 48시간, QQ 월 한도, WhatsApp의 먼저 쓰기 규칙, Graph의 갱신되는 한 시간).",
+    ],
+  },
+  {
     version: "2.3.0",
     date: "2026-11-10",
     highlights: [
