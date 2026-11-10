@@ -519,7 +519,7 @@
 
 .settings-config-sync-message.error,
 .settings-config-sync-error {
-  color: var(--ds-danger);
+  color: var(--ds-error);
 }
 
 .settings-config-sync-refresh {
@@ -890,10 +890,25 @@
   }
 }
 
+/* The open platform is the answer to "where am I", so it is not a slightly
+   warmer card: an accent edge runs down its left side, the name takes the
+   accent, and the card sits forward of its neighbours. Scanning the rail tells
+   you which platform the pane on the right belongs to without reading. */
 .settings-messaging-item.active {
-  border-color: color-mix(in oklab, var(--ds-accent) 45%, var(--ds-border-subtle));
-  background: color-mix(in oklab, var(--ds-accent) 10%, var(--ds-bg-elevated));
-  box-shadow: 0 3px 12px color-mix(in oklab, var(--ds-accent) 10%, transparent);
+  border-color: color-mix(in oklab, var(--ds-accent) 55%, var(--ds-border-subtle));
+  background: color-mix(in oklab, var(--ds-accent) 13%, var(--ds-bg-elevated));
+  box-shadow:
+    inset 3px 0 0 var(--ds-accent),
+    0 4px 14px color-mix(in oklab, var(--ds-accent) 16%, transparent);
+}
+
+.settings-messaging-item.active .settings-messaging-item-name {
+  color: var(--ds-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+.settings-messaging-item.active .settings-messaging-logo {
+  background: color-mix(in oklab, var(--ds-accent) 16%, var(--ds-bg-elevated));
 }
 
 .settings-messaging-item:focus-visible {
@@ -1283,6 +1298,55 @@
 }
 
 
+/* A probe sits under the field it reads: the button that checks a value belongs
+   with the value, and its answer appears in the same column. It is a row, not a
+   card — there is no heading, because the field's own label already names it. */
+.settings-messaging-probe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.settings-messaging-probe-note {
+  margin: 0;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact-plus);
+}
+
+.settings-messaging-probe-note.ok {
+  color: var(--ds-success);
+}
+
+.settings-messaging-probe-note.bad {
+  color: var(--ds-error);
+}
+
+.settings-messaging-probe-qr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 2px;
+}
+
+.settings-messaging-probe-qr img {
+  border-radius: var(--radius-sm);
+  background: var(--ds-bg-elevated);
+  padding: 4px;
+}
+
+.settings-messaging-probe-qr-copy {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact-plus);
+}
+
 .settings-messaging-quick-note {
   color: var(--ds-text-muted);
   font-size: var(--text-xs-plus);
@@ -1464,6 +1528,41 @@
   flex: 0 0 auto;
   min-width: 7rem;
   white-space: nowrap;
+}
+
+/* A save that can be made looks like it: filled, lifted, and warm on hover. A
+   save that cannot be made is flat and says why in the line above it, so the
+   difference is a glance rather than a click that does nothing. */
+.settings-messaging-footer-action[data-ready] {
+  box-shadow: 0 6px 16px color-mix(in oklab, var(--ds-accent) 26%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .settings-messaging-footer-action[data-ready]:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px color-mix(in oklab, var(--ds-accent) 32%, transparent);
+  }
+}
+
+.settings-messaging-footer-action:disabled {
+  background: var(--ds-bg-hover);
+  color: var(--ds-text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* The reason a disabled Save is disabled, in the same words the state strip
+   uses for the same fields. */
+.settings-messaging-footer-blocked {
+  margin: 0;
+  color: var(--ds-text-muted);
+  font-size: var(--text-xs-plus);
+  line-height: var(--leading-compact-plus);
+  text-align: right;
+}
+
+.settings-messaging-footer-blocked[hidden] {
+  display: none;
 }
 
 .settings-messaging-enable {
@@ -4811,15 +4910,15 @@
 
 /* One primary action per page. Everything else is a quiet text button, which is
    what makes the single filled button read as the thing to press. */
-.settings-messaging-footer .settings-messaging-footer-action:not(.primary),
-.settings-messaging-detail button:not(.primary):not(.settings-messaging-toggle) {
+.settings-messaging-footer .settings-messaging-footer-action:not(.btn-primary),
+.settings-messaging-detail button:not(.btn-primary):not(.settings-messaging-toggle) {
   background: transparent;
   border-color: transparent;
   color: var(--ds-text-secondary);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .settings-messaging-detail button:not(.primary):hover {
+  .settings-messaging-detail button:not(.btn-primary):hover {
     color: var(--ds-text-primary);
     background: var(--ds-surface-hover);
   }
@@ -4870,6 +4969,12 @@
   .settings-messaging-field > .settings-messaging-field-help,
   .settings-messaging-field > .settings-messaging-field-error {
     grid-row: 2;
+    grid-column: 2;
+  }
+
+  /* The probe is the third line of its field, under the control it reads. */
+  .settings-messaging-field > .settings-messaging-probe {
+    grid-row: 3;
     grid-column: 2;
   }
 }

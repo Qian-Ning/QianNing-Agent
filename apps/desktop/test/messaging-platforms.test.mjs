@@ -1265,7 +1265,9 @@ test("the panel carries the walkthrough, the groups and the footer action", () =
   assert.ok(page.includes("field.helpKey"), "per-field help is not rendered");
   assert.ok(page.includes("field.consequenceKey"), "per-field consequence is not rendered");
   assert.ok(page.includes("<SettingsToggle"), "no enable toggle");
-  assert.ok(page.includes("<TelegramQuickSetup"), "Telegram has no quick setup");
+  // The probes are inline now: one beside the token, one beside the chat id.
+  assert.ok(page.includes("<TelegramTokenProbe"), "the token cannot be checked");
+  assert.ok(page.includes("<TelegramChatProbe"), "the chat id cannot be found");
 });
 
 /**
@@ -1748,9 +1750,15 @@ test("the rail renders a brand tile and the one-line status, and groups the cata
   assert.match(page, /<MessagingPlatformIcon id=\{entry\.id\}/);
   // Quick setup is scannable: a verified bot renders the t.me link as a QR, and
   // the panel watches for the START message instead of asking for a second click.
-  assert.match(page, /import QRCode from "qrcode"/);
-  assert.match(page, /https:\/\/t\.me\/\$\{bot\.username\}/);
-  assert.match(page, /settings-messaging-quick-qr/);
+  // The QR and the START watcher live in the probe hook, because the state is
+  // shared by two fields that are siblings in the form.
+  const probe = readFileSync(
+    new URL("../src/components/settings/use-telegram-probe.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(probe, /import QRCode from "qrcode"/);
+  assert.match(probe, /https:\/\/t\.me\/\$\{bot\.username\}/);
+  assert.match(page, /settings-messaging-probe-qr/);
   assert.match(page, /channelStatus\(state\)/);
   assert.match(page, /settings\.messaging\.groupAvailable/);
   assert.match(page, /settings\.messaging\.groupUnsupported/);
@@ -1838,4 +1846,52 @@ test("the panel decides a field is a secret by the slot, not by a fixed id list"
       `the control renderer still enumerates the credential id "${id}"`,
     );
   }
+});
+
+/**
+ * Three things a person has to be able to see without clicking: which platform
+ * the pane on the right belongs to, whether Save can be pressed, and what the
+ * token probe is for.
+ *
+ * The Save rule is the one that had a real bug behind it: `Button` renders
+ * `btn-primary`, never a bare `primary`, so a `:not(.primary)` rule was
+ * stripping the accent off the single filled button on the page. A Save that
+ * could be pressed looked disabled, which is the opposite of what the button is
+ * for.
+ */
+test("the open platform, a savable Save and a live probe each look like what they are", () => {
+  const page = readFileSync(
+    new URL("../src/components/settings/MessagingPlatformsPage.tsx", import.meta.url),
+    "utf8",
+  );
+  const styles = read("../src/styles/settings.css");
+
+  // The open item is not a slightly warmer card: an accent edge, a stronger
+  // surface and a heavier name.
+  const active = styles.slice(
+    styles.indexOf(".settings-messaging-item.active {"),
+    styles.indexOf(".settings-messaging-item:focus-visible"),
+  );
+  assert.match(active, /inset 3px 0 0 var\(--ds-accent\)/, "the open item has no accent edge");
+  assert.match(
+    active,
+    /\.settings-messaging-item\.active \.settings-messaging-item-name \{[^}]*font-weight: var\(--font-weight-semibold\)/,
+    "the open item's name is not emphasised",
+  );
+
+  // A savable Save is filled and lifted; an unsavable one is flat and says why.
+  assert.match(page, /data-ready=\{!saving && \(!enabled \|\| ready\) \? "" : undefined\}/);
+  assert.match(page, /settings\.messaging\.saveBlockedHint/);
+  assert.match(styles, /\.settings-messaging-footer-action\[data-ready\] \{/);
+  assert.match(styles, /\.settings-messaging-footer-action:disabled \{/, "no disabled style of its own");
+  assert.doesNotMatch(
+    styles,
+    /footer-action:not\(\.primary\)/,
+    "the quiet-button rule is matching the primary class name again",
+  );
+
+  // The probe sits under the field it reads, not in a card above the form.
+  const tokenField = page.slice(page.indexOf('field.id === "bot-token" ?'));
+  assert.match(tokenField.slice(0, 200), /<TelegramTokenProbe/, "the token probe is not with its field");
+  assert.match(styles, /\.settings-messaging-probe \{/);
 });

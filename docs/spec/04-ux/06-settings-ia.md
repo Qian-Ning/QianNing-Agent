@@ -868,6 +868,9 @@ system while preserving their different data ownership:
 - Telegram also offers **Quick setup**. The pasted token is checked with
   `getMe`, so "the bot exists" is confirmed rather than assumed, and
   `getUpdates` finds the chat that has messaged it, filling the numeric chat id.
+  Both actions sit under the field they read — 校验令牌 beneath the token,
+  查找会话 ID beneath the conversation — rather than in a card above the form,
+  which is where they used to ask a person to type below and scroll back up.
   Both calls run in the desktop main process against the constant
   `https://api.telegram.org`, with redirects disabled because the token travels
   in the request path; the answer is projected onto ids and usernames, never a
