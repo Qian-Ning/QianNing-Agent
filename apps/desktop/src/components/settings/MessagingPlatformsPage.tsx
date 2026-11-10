@@ -53,6 +53,7 @@ import {
 } from "../../lib/messaging-platforms";
 import { channelStatus, secretSlotFor } from "../../lib/messaging-platforms";
 import { MessagingPlatformIcon } from "./MessagingPlatformIcon";
+import { useTelegramProbe, type TelegramProbe } from "./use-telegram-probe";
 import {
   Badge,
   Button,
@@ -769,6 +770,18 @@ function SupportedPanel({
 
   const patch = onDraftChange;
 
+  /*
+    Both probes are rendered beside the field they read, so nothing here is a
+    card above the form: 校验 sits under the token, 查找 under the conversation.
+    The state is owned here because the two fields are siblings.
+  */
+  const telegramProbe = useTelegramProbe({
+    token: draft.secrets["bot-token"] ?? "",
+    disabled: saving,
+    onApply: (next) => onDraftChange(next),
+  });
+  const typedToken = (draft.secrets["bot-token"] ?? "").trim();
+
   const fieldControl = (field: MessagingField) => {
     const id = `messaging-${platform.id}-${field.id}`;
     const label = t(field.labelKey);
@@ -1026,6 +1039,12 @@ function SupportedPanel({
         </label>
         <p className="settings-messaging-field-help">{t(field.helpKey)}</p>
         {fieldControl(field)}
+        {platform.id === "telegram" && field.id === "bot-token" ? (
+          <TelegramTokenProbe probe={telegramProbe} disabled={saving} typed={typedToken} />
+        ) : null}
+        {platform.id === "telegram" && field.id === "destination" ? (
+          <TelegramChatProbe probe={telegramProbe} disabled={saving} typed={typedToken} />
+        ) : null}
         <p className="settings-messaging-field-consequence">{t(consequenceKey)}</p>
       </div>
     );
@@ -1089,14 +1108,6 @@ function SupportedPanel({
       <h4 className="settings-messaging-block-title">{t("settings.messaging.blockCredentials")}</h4>
 
       <StartScanCard key={platform.id} platformId={platform.id} />
-
-      {platform.id === "telegram" ? (
-        <TelegramQuickSetup
-          token={draft.secrets["bot-token"] ?? ""}
-          disabled={saving}
-          onApply={(next) => onDraftChange(next)}
-        />
-      ) : null}
 
       {platform.id === "discord" ? (
         <DiscordQuickSetup
@@ -1174,6 +1185,19 @@ function SupportedPanel({
         </details>
 
         <div className="settings-messaging-footer">
+          {/* A disabled Save with no reason beside it reads as a broken page.
+              The line names the fields the button is waiting on, in the same
+              words the state strip above uses. */}
+          <p
+            className="settings-messaging-footer-blocked"
+            data-save-blocked={enabled && !ready ? "" : undefined}
+            role={enabled && !ready ? "status" : undefined}
+            hidden={!(enabled && !ready)}
+          >
+            {t("settings.messaging.saveBlockedHint", {
+              fields: state.missing.map((id) => t(missingLabelKey(id, platform))).join(", "),
+            })}
+          </p>
           {/* The process card (ADR 0340) is a per-channel choice, so it sits with
               the enable switch: this save writes it, and only the channels that
               asked for one get the extra message and the extra edits. */}
@@ -1225,6 +1249,7 @@ function SupportedPanel({
             type="submit"
             variant="primary"
             className="settings-messaging-footer-action"
+            data-ready={!saving && (!enabled || ready) ? "" : undefined}
             disabled={saving || (enabled && !ready)}
           >
             {saving
@@ -1306,209 +1331,118 @@ function missingLabelKey(id: string, platform: SupportedMessagingPlatform): stri
   }
 }
 
+/**
+ * The token probe, under the token it reads.
+ *
+ * It used to be a card above the form with its own heading and two buttons,
+ * which asked a person to type a token below and then scroll back up to use it.
+ * A probe belongs to its field: the button that checks a value sits under that
+ * value, and its answer appears in the same place.
+ */
+function TelegramTokenProbe({
+  probe,
+  disabled,
+  typed,
+}: {
+  probe: TelegramProbe;
+  disabled: boolean;
+  typed: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="settings-messaging-probe">
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        disabled={disabled || probe.busy !== null || typed === ""}
+        title={typed === "" ? t("settings.messaging.probeNeedsToken") : undefined}
+        onClick={() => void probe.check()}
+      >
+        {probe.busy === "bot" ? t("settings.messaging.quickChecking") : t("settings.messaging.quickCheck")}
+      </Button>
+      {probe.bot ? (
+        <p className="settings-messaging-probe-note ok" role="status">
+          {t("settings.messaging.quickVerified", {
+            username: probe.bot.username,
+            name: probe.bot.name,
+          })}
+        </p>
+      ) : null}
+      {probe.failure ? (
+        <p className="settings-messaging-probe-note bad" role="status">
+          {t(PROBE_FAILURE_KEY[probe.failure])}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The conversation probe, under the conversation it fills.
+ *
+ * `getUpdates` is only meaningful once the bot is confirmed, so the button
+ * waits for the token probe rather than failing with the same answer twice. The
+ * QR is here because a conversation has to exist before it can be found: the
+ * phone opens the bot, the watcher notices the first message, and the id fills
+ * itself in.
+ */
+function TelegramChatProbe({
+  probe,
+  disabled,
+  typed,
+}: {
+  probe: TelegramProbe;
+  disabled: boolean;
+  typed: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="settings-messaging-probe">
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        disabled={disabled || probe.busy !== null || probe.bot === null}
+        title={
+          probe.bot === null
+            ? typed === ""
+              ? t("settings.messaging.probeNeedsToken")
+              : t("settings.messaging.probeNeedsBot")
+            : undefined
+        }
+        onClick={() => void probe.findChat()}
+      >
+        {probe.busy === "chats" ? t("settings.messaging.quickFinding") : t("settings.messaging.quickFind")}
+      </Button>
+      {probe.chat ? (
+        <p className="settings-messaging-probe-note ok" role="status">
+          {t("settings.messaging.quickFound", { chat: probe.chat.title, id: probe.chat.id })}
+        </p>
+      ) : null}
+      {probe.noChat && probe.bot ? (
+        <p className="settings-messaging-probe-note" role="status">
+          {t("settings.messaging.quickNoChat", { username: probe.bot.username })}
+        </p>
+      ) : null}
+      {probe.qr && probe.bot && !probe.chat ? (
+        <div className="settings-messaging-probe-qr">
+          <img src={probe.qr} alt={t("settings.messaging.quickTitle")} width={104} height={104} />
+          <p className="settings-messaging-probe-qr-copy">
+            {t("settings.messaging.quickNoChat", { username: probe.bot.username })}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 const PROBE_FAILURE_KEY: Record<TelegramProbeFailure, string> = {
   malformed: "settings.messaging.quickMalformed",
   unauthorized: "settings.messaging.quickUnauthorized",
   network: "settings.messaging.quickNetwork",
   refused: "settings.messaging.quickRefused",
 };
-
-/**
- * Telegram's quick setup: the half of the walkthrough that can be done for the
- * user rather than by them.
- *
- * A token pasted here is checked against Telegram's `getMe`, so "I created a
- * bot" becomes a confirmed bot with a name; then `getUpdates` finds the chat
- * that has messaged it, so the numeric chat id is discovered instead of read off
- * another bot. Both calls run in the desktop main process against a fixed host.
- * Nothing is saved here: the values land in the form, and the Save button at the
- * bottom is still the only writer.
- */
-function TelegramQuickSetup({
-  token,
-  disabled,
-  onApply,
-}: {
-  /**
-   * The token from the required field below, not a second box of its own: one
-   * credential is typed once, and every action here reads that one.
-   */
-  token: string;
-  disabled: boolean;
-  onApply: (next: { destination?: string; secrets?: Record<string, string> }) => void;
-}) {
-  const { t } = useTranslation();
-  const [busy, setBusy] = useState<"bot" | "chats" | null>(null);
-  const [bot, setBot] = useState<{ username: string; name: string } | null>(null);
-  const [failure, setFailure] = useState<TelegramProbeFailure | null>(null);
-  const [chat, setChat] = useState<TelegramChatCandidate | null>(null);
-  const [noChat, setNoChat] = useState(false);
-  const [qr, setQr] = useState<string | null>(null);
-  const [waiting, setWaiting] = useState(false);
-  const applyRef = useRef(onApply);
-  applyRef.current = onApply;
-
-  /*
-    A verified bot gets a scannable link. Opening it on the phone is not a
-    shortcut around configuration — it is the only way the conversation this
-    page has to bind can exist at all, and it removes the need to type an
-    @username into a phone keyboard.
-  */
-  useEffect(() => {
-    if (!bot) {
-      setQr(null);
-      return;
-    }
-    let cancelled = false;
-    void QRCode.toDataURL(`https://t.me/${bot.username}`, {
-      errorCorrectionLevel: "M",
-      margin: 1,
-      width: 232,
-    })
-      .then((url) => {
-        if (!cancelled) setQr(url);
-      })
-      .catch(() => {
-        if (!cancelled) setQr(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [bot]);
-
-  /*
-    Nobody should have to press 查找会话 ID after scanning. The link opens the
-    bot; pressing START there is the only step left, so watch for that message
-    instead of asking the person to come back and click.
-  */
-  useEffect(() => {
-    if (!waiting || !bot || chat) return;
-    let stopped = false;
-    let timer = 0;
-    const tick = async () => {
-      if (stopped) return;
-      try {
-        const result = await api.probeTelegram(token, "chats");
-        if (!stopped && result.ok && "chats" in result && result.chats[0]) {
-          const found = result.chats[0];
-          setChat(found);
-          setWaiting(false);
-          applyRef.current({ destination: found.id });
-          return;
-        }
-      } catch {
-        // A dropped probe is not a reason to stop watching.
-      }
-      if (!stopped) timer = window.setTimeout(() => void tick(), 3000);
-    };
-    timer = window.setTimeout(() => void tick(), 2500);
-    return () => {
-      stopped = true;
-      window.clearTimeout(timer);
-    };
-  }, [waiting, bot, chat, token]);
-
-  const check = async () => {
-    setBusy("bot");
-    setFailure(null);
-    setNoChat(false);
-    setChat(null);
-    try {
-      const result = await api.probeTelegram(token, "bot");
-      if (result.ok && "bot" in result) {
-        setBot({ username: result.bot.username, name: result.bot.name });
-        setWaiting(true);
-        onApply({ secrets: { "bot-token": token.trim() } });
-      } else {
-        setBot(null);
-        setFailure(result.ok ? "refused" : result.reason);
-      }
-    } catch {
-      setBot(null);
-      setFailure("network");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const findChat = async () => {
-    setBusy("chats");
-    setFailure(null);
-    setNoChat(false);
-    try {
-      const result = await api.probeTelegram(token, "chats");
-      if (result.ok && "chats" in result) {
-        const first = result.chats[0];
-        if (!first) {
-          setNoChat(true);
-        } else {
-          setChat(first);
-          onApply({ destination: first.id });
-        }
-      } else {
-        setFailure(result.ok ? "refused" : result.reason);
-      }
-    } catch {
-      setFailure("network");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  return (
-    <section className="settings-messaging-quick">
-      <h4 className="settings-messaging-section-title">
-        {t("settings.messaging.quickTitle")}
-      </h4>
-      <div className="settings-messaging-quick-row">
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={disabled || busy !== null || token.trim() === ""}
-          onClick={() => void check()}
-        >
-          {busy === "bot" ? t("settings.messaging.quickChecking") : t("settings.messaging.quickCheck")}
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={disabled || busy !== null || bot === null}
-          onClick={() => void findChat()}
-        >
-          {busy === "chats" ? t("settings.messaging.quickFinding") : t("settings.messaging.quickFind")}
-        </Button>
-      </div>
-      {bot ? (
-        <p className="settings-messaging-quick-note ok" role="status">
-          {t("settings.messaging.quickVerified", { username: bot.username })}
-        </p>
-      ) : null}
-      {qr && bot && !chat ? (
-        <div className="settings-messaging-quick-qr">
-          <img src={qr} alt={t("settings.messaging.quickTitle")} width={116} height={116} />
-          <p className="settings-messaging-quick-qr-copy">
-            {t("settings.messaging.quickNoChat", { username: bot.username })}
-          </p>
-        </div>
-      ) : null}
-      {chat ? (
-        <p className="settings-messaging-quick-note ok" role="status">
-          {t("settings.messaging.quickFound", { chat: chat.title, id: chat.id })}
-        </p>
-      ) : null}
-      {noChat && bot ? (
-        <p className="settings-messaging-quick-note" role="status">
-          {t("settings.messaging.quickNoChat", { username: bot.username })}
-        </p>
-      ) : null}
-      {failure ? (
-        <p className="settings-messaging-quick-note bad" role="status">
-          {t(PROBE_FAILURE_KEY[failure])}
-        </p>
-      ) : null}
-    </section>
-  );
-}
 
 /**
  * The first step of setup, as a QR.
