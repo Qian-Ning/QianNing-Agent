@@ -139,6 +139,14 @@ import {
   FEISHU_FORMAT_VERSION,
   FEISHU_HANDLED_CAPACITY,
   FEISHU_SETTINGS_SECTION,
+  MESSAGING_BLUEBUBBLES_PLATFORM,
+  BLUEBUBBLES_ACCEPT_REPLY,
+  BLUEBUBBLES_FORMAT,
+  BLUEBUBBLES_FORMAT_VERSION,
+  BLUEBUBBLES_PASSWORD_SECRET_REF,
+  BLUEBUBBLES_SETTINGS_SECTION,
+  createBluebubblesAdapter,
+  createBluebubblesVerifier,
   MESSAGING_QQBOT_PLATFORM,
   QQBOT_ACCEPT_REPLY,
   QQBOT_APP_SECRET_SECRET_REF,
@@ -2564,7 +2572,7 @@ export type MessagingWebhookReceiverWiringOptions = {
    * own: their inbound path is the receiver's, so their liveness is the
    * receiver's own mark rather than a second lifetime to keep in step.
    */
-  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams" | "whatsappCloud" | "weixin" | "microsoftGraph" | "qqBot")[]) => void;
+  onPlatforms?: (channels: readonly ("feishu" | "wecom" | "line" | "sms" | "googleChat" | "teams" | "whatsappCloud" | "weixin" | "microsoftGraph" | "qqBot" | "blueBubbles")[]) => void;
   /** Test seam: a receiver factory in place of the one the wiring builds. */
   createReceiver?: (options: IngressWebhookReceiverOptions) => IngressWebhookReceiver;
 };
@@ -3039,6 +3047,65 @@ async function buildQqbotCallbackPlatform(
   };
 }
 
+/**
+ * The BlueBubbles callback entry, when this Host has one configured.
+ *
+ * The bridge authenticates with its server password in the webhook URL, which is
+ * the same value host-core sends with. Nothing else is needed: the bridge runs on
+ * the user's Mac and speaks iMessage for us.
+ */
+async function buildBluebubblesCallbackPlatform(
+  options: MessagingWebhookReceiverWiringOptions,
+  ids: RandomIds,
+): Promise<IngressWebhookPlatform | null> {
+  let settings: unknown;
+  try {
+    settings = await options.settings.read();
+  } catch {
+    return null;
+  }
+  const section = readSection(settings, BLUEBUBBLES_SETTINGS_SECTION);
+  if (!section) return null;
+  if (section.format !== BLUEBUBBLES_FORMAT || section.version !== BLUEBUBBLES_FORMAT_VERSION) {
+    return null;
+  }
+
+  const inbound = readInbound(section);
+  const sessionId =
+    typeof inbound?.sessionId === "string" && inbound.sessionId.trim() !== ""
+      ? inbound.sessionId.trim()
+      : null;
+  if (!sessionId) return null;
+
+  let password: string | null = null;
+  try {
+    password = await options.secrets(BLUEBUBBLES_PASSWORD_SECRET_REF);
+  } catch {
+    password = null;
+  }
+  if (!password || password.trim() === "") {
+    options.onFailure?.("no BlueBubbles server password is stored");
+    return null;
+  }
+
+  return {
+    verifier: createBluebubblesVerifier({ password: password.trim() }),
+    adapter: createBluebubblesAdapter(),
+    onMessage: async (message) => {
+      await options.agentHost.startTurn(
+        { subject: "blueBubbles", roles: ["owner"] },
+        {
+          sessionId,
+          admission: "queue",
+          input: { text: message.text },
+          context: { requestId: ids.next("blueBubbles") },
+        },
+      );
+    },
+    reply: BLUEBUBBLES_ACCEPT_REPLY,
+  };
+}
+
 async function buildSmsCallbackPlatform(
   options: MessagingWebhookReceiverWiringOptions,
   ids: RandomIds,
@@ -3347,6 +3414,7 @@ export function createWebhookReceiverWiring(
       const weixin = await buildWeixinCallbackPlatform(options, ids);
       const graph = await buildMicrosoftGraphCallbackPlatform(options, ids);
       const qqbot = await buildQqbotCallbackPlatform(options, ids);
+      const bluebubbles = await buildBluebubblesCallbackPlatform(options, ids);
       const built = create({
         platforms: {
           [pathSegment]: {
@@ -3364,6 +3432,7 @@ export function createWebhookReceiverWiring(
           ...(weixin ? { [MESSAGING_WEIXIN_PLATFORM]: weixin } : {}),
           ...(graph ? { [MESSAGING_GRAPH_PLATFORM]: graph.platform } : {}),
           ...(qqbot ? { [MESSAGING_QQBOT_PLATFORM]: qqbot } : {}),
+          ...(bluebubbles ? { [MESSAGING_BLUEBUBBLES_PLATFORM]: bluebubbles } : {}),
         },
         handled: createSettingsHandledMessageStore({
           settings: options.settings,
@@ -3409,6 +3478,7 @@ export function createWebhookReceiverWiring(
         ...(weixin ? (["weixin"] as const) : []),
         ...(graph ? (["microsoftGraph"] as const) : []),
         ...(qqbot ? (["qqBot"] as const) : []),
+        ...(bluebubbles ? (["blueBubbles"] as const) : []),
       ]);
       if (!options.signal.aborted) {
         await new Promise<void>((resolve) => {

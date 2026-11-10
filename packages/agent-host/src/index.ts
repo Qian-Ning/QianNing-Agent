@@ -22,6 +22,7 @@ export * from "./messaging-weixin-inbound.js";
 export * from "./messaging-graph-inbound.js";
 export * from "./messaging-graph-client.js";
 export * from "./messaging-qqbot-inbound.js";
+export * from "./messaging-bluebubbles-inbound.js";
 export * from "./messaging-flat-xml.js";
 export * from "./messaging-openid-jwt.js";
 export * from "./messaging-inbound.js";
