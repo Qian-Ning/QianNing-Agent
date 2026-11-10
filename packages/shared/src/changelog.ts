@@ -30,6 +30,16 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.3.0",
+    date: "2026-11-10",
+    highlights: [
+      "Ten new channels — Feishu, WeCom apps, LINE, Twilio SMS, Google Chat, Microsoft Teams, WhatsApp Cloud, WeChat Official Accounts, QQ bots and Microsoft Graph — each receiving and sending.",
+      "One shared callback receiver carries all of them: a platform supplies only its signature check and its projection, so the replay window, the durable dedupe and the body limit are written once instead of ten times.",
+      "The Microsoft Graph subscription renews itself — it lives an hour, so it is extended at four fifths of that and recreated when the platform says it is gone.",
+      "Every name in the platform list now states what it actually does: the channels that work can be configured, and the ones that do not say what is missing.",
+    ],
+  },
+  {
     version: "2.2.9",
     date: "2026-11-08",
     highlights: [
@@ -1166,6 +1176,16 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.3.0",
+    date: "2026-11-10",
+    highlights: [
+      "新增十个通道——飞书、企业微信应用、LINE、Twilio 短信、Google Chat、Microsoft Teams、WhatsApp Cloud、微信公众号、QQ 机器人、Microsoft Graph——收发都做完了。",
+      "这十个通道共用同一个回调接收器：每个平台只提供验签和投影，于是重放窗口、持久化去重、请求体上限都只写一遍。",
+      "Microsoft Graph 的订阅会自己续期：寿命一小时，在五分之四处续期，平台说没了一就重建。",
+      "平台列表里每个名字下的那句状态现在是真的：能用的可以直接配，不能用的写明缺什么。",
+    ],
+  },
+  {
     version: "2.2.9",
     date: "2026-11-08",
     highlights: [
@@ -2301,6 +2321,16 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.3.0",
+    date: "2026-11-10",
+    highlights: [
+      "新增十個通道——飛書、企業微信應用、LINE、Twilio 簡訊、Google Chat、Microsoft Teams、WhatsApp Cloud、微信公眾號、QQ 機器人、Microsoft Graph——收發都做完了。",
+      "這十個通道共用同一個回呼接收器：每個平台只提供驗簽與投影，於是重播視窗、持久化去重、請求體上限都只寫一遍。",
+      "Microsoft Graph 的訂閱會自己續期：壽命一小時，在五分之四處續期，平台說沒了就重建。",
+      "平台列表裡每個名字下的那句狀態現在是真的：能用的可以直接設定，不能用的寫明缺什麼。",
+    ],
+  },
   {
     version: "2.2.9",
     date: "2026-11-08",

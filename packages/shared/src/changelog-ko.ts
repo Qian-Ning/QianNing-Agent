@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
   {
+    version: "2.3.0",
+    date: "2026-11-10",
+    highlights: [
+      "새 채널 10개 — Feishu, WeCom 앱, LINE, Twilio SMS, Google Chat, Microsoft Teams, WhatsApp Cloud, WeChat 공식 계정, QQ 봇, Microsoft Graph — 수신과 발신을 모두 지원합니다.",
+      "하나의 공용 콜백 수신기가 이들 모두를 담당합니다. 플랫폼은 서명 검증과 투영만 제공하므로 재전송 윈도, 영구 중복 제거, 본문 한도가 열 번이 아니라 한 번만 작성됩니다.",
+      "Microsoft Graph 구독은 스스로 갱신됩니다. 수명이 한 시간이라 5분의 4 지점에서 연장하고, 플랫폼이 사라졌다고 하면 다시 만듭니다.",
+      "플랫폼 목록의 각 이름 아래 문장이 이제 사실입니다. 되는 채널은 바로 설정할 수 있고, 안 되는 채널은 무엇이 없는지 적혀 있습니다.",
+    ],
+  },
+  {
     version: "2.2.9",
     date: "2026-11-08",
     highlights: [

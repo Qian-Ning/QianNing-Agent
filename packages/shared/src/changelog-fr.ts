@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "2.3.0",
+    date: "2026-11-10",
+    highlights: [
+      "Dix nouveaux canaux — Feishu, applications WeCom, LINE, SMS Twilio, Google Chat, Microsoft Teams, WhatsApp Cloud, comptes officiels WeChat, bots QQ et Microsoft Graph — en réception comme en envoi.",
+      "Un récepteur de rappels partagé les porte tous : une plateforme ne fournit que sa vérification de signature et sa projection, donc la fenêtre de rejeu, la déduplication durable et la limite de corps sont écrites une fois au lieu de dix.",
+      "L'abonnement Microsoft Graph se renouvelle seul — il vit une heure, il est donc prolongé aux quatre cinquièmes et recréé quand la plateforme le dit disparu.",
+      "Chaque nom de la liste des plateformes dit maintenant ce qu'il fait vraiment : les canaux qui fonctionnent se configurent, les autres indiquent ce qui manque.",
+    ],
+  },
+  {
     version: "2.2.9",
     date: "2026-11-08",
     highlights: [
