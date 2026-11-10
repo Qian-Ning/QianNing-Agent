@@ -127,6 +127,7 @@ const GATEWAY_DOWN = {
   weixin: false,
   microsoftGraph: false,
   qqBot: false,
+  blueBubbles: false,
 };
 
 /**
@@ -178,6 +179,7 @@ const SUPPORTED_IDS = [
   "mattermost",
   "matrix",
   "signal",
+  "blueBubbles",
   "homeAssistant",
   "email",
   "sms",
@@ -279,7 +281,6 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   ]);
   assert.deepEqual(byClass.bridgeOrPoll, [
     "whatsapp",
-    "blueBubbles",
     "imessagePhone",
   ]);
   // apiServer left this class when its listener shipped: it is a supported
@@ -660,7 +661,8 @@ test("fields are grouped, and every field explains itself and its blank", () => 
       platform.id === "whatsappCloud" ||
       platform.id === "weixin" ||
       platform.id === "microsoftGraph" ||
-      platform.id === "qqBot"
+      platform.id === "qqBot" ||
+      platform.id === "blueBubbles"
     ) {
       assert.deepEqual(requiredWithoutSecrets, ["destination", "subject", "roles", "sessionId"]);
       assert.deepEqual(

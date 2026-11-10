@@ -91,7 +91,8 @@ export type MessagingPlatformId =
   | "whatsappCloud"
   | "weixin"
   | "microsoftGraph"
-  | "qqBot";
+  | "qqBot"
+  | "blueBubbles";
 
 /** The one settings section key each channel's record lives under, inside `app`. */
 export type MessagingSectionKey =
@@ -108,6 +109,7 @@ export type MessagingSectionKey =
   | "messagingWeixin"
   | "messagingMicrosoftGraph"
   | "messagingQqbot"
+  | "messagingBluebubbles"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -178,7 +180,9 @@ export type MessagingSecretSlot = {
     | "graph-public-url"
     /* The QQ bot: its app id, and the secret that seeds the signing key. */
     | "qq-app-id"
-    | "qq-app-secret";
+    | "qq-app-secret"
+    /* BlueBubbles' bridge password. */
+    | "bluebubbles-password";
   /** The `secret:` ref the runtime reads, never a value. */
   ref: string;
   labelKey: string;
@@ -1162,6 +1166,16 @@ const wecomSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+const bluebubblesSecrets: MessagingSecretSlot[] = [
+  {
+    id: "bluebubbles-password",
+    ref: "secret:messaging-bluebubbles:password",
+    labelKey: "settings.messaging.bluebubblesPassword",
+    hintKey: "settings.messaging.bluebubblesPasswordHint",
+    placeholderKey: "settings.messaging.bluebubblesPasswordPlaceholder",
+  },
+];
+
 const qqbotSecrets: MessagingSecretSlot[] = [
   {
     id: "qq-app-id",
@@ -1525,14 +1539,42 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "blueBubbles",
-    support: "unsupported",
+    support: "supported",
+    receive: "callback",
+    section: "messagingBluebubbles",
+    format: "pi-desktop-messaging-bluebubbles",
+    version: 1,
+    defaultEndpoint: "http://localhost:1234",
     labelKey: "settings.messaging.platformBlueBubbles",
-    blurbKey: "settings.messaging.blurbUnsupported",
-    requirementClass: "bridgeOrPoll",
-    requirementKey: "settings.messaging.needsLocalBridge",
+    blurbKey: "settings.messaging.blurbBlueBubbles",
+    noteKey: "settings.messaging.bluebubblesNote",
+    limitationKey: "settings.messaging.bluebubblesLimitations",
     guideUrl: "https://bluebubbles.app/",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepBluebubbles1",
+      "settings.messaging.stepBluebubbles2",
+      "settings.messaging.stepBluebubbles3",
+      "settings.messaging.stepBluebubbles4",
+    ],
+    secrets: bluebubblesSecrets,
+    fields: [
+      ...channelFields({
+        secrets: bluebubblesSecrets,
+        destinationLabelKey: "settings.messaging.bluebubblesChat",
+        destinationHelpKey: "settings.messaging.bluebubblesChatHelp",
+        destinationPlaceholderKey: "settings.messaging.bluebubblesChatPlaceholder",
+        subjectPlaceholderKey: "settings.messaging.subjectPlaceholderBluebubbles",
+        endpointPlaceholderKey: "settings.messaging.endpointPlaceholderBluebubbles",
+      }),
+      {
+        id: "sessionId",
+        group: "required",
+        labelKey: "settings.messaging.feishuSession",
+        helpKey: "settings.messaging.feishuSessionHint",
+        placeholderKey: "settings.messaging.feishuSessionPlaceholder",
+        consequenceKey: "settings.messaging.consequenceWebhookSession",
+      },
+    ],
   },
   {
     id: "homeAssistant",
@@ -2240,7 +2282,8 @@ export type MessagingGatewayChannel =
   | "whatsappCloud"
   | "weixin"
   | "microsoftGraph"
-  | "qqBot";
+  | "qqBot"
+  | "blueBubbles";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -2284,6 +2327,8 @@ export type MessagingGatewaySnapshot = {
   microsoftGraph: boolean;
   /** The QQ bot is served by it too. */
   qqBot: boolean;
+  /** BlueBubbles is served by it too. */
+  blueBubbles: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -2321,6 +2366,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   weixin: false,
   microsoftGraph: false,
   qqBot: false,
+  blueBubbles: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -2375,6 +2421,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   weixin: "weixin",
   microsoftGraph: "microsoftGraph",
   qqBot: "qqBot",
+  blueBubbles: "blueBubbles",
   webhooks: "webhookReceiver",
 };
 
@@ -2734,6 +2781,11 @@ export function missingFromRecord(
     if (trimmed(channel.destination) !== "" && !/^[0-9]+$/.test(trimmed(channel.destination))) {
       missing.push("destination");
     }
+    if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
+    if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
+  }
+  if (platform.id === "blueBubbles") {
+    if (trimmed(channel.destination) === "") missing.push("destination");
     if (trimmed(channel.inbound?.sessionId) === "") missing.push("sessionId");
     if (trimmed(channel.inbound?.linkedPrincipal?.subject) === "") missing.push("subject");
   }

@@ -492,6 +492,7 @@ export type AppSettings = {
   messagingWeixin?: MessagingChannelSettings;
   messagingMicrosoftGraph?: MessagingChannelSettings;
   messagingQqbot?: MessagingChannelSettings;
+  messagingBluebubbles?: MessagingChannelSettings;
   messagingMattermost?: MessagingChannelSettings;
   messagingMatrix?: MessagingChannelSettings;
   messagingIrc?: MessagingChannelSettings;

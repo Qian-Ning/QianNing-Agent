@@ -298,6 +298,7 @@ describe("the outbound messaging relay", () => {
       "weixin",
       "microsoftGraph",
       "qqBot",
+      "blueBubbles",
       "sms",
       "wecom",
       "wecomGroup",

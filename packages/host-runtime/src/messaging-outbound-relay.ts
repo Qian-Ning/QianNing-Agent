@@ -34,6 +34,9 @@ import {
   QQBOT_FORMAT,
   QQBOT_FORMAT_VERSION,
   QQBOT_SETTINGS_SECTION,
+  BLUEBUBBLES_FORMAT,
+  BLUEBUBBLES_FORMAT_VERSION,
+  BLUEBUBBLES_SETTINGS_SECTION,
   SMS_FORMAT,
   SMS_FORMAT_VERSION,
   SMS_SETTINGS_SECTION,
@@ -231,6 +234,12 @@ export const MESSAGING_OUTBOUND_CHANNELS: readonly MessagingOutboundChannel[] = 
     section: QQBOT_SETTINGS_SECTION,
     format: QQBOT_FORMAT,
     version: QQBOT_FORMAT_VERSION,
+  },
+  {
+    channel: "blueBubbles",
+    section: BLUEBUBBLES_SETTINGS_SECTION,
+    format: BLUEBUBBLES_FORMAT,
+    version: BLUEBUBBLES_FORMAT_VERSION,
   },
   {
     channel: "sms",
