@@ -691,23 +691,20 @@ system while preserving their different data ownership:
   mark, one name and one sentence of state; the three state dimensions survive
   as the card's tooltip and, unchanged, as rows in the panel's overview. **Telegram**, **Discord**, **Slack**,
   **Mattermost**, **Matrix**, **Home Assistant**, **Email**, **IRC**, **ntfy**,
-  **Signal**, **API server** and **Webhooks** are marked Supported and open a
-  working panel. The other twenty-one are marked
+  **Signal**, **API server**, **Webhooks**, **Feishu**, **WeCom** (app and group
+  robot), **LINE**, **Twilio SMS**, **Google Chat**, **Microsoft Teams**,
+  **WhatsApp Cloud**, **WeChat Official Accounts**, **QQ bots**, **Microsoft
+  Graph**, **BlueBubbles**, **SimpleX** and **DingTalk** are marked Supported
+  and open a working panel. The rest are marked
   Not supported, and their panel states
   what the gap is **and what kind of requirement it is**, because "needs setup"
   without the kind does not tell a user whether they can close it themselves.
-  Five classes cover the real shapes: an **outgoing long connection**, which
-  works from a home network (SimpleX Chat, Raft, Buzz); a
-  **public HTTPS callback**, where the platform pushes into an address the
-  internet must reach (Google Chat, LINE, Microsoft Teams, Microsoft Graph,
-  Feishu / Lark, DingTalk, both WeCom entries, SMS through Twilio); a
-  **poll loop or local bridge** that owns the account on a phone or a Mac
-  (BlueBubbles, iMessage via Phone, WhatsApp's linked phone session); a
-  **transport rather than a chat channel**,
-  with no conversation to link (A2A, Relay); and **platform-side
-  approval or business onboarding** (Weixin / WeChat, QQ Bot, Yuanbao, and
-  WhatsApp Cloud API, whose business account also needs a verified sender and a
-  public callback). An unsupported platform renders no form: this build stores
+  The classes cover the real shapes: an **outgoing long connection**, which
+  works from a home network (Raft, Buzz); a **poll loop or local bridge** that
+  owns the account on a phone or a Mac (iMessage via Phone, WhatsApp's linked
+  phone session); a **transport rather than a chat channel**, with no
+  conversation to link (A2A, Relay); and **platform-side approval or business
+  onboarding** (Yuanbao). An unsupported platform renders no form: this build stores
   no section, format or credential for it, so a field could only pretend to save
   something, and the panel says that as well. Where the platform publishes setup
   documentation the panel links to it; where it does not, no outbound link is
@@ -718,6 +715,29 @@ system while preserving their different data ownership:
   that session. The session is a start condition — a record without one never
   listens — because the receiver answers its HTTP request before the turn runs,
   so a listener with nothing to act on could only accept events it must drop.
+- The callback channels share **one receiver**, not nine: a platform supplies
+  only its signature check and its projection of one event, and the receiver
+  owns the body cap, the replay window, the durable dedupe, the refusal statuses
+  and the answer. That is why the panel can state each scheme plainly without a
+  second listener per channel — Feishu's verification token and event body,
+  WeCom's SHA-1 over four sorted values plus AES-256-CBC, LINE's HMAC over the
+  raw body, Twilio's HMAC over the rebuilt URL and sorted parameters, Google
+  Chat's JWT against Google's own keys, Teams' Bot Framework JWT, Meta's
+  `x-hub-signature-256`, WeChat's SHA-1 over token, timestamp and nonce, QQ's
+  Ed25519 keyed by the bot secret itself, Microsoft Graph's shared `clientState`,
+  and BlueBubbles' password in the query string.
+- Two seams exist because two platforms broke the shape rather than fitted it.
+  `prepare` lets a projection make a request before it can project — Graph's
+  notification names a message and carries no text — and `validateRequest`
+  answers a URL challenge that arrives as a **POST**, which is how Graph proves
+  the endpoint and how QQ signs the challenge it sends. Neither seam is a second
+  transport: the receiver still owns everything around them.
+- Where a platform's own rules make a send conditional, the panel states the
+  condition instead of implying an unconditional send: WeChat's 48-hour
+  customer-service window, QQ's roughly four active messages per user per month,
+  WhatsApp's requirement that the recipient wrote first, and Graph's
+  hour-long subscription, which this Host renews at four fifths of its lifetime
+  and recreates when the platform reports it gone.
 - Three state dimensions are computed independently and never merged into one
   badge. **Enabled**: is a record of this build stored? It reads `off` when no
   section exists and `unreadable` when the stored `format`/`version` is not one
