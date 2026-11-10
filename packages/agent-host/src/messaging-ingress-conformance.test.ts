@@ -82,6 +82,15 @@ import {
   createEmailIngressAdapter,
   type EmailInboundAuditEntry,
 } from "./messaging-email-inbound.js";
+import { createFeishuAdapter } from "./messaging-feishu-inbound.js";
+import { createLineAdapter } from "./messaging-line-inbound.js";
+import { createSmsAdapter } from "./messaging-sms-inbound.js";
+import { createGoogleChatAdapter } from "./messaging-google-chat-inbound.js";
+import { createTeamsAdapter } from "./messaging-teams-inbound.js";
+import { createWhatsappCloudAdapter } from "./messaging-whatsapp-cloud-inbound.js";
+import { createWeixinAdapter } from "./messaging-weixin-inbound.js";
+import { createQqbotAdapter } from "./messaging-qqbot-inbound.js";
+import { createBluebubblesAdapter } from "./messaging-bluebubbles-inbound.js";
 import {
   createSignalIngressAdapter,
   signalMessageId,
@@ -1301,6 +1310,288 @@ function signalFixture(): IngressConformanceFixture {
 // The suite
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// The callback batch: ten channels that share one receiver
+//
+// Each fixture is the *raw* shape the platform posts, so the suite drives the
+// adapter's real projection rather than a hand-built object. They are also the
+// only place these ten projections meet the shared gate: redelivery, chunking
+// and self-echo are asserted here for all of them at once.
+// ---------------------------------------------------------------------------
+
+function feishuFixture(): IngressConformanceFixture {
+  const adapter = createFeishuAdapter();
+  const foreign = {
+    schema: "2.0",
+    header: { event_id: "ev-1", event_type: "im.message.receive_v1" },
+    event: {
+      sender: { sender_type: "user" },
+      message: {
+        message_id: "om-1",
+        chat_id: "oc-1",
+        message_type: "text",
+        content: JSON.stringify({ text: "run the conformance suite" }),
+      },
+    },
+  };
+  return {
+    adapter,
+    foreign: () => ({
+      raw: foreign,
+      expected: {
+        messageId: "om-1",
+        chatId: "oc-1",
+        text: "run the conformance suite",
+      },
+    }),
+    own: () => ({
+      schema: "2.0",
+      header: { event_id: "ev-2" },
+      event: {
+        sender: { sender_type: "app" },
+        message: {
+          message_id: "om-2",
+          chat_id: "oc-1",
+          message_type: "text",
+          content: JSON.stringify({ text: "own" }),
+        },
+      },
+    }),
+  };
+}
+
+function lineFixture(): IngressConformanceFixture {
+  const adapter = createLineAdapter();
+  const foreign = {
+    destination: "Ubot",
+    events: [
+      {
+        type: "message",
+        message: { type: "text", id: "lin-1", text: "run the conformance suite" },
+        source: { type: "user", userId: "Uuser" },
+        replyToken: "r",
+      },
+    ],
+  };
+  return {
+    adapter,
+    foreign: () => ({
+      raw: foreign,
+      expected: {
+        messageId: "lin-1",
+        chatId: "Uuser",
+        text: "run the conformance suite",
+        chatKind: "private",
+        sender: { id: "Uuser" },
+      },
+    }),
+  };
+}
+
+function smsFixture(): IngressConformanceFixture {
+  const adapter = createSmsAdapter();
+  const form =
+    "From=%2B15551234567&Body=run+the+conformance+suite&MessageSid=SM1&AccountSid=AC1&To=%2B15559876543";
+  const foreign = adapter.parse ? adapter.parse(form) : form;
+  return {
+    adapter,
+    foreign: () => ({
+      raw: foreign,
+      expected: {
+        messageId: "SM1",
+        chatId: "+15551234567",
+        text: "run the conformance suite",
+        chatKind: "private",
+        sender: { id: "+15551234567" },
+      },
+    }),
+  };
+}
+
+function googleChatFixture(): IngressConformanceFixture {
+  const adapter = createGoogleChatAdapter();
+  const foreign = {
+    type: "MESSAGE",
+    space: { name: "spaces/AAA" },
+    user: { name: "users/1", displayName: "Ann" },
+    message: { name: "spaces/AAA/messages/M1", text: "run the conformance suite" },
+  };
+  return {
+    adapter,
+    foreign: () => ({
+      raw: foreign,
+      expected: {
+        messageId: "spaces/AAA/messages/M1",
+        chatId: "spaces/AAA",
+        text: "run the conformance suite",
+        chatKind: "group",
+        sender: { id: "users/1", name: "Ann" },
+      },
+    }),
+    own: () => ({
+      type: "ADDED_TO_SPACE",
+      space: { name: "spaces/AAA" },
+      message: { name: "spaces/AAA/messages/M2" },
+    }),
+  };
+}
+
+function teamsFixture(): IngressConformanceFixture {
+  const adapter = createTeamsAdapter();
+  const foreign = {
+    type: "message",
+    id: "a-1",
+    text: "run the conformance suite",
+    from: { id: "29:user", name: "Ann" },
+    conversation: { id: "a:1xyz", conversationType: "channel" },
+  };
+  return {
+    adapter,
+    foreign: () => ({
+      raw: foreign,
+      expected: {
+        messageId: "a-1",
+        chatId: "a:1xyz",
+        text: "run the conformance suite",
+        chatKind: "group",
+        sender: { id: "29:user", name: "Ann" },
+      },
+    }),
+    own: () => ({ type: "conversationUpdate", conversation: { id: "a:1xyz" } }),
+  };
+}
+
+function whatsappCloudFixture(): IngressConformanceFixture {
+  const adapter = createWhatsappCloudAdapter();
+  const foreign = {
+    object: "whatsapp_business_account",
+    entry: [
+      {
+        changes: [
+          {
+            value: {
+              contacts: [{ profile: { name: "Ann" }, wa_id: "15551234567" }],
+              messages: [
+                {
+                  from: "15551234567",
+                  id: "wamid.1",
+                  type: "text",
+                  text: { body: "run the conformance suite" },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  };
+  return {
+    adapter,
+    foreign: () => ({
+      raw: foreign,
+      expected: {
+        messageId: "wamid.1",
+        chatId: "15551234567",
+        text: "run the conformance suite",
+        chatKind: "private",
+        sender: { id: "15551234567", name: "Ann" },
+      },
+    }),
+    own: () => ({
+      object: "whatsapp_business_account",
+      entry: [{ changes: [{ value: { statuses: [{ id: "wamid.1", status: "read" }] } }] }],
+    }),
+  };
+}
+
+function weixinFixture(): IngressConformanceFixture {
+  const adapter = createWeixinAdapter({ accountId: "gh_1" });
+  const xml =
+    "<xml><ToUserName><![CDATA[gh_1]]></ToUserName>" +
+    "<FromUserName><![CDATA[oUser1]]></FromUserName>" +
+    "<CreateTime>1700000000</CreateTime>" +
+    "<MsgType><![CDATA[text]]></MsgType>" +
+    "<Content><![CDATA[run the conformance suite]]></Content>" +
+    "<MsgId>2001</MsgId></xml>";
+  const foreign = adapter.parse ? adapter.parse(xml) : xml;
+  return {
+    adapter,
+    foreign: () => ({
+      raw: foreign,
+      expected: {
+        messageId: "2001",
+        chatId: "oUser1",
+        text: "run the conformance suite",
+        chatKind: "private",
+        sender: { id: "oUser1" },
+      },
+    }),
+    own: () => ({ ToUserName: "gh_1", FromUserName: "oUser1", MsgType: "image", MsgId: "2002" }),
+  };
+}
+
+function qqbotFixture(): IngressConformanceFixture {
+  const adapter = createQqbotAdapter();
+  const foreign = {
+    op: 0,
+    id: "ev-1",
+    t: "C2C_MESSAGE_CREATE",
+    d: { id: "qq-1", content: "run the conformance suite", author: { id: "user-openid" } },
+  };
+  return {
+    adapter,
+    foreign: () => ({
+      raw: foreign,
+      expected: {
+        messageId: "qq-1",
+        chatId: "user-openid",
+        text: "run the conformance suite",
+        chatKind: "private",
+        sender: { id: "user-openid" },
+      },
+    }),
+    // An op-13 URL validation is not a message; the receiver answers it before
+    // the adapter ever sees it.
+    own: () => ({ op: 13, d: { plain_token: "t", event_ts: "1" } }),
+  };
+}
+
+function bluebubblesFixture(): IngressConformanceFixture {
+  const adapter = createBluebubblesAdapter();
+  const foreign = {
+    type: "new-message",
+    data: {
+      guid: "bb-1",
+      text: "run the conformance suite",
+      isFromMe: false,
+      handle: { address: "+15551234567" },
+      chats: [{ guid: "iMessage;-;+15551234567" }],
+    },
+  };
+  return {
+    adapter,
+    foreign: () => ({
+      raw: foreign,
+      expected: {
+        messageId: "bb-1",
+        chatId: "iMessage;-;+15551234567",
+        text: "run the conformance suite",
+        chatKind: "private",
+        sender: { id: "+15551234567" },
+      },
+    }),
+    own: () => ({
+      type: "new-message",
+      data: {
+        guid: "bb-2",
+        text: "own",
+        isFromMe: true,
+        chats: [{ guid: "iMessage;-;+15551234567" }],
+      },
+    }),
+  };
+}
+
 const FIXTURES: { name: string; build: () => IngressConformanceFixture }[] = [
   { name: "slack", build: slackFixture },
   { name: "discord", build: discordFixture },
@@ -1316,6 +1607,15 @@ const FIXTURES: { name: string; build: () => IngressConformanceFixture }[] = [
   // so the receiver's own guarantees are part of the shared suite and every
   // callback platform after it inherits them.
   { name: "generic webhook", build: genericWebhookFixture },
+  { name: "feishu", build: feishuFixture },
+  { name: "line", build: lineFixture },
+  { name: "sms", build: smsFixture },
+  { name: "google chat", build: googleChatFixture },
+  { name: "teams", build: teamsFixture },
+  { name: "whatsapp cloud", build: whatsappCloudFixture },
+  { name: "weixin", build: weixinFixture },
+  { name: "qq bot", build: qqbotFixture },
+  { name: "bluebubbles", build: bluebubblesFixture },
 ];
 
 for (const entry of FIXTURES) {
