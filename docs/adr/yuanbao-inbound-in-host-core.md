@@ -32,14 +32,13 @@ The TypeScript side keeps two jobs and gains no protocol:
 ## Consequences
 
 - One implementation of the wire. A change to the relay shows up in one crate.
-- The producer half of the seam is in place: `service::run_configured` starts from
-  the settings record and writes one `messaging.inbound` notification per
-  projected message. **The consumer is not written yet.** `runtime/host.ts`
-  dispatches host notifications today for plans, config sync, plugins and
-  permissions; `messaging.inbound` is not among them, and turning that event into
-  a turn is the next step. Until it exists, the loop starts and acks correctly but
-  nothing downstream reads what it forwards — do not describe this channel as
-  receiving yet.
+- The seam is complete on both sides: `service::run_configured` starts from the
+  settings record and writes one `messaging.inbound` notification per projected
+  message, and `bootstrap/startup.ts` subscribes to that method beside the
+  supervisor and calls `startTurn` in the session the record names, dropping a
+  message id it has already answered. The consumer lives with the supervisor
+  rather than in `runtime/host.ts` because that is where the Agent Host and its
+  turn surface are already in scope.
 - Inbound for this channel does not go through the TypeScript ingress shape at
   the same point as the other channels; host-core surfaces the projected message
   itself. That is the exception this ADR records, and it is scoped to this
