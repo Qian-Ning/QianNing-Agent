@@ -52,6 +52,7 @@ import type { ClipboardHistory } from "../clipboard-history";
 import type { PluginRuntime } from "../plugin-runtime";
 import type { IpcRegistrar } from "./types";
 import { MEDIA_LIBRARY_DIR } from "../services/media-library";
+import { MAIN_DIR } from "../main-paths";
 
 type WorkspaceRecord = { path: string; name: string };
 
@@ -227,7 +228,7 @@ export function registerWorkspaceIpc({
     const seed =
       process.env.PI_DESKTOP_SEED_WORKSPACE ||
       process.env.PI_DESKTOP_WORKSPACE ||
-      (isDevelopmentBuild ? join(__dirname, "../../..") : "");
+      (isDevelopmentBuild ? join(MAIN_DIR, "../../..") : "");
     if (!res.workspace && seed) {
       try {
         res = (await host.call("workspace.set", { path: seed })) as {

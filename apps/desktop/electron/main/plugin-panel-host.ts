@@ -17,6 +17,7 @@ import {
   type PluginPanelTheme,
   type PluginPanelWindowControlAction,
 } from "../shared/plugin-panel-chrome";
+import { MAIN_DIR } from "./main-paths";
 
 export type PluginPanelOpenRequest = {
   pluginId: string;
@@ -482,7 +483,7 @@ export class PluginPanelHost {
       ...(widget ? { fullscreenable: false } : {}),
       webPreferences: {
         session: ses,
-        preload: join(__dirname, "../preload/plugin-panel.js"),
+        preload: join(MAIN_DIR, "../preload/plugin-panel.js"),
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,

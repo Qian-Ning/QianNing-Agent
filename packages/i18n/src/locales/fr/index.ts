@@ -2108,7 +2108,7 @@ sklm: {
       "blurbBuzzGap": "Absent de cette version : Buzz est un relais Nostr — les requêtes sont signées avec des clés Schnorr NIP-98 et les messages sont des événements NIP-01.",
       "blurbRaftGap": "Absent de cette version : le credential de bot de Raft est documenté, mais ses endpoints de messages ne sont publiés que sous forme de SDK et de CLI, sans contrat HTTP brut à implémenter.",
       "blurbBuzz": "Buzz est un relais Nostr : un message est un événement signé, un canal un groupe NIP-29.",
-      "buzzNote": "Cette version ne fait qu'envoyer : chaque message est signé ici puis publié. Lire un canal n'est pas encore là.",
+      "buzzNote": "Bidirectionnel : l'hôte signe et publie chaque message et garde une connexion au relais ouverte pour recevoir ceux du canal.",
       "buzzLimitations": "Nécessite un relais Buzz que vous hébergez ou joignez. L'id du canal est son UUID.",
       "buzzPrivateKey": "Clé privée Nostr",
       "buzzPrivateKeyHint": "nsec1… ou 64 caractères hex. La signature se fait sur cette machine ; la clé n'en sort pas.",

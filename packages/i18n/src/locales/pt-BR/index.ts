@@ -1930,7 +1930,7 @@ export const ptBR = {
       "blurbBuzzGap": "Não está nesta versão: o Buzz é um relay Nostr — as requisições são assinadas com chaves Schnorr NIP-98 e as mensagens são eventos NIP-01.",
       "blurbRaftGap": "Não está nesta versão: a credencial de bot do Raft é documentada, mas seus endpoints de mensagens só são publicados como SDK e CLI, sem contrato HTTP bruto para implementar.",
       "blurbBuzz": "Buzz é um relay Nostr: uma mensagem é um evento assinado e um canal é um grupo NIP-29.",
-      "buzzNote": "Esta versão só envia: cada mensagem é assinada aqui e publicada no relay. Ler um canal ainda não existe.",
+      "buzzNote": "Duas vias: o host assina e publica cada mensagem e mantém uma conexão com o relay aberta para receber as do canal.",
       "buzzLimitations": "Precisa de um relay Buzz que você rode ou alcance. O id do canal é o UUID dele.",
       "buzzPrivateKey": "Chave privada Nostr",
       "buzzPrivateKeyHint": "nsec1… ou 64 caracteres hex. A assinatura acontece nesta máquina; a chave não sai dela.",

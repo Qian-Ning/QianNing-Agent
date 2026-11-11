@@ -2106,7 +2106,7 @@ sklm: {
       "blurbBuzzGap": "Bu derlemede yok: Buzz bir Nostr aktarıcısıdır — istekler NIP-98 Schnorr anahtarlarıyla imzalanır ve mesajlar NIP-01 olaylarıdır.",
       "blurbRaftGap": "Bu derlemede yok: Raft'ın bot kimlik bilgisi belgeli, ancak mesaj uç noktaları yalnızca SDK ve CLI olarak yayımlanıyor; üzerine kod yazılacak ham HTTP sözleşmesi yok.",
       "blurbBuzz": "Buzz bir Nostr aktarıcısıdır: mesaj imzalı bir olay, kanal ise bir NIP-29 grubudur.",
-      "buzzNote": "Bu derleme yalnızca gönderir: her mesaj burada imzalanıp aktarıcıya yayımlanır. Kanal okuma henüz yok.",
+      "buzzNote": "İki yönlü: her mesajı imzalayıp yayımlar ve kanalın mesajlarını almak için bir aktarıcı bağlantısı açık tutar.",
       "buzzLimitations": "Çalıştırdığınız ya da erişebildiğiniz bir Buzz aktarıcısı gerekir. Kanal kimliği o kanalın UUID'sidir.",
       "buzzPrivateKey": "Nostr özel anahtarı",
       "buzzPrivateKeyHint": "nsec1… veya 64 onaltılık karakter. İmzalama bu makinede yapılır; anahtar buradan çıkmaz.",
