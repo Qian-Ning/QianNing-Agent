@@ -129,6 +129,7 @@ const GATEWAY_DOWN = {
   qqBot: false,
   blueBubbles: false,
   simplex: false,
+  yuanbao: false,
 };
 
 /**
@@ -191,6 +192,7 @@ const SUPPORTED_IDS = [
   "wecomApp",
   "weixin",
   "qqBot",
+  "yuanbao",
   "apiServer",
   "webhooks",
   "buzz",
@@ -296,7 +298,9 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   // channel now, not an honest absence, so the transport class is the two
   // protocols still lacking a local endpoint.
   assert.deepEqual(byClass.transport, ["a2a", "relay"]);
-  assert.deepEqual(byClass.platformApproval, ["yuanbao"]);
+  // yuanbao left this class when its relay shipped: it is a supported channel
+  // now, so nothing is left waiting on a platform's approval.
+  assert.deepEqual(byClass.platformApproval ?? [], []);
 
   // No class is invented. The converse is deliberately not asserted: a class
   // may legitimately have no members once every platform it described ships,
@@ -589,6 +593,19 @@ test("fields are grouped, and every field explains itself and its blank", () => 
         requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
         [],
       );
+    } else if (platform.id === "yuanbao") {
+      // The relay address, the bot's own account, the conversation it answers
+      // and the command link. The account is required because the protocol has
+      // no "this is mine" flag: an incoming message is our own echo exactly when
+      // its sender is that account.
+      assert.deepEqual(requiredWithoutSecrets, [
+        "endpoint",
+        "account",
+        "destination",
+        "subject",
+        "roles",
+      ]);
+      assert.deepEqual(recommended.map((field) => field.id), ["requestTimeoutMs"]);
     } else if (platform.id === "email") {
       // Email has no single conversation: the correspondent is whoever wrote,
       // and the record's destination is the sender allowlist rather than one
