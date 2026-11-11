@@ -99,6 +99,40 @@ function telegramMetadata(message: Record<string, unknown>): {
 }
 
 /**
+ * What a message carries when it carries no text of its own.
+ *
+ * Telegram puts the words of a photo or a document in `caption`, not `text`, and
+ * a sticker or a voice note has neither. Reading only `text` turned every one of
+ * those into an empty turn — the agent got a message with nothing in it and no
+ * way to tell that something had been sent at all.
+ *
+ * The field order is the platform's own precedence: a photo with a caption is
+ * still a photo, and the earliest field present is the one that names it.
+ */
+const TELEGRAM_MEDIA_FIELDS: ReadonlyArray<readonly [string, string]> = [
+  ["photo", "photo"],
+  ["video", "video"],
+  ["video_note", "video note"],
+  ["voice", "voice message"],
+  ["audio", "audio"],
+  ["document", "document"],
+  ["sticker", "sticker"],
+  ["animation", "animation"],
+  ["location", "location"],
+  ["venue", "venue"],
+  ["contact", "contact"],
+  ["poll", "poll"],
+];
+
+/** The bracketed name of what a message carries, if it carries media. */
+function telegramMediaKind(message: Record<string, unknown>): string | null {
+  for (const [field, label] of TELEGRAM_MEDIA_FIELDS) {
+    if (message[field] !== undefined) return label;
+  }
+  return null;
+}
+
+/**
  * Project one Telegram update onto the shared shape.
  *
  * The update id is the poll cursor, so an update the cursor can advance past is
@@ -138,12 +172,26 @@ export function normaliseTelegramUpdate(entry: unknown): TelegramUpdateNormalisa
     };
   }
   const text = typeof message.text === "string" ? message.text : "";
+  // A photo's words arrive as `caption`, and a sticker or a voice note has none
+  // at all: the body is what the agent reads, the bracket is what tells it that
+  // something came with the body.
+  const body = text !== "" ? text : typeof message.caption === "string" ? message.caption : "";
+  const media = telegramMediaKind(message);
+  const projected = media === null ? body : body === "" ? `[${media}]` : `[${media}] ${body}`;
+  if (projected === "") {
+    // A service message ("X joined", a pin, a call) carries nothing to answer.
+    return {
+      kind: "update",
+      updateId,
+      normalisation: { kind: "filtered", reason: "message carries no text or media" },
+    };
+  }
   return {
     kind: "update",
     updateId,
     normalisation: {
       kind: "message",
-      message: { messageId, chatId, text, ...telegramMetadata(message) },
+      message: { messageId, chatId, text: projected, ...telegramMetadata(message) },
       key: ingressMessageKey(chatId, messageId),
     },
   };
