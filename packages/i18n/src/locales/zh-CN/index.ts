@@ -2094,7 +2094,7 @@ sklm: {
       "blurbBuzzGap": "本版本未支持：Buzz 是一个 Nostr 中转站——请求用 NIP-98 的 Schnorr 密钥签名，消息是 NIP-01 事件。",
       "blurbRaftGap": "本版本未支持：Raft 的机器人凭据有文档，但消息端点只以 SDK 和 CLI 形式公开，没有可直接实现的原始 HTTP 契约。",
       "blurbBuzz": "Buzz 是 Nostr 中继：一条消息是一个签名事件，一个频道是一个 NIP-29 群组。",
-      "buzzNote": "本版本只发送：每条消息在这台机器上签名后发到中继。读取频道消息还没做。",
+      "buzzNote": "双向：每条消息在本机签名后发到中继，同时保持一条连接接收该频道的消息。",
       "buzzLimitations": "需要你自己跑一个 Buzz 中继（或能连上的）。频道 ID 是那个频道的 UUID。",
       "buzzPrivateKey": "Nostr 私钥",
       "buzzPrivateKeyHint": "nsec1… 或 64 位十六进制。签名在本机完成，私钥不会离开这台机器。",

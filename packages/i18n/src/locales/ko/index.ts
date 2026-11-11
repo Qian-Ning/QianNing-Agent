@@ -2116,7 +2116,7 @@ sklm: {
       "blurbBuzzGap": "이 빌드에는 없습니다: Buzz는 Nostr 릴레이입니다. 요청은 NIP-98 Schnorr 키로 서명하고 메시지는 NIP-01 이벤트입니다.",
       "blurbRaftGap": "이 빌드에는 없습니다: Raft의 봇 자격 증명은 문서화되어 있지만 메시지 엔드포인트는 SDK와 CLI로만 공개되어 구현할 원시 HTTP 계약이 없습니다.",
       "blurbBuzz": "Buzz는 Nostr 릴레이입니다. 메시지는 서명된 이벤트이고, 채널은 NIP-29 그룹입니다.",
-      "buzzNote": "이 빌드는 보내기만 합니다. 각 메시지를 이 기기에서 서명해 게시합니다. 채널 읽기는 아직 없습니다.",
+      "buzzNote": "양방향: 각 메시지를 서명해 게시하고, 채널의 메시지를 받기 위해 릴레이 연결을 하나 열어 둡니다.",
       "buzzLimitations": "직접 운영하거나 접근할 수 있는 Buzz 릴레이가 필요합니다. 채널 ID는 그 채널의 UUID입니다.",
       "buzzPrivateKey": "Nostr 개인 키",
       "buzzPrivateKeyHint": "nsec1… 또는 64자리 16진수. 서명은 이 기기에서 하며 키는 밖으로 나가지 않습니다.",

@@ -695,12 +695,11 @@ system while preserving their different data ownership:
   robot), **LINE**, **Twilio SMS**, **Google Chat**, **Microsoft Teams**,
   **WhatsApp Cloud**, **WeChat Official Accounts**, **QQ bots**, **Microsoft
   Graph**, **BlueBubbles**, **SimpleX**, **DingTalk** and **Buzz** are marked
-  Supported and open a working panel. Buzz is the one send-only channel among
-  them: a message is a Nostr event this build signs (BIP340) and publishes to the
-  relay with the channel under an `h` tag, the relay's NIP-42 challenge is
-  answered with a signed kind-22242 event, and the panel says that reading a
-  channel back is not in this build rather than implying a two-way channel. The
-  rest are marked
+  Supported and open a working panel. Buzz is the Nostr one: a message is an
+  event this build signs (BIP340) and publishes to the relay with the channel
+  under an `h` tag, the relay's NIP-42 challenge is answered with a signed
+  kind-22242 event, and the same connection subscribes to the channel so an
+  incoming message starts a turn like any other channel's. The rest are marked
   Not supported, and their panel states
   what the gap is **and what kind of requirement it is**, because "needs setup"
   without the kind does not tell a user whether they can close it themselves.

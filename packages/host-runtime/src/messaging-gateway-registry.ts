@@ -41,6 +41,7 @@ export type MessagingGatewayChannel =
   | "signal"
   | "apiServer"
   | "simplex"
+  | "buzz"
   | "webhookReceiver";
 
 /** The answer the renderer reads. */
@@ -87,6 +88,8 @@ export type MessagingGatewaySnapshot = {
   blueBubbles: boolean;
   /** SimpleX runs its own socket loop, not on the receiver. */
   simplex: boolean;
+  /** Buzz runs its own socket loop against a Nostr relay. */
+  buzz: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — most often a port already taken. `null` for
@@ -257,6 +260,7 @@ export class MessagingGatewayRegistry implements MessagingGatewayPort {
       blueBubbles:
         this.callbackPlatforms.has("blueBubbles") && this.running.has("webhookReceiver"),
       simplex: this.running.has("simplex"),
+      buzz: this.running.has("buzz"),
       apiServerError: this.failures.get("apiServer") ?? null,
       webhookReceiverError: this.failures.get("webhookReceiver") ?? null,
     };

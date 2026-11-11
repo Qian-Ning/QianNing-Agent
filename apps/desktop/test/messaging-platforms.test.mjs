@@ -561,7 +561,10 @@ test("fields are grouped, and every field explains itself and its blank", () => 
     const selfHosted =
       platform.id === "mattermost" ||
       platform.id === "matrix" ||
-      platform.id === "homeAssistant";
+      platform.id === "homeAssistant" ||
+      // Buzz is a relay a person runs: there is no public default to fall back
+      // to, so its address is as required as the channel it publishes to.
+      platform.id === "buzz";
     const requiredIds = required.map((field) => field.id);
     const requiredWithoutSecrets = requiredIds.filter(
       (id) => !platform.secrets.some((slot) => slot.id === id),

@@ -2108,7 +2108,7 @@ sklm: {
       "blurbBuzzGap": "No está en esta compilación: Buzz es un relé Nostr: las peticiones se firman con claves Schnorr NIP-98 y los mensajes son eventos NIP-01.",
       "blurbRaftGap": "No está en esta compilación: la credencial de bot de Raft está documentada, pero sus endpoints de mensajes solo se publican como SDK y CLI, sin un contrato HTTP crudo contra el que implementar.",
       "blurbBuzz": "Buzz es un relé Nostr: un mensaje es un evento firmado y un canal es un grupo NIP-29.",
-      "buzzNote": "Esta versión solo envía: cada mensaje se firma aquí y se publica en el relé. Leer un canal aún no está.",
+      "buzzNote": "Bidireccional: el Host firma y publica cada mensaje y mantiene una conexión al relé para recibir los del canal.",
       "buzzLimitations": "Necesita un relé Buzz que ejecutes o alcances. El id del canal es su UUID.",
       "buzzPrivateKey": "Clave privada Nostr",
       "buzzPrivateKeyHint": "nsec1… o 64 caracteres hex. La firma ocurre en esta máquina; la clave no sale de ella.",

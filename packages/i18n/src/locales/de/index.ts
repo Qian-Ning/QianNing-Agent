@@ -2108,7 +2108,7 @@ sklm: {
       "blurbBuzzGap": "Nicht in diesem Build: Buzz ist ein Nostr-Relay — Anfragen werden mit NIP-98-Schnorr-Schlüsseln signiert, Nachrichten sind NIP-01-Events.",
       "blurbRaftGap": "Nicht in diesem Build: Rafts Bot-Credential ist dokumentiert, seine Nachrichten-Endpunkte aber nur als SDK und CLI — ohne rohen HTTP-Vertrag, gegen den man implementieren könnte.",
       "blurbBuzz": "Buzz ist ein Nostr-Relay: Eine Nachricht ist ein signiertes Event, ein Kanal eine NIP-29-Gruppe.",
-      "buzzNote": "Dieser Build sendet nur: jede Nachricht wird hier signiert und veröffentlicht. Kanalnachrichten zu lesen fehlt noch.",
+      "buzzNote": "Beidseitig: Der Host signiert und veröffentlicht jede Nachricht und hält eine Relay-Verbindung offen, um die des Kanals zu empfangen.",
       "buzzLimitations": "Braucht ein Buzz-Relay, das du betreibst oder erreichst. Die Kanal-ID ist die UUID des Kanals.",
       "buzzPrivateKey": "Nostr-Privatschlüssel",
       "buzzPrivateKeyHint": "nsec1… oder 64 Hex-Zeichen. Signiert wird auf diesem Rechner; der Schlüssel verlässt ihn nicht.",

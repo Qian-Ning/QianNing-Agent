@@ -48,6 +48,12 @@ import {
   createMatrixInboundPushTransport,
   createNtfyInboundPushTransport,
   ntfyApiBase,
+  createBuzzIngressAdapter,
+  createSocketIngressTransport,
+  BUZZ_FORMAT,
+  BUZZ_FORMAT_VERSION,
+  BUZZ_PRIVATE_KEY_SECRET_REF,
+  BUZZ_SETTINGS_SECTION,
   createSettingsHandledMessageStore,
   createSettingsSlackHandledStore,
   createSlackInboundPushTransport,
@@ -1053,6 +1059,109 @@ export function createSlackInboundWiring(options: MessagingSlackWiringOptions): 
     ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
     transport: options.transport ?? createConfiguredSlackTransport(options),
     failureLabel: "inbound slack loop failed",
+  });
+}
+
+/** The Buzz channel's descriptor, selected by its own bind channel. */
+export const BUZZ_INBOUND_CHANNEL: MessagingInboundChannel = {
+  section: BUZZ_SETTINGS_SECTION,
+  format: BUZZ_FORMAT,
+  version: BUZZ_FORMAT_VERSION,
+  platform: "buzz",
+};
+
+/** How many handled event ids Buzz's durable guard keeps. */
+const BUZZ_HANDLED_CAPACITY = 512;
+
+/**
+ * The audit sink for the Buzz relay client: ids and kinds only — never message
+ * text, never the signing key.
+ */
+export function createBuzzInboundAudit(log?: MessagingInboundWiringLog): IngressAudit {
+  if (!log) return () => {};
+  return (entry) => {
+    const level = entry.kind === "processed" || entry.kind === "duplicate" ? "info" : "warn";
+    log(level, "inbound buzz channel", { ...entry });
+  };
+}
+
+/**
+ * The production Buzz transport, config-gated on the record and the signing key.
+ *
+ * `start` reads the relay address and the channel id from the channel's settings
+ * section, and the Nostr key from the host's secret store. With nothing
+ * configured it returns without opening a socket, so an install that never
+ * configured Buzz behaves exactly as it did before the channel existed. Nothing
+ * is bound: the relay connection is one the Host originates.
+ */
+function createConfiguredBuzzTransport(
+  options: MessagingBuzzWiringOptions,
+): MessagingInboundPushTransport {
+  return {
+    async start(onMessage, signal): Promise<void> {
+      let record: { endpoint: string; destination: string };
+      try {
+        record = readTransportRecord(await options.settings.read(), BUZZ_SETTINGS_SECTION);
+      } catch {
+        return;
+      }
+      if (!record.endpoint || !record.destination) return;
+      let key: string | null = null;
+      try {
+        key = await options.secrets(BUZZ_PRIVATE_KEY_SECRET_REF);
+      } catch {
+        key = null;
+      }
+      if (!key || !key.trim()) return;
+
+      const adapter = createBuzzIngressAdapter({
+        url: record.endpoint,
+        channelId: record.destination,
+        privateKey: key.trim(),
+        open: createWsSlackSocketFactory(),
+        handled: createSettingsHandledMessageStore({
+          settings: options.settings,
+          section: BUZZ_SETTINGS_SECTION,
+          capacity: BUZZ_HANDLED_CAPACITY,
+          field: "handledEventIds",
+        }),
+        audit: createBuzzInboundAudit(options.log),
+      });
+      await createSocketIngressTransport(adapter, options.wait ? { wait: options.wait } : {}).start(
+        onMessage,
+        signal,
+      );
+    },
+  };
+}
+
+/** The options the Buzz wiring takes; the shared shape plus its own seams. */
+export type MessagingBuzzWiringOptions = Omit<MessagingInboundWiringOptions, "transport"> & {
+  /** Test seam: a push transport in place of the one built from the settings. */
+  transport?: MessagingInboundPushTransport;
+  /** Test seam: how the reconnect loop waits. */
+  wait?: (ms: number) => Promise<void>;
+};
+
+/**
+ * Build the inbound Buzz wiring.
+ *
+ * The same driver, the same conversation-to-session binding and the same `run`
+ * contract as every other channel; only the transport differs. The transport is
+ * config-gated, so a Host with nothing configured starts no loop.
+ */
+export function createBuzzInboundWiring(
+  options: MessagingBuzzWiringOptions,
+): MessagingInboundWiring {
+  return createIngressWiring({
+    agentHost: options.agentHost,
+    settings: options.settings,
+    signal: options.signal,
+    ...(options.log ? { log: options.log } : {}),
+    channel: BUZZ_INBOUND_CHANNEL,
+    ...(options.notifyTyping ? { notifyTyping: options.notifyTyping } : {}),
+    transport: options.transport ?? createConfiguredBuzzTransport(options),
+    failureLabel: "inbound buzz loop failed",
   });
 }
 

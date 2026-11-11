@@ -97,6 +97,10 @@ import {
   MESSAGING_DINGTALK_FORMAT,
   MESSAGING_DINGTALK_FORMAT_VERSION,
   MESSAGING_DINGTALK_SECTION,
+  BUZZ_FORMAT,
+  BUZZ_FORMAT_VERSION,
+  BUZZ_PRIVATE_KEY_SECRET_REF,
+  BUZZ_SETTINGS_SECTION,
 } from "@pi-desktop/agent-host";
 
 import type { MessagingGatewayChannel } from "./messaging-gateway-registry.js";
@@ -156,6 +160,13 @@ export const MESSAGING_INBOUND_START_GATES: Record<MessagingGatewayChannel, Mess
   },
   // Socket Mode opens against Slack's own API base, so the record names no
   // endpoint; the app-level token is the whole gate.
+  buzz: {
+    section: BUZZ_SETTINGS_SECTION,
+    format: BUZZ_FORMAT,
+    version: BUZZ_FORMAT_VERSION,
+    fields: ["endpoint", "destination"],
+    secrets: [BUZZ_PRIVATE_KEY_SECRET_REF],
+  },
   slack: {
     section: MESSAGING_SLACK_SECTION,
     format: MESSAGING_SLACK_FORMAT,
