@@ -1,8 +1,8 @@
 {
   "typescript": {
     "apps/desktop/electron/main/bootstrap/window.ts": {
-      "reason": "Existing window lifecycle extraction from the main-process facade; further decomposition is outside this follow-up scope.",
-      "max": 2073
+      "reason": "Existing window lifecycle extraction from the main-process facade; further decomposition is outside this follow-up scope. Raised by one line for the shared MAIN_DIR import that replaced a bare dirname reference.",
+      "max": 2074
     },
     "packages/agent-runtime/src/native-pi-session.test.ts": {
       "reason": "Native Pi continuation regression coverage is kept with the source boundary while the protocol and fixture contract stabilise; split by lifecycle once the native adapter surface settles. Moved from 1192 to 1205 when the unknown-session abort answer got a regression test: the check was fixed but unguarded, and the guard costs thirteen lines of fixture setup and intent.",
