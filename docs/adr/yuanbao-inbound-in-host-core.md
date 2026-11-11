@@ -32,11 +32,19 @@ The TypeScript side keeps two jobs and gains no protocol:
 ## Consequences
 
 - One implementation of the wire. A change to the relay shows up in one crate.
+- The producer half of the seam is in place: `service::run_configured` starts from
+  the settings record and writes one `messaging.inbound` notification per
+  projected message. **The consumer is not written yet.** `runtime/host.ts`
+  dispatches host notifications today for plans, config sync, plugins and
+  permissions; `messaging.inbound` is not among them, and turning that event into
+  a turn is the next step. Until it exists, the loop starts and acks correctly but
+  nothing downstream reads what it forwards — do not describe this channel as
+  receiving yet.
 - Inbound for this channel does not go through the TypeScript ingress shape at
-  the same point as the other channels; host-core must surface the projected
-  message to the runtime itself. That is the exception this ADR records, and it is
-  scoped to this channel: it does not create a second general channel between the
-  layers for anything else.
+  the same point as the other channels; host-core surfaces the projected message
+  itself. That is the exception this ADR records, and it is scoped to this
+  channel: it does not create a second general channel between the layers for
+  anything else.
 - `session` holds no I/O, so the protocol is tested without a relay; `socket` is
   tested against a local listener that speaks the same frames, which is the
   closest this repo can get while no tenant credentials exist.
