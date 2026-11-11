@@ -39,7 +39,9 @@ use std::time::Duration;
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::db::Database;
-use crate::messaging_adapter::{AdapterRegistry, FailureKind, OutboundAdapter, OutboundMessage, SendResult};
+use crate::messaging_adapter::{
+    AdapterRegistry, FailureKind, OutboundAdapter, OutboundMessage, SendResult,
+};
 use crate::messaging_outbound::{bounded, envelope_text, failed, request_timeout};
 use crate::secrets::SecretStore;
 
@@ -286,9 +288,7 @@ impl BuzzAdapter {
             created_at,
         ) {
             Ok(signed) => signed,
-            Err(error) => {
-                return failed(FailureKind::Terminal, &bounded(&format!("{error:#}")))
-            }
+            Err(error) => return failed(FailureKind::Terminal, &bounded(&format!("{error:#}"))),
         };
 
         let connect =
@@ -310,14 +310,15 @@ impl BuzzAdapter {
         };
 
         let deadline = tokio::time::Instant::now() + self.timeout;
-        let mut published = false;
         loop {
             let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
             if remaining.is_zero() {
                 let _ = socket.close(None).await;
                 return failed(
                     FailureKind::Retryable,
-                    &bounded(&format!("the {LABEL} relay did not confirm the send in time")),
+                    &bounded(&format!(
+                        "the {LABEL} relay did not confirm the send in time"
+                    )),
                 );
             }
             let next = tokio::time::timeout(remaining, socket.next()).await;
@@ -342,7 +343,9 @@ impl BuzzAdapter {
                     let _ = socket.close(None).await;
                     return failed(
                         FailureKind::Retryable,
-                        &bounded(&format!("the {LABEL} relay went quiet before confirming the send")),
+                        &bounded(&format!(
+                            "the {LABEL} relay went quiet before confirming the send"
+                        )),
                     );
                 }
             };
@@ -403,8 +406,12 @@ impl BuzzAdapter {
                     }
                     let accepted = array.get(2).and_then(Value::as_bool).unwrap_or(false);
                     if accepted {
-                        published = true;
-                        break;
+                        // The event id is the handle a later edit or delete
+                        // would name.
+                        let _ = socket.close(None).await;
+                        return SendResult::Delivered {
+                            remote_id: Some(signed.id.clone()),
+                        };
                     }
                     let reason = array.get(3).and_then(Value::as_str).unwrap_or("refused");
                     return failed(
@@ -416,17 +423,11 @@ impl BuzzAdapter {
             }
         }
 
-        if !published {
-            return failed(
-                FailureKind::Retryable,
-                &bounded(&format!("the {LABEL} relay did not accept the message")),
-            );
-        }
-        // The event id is the handle a later edit or delete would name.
-        let _ = socket.close(None).await;
-        SendResult::Delivered {
-            remote_id: Some(signed.id),
-        }
+        #[allow(unreachable_code)]
+        failed(
+            FailureKind::Retryable,
+            &bounded(&format!("the {LABEL} relay did not accept the message")),
+        )
     }
 }
 

@@ -39,6 +39,14 @@ import {
 
 export const MESSAGING_BUZZ_PLATFORM = "buzz";
 
+/** The `app` settings section Buzz's record lives under. */
+export const BUZZ_SETTINGS_SECTION = "messagingBuzz";
+/** The record's self-identifying format and version. */
+export const BUZZ_FORMAT = "pi-desktop-messaging-buzz";
+export const BUZZ_FORMAT_VERSION = 1;
+/** Where the Host keeps the Nostr key the Host signs with. */
+export const BUZZ_PRIVATE_KEY_SECRET_REF = "secret:messaging-buzz:private-key";
+
 /**
  * The chunker's limit.
  *
