@@ -48,8 +48,6 @@ import {
   createMatrixInboundPushTransport,
   createNtfyInboundPushTransport,
   ntfyApiBase,
-  createBuzzIngressAdapter,
-  createSocketIngressTransport,
   BUZZ_FORMAT,
   BUZZ_FORMAT_VERSION,
   BUZZ_PRIVATE_KEY_SECRET_REF,
@@ -1114,6 +1112,12 @@ function createConfiguredBuzzTransport(
       }
       if (!key || !key.trim()) return;
 
+      // Loaded here rather than at module scope: the relay client pulls a
+      // signing library into the desktop main bundle, and a channel nobody
+      // configured should not be part of the boot cost or the boot surface.
+      const [{ createBuzzIngressAdapter, createSocketIngressTransport }] = await Promise.all([
+        import("@pi-desktop/agent-host"),
+      ]);
       const adapter = createBuzzIngressAdapter({
         url: record.endpoint,
         channelId: record.destination,
