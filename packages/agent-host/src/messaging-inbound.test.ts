@@ -990,7 +990,9 @@ describe("createTelegramInboundTransport", () => {
           ok: true,
           result: [
             { update_id: 41, message: { message_id: 900, chat: { id: 9 }, text: "/start hi" } },
-            { update_id: 42, message: { message_id: 901, chat: { id: 9 } } },
+            // A message with neither text nor media carries nothing to answer;
+            // it is kept here as a photo so the mapping is still exercised.
+            { update_id: 42, message: { message_id: 901, chat: { id: 9 }, photo: [{ file_id: "p" }] } },
             { update_id: 43, edited_message: { message_id: 902 } },
           ],
         }),
@@ -1010,7 +1012,7 @@ describe("createTelegramInboundTransport", () => {
       ok: true,
       messages: [
         { updateId: 41, messageId: "900", chatId: "9", text: "/start hi" },
-        { updateId: 42, messageId: "901", chatId: "9", text: "" },
+        { updateId: 42, messageId: "901", chatId: "9", text: "[photo]" },
       ],
       nextOffset: 44,
     });
