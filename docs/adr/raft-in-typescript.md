@@ -53,3 +53,17 @@ Raft is implemented in TypeScript on both sides:
   capabilities, plus `channels` to join a public channel before posting to it.
   Joining is explicit and idempotent — it is never a hidden side effect of a
   send.
+
+## Where the implementation stops
+
+`events.receive` returns events typed as `{ id, seq, eventType, actorType,
+actorName, payload, createdAt }` — and `payload` is `Record<string, unknown>`.
+The SDK does not say which `eventType` means "a message arrived", nor where in
+that payload the text and the conversation sit.
+
+The projection therefore cannot be written from the type definitions, and writing
+it from guesses would reproduce the failure this ADR exists to avoid: a mapper
+that passes every fixture and mangles the first real message. The condition to
+continue is one real event sample from a Raft server — a single recorded
+`events.receive` response — after which the mapper is a half-hour of work.
+

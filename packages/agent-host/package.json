@@ -18,6 +18,7 @@
     "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
+    "@botiverse/raft-sdk": "^0.34.0",
     "@noble/curves": "^2.4.0",
     "@pi-desktop/shared": "workspace:*",
     "ws": "8.21.1"
