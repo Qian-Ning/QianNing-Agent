@@ -3,6 +3,7 @@ import { basename, join } from "node:path";
 import { parseSkillFrontmatter } from "@pi-desktop/plugin-sdk";
 import type { PluginSkillDef } from "@pi-desktop/agent-runtime";
 import type { LoadedSkillDocument } from "./skill-document";
+import { MAIN_DIR } from "./main-paths";
 
 /**
  * Skills QianNing Agent ships itself.
@@ -59,7 +60,7 @@ export function builtinSkillIdForFile(fileName: string): string {
 
 /** electron-builder copies `resources/skills` to `<resources>/skills`. */
 function resolveBuiltinSkillDir(): string | null {
-  const moduleDir = typeof __dirname === "string" ? __dirname : import.meta.dirname;
+  const moduleDir = typeof MAIN_DIR === "string" ? MAIN_DIR : import.meta.dirname;
   const candidates = [
     join(process.resourcesPath || "", "skills"),
     join(moduleDir, "../../resources/skills"),

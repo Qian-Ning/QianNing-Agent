@@ -13,6 +13,7 @@ import type { HostProcess } from "../host-process";
 import type { Logger } from "../logger";
 import type { WindowLifecycleState } from "./window";
 import { suppressLinuxFramelessSystemMenu } from "../frameless-system-menu";
+import { MAIN_DIR } from "../main-paths";
 
 export type LauncherState = {
   creationPromise: Promise<BrowserWindow> | null;
@@ -96,7 +97,7 @@ export function createLauncher({
         autoHideMenuBar: true,
         ...(process.platform === "darwin" ? { type: "panel" as const } : {}),
         webPreferences: {
-          preload: join(__dirname, "../preload/index.cjs"),
+          preload: join(MAIN_DIR, "../preload/index.cjs"),
           contextIsolation: true,
           nodeIntegration: false,
           sandbox: true,
@@ -143,7 +144,7 @@ export function createLauncher({
           url.searchParams.set("surface", "plugin-launcher");
           await window.loadURL(url.toString());
         } else {
-          await window.loadFile(join(__dirname, "../renderer/index.html"), {
+          await window.loadFile(join(MAIN_DIR, "../renderer/index.html"), {
             query: { surface: "plugin-launcher" },
           });
         }

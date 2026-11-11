@@ -23,6 +23,7 @@ import {
   PLUGIN_PANEL_LOCALE_ARGUMENT_PREFIX,
   type PluginPanelTheme,
 } from "../shared/plugin-panel-chrome";
+import { MAIN_DIR } from "./main-paths";
 
 /**
  * Re-exported so the location contract stays addressable through the module
@@ -420,7 +421,7 @@ export class PluginViewHost {
     const view = new WebContentsView({
       webPreferences: {
         session: ses,
-        preload: join(__dirname, "../preload/plugin-panel.js"),
+        preload: join(MAIN_DIR, "../preload/plugin-panel.js"),
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,

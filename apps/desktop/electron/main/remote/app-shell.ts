@@ -13,6 +13,7 @@
 
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, resolve, sep } from "node:path";
+import { MAIN_DIR } from "../main-paths";
 
 export type StaticAsset = { body: string | Buffer; contentType: string };
 
@@ -45,9 +46,9 @@ function clientRoot(): string | null {
   if (override) candidates.push(override);
   const resources = (process as { resourcesPath?: string }).resourcesPath;
   if (resources) candidates.push(join(resources, "mobile-shell"));
-  // `__dirname` under the packaged CJS main process; `import.meta.dirname` when
+  // `MAIN_DIR` under the packaged CJS main process; `import.meta.dirname` when
   // this module is loaded as ESM by the test runner.
-  const here = typeof __dirname === "string" ? __dirname : import.meta.dirname;
+  const here = typeof MAIN_DIR === "string" ? MAIN_DIR : import.meta.dirname;
   candidates.push(join(here, "..", "..", "..", "mobile", "dist"));
   for (const candidate of candidates) {
     if (existsSync(join(candidate, "index.html"))) return candidate;
