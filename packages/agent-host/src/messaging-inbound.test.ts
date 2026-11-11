@@ -1018,6 +1018,87 @@ describe("createTelegramInboundTransport", () => {
     expect(server.requests[0]).toContain("/bottest-token/getUpdates");
   });
 
+  /**
+   * The hold the platform is asked for has to end before the abort does.
+   *
+   * Both used to be the same number, so a quiet thirty-second poll was cancelled
+   * at the exact moment Telegram answered it: every empty cycle was reported as
+   * "This operation was aborted", logged as a failure, and retried immediately.
+   */
+  it("asks the platform to hold for less than the abort deadline, so a quiet poll answers", async () => {
+    const server = await startScriptedServer([{ status: 200, body: JSON.stringify({ ok: true, result: [] }) }]);
+    running.push(server.close);
+    const transport = createTelegramInboundTransport({
+      endpoint: server.origin,
+      token: "test-token",
+      requestTimeoutMs: 30_000,
+      allowInsecureHttp: true,
+    });
+
+    const result = await transport.poll(0);
+
+    expect(result).toEqual({ ok: true, messages: [], nextOffset: 0 });
+    expect(server.requests[0]).toContain("timeout=25");
+  });
+
+  /**
+   * A network that closes held connections is not a broken channel.
+   *
+   * Through a proxy that drops idle sockets, every held poll dies with
+   * `net::ERR_CONNECTION_CLOSED` — the channel still delivers, but it spends its
+   * life being cancelled and retried. Two failures in a row make the transport
+   * stop holding, and one answer puts it back.
+   */
+  it("drops the hold after two cancelled polls and restores it after one that answers", async () => {
+    const requests: string[] = [];
+    let seen = 0;
+    const server = createServer((request, response) => {
+      requests.push(request.url ?? "");
+      seen += 1;
+      if (seen <= 2) {
+        // Hang up mid-request, the way an idle-connection reaper does.
+        request.socket.destroy();
+        return;
+      }
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end('{"ok":true,"result":[]}');
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("the test server did not bind");
+    running.push(() => new Promise<void>((resolve) => server.close(() => resolve())));
+
+    const transport = createTelegramInboundTransport({
+      endpoint: `http://127.0.0.1:${address.port}`,
+      token: "test-token",
+      requestTimeoutMs: 25_000,
+      allowInsecureHttp: true,
+    });
+
+    expect((await transport.poll(0)).ok).toBe(false);
+    expect((await transport.poll(0)).ok).toBe(false);
+    expect(await transport.poll(0)).toEqual({ ok: true, messages: [], nextOffset: 0 });
+
+    expect(requests[0]).toContain("timeout=20");
+    expect(requests[1]).toContain("timeout=20");
+    expect(requests[2]).toContain("timeout=0");
+  });
+
+  it("never asks for a negative hold when the deadline is short", async () => {
+    const server = await startScriptedServer([{ status: 200, body: JSON.stringify({ ok: true, result: [] }) }]);
+    running.push(server.close);
+    const transport = createTelegramInboundTransport({
+      endpoint: server.origin,
+      token: "test-token",
+      requestTimeoutMs: 3_000,
+      allowInsecureHttp: true,
+    });
+
+    await transport.poll(0);
+
+    expect(server.requests[0]).toContain("timeout=0");
+  });
+
   it("gets successive answers from successive polls", async () => {
     const server = await startScriptedServer([
       {

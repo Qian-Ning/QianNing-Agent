@@ -1895,3 +1895,86 @@ test("the open platform, a savable Save and a live probe each look like what the
   assert.match(tokenField.slice(0, 200), /<TelegramTokenProbe/, "the token probe is not with its field");
   assert.match(styles, /\.settings-messaging-probe \{/);
 });
+
+/**
+ * Three things the panel got wrong, pinned so they cannot come back.
+ *
+ * 1. Telegram's chat-id field carried Feishu's copy — label, help and the
+ *    `oc_…` placeholder — because the block was copied from the Feishu entry.
+ * 2. The on state of a rail switch was invisible: a rule forced the neutral
+ *    track on every switch, winning over `.settings-toggle.on`.
+ * 3. Turning a channel off deletes its section, so turning it back on asked for
+ *    fields that were gone. The form now remembers what it saved.
+ */
+test("Telegram's chat id reads as Telegram's, and the switch remembers its state", () => {
+  const lib = read("../src/lib/messaging-platforms.ts");
+  const telegram = lib.slice(lib.indexOf('id: "telegram"'), lib.indexOf('id: "discord"'));
+  assert.doesNotMatch(telegram, /feishuChatId/, "Telegram still borrows Feishu's chat-id copy");
+  assert.match(telegram, /destinationLabelKey: "settings\.messaging\.chatId"/);
+  assert.match(telegram, /destinationHelpKey: "settings\.messaging\.chatIdHelp"/);
+
+  const styles = read("../src/styles/settings.css");
+  const railSwitch = styles.slice(styles.indexOf('.settings-messaging-item [role="switch"]'));
+  assert.match(
+    railSwitch.slice(0, 200),
+    /\[aria-checked="false"\]/,
+    "the neutral track rule is not scoped to the off state",
+  );
+
+  const page = readFileSync(
+    new URL("../src/components/settings/MessagingPlatformsPage.tsx", import.meta.url),
+    "utf8",
+  );
+  const railToggle = page.slice(page.indexOf("const entryDraft"), page.indexOf("void save(target, entryDraft, next)"));
+  assert.match(railToggle, /draftWithMemory/, "the rail's switch reads the deleted section");
+  assert.match(page, /useState<MessagingDraft>\(\(\) => draftWithMemory\(platform, record\)\)/);
+  assert.match(page, /rememberDraft\(platform\.id, draft\)/, "a save is not remembered");
+
+  const memory = read("../src/lib/messaging-draft-memory.ts");
+  assert.doesNotMatch(
+    memory.slice(memory.indexOf("function withoutSecrets"), memory.indexOf("/** Remember")),
+    /secrets:\s*current/,
+    "the memory keeps credentials",
+  );
+});
+
+/**
+ * No platform's check sits away from the field it reads.
+ *
+ * Telegram's card was moved first; Discord's and Signal's stayed above the form
+ * with their own headings, which asks a person to fill a field below and then
+ * scroll back up to act on it. Each probe is rendered inside the field wrapper
+ * now, so the control and the value it reads are in one place.
+ */
+test("every platform probe sits under the field it reads", () => {
+  const page = readFileSync(
+    new URL("../src/components/settings/MessagingPlatformsPage.tsx", import.meta.url),
+    "utf8",
+  );
+
+  const probes = [
+    ['platform.id === "telegram" && field.id === "bot-token"', "<TelegramTokenProbe"],
+    ['platform.id === "telegram" && field.id === "destination"', "<TelegramChatProbe"],
+    ['platform.id === "discord" && field.id === "bot-token"', "<DiscordTokenProbe"],
+    ['platform.id === "signal" && field.id === "account"', "<SignalQuickSetup"],
+  ];
+  for (const [condition, component] of probes) {
+    const at = page.indexOf(condition);
+    assert.ok(at > 0, `no inline probe for ${component}`);
+    assert.ok(
+      page.slice(at, at + 400).includes(component),
+      `${component} is not rendered by its field`,
+    );
+  }
+
+  // And nothing renders them as a block above the form any more.
+  const aboveForm = page.slice(0, page.indexOf('<form\n        className="settings-messaging-form"'));
+  for (const component of ["<DiscordQuickSetup", "<TelegramQuickSetup"]) {
+    assert.equal(aboveForm.includes(component), false, `${component} still sits above the form`);
+  }
+
+  // The legacy quick-* notes are display:none; a probe that used them would be
+  // invisible. Only the scan card, which has no field, keeps that layout.
+  const signal = page.slice(page.indexOf("function SignalQuickSetup"), page.indexOf("function DiscordTokenProbe"));
+  assert.doesNotMatch(signal, /settings-messaging-quick-note/, "the link notes are hidden by CSS");
+});

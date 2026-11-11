@@ -908,9 +908,25 @@ function isLanHttpHost(hostname: string): boolean {
  * failure rather than followed. A non-2xx, an unreadable body, and a network
  * failure all become `{ ok: false }`, so the loop owns its own retry policy.
  */
+/** How long the platform may hold a poll open, short of the abort deadline. */
+const LONG_POLL_SLACK_MS = 5_000;
+
 export function createTelegramInboundTransport(
   config: TelegramInboundTransportConfig,
 ): TelegramInboundTransport {
+  /**
+   * Consecutive held polls that ended without an answer.
+   *
+   * A hold only works when nothing between here and the platform hangs up on a
+   * quiet connection. A proxy that closes idle sockets does exactly that, and
+   * then every held poll "fails" without anything being wrong — the channel
+   * still works, it just spends its life being cancelled. After two in a row the
+   * transport stops holding: `timeout=0` returns immediately, the loop keeps its
+   * own cadence, and one successful held poll is enough to go back to long
+   * polling.
+   */
+  let heldFailures = 0;
+  let shortPoll = false;
   return {
     async poll(offset: number, signal?: AbortSignal): Promise<TelegramPollResult> {
       const token = config.token.trim();
@@ -919,7 +935,12 @@ export function createTelegramInboundTransport(
         allowInsecureHttp: config.allowInsecureHttp,
       });
       if (!endpoint.ok) return { ok: false, error: endpoint.error };
-      const longPollSeconds = Math.max(0, Math.floor(config.requestTimeoutMs / 1000));
+      // The platform is asked to hold the poll open; the abort has to land
+      // *after* that hold expires, or every quiet cycle ends as a cancellation
+      // that reads like a failure and is retried at once. Five seconds of slack
+      // keeps the deadline the timeout and the deadline the loop sees apart.
+      const holdMs = Math.max(0, config.requestTimeoutMs - LONG_POLL_SLACK_MS);
+      const longPollSeconds = shortPoll ? 0 : Math.floor(holdMs / 1000);
       const url = endpoint.url;
       url.pathname = `${url.pathname.replace(/\/+$/, "")}/bot${token}/getUpdates`;
       url.searchParams.set("offset", String(offset));
@@ -942,8 +963,16 @@ export function createTelegramInboundTransport(
         }
         if (!response.ok) return { ok: false, error: `the channel answered HTTP ${response.status}` };
         const body = (await response.json()) as unknown;
+        // The hold completed: whatever was in the way is gone.
+        heldFailures = 0;
+        shortPoll = false;
         return parseUpdates(body, offset);
       } catch (error) {
+        // An abort the caller asked for is a shutdown, not a verdict on holding.
+        if (!signal?.aborted) {
+          heldFailures += 1;
+          if (heldFailures >= 2) shortPoll = true;
+        }
         return {
           ok: false,
           error: error instanceof Error ? error.message : "the long poll failed",
