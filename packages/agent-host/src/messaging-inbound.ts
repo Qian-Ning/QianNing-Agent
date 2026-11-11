@@ -908,6 +908,9 @@ function isLanHttpHost(hostname: string): boolean {
  * failure rather than followed. A non-2xx, an unreadable body, and a network
  * failure all become `{ ok: false }`, so the loop owns its own retry policy.
  */
+/** How long the platform may hold a poll open, short of the abort deadline. */
+const LONG_POLL_SLACK_MS = 5_000;
+
 export function createTelegramInboundTransport(
   config: TelegramInboundTransportConfig,
 ): TelegramInboundTransport {
@@ -919,7 +922,12 @@ export function createTelegramInboundTransport(
         allowInsecureHttp: config.allowInsecureHttp,
       });
       if (!endpoint.ok) return { ok: false, error: endpoint.error };
-      const longPollSeconds = Math.max(0, Math.floor(config.requestTimeoutMs / 1000));
+      // The platform is asked to hold the poll open; the abort has to land
+      // *after* that hold expires, or every quiet cycle ends as a cancellation
+      // that reads like a failure and is retried at once. Five seconds of slack
+      // keeps the deadline the timeout and the deadline the loop sees apart.
+      const holdMs = Math.max(0, config.requestTimeoutMs - LONG_POLL_SLACK_MS);
+      const longPollSeconds = Math.floor(holdMs / 1000);
       const url = endpoint.url;
       url.pathname = `${url.pathname.replace(/\/+$/, "")}/bot${token}/getUpdates`;
       url.searchParams.set("offset", String(offset));

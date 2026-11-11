@@ -1018,6 +1018,44 @@ describe("createTelegramInboundTransport", () => {
     expect(server.requests[0]).toContain("/bottest-token/getUpdates");
   });
 
+  /**
+   * The hold the platform is asked for has to end before the abort does.
+   *
+   * Both used to be the same number, so a quiet thirty-second poll was cancelled
+   * at the exact moment Telegram answered it: every empty cycle was reported as
+   * "This operation was aborted", logged as a failure, and retried immediately.
+   */
+  it("asks the platform to hold for less than the abort deadline, so a quiet poll answers", async () => {
+    const server = await startScriptedServer([{ status: 200, body: JSON.stringify({ ok: true, result: [] }) }]);
+    running.push(server.close);
+    const transport = createTelegramInboundTransport({
+      endpoint: server.origin,
+      token: "test-token",
+      requestTimeoutMs: 30_000,
+      allowInsecureHttp: true,
+    });
+
+    const result = await transport.poll(0);
+
+    expect(result).toEqual({ ok: true, messages: [], nextOffset: 0 });
+    expect(server.requests[0]).toContain("timeout=25");
+  });
+
+  it("never asks for a negative hold when the deadline is short", async () => {
+    const server = await startScriptedServer([{ status: 200, body: JSON.stringify({ ok: true, result: [] }) }]);
+    running.push(server.close);
+    const transport = createTelegramInboundTransport({
+      endpoint: server.origin,
+      token: "test-token",
+      requestTimeoutMs: 3_000,
+      allowInsecureHttp: true,
+    });
+
+    await transport.poll(0);
+
+    expect(server.requests[0]).toContain("timeout=0");
+  });
+
   it("gets successive answers from successive polls", async () => {
     const server = await startScriptedServer([
       {
