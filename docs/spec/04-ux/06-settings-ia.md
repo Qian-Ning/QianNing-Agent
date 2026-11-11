@@ -694,8 +694,16 @@ system while preserving their different data ownership:
   **Signal**, **API server**, **Webhooks**, **Feishu**, **WeCom** (app and group
   robot), **LINE**, **Twilio SMS**, **Google Chat**, **Microsoft Teams**,
   **WhatsApp Cloud**, **WeChat Official Accounts**, **QQ bots**, **Microsoft
-  Graph**, **BlueBubbles**, **SimpleX**, **DingTalk** and **Buzz** are marked
-  Supported and open a working panel. Buzz is the Nostr one: a message is an
+  Graph**, **BlueBubbles**, **SimpleX**, **DingTalk**, **Buzz** and **Yuanbao**
+  are marked Supported and open a working panel. Yuanbao is the one whose loop
+  runs in the Host rather than in this process: its relay carries protobuf over a
+  WebSocket, and the handshake, the per-frame acknowledgement and the heartbeat
+  are implemented once next to the sending side (ADR
+  `yuanbao-inbound-in-host-core`). The panel asks for the relay address, the bot's
+  own account, the conversation it answers and the command link, plus the
+  application id and secret; the account is required because the protocol has no
+  "this is mine" flag, so it is the only thing that tells an echo from a message.
+  Buzz is the Nostr one: a message is an
   event this build signs (BIP340) and publishes to the relay with the channel
   under an `h` tag, the relay's NIP-42 challenge is answered with a signed
   kind-22242 event, and the same connection subscribes to the channel so an

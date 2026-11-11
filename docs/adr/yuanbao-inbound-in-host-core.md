@@ -1,4 +1,8 @@
-# Yuanbao inbound runs in host-core
+# ADR: Yuanbao inbound runs in host-core
+
+- Status: Accepted
+- Date: 2026-11-12
+- Deciders: QianNing Agent maintainers
 
 ## Context
 
