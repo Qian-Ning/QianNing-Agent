@@ -481,6 +481,44 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
       // cannot justify is not started at all, rather than started and then
       // blamed on the panel.
       await supervisor.reconcileAll();
+      // Yuanbao's loop runs in host-core rather than in this supervisor: its
+      // protocol is protobuf over a socket and is implemented once, next to the
+      // sending side (ADR yuanbao-inbound-in-host-core). Its messages therefore
+      // arrive as a notification, and this is the consumer half of that seam —
+      // one turn per message, in the session the record names.
+      const agentHost = state.agentHostBridge.agentHost;
+      const seenYuanbao = new Set<string>();
+      host.onNotification((method, params) => {
+        if (method !== "messaging.inbound") return;
+        const message = params as { sessionId?: unknown; text?: unknown; id?: unknown };
+        if (typeof message.sessionId !== "string" || message.sessionId === "") return;
+        if (typeof message.text !== "string" || message.text.trim() === "") return;
+        const id = typeof message.id === "string" ? message.id : "";
+        if (id !== "") {
+          // The relay redelivers after a reconnect. One turn per message id.
+          if (seenYuanbao.has(id)) return;
+          seenYuanbao.add(id);
+          if (seenYuanbao.size > 500) {
+            const oldest = seenYuanbao.values().next().value;
+            if (oldest !== undefined) seenYuanbao.delete(oldest);
+          }
+        }
+        void agentHost
+          .startTurn(
+            { subject: "yuanbao", roles: ["owner"] },
+            {
+              sessionId: message.sessionId,
+              admission: "queue",
+              input: { text: message.text },
+              context: { requestId: id === "" ? `yuanbao:${Date.now()}` : `yuanbao:${id}` },
+            },
+          )
+          .catch((error: unknown) => {
+            logger.app("runtime", "warn", "yuanbao inbound turn failed", {
+              data: { error: String(error) },
+            });
+          });
+      });
     }
     // The outbound messaging relay (ADR 0205 D375 item 9, rollout R3), beside
     // the inbound loops: the Host-side redactor subscribed on the

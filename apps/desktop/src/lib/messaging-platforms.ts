@@ -79,6 +79,7 @@ export type MessagingPlatformId =
   | "webhooks"
   | "a2a"
   | "buzz"
+  | "yuanbao"
   | "imessagePhone"
   | "irc"
   | "line"
@@ -94,7 +95,8 @@ export type MessagingPlatformId =
   | "qqBot"
   | "blueBubbles"
   | "simplex"
-  | "buzz";
+  | "buzz"
+  | "yuanbao";
 
 /** The one settings section key each channel's record lives under, inside `app`. */
 export type MessagingSectionKey =
@@ -103,6 +105,7 @@ export type MessagingSectionKey =
   | "messagingFeishu"
   | "messagingWecom"
   | "messagingWecomGroup"
+  | "messagingYuanbao"
   | "messagingLine"
   | "messagingSms"
   | "messagingGoogleChat"
@@ -1363,6 +1366,23 @@ const lineSecrets: MessagingSecretSlot[] = [
  * Buzz's one credential: the Nostr secret key the Host signs its events with.
  * `nsec` and hex are both what a person has on hand, so the field accepts both.
  */
+const yuanbaoSecrets: MessagingSecretSlot[] = [
+  {
+    id: "app-id",
+    ref: "secret:messaging-yuanbao:app-id",
+    labelKey: "settings.messaging.yuanbaoAppId",
+    hintKey: "settings.messaging.yuanbaoAppIdHint",
+    placeholderKey: "settings.messaging.yuanbaoAppIdPlaceholder",
+  },
+  {
+    id: "app-secret",
+    ref: "secret:messaging-yuanbao:app-secret",
+    labelKey: "settings.messaging.yuanbaoAppSecret",
+    hintKey: "settings.messaging.yuanbaoAppSecretHint",
+    placeholderKey: "settings.messaging.yuanbaoAppSecretPlaceholder",
+  },
+];
+
 const buzzSecrets: MessagingSecretSlot[] = [
   {
     id: "private-key",
@@ -1944,14 +1964,77 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "yuanbao",
-    support: "unsupported",
+    support: "supported",
+    // A socket channel like Buzz: one connection, with the handshake, the frame
+    // acknowledgement and the heartbeat all inside host-core.
+    receive: "loop",
+    section: "messagingYuanbao",
+    format: "pi-desktop-messaging-yuanbao",
+    version: 1,
+    // Every deployment has its own relay address, so there is none to offer.
+    defaultEndpoint: "",
     labelKey: "settings.messaging.platformYuanbao",
-    blurbKey: "settings.messaging.blurbYuanbaoGap",
-    requirementClass: "platformApproval",
-    requirementKey: "settings.messaging.needsPlatformApproval",
+    blurbKey: "settings.messaging.blurbYuanbao",
+    noteKey: "settings.messaging.yuanbaoNote",
+    limitationKey: "settings.messaging.yuanbaoLimitations",
     guideUrl: "https://yuanbao.tencent.com/",
-    credentialStepKeys: [],
-    secrets: [],
+    credentialStepKeys: [
+      "settings.messaging.stepYuanbao1",
+      "settings.messaging.stepYuanbao2",
+      "settings.messaging.stepYuanbao3",
+      "settings.messaging.stepYuanbao4",
+    ],
+    secrets: yuanbaoSecrets,
+    fields: [
+      ...secretFields(yuanbaoSecrets),
+      {
+        id: "endpoint",
+        group: "required",
+        labelKey: "settings.messaging.endpoint",
+        helpKey: "settings.messaging.yuanbaoEndpointHint",
+        placeholderKey: "settings.messaging.yuanbaoEndpointPlaceholder",
+        consequenceKey: "settings.messaging.consequenceEndpoint",
+      },
+      {
+        id: "account",
+        group: "required",
+        labelKey: "settings.messaging.yuanbaoAccount",
+        helpKey: "settings.messaging.yuanbaoAccountHint",
+        placeholderKey: "settings.messaging.yuanbaoAccountPlaceholder",
+        consequenceKey: "settings.messaging.consequenceDestination",
+      },
+      {
+        id: "destination",
+        group: "required",
+        labelKey: "settings.messaging.yuanbaoConversation",
+        helpKey: "settings.messaging.yuanbaoConversationHint",
+        placeholderKey: "settings.messaging.channelIdPlaceholder",
+        consequenceKey: "settings.messaging.consequenceDestination",
+      },
+      {
+        id: "subject",
+        group: "required",
+        labelKey: "settings.messaging.subject",
+        helpKey: "settings.messaging.subjectHint",
+        placeholderKey: "settings.messaging.subjectPlaceholderBuzz",
+        consequenceKey: "settings.messaging.consequenceSubject",
+      },
+      {
+        id: "roles",
+        group: "required",
+        labelKey: "settings.messaging.roles",
+        helpKey: "settings.messaging.rolesHint",
+        consequenceKey: "settings.messaging.consequenceRoles",
+      },
+      {
+        id: "requestTimeoutMs",
+        group: "recommended",
+        labelKey: "settings.messaging.requestTimeout",
+        helpKey: "settings.messaging.requestTimeoutHint",
+        placeholderKey: "settings.messaging.requestTimeoutPlaceholder",
+        consequenceKey: "settings.messaging.consequenceTimeout",
+      },
+    ],
   },
   {
     id: "apiServer",
@@ -2397,7 +2480,8 @@ export type MessagingGatewayChannel =
   | "qqBot"
   | "blueBubbles"
   | "simplex"
-  | "buzz";
+  | "buzz"
+  | "yuanbao";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -2446,6 +2530,7 @@ export type MessagingGatewaySnapshot = {
   /** SimpleX runs its own loop, not on the receiver. */
   simplex: boolean;
   buzz: boolean;
+  yuanbao: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -2486,6 +2571,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   blueBubbles: false,
   simplex: false,
   buzz: false,
+  yuanbao: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -2543,6 +2629,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   blueBubbles: "blueBubbles",
   simplex: "simplex",
   buzz: "buzz",
+  yuanbao: "yuanbao",
   webhooks: "webhookReceiver",
 };
 

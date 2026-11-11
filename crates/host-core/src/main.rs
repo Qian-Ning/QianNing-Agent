@@ -32,6 +32,8 @@ mod messaging_wecom;
 mod messaging_wecom_group;
 mod messaging_weixin;
 mod messaging_whatsapp_cloud;
+mod messaging_yuanbao;
+mod messaging_yuanbao_adapter;
 mod network_policy;
 mod network_proxy;
 mod notifications;
