@@ -139,12 +139,15 @@ export function calculateContextUsage(
 }
 
 /**
- * Which figure the composer ring and its summary lead with (D398). Absent or
- * unrecognised values keep the remaining-capacity default, so a persisted
- * typo never blanks the trigger.
+ * Which figure the composer ring and its summary lead with (D398).
+ *
+ * Used-capacity is the default: a ring that fills as a turn consumes the window
+ * matches what a person is watching for, and the remaining figure is still one
+ * click away. Absent or unrecognised values resolve to that default, so a
+ * persisted typo never blanks the trigger.
  */
 export function resolveContextUsageDisplay(value: unknown): ContextUsageDisplay {
-  return value === "used" ? "used" : "remaining";
+  return value === "remaining" ? "remaining" : "used";
 }
 
 export type ContextUsageView = {
