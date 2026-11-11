@@ -1,9 +1,16 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseSkillFrontmatter } from "@pi-desktop/plugin-sdk";
 import type { PluginSkillDef } from "@pi-desktop/agent-runtime";
 import type { LoadedSkillDocument } from "./skill-document";
-import { MAIN_DIR } from "./main-paths";
+// Kept local rather than imported: this module is loaded directly by a test
+// through Node's ESM resolver, which needs every runtime specifier to carry an
+// extension, and a `.ts` one would not survive the bundler.
+const MAIN_DIR =
+  typeof import.meta.dirname === "string"
+    ? import.meta.dirname
+    : dirname(fileURLToPath(import.meta.url));
 
 /**
  * Skills QianNing Agent ships itself.
