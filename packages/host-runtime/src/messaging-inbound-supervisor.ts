@@ -150,6 +150,16 @@ export type MessagingInboundStartGate = {
  * never opened anything — but the loop itself still ran, which is exactly the
  * `off`/`running` pair this table now prevents.
  */
+/**
+ * Yuanbao's relay needs the service's own address, the bot's account and a pair
+ * of application credentials; nothing about it has a public default.
+ */
+const YUANBAO_SETTINGS_SECTION = "messagingYuanbao";
+const YUANBAO_FORMAT = "pi-desktop-messaging-yuanbao";
+const YUANBAO_FORMAT_VERSION = 1;
+const YUANBAO_APP_ID_SECRET_REF = "secret:messaging-yuanbao:app-id";
+const YUANBAO_APP_SECRET_SECRET_REF = "secret:messaging-yuanbao:app-secret";
+
 export const MESSAGING_INBOUND_START_GATES: Record<MessagingGatewayChannel, MessagingInboundStartGate> = {
   telegram: {
     section: MESSAGING_TELEGRAM_SECTION,
@@ -160,6 +170,15 @@ export const MESSAGING_INBOUND_START_GATES: Record<MessagingGatewayChannel, Mess
   },
   // Socket Mode opens against Slack's own API base, so the record names no
   // endpoint; the app-level token is the whole gate.
+  yuanbao: {
+    section: YUANBAO_SETTINGS_SECTION,
+    format: YUANBAO_FORMAT,
+    version: YUANBAO_FORMAT_VERSION,
+    // The relay address, the bot's own account, and the conversation it answers
+    // in: an incoming message cannot be attributed without all three.
+    fields: ["endpoint", "destination", "account"],
+    secrets: [YUANBAO_APP_ID_SECRET_REF, YUANBAO_APP_SECRET_SECRET_REF],
+  },
   buzz: {
     section: BUZZ_SETTINGS_SECTION,
     format: BUZZ_FORMAT,
