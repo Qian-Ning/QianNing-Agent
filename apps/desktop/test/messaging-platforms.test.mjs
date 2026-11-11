@@ -1895,3 +1895,45 @@ test("the open platform, a savable Save and a live probe each look like what the
   assert.match(tokenField.slice(0, 200), /<TelegramTokenProbe/, "the token probe is not with its field");
   assert.match(styles, /\.settings-messaging-probe \{/);
 });
+
+/**
+ * Three things the panel got wrong, pinned so they cannot come back.
+ *
+ * 1. Telegram's chat-id field carried Feishu's copy — label, help and the
+ *    `oc_…` placeholder — because the block was copied from the Feishu entry.
+ * 2. The on state of a rail switch was invisible: a rule forced the neutral
+ *    track on every switch, winning over `.settings-toggle.on`.
+ * 3. Turning a channel off deletes its section, so turning it back on asked for
+ *    fields that were gone. The form now remembers what it saved.
+ */
+test("Telegram's chat id reads as Telegram's, and the switch remembers its state", () => {
+  const lib = read("../src/lib/messaging-platforms.ts");
+  const telegram = lib.slice(lib.indexOf('id: "telegram"'), lib.indexOf('id: "discord"'));
+  assert.doesNotMatch(telegram, /feishuChatId/, "Telegram still borrows Feishu's chat-id copy");
+  assert.match(telegram, /destinationLabelKey: "settings\.messaging\.chatId"/);
+  assert.match(telegram, /destinationHelpKey: "settings\.messaging\.chatIdHelp"/);
+
+  const styles = read("../src/styles/settings.css");
+  const railSwitch = styles.slice(styles.indexOf('.settings-messaging-item [role="switch"]'));
+  assert.match(
+    railSwitch.slice(0, 200),
+    /\[aria-checked="false"\]/,
+    "the neutral track rule is not scoped to the off state",
+  );
+
+  const page = readFileSync(
+    new URL("../src/components/settings/MessagingPlatformsPage.tsx", import.meta.url),
+    "utf8",
+  );
+  const railToggle = page.slice(page.indexOf("const entryDraft"), page.indexOf("void save(target, entryDraft, next)"));
+  assert.match(railToggle, /draftWithMemory/, "the rail's switch reads the deleted section");
+  assert.match(page, /useState<MessagingDraft>\(\(\) => draftWithMemory\(platform, record\)\)/);
+  assert.match(page, /rememberDraft\(platform\.id, draft\)/, "a save is not remembered");
+
+  const memory = read("../src/lib/messaging-draft-memory.ts");
+  assert.doesNotMatch(
+    memory.slice(memory.indexOf("function withoutSecrets"), memory.indexOf("/** Remember")),
+    /secrets:\s*current/,
+    "the memory keeps credentials",
+  );
+});

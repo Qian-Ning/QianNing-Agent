@@ -1406,9 +1406,11 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
     secrets: telegramSecrets,
     fields: channelFields({
       secrets: telegramSecrets,
-      destinationLabelKey: "settings.messaging.feishuChatId",
-      destinationHelpKey: "settings.messaging.feishuChatIdHelp",
-      destinationPlaceholderKey: "settings.messaging.feishuChatIdPlaceholder",
+      // Telegram's own copy. These three keys were Feishu's, so the form asked
+      // for "the id that starts with oc_" on a platform that has no such thing.
+      destinationLabelKey: "settings.messaging.chatId",
+      destinationHelpKey: "settings.messaging.chatIdHelp",
+      destinationPlaceholderKey: "settings.messaging.chatIdPlaceholder",
       subjectPlaceholderKey: "settings.messaging.subjectPlaceholderTelegram",
     }),
   },

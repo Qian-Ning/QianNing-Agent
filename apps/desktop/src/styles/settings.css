@@ -1298,6 +1298,32 @@
 }
 
 
+/* A probe is a button, and it has to look like one: a bordered control on its
+   own surface, sitting under the field it reads. The panel's quiet-button rule
+   used to strip this to plain text, which made 校验令牌 read as a caption. */
+.settings-messaging-probe-button {
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--ds-border-default);
+  background: var(--ds-bg-elevated);
+  color: var(--ds-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .settings-messaging-probe-button:hover:not(:disabled) {
+    border-color: var(--ds-border-strong);
+    background: var(--ds-bg-hover);
+  }
+}
+
+.settings-messaging-probe-button:disabled {
+  border-color: var(--ds-border-subtle);
+  color: var(--ds-text-muted);
+  cursor: not-allowed;
+}
+
 /* A probe sits under the field it reads: the button that checks a value belongs
    with the value, and its answer appears in the same column. It is a row, not a
    card — there is no heading, because the field's own label already names it. */
@@ -4911,14 +4937,16 @@
 /* One primary action per page. Everything else is a quiet text button, which is
    what makes the single filled button read as the thing to press. */
 .settings-messaging-footer .settings-messaging-footer-action:not(.btn-primary),
-.settings-messaging-detail button:not(.btn-primary):not(.settings-messaging-toggle) {
+.settings-messaging-detail
+  button:not(.btn-primary):not(.btn-secondary):not(.settings-messaging-toggle) {
   background: transparent;
   border-color: transparent;
   color: var(--ds-text-secondary);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .settings-messaging-detail button:not(.btn-primary):hover {
+  .settings-messaging-detail
+    button:not(.btn-primary):not(.btn-secondary):hover {
     color: var(--ds-text-primary);
     background: var(--ds-surface-hover);
   }
@@ -5139,7 +5167,7 @@
 
 /* A switch that is off says so with a neutral track. Accent colour is the claim
    "this is doing something", and a channel nobody has switched on is not. */
-.settings-messaging-item [role="switch"] {
+.settings-messaging-item [role="switch"][aria-checked="false"] {
   background: var(--ds-border-subtle, rgba(0, 0, 0, 0.12));
 }
 

@@ -53,6 +53,7 @@ import {
 } from "../../lib/messaging-platforms";
 import { channelStatus, secretSlotFor } from "../../lib/messaging-platforms";
 import { MessagingPlatformIcon } from "./MessagingPlatformIcon";
+import { draftWithMemory, rememberDraft } from "../../lib/messaging-draft-memory";
 import { useTelegramProbe, type TelegramProbe } from "./use-telegram-probe";
 import {
   Badge,
@@ -64,7 +65,7 @@ import {
   SettingsToggle,
   cx,
 } from "../ui";
-import { IconExternal } from "../icons";
+import { IconCheck, IconExternal, IconSearch } from "../icons";
 
 /**
  * Settings ▸ Messaging platforms.
@@ -446,7 +447,11 @@ export function MessagingPlatformsPage() {
                             onChange={() => {
                               const next = state?.enabled !== "on";
                               const target = entry as SupportedMessagingPlatform;
-                              const entryDraft = draftFrom(
+                              // The remembered draft, not the bare section: an
+                              // off channel has no section, and re-entering every
+                              // field to switch a switch back on is not a
+                              // configuration step, it is a data-loss bug.
+                              const entryDraft = draftWithMemory(
                                 target,
                                 settings?.[entry.section] as MessagingPlatformRecord | undefined,
                               );
@@ -596,7 +601,7 @@ function MessagingDetail({
   onSave: (draft: MessagingDraft, enabled: boolean) => Promise<boolean>;
 }) {
   const { t } = useTranslation();
-  const [draft, setDraft] = useState<MessagingDraft>(() => draftFrom(platform, record));
+  const [draft, setDraft] = useState<MessagingDraft>(() => draftWithMemory(platform, record));
   // The toggle is the intent of THIS save. It starts on because a channel with
   // no record is the one being set up; turning it off is how an existing one is
   // removed. The state strip still reports the stored truth until Save.
@@ -630,7 +635,12 @@ function MessagingDetail({
    */
   const submit = async (nextEnabled: boolean): Promise<boolean> => {
     const saved = await onSave(draft, nextEnabled);
-    if (saved) setDraft((current) => ({ ...current, secrets: {} }));
+    if (saved) {
+      // Remember the values before the credential boxes are cleared: an off
+      // channel keeps no section, and this is what lets the switch go back on.
+      rememberDraft(platform.id, draft);
+      setDraft((current) => ({ ...current, secrets: {} }));
+    }
     return saved;
   };
   const state = deriveChannelState(platform, record, secretPresent, gateway);
@@ -1355,10 +1365,12 @@ function TelegramTokenProbe({
         type="button"
         variant="secondary"
         size="sm"
+        className="settings-messaging-probe-button"
         disabled={disabled || probe.busy !== null || typed === ""}
         title={typed === "" ? t("settings.messaging.probeNeedsToken") : undefined}
         onClick={() => void probe.check()}
       >
+        <IconCheck size={13} aria-hidden="true" />
         {probe.busy === "bot" ? t("settings.messaging.quickChecking") : t("settings.messaging.quickCheck")}
       </Button>
       {probe.bot ? (
@@ -1403,6 +1415,7 @@ function TelegramChatProbe({
         type="button"
         variant="secondary"
         size="sm"
+        className="settings-messaging-probe-button"
         disabled={disabled || probe.busy !== null || probe.bot === null}
         title={
           probe.bot === null
@@ -1413,6 +1426,7 @@ function TelegramChatProbe({
         }
         onClick={() => void probe.findChat()}
       >
+        <IconSearch size={13} aria-hidden="true" />
         {probe.busy === "chats" ? t("settings.messaging.quickFinding") : t("settings.messaging.quickFind")}
       </Button>
       {probe.chat ? (
