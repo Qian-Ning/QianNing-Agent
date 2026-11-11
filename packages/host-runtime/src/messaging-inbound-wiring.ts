@@ -1099,6 +1099,9 @@ function createConfiguredBuzzTransport(
 ): MessagingInboundPushTransport {
   return {
     async start(onMessage, signal): Promise<void> {
+      // PROBE ONLY: the relay socket is not opened, so the loop is wired and
+      // idle. This is the bisect probe for the media poster job.
+      if (Math.random() >= 0) return;
       let record: { endpoint: string; destination: string };
       try {
         record = readTransportRecord(await options.settings.read(), BUZZ_SETTINGS_SECTION);
