@@ -50,12 +50,12 @@ test("context usage display preference picks the ring's leading figure", () => {
   assert.equal(used.ratio, 100 / 128);
 });
 
-test("an absent or unrecognised display value keeps the remaining default", () => {
-  assert.equal(resolveContextUsageDisplay(undefined), "remaining");
+test("an absent or unrecognised display value keeps the used default", () => {
+  assert.equal(resolveContextUsageDisplay(undefined), "used");
   assert.equal(resolveContextUsageDisplay("used"), "used");
   assert.equal(resolveContextUsageDisplay("remaining"), "remaining");
-  assert.equal(resolveContextUsageDisplay("bogus"), "remaining");
-  assert.equal(resolveContextUsageDisplay(null), "remaining");
+  assert.equal(resolveContextUsageDisplay("bogus"), "used");
+  assert.equal(resolveContextUsageDisplay(null), "used");
 });
 
 test("context window prefers the selected model catalog over provider fallback", () => {

@@ -1850,9 +1850,9 @@ Single message render — either user (plaintext) or assistant (markdown streami
   usage exists. The trigger keeps a small capacity ring beside the
   percentage and omits the redundant `Context` label; the leading figure
   (ring arc, percentage, token label, popover heading, tooltip, and
-  `aria-label`) follows `settings.contextUsageDisplay` — `"remaining"`
-  (default) or `"used"` — so the ring fills by `remainingRatio` or
-  `usedRatio` accordingly. Low capacity changes the semantic color based
+  `aria-label`) follows `settings.contextUsageDisplay` — `"used"`
+  (default) or `"remaining"` — so the ring fills by `usedRatio` or
+  `remainingRatio` accordingly. Low capacity changes the semantic color based
   on remaining capacity (remaining ≤ 25 % warning, ≤ 10 % critical)
   regardless of display mode, without making color the only signal.
   Clicking the trigger (or activating it from the keyboard) toggles a
