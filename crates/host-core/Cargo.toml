@@ -31,6 +31,11 @@ aes-gcm = "0.11"
 argon2 = "0.5"
 rand = "0.10"
 ring = "0.17"
+# BIP340 Schnorr over secp256k1, pure Rust: Nostr events are signed with it
+# (Buzz speaks NIP-01/NIP-29), and a C-binding secp256k1 would add a toolchain
+# requirement to every build for one channel.
+k256 = { version = "0.14", default-features = false, features = ["schnorr", "std"] }
+bech32 = "0.11"
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2"] }

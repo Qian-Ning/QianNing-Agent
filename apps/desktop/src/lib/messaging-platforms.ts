@@ -112,6 +112,7 @@ export type MessagingSectionKey =
   | "messagingQqbot"
   | "messagingBluebubbles"
   | "messagingSimplex"
+  | "messagingBuzz"
   | "messagingSlack"
   | "messagingDiscord"
   | "messagingMattermost"
@@ -132,6 +133,7 @@ export type MessagingSectionKey =
 /** One credential a channel reads, and where the host keeps it. */
 export type MessagingSecretSlot = {
   id:
+    | "private-key"
     | "app-token"
     | "bot-token"
     | "access-token"
@@ -1356,6 +1358,20 @@ const lineSecrets: MessagingSecretSlot[] = [
   },
 ];
 
+/**
+ * Buzz's one credential: the Nostr secret key the Host signs its events with.
+ * `nsec` and hex are both what a person has on hand, so the field accepts both.
+ */
+const buzzSecrets: MessagingSecretSlot[] = [
+  {
+    id: "private-key",
+    ref: "secret:messaging-buzz:private-key",
+    labelKey: "settings.messaging.buzzPrivateKey",
+    hintKey: "settings.messaging.buzzPrivateKeyHint",
+    placeholderKey: "settings.messaging.buzzPrivateKeyPlaceholder",
+  },
+];
+
 const slackSecrets: MessagingSecretSlot[] = [
   {
     id: "app-token",
@@ -1994,13 +2010,55 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "buzz",
-    support: "unsupported",
+    support: "supported",
+    // Sending only, for now: a message is a signed event published to the
+    // relay, and reading a channel back needs a subscription the Host does not
+    // open yet. The panel says so rather than implying a two-way channel.
+    receive: "none",
+    section: "messagingBuzz",
+    format: "pi-desktop-messaging-buzz",
+    version: 1,
+    // A relay is self-hosted, so there is no public default to offer.
+    defaultEndpoint: "",
     labelKey: "settings.messaging.platformBuzz",
-    blurbKey: "settings.messaging.blurbBuzzGap",
-    requirementClass: "longConnection",
-    requirementKey: "settings.messaging.needsSocket",
-    credentialStepKeys: [],
-    secrets: [],
+    blurbKey: "settings.messaging.blurbBuzz",
+    noteKey: "settings.messaging.buzzNote",
+    limitationKey: "settings.messaging.buzzLimitations",
+    guideUrl: "https://github.com/block/buzz/blob/main/NOSTR.md",
+    credentialStepKeys: [
+      "settings.messaging.stepBuzz1",
+      "settings.messaging.stepBuzz2",
+      "settings.messaging.stepBuzz3",
+      "settings.messaging.stepBuzz4",
+    ],
+    secrets: buzzSecrets,
+    fields: [
+      ...secretFields(buzzSecrets),
+      {
+        id: "destination",
+        group: "required",
+        labelKey: "settings.messaging.channelId",
+        helpKey: "settings.messaging.buzzChannelHint",
+        placeholderKey: "settings.messaging.channelIdPlaceholder",
+        consequenceKey: "settings.messaging.consequenceDestination",
+      },
+      {
+        id: "endpoint",
+        group: "required",
+        labelKey: "settings.messaging.endpoint",
+        helpKey: "settings.messaging.buzzEndpointHint",
+        placeholderKey: "settings.messaging.buzzEndpointPlaceholder",
+        consequenceKey: "settings.messaging.consequenceEndpoint",
+      },
+      {
+        id: "requestTimeoutMs",
+        group: "recommended",
+        labelKey: "settings.messaging.requestTimeout",
+        helpKey: "settings.messaging.requestTimeoutHint",
+        placeholderKey: "settings.messaging.requestTimeoutPlaceholder",
+        consequenceKey: "settings.messaging.consequenceTimeout",
+      },
+    ],
   },
   {
     id: "imessagePhone",

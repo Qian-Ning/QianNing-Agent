@@ -484,6 +484,7 @@ export type AppSettings = {
   messagingFeishu?: MessagingChannelSettings;
   messagingWecom?: MessagingChannelSettings;
   messagingWecomGroup?: MessagingChannelSettings;
+  messagingBuzz?: MessagingChannelSettings;
   messagingLine?: MessagingChannelSettings;
   messagingSms?: MessagingChannelSettings;
   messagingGoogleChat?: MessagingChannelSettings;

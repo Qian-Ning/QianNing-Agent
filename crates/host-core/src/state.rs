@@ -194,6 +194,9 @@ impl AppState {
         if let Err(error) = crate::messaging_qqbot::register(&mut messaging, &db, &secrets) {
             tracing::warn!(%error, "outbound qq bot channel is not available");
         }
+        if let Err(error) = crate::messaging_buzz::register(&mut messaging, &db, &secrets) {
+            tracing::warn!(%error, "outbound buzz channel is not available");
+        }
         if let Err(error) = crate::messaging_bluebubbles::register(&mut messaging, &db, &secrets) {
             tracing::warn!(%error, "outbound bluebubbles channel is not available");
         }
