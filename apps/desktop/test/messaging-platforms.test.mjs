@@ -1937,3 +1937,44 @@ test("Telegram's chat id reads as Telegram's, and the switch remembers its state
     "the memory keeps credentials",
   );
 });
+
+/**
+ * No platform's check sits away from the field it reads.
+ *
+ * Telegram's card was moved first; Discord's and Signal's stayed above the form
+ * with their own headings, which asks a person to fill a field below and then
+ * scroll back up to act on it. Each probe is rendered inside the field wrapper
+ * now, so the control and the value it reads are in one place.
+ */
+test("every platform probe sits under the field it reads", () => {
+  const page = readFileSync(
+    new URL("../src/components/settings/MessagingPlatformsPage.tsx", import.meta.url),
+    "utf8",
+  );
+
+  const probes = [
+    ['platform.id === "telegram" && field.id === "bot-token"', "<TelegramTokenProbe"],
+    ['platform.id === "telegram" && field.id === "destination"', "<TelegramChatProbe"],
+    ['platform.id === "discord" && field.id === "bot-token"', "<DiscordTokenProbe"],
+    ['platform.id === "signal" && field.id === "account"', "<SignalQuickSetup"],
+  ];
+  for (const [condition, component] of probes) {
+    const at = page.indexOf(condition);
+    assert.ok(at > 0, `no inline probe for ${component}`);
+    assert.ok(
+      page.slice(at, at + 400).includes(component),
+      `${component} is not rendered by its field`,
+    );
+  }
+
+  // And nothing renders them as a block above the form any more.
+  const aboveForm = page.slice(0, page.indexOf('<form\n        className="settings-messaging-form"'));
+  for (const component of ["<DiscordQuickSetup", "<TelegramQuickSetup"]) {
+    assert.equal(aboveForm.includes(component), false, `${component} still sits above the form`);
+  }
+
+  // The legacy quick-* notes are display:none; a probe that used them would be
+  // invisible. Only the scan card, which has no field, keeps that layout.
+  const signal = page.slice(page.indexOf("function SignalQuickSetup"), page.indexOf("function DiscordTokenProbe"));
+  assert.doesNotMatch(signal, /settings-messaging-quick-note/, "the link notes are hidden by CSS");
+});

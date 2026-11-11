@@ -1055,6 +1055,16 @@ function SupportedPanel({
         {platform.id === "telegram" && field.id === "destination" ? (
           <TelegramChatProbe probe={telegramProbe} disabled={saving} typed={typedToken} />
         ) : null}
+        {platform.id === "signal" && field.id === "account" ? (
+          <SignalQuickSetup disabled={saving} onApply={(next) => onDraftChange(next)} />
+        ) : null}
+        {platform.id === "discord" && field.id === "bot-token" ? (
+          <DiscordTokenProbe
+            token={draft.secrets["bot-token"] ?? ""}
+            disabled={saving}
+            onApply={(next) => onDraftChange(next)}
+          />
+        ) : null}
         <p className="settings-messaging-field-consequence">{t(consequenceKey)}</p>
       </div>
     );
@@ -1118,21 +1128,6 @@ function SupportedPanel({
       <h4 className="settings-messaging-block-title">{t("settings.messaging.blockCredentials")}</h4>
 
       <StartScanCard key={platform.id} platformId={platform.id} />
-
-      {platform.id === "discord" ? (
-        <DiscordQuickSetup
-          token={draft.secrets["bot-token"] ?? ""}
-          disabled={saving}
-          onApply={(next) => onDraftChange(next)}
-        />
-      ) : null}
-
-      {platform.id === "signal" ? (
-        <SignalQuickSetup
-          disabled={saving}
-          onApply={(next) => onDraftChange(next)}
-        />
-      ) : null}
 
       {/* Reference material, not a step in the form: it opens on a click and
           stays closed otherwise, so the page reads as fields first. */}
@@ -1621,37 +1616,34 @@ function SignalQuickSetup({
   const failure = link?.state === "failed" ? link.reason : null;
 
   return (
-    <section className="settings-messaging-quick">
-      <h4 className="settings-messaging-section-title">
-        {t("settings.messaging.quickTitle")}
-      </h4>
-      <div className="settings-messaging-quick-row">
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={disabled || busy}
-          onClick={link?.state === "waiting" ? () => void cancel() : () => void start()}
-        >
+    <div className="settings-messaging-probe">
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        className="settings-messaging-probe-button"
+        disabled={disabled || busy}
+        onClick={link?.state === "waiting" ? () => void cancel() : () => void start()}
+      >
           {link?.state === "waiting"
             ? t("settings.messaging.signalLinkCancel")
             : t("settings.messaging.signalLinkStart")}
         </Button>
-      </div>
       {qr && link?.state === "waiting" ? (
-        <div className="settings-messaging-quick-qr">
+        <div className="settings-messaging-probe-qr">
           <img src={qr} alt={t("settings.messaging.signalLinkStart")} width={116} height={116} />
-          <p className="settings-messaging-quick-qr-copy">
+          <p className="settings-messaging-probe-qr-copy">
             {t("settings.messaging.signalLinkWaiting")}
           </p>
         </div>
       ) : null}
       {linkedAccount ? (
-        <p className="settings-messaging-quick-note ok" role="status">
+        <p className="settings-messaging-probe-note ok" role="status">
           {t("settings.messaging.signalLinkLinked", { account: linkedAccount })}
         </p>
       ) : null}
       {bridge?.state === "running" ? (
-        <p className="settings-messaging-quick-note ok" role="status">
+        <p className="settings-messaging-probe-note ok" role="status">
           {t("settings.messaging.signalBridgeRunning", {
             host: bridge.host,
             port: bridge.port,
@@ -1659,31 +1651,31 @@ function SignalQuickSetup({
         </p>
       ) : null}
       {bridge?.state === "failed" && bridge.reason === "port-in-use" ? (
-        <p className="settings-messaging-quick-note bad" role="status">
+        <p className="settings-messaging-probe-note bad" role="status">
           {t("settings.messaging.signalBridgePortInUse", { port: bridge.port })}
         </p>
       ) : null}
       {bridge?.state === "failed" && bridge.reason === "no-account" ? (
-        <p className="settings-messaging-quick-note bad" role="status">
+        <p className="settings-messaging-probe-note bad" role="status">
           {t("settings.messaging.signalBridgeNoAccount")}
         </p>
       ) : null}
       {bridge?.state === "failed" && bridge.reason !== "port-in-use" && bridge.reason !== "no-account" ? (
-        <p className="settings-messaging-quick-note bad" role="status">
+        <p className="settings-messaging-probe-note bad" role="status">
           {t("settings.messaging.signalBridgeFailed")}
         </p>
       ) : null}
       {failure === "missing-cli" ? (
-        <p className="settings-messaging-quick-note bad" role="status">
+        <p className="settings-messaging-probe-note bad" role="status">
           {t("settings.messaging.signalLinkMissingCli")}
         </p>
       ) : null}
       {failure === "timeout" || failure === "cancelled" || failure === "exited" ? (
-        <p className="settings-messaging-quick-note bad" role="status">
+        <p className="settings-messaging-probe-note bad" role="status">
           {t("settings.messaging.signalLinkExpired")}
         </p>
       ) : null}
-    </section>
+    </div>
   );
 }
 
@@ -1697,12 +1689,20 @@ function SignalQuickSetup({
  * bot token itself, so the code appears without waiting on a request, and the
  * token still travels only where it belongs: into the draft's secret slot.
  */
-function DiscordQuickSetup({
+/**
+ * Discord's token probe, under the token it reads.
+ *
+ * It used to be a card above the form with its own "快速设置" heading, asking a
+ * person to type a token below and then scroll back up to press its button —
+ * the same shape the Telegram card had before it was moved. Discord's check is
+ * local (the application id is the first half of the token), so this needs no
+ * state outside itself: press, and the install code appears in place.
+ */
+function DiscordTokenProbe({
   token,
   disabled,
   onApply,
 }: {
-  /** The same single token box the required field owns; see TelegramQuickSetup. */
   token: string;
   disabled: boolean;
   onApply: (next: { secrets?: Record<string, string> }) => void;
@@ -1747,34 +1747,33 @@ function DiscordQuickSetup({
   };
 
   return (
-    <section className="settings-messaging-quick">
-      <h4 className="settings-messaging-section-title">
-        {t("settings.messaging.quickTitle")}
-      </h4>
-      <div className="settings-messaging-quick-row">
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={disabled || token.trim() === ""}
-          onClick={build}
-        >
-          {t("settings.messaging.quickCheck")}
-        </Button>
-      </div>
+    <div className="settings-messaging-probe">
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        className="settings-messaging-probe-button"
+        disabled={disabled || token.trim() === ""}
+        title={token.trim() === "" ? t("settings.messaging.probeNeedsToken") : undefined}
+        onClick={build}
+      >
+        <IconCheck size={13} aria-hidden="true" />
+        {t("settings.messaging.quickCheck")}
+      </Button>
       {qr ? (
-        <div className="settings-messaging-quick-qr">
-          <img src={qr} alt={t("settings.messaging.quickTitle")} width={116} height={116} />
-          <p className="settings-messaging-quick-qr-copy">
+        <div className="settings-messaging-probe-qr">
+          <img src={qr} alt={t("settings.messaging.quickTitle")} width={104} height={104} />
+          <p className="settings-messaging-probe-qr-copy">
             {t("settings.messaging.discordInviteHint")}
           </p>
         </div>
       ) : null}
       {rejected ? (
-        <p className="settings-messaging-quick-note bad" role="status">
+        <p className="settings-messaging-probe-note bad" role="status">
           {t("settings.messaging.discordProbeMalformed")}
         </p>
       ) : null}
-    </section>
+    </div>
   );
 }
 
