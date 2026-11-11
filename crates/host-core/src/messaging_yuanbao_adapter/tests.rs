@@ -26,6 +26,7 @@ fn record(destination: &str) -> StoredConfig {
         destination: destination.into(),
         account: "bot".into(),
         request_timeout_ms: None,
+        inbound: None,
     }
 }
 

@@ -176,7 +176,7 @@ export const MESSAGING_INBOUND_START_GATES: Record<MessagingGatewayChannel, Mess
     version: YUANBAO_FORMAT_VERSION,
     // The relay address, the bot's own account, and the conversation it answers
     // in: an incoming message cannot be attributed without all three.
-    fields: ["endpoint", "destination", "account"],
+    fields: ["endpoint", "destination", "account", "inbound.sessionId"],
     secrets: [YUANBAO_APP_ID_SECRET_REF, YUANBAO_APP_SECRET_SECRET_REF],
   },
   buzz: {

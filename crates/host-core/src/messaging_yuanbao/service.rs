@@ -24,6 +24,9 @@ pub struct ChannelConfig {
     pub app_secret: String,
     /// The bot's own account; messages from it are our own echo.
     pub account: String,
+    /// The session an incoming message opens a turn in. `None` means the record
+    /// is send-only.
+    pub session_id: Option<String>,
 }
 
 impl ChannelConfig {
@@ -117,13 +120,22 @@ pub async fn run_configured(
     let Some(config) = config else {
         return;
     };
+    // A send-only record has no place to put an incoming message, so the loop
+    // does not start. The panel's gate requires this field anyway; this is the
+    // backstop for a record written before that gate existed.
+    if config.session_id.is_none() {
+        tracing::info!("inbound yuanbao channel is not configured with a session");
+        return;
+    }
 
+    let session_id = config.session_id.clone();
     let (messages, mut incoming) = tokio::sync::mpsc::unbounded_channel::<InboundMessage>();
     let running = start(config, messages);
 
     while let Some(message) = incoming.recv().await {
         let params = serde_json::json!({
             "channel": "yuanbao",
+            "sessionId": session_id,
             "id": message.id,
             "conversation": message.conversation,
             "sender": message.sender,

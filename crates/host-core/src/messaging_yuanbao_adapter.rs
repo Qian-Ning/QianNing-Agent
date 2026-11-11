@@ -42,6 +42,17 @@ struct StoredConfig {
     account: String,
     #[serde(default)]
     request_timeout_ms: Option<u64>,
+    /// Where an incoming message starts a turn. Absent on a send-only record,
+    /// which is why the outbound adapter never insists on it — the inbound loop
+    /// does, because without it there is nowhere to put the message.
+    #[serde(default)]
+    inbound: Option<InboundBinding>,
+}
+
+#[derive(Debug, Deserialize)]
+struct InboundBinding {
+    #[serde(default, rename = "sessionId")]
+    session_id: Option<String>,
 }
 
 fn check_record(record: &StoredConfig) -> Result<()> {
@@ -96,11 +107,19 @@ pub(crate) fn load_config(
     let app_secret = secrets
         .get(APP_SECRET_SECRET_REF)?
         .ok_or_else(|| anyhow::anyhow!("{CODE}: no application secret is configured"))?;
+    let session_id = record
+        .inbound
+        .as_ref()
+        .and_then(|b| b.session_id.as_deref())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
     Ok(Some(super::messaging_yuanbao::service::ChannelConfig {
         url: record.endpoint.clone(),
         app_id,
         app_secret,
         account: record.account.clone(),
+        session_id,
     }))
 }
 

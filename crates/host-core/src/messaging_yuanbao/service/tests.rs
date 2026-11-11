@@ -70,6 +70,7 @@ async fn a_started_channel_delivers_what_the_relay_pushes() {
             app_id: "app".into(),
             app_secret: "secret".into(),
             account: "bot".into(),
+            session_id: Some("session-1".into()),
         },
         tx,
     );
@@ -95,6 +96,7 @@ async fn stopping_ends_the_loop_without_waiting_for_a_connection() {
             app_id: "app".into(),
             app_secret: "secret".into(),
             account: "bot".into(),
+            session_id: Some("session-1".into()),
         },
         tx,
     );
