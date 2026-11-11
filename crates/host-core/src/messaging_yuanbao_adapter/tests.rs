@@ -134,5 +134,8 @@ fn a_text_push_is_projected_but_the_inbound_side_is_not_this_adapter() {
         msg_body: vec![text_body("hi")],
         ..Default::default()
     };
-    assert_eq!(crate::messaging_yuanbao::proto::text_of(&push.msg_body), Some("hi"));
+    assert_eq!(
+        crate::messaging_yuanbao::proto::text_of(&push.msg_body),
+        Some("hi")
+    );
 }

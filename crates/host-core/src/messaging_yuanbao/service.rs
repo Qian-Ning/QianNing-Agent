@@ -94,5 +94,64 @@ pub fn start(config: ChannelConfig, messages: UnboundedSender<InboundMessage>) -
     Running { stop, handle }
 }
 
+/// Start the channel from the settings record, if there is one, and keep it
+/// running for as long as the caller does.
+///
+/// Every message the relay pushes is forwarded as one `messaging.inbound`
+/// notification carrying the projected fields, which is the single seam this
+/// channel adds between host-core and the runtime (see the ADR).
+pub async fn run_configured(
+    state: std::sync::Arc<tokio::sync::Mutex<crate::state::AppState>>,
+    tx: tokio::sync::mpsc::UnboundedSender<String>,
+) {
+    let config = {
+        let st = state.lock().await;
+        match crate::messaging_yuanbao_adapter::load_config(&st.db, &st.secrets) {
+            Ok(config) => config,
+            Err(error) => {
+                tracing::warn!(%error, "inbound yuanbao channel is not available");
+                return;
+            }
+        }
+    };
+    let Some(config) = config else {
+        return;
+    };
+
+    let (messages, mut incoming) = tokio::sync::mpsc::unbounded_channel::<InboundMessage>();
+    let running = start(config, messages);
+
+    while let Some(message) = incoming.recv().await {
+        let params = serde_json::json!({
+            "channel": "yuanbao",
+            "id": message.id,
+            "conversation": message.conversation,
+            "sender": message.sender,
+            "senderName": message.sender_name,
+            "text": message.text,
+            "sentAt": message.sent_at,
+            "inGroup": message.in_group,
+        });
+        let note = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "messaging.inbound",
+            "params": params,
+        });
+        if let Ok(raw) = serde_json::to_string(&note) {
+            if tx
+                .send(format!(
+                    "{raw}
+"
+                ))
+                .is_err()
+            {
+                break;
+            }
+        }
+    }
+
+    running.join().await;
+}
+
 #[cfg(test)]
 mod tests;

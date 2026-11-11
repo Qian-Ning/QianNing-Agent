@@ -355,6 +355,14 @@ pub async fn serve(state: Arc<Mutex<AppState>>) -> Result<()> {
 
     let mut input_error = None;
     let messaging_driver = messaging_rpc::spawn_driver(state.clone());
+    // The one inbound channel that runs here rather than in the desktop's
+    // supervisor: its protocol is protobuf over a socket, and it is implemented
+    // once, next to the sending side (ADR yuanbao-inbound-in-host-core).
+    let yuanbao_inbound = tokio::spawn({
+        let state = state.clone();
+        let tx = tx.clone();
+        async move { crate::messaging_yuanbao::service::run_configured(state, tx).await }
+    });
     let mut writer_done = false;
     'serve: loop {
         tokio::select! {
@@ -480,6 +488,8 @@ pub async fn serve(state: Arc<Mutex<AppState>>) -> Result<()> {
     let _ = config_sync_scheduler.await;
     messaging_driver.abort();
     let _ = messaging_driver.await;
+    yuanbao_inbound.abort();
+    let _ = yuanbao_inbound.await;
     {
         let mut st = state.lock().await;
         st.shutdown();

@@ -78,13 +78,16 @@ fn stored_record(db: &Database) -> Result<Option<StoredConfig>> {
     Ok(Some(record))
 }
 
-pub(crate) fn register(
-    registry: &mut AdapterRegistry,
+/// The settings this channel runs on, when a record exists.
+///
+/// Both the outbound adapter and the inbound loop read the same record, so the
+/// reading lives here and neither keeps its own idea of what a valid record is.
+pub(crate) fn load_config(
     db: &Database,
     secrets: &SecretStore,
-) -> Result<()> {
+) -> Result<Option<super::messaging_yuanbao::service::ChannelConfig>> {
     let Some(record) = stored_record(db)? else {
-        return Ok(());
+        return Ok(None);
     };
     check_record(&record)?;
     let app_id = secrets
@@ -93,14 +96,36 @@ pub(crate) fn register(
     let app_secret = secrets
         .get(APP_SECRET_SECRET_REF)?
         .ok_or_else(|| anyhow::anyhow!("{CODE}: no application secret is configured"))?;
-    let timeout = Duration::from_millis(record.request_timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS));
-    let adapter = YuanbaoAdapter {
+    Ok(Some(super::messaging_yuanbao::service::ChannelConfig {
         url: record.endpoint.clone(),
-        target: Target::Direct(record.destination.clone()),
         app_id,
         app_secret,
         account: record.account.clone(),
-        timeout,
+    }))
+}
+
+fn timeout_of(record: &StoredConfig) -> Duration {
+    Duration::from_millis(record.request_timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS))
+}
+
+pub(crate) fn register(
+    registry: &mut AdapterRegistry,
+    db: &Database,
+    secrets: &SecretStore,
+) -> Result<()> {
+    let Some(config) = load_config(db, secrets)? else {
+        return Ok(());
+    };
+    let Some(record) = stored_record(db)? else {
+        return Ok(());
+    };
+    let adapter = YuanbaoAdapter {
+        url: config.url,
+        target: Target::Direct(record.destination.clone()),
+        app_id: config.app_id,
+        app_secret: config.app_secret,
+        account: config.account,
+        timeout: timeout_of(&record),
     };
     registry.register(CHANNEL, Box::new(adapter))
 }
