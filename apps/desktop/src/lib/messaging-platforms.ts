@@ -93,7 +93,8 @@ export type MessagingPlatformId =
   | "microsoftGraph"
   | "qqBot"
   | "blueBubbles"
-  | "simplex";
+  | "simplex"
+  | "buzz";
 
 /** The one settings section key each channel's record lives under, inside `app`. */
 export type MessagingSectionKey =
@@ -2011,10 +2012,9 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   {
     id: "buzz",
     support: "supported",
-    // Sending only, for now: a message is a signed event published to the
-    // relay, and reading a channel back needs a subscription the Host does not
-    // open yet. The panel says so rather than implying a two-way channel.
-    receive: "none",
+    // A socket channel: the Host opens one connection, authenticates, and
+    // subscribes to the channel.
+    receive: "loop",
     section: "messagingBuzz",
     format: "pi-desktop-messaging-buzz",
     version: 1,
@@ -2043,12 +2043,34 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
         consequenceKey: "settings.messaging.consequenceDestination",
       },
       {
+        id: "subject",
+        group: "required",
+        labelKey: "settings.messaging.subject",
+        helpKey: "settings.messaging.subjectHint",
+        placeholderKey: "settings.messaging.subjectPlaceholderBuzz",
+        consequenceKey: "settings.messaging.consequenceSubject",
+      },
+      {
+        id: "roles",
+        group: "required",
+        labelKey: "settings.messaging.roles",
+        helpKey: "settings.messaging.rolesHint",
+        consequenceKey: "settings.messaging.consequenceRoles",
+      },
+      {
         id: "endpoint",
         group: "required",
         labelKey: "settings.messaging.endpoint",
         helpKey: "settings.messaging.buzzEndpointHint",
         placeholderKey: "settings.messaging.buzzEndpointPlaceholder",
         consequenceKey: "settings.messaging.consequenceEndpoint",
+      },
+      {
+        id: "permissionMode",
+        group: "recommended",
+        labelKey: "settings.messaging.permissionMode",
+        helpKey: "settings.messaging.permissionModeHint",
+        consequenceKey: "settings.messaging.consequencePermissionMode",
       },
       {
         id: "requestTimeoutMs",
@@ -2374,7 +2396,8 @@ export type MessagingGatewayChannel =
   | "microsoftGraph"
   | "qqBot"
   | "blueBubbles"
-  | "simplex";
+  | "simplex"
+  | "buzz";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -2422,6 +2445,7 @@ export type MessagingGatewaySnapshot = {
   blueBubbles: boolean;
   /** SimpleX runs its own loop, not on the receiver. */
   simplex: boolean;
+  buzz: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -2461,6 +2485,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   qqBot: false,
   blueBubbles: false,
   simplex: false,
+  buzz: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -2517,6 +2542,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   qqBot: "qqBot",
   blueBubbles: "blueBubbles",
   simplex: "simplex",
+  buzz: "buzz",
   webhooks: "webhookReceiver",
 };
 

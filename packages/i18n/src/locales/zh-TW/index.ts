@@ -2094,7 +2094,7 @@ sklm: {
       "blurbBuzzGap": "本版本未支援：Buzz 是一個 Nostr 中繼站——請求用 NIP-98 的 Schnorr 金鑰簽章，訊息是 NIP-01 事件。",
       "blurbRaftGap": "本版本未支援：Raft 的機器人憑證有文件，但訊息端點只以 SDK 與 CLI 形式公開，沒有可直接實作的原始 HTTP 契約。",
       "blurbBuzz": "Buzz 是 Nostr 中繼：一則訊息是一個簽章事件，一個頻道是一個 NIP-29 群組。",
-      "buzzNote": "本版本只傳送：每則訊息在這台機器上簽章後送到中繼。讀取頻道訊息還沒做。",
+      "buzzNote": "雙向：每則訊息在本機簽章後送到中繼，同時保持一條連線接收該頻道的訊息。",
       "buzzLimitations": "需要你自己跑一個 Buzz 中繼（或連得上的）。頻道 ID 是那個頻道的 UUID。",
       "buzzPrivateKey": "Nostr 私鑰",
       "buzzPrivateKeyHint": "nsec1… 或 64 位十六進位。簽章在本機完成，私鑰不會離開這台機器。",
