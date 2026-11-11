@@ -29,6 +29,7 @@ import {
   BLUEBUBBLES_SETTINGS_SECTION,
   SIMPLEX_SETTINGS_SECTION,
   BUZZ_SETTINGS_SECTION,
+  YUANBAO_SETTINGS_SECTION,
   MESSAGING_MATTERMOST_SECTION,
   MESSAGING_NTFY_SECTION,
   MESSAGING_SIGNAL_SECTION,
@@ -56,6 +57,7 @@ import type { AgentSidecar } from "../agent-sidecar";
 import type { HostProcess } from "../host-process";
 import type { IpcRegistrar } from "./types";
 import { currentSystemProxyRelayUrl } from "../network-proxy";
+
 
 export type SettingsIpcDependencies = {
   registrar: IpcRegistrar;
@@ -205,6 +207,7 @@ export function registerSettingsIpc({
         section !== BLUEBUBBLES_SETTINGS_SECTION &&
         section !== SIMPLEX_SETTINGS_SECTION &&
         section !== BUZZ_SETTINGS_SECTION &&
+        section !== YUANBAO_SETTINGS_SECTION &&
         section !== MESSAGING_MATTERMOST_SECTION &&
         section !== MESSAGING_MATRIX_SECTION &&
         section !== MESSAGING_IRC_SECTION &&

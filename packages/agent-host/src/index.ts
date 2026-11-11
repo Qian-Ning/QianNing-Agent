@@ -29,6 +29,7 @@ export * from "./messaging-openid-jwt.js";
 export * from "./messaging-inbound.js";
 export * from "./messaging-slack-inbound.js";
 export * from "./messaging-buzz-inbound.js";
+export * from "./messaging-yuanbao.js";
 export * from "./messaging-slack-store.js";
 export * from "./messaging-slack-socket.js";
 export * from "./messaging-discord-inbound.js";
