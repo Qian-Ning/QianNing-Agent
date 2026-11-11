@@ -56,14 +56,20 @@ Raft is implemented in TypeScript on both sides:
 
 ## Where the implementation stops
 
-`events.receive` returns events typed as `{ id, seq, eventType, actorType,
-actorName, payload, createdAt }` — and `payload` is `Record<string, unknown>`.
-The SDK does not say which `eventType` means "a message arrived", nor where in
-that payload the text and the conversation sit.
+**Corrected after reading the SDK properly.** `events.receive` was the wrong
+entry: its `payload` is untyped, but the SDK's model-facing inbox is not.
+`client.inbox.check({ since })` returns `{ messages: RaftMessage[], cursor,
+hasMore }`, and `RaftMessage` is fully typed — `id`, `shortId`, `seq`, `target`
+(where a reply goes), `timestamp`, `sender { type, name }`, `content`, `thread`.
+The projection needs no sample; it is written against that interface.
 
-The projection therefore cannot be written from the type definitions, and writing
-it from guesses would reproduce the failure this ADR exists to avoid: a mapper
-that passes every fixture and mangles the first real message. The condition to
-continue is one real event sample from a Raft server — a single recorded
-`events.receive` response — after which the mapper is a half-hour of work.
+So `packages/agent-host/src/messaging-raft-inbound.ts` exists and is tested: a
+poll loop that projects each message into the shared ingress shape and commits the
+batch's cursor only after delivery, plus `projectRaftMessage` with its own cases
+(empty body dropped, `seq` used when the server sent no id, thread target split
+from the channel).
+
+Still outstanding before the channel ships: the send path (SDK `messages.send`
+from the desktop main), the start gate, the panel entry and the nine locales.
+
 
