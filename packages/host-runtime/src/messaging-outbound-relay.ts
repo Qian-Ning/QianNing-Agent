@@ -156,6 +156,11 @@ export type MessagingOutboundChannel = {
 };
 
 /** Every outbound channel this build can relay to, in a fixed order. */
+/** Buzz's record: the relay address, the channel id and its signing key. */
+const BUZZ_SETTINGS_SECTION = "messagingBuzz";
+const BUZZ_FORMAT = "pi-desktop-messaging-buzz";
+const BUZZ_FORMAT_VERSION = 1;
+
 export const MESSAGING_OUTBOUND_CHANNELS: readonly MessagingOutboundChannel[] = [
   {
     channel: "webhook",
@@ -264,6 +269,12 @@ export const MESSAGING_OUTBOUND_CHANNELS: readonly MessagingOutboundChannel[] = 
     section: MESSAGING_MATTERMOST_SECTION,
     format: MESSAGING_MATTERMOST_FORMAT,
     version: MESSAGING_MATTERMOST_FORMAT_VERSION,
+  },
+  {
+    channel: "buzz",
+    section: BUZZ_SETTINGS_SECTION,
+    format: BUZZ_FORMAT,
+    version: BUZZ_FORMAT_VERSION,
   },
 ];
 

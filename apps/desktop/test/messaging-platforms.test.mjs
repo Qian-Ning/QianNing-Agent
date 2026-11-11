@@ -193,6 +193,7 @@ const SUPPORTED_IDS = [
   "qqBot",
   "apiServer",
   "webhooks",
+  "buzz",
   "irc",
   "line",
   "microsoftGraph",
@@ -283,10 +284,10 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   // The split follows reachability: an outgoing long connection works from a
   // home network, a callback does not, a bridge owns the account on a phone,
   // a transport has no conversation at all, and approval happens off-machine.
-  assert.deepEqual(byClass.longConnection, [
-    "buzz",
-    "raft",
-  ]);
+  // buzz left this class when its publish path shipped: it is a supported
+  // send-only channel now, so the class is the one long connection still
+  // lacking a local transport.
+  assert.deepEqual(byClass.longConnection, ["raft"]);
   assert.deepEqual(byClass.bridgeOrPoll, [
     "whatsapp",
     "imessagePhone",
@@ -532,15 +533,22 @@ test("fields are grouped, and every field explains itself and its blank", () => 
 
     if (platform.receive === "none") {
       // Sending only: a credential and an endpoint, and nothing that names a
-      // conversation or a link, because this channel has neither.
+      // link — there is no conversation to link. A channel that publishes *into*
+      // a named place still requires that name: Buzz posts to one channel, so
+      // its id is part of sending rather than a conversation to answer in.
+      const extraRequired = required
+        .map((field) => field.id)
+        .filter((id) => !platform.secrets.some((slot) => slot.id === id));
       assert.deepEqual(
-        required.map((field) => field.id).filter((id) => !platform.secrets.some((slot) => slot.id === id)),
-        [],
+        extraRequired,
+        platform.id === "buzz" ? ["destination", "endpoint"] : [],
         `${platform.id} asks for fields it cannot use`,
       );
       assert.deepEqual(
         recommended.map((field) => field.id),
-        ["endpoint", "requestTimeoutMs"],
+        // Buzz's relay is self-hosted, so its address is required rather than
+        // recommended, and only the timeout is left to default.
+        platform.id === "buzz" ? ["requestTimeoutMs"] : ["endpoint", "requestTimeoutMs"],
         `${platform.id} recommended group`,
       );
       continue;

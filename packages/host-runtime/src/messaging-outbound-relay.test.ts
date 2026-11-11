@@ -303,6 +303,7 @@ describe("the outbound messaging relay", () => {
       "wecom",
       "wecomGroup",
       "mattermost",
+      "buzz",
     ]);
     expect(MESSAGING_OUTBOUND_CHANNELS.every((entry) => entry.section && entry.format && entry.version > 0)).toBe(true);
   });
