@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "qianning.prompt-lab",
+  "name": "提示词实验台",
+  "version": "0.1.0",
+  "description": "会话级的系统提示词开关，用于提示词工程实验：对比同一次请求在「带宿主提示词」「去掉身份段与文档段」「只发人设」三种条件下表现如何。默认关闭，未执行命令时不读任何文件、不改一个字节的提示词。状态只存在内存里，关掉应用即消失。",
+  "i18n": {
+    "en": {
+      "name": "Prompt Lab",
+      "description": "A per-session switch for the system prompt, for prompt-engineering work: compare how the same request behaves with the harness prompt present, with its identity and documentation sections removed, or with only your persona. Off by default; with the command never run, nothing is read from disk and the prompt is unchanged. State lives in memory only, so quitting the app cannot leave a session running with a prompt you forgot about.",
+      "safetyNotes": "No network access and no disk writes. The only read is the persona file the user names explicitly with /promptlab source, and only while the experiment is switched on. State is per session and never persisted."
+    },
+    "zh-CN": {
+      "name": "提示词实验台",
+      "description": "会话级的系统提示词开关，用于提示词工程实验：对比同一次请求在「带宿主提示词」「去掉身份段与文档段」「只发人设」三种条件下表现如何。默认关闭，未执行命令时不读任何文件、不改一个字节的提示词，关掉应用即消失。",
+      "safetyNotes": "不联网、不写盘。唯一的一次读取是用户用 /promptlab source 显式指定的人设文件，且只在实验开启期间读取。状态按会话隔离，从不持久化。"
+    }
+  },
+  "author": "QianNing",
+  "license": "MIT",
+  "categories": ["developer-tools"],
+  "main": "main.cjs",
+  "permissions": ["agent.extension"],
+  "contributes": {
+    "agentExtensions": ["src/extension.mjs"]
+  }
+}
