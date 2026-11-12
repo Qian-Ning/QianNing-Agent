@@ -694,7 +694,8 @@ system while preserving their different data ownership:
   **Signal**, **API server**, **Webhooks**, **Feishu**, **WeCom** (app and group
   robot), **LINE**, **Twilio SMS**, **Google Chat**, **Microsoft Teams**,
   **WhatsApp Cloud**, **WeChat Official Accounts**, **QQ bots**, **Microsoft
-  Graph**, **BlueBubbles**, **SimpleX**, **DingTalk**, **Buzz** and **Yuanbao**
+  Graph**, **BlueBubbles**, **SimpleX**, **DingTalk**, **Buzz**, **Yuanbao** and
+  **Raft**
   are marked Supported and open a working panel. Yuanbao is the one whose loop
   runs in the Host rather than in this process: its relay carries protobuf over a
   WebSocket, and the handshake, the per-frame acknowledgement and the heartbeat
@@ -703,6 +704,13 @@ system while preserving their different data ownership:
   own account, the conversation it answers and the command link, plus the
   application id and secret; the account is required because the protocol has no
   "this is mine" flag, so it is the only thing that tells an echo from a message.
+  Raft is the polling one: the Host pulls one bounded inbox batch, answers what
+  it finds and commits the batch's cursor only after the message has been
+  delivered — an early commit would acknowledge messages the runtime never saw.
+  Its sends are the one channel's that do not pass through the Host's delivery
+  ledger (ADR `raft-in-typescript`), because the service publishes no HTTP route
+  for posting and the only supported path is its TypeScript SDK; the delivery id
+  travels as the SDK's idempotency key, so a retry cannot post twice.
   Buzz is the Nostr one: a message is an
   event this build signs (BIP340) and publishes to the relay with the channel
   under an `h` tag, the relay's NIP-42 challenge is answered with a signed
