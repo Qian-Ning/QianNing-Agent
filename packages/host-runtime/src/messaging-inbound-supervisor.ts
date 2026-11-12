@@ -155,6 +155,16 @@ export type MessagingInboundStartGate = {
  * of application credentials; nothing about it has a public default.
  */
 const YUANBAO_SETTINGS_SECTION = "messagingYuanbao";
+
+/**
+ * Raft's record: a server address, the agent credential, the conversation to
+ * answer and the command link. The credential is `sk_agent_*` and the record
+ * names no secret of its own beyond it.
+ */
+const RAFT_SETTINGS_SECTION = "messagingRaft";
+const RAFT_FORMAT = "pi-desktop-messaging-raft";
+const RAFT_FORMAT_VERSION = 1;
+const RAFT_CREDENTIAL_SECRET_REF = "secret:messaging-raft:credential";
 const YUANBAO_FORMAT = "pi-desktop-messaging-yuanbao";
 const YUANBAO_FORMAT_VERSION = 1;
 const YUANBAO_APP_ID_SECRET_REF = "secret:messaging-yuanbao:app-id";
@@ -170,6 +180,13 @@ export const MESSAGING_INBOUND_START_GATES: Record<MessagingGatewayChannel, Mess
   },
   // Socket Mode opens against Slack's own API base, so the record names no
   // endpoint; the app-level token is the whole gate.
+  raft: {
+    section: RAFT_SETTINGS_SECTION,
+    format: RAFT_FORMAT,
+    version: RAFT_FORMAT_VERSION,
+    fields: ["endpoint", "destination"],
+    secrets: [RAFT_CREDENTIAL_SECRET_REF],
+  },
   yuanbao: {
     section: YUANBAO_SETTINGS_SECTION,
     format: YUANBAO_FORMAT,
