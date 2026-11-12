@@ -1170,6 +1170,95 @@ export function createBuzzInboundWiring(
 }
 
 /**
+ * The Raft record: the server address and the conversation this agent answers.
+ * The credential is the agent's own `sk_agent_*`, stored under its own ref.
+ */
+const RAFT_SETTINGS_SECTION = "messagingRaft";
+const RAFT_CREDENTIAL_SECRET_REF = "secret:messaging-raft:credential";
+const RAFT_INBOUND_CHANNEL: MessagingInboundChannel = {
+  section: RAFT_SETTINGS_SECTION,
+  format: "pi-desktop-messaging-raft",
+  version: 1,
+  platform: "raft",
+};
+
+export type MessagingRaftWiringOptions = {
+  agentHost: MessagingInboundHostSurface;
+  settings: HostSettingsSurface;
+  secrets: HostSecretReader;
+  signal: AbortSignal;
+  log?: MessagingInboundWiringLog;
+  /** A transport supplied by a test; production builds one from the record. */
+  transport?: MessagingInboundPushTransport;
+};
+
+/**
+ * Raft's inbound loop.
+ *
+ * The SDK owns the inbox: a batch is pulled, projected, delivered, and its cursor
+ * committed afterwards, so a batch the runtime never saw is never acknowledged.
+ * That loop is written in `@pi-desktop/agent-host`; this only supplies the
+ * credential and the abort signal.
+ */
+export function createRaftInboundWiring(
+  options: MessagingRaftWiringOptions,
+): MessagingInboundWiring {
+  return createIngressWiring({
+    agentHost: options.agentHost,
+    settings: options.settings,
+    signal: options.signal,
+    ...(options.log ? { log: options.log } : {}),
+    channel: RAFT_INBOUND_CHANNEL,
+    transport: options.transport ?? createConfiguredRaftTransport(options),
+    failureLabel: "inbound raft loop failed",
+  });
+}
+
+function createConfiguredRaftTransport(
+  options: MessagingRaftWiringOptions,
+): MessagingInboundPushTransport {
+  return {
+    async start(onMessage, signal): Promise<void> {
+      let credential: string | null = null;
+      try {
+        credential = await options.secrets(RAFT_CREDENTIAL_SECRET_REF);
+      } catch {
+        credential = null;
+      }
+      if (!credential || credential.trim() === "") return;
+
+      let settings: unknown;
+      try {
+        settings = await options.settings.read();
+      } catch {
+        return;
+      }
+      const record = readTransportRecord(settings, RAFT_SETTINGS_SECTION);
+      // Without a server address there is nothing to poll; an install with no
+      // Raft record starts no loop and behaves exactly as it did before.
+      if (!record.endpoint) return;
+
+      const [{ createRaftClient }, { runRaftInbound }] = await Promise.all([
+        import("@botiverse/raft-sdk"),
+        import("@pi-desktop/agent-host"),
+      ]);
+      const client = createRaftClient({
+        serverUrl: record.endpoint,
+        credential: credential.trim(),
+      });
+      await runRaftInbound({
+        client: client as unknown as Parameters<typeof runRaftInbound>[0]["client"],
+        signal: signal ?? options.signal,
+        onMessage: (message: Parameters<Parameters<typeof runRaftInbound>[0]["onMessage"]>[0]) => onMessage(message),
+        ...(options.log
+          ? { onFailure: (error: string) => options.log?.("warn", "inbound raft pull failed", { error }) }
+          : {}),
+      });
+    },
+  };
+}
+
+/**
  * The audit sink for the Discord Gateway client: structure and ids only, never
  * message text and never the bot token.
  */
