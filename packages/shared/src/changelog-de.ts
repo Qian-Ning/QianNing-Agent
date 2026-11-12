@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "2.4.0",
+    date: "2026-11-12",
+    highlights: [
+    "Zwei weitere Kanäle: Yuanbao und Raft \u2014 beide in beiden Richtungen. Siebenundzwanzig der dreiunddreißig Kandidaten funktionieren jetzt.",
+    "Yuanbao spricht protobuf über einen WebSocket: eine Verbindung, ein signierter Handshake, eine Bestätigung für jeden Frame; die Schleife läuft im Host neben der Sendeseite, damit der Draht nur einmal geschrieben wird.",
+    "Raft ist der abfragende: der Host zieht einen begrenzten Posteingang, beantwortet das Gefundene und schreibt den Cursor der Charge erst nach der Zustellung fest. Seine Sends sind die einzigen außerhalb des Zustellungsjournals, weil der Dienst keine HTTP-Route zum Senden veröffentlicht.",
+    "Ein Startfehler ist behoben, der das ganze Fenster mitnehmen konnte: Main ermittelt sein Verzeichnis selbst, statt sich auf den per-Chunk-Shim des Bundlers zu verlassen, den ein geänderter Chunk-Graph stillschweigend weglassen konnte.",
+    ],
+  },
+  {
     version: "2.3.1",
     date: "2026-11-10",
     highlights: [

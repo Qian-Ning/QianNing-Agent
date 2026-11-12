@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "2.4.0",
+    date: "2026-11-12",
+    highlights: [
+    "Mais dois canais: Yuanbao e Raft, ambos nos dois sentidos. Vinte e sete dos trinta e três candidatos já funcionam.",
+    "O Yuanbao fala protobuf sobre um WebSocket: uma conexão, um handshake assinado, um ack para cada quadro, e o laço roda no Host ao lado do envio, então o protocolo é escrito uma vez só.",
+    "O Raft é o de sondagem: o Host puxa um lote limitado da caixa de entrada, responde ao que encontra e confirma o cursor do lote só depois da entrega. Seus envios são os únicos fora do livro de entregas, porque o serviço não publica rota HTTP para postar.",
+    "Corrigida uma falha de inicialização que podia derrubar a janela inteira: o Main calcula o próprio diretório em vez de depender do shim por bloco do empacotador, que um grafo de blocos alterado podia omitir em silêncio.",
+    ],
+  },
+  {
     version: "2.3.1",
     date: "2026-11-10",
     highlights: [

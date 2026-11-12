@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.4.0",
+    date: "2026-11-12",
+    highlights: [
+    "\u0130ki kanal daha: Yuanbao ve Raft \u2014 ikisi de iki y\u00f6nl\u00fc. Otuz \u00fc\u00e7 aday\u0131n yirmi yedisi art\u0131k \u00e7al\u0131\u015f\u0131yor.",
+    "Yuanbao WebSocket \u00fczerinden protobuf konu\u015fur: tek ba\u011flant\u0131, imzal\u0131 el s\u0131k\u0131\u015fma, her \u00e7er\u00e7eve i\u00e7in onay ve d\u00f6ng\u00fc g\u00f6nderme taraf\u0131n\u0131n yan\u0131nda Host'ta \u00e7al\u0131\u015f\u0131r; b\u00f6ylece protokol bir kez yaz\u0131l\u0131r.",
+    "Raft yoklayan oland\u0131r: Host s\u0131n\u0131rl\u0131 bir gelen kutusu partisi \u00e7eker, buldu\u011funa yan\u0131t verir ve imleci ancak teslimden sonra i\u015fler. G\u00f6nderimleri teslim defterinin d\u0131\u015f\u0131ndaki tek kanald\u0131r, \u00e7\u00fcnk\u00fc servis g\u00f6nderme i\u00e7in HTTP yolu yay\u0131mlam\u0131yor.",
+    "T\u00fcm pencereyi d\u00fc\u015f\u00fcrebilecek bir ba\u015flang\u0131\u00e7 hatas\u0131 giderildi: Main, paketleyicinin par\u00e7a ba\u015f\u0131na shim'ine g\u00fcvenmek yerine kendi dizinini hesapl\u0131yor.",
+    ],
+  },
+  {
     version: "2.3.1",
     date: "2026-11-10",
     highlights: [

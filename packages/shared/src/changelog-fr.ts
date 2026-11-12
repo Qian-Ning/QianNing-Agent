@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "2.4.0",
+    date: "2026-11-12",
+    highlights: [
+    "Deux canaux de plus : Yuanbao et Raft, dans les deux sens. Vingt-sept des trente-trois candidats fonctionnent désormais.",
+    "Yuanbao parle protobuf sur un WebSocket : une connexion, une poignée de main signée, un accusé pour chaque trame, et sa boucle tourne dans l'hôte à côté de l'envoi, si bien que le protocole n'est écrit qu'une fois.",
+    "Raft est celui qui interroge : l'hôte retire un lot borné de la boîte de réception, répond à ce qu'il trouve et valide le curseur du lot seulement après livraison. Ses envois sont les seuls hors du registre de livraison, le service ne publiant aucune route HTTP d'envoi.",
+    "Correction d'une panne au démarrage qui pouvait emporter toute la fenêtre : Main calcule son propre répertoire au lieu de dépendre du shim par fragment du bundler, qu'un graphe de fragments modifié pouvait omettre en silence.",
+    ],
+  },
+  {
     version: "2.3.1",
     date: "2026-11-10",
     highlights: [

@@ -30,6 +30,16 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.4.0",
+    date: "2026-11-12",
+    highlights: [
+    "Two more channels: Yuanbao and Raft — both receive and send. Twenty-seven of the thirty-three candidates now work.",
+    "Yuanbao speaks protobuf over a WebSocket: one connection, a signed handshake, an acknowledgement for every frame, and its loop runs in the Host next to the sending side, so the wire is written once.",
+    "Raft is the polling one: the Host pulls one bounded inbox batch, answers what it finds, and commits the batch's cursor only after the message has been delivered. Its sends are the only ones outside the delivery ledger, because the service publishes no HTTP route for posting.",
+    "Fixed a startup fault that could take the whole window down: Main derived its own directory instead of depending on the bundler's per-chunk shim, which a changed chunk graph could silently leave out.",
+    ],
+  },
+  {
     version: "2.3.1",
     date: "2026-11-10",
     highlights: [
@@ -1186,6 +1196,16 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.4.0",
+    date: "2026-11-12",
+    highlights: [
+      "又两个通道：元宝与 Raft——收发都做完了。三十三个候选里现在二十七个可用。",
+      "元宝走 protobuf over WebSocket：一条连接、签名握手、每帧都回 ack，循环跑在 Host 里、紧挨着发送那一侧，所以这套线格式只写一次。",
+      "Raft 是拉取式的：Host 每次拉一批有界收件箱，回答发现的消息，投递完成后才提交该批的光标。它的发送是本仓库唯一不走交付账本的路径，因为服务端没有公开的 HTTP 发送路由。",
+      "修掉了一个能把整个窗口拖垮的启动故障：主进程自己算目录，不再依赖打包器的逐 chunk shim——分块图一变，那个 shim 可能悄悄不注入。",
+    ],
+  },
+  {
     version: "2.3.1",
     date: "2026-11-10",
     highlights: [
@@ -2341,6 +2361,16 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.4.0",
+    date: "2026-11-12",
+    highlights: [
+      "又兩個通道：元寶與 Raft——收發都做完了。三十三個候選裡現在二十七個可用。",
+      "元寶走 protobuf over WebSocket：一條連線、簽章握手、每幀都回 ack，迴圈跑在 Host 裡、緊貼著傳送那一側，所以這套線格式只寫一次。",
+      "Raft 是拉取式的：Host 每次拉一批有界收件匱，回答發現的訊息，投遞完成後才提交該批的游標。它的傳送是本倉庫唯一不走交付帳本的路徑，因為服務端沒有公開的 HTTP 傳送路由。",
+      "修掉了一個能把整個視窗拖垮的啟動故障：主行程自己算目錄，不再依賴打包器的逐 chunk shim——分塊圖一變，那個 shim 可能悄悄不注入。",
+    ],
+  },
   {
     version: "2.3.1",
     date: "2026-11-10",
