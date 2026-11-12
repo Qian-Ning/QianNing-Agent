@@ -130,6 +130,7 @@ const GATEWAY_DOWN = {
   blueBubbles: false,
   simplex: false,
   yuanbao: false,
+  raft: false,
 };
 
 /**
@@ -201,6 +202,7 @@ const SUPPORTED_IDS = [
   "microsoftGraph",
   "teams",
   "ntfy",
+  "raft",
   "simplex",
   "whatsappCloud",
 ];
@@ -289,7 +291,9 @@ test("every unsupported platform is grouped by the kind of work it needs", () =>
   // buzz left this class when its publish path shipped: it is a supported
   // send-only channel now, so the class is the one long connection still
   // lacking a local transport.
-  assert.deepEqual(byClass.longConnection, ["raft"]);
+  // raft left this class when its inbox polling shipped: nothing is waiting
+  // on a long-connection transport any more.
+  assert.deepEqual(byClass.longConnection ?? [], []);
   assert.deepEqual(byClass.bridgeOrPoll, [
     "whatsapp",
     "imessagePhone",
@@ -593,6 +597,11 @@ test("fields are grouped, and every field explains itself and its blank", () => 
         requiredIds.filter((id) => platform.secrets.some((slot) => slot.id === id)),
         [],
       );
+    } else if (platform.id === "raft") {
+      // The conversation to answer and the command link are required; the server
+      // address has a hosted default, so it is recommended rather than required.
+      assert.deepEqual(requiredWithoutSecrets, ["destination", "subject", "roles"]);
+      assert.deepEqual(recommended.map((field) => field.id), ["endpoint", "requestTimeoutMs"]);
     } else if (platform.id === "yuanbao") {
       // The relay address, the bot's own account, the conversation it answers
       // and the command link. The account is required because the protocol has

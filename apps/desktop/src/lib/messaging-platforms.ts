@@ -96,7 +96,8 @@ export type MessagingPlatformId =
   | "blueBubbles"
   | "simplex"
   | "buzz"
-  | "yuanbao";
+  | "yuanbao"
+  | "raft";
 
 /** The one settings section key each channel's record lives under, inside `app`. */
 export type MessagingSectionKey =
@@ -106,6 +107,7 @@ export type MessagingSectionKey =
   | "messagingWecom"
   | "messagingWecomGroup"
   | "messagingYuanbao"
+  | "messagingRaft"
   | "messagingLine"
   | "messagingSms"
   | "messagingGoogleChat"
@@ -151,6 +153,7 @@ export type MessagingSecretSlot = {
        authenticates every inbound event. */
     | "app-id"
     | "app-secret"
+  | "credential"
     | "verification-token"
     /* WeCom's five: the corp pair, the agent, and the two callback secrets. */
     | "corp-id"
@@ -1366,6 +1369,16 @@ const lineSecrets: MessagingSecretSlot[] = [
  * Buzz's one credential: the Nostr secret key the Host signs its events with.
  * `nsec` and hex are both what a person has on hand, so the field accepts both.
  */
+const raftSecrets: MessagingSecretSlot[] = [
+  {
+    id: "credential",
+    ref: "secret:messaging-raft:credential",
+    labelKey: "settings.messaging.raftCredential",
+    hintKey: "settings.messaging.raftCredentialHint",
+    placeholderKey: "settings.messaging.raftCredentialPlaceholder",
+  },
+];
+
 const yuanbaoSecrets: MessagingSecretSlot[] = [
   {
     id: "app-id",
@@ -2339,14 +2352,70 @@ export const MESSAGING_PLATFORMS: MessagingPlatform[] = [
   },
   {
     id: "raft",
-    support: "unsupported",
+    support: "supported",
+    // A polling channel: the Host pulls one bounded inbox batch, answers what it
+    // finds, and commits the cursor afterwards.
+    receive: "loop",
+    section: "messagingRaft",
+    format: "pi-desktop-messaging-raft",
+    version: 1,
+    defaultEndpoint: "https://api.raft.build",
     labelKey: "settings.messaging.platformRaft",
-    blurbKey: "settings.messaging.blurbRaftGap",
-    requirementClass: "longConnection",
-    requirementKey: "settings.messaging.needsSocket",
-    credentialStepKeys: [],
-    secrets: [],
+    blurbKey: "settings.messaging.blurbRaft",
+    noteKey: "settings.messaging.raftNote",
+    limitationKey: "settings.messaging.raftLimitations",
+    guideUrl: "https://docs.raft.build/developers/sdk/api-client",
+    credentialStepKeys: [
+      "settings.messaging.stepRaft1",
+      "settings.messaging.stepRaft2",
+      "settings.messaging.stepRaft3",
+      "settings.messaging.stepRaft4",
+    ],
+    secrets: raftSecrets,
+    fields: [
+      ...secretFields(raftSecrets),
+      {
+        id: "endpoint",
+        group: "recommended",
+        labelKey: "settings.messaging.endpoint",
+        helpKey: "settings.messaging.raftEndpointHint",
+        placeholderKey: "settings.messaging.raftEndpointPlaceholder",
+        consequenceKey: "settings.messaging.consequenceEndpoint",
+      },
+      {
+        id: "destination",
+        group: "required",
+        labelKey: "settings.messaging.raftConversation",
+        helpKey: "settings.messaging.raftConversationHint",
+        placeholderKey: "settings.messaging.raftConversationPlaceholder",
+        consequenceKey: "settings.messaging.consequenceDestination",
+      },
+      {
+        id: "subject",
+        group: "required",
+        labelKey: "settings.messaging.subject",
+        helpKey: "settings.messaging.subjectHint",
+        placeholderKey: "settings.messaging.subjectPlaceholderBuzz",
+        consequenceKey: "settings.messaging.consequenceSubject",
+      },
+      {
+        id: "roles",
+        group: "required",
+        labelKey: "settings.messaging.roles",
+        helpKey: "settings.messaging.rolesHint",
+        consequenceKey: "settings.messaging.consequenceRoles",
+      },
+      {
+        id: "requestTimeoutMs",
+        group: "recommended",
+        labelKey: "settings.messaging.requestTimeout",
+        helpKey: "settings.messaging.requestTimeoutHint",
+        placeholderKey: "settings.messaging.requestTimeoutPlaceholder",
+        consequenceKey: "settings.messaging.consequenceTimeout",
+      },
+    ],
   },
+
   {
     id: "relay",
     support: "unsupported",
@@ -2481,7 +2550,8 @@ export type MessagingGatewayChannel =
   | "blueBubbles"
   | "simplex"
   | "buzz"
-  | "yuanbao";
+  | "yuanbao"
+  | "raft";
 
 /**
  * What the main process reports about the inbound loops, read once per panel
@@ -2531,6 +2601,7 @@ export type MessagingGatewaySnapshot = {
   simplex: boolean;
   buzz: boolean;
   yuanbao: boolean;
+  raft: boolean;
   /**
    * Why the local API channel is not listening, when its start failed for a
    * reason a person can act on — a port already taken, an address refused. It is
@@ -2572,6 +2643,7 @@ export const MESSAGING_GATEWAY_OFF: MessagingGatewaySnapshot = {
   simplex: false,
   buzz: false,
   yuanbao: false,
+  raft: false,
   apiServerError: null,
   webhookReceiverError: null,
 };
@@ -2630,6 +2702,7 @@ const GATEWAY_CHANNEL_BY_PLATFORM: Partial<Record<MessagingPlatformId, Messaging
   simplex: "simplex",
   buzz: "buzz",
   yuanbao: "yuanbao",
+  raft: "raft",
   webhooks: "webhookReceiver",
 };
 
