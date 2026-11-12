@@ -38,7 +38,9 @@ describe("the Android toolchain", () => {
     expect(REQUIRED_BUILD_TOOLS.startsWith(`${major}.`)).toBe(true);
   });
 
-  it("reads a version out of a JDK that is present and says nothing about one that is not", () => {
+  // Spawning a JVM is the slow part, and a cold one on a hosted runner can pass
+  // the default five seconds; the assertion is about parsing, not speed.
+  it("reads a version out of a JDK that is present and says nothing about one that is not", { timeout: 30_000 }, () => {
     expect(javaMajor(join(here, "__no_such_jdk__"))).toBeNull();
 
     const real = process.env.QN_JAVA_HOME ?? process.env.JAVA_HOME;
