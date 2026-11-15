@@ -4259,3 +4259,69 @@ async fn plugin_labels_follow_the_pushed_app_language() {
     let st = state.lock().await;
     assert_eq!(st.plugins.locale(), "en-US");
 }
+
+/// The app's own database is refused even in `auto`, the mode that exists to
+/// stop asking. Without this, a session could read the credential references and
+/// every transcript on the machine while the user believed `auto` only removed
+/// routine prompts.
+#[tokio::test]
+async fn reading_the_app_database_is_denied_even_in_auto() {
+    let data_dir = tempfile::tempdir().unwrap();
+    let project = data_dir.path().join("project");
+    fs::create_dir_all(&project).unwrap();
+    let mut app_state = AppState::open(data_dir.path()).unwrap();
+    app_state.handshook = true;
+    let session = sessions::create_session(
+        &app_state.db,
+        Some("Protected paths".into()),
+        Some("agent".into()),
+        None,
+        None,
+        Some(project.to_string_lossy().into_owned()),
+    )
+    .unwrap();
+    sessions::configure_session_with_thinking(
+        &app_state.db,
+        &session.id,
+        "agent",
+        None,
+        None,
+        None,
+        Some("auto"),
+    )
+    .unwrap();
+    let database = data_dir.path().join("pi.sqlite");
+    let transcript = data_dir.path().join("sessions").join("x.jsonl");
+    fs::create_dir_all(transcript.parent().unwrap()).unwrap();
+    fs::write(
+        &transcript,
+        b"{}
+",
+    )
+    .unwrap();
+    let state = Arc::new(Mutex::new(app_state));
+    let (tx, _rx) = mpsc::unbounded_channel();
+
+    for (tool_name, args) in [
+        ("Read", json!({ "path": database.to_string_lossy() })),
+        ("Read", json!({ "path": transcript.to_string_lossy() })),
+    ] {
+        let result = handle_request(
+            state.clone(),
+            "tools.execute",
+            json!({
+                "sessionId": session.id,
+                "toolCallId": format!("protected-{tool_name}"),
+                "toolName": tool_name,
+                "args": args,
+                "mode": "agent"
+            }),
+            tx.clone(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(result["ok"], false, "the read must not succeed");
+        assert_eq!(result["errorCode"], "TOOL_DENIED", "{tool_name}");
+        assert_eq!(result["denied"], true, "refused, not aborted");
+    }
+}
