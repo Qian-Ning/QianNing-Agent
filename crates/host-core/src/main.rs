@@ -45,6 +45,7 @@ mod plugin_usage;
 mod plugins;
 mod pricing;
 mod prompt_presets;
+mod protected_paths;
 mod providers;
 mod review;
 mod rpc;

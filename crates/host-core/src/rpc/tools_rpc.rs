@@ -204,20 +204,32 @@ pub(super) async fn handle(
                         &p.tool_name,
                         &p.args,
                     );
-                    let mut auto = st
-                        .permissions
-                        .evaluate_auto_with_permission_mode_and_risk_and_path(
-                            PermissionEvaluationParams {
-                                session_id: &p.session_id,
-                                tool_name: &p.tool_name,
-                                mode: &durable_mode,
-                                permission_mode: &effective_pm,
-                                session_grants: &st.session_grants,
-                                declared_risk: p.declared_risk.as_deref(),
-                                requires_external_path_permission: external_path_permission,
-                                plan_safe_actions: p.plan_safe_actions.as_deref(),
-                            },
-                        );
+                    // The app's own storage is refused before any mode is
+                    // consulted: `auto` otherwise approves external paths
+                    // silently, and this directory holds the database, the
+                    // transcripts, and every secret reference.
+                    let protected = crate::protected_paths::is_protected_app_path(
+                        &st.data_dir,
+                        ws.as_deref(),
+                        p.args.get("path").and_then(|v| v.as_str()).unwrap_or(""),
+                    );
+                    let mut auto = if protected {
+                        Some(PermissionDecision::Deny)
+                    } else {
+                        st.permissions
+                            .evaluate_auto_with_permission_mode_and_risk_and_path(
+                                PermissionEvaluationParams {
+                                    session_id: &p.session_id,
+                                    tool_name: &p.tool_name,
+                                    mode: &durable_mode,
+                                    permission_mode: &effective_pm,
+                                    session_grants: &st.session_grants,
+                                    declared_risk: p.declared_risk.as_deref(),
+                                    requires_external_path_permission: external_path_permission,
+                                    plan_safe_actions: p.plan_safe_actions.as_deref(),
+                                },
+                            )
+                    };
                     // Write/Edit targeting the session scratch dir never touch
                     // the user's project — skip the prompt (D114). The lexical
                     // pre-check only decides prompting; execution still goes
