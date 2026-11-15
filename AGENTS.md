@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Policy-Sync: 2026-11-15.1
+Policy-Sync: 2026-11-16.1
 
 Mandatory rules for AI coding agents working in PI-Desktop.
 
@@ -588,6 +588,32 @@ MCP, clipboard, credentials, secrets.
 Never fix functionality by weakening: permission checks, sandbox
 boundaries, URL validation, filesystem restrictions, origin checks,
 credential isolation, plugin authorization.
+
+### Reading data another application owns
+
+We import from, and read alongside, other agents' stores: their SQLite files,
+their JSONL transcripts, their indexes. Those files are live and belong to a
+program that may be running right now. Five rules, each of which prevents data
+loss rather than merely avoiding an error:
+
+* **Read-only, and a copy.** Never open a third party's database read-write: a
+  read-write open runs WAL recovery inside someone else's live store. Copy pages
+  into a self-contained file and read that instead.
+* **Never `VACUUM` a store you do not own.** It renumbers implicit rowids, and
+  there is no way to audit a foreign schema for tables that treat rowid as a key.
+* **One self-contained file per database; delete stale `-wal`/`-shm` before
+  restoring.** A leftover write-ahead log replayed onto a restored database is
+  how a restore silently corrupts data that was never in the backup.
+* **Archive by allowlist, never by directory.** Agents keep credentials beside
+  transcripts (`oauth_creds.json`, `secrets.json`, key material). A backup copies
+  the named subpaths and nothing else.
+* **An append-only index is merged by key, not replaced.** Skipping a whole-file
+  restore drops the rows the restored sessions need; replacing drops everything
+  written since the backup. Merge the keys the live copy lacks.
+
+The same care applies to our own data directory: tools are refused access to
+`pi.sqlite`, `sessions/`, and `logs/` outright (`protected_paths`), because a
+confirmation card would only invite a yes.
 
 ### AI / untrusted-input boundary
 

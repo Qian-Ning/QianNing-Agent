@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Policy-Sync: 2026-11-15.1
+Policy-Sync: 2026-11-16.1
 
 Instructions for Claude Code CLI and Claude Cowork on PI-Desktop.
 
@@ -183,6 +183,14 @@ Keep diffs small and coherent: one concern, no drive-by cleanup, no unrelated fo
 Least privilege for filesystem, shell, network, plugins, MCP, clipboard, and credentials. Never “fix” a feature by weakening a permission check or sandbox.
 
 Avoid unnecessary `any`, `as any`, `@ts-ignore`, `@ts-nocheck`. Avoid Rust `unwrap()` / `expect()` on normal external failure paths. Do not silently swallow unexpected errors. Failures must stay observable without leaking secrets.
+
+### Reading data another application owns
+
+Other agents' stores are live files owned by programs that may be running. Read a
+copy, read-only (a read-write open runs WAL recovery inside their store, and
+`VACUUM` renumbers rowids we cannot audit). Archive by allowlist — credentials
+sit beside transcripts. Restore one self-contained file and delete stale
+`-wal`/`-shm` first. Merge append-only indexes by key instead of replacing them.
 
 ### AI / untrusted-input boundary
 

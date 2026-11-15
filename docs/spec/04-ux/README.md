@@ -14,3 +14,4 @@
 | [10-workbuddy-benchmark-ux.md](10-workbuddy-benchmark-ux.md) | WorkBuddy benchmark walkthrough + adopt/adapt/reject proposals |
 | [11-asktool-question-card.md](11-asktool-question-card.md) | Inline multi-question card |
 | [12-media-workbench.md](12-media-workbench.md) | Media workbench (image and video generation page) |
+| [13-workspace-file-search.md](13-workspace-file-search.md) | Workspace file search: constraints before implementation |
