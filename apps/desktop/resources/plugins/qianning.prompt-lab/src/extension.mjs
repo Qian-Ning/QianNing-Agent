@@ -31,27 +31,28 @@ const EMBEDDED = "embedded";
 
 export const MODES = ["append", "replace", "strict"];
 
-/** What the harness says about itself, oldest wording last. */
+/**
+ * What the harness says about itself. The first two are this product's own
+ * wording; the rest cover a harness that ships a different self-description.
+ * A miss leaves the prompt intact — see `stripIdentityLine`.
+ */
 const IDENTITY_LINES = [
+  "You are QianNing Agent, a general-purpose agent",
+  "The product is QianNing Agent, a local-first desktop agent workspace",
   "You are a coding assistant running inside",
   "You are an expert coding assistant operating inside",
 ];
 
 /**
- * Remove the harness's self-description: the first line that introduces it.
- * Returns the text unchanged when no phrasing matches, so a harness rewording
- * degrades to "nothing was cut" instead of cutting the wrong line.
+ * Remove the harness's self-description: every line that introduces it. Returns
+ * the text unchanged when no phrasing matches, so a harness rewording degrades
+ * to "nothing was cut" instead of cutting the wrong line.
  */
 export function stripIdentityLine(text) {
   const lines = text.split("\n");
-  for (const prefix of IDENTITY_LINES) {
-    const index = lines.findIndex((line) => line.startsWith(prefix));
-    if (index !== -1) {
-      const without = [...lines.slice(0, index), ...lines.slice(index + 1)];
-      return { text: without.join("\n"), found: true };
-    }
-  }
-  return { text, found: false };
+  const kept = lines.filter((line) => !IDENTITY_LINES.some((prefix) => line.startsWith(prefix)));
+  if (kept.length === lines.length) return { text, found: false };
+  return { text: kept.join("\n"), found: true };
 }
 
 /**
@@ -69,7 +70,12 @@ export function stripDocsBlock(text) {
   return { text: text.slice(0, lineStart) + text.slice(end), found: true };
 }
 
-/** `{{cwd}}` in a persona file becomes the session's directory. */
+/**
+ * `{{cwd}}` in a persona file becomes the session's directory when the harness
+ * supplies one. It does not today — `systemPromptOptions` reaches extensions
+ * empty — so the placeholder is dropped rather than replaced with a guess: a
+ * wrong path in a prompt is worse than none.
+ */
 export function interpolate(text, cwd) {
   if (!text.includes("{{cwd}}")) return text;
   if (!cwd) return text.replace(/[ \t]*\{\{cwd\}\}[ \t]*/g, " ").replace(/[ \t]+\n/g, "\n");

@@ -91,6 +91,25 @@ test("nothing changes until the command is run", () => {
   assert.equal(s.start(), undefined);
 });
 
+test("replace cuts this product's own identity paragraphs", () => {
+  const base = [
+    "You are QianNing Agent, a general-purpose agent running on the user's own computer.",
+    "The product is QianNing Agent, a local-first desktop agent workspace that runs locally.",
+    "",
+    "## Safety",
+    "Never print a secret.",
+  ].join("\n");
+  const out = composeSystemPrompt({ mode: "replace", persona: "Be terse.", base, cwd: "" });
+  assert.ok(!out.includes("You are QianNing Agent"));
+  assert.ok(!out.includes("The product is QianNing Agent"));
+  assert.ok(out.includes("## Safety"));
+});
+
+test("strict without a directory sends the persona alone", () => {
+  const out = composeSystemPrompt({ mode: "strict", persona: "Be terse.", base: BASE, cwd: "" });
+  assert.equal(out, "Be terse.");
+});
+
 test("toggling on rewrites the prompt, toggling off stops it", async () => {
   const s = session();
   await s.run("on");
