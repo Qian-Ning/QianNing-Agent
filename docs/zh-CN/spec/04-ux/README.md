@@ -17,3 +17,4 @@
 | [10-workbuddy-benchmark-ux.md](/zh-CN/spec/04-ux/10-workbuddy-benchmark-ux) | WorkBuddy 基准演练 + adopt/adapt/reject 提案 |
 | [11-asktool-question-card.md](/zh-CN/spec/04-ux/11-asktool-question-card) | 内联多问题卡 |
 | [12-media-workbench.md](/zh-CN/spec/04-ux/12-media-workbench) | 媒体工作台（生图与生视频页面） |
+| [13-workspace-file-search.md](/zh-CN/spec/04-ux/13-workspace-file-search) | 工作区文件搜索：实现前必须满足的约束 |

@@ -68,6 +68,7 @@
 - [10-workbuddy-benchmark-ux.md](/zh-CN/spec/04-ux/10-workbuddy-benchmark-ux)
 - [11-asktool-question-card.md](/zh-CN/spec/04-ux/11-asktool-question-card)
 - [12-media-workbench.md](/zh-CN/spec/04-ux/12-media-workbench)
+- [13-workspace-file-search.md](/zh-CN/spec/04-ux/13-workspace-file-search)
 
 ## 5. 安全性
 - [README.md](/zh-CN/spec/05-security/README)
