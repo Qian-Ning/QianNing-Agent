@@ -706,6 +706,9 @@ export const api = {
       id,
       systemPrompt,
     ).then((result) => ({ ...result, session: normalizeSession(result.session) })),
+  /** Which shipped skill set this conversation was created against; null when it predates the record. */
+  sessionSkillsRevision: (id: string) =>
+    invoke<{ revision: string | null }>(IPC.invoke.sessionSkillsRevision, id),
   listPromptPresets: () =>
     invoke<{ presets: PromptPreset[] }>(IPC.invoke.promptPresetList),
   savePromptPreset: (name: string, text: string) =>

@@ -366,6 +366,16 @@ export function registerSessionIpc({
     return host.call("session.rename", { id, title });
   });
   handle(
+    IPC.invoke.sessionSkillsRevision,
+    async (id: string) => {
+      if (!host) throw new Error("host unavailable");
+      const res = await host.call<{ revision?: string | null }>("session.getSkillsRevision", {
+        id: String(id ?? ""),
+      });
+      return { revision: res.revision ?? null };
+    },
+  );
+  handle(
     IPC.invoke.sessionSetSystemPrompt,
     async (id: string, systemPrompt: string | null) => {
       rejectNativeMutation(id, "system prompt");

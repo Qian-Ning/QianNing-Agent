@@ -137,6 +137,7 @@ export const IPC = {
     sessionRename: "pi-desktop/session/rename",
     /** Set or clear a conversation's own system prompt (schema v20). */
     sessionSetSystemPrompt: "pi-desktop/session/setSystemPrompt",
+    sessionSkillsRevision: "pi-desktop/session/skillsRevision",
     /**
      * Saved prompt shelf (ADR 0310). A reusable library of prompt *source
      * text*: `promptPreset.list` returns the shelf, `promptPreset.save` adds
