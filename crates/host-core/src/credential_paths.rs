@@ -138,10 +138,63 @@ const COMMAND_MARKERS: &[&str] = &[
 /// is why this raises the floor rather than closing the hole: `Bash` is still
 /// unbounded, and the honest description is "harder to do by accident".
 pub fn command_touches_credentials(command: &str) -> bool {
-    let normalised = command.to_lowercase();
+    let normalised = normalise_command(command);
     COMMAND_MARKERS
         .iter()
         .any(|marker| normalised.contains(marker))
+}
+
+/// Reduce a command to the form the markers are written in.
+///
+/// The three trivial evasions were a quoting habit, not an attack: `cat
+/// "$HOME"/.ssh/id_rsa` and `cat ${HOME}/.ssh/id_rsa` reach the same file as the
+/// plain form, and a scan that only knew the plain form let both through. This
+/// expands the home variables we know, drops quotes and line continuations, and
+/// folds backslashes to slashes, so all four spellings normalise to one string.
+///
+/// It is still not a parser. Anything that computes the path at runtime —
+/// `K=~/.ssh; cat $K/id_rsa`, `printf` piped into a shell, a base64 payload — is
+/// invisible here. The honest claim stays "an accidental reach asks first".
+fn normalise_command(command: &str) -> String {
+    let mut text = command.to_lowercase();
+
+    // Home and profile variables, in both shell and PowerShell spellings.
+    for token in [
+        "${home}",
+        "$env:userprofile",
+        "$env:appdata",
+        "%userprofile%",
+        "%appdata%",
+        "$userprofile",
+        "$home",
+        "~",
+    ] {
+        text = text.replace(token, "/home/user");
+    }
+
+    let mut out = String::with_capacity(text.len());
+    let mut characters = text.chars();
+    while let Some(character) = characters.next() {
+        let code = character as u32;
+        // 0x22 quote, 0x27 apostrophe: they only hide the path from a naive scan.
+        if code == 0x22 || code == 0x27 {
+            continue;
+        }
+        // 0x5c backslash: escapes the next character, or continues the line.
+        if code == 0x5c {
+            if let Some(next) = characters.next() {
+                let next_code = next as u32;
+                if next_code == 0x6e || next_code == 0x72 {
+                    out.push(' ');
+                } else {
+                    out.push(next);
+                }
+            }
+            continue;
+        }
+        out.push(character);
+    }
+    out.replace(char::from(0x5c), "/")
 }
 
 #[cfg(test)]
@@ -259,6 +312,31 @@ mod tests {
             r"Get-Content C:\\Users\\me\\.ssh\\id_rsa",
             "tar czf /tmp/x.tgz ~/.aws",
             "cat ~/.config/gh/hosts.yml",
+        ] {
+            assert!(command_touches_credentials(command), "{command}");
+        }
+    }
+
+    #[test]
+    fn quoting_and_variables_do_not_hide_the_path() {
+        // The three spellings that used to slip past a plain marker scan.
+        for command in [
+            "cat \"$HOME\"/.ssh/id_rsa",
+            "cat ${HOME}/.ssh/id_rsa",
+            "cat ~/.ssh/id_ed25519",
+            "python -c \"open('$HOME/.ssh/id_rsa').read()\"",
+            "awk '{print}' $HOME/.ssh/id_rsa",
+            "grep -r . \"${HOME}/.aws/credentials\"",
+        ] {
+            assert!(command_touches_credentials(command), "{command}");
+        }
+    }
+
+    #[test]
+    fn windows_spellings_are_seen_too() {
+        for command in [
+            r"type %USERPROFILE%\.ssh\id_rsa",
+            r"Get-Content $env:USERPROFILE\.ssh\id_rsa",
         ] {
             assert!(command_touches_credentials(command), "{command}");
         }
