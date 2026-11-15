@@ -1142,3 +1142,35 @@ pub(crate) fn migrate_v24_to_v25(conn: &Connection, path: &Path) -> Result<()> {
     })?;
     Ok(())
 }
+
+/// v26 adds the column that records how a conversation's own prompt meets the
+/// built-in persona. The default reproduces the behaviour every existing
+/// session already had — the custom prompt replaces the persona — so a library
+/// upgraded from v25 answers exactly as it did before the upgrade.
+pub(crate) fn migrate_v25_to_v26_tx(tx: &rusqlite::Transaction<'_>) -> Result<()> {
+    let has_mode: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('sessions') WHERE name = 'system_prompt_mode')",
+        [],
+        |row| row.get(0),
+    )?;
+    if !has_mode {
+        tx.execute_batch(
+            "ALTER TABLE sessions ADD COLUMN system_prompt_mode TEXT NOT NULL DEFAULT 'replace';",
+        )?;
+    }
+    tx.pragma_update(None, "user_version", 26i64)?;
+    Ok(())
+}
+
+pub(crate) fn migrate_v25_to_v26(conn: &Connection, path: &Path) -> Result<()> {
+    let backup = create_migration_backup(conn, path, 25)?;
+    let tx = conn.unchecked_transaction()?;
+    migrate_v25_to_v26_tx(&tx)?;
+    tx.commit().with_context(|| {
+        format!(
+            "commit schema v25 to v26 migration; backup {} remains",
+            backup.display()
+        )
+    })?;
+    Ok(())
+}
