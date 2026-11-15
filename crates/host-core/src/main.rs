@@ -5,6 +5,7 @@ mod audit;
 mod computer;
 mod config_sync;
 mod connection;
+mod credential_paths;
 mod db;
 mod delivery_ledger;
 mod inline_viz;

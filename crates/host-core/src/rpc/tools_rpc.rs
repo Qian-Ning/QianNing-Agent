@@ -213,7 +213,20 @@ pub(super) async fn handle(
                         ws.as_deref(),
                         p.args.get("path").and_then(|v| v.as_str()).unwrap_or(""),
                     );
-                    let mut auto = if protected {
+                    // Credential locations outside the workspace: `auto`
+                    // otherwise reads them silently, and a key that reaches the
+                    // prompt cannot be un-leaked. Private keys are refused; a
+                    // credential directory keeps its workflow but always asks.
+                    let credential_zone = crate::credential_paths::classify(
+                        home_directory().as_deref(),
+                        ws.as_deref(),
+                        p.args.get("path").and_then(|v| v.as_str()).unwrap_or(""),
+                    );
+                    let credential_never =
+                        credential_zone == crate::credential_paths::CredentialZone::NeverRead;
+                    let credential_ask =
+                        credential_zone == crate::credential_paths::CredentialZone::AskAlways;
+                    let mut auto = if protected || credential_never {
                         Some(PermissionDecision::Deny)
                     } else {
                         st.permissions
@@ -230,6 +243,9 @@ pub(super) async fn handle(
                                 },
                             )
                     };
+                    if credential_ask && auto.is_some() {
+                        auto = None;
+                    }
                     // Write/Edit targeting the session scratch dir never touch
                     // the user's project — skip the prompt (D114). The lexical
                     // pre-check only decides prompting; execution still goes
@@ -708,4 +724,13 @@ pub(super) async fn handle(
             "NOT_FOUND",
         )),
     }
+}
+
+/// The user's home directory, for the credential-location classifier. Resolved
+/// per call rather than cached: a harness may change it, and a stale value would
+/// classify files against the wrong home.
+fn home_directory() -> Option<std::path::PathBuf> {
+    std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .map(std::path::PathBuf::from)
 }
