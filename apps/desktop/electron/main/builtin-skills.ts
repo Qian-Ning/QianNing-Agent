@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { parseSkillFrontmatter } from "@pi-desktop/plugin-sdk";
 import type { PluginSkillDef } from "@pi-desktop/agent-runtime";
 import type { LoadedSkillDocument } from "./skill-document";
+import { computeSkillsRevision } from "./skills-revision";
 // Kept local rather than imported: this module is loaded directly by a test
 // through Node's ESM resolver, which needs every runtime specifier to carry an
 // extension, and a `.ts` one would not survive the bundler.
@@ -94,6 +95,27 @@ export function listBuiltinSkillFiles(): string[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * The fingerprint of the shipped skill set, computed on demand.
+ *
+ * Cached for the life of the process: the set changes only when an update
+ * replaces the resource directory, and a packaged update restarts the app. A
+ * per-call read of 90 documents would put file I/O on a path that runs once.
+ */
+let cachedRevision: string | undefined;
+
+export function builtinSkillsRevision(): string {
+  if (cachedRevision) return cachedRevision;
+  const dir = resolveBuiltinSkillDir();
+  if (!dir) return "";
+  const entries = listBuiltinSkillFiles().map((file) => ({
+    path: file,
+    content: readFileSync(join(dir, file), "utf8"),
+  }));
+  cachedRevision = computeSkillsRevision(entries);
+  return cachedRevision;
 }
 
 /**

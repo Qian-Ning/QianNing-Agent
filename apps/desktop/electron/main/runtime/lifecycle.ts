@@ -1,3 +1,4 @@
+import { builtinSkillsRevision } from "../builtin-skills";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -217,7 +218,7 @@ export function createRuntimeLifecycle({
   const bootBackends = async (): Promise<void> => {
     mkdirSync(join(dataDir, "logs"), { recursive: true });
     logger.app("lifecycle", "info", "app boot " + APP_NAME + " " + APP_VERSION, {
-      data: { protocolVersion: PROTOCOL_VERSION },
+      data: { protocolVersion: PROTOCOL_VERSION, skillsRevision: builtinSkillsRevision() },
     });
     await startHost();
     // Plugin rows are resolved in the host, so the app language is pushed once
