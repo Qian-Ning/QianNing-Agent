@@ -1177,3 +1177,43 @@ pub(crate) fn migrate_v25_to_v26(conn: &Connection, path: &Path) -> Result<()> {
     })?;
     Ok(())
 }
+
+/// v27 gives session-scoped tool grants somewhere to live.
+///
+/// They were a `HashMap` in the host process, so "allow for this session" ended
+/// at the first restart — the user answered the same question twice for a
+/// decision they had already made. The row keeps the decision, not the request:
+/// one per (session, tool), and `origin` records who answered.
+pub(crate) fn migrate_v26_to_v27_tx(tx: &rusqlite::Transaction<'_>) -> Result<()> {
+    let has_table: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'session_grants')",
+        [],
+        |row| row.get(0),
+    )?;
+    if !has_table {
+        tx.execute_batch(
+            "CREATE TABLE session_grants (
+                session_id  TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                tool_name   TEXT NOT NULL,
+                origin      TEXT NOT NULL DEFAULT 'user',
+                granted_at  INTEGER NOT NULL,
+                PRIMARY KEY (session_id, tool_name)
+            );",
+        )?;
+    }
+    tx.pragma_update(None, "user_version", 27i64)?;
+    Ok(())
+}
+
+pub(crate) fn migrate_v26_to_v27(conn: &Connection, path: &Path) -> Result<()> {
+    let backup = create_migration_backup(conn, path, 26)?;
+    let tx = conn.unchecked_transaction()?;
+    migrate_v26_to_v27_tx(&tx)?;
+    tx.commit().with_context(|| {
+        format!(
+            "commit schema v26 to v27 migration; backup {} remains",
+            backup.display()
+        )
+    })?;
+    Ok(())
+}

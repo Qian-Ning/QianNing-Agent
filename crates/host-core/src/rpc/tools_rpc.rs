@@ -460,6 +460,14 @@ pub(super) async fn handle(
                         .entry(p.session_id.clone())
                         .or_default()
                         .push(p.tool_name.clone());
+                    // Durable copy, so a restart does not ask again. Failure is
+                    // logged inside `record`'s caller rather than surfaced: an
+                    // unwritten grant costs one confirmation card.
+                    if let Err(error) =
+                        crate::session_grants::record(&st.db, &p.session_id, &p.tool_name, "user")
+                    {
+                        tracing::warn!(%error, "session grant not persisted");
+                    }
                 }
 
                 // Admission follows permission so approval waits do not occupy

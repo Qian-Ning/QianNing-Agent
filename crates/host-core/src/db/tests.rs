@@ -1966,3 +1966,49 @@ fn skills_revision_is_recorded_once_and_never_revised() {
     );
     assert!(crate::sessions::record_session_skills_revision(&db, &session.id, "  ").is_err());
 }
+
+/// v27 adds the table that keeps session-scoped tool grants across restarts.
+/// The upgrade must create it without touching anything already stored.
+#[test]
+fn v27_database_migrates_and_adds_the_session_grants_table() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    let existing_id = "session-before-v27";
+    {
+        let db = Database::open(&path).unwrap();
+        db.conn()
+            .execute(
+                "INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?1, 'older', 1, 1)",
+                [existing_id],
+            )
+            .unwrap();
+        // Force the pre-v27 shape the way a shipped v26 database looks.
+        db.conn()
+            .execute_batch("DROP TABLE IF EXISTS session_grants;")
+            .unwrap();
+        db.conn().pragma_update(None, "user_version", 26).unwrap();
+    }
+
+    let db = Database::open(&path).unwrap();
+    assert_eq!(schema_version(db.conn()), SCHEMA_VERSION);
+    assert!(
+        migration_backup_path(&path, 26).exists(),
+        "the upgrade leaves a backup"
+    );
+
+    let has_table: bool = db
+        .conn()
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'session_grants')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(has_table, "the table is created");
+
+    let sessions: i64 = db
+        .conn()
+        .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(sessions, 1, "existing rows are untouched");
+}

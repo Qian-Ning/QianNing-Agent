@@ -54,6 +54,7 @@ mod scheduled;
 mod scratch;
 mod secrets;
 mod session_collaboration;
+mod session_grants;
 mod session_search;
 mod sessions;
 mod state;
