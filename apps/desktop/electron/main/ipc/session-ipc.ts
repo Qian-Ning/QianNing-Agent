@@ -1,6 +1,7 @@
 import { shell } from "electron";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { mkdirSync } from "node:fs";
+import { builtinSkillsRevision } from "../builtin-skills";
 import {
   ErrorCodes,
   IPC,
@@ -163,6 +164,24 @@ export function registerSessionIpc({
     );
     logger.app("session", "info", "session created", { sessionId: res.session?.id });
     if (!res.session) return res;
+    // Which shipped skill set this conversation was created against. Recorded
+    // once — the host ignores a second call — so a resumed launch cannot rewrite
+    // it. Failure is logged, not thrown: a missing fingerprint must not cost the
+    // user their new session.
+    const skillsRevision = builtinSkillsRevision();
+    if (skillsRevision && res.session.id) {
+      void host
+        .call("session.recordSkillsRevision", { id: res.session.id, revision: skillsRevision })
+        .catch((error: unknown) => {
+          logger.app(
+            "session",
+            "warn",
+            "skills revision not recorded: " +
+              (error instanceof Error ? error.message : String(error)),
+            { sessionId: res.session?.id },
+          );
+        });
+    }
     const { providers, defaults } = await capabilityPromise;
     return { ...res, session: enrichSession(res.session, providers, defaults) };
   });
@@ -346,6 +365,16 @@ export function registerSessionIpc({
     if (!host) throw new Error("host unavailable");
     return host.call("session.rename", { id, title });
   });
+  handle(
+    IPC.invoke.sessionSkillsRevision,
+    async (id: string) => {
+      if (!host) throw new Error("host unavailable");
+      const res = await host.call<{ revision?: string | null }>("session.getSkillsRevision", {
+        id: String(id ?? ""),
+      });
+      return { revision: res.revision ?? null };
+    },
+  );
   handle(
     IPC.invoke.sessionSetSystemPrompt,
     async (id: string, systemPrompt: string | null) => {
