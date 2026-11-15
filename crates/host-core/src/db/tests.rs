@@ -1848,3 +1848,52 @@ fn the_v25_migration_adds_the_delivery_operation_columns() {
         "a row written before the column existed is a send"
     );
 }
+
+/// v26 adds the column that records which shipped skills a session was created
+/// against. It must be added without touching existing rows: a session created
+/// before the column existed has no revision, and writing today's value into it
+/// would claim knowledge about the past that nobody has.
+#[test]
+fn v26_database_migrates_and_adds_the_skills_revision_column() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    let existing_id = "session-before-v26";
+    {
+        let db = Database::open(&path).unwrap();
+        db.conn()
+            .execute(
+                "INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?1, 'older', 1, 1)",
+                [existing_id],
+            )
+            .unwrap();
+        // Force the pre-v26 shape the way a shipped v25 database looks.
+        db.conn()
+            .execute_batch("ALTER TABLE sessions DROP COLUMN skills_revision;")
+            .unwrap();
+        db.conn().pragma_update(None, "user_version", 25).unwrap();
+    }
+
+    let db = Database::open(&path).unwrap();
+    assert_eq!(schema_version(db.conn()), SCHEMA_VERSION);
+    assert!(migration_backup_path(&path, 25).exists(), "the upgrade leaves a backup");
+
+    let has_column: bool = db
+        .conn()
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('sessions') WHERE name = 'skills_revision')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(has_column, "the column is added");
+
+    let stored: Option<String> = db
+        .conn()
+        .query_row(
+            "SELECT skills_revision FROM sessions WHERE id = ?1",
+            [existing_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(stored, None, "a row that predates the column stays null");
+}

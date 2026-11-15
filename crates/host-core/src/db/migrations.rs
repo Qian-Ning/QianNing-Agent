@@ -1142,3 +1142,38 @@ pub(crate) fn migrate_v24_to_v25(conn: &Connection, path: &Path) -> Result<()> {
     })?;
     Ok(())
 }
+
+/// v26 records which skill documents a session was created against.
+///
+/// The shipped skills are read from disk every session, so an upgrade changes
+/// what the model is told without leaving a trace anywhere. The fingerprint is
+/// that trace: a short digest of the file names and their contents.
+///
+/// Nullable, and left NULL for every existing row: a session created before the
+/// column existed genuinely has no recorded revision, and inventing today's
+/// value for it would be a lie the moment the skills changed.
+pub(crate) fn migrate_v25_to_v26_tx(tx: &rusqlite::Transaction<'_>) -> Result<()> {
+    let has_revision: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('sessions') WHERE name = 'skills_revision')",
+        [],
+        |row| row.get(0),
+    )?;
+    if !has_revision {
+        tx.execute_batch("ALTER TABLE sessions ADD COLUMN skills_revision TEXT;")?;
+    }
+    tx.pragma_update(None, "user_version", 26i64)?;
+    Ok(())
+}
+
+pub(crate) fn migrate_v25_to_v26(conn: &Connection, path: &Path) -> Result<()> {
+    let backup = create_migration_backup(conn, path, 25)?;
+    let tx = conn.unchecked_transaction()?;
+    migrate_v25_to_v26_tx(&tx)?;
+    tx.commit().with_context(|| {
+        format!(
+            "commit schema v25 to v26 migration; backup {} remains",
+            backup.display()
+        )
+    })?;
+    Ok(())
+}
