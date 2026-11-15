@@ -75,6 +75,14 @@ CREATE TABLE sessions (
   created_at  INTEGER NOT NULL,
   updated_at  INTEGER NOT NULL
 );
+CREATE TABLE session_grants (
+  session_id  TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  tool_name   TEXT NOT NULL,
+  -- Who answered the confirmation: the person, a chat channel, or a policy.
+  origin      TEXT NOT NULL DEFAULT 'user',
+  granted_at  INTEGER NOT NULL,
+  PRIMARY KEY (session_id, tool_name)
+);
 CREATE INDEX idx_sessions_updated ON sessions(updated_at DESC);
 CREATE INDEX idx_sessions_project ON sessions(project_id) WHERE project_id IS NOT NULL;
 CREATE INDEX idx_sessions_deleted ON sessions(deleted_at) WHERE deleted_at IS NOT NULL;

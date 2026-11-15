@@ -211,6 +211,10 @@ impl AppState {
         if let Err(error) = messaging.connect_all() {
             tracing::warn!(%error, "an outbound channel failed to connect");
         }
+        // Hydrated from the database so "allow for this session" outlives the
+        // process that heard it; a failure here costs a confirmation, not the
+        // startup.
+        let session_grants = crate::session_grants::load(&db).unwrap_or_default();
         Ok(Self {
             data_dir: data_dir.to_path_buf(),
             db,
@@ -227,7 +231,7 @@ impl AppState {
             started_at: Instant::now(),
             handshook: false,
             shutting_down: false,
-            session_grants: HashMap::new(),
+            session_grants,
             plugin_execs: HashMap::new(),
             plugin_import_rates: HashMap::new(),
             plugin_batch_import_rates: HashMap::new(),
