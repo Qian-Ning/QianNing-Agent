@@ -1,72 +1,49 @@
 # 13. Workspace file search
 
-Status: **backend implemented, picker not built**. `host-core` answers
-`workspace.searchFiles` with a bounded, ranked walk
-(`crates/host-core/src/workspace_search.rs`); no UI consumes it yet. The
-constraints below are what the picker must satisfy when it is built — the parts
-marked "rules that must hold" describe the shared-discovery design that the first
-backend version deliberately skips.
+Status: **implemented**, in the Electron main process —
+`apps/desktop/electron/main/fs-index.ts`, serving the composer's `@` menu (D124,
+ADR 0024). This page records how it works and what it trades away, because the
+obvious "improvements" to it are the ones that make it slow.
 
-The composer has attachments and the agent has `search_files`; neither is a
-workspace-wide picker. The gap is a **UI** gap, and the cost of filling it is not
-the ranking — it is the concurrency.
+## What it does
 
-## The failure this design exists to prevent
+The composer asks for a snapshot of the workspace; the renderer filters and ranks
+in memory. Two sources, in order:
 
-A file picker looks like "list the workspace and filter". Run naively it becomes:
-every keystroke starts a directory walk, each walk holds a lock, and a large
-workspace starves the small one being opened beside it. The symptom is a picker
-that freezes for seconds on the second repository open, which is exactly when the
-user is most certain the application is broken.
+1. **`git ls-files -co --exclude-standard -z`** — exact `.gitignore` semantics for
+   free, with a 4 s timeout, a 32 MiB buffer cap, and a fallback when git is
+   missing or the command fails.
+2. **A bounded walk** over the panel's ignore set when git is unavailable.
 
-## Rules that must hold
+The result is capped at `FS_INDEX_MAX_ENTRIES` (8000) with a `truncated` flag, so
+a caller can tell "this is everything" from "this is the first 8000".
 
-**1. Discovery belongs to a query, not to mounting.** Opening the composer or a
-picker starts no scan. An empty query answers from a bounded traversal prefix
-instead of listing the tree.
+## The two properties worth keeping
 
-**2. Permits are graded, not shared.** Discovery, scoring, and empty listings draw
-from separate small pools. One large discovery must not be able to block a
-small-root discovery or an empty listing. Acquisition is cancellable and bounded
-by the query deadline.
+**1. One snapshot per root, shared.** The index is cached for 15 s, and concurrent
+requests for the same root join the in-flight build instead of starting a second
+one. A picker sends a request per keystroke; without this, every keystroke would
+walk the tree.
 
-**3. Queries attach to a job; jobs outlive their last consumer briefly.** Every
-query for the same root joins one discovery job and holds a lease. Closing one
-consumer releases only that lease. When the last leaves, the job lingers for a few
-seconds, because a picker aborts its previous query on every keystroke — the next
-keystroke must re-attach rather than restart the walk.
+**2. Filtering is not the index's job.** The index returns paths. Ranking and fuzzy
+matching happen in the renderer over an already-materialized list, which is why a
+keystroke costs a filter rather than a filesystem call.
 
-**4. Cancellation cannot publish.** A cancelled worker never publishes a partial
-snapshot, and a late worker cannot publish over a newer job for the same root.
-Publication checks job identity under the registry lock.
+## What it deliberately does not do
 
-**5. Consumer generation rejects stale replies.** A response that arrives after
-its consumer was replaced is dropped, not rendered.
+- **No content search.** Paths only.
+- **No incremental update.** A new file appears after the cache expires (15 s), not
+  immediately. Cheap and predictable, at the cost of briefly stale results.
+- **No per-query discovery sharing with leases.** The whole snapshot is the unit,
+  so there is nothing to lease. If the workspace ever grows past the point where a
+  full rebuild is affordable, that is the moment to introduce the graded permits
+  and job identity described in the sibling project notes — not before.
 
-**6. Budgets are finite everywhere.** Snapshots in the cache, consumers tracked,
-failure-backoff entries, and the cooperative deadline all have caps. An unbounded
-map here is a memory leak with a friendly name.
+## Why a second implementation is a mistake
 
-**7. The renderer never enumerates.** Commands rank natively and return a bounded
-page. Rendering a whole workspace to filter it in the browser is the same defect
-one layer up.
+Ranking a bounded walk inside `host-core` looks like an improvement and is not: it
+would give the picker two sources of truth for "what files exist", one obeying
+`.gitignore` exactly and one approximating it with a hardcoded directory list. The
+renderer would then behave differently depending on which one answered.
 
-## What this means for our stack
-
-The ranking and traversal belong in `host-core` next to the other filesystem
-work, not in the renderer, and not in Electron main. The renderer asks for a
-query and consumes a bounded page; cancellation is a first-class part of the call,
-not an afterthought bolted on when the first report of a freeze arrives.
-
-Ignore rules must be resolved once per root and shared: `.gitignore`, our own
-ignore set, and the workspace boundary are part of the snapshot key, so changing
-any of them selects a different snapshot instead of mutating one in place.
-
-## Deliberately out of scope
-
-- Content search (grep). That is a different cost profile and the agent already
-  has a tool for it.
-- Cross-root ranking. Multiple roots are searched, but each keeps its own
-  snapshot and budget.
-- Index persistence between launches. If it is added later, the on-disk index
-  needs the same "job identity" discipline this note describes for memory.
+New file-search needs go into this module, behind this snapshot shape.
