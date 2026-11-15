@@ -66,6 +66,7 @@ CREATE TABLE sessions (
   permission_mode TEXT NOT NULL DEFAULT 'inherit'
                 CHECK (permission_mode IN ('inherit', 'ask', 'accept-edits', 'auto')),
   system_prompt TEXT,
+  skills_revision TEXT,                        -- fingerprint of the shipped skills at creation
   owner       TEXT,                            -- owning principal subject; NULL = host-local (ADR 0325)
   source      TEXT,
   deleted_at  INTEGER,
