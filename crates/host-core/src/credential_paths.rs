@@ -109,6 +109,41 @@ pub fn classify(home: Option<&Path>, workspace_path: Option<&str>, path: &str) -
     CredentialZone::Ordinary
 }
 
+/// Markers that, appearing in a shell command, mean it may be reaching for a
+/// credential. Deliberately loose: a false positive costs one confirmation, a
+/// false negative leaks a key.
+const COMMAND_MARKERS: &[&str] = &[
+    ".ssh",
+    "id_rsa",
+    "id_ed25519",
+    "id_ecdsa",
+    "id_dsa",
+    ".aws",
+    ".gnupg",
+    ".netrc",
+    ".kube",
+    ".docker/config.json",
+    ".config/gh",
+    "gcloud/credentials",
+];
+
+/// Does a shell command look like it reaches a credential?
+///
+/// Shell is not parsed here on purpose. The cheap version of this problem is a
+/// marker scan: it cannot tell `cat ~/.ssh/id_rsa` from `grep -r id_rsa .`, and it
+/// does not try. What it must not do is let a command reach a key silently under
+/// `auto`, so the answer to "maybe" is a confirmation, not a pass.
+///
+/// Quoting, variables, and command substitution all defeat a marker scan, which
+/// is why this raises the floor rather than closing the hole: `Bash` is still
+/// unbounded, and the honest description is "harder to do by accident".
+pub fn command_touches_credentials(command: &str) -> bool {
+    let normalised = command.to_lowercase();
+    COMMAND_MARKERS
+        .iter()
+        .any(|marker| normalised.contains(marker))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -214,6 +249,31 @@ mod tests {
             ),
             CredentialZone::Ordinary
         );
+    }
+
+    #[test]
+    fn a_shell_command_naming_a_key_is_flagged() {
+        for command in [
+            "cat ~/.ssh/id_rsa",
+            "scp -i /home/me/.ssh/id_ed25519 host:/tmp",
+            r"Get-Content C:\\Users\\me\\.ssh\\id_rsa",
+            "tar czf /tmp/x.tgz ~/.aws",
+            "cat ~/.config/gh/hosts.yml",
+        ] {
+            assert!(command_touches_credentials(command), "{command}");
+        }
+    }
+
+    #[test]
+    fn ordinary_commands_are_not_flagged() {
+        for command in [
+            "ls -la",
+            "cargo test -p host-core",
+            "git status --short",
+            "npm run build",
+        ] {
+            assert!(!command_touches_credentials(command), "{command}");
+        }
     }
 
     #[test]

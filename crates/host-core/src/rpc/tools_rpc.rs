@@ -224,8 +224,17 @@ pub(super) async fn handle(
                     );
                     let credential_never =
                         credential_zone == crate::credential_paths::CredentialZone::NeverRead;
-                    let credential_ask =
-                        credential_zone == crate::credential_paths::CredentialZone::AskAlways;
+                    // Shell cannot be classified by path, so the command text
+                    // is scanned instead. This is a floor, not a boundary: quoting
+                    // and variables get around it, and the honest claim is
+                    // "harder to leak by accident", not "shell is contained".
+                    let shell_touches_credentials = p.tool_name == "Bash"
+                        && crate::credential_paths::command_touches_credentials(
+                            p.args.get("command").and_then(|v| v.as_str()).unwrap_or(""),
+                        );
+                    let credential_ask = credential_zone
+                        == crate::credential_paths::CredentialZone::AskAlways
+                        || shell_touches_credentials;
                     let mut auto = if protected || credential_never {
                         Some(PermissionDecision::Deny)
                     } else {
