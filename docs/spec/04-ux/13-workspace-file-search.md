@@ -1,11 +1,8 @@
 # 13. Workspace file search
 
-Status: **backend implemented, picker not built**. `host-core` answers
-`workspace.searchFiles` with a bounded, ranked walk
-(`crates/host-core/src/workspace_search.rs`); no UI consumes it yet. The
-constraints below are what the picker must satisfy when it is built — the parts
-marked "rules that must hold" describe the shared-discovery design that the first
-backend version deliberately skips.
+Status: **not implemented**. This note records the design constraints we would
+have to meet before shipping it, so the first implementation does not have to
+rediscover them. It is not a specification of a surface we already have.
 
 The composer has attachments and the agent has `search_files`; neither is a
 workspace-wide picker. The gap is a **UI** gap, and the cost of filling it is not

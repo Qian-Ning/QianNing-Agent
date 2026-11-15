@@ -218,18 +218,6 @@ export function registerWorkspaceIpc({
     return projectPath;
   };
 
-  handle(
-    IPC.invoke.workspaceSearchFiles,
-    async (input: { query?: string; limit?: number; root?: string } = {}) => {
-      if (!host) throw new Error("host unavailable");
-      const res = (await host.call("workspace.searchFiles", {
-        query: String(input.query ?? ""),
-        limit: Number(input.limit ?? 50),
-        ...(input.root ? { root: String(input.root) } : {}),
-      })) as { hits?: { path: string; score: number }[] };
-      return { hits: res.hits ?? [] };
-    },
-  );
   handle(IPC.invoke.projectGet, async () => {
     if (!host) throw new Error("host unavailable");
     let res = (await host.call("workspace.get")) as {

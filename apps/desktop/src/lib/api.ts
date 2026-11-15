@@ -707,9 +707,6 @@ export const api = {
       systemPrompt,
     ).then((result) => ({ ...result, session: normalizeSession(result.session) })),
   /** Which shipped skill set this conversation was created against; null when it predates the record. */
-  /** Ranked workspace file matches for the composer picker; bounded by the host. */
-  searchWorkspaceFiles: (input: { query: string; limit?: number; root?: string }) =>
-    invoke<{ hits: { path: string; score: number }[] }>(IPC.invoke.workspaceSearchFiles, input),
   sessionSkillsRevision: (id: string) =>
     invoke<{ revision: string | null }>(IPC.invoke.sessionSkillsRevision, id),
   listPromptPresets: () =>
