@@ -200,6 +200,11 @@ import {
 import { genericModelConfig, visionFromModelConfig } from "./model-capabilities.js";
 import { projectMemoryPrompt } from "./project-memory-prompt.js";
 import {
+  composePersonaParts,
+  resolveSystemPromptMode,
+  type SystemPromptMode,
+} from "./system-prompt-mode.js";
+import {
   pluginSkillsPrompt,
   pluginSkillsPromptSections,
   preloadedSkillSection,
@@ -915,6 +920,12 @@ export type AgentRuntimeOptions = {
    * always re-appends its operational rules.
    */
   systemPrompt?: string;
+  /**
+   * Whether that persona replaces the built-in one or is appended after it.
+   * Defaults to `replace`, which is the behaviour that shipped before the
+   * setting existed.
+   */
+  systemPromptMode?: SystemPromptMode;
   /** Session-bound workspace root. */
   projectPath?: string;
   /** Durable project context loaded from host-owned project memory. */
@@ -984,6 +995,8 @@ export type RuntimeMatchConfig = {
   trustedExtensions?: TrustedExtensionSpec[];
   /** Persona the launch resolved; a change retires the stale runtime. */
   systemPrompt?: string;
+  /** How that persona meets the built-in one. */
+  systemPromptMode?: SystemPromptMode;
   projectPath?: string;
   projectMemory?: string;
   workspaceRootsGuide?: string;
@@ -2030,12 +2043,16 @@ Call TaskWait only when your next step genuinely depends on that report and noth
           ]
         : []),
     ];
-    // The persona is exactly what the session or the app-wide setting chose;
-    // with neither, the built-in default stands. The operational rules in the
-    // default parts are always re-appended below, so a custom persona cannot
-    // break tool guidance, delegation steering or scratch mechanics.
+    // `append` keeps the built-in persona in front of the custom one; `replace`
+    // puts the custom prompt in its place. The operational rules after the
+    // persona are re-appended in both modes, so a custom prompt cannot remove
+    // tool guidance, delegation steering or scratch mechanics.
     this.baseSystemPrompt = [
-      (opts.systemPrompt ?? DEFAULT_RUNTIME_SYSTEM_PROMPT).trim(),
+      ...composePersonaParts({
+        persona: opts.systemPrompt,
+        mode: resolveSystemPromptMode(opts.systemPromptMode),
+        defaultParts: defaultSystemPromptParts,
+      }),
       ...defaultSystemPromptParts.slice(1),
     ].join("\n\n");
     this.refreshToolDeclarationPolicy();
