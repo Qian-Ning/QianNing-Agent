@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Policy-Sync: 2026-10-11.1
+Policy-Sync: 2026-11-15.1
 
 Mandatory rules for AI coding agents working in PI-Desktop.
 
@@ -543,6 +543,23 @@ Database changes require:
 * relevant spec updates
 
 Never assume an empty database.
+
+Rules that a review can check (each one exists because of a real failure it
+prevents):
+
+* **A migration that has run anywhere is final.** Fix a mistake with a new
+  forward migration, never by editing the old one. An edited migration re-runs
+  nowhere and leaves every already-upgraded database in a state the code no
+  longer describes. The version stamp it wrote is also final: do not renumber.
+* **A migration is idempotent.** Probe before altering (`pragma_table_info`,
+  `EXISTS`, `IF NOT EXISTS`). Field installs are interrupted — a laptop lid
+  closes mid-upgrade — and the retry after a crash must not fail on the half it
+  already applied.
+* **Every new column ships with an upgrade test, not only a fresh-database
+  test.** Build a database at the previous version, write a row, migrate, and
+  assert what that row now holds. "It works on an empty database" proves the DDL
+  parses; it proves nothing about the user who has been running the app for a
+  year.
 
 Plugin SDK / DevKit and other extension contracts are backward-compatible
 by default. Do not casually change public plugin behavior.

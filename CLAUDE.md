@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Policy-Sync: 2026-10-11.1
+Policy-Sync: 2026-11-15.1
 
 Instructions for Claude Code CLI and Claude Cowork on PI-Desktop.
 
@@ -150,6 +150,8 @@ Unless the task explicitly requires a behavior change, do not:
 - hide behavior changes inside a `refactor` commit
 
 Database / schema changes need migration, schema version bump, upgrade compatibility, tests, and spec updates. Never assume an empty database.
+
+An applied migration is final: fix it with a new forward migration, never by editing the old one or renumbering its stamp. Migrations probe before altering so a crashed retry is safe. Every new column needs an upgrade test that migrates a populated previous-version database, not only a fresh-database test.
 
 ### Architecture ratchet
 
