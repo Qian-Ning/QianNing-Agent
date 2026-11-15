@@ -257,11 +257,14 @@ impl PermissionManager {
         if matches!(risk, Risk::Low) {
             return Some(PermissionDecision::AllowOnce);
         }
-        let mode_allows = match permission_mode {
-            "auto" => true,
-            "accept-edits" => matches!(tool_name, "Write" | "Edit"),
-            _ => false,
-        };
+        // The mode's share of the decision is a table, not a match arm here:
+        // `permission_matrix` enumerates it, and its tests pin the answers this
+        // expression used to give. Everything else below — risk, session grants,
+        // an interactive request — is not a table and stays in this path.
+        let mode_allows = crate::permission_matrix::decide(
+            permission_mode,
+            crate::permission_matrix::AccessKind::for_tool(tool_name),
+        ) == crate::permission_matrix::ModeDecision::Allow;
         if mode_allows {
             return Some(PermissionDecision::AllowOnce);
         }
