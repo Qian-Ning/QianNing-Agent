@@ -37,6 +37,7 @@ mod messaging_yuanbao_adapter;
 mod network_policy;
 mod network_proxy;
 mod notifications;
+mod permission_matrix;
 mod permissions;
 mod plans;
 mod plugin_sessions;
