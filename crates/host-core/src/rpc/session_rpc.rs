@@ -236,6 +236,23 @@ pub(super) async fn handle(
                 .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
             Ok(json!({ "ok": ok }))
         }
+        // Recorded once, at creation, by the desktop which knows the shipped
+        // skill set; the host cannot compute it. A second call is a no-op, so a
+        // retry or a resumed launch cannot rewrite history (sessions.rs).
+        "session.recordSkillsRevision" => {
+            let id = params
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
+            let revision = params
+                .get("revision")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| rpc_err(1002, "revision required", "INVALID_PARAMS"))?;
+            let st = state.lock().await;
+            let recorded = sessions::record_session_skills_revision(&st.db, id, revision)
+                .map_err(|error| rpc_err(1003, &error.to_string(), "INVALID_PARAMS"))?;
+            Ok(json!({ "recorded": recorded }))
+        }
         "session.setSystemPrompt" => {
             let id = params
                 .get("id")

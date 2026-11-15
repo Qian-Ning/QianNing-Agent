@@ -1897,3 +1897,56 @@ fn v26_database_migrates_and_adds_the_skills_revision_column() {
         .unwrap();
     assert_eq!(stored, None, "a row that predates the column stays null");
 }
+
+/// The revision is written once. A second launch in a newer build must not
+/// overwrite what the session was created against, or the value stops being a
+/// provenance record and becomes "whatever ran most recently".
+#[test]
+fn skills_revision_is_recorded_once_and_never_revised() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    let db = Database::open(&path).unwrap();
+    let session = crate::sessions::create_session_with_options(
+        &db,
+        crate::sessions::SessionCreateOptions {
+            title: Some("with fingerprint".into()),
+            mode: None,
+            provider_id: None,
+            model_id: None,
+            project_path: None,
+            thinking_level: None,
+            permission_mode: None,
+            system_prompt: None,
+            owner: None,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        crate::sessions::session_skills_revision(&db, &session.id).unwrap(),
+        None,
+        "a fresh session has no revision until one is recorded"
+    );
+
+    assert!(crate::sessions::record_session_skills_revision(&db, &session.id, "0a1b2c3d4e5f6071").unwrap());
+    assert_eq!(
+        crate::sessions::session_skills_revision(&db, &session.id).unwrap().as_deref(),
+        Some("0a1b2c3d4e5f6071")
+    );
+
+    assert!(
+        crate::sessions::record_session_skills_revision(&db, &session.id, "ffffffffffffffff").unwrap(),
+        "an existing session still reports success"
+    );
+    assert_eq!(
+        crate::sessions::session_skills_revision(&db, &session.id).unwrap().as_deref(),
+        Some("0a1b2c3d4e5f6071"),
+        "the first recorded revision wins"
+    );
+
+    assert!(
+        !crate::sessions::record_session_skills_revision(&db, "no-such-session", "0a1b2c3d4e5f6071").unwrap(),
+        "a missing session reports false rather than claiming success"
+    );
+    assert!(crate::sessions::record_session_skills_revision(&db, &session.id, "  ").is_err());
+}

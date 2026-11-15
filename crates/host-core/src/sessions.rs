@@ -1418,6 +1418,52 @@ pub fn set_session_system_prompt(
     Ok(get_session(db, id)?.map(|detail| detail.summary))
 }
 
+/// Record the fingerprint of the shipped skills this session runs against.
+///
+/// Written once, when the session first reaches the agent, and never revised: the
+/// point of the value is what the session was created against, and rewriting it
+/// on every launch would make it a timestamp rather than a provenance record. A
+/// later value that differs is a fact about a new build, not about this session.
+///
+/// Returns false when the row is gone, so the caller can tell "recorded" from
+/// "the session disappeared".
+pub fn record_session_skills_revision(db: &Database, id: &str, revision: &str) -> Result<bool> {
+    let revision = revision.trim();
+    if revision.is_empty() || revision.len() > 64 {
+        return Err(anyhow!("skills revision must be 1..=64 characters"));
+    }
+    let changed = db
+        .conn()
+        .prepare_cached(
+            "UPDATE sessions SET skills_revision = ?2 WHERE id = ?1 AND skills_revision IS NULL",
+        )?
+        .execute(params![id, revision])?;
+    if changed > 0 {
+        return Ok(true);
+    }
+    // Already stamped, or no such row: distinguish the two so a caller does not
+    // report success for a session that does not exist.
+    let exists: bool = db
+        .conn()
+        .prepare_cached("SELECT EXISTS(SELECT 1 FROM sessions WHERE id = ?1)")?
+        .query_row(params![id], |row| row.get(0))?;
+    Ok(exists)
+}
+
+/// The revision recorded for a session, if any. `None` for a session created
+/// before the column existed — that is an absence of evidence, not evidence of
+/// an old build.
+pub fn session_skills_revision(db: &Database, id: &str) -> Result<Option<String>> {
+    let mut statement = db
+        .conn()
+        .prepare_cached("SELECT skills_revision FROM sessions WHERE id = ?1")?;
+    let mut rows = statement.query(params![id])?;
+    match rows.next()? {
+        Some(row) => Ok(row.get(0)?),
+        None => Ok(None),
+    }
+}
+
 /// Longest owning-principal subject accepted. Generous: subjects are opaque
 /// host-chosen identifiers, not user text.
 pub const MAX_SESSION_OWNER_CHARS: usize = 512;
