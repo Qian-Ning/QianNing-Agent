@@ -34,7 +34,13 @@ if (!existsSync(desktopCli)) throw new Error(`electron-vite not found at ${deskt
 // The renderer imports workspace packages by their built entry points, so the
 // shared JS must exist before electron-vite resolves them.
 console.log("[shared] building workspace JS");
-execFileSync(process.env.ComSpec ?? "cmd.exe", ["/c", "pnpm build:js"], { cwd: repoRoot, stdio: ["ignore", "inherit", "inherit"] });
+// Only Windows needs cmd.exe to run the pnpm shim; elsewhere pnpm is a script
+// on PATH, and asking for cmd.exe there is what made this Windows-only.
+if (process.platform === "win32") {
+  execFileSync(process.env.ComSpec ?? "cmd.exe", ["/c", "pnpm build:js"], { cwd: repoRoot, stdio: ["ignore", "inherit", "inherit"] });
+} else {
+  execFileSync("pnpm", ["build:js"], { cwd: repoRoot, stdio: ["ignore", "inherit", "inherit"] });
+}
 
 console.log("[shared] building the desktop renderer");
 execFileSync(node, [desktopCli, "build"], { cwd: desktop, stdio: ["ignore", "inherit", "inherit"] });
