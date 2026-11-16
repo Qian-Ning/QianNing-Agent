@@ -1,4 +1,5 @@
 import { TOOL_ACTIVATION_SECTION, toolDeclarationPolicy, toolActivationSection, restoredToolActivation, syncToolActivation, type ToolDeclarationPolicy } from "./fixed-tool-declarations.js";
+import { watchRepetition } from "./repetition.js";
 import { orderSystemRows, SystemTranscriptJournal } from "./system-transcript-journal.js";
 import { accountModelStream } from "./request-usage.js";
 import { modeToolDenial, retainModeToolDeclaration, withModeExecutionGuard } from "./mode-tool-access.js";
@@ -1719,6 +1720,14 @@ export class DesktopAgentRuntime {
   private resumablePromptStale = false;
   /** Set by `abort` / `dispose` so a finishing delegate cannot restart the parent. */
   private runCancelled = false;
+  /**
+   * Streaming guards for a reply that has started repeating itself verbatim
+   * (repetition.ts). One per channel, rebuilt for every assistant message.
+   */
+  private repetitionReply = watchRepetition();
+  private repetitionThinking = watchRepetition();
+  /** Set while unwinding a turn stopped for repetition, so the notice says why. */
+  private repetitionStop: { channel: "reply" | "thinking"; period: number; span: number } | null = null;
   /**
    * Permission scope of the delegate currently executing one tool call,
    * keyed by tool call id (ADR 0089). The host reads it on `tools.execute` and
@@ -7567,6 +7576,10 @@ Call TaskWait only when your next step genuinely depends on that report and noth
             modelId: this.provider.modelId,
             providerId: this.provider.id,
           };
+          // A loop belongs to one reply, never to the conversation: a fresh
+          // bubble starts a fresh guard.
+          this.repetitionReply = watchRepetition();
+          this.repetitionThinking = watchRepetition();
           if (retryingAssistant) {
             // Keep one visible assistant bubble across the bounded retry. The
             // failed partial response is replaced instead of leaving a
@@ -7612,6 +7625,14 @@ Call TaskWait only when your next step genuinely depends on that report and noth
                 : {}),
             status: "streaming",
           };
+          const replyLoop = textDelta.delta ? this.repetitionReply(textDelta.delta) : null;
+          const thinkingLoop = thinkingDelta.delta
+            ? this.repetitionThinking(thinkingDelta.delta)
+            : null;
+          if (replyLoop || thinkingLoop) {
+            this.stopForRepetition(replyLoop ? "reply" : "thinking", replyLoop ?? thinkingLoop!);
+            break;
+          }
           if (
             textDelta.delta ||
             thinkingDelta.delta ||
@@ -8115,6 +8136,33 @@ Call TaskWait only when your next step genuinely depends on that report and noth
     this.emit({ type: "error", error });
   }
 
+  /**
+   * Stop a reply that has started repeating itself verbatim.
+   *
+   * The alternative is letting it write the same paragraph until the token
+   * budget runs out, which costs the user money and buries the real answer. The
+   * bubble is closed as an error carrying the measured period so the transcript
+   * can say what happened instead of looking like a random stop.
+   */
+  private stopForRepetition(
+    channel: "reply" | "thinking",
+    hit: { period: number; span: number },
+  ): void {
+    if (this.repetitionStop) return;
+    this.repetitionStop = { channel, period: hit.period, span: hit.span };
+    const error = {
+      code: "OUTPUT_REPETITION",
+      message: `The reply started repeating itself (${hit.period}-character unit over ${hit.span} characters), so the turn was stopped. Retrying with a smaller context usually clears it.`,
+      retriable: true,
+      details: { channel, period: hit.period, span: hit.span },
+    };
+    this.terminateParentTurn();
+    this.finalizeCurrentAssistant("error", error);
+    this.emit({ type: "error", error });
+    this.runCancelled = true;
+    this.agent.abort();
+  }
+
   /** Resolve a bubble left in "streaming" when the run dies without a
    * message_end (rejected prompt), so the transcript never sticks mid-stream. */
   private finalizeCurrentAssistant(
@@ -8220,6 +8268,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
     this.pendingUserMessageId = undefined;
     this.gracefulStopRequested = false;
     this.runCancelled = false;
+    this.repetitionStop = null;
     this.resetRunRecoveryState();
     this.turnEpoch += 1;
     this.abortDelegationsFromPreviousTurns();
@@ -8326,6 +8375,7 @@ Call TaskWait only when your next step genuinely depends on that report and noth
     this.acceptingSteering = true;
     this.gracefulStopRequested = false;
     this.runCancelled = false;
+    this.repetitionStop = null;
     this.turnSubagentUsage = undefined;
     this.subagentOverrideProviders = {};
     this.resetDeferredToolsForPrompt();

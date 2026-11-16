@@ -13,6 +13,7 @@ import type {
 } from "@earendil-works/pi-ai";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { addSummaryUsage } from "./compaction-summary-input.js";
+import { findRepetition } from "./repetition.js";
 import { convertToLlm, serializeConversation, textFromContent } from "./pi-runtime-messages.js";
 import type {
   CompactResult,
@@ -222,7 +223,7 @@ export async function generateSummaryWithUsage(
   callbacks: RetryCallbacks | undefined,
   signal: AbortSignal | undefined,
 ): Promise<Result<{ text: string; usage: Usage }>> {
-  return requestSummary(currentMessages, model, reserveTokens, {
+  const result = await requestSummary(currentMessages, model, reserveTokens, {
     ...(customInstructions ? { customInstructions } : {}),
     ...(previousSummary ? { previousSummary } : {}),
     ...(thinkingLevel ? { thinkingLevel } : {}),
@@ -230,6 +231,21 @@ export async function generateSummaryWithUsage(
     ...(callbacks ? { callbacks } : {}),
     ...(signal ? { signal } : {}),
   }, models);
+  if (!result.ok) return result;
+  // A summary that loops is worse than no summary: it becomes the model's only
+  // memory of everything before it. Refusing keeps the transcript intact — the
+  // caller retries later with a smaller range.
+  const loop = findRepetition(result.value.text);
+  if (loop) {
+    return {
+      ok: false,
+      error: new CompactionError(
+        "summarization_failed",
+        `The summary repeated itself (${loop.period}-character unit over ${loop.span} characters), so it was discarded and the transcript left untouched.`,
+      ),
+    };
+  }
+  return result;
 }
 
 function compactFileOperations(fileOps: CompactionPreparation["fileOps"]): {
