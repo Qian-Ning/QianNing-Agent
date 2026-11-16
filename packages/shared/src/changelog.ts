@@ -30,6 +30,15 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.4.1",
+    date: "2026-11-16",
+    highlights: [
+      "The phone's Info page shows one update entry again. The desktop updater used to render there too, where electron-updater does not exist — it could only report that this package cannot install updates.",
+      "A phone update now downloads before the tap: the APK lands in the cache as soon as a newer build is found, and installing only hands the finished file to the system installer.",
+      "A failed download no longer prints the transport error. \"download-failed:timeout\" became the sentence the row already had for a release page it cannot reach.",
+    ],
+  },
+  {
     version: "2.4.0",
     date: "2026-11-12",
     highlights: [
@@ -1196,6 +1205,15 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.4.1",
+    date: "2026-11-16",
+    highlights: [
+      "手机端信息页恢复成一个更新入口。桌面更新行原本也渲染在手机上，而那里没有 electron-updater，它只能显示「此安装包不支持自动安装更新」。",
+      "手机更新改为提前下载：检查到新版本就先把安装包放进缓存，安装只负责把完成的文件交给系统安装器。",
+      "下载失败不再抛传输错误。`download-failed:timeout` 换成这一行本来就有的「连不上发布页」。",
+    ],
+  },
+  {
     version: "2.4.0",
     date: "2026-11-12",
     highlights: [
@@ -2361,6 +2379,15 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.4.1",
+    date: "2026-11-16",
+    highlights: [
+      "手機端資訊頁恢復成一個更新入口。桌面更新列原本也渲染在手機上，而那裡沒有 electron-updater，它只能顯示「此安裝包不支援自動安裝更新」。",
+      "手機更新改為提前下載：檢查到新版本就先把安裝包放進快取，安裝只負責把完成的檔案交給系統安裝程式。",
+      "下載失敗不再拋出傳輸錯誤。`download-failed:timeout` 換成這一列本來就有的「連不上發佈頁」。",
+    ],
+  },
   {
     version: "2.4.0",
     date: "2026-11-12",

@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "2.4.1",
+    date: "2026-11-16",
+    highlights: [
+      "La página de información del teléfono vuelve a mostrar una sola entrada de actualización. La fila de escritorio también se dibujaba allí, donde electron-updater no existe: solo podía avisar de que ese paquete no instala actualizaciones.",
+      "La actualización del teléfono ahora se descarga antes de pulsar: el APK llega a la caché en cuanto aparece una versión más nueva, e instalar solo entrega el archivo terminado al instalador del sistema.",
+      "Una descarga fallida ya no imprime el error de transporte. «download-failed:timeout» pasó a ser la frase que la fila ya tenía para una página de versiones inalcanzable.",
+    ],
+  },
+  {
     version: "2.4.0",
     date: "2026-11-12",
     highlights: [

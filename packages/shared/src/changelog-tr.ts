@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.4.1",
+    date: "2026-11-16",
+    highlights: [
+      "Telefonun bilgi sayfası yine tek bir güncelleme girdisi gösteriyor. Masaüstü satırı orada da çiziliyordu, oysa electron-updater orada yok; yalnızca bu paketin güncelleme kuramadığını söyleyebiliyordu.",
+      "Telefon güncellemesi artık dokunmadan önce indiriliyor: daha yeni bir sürüm bulununca APK önbelleğe iniyor, kurulum yalnızca tamamlanmış dosyayı sistem yükleyicisine veriyor.",
+      "Başarısız indirme artık aktarım hatasını yazmıyor. \"download-failed:timeout\", satırın ulaşılamayan sürüm sayfası için zaten kullandığı cümleye dönüştü.",
+    ],
+  },
+  {
     version: "2.4.0",
     date: "2026-11-12",
     highlights: [

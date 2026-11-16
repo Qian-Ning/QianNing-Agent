@@ -2,6 +2,15 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const koEntries: ChangelogEntry[] = [
   {
+    version: "2.4.1",
+    date: "2026-11-16",
+    highlights: [
+      "휴대폰 정보 페이지에 업데이트 항목이 다시 하나만 나옵니다. electron-updater가 없는 곳에도 데스크톱 행이 함께 그려져, 이 패키지는 업데이트를 설치할 수 없다는 말만 할 수 있었습니다.",
+      "휴대폰 업데이트는 이제 누르기 전에 내려받습니다. 더 새로운 빌드가 보이면 APK가 캐시에 들어가고, 설치는 완료된 파일을 시스템 설치 관리자에게 넘기기만 합니다.",
+      "다운로드 실패 시 전송 오류를 그대로 보여주지 않습니다. \"download-failed:timeout\"은 릴리스 페이지에 닿지 못할 때 쓰던 문장으로 바뀌었습니다.",
+    ],
+  },
+  {
     version: "2.4.0",
     date: "2026-11-12",
     highlights: [
