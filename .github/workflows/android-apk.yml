@@ -66,6 +66,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The APK carries the shared surface as static files; the build script
+      # refuses to package a tree that never produced them.
+      - name: Build the shared surface the APK embeds
+        working-directory: apps/mobile
+        run: node scripts/build-shared-surface.mjs
+
       - name: Build the release APK
         working-directory: apps/mobile
         run: node scripts/build-apk.mjs --release
