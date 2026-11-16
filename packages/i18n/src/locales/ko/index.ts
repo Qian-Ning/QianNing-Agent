@@ -2397,6 +2397,7 @@ sklm: {
     mobileUpdateChecking: "확인 중…",
     mobileUpdateLatest: "최신 버전입니다",
     mobileUpdateInstall: "{{version}} 설치",
+    mobileUpdateInstallReady: "{{version}} 설치 (다운로드 완료)",
     mobileUpdateInstalling: "내려받는 중…",
     mobileUpdatePermission: "이 앱이 앱을 설치하도록 허용한 뒤 다시 시도하세요.",
     mobileUpdateFailed: "릴리스 페이지에 연결할 수 없습니다.",

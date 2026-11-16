@@ -2387,6 +2387,7 @@ sklm: {
     mobileUpdateChecking: "Comprobando…",
     mobileUpdateLatest: "Ya está al día",
     mobileUpdateInstall: "Instalar {{version}}",
+    mobileUpdateInstallReady: "Instalar {{version}} (descargado)",
     mobileUpdateInstalling: "Descargando…",
     mobileUpdatePermission: "Permite que esta app instale apps y vuelve a intentarlo.",
     mobileUpdateFailed: "No se pudo acceder a la página de versiones.",

@@ -28,6 +28,8 @@ export function MobileUpdateRow() {
   const [state, setState] = useState<State>("idle");
   const [version, setVersion] = useState("");
   const [error, setError] = useState<string | null>(null);
+  /** The build is already in the cache, so the tap has nothing to wait for. */
+  const [cached, setCached] = useState(false);
 
   const check = useCallback(async () => {
     setState("checking");
@@ -35,7 +37,19 @@ export function MobileUpdateRow() {
     try {
       const answer = await api.checkAppUpdate();
       setVersion(answer.version);
-      setState(answer.available ? "available" : "latest");
+      if (!answer.available) {
+        setState("latest");
+        return;
+      }
+      setState("available");
+      if (await api.cachedAppUpdate().then((a) => a.ready).catch(() => false)) {
+        setCached(true);
+        return;
+      }
+      // Fetch ahead of the tap. Success flips the button to "install"; a
+      // failure stays quiet because install retries and reports then.
+      const fetched = await api.prefetchAppUpdate(answer.url).catch(() => ({ bytes: 0 }));
+      if (fetched.bytes > 0) setCached(true);
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       setError(/permission/.test(message) ? t("settings.mobileUpdatePermission") : t("settings.mobileUpdateFailed"));
@@ -77,7 +91,7 @@ export function MobileUpdateRow() {
 
   return (
     <SettingsRow
-      title={t("settings.mobileUpdateTitle")}
+      title={t("updates.title")}
       description={t("settings.mobileUpdateCurrent", { version: APP_VERSION })}
     >
       <div className="mobile-update">
@@ -94,7 +108,9 @@ export function MobileUpdateRow() {
             : state === "installing"
               ? t("settings.mobileUpdateInstalling")
               : state === "available"
-                ? t("settings.mobileUpdateInstall", { version })
+                ? cached
+                  ? t("settings.mobileUpdateInstallReady", { version })
+                  : t("settings.mobileUpdateInstall", { version })
                 : state === "latest"
                   ? t("settings.mobileUpdateLatest")
                   : t("settings.mobileUpdateCheck")}

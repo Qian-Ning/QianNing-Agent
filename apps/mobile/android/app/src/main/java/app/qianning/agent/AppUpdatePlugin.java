@@ -84,14 +84,47 @@ public class AppUpdatePlugin extends Plugin {
         }).start();
     }
 
-    /** Downloads that build and opens the installer. */
+    /**
+     * Fetches the build into the cache without touching the installer.
+     *
+     * A phone on a slow link should not make the user sit through a download
+     * the moment they tap "install". Fetching ahead means the tap only has to
+     * open the system installer.
+     */
     @PluginMethod
-    public void install(PluginCall call) {
+    public void download(PluginCall call) {
         String url = call.getString("url");
         if (url == null || url.isEmpty()) {
             call.reject("missing-url");
             return;
         }
+        new Thread(() -> {
+            try {
+                File target = fetch(url);
+                JSObject result = new JSObject();
+                result.put("bytes", target.length());
+                call.resolve(result);
+            } catch (Exception error) {
+                call.reject(error.getMessage());
+            }
+        }).start();
+    }
+
+    /** Is a download already sitting in the cache, and how big is it. */
+    @PluginMethod
+    public void cached(PluginCall call) {
+        File target = cachedFile();
+        long bytes = target != null && target.isFile() ? target.length() : 0;
+        JSObject result = new JSObject();
+        result.put("bytes", bytes);
+        result.put("ready", bytes >= MIN_APK_BYTES);
+        call.resolve(result);
+    }
+
+    /** Downloads that build and opens the installer. */
+    @PluginMethod
+    public void install(PluginCall call) {
+        String url = call.getString("url");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 && !getContext().getPackageManager().canRequestPackageInstalls()) {
             // The screen that grants this is a system settings page; the page
@@ -105,33 +138,13 @@ public class AppUpdatePlugin extends Plugin {
         }
         new Thread(() -> {
             try {
-                File directory = new File(getContext().getCacheDir(), "updates");
-                if (!directory.exists() && !directory.mkdirs()) {
-                    call.reject("cache-unavailable");
-                    return;
-                }
-                File target = new File(directory, "qianning-agent.apk");
-                HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
-                connection.setRequestProperty("User-Agent", "QianNing-Agent");
-                connection.setConnectTimeout(20000);
-                connection.setReadTimeout(60000);
-                if (connection.getResponseCode() != 200) {
-                    call.reject("download-failed:" + connection.getResponseCode());
-                    return;
-                }
-                try (InputStream input = connection.getInputStream();
-                     FileOutputStream output = new FileOutputStream(target)) {
-                    byte[] buffer = new byte[64 * 1024];
-                    long total = 0;
-                    int read;
-                    while ((read = input.read(buffer)) > 0) {
-                        output.write(buffer, 0, read);
-                        total += read;
+                File target = cachedFile();
+                if (target == null || !target.isFile() || target.length() < MIN_APK_BYTES) {
+                    if (url == null || url.isEmpty()) {
+                        call.reject("missing-url");
+                        return;
                     }
-                }
-                if (target.length() < 1024 * 1024) {
-                    call.reject("download-incomplete");
-                    return;
+                    target = fetch(url);
                 }
                 Uri uri = FileProvider.getUriForFile(
                         getContext(), getContext().getPackageName() + ".fileprovider", target);
@@ -146,6 +159,49 @@ public class AppUpdatePlugin extends Plugin {
                 call.reject("download-failed:" + error.getMessage());
             }
         }).start();
+    }
+
+    private static final long MIN_APK_BYTES = 1024L * 1024L;
+
+    /** Where a fetched build waits. Null when the cache directory is unusable. */
+    private File cachedFile() {
+        File directory = new File(getContext().getCacheDir(), "updates");
+        if (!directory.exists() && !directory.mkdirs()) return null;
+        return new File(directory, "qianning-agent.apk");
+    }
+
+    /**
+     * Downloads into a temporary name and only then renames it into place, so
+     * an interrupted fetch can never be mistaken for a finished one.
+     */
+    private File fetch(String url) throws Exception {
+        File target = cachedFile();
+        if (target == null) throw new Exception("cache-unavailable");
+        File partial = new File(target.getParentFile(), "qianning-agent.apk.part");
+        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+        connection.setRequestProperty("User-Agent", "QianNing-Agent");
+        connection.setConnectTimeout(20000);
+        connection.setReadTimeout(60000);
+        if (connection.getResponseCode() != 200) {
+            throw new Exception("download-failed:" + connection.getResponseCode());
+        }
+        try (InputStream input = connection.getInputStream();
+             FileOutputStream output = new FileOutputStream(partial)) {
+            byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = input.read(buffer)) > 0) {
+                output.write(buffer, 0, read);
+            }
+        }
+        if (partial.length() < MIN_APK_BYTES) {
+            partial.delete();
+            throw new Exception("download-incomplete");
+        }
+        if (!partial.renameTo(target)) {
+            partial.delete();
+            throw new Exception("cache-unavailable");
+        }
+        return target;
     }
 
     private static String readAll(InputStream input) throws Exception {
