@@ -19,7 +19,7 @@ import { SettingsRow } from "./primitives";
 
 type State = "idle" | "checking" | "latest" | "available" | "installing" | "error";
 
-function onPhone(): boolean {
+export function onPhone(): boolean {
   return typeof document !== "undefined" && document.documentElement.dataset.surface === "mobile";
 }
 
@@ -62,7 +62,13 @@ export function MobileUpdateRow() {
       setState("available");
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
-      setError(/permission/.test(message) ? t("settings.mobileUpdatePermission") : message);
+      // A raw download error ("download-failed:timeout") is noise on a phone
+      // row; the same sentence as a failed check is what the user can act on.
+      setError(
+        /permission/.test(message)
+          ? t("settings.mobileUpdatePermission")
+          : t("settings.mobileUpdateFailed"),
+      );
       setState("error");
     }
   }, [t]);

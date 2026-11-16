@@ -65,7 +65,7 @@ import {
   SettingsCard,
   SettingsRow,
 } from "./primitives";
-import { MobileUpdateRow } from "./MobileUpdateRow";
+import { MobileUpdateRow, onPhone } from "./MobileUpdateRow";
 import { RemoteAccessCard } from "./RemoteAccessCard";
 import { VoiceSettingsSection } from "./voice/VoiceSettingsSection";
 
@@ -829,11 +829,17 @@ export function SettingsPage() {
                     {t("settings.openFeedback")}
                   </Button>
                 </SettingsRow>
-                <UpdatesRow
-                  currentVersion={version?.version}
-                  settings={settings ?? null}
-                  saveSettings={saveSettings}
-                />
+                {/* One update entry on every surface. The phone has no
+                    electron-updater behind it, so the desktop row could only
+                    report "this package cannot install updates" and a failed
+                    check; the phone row asks the release page instead. */}
+                {onPhone() ? null : (
+                  <UpdatesRow
+                    currentVersion={version?.version}
+                    settings={settings ?? null}
+                    saveSettings={saveSettings}
+                  />
+                )}
                 <MobileUpdateRow />
               </SettingsCard>
 
