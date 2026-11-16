@@ -7,7 +7,7 @@
  * which is the classic way to ship a fix that is not in the APK.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -106,6 +106,15 @@ run("pnpm", ["build"], root);
 run("pnpm", ["exec", "cap", "sync", "android"], root);
 
 const gradlew = join(root, "android", isWindows ? "gradlew.bat" : "gradlew");
+// A checkout can land without the execute bit (a Windows commit keeps the
+// mode), and a status of null from spawnSync is exactly that failure.
+if (!isWindows) {
+  try {
+    chmodSync(gradlew, 0o755);
+  } catch {
+    // Best effort: the spawn below reports a real permission problem.
+  }
+}
 if (!existsSync(gradlew)) {
   console.error("the Android project is missing; run `pnpm exec cap add android` first.");
   process.exit(1);
