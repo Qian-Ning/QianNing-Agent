@@ -1,0 +1,79 @@
+# Android APK lane.
+#
+# The phone is sideloaded, so its updater asks the release page for the newest
+# asset whose name ends in `-android.apk` (apps/mobile — AppUpdatePlugin). That
+# made the APK a published artifact like any installer, but no workflow built
+# it: releases 2.3.0 through 2.4.0 carried one because it was uploaded by hand,
+# and v2.4.1 shipped without it, so every phone answered "no-apk-asset".
+#
+# This lane closes that: on a published release (and on demand for an existing
+# tag) it builds the release APK with the same script a maintainer would run
+# locally and attaches it under the name the updater looks for.
+#
+# The build is signed with the debug keystore the project configures for
+# sideloading, so it needs no signing secret.
+
+name: Android APK
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to attach the APK to
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    name: Build the APK and attach it
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.event.release.tag_name }}
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install the SDK the project compiles against
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the release APK
+        working-directory: apps/mobile
+        run: node scripts/build-apk.mjs --release
+
+      - name: Name it the way the updater looks for it
+        id: name
+        run: |
+          version="$(node -p "require('./apps/mobile/package.json').version")"
+          source="apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
+          test -s "$source"
+          asset="QianNing-Agent-${version}-android.apk"
+          mv "$source" "$asset"
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
+          echo "tag=${{ inputs.tag || github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.name.outputs.tag }}
+          files: ${{ steps.name.outputs.asset }}
+          fail_on_unmatched_files: true
