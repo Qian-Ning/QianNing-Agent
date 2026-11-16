@@ -466,6 +466,10 @@ pub async fn run_internal_tool_runner() -> Result<i32> {
 pub enum Direction {
     Head,
     Tail,
+    /// Both ends survive and the middle is dropped: a build log opens with the
+    /// command it ran and ends with the failure, and keeping only one end means
+    /// paying for the other with a retry.
+    HeadTail,
 }
 
 /// Per-tool output budget (spec 03-runtime/16).
@@ -497,7 +501,7 @@ pub const BUDGET_SEARCH: OutputBudget = OutputBudget {
 pub const BUDGET_SHELL: OutputBudget = OutputBudget {
     max_bytes: 96 * 1024,
     max_lines: 4000,
-    direction: Direction::Head,
+    direction: Direction::HeadTail,
 };
 
 /// Bash stderr keeps the tail: when a command fails, the actionable message is
@@ -619,55 +623,6 @@ pub(crate) fn truncate_with_spill(
 
 fn truncate_to(text: &str, budget: OutputBudget, spilled: Option<&Path>) -> String {
     let lines: Vec<&str> = text.lines().collect();
-    let window: &[&str] = match budget.direction {
-        Direction::Head => &lines[..lines.len().min(budget.max_lines)],
-        Direction::Tail => &lines[lines.len().saturating_sub(budget.max_lines)..],
-    };
-
-    let mut kept: Vec<&str> = Vec::new();
-    let mut bytes = 0_usize;
-    let mut single_line_clip = None;
-    match budget.direction {
-        Direction::Head => {
-            for line in window {
-                let size = line.len() + usize::from(!kept.is_empty());
-                if bytes + size > budget.max_bytes {
-                    break;
-                }
-                kept.push(line);
-                bytes += size;
-            }
-        }
-        Direction::Tail => {
-            for line in window.iter().rev() {
-                let size = line.len() + usize::from(!kept.is_empty());
-                if bytes + size > budget.max_bytes {
-                    break;
-                }
-                kept.push(line);
-                bytes += size;
-            }
-            kept.reverse();
-        }
-    }
-
-    // A single line longer than the entire budget (minified bundle, `tr`-style
-    // one-shot output) fits no complete line, and returning nothing at all
-    // would be worse than returning a prefix of it.
-    if kept.is_empty() {
-        if let Some(line) = match budget.direction {
-            Direction::Head => window.first(),
-            Direction::Tail => window.last(),
-        } {
-            let clipped = match budget.direction {
-                Direction::Head => clip_head(line, budget.max_bytes),
-                Direction::Tail => clip_tail(line, budget.max_bytes),
-            };
-            single_line_clip = Some(clipped.len());
-            kept.push(clipped);
-        }
-    }
-
     let hint = match spilled {
         Some(path) => format!(
             " Full output saved to {} — Grep it, or Read it with offset/limit.",
@@ -675,38 +630,110 @@ fn truncate_to(text: &str, budget: OutputBudget, spilled: Option<&Path>) -> Stri
         ),
         None => " Narrow the request to see more.".to_string(),
     };
-    let marker = match single_line_clip {
-        Some(bytes) => format!(
-            "[truncated: no complete line fits the {}KB limit; kept {} bytes of a single {}-byte line.{}]",
-            budget.max_bytes / 1024,
-            bytes,
-            match budget.direction {
-                Direction::Head => window.first(),
-                Direction::Tail => window.last(),
-            }
-            .map(|line| line.len())
-            .unwrap_or(0),
-            hint
+
+    // A single line longer than the whole budget (minified bundle, `tr`-style
+    // one-shot output) fits no complete line; a clipped prefix beats nothing.
+    if lines.len() == 1 && lines[0].len() > budget.max_bytes {
+        let clipped = clip_head(lines[0], budget.max_bytes);
+        return format!(
+            "{clipped}\n\n[truncated: no complete line fits the {limit}KB limit; kept {bytes} bytes of a single {total}-byte line.{hint}]",
+            limit = budget.max_bytes / 1024,
+            bytes = clipped.len(),
+            total = lines[0].len(),
+        );
+    }
+
+    let (head, tail) = match budget.direction {
+        Direction::Head => (
+            keep_head(&lines, budget.max_bytes, budget.max_lines),
+            Vec::new(),
         ),
-        None => format!(
-            "[truncated: kept the {} {} of {} lines; limit {} lines / {}KB.{}]",
-            match budget.direction {
-                Direction::Head => "first",
-                Direction::Tail => "last",
-            },
-            kept.len(),
+        Direction::Tail => (
+            Vec::new(),
+            keep_tail(&lines, budget.max_bytes, budget.max_lines),
+        ),
+        // The opening names the command and the closing names the failure; the
+        // middle is the part a follow-up Grep can recover. Two thirds go to the
+        // tail because that is where a failing run says why.
+        Direction::HeadTail => (
+            keep_head(&lines, budget.max_bytes / 3, budget.max_lines / 3),
+            keep_tail(
+                &lines,
+                budget.max_bytes - budget.max_bytes / 3,
+                budget.max_lines,
+            ),
+        ),
+    };
+
+    let kept = head.len() + tail.len();
+    let marker = match budget.direction {
+        Direction::Head => format!(
+            "[truncated: kept the first {} of {} lines; limit {} lines / {}KB.{}]",
+            kept,
             lines.len(),
             budget.max_lines,
             budget.max_bytes / 1024,
             hint
         ),
+        Direction::Tail => format!(
+            "[truncated: kept the last {} of {} lines; limit {} lines / {}KB.{}]",
+            kept,
+            lines.len(),
+            budget.max_lines,
+            budget.max_bytes / 1024,
+            hint
+        ),
+        Direction::HeadTail => format!(
+            "[truncated: kept the first {} and last {} of {} lines ({} omitted); limit {}KB.{}]",
+            head.len(),
+            tail.len(),
+            lines.len(),
+            lines.len().saturating_sub(kept),
+            budget.max_bytes / 1024,
+            hint
+        ),
     };
 
-    let body = kept.join("\n");
-    match budget.direction {
-        Direction::Head => format!("{body}\n\n{marker}"),
-        Direction::Tail => format!("{marker}\n\n{body}"),
+    let mut parts: Vec<String> = Vec::new();
+    if !head.is_empty() {
+        parts.push(head.join("\n"));
     }
+    parts.push(marker);
+    if !tail.is_empty() {
+        parts.push(tail.join("\n"));
+    }
+    parts.join("\n\n")
+}
+
+/// Lines from the front that fit `max_bytes` / `max_lines`.
+fn keep_head<'a>(lines: &[&'a str], max_bytes: usize, max_lines: usize) -> Vec<&'a str> {
+    let mut kept: Vec<&str> = Vec::new();
+    let mut bytes = 0_usize;
+    for line in lines.iter().take(max_lines) {
+        let size = line.len() + usize::from(!kept.is_empty());
+        if bytes + size > max_bytes {
+            break;
+        }
+        kept.push(line);
+        bytes += size;
+    }
+    kept
+}
+
+/// Lines from the back that fit `max_bytes` / `max_lines`, in file order.
+fn keep_tail<'a>(lines: &[&'a str], max_bytes: usize, max_lines: usize) -> Vec<&'a str> {
+    let mut kept: Vec<&str> = Vec::new();
+    let mut bytes = 0_usize;
+    for line in lines.iter().rev().take(max_lines) {
+        let size = line.len() + usize::from(!kept.is_empty());
+        if bytes + size > max_bytes {
+            break;
+        }
+        kept.push(line);
+        bytes += size;
+    }
+    kept.reverse();
+    kept
 }
 
 fn clip_head(text: &str, max_bytes: usize) -> &str {
@@ -3111,6 +3138,38 @@ mod tests {
             &stderr[stderr.len().saturating_sub(120)..]
         );
         assert!(stderr.starts_with("[truncated:"), "marker leads a tail cut");
+    }
+
+    #[test]
+    fn shell_output_keeps_both_ends_when_it_overflows() {
+        // A build log opens with the command and ends with the failure; keeping
+        // only the opening is what makes the model re-run it to see why it died.
+        let mut text = String::from(
+            "first-line
+",
+        );
+        for n in 0..20_000 {
+            text.push_str(&format!(
+                "progress {n} {}
+",
+                "x".repeat(40)
+            ));
+        }
+        text.push_str("FINAL-ERROR: it failed here");
+
+        let (out, truncated) = truncate_with_spill(&text, BUDGET_SHELL, None, "test");
+        assert!(truncated);
+        assert!(out.starts_with("first-line"), "the opening survives");
+        assert!(
+            out.ends_with("FINAL-ERROR: it failed here"),
+            "the failure survives"
+        );
+        assert!(
+            out.contains("kept the first"),
+            "the marker says both ends were kept"
+        );
+        assert!(out.contains("omitted"));
+        assert!(out.len() < BUDGET_SHELL.max_bytes + 1024);
     }
 
     #[test]
