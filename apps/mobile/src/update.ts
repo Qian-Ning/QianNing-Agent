@@ -22,14 +22,17 @@ export type UpdateCheck = {
 
 type Plugin = {
   latest?: () => Promise<{ version?: string; url?: string; size?: number }>;
-  install?: (options: { url: string }) => Promise<{ bytes?: number }>;
+  download?: (options: { url: string }) => Promise<{ bytes?: number }>;
+  cached?: () => Promise<{ bytes?: number; ready?: boolean }>;
+  install?: (options: { url?: string }) => Promise<{ bytes?: number }>;
 };
 
 function plugin(): Plugin | null {
   const plugins = (globalThis as { window?: { Capacitor?: { Plugins?: Record<string, unknown> } } })
     .window?.Capacitor?.Plugins;
-  const found = plugins?.AppUpdate as Plugin | undefined;
-  return found?.latest ? found : null;
+  // Any one capability is enough to proceed; each entry point checks the
+  // method it needs, so a partial native build still reports honestly.
+  return (plugins?.AppUpdate as Plugin | undefined) ?? null;
 }
 
 /** "2.10.0" is newer than "2.9.9": compare numbers, not strings. */
@@ -65,4 +68,34 @@ export async function installUpdate(url: string): Promise<{ bytes: number }> {
   if (!bridge?.install) throw new Error("this build cannot install an update");
   const answer = await bridge.install({ url });
   return { bytes: answer.bytes ?? 0 };
+}
+
+/**
+ * Fetches the build ahead of the tap.
+ *
+ * Android will not install anything without the system dialog, so this cannot
+ * be a silent update; what it removes is the wait. A failure here is not worth
+ * surfacing — the install path retries the download and reports then.
+ */
+export async function prefetchUpdate(url: string): Promise<{ bytes: number }> {
+  const bridge = plugin();
+  if (!bridge?.download) return { bytes: 0 };
+  try {
+    const answer = await bridge.download({ url });
+    return { bytes: answer.bytes ?? 0 };
+  } catch {
+    return { bytes: 0 };
+  }
+}
+
+/** Whether a fully downloaded build is already waiting in the cache. */
+export async function cachedUpdate(): Promise<boolean> {
+  const bridge = plugin();
+  if (!bridge?.cached) return false;
+  try {
+    const answer = await bridge.cached();
+    return answer.ready === true;
+  } catch {
+    return false;
+  }
 }

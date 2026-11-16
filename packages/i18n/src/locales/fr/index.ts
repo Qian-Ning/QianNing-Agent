@@ -2387,6 +2387,7 @@ sklm: {
     mobileUpdateChecking: "Vérification…",
     mobileUpdateLatest: "À jour",
     mobileUpdateInstall: "Installer {{version}}",
+    mobileUpdateInstallReady: "Installer {{version}} (téléchargé)",
     mobileUpdateInstalling: "Téléchargement…",
     mobileUpdatePermission: "Autorisez cette application à installer des applications, puis réessayez.",
     mobileUpdateFailed: "Impossible d'atteindre la page des versions.",

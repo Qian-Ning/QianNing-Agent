@@ -65,7 +65,7 @@ import {
   sendTurn,
   type ApprovalDecision,
 } from "../remote/computers";
-import { checkForUpdate, installUpdate } from "../update";
+import { cachedUpdate, checkForUpdate, installUpdate, prefetchUpdate } from "../update";
 import type { ModelPricingRow } from "@pi-desktop/shared";
 import {
   pickDeviceFiles,
@@ -408,6 +408,16 @@ export class PhoneBridge {
 
     /** Is there a newer build on the release page? */
     "app/check-update": async () => checkForUpdate(),
+
+    /** Fetches it ahead of the tap, without opening anything. */
+    "app/prefetch-update": async (input?: unknown) => {
+      const url = String((input as { url?: unknown } | null)?.url ?? "");
+      if (!url) return { bytes: 0 };
+      return prefetchUpdate(url);
+    },
+
+    /** Is a downloaded build already waiting in the cache? */
+    "app/cached-update": async () => ({ ready: await cachedUpdate() }),
 
     /** Downloads it and opens the system installer. */
     "app/install-update": async (input?: unknown) => {

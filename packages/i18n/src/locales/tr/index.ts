@@ -2387,6 +2387,7 @@ sklm: {
     mobileUpdateChecking: "Denetleniyor…",
     mobileUpdateLatest: "Güncel",
     mobileUpdateInstall: "{{version}} kur",
+    mobileUpdateInstallReady: "{{version}} yükle (indirildi)",
     mobileUpdateInstalling: "İndiriliyor…",
     mobileUpdatePermission: "Bu uygulamanın uygulama kurmasına izin ver, sonra yeniden dene.",
     mobileUpdateFailed: "Sürüm sayfasına ulaşılamadı.",

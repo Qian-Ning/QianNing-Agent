@@ -830,6 +830,11 @@ export const api = {
   /** Phone only: download it and open the system installer. */
   installAppUpdate: (url: string) =>
     invoke<{ bytes: number }>("pi-desktop/app/install-update", { url }),
+  /** Phone only: fetch it ahead of the tap, so installing does not wait. */
+  prefetchAppUpdate: (url: string) =>
+    invoke<{ bytes: number }>("pi-desktop/app/prefetch-update", { url }),
+  /** Phone only: is a downloaded build already waiting? */
+  cachedAppUpdate: () => invoke<{ ready: boolean }>("pi-desktop/app/cached-update"),
   remoteSessions: (hostKey: string) =>
     invoke<{ sessions: Array<{ id: string; title: string; updatedAt?: number }> }>(
       "pi-desktop/remote/sessions",

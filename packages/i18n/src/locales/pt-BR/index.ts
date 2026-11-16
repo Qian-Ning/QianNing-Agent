@@ -2353,6 +2353,7 @@ export const ptBR = {
     mobileUpdateChecking: "Verificando…",
     mobileUpdateLatest: "Tudo atualizado",
     mobileUpdateInstall: "Instalar {{version}}",
+    mobileUpdateInstallReady: "Instalar {{version}} (baixado)",
     mobileUpdateInstalling: "Baixando…",
     mobileUpdatePermission: "Permita que este app instale apps e tente de novo.",
     mobileUpdateFailed: "Não foi possível acessar a página de versões.",

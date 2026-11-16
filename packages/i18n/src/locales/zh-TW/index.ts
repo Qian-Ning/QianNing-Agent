@@ -2375,6 +2375,7 @@ sklm: {
     mobileUpdateChecking: "檢查中…",
     mobileUpdateLatest: "已是最新",
     mobileUpdateInstall: "下載並安裝 {{version}}",
+    mobileUpdateInstallReady: "已下載 {{version}}，點擊安裝",
     mobileUpdateInstalling: "下載中…",
     mobileUpdatePermission: "需要先允許本應用程式安裝應用程式，然後再試一次。",
     mobileUpdateFailed: "連不上發佈頁。",
