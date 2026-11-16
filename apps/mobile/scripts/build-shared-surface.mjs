@@ -10,6 +10,7 @@
 // flag until a device run proves a prompt round-trip.
 
 import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import process from "node:process";
 import { cpSync, mkdirSync, rmSync } from "node:fs";
@@ -57,13 +58,19 @@ execFileSync(node, [join(appRoot, "scripts/build-skills.mjs")], { cwd: appRoot, 
 console.log("[shared] bundling the phone bridge");
 const bootOut = join(appRoot, "public/shared/bridge-boot.js");
 mkdirSync(join(appRoot, "public/shared"), { recursive: true });
-const esbuild = join(repoRoot, "node_modules/esbuild/bin/esbuild");
-if (!existsSync(esbuild)) throw new Error(`esbuild not found at ${esbuild}`);
-execFileSync(
-  node,
-  [esbuild, join(appRoot, "src/bridge/boot.ts"), "--bundle", "--format=iife", "--platform=browser", "--target=es2022", `--outfile=${bootOut}`, "--log-level=warning"],
-  { cwd: repoRoot, stdio: ["ignore", "inherit", "inherit"] },
-);
+// Through the JS API, not the CLI: `node_modules/esbuild/bin/esbuild` is a
+// platform binary, so handing it to node is a syntax error everywhere.
+const requireFromRoot = createRequire(join(repoRoot, "package.json"));
+const esbuild = requireFromRoot("esbuild");
+await esbuild.build({
+  entryPoints: [join(appRoot, "src/bridge/boot.ts")],
+  bundle: true,
+  format: "iife",
+  platform: "browser",
+  target: "es2022",
+  outfile: bootOut,
+  logLevel: "warning",
+});
 
 
 // The renderer's own bundle must not start before the bridge exists, or the
