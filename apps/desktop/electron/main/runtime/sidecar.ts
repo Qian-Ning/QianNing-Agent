@@ -6,7 +6,7 @@ import {
   classifySidecarCrash,
   sidecarCrashErrorCode,
 } from "@pi-desktop/agent-runtime";
-import { loadBuiltinSkillBody } from "../builtin-skills";
+import { builtinSkillGroupNames, builtinSkillsInGroup, loadBuiltinSkillBody } from "../builtin-skills";
 import { recordSkillLoad } from "../skill-usage";
 import { createImageGenerationTool } from "../services/image-generation-service";
 import { createVideoGenerationTool } from "../services/video-generation-service";
@@ -534,6 +534,34 @@ export function createSidecarRuntime({
       };
     }
     const projectPath = sessionProjects.get(sessionId) ?? null;
+    // The catalog is indexed by group to keep 88 descriptions out of the system
+    // prompt; a `group:<name>` call is how the model reads one index page.
+    if (id.startsWith("group:")) {
+      const group = id.slice("group:".length).trim();
+      const members = builtinSkillsInGroup(group);
+      if (!members.length) {
+        return {
+          ok: false,
+          isError: true,
+          content: `Skill: no group named "${group}". Available groups: ${builtinSkillGroupNames().join(", ")}.`,
+        };
+      }
+      const lines = members
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map((skill) =>
+          "- " + skill.id + " — " + skill.name + (skill.description ? ": " + skill.description : ""),
+        );
+      return {
+        ok: true,
+        content: [
+          `# ${members[0].group} (${members.length} skills)`,
+          "",
+          ...lines,
+          "",
+          "Load the one that fits with its exact id.",
+        ].join(String.fromCharCode(10)),
+      };
+    }
     try {
       // Bundled skills answer first; they are not owned by any plugin. A user
       // skill is looked up next, and only then a plugin's — the ids cannot

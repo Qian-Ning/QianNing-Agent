@@ -15,6 +15,8 @@ const SKILLS_HEADER = [
   "# Skills",
   "",
   `Plugins have taught you the following skills. Each entry is a set of instructions you can load with the \`${SKILL_TOOL_NAME}\` tool by passing its exact id. When a task matches a skill's description, load the skill first and follow it; do not guess at its content. Load each skill at most once per task.`,
+  "",
+  `Entries under a heading are indexed by group: pass \`group:<name>\` to \`${SKILL_TOOL_NAME}\` to list that group's skills with their descriptions, then load the one that fits. The group line names a few members, so an obviously matching group needs no lookup.`,
 ].join("\n");
 
 export const SKILL_SECTION_PREFIX = "skill:";
@@ -85,11 +87,19 @@ function orderedSkillEntries(skills: readonly PluginSkillDef[]): Array<[string, 
   for (const skill of [...ungrouped].sort(byId)) {
     entries.push([`${SKILL_SECTION_PREFIX}${skill.id}`, skillEntry(skill)]);
   }
+  // A group is one line, not a heading plus every entry: the shipped catalog is
+  // 88 skills and roughly 9.5 kB of descriptions, and that text rides in every
+  // session's system prompt. The members are one `group:<name>` call away, and
+  // the teaser names enough of them that an obviously matching group costs no
+  // lookup at all.
   for (const group of [...grouped.keys()].sort()) {
-    entries.push([`${SKILL_GROUP_SECTION_PREFIX}${group}`, `## ${group}`]);
-    for (const skill of [...(grouped.get(group) ?? [])].sort(byId)) {
-      entries.push([`${SKILL_SECTION_PREFIX}${skill.id}`, skillEntry(skill)]);
-    }
+    const members = [...(grouped.get(group) ?? [])].sort(byId);
+    const teaser = members.slice(0, 4).map((skill) => skill.name).join(", ");
+    const rest = members.length > 4 ? `, +${members.length - 4} more` : "";
+    entries.push([
+      `${SKILL_GROUP_SECTION_PREFIX}${group}`,
+      `- \`group:${group}\` — ${group} (${members.length}): ${teaser}${rest}`,
+    ]);
   }
   return entries;
 }

@@ -371,6 +371,41 @@ export function builtinSkills(input: BuiltinSkillInput): PluginSkillDef[] {
 }
 
 /**
+ * The shipped skills under one catalog group, for the `Skill` tool's
+ * `group:<name>` lookup.
+ *
+ * The system prompt names each group in one line instead of listing all 88
+ * entries, so this is what turns "Engineering (24)" into readable ids. Group
+ * membership comes from the same table the catalog is rendered from, so the two
+ * cannot disagree.
+ */
+export function builtinSkillsInGroup(group: string): PluginSkillDef[] {
+  const wanted = group.trim().toLowerCase();
+  if (!wanted) return [];
+  return listBuiltinSkillFiles().flatMap((file) => {
+    if (builtinSkillGroupForFile(file).toLowerCase() !== wanted) return [];
+    const id = builtinSkillIdForFile(file);
+    const raw = readBuiltinSkill(file);
+    if (!raw?.raw.trim()) return [];
+    const parsed = parseSkillFrontmatter(raw.raw);
+    if (!parsed.body) return [];
+    return [{
+      id,
+      name: parsed.name ?? id,
+      description: parsed.description,
+      group: builtinSkillGroupForFile(file),
+    }];
+  });
+}
+
+/** Every group the shipped catalog uses, in name order. */
+export function builtinSkillGroupNames(): string[] {
+  const names = new Set<string>();
+  for (const file of listBuiltinSkillFiles()) names.add(builtinSkillGroupForFile(file));
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+
+/**
  * Load a built-in skill body for the `Skill` tool. Returns null for any id the
  * host does not ship, which is the caller's cue to try the plugin registry.
  *
