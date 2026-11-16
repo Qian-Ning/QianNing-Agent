@@ -747,17 +747,6 @@ fn clip_head(text: &str, max_bytes: usize) -> &str {
     &text[..end]
 }
 
-fn clip_tail(text: &str, max_bytes: usize) -> &str {
-    if text.len() <= max_bytes {
-        return text;
-    }
-    let mut start = text.len() - max_bytes;
-    while start < text.len() && !text.is_char_boundary(start) {
-        start += 1;
-    }
-    &text[start..]
-}
-
 /// Monotonic within the process; the timestamp covers restarts, and the path is
 /// already namespaced per session by the scratch dir.
 static SPILL_SEQ: AtomicU64 = AtomicU64::new(0);
