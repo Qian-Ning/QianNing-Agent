@@ -1,6 +1,6 @@
 ---
 name: capturing-design-decisions
-description: Use at the end of a session where the user corrected the look, feel, or wording of an interface, to turn each correction into a rule the next session will follow.
+description: Use after a session where the user corrected an interface's look, feel, or wording, to turn each correction into a rule.
 ---
 
 # Turning corrections into rules

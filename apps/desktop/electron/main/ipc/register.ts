@@ -8,6 +8,7 @@ import type { AgentSidecar } from "../agent-sidecar";
 import type { HostProcess } from "../host-process";
 import { ROUTE_LOCAL, type BackendRouter } from "../remote/backend-router";
 import { registerAgentExtensionIpc } from "../agent-extensions-ipc";
+import { builtinSkillsRevision } from "../builtin-skills";
 import { readNpmPath, writeNpmPath } from "../npm-preferences";
 import { registerAgentIpc } from "./agent-ipc";
 import { registerAppIpc } from "./app-ipc";
@@ -271,6 +272,7 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
     enrichSession,
     acquireSessionOperation,
     stripWinLongPrefix,
+    skillsRevision: builtinSkillsRevision,
   });
   registerSettingsIpc({
     registrar,

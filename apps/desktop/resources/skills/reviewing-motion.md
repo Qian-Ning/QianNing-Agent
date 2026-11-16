@@ -1,6 +1,6 @@
 ---
 name: reviewing-motion
-description: Use when reviewing a pull request or a screen for how it moves: entrance, exit, feedback, and whether each animation earns its place.
+description: Use when reviewing a screen or pull request: entrance, exit, feedback, and whether each move earns its place.
 ---
 
 # Reviewing motion

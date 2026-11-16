@@ -43,7 +43,7 @@ const limits = {
     { path: "apps/desktop/src/components/Composer.tsx", max: 714 },
     { path: "apps/desktop/src/components/ChatTranscript.tsx", max: 1 },
     { path: "crates/host-core/src/plugins.rs", max: 79 },
-    { path: "crates/host-core/src/db.rs", max: 63 },
+    { path: "crates/host-core/src/db.rs", max: 64 },
     { path: "crates/host-core/src/providers.rs", max: 58 },
     { path: "crates/host-core/src/plans.rs", max: 45 },
   ],

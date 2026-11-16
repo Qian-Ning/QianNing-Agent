@@ -3,8 +3,8 @@ import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseSkillFrontmatter } from "@pi-desktop/plugin-sdk";
 import type { PluginSkillDef } from "@pi-desktop/agent-runtime";
-import type { LoadedSkillDocument } from "./skill-document";
-import { computeSkillsRevision } from "./skills-revision";
+import type { LoadedSkillDocument } from "./skill-document.ts";
+import { computeSkillsRevision } from "./skills-revision.ts";
 // Kept local rather than imported: this module is loaded directly by a test
 // through Node's ESM resolver, which needs every runtime specifier to carry an
 // extension, and a `.ts` one would not survive the bundler.
@@ -285,7 +285,15 @@ const BUILTIN_SKILL_GROUPS: Readonly<Record<string, string>> = {
   "revising-your-own-draft.md": "Writing",
   "songwriting.md": "Writing",
   "worldbuilding-consistency.md": "Writing",
+  // Motion
+  "finding-motion-opportunities.md": "Motion",
+  "motion-decisions.md": "Motion",
+  "motion-performance.md": "Motion",
+  "reviewing-motion.md": "Motion",
+  "capturing-design-decisions.md": "Motion",
 };
+
+
 
 /** Group a document without a table entry lands in — still advertised, just untidier. */
 export const BUILTIN_SKILL_FALLBACK_GROUP = "Other";

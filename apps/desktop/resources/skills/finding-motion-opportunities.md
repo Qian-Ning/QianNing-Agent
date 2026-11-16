@@ -1,6 +1,6 @@
 ---
 name: finding-motion-opportunities
-description: Use when asked what could be animated in an interface, or to make a screen feel more alive. Reports candidates; changes no code.
+description: Use when asked what could be animated in an interface. Reports candidates; changes no code.
 ---
 
 # Finding places that deserve motion

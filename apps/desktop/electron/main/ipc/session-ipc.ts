@@ -1,7 +1,6 @@
 import { shell } from "electron";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { mkdirSync } from "node:fs";
-import { builtinSkillsRevision } from "../builtin-skills";
 import {
   ErrorCodes,
   IPC,
@@ -100,6 +99,12 @@ export type SessionIpcDependencies = {
   enrichSession: (session: any, providers: any, defaults: any) => any;
   acquireSessionOperation: (sessionId: string) => Promise<() => void>;
   stripWinLongPrefix: (path: string) => string;
+  /**
+   * Which shipped skill set a new conversation was created against. Injected
+   * rather than imported: this module is the IPC surface, and reaching into
+   * the skill loader from here would make the surface depend on the loader.
+   */
+  skillsRevision?: () => string;
 };
 
 export function registerSessionIpc({
@@ -116,6 +121,7 @@ export function registerSessionIpc({
   enrichSession,
   acquireSessionOperation,
   stripWinLongPrefix,
+  skillsRevision,
 }: SessionIpcDependencies): void {
   let host: HostProcess | null = null;
   let sidecar: AgentSidecar | null = null;
@@ -168,10 +174,10 @@ export function registerSessionIpc({
     // once — the host ignores a second call — so a resumed launch cannot rewrite
     // it. Failure is logged, not thrown: a missing fingerprint must not cost the
     // user their new session.
-    const skillsRevision = builtinSkillsRevision();
-    if (skillsRevision && res.session.id) {
+    const revision = skillsRevision?.();
+    if (revision && res.session.id) {
       void host
-        .call("session.recordSkillsRevision", { id: res.session.id, revision: skillsRevision })
+        .call("session.recordSkillsRevision", { id: res.session.id, revision })
         .catch((error: unknown) => {
           logger.app(
             "session",
