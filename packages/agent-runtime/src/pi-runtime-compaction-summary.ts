@@ -208,7 +208,20 @@ async function requestSummary(
       ),
     };
   }
-  return { ok: true, value: { text: textFromContent(response.content), usage: response.usage } };
+  const text = textFromContent(response.content);
+  // All summary callers, including split-turn compaction, cross this boundary.
+  // A looping summary must never replace the history it is meant to preserve.
+  const loop = findRepetition(text);
+  if (loop) {
+    return {
+      ok: false,
+      error: new CompactionError(
+        "summarization_failed",
+        `${errorLabel} repeated itself (${loop.period}-character unit over ${loop.span} characters), so it was discarded and the transcript left untouched.`,
+      ),
+    };
+  }
+  return { ok: true, value: { text, usage: response.usage } };
 }
 
 export async function generateSummaryWithUsage(
@@ -223,7 +236,7 @@ export async function generateSummaryWithUsage(
   callbacks: RetryCallbacks | undefined,
   signal: AbortSignal | undefined,
 ): Promise<Result<{ text: string; usage: Usage }>> {
-  const result = await requestSummary(currentMessages, model, reserveTokens, {
+  return requestSummary(currentMessages, model, reserveTokens, {
     ...(customInstructions ? { customInstructions } : {}),
     ...(previousSummary ? { previousSummary } : {}),
     ...(thinkingLevel ? { thinkingLevel } : {}),
@@ -231,21 +244,6 @@ export async function generateSummaryWithUsage(
     ...(callbacks ? { callbacks } : {}),
     ...(signal ? { signal } : {}),
   }, models);
-  if (!result.ok) return result;
-  // A summary that loops is worse than no summary: it becomes the model's only
-  // memory of everything before it. Refusing keeps the transcript intact — the
-  // caller retries later with a smaller range.
-  const loop = findRepetition(result.value.text);
-  if (loop) {
-    return {
-      ok: false,
-      error: new CompactionError(
-        "summarization_failed",
-        `The summary repeated itself (${loop.period}-character unit over ${loop.span} characters), so it was discarded and the transcript left untouched.`,
-      ),
-    };
-  }
-  return result;
 }
 
 function compactFileOperations(fileOps: CompactionPreparation["fileOps"]): {

@@ -24,6 +24,7 @@ import {
   type RuntimeProviderConfig,
 } from "./runtime.js";
 import { estimateOutputCapInputTokens } from "./output-cap.js";
+import { trailingRepetition } from "./repetition.js";
 
 import { COMPACTION_SUMMARY_MAX_RETRIES } from "./compaction-summary-input.js";
 import { classifyAgentError } from "./agent-errors.js";
@@ -10553,4 +10554,125 @@ describe("tool result text fallback keeps inline binary off the text channel", (
       await runtime.dispose();
     }
   });
+});
+
+
+describe("streaming repetition guard", () => {
+  it("stops the turn and removes the repeated tail from the visible reply", async () => {
+    const onEvent = vi.fn();
+    const runtime = createRuntime({ onEvent });
+    const handle = (runtime as any).handleAgentEvent.bind(runtime);
+    const prefix = "The listener was already bound. ";
+    const repeated = "The same diagnostic sentence is emitted again and should not remain in the answer. ";
+    const start = assistantMessage({ content: [{ type: "text", text: "" }] });
+    await handle({ type: "message_start", message: start });
+    const fullReply = prefix + repeated.repeat(7);
+    const hit = trailingRepetition(fullReply);
+    expect(hit).not.toBeNull();
+    const update = assistantMessage({ content: [{ type: "text", text: fullReply }] });
+    await handle({ type: "message_update", message: update });
+
+    const events = onEvent.mock.calls.map(([envelope]) => (envelope as any).event);
+    expect(events).toContainEqual(expect.objectContaining({
+      type: "error",
+      error: expect.objectContaining({ code: "OUTPUT_REPETITION" }),
+    }));
+    const ended = events.find((event: any) => event.type === "message_end");
+    expect(ended?.message.status).toBe("error");
+    expect(ended?.message.content).toBe(fullReply.slice(0, hit!.start));
+    expect(ended?.message.content).not.toContain(repeated);
+    await runtime.dispose();
+  });
+  it("keeps an empty repetition stop through the desktop transcript projection", async () => {
+    const onEvent = vi.fn();
+    const runtime = createRuntime({ onEvent });
+    const handle = (runtime as unknown as { handleAgentEvent(event: unknown): Promise<void> }).handleAgentEvent.bind(runtime);
+    const { projectMessageEnd, upsertLiveSessionMessage } = await import(
+      new URL("../../../apps/desktop/src/lib/session-transcript.ts", import.meta.url).href
+    );
+    const sentence = "The same diagnostic sentence is emitted again without any useful new information. ";
+    try {
+      await handle({ type: "message_start", message: assistantMessage({ content: [] }) });
+      for (const count of [1, 4]) {
+        await handle({ type: "message_update", message: assistantMessage({ content: [{ type: "text", text: sentence.repeat(count) }] }) });
+      }
+      let rows: UiMessage[] = [];
+      let sawStream = false;
+      for (const [envelope] of onEvent.mock.calls) {
+        const event = envelope.event;
+        if (event.type === "message_start" || event.type === "message_update") {
+          const previous = rows.find((row) => row.id === event.message.id);
+          const content = event.type === "message_update" && event.stream === "delta"
+            ? (event.resetText ? "" : previous?.content ?? "") + (event.deltaText ?? "")
+            : event.message.content;
+          if (content) sawStream = true;
+          rows = upsertLiveSessionMessage(rows, { ...event.message, content });
+        } else if (event.type === "message_end") {
+          rows = projectMessageEnd(rows, event);
+        }
+      }
+      expect(sawStream).toBe(true);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].content).toBe("");
+      expect(rows[0].error?.code).toBe("OUTPUT_REPETITION");
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it.each(["reply", "thinking"] as const)("trims %s on a complete Unicode boundary", async (channel) => {
+    const onEvent = vi.fn();
+    const runtime = createRuntime({ onEvent });
+    const handle = (runtime as unknown as { handleAgentEvent(event: unknown): Promise<void> }).handleAgentEvent.bind(runtime);
+    const text = String.fromCodePoint(0x1fa00) + "😀".repeat(101);
+    const content = channel === "reply"
+      ? [{ type: "text" as const, text }]
+      : [{ type: "thinking" as const, thinking: text }];
+    try {
+      await handle({ type: "message_start", message: assistantMessage({ content: [] }) });
+      await handle({ type: "message_update", message: assistantMessage({ content }) });
+      const events = onEvent.mock.calls.map(([envelope]) => envelope.event);
+      const ended = events.find((event) => event.type === "message_end");
+      expect(ended?.type).toBe("message_end");
+      if (ended?.type !== "message_end") throw new Error("Missing terminal reply");
+      const trimmed = channel === "reply" ? ended.message.content : ended.message.thinking ?? "";
+      expect(trimmed).toBe("");
+      expect(JSON.parse(JSON.stringify(trimmed))).toBe("");
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it.each(["reply", "thinking"] as const)("resets %s detection after a cumulative rewrite", async (channel) => {
+    const onEvent = vi.fn();
+    const runtime = createRuntime({ onEvent });
+    const handle = (runtime as unknown as { handleAgentEvent(event: unknown): Promise<void> }).handleAgentEvent.bind(runtime);
+    const update = async (text: string) => handle({
+      type: "message_update",
+      message: assistantMessage({ content: channel === "reply"
+        ? [{ type: "text", text }]
+        : [{ type: "thinking", thinking: text }] }),
+    });
+    // A one-character old stream shifts the stale watcher's 32-character checks.
+    // The new stream first qualifies at 256, while a stale watcher checks at 255.
+    const unit = Array.from({ length: 64 }, (_, index) => String.fromCharCode(0x400 + index)).join("");
+    const replacement = unit.repeat(4);
+    try {
+      await handle({ type: "message_start", message: assistantMessage({ content: [] }) });
+      await update("!");
+      await update(replacement.slice(0, 31));
+      for (let length = 32; length <= replacement.length; length += 1) {
+        await update(replacement.slice(0, length));
+      }
+      const events = onEvent.mock.calls.map(([envelope]) => envelope.event);
+      const ended = events.find((event) => event.type === "message_end");
+      expect(ended?.type).toBe("message_end");
+      if (ended?.type !== "message_end") throw new Error("Rewrite did not reset repetition detection");
+      expect(ended.message.error?.code).toBe("OUTPUT_REPETITION");
+      expect(channel === "reply" ? ended.message.content : ended.message.thinking).toBe("");
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
 });

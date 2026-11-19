@@ -19,6 +19,8 @@ use tokio::sync::{mpsc, watch};
 use crate::workspace::{resolve_tool_path_with_external, simple_canonicalize, ToolRoot};
 
 mod grep_rg;
+mod output_preview;
+use output_preview::truncate_to;
 pub mod hashline;
 pub mod ignore_rules;
 pub mod shell;
@@ -619,132 +621,6 @@ pub(crate) fn truncate_with_spill(
     }
     let spilled = spill_output(scratch, label, text);
     (truncate_to(text, budget, spilled.as_deref()), true)
-}
-
-fn truncate_to(text: &str, budget: OutputBudget, spilled: Option<&Path>) -> String {
-    let lines: Vec<&str> = text.lines().collect();
-    let hint = match spilled {
-        Some(path) => format!(
-            " Full output saved to {} — Grep it, or Read it with offset/limit.",
-            path.display()
-        ),
-        None => " Narrow the request to see more.".to_string(),
-    };
-
-    // A single line longer than the whole budget (minified bundle, `tr`-style
-    // one-shot output) fits no complete line; a clipped prefix beats nothing.
-    if lines.len() == 1 && lines[0].len() > budget.max_bytes {
-        let clipped = clip_head(lines[0], budget.max_bytes);
-        return format!(
-            "{clipped}\n\n[truncated: no complete line fits the {limit}KB limit; kept {bytes} bytes of a single {total}-byte line.{hint}]",
-            limit = budget.max_bytes / 1024,
-            bytes = clipped.len(),
-            total = lines[0].len(),
-        );
-    }
-
-    let (head, tail) = match budget.direction {
-        Direction::Head => (
-            keep_head(&lines, budget.max_bytes, budget.max_lines),
-            Vec::new(),
-        ),
-        Direction::Tail => (
-            Vec::new(),
-            keep_tail(&lines, budget.max_bytes, budget.max_lines),
-        ),
-        // The opening names the command and the closing names the failure; the
-        // middle is the part a follow-up Grep can recover. Two thirds go to the
-        // tail because that is where a failing run says why.
-        Direction::HeadTail => (
-            keep_head(&lines, budget.max_bytes / 3, budget.max_lines / 3),
-            keep_tail(
-                &lines,
-                budget.max_bytes - budget.max_bytes / 3,
-                budget.max_lines,
-            ),
-        ),
-    };
-
-    let kept = head.len() + tail.len();
-    let marker = match budget.direction {
-        Direction::Head => format!(
-            "[truncated: kept the first {} of {} lines; limit {} lines / {}KB.{}]",
-            kept,
-            lines.len(),
-            budget.max_lines,
-            budget.max_bytes / 1024,
-            hint
-        ),
-        Direction::Tail => format!(
-            "[truncated: kept the last {} of {} lines; limit {} lines / {}KB.{}]",
-            kept,
-            lines.len(),
-            budget.max_lines,
-            budget.max_bytes / 1024,
-            hint
-        ),
-        Direction::HeadTail => format!(
-            "[truncated: kept the first {} and last {} of {} lines ({} omitted); limit {}KB.{}]",
-            head.len(),
-            tail.len(),
-            lines.len(),
-            lines.len().saturating_sub(kept),
-            budget.max_bytes / 1024,
-            hint
-        ),
-    };
-
-    let mut parts: Vec<String> = Vec::new();
-    if !head.is_empty() {
-        parts.push(head.join("\n"));
-    }
-    parts.push(marker);
-    if !tail.is_empty() {
-        parts.push(tail.join("\n"));
-    }
-    parts.join("\n\n")
-}
-
-/// Lines from the front that fit `max_bytes` / `max_lines`.
-fn keep_head<'a>(lines: &[&'a str], max_bytes: usize, max_lines: usize) -> Vec<&'a str> {
-    let mut kept: Vec<&str> = Vec::new();
-    let mut bytes = 0_usize;
-    for line in lines.iter().take(max_lines) {
-        let size = line.len() + usize::from(!kept.is_empty());
-        if bytes + size > max_bytes {
-            break;
-        }
-        kept.push(line);
-        bytes += size;
-    }
-    kept
-}
-
-/// Lines from the back that fit `max_bytes` / `max_lines`, in file order.
-fn keep_tail<'a>(lines: &[&'a str], max_bytes: usize, max_lines: usize) -> Vec<&'a str> {
-    let mut kept: Vec<&str> = Vec::new();
-    let mut bytes = 0_usize;
-    for line in lines.iter().rev().take(max_lines) {
-        let size = line.len() + usize::from(!kept.is_empty());
-        if bytes + size > max_bytes {
-            break;
-        }
-        kept.push(line);
-        bytes += size;
-    }
-    kept.reverse();
-    kept
-}
-
-fn clip_head(text: &str, max_bytes: usize) -> &str {
-    if text.len() <= max_bytes {
-        return text;
-    }
-    let mut end = max_bytes;
-    while end > 0 && !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    &text[..end]
 }
 
 /// Monotonic within the process; the timestamp covers restarts, and the path is
@@ -2872,6 +2748,9 @@ pub fn builtin_tool_defs() -> Value {
 }
 
 #[cfg(test)]
+mod output_boundary_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -3084,6 +2963,20 @@ mod tests {
             "head retained"
         );
         assert!(stdout.contains("[truncated:"), "marker present");
+        let payload = stdout
+            .lines()
+            .filter(|line| line.parse::<usize>().is_ok())
+            .collect::<Vec<_>>();
+        assert!(payload.len() <= BUDGET_SHELL.max_lines);
+        assert_eq!(
+            payload.len(),
+            payload
+                .iter()
+                .collect::<std::collections::HashSet<_>>()
+                .len(),
+            "the actual Bash result must not duplicate preview lines"
+        );
+        assert_eq!(payload.last().copied(), Some(lines.to_string().as_str()));
 
         // The marker names a spill file that holds the whole output.
         let spill_dir = scratch.join("tool-output");

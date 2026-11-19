@@ -25,7 +25,7 @@ Bash 输出通过了两个独立的上限。 **捕获**层限制了什么
 | 频道 | 限制 | 超过时采取行动 |
 |---|---|---|
 | 读取/Glob/Grep 结果 (`BUDGET_SEARCH`) | 128 KB，4000 行 | 绑定窗口 + `notice` 命名下一步 |
-| Bash 标准输出 (`BUDGET_SHELL`) | 96 KB，4000 行，头 | 截断+标记+溢出 |
+| Bash 标准输出 (`BUDGET_SHELL`) | 96 KB，总计 4000 行，首部 + 尾部 | 截断+标记+溢出 |
 | Bash stderr (`BUDGET_SHELL_ERR`) | 96 KB，4000 行，**尾部** | 截断+标记+溢出 |
 | 任何单行 (`MAX_LINE_CHARS`) | 16,384 个字符 | 剪辑，在 `notice` 中计数 |
 | 阅读窗口 | 默认 2000 行（最大 4000），`offset`/`limit`；始终报告 `totalLines` | 分页；仅在本窗口被切断时 `truncated` |
@@ -63,8 +63,9 @@ Goal/`Read` 管道，其输出不受限制。
 [truncated: no complete line fits the 96KB limit; kept 98304 bytes of a single 4200000-byte line. Full output saved to <path> — Grep it, or Read it with offset/limit.]
 ```
 
-标记总是标明哪一端幸存下来，有多少被排除在总数之外，
-适用的限制，以及从哪里获得其余的。出现溢出语句
+标记说明保留哪一端、保留量与总量、适用限制，以及如何读取其余内容。
+若边界行只保留了一部分，还必须单独说明裁剪行内省略的字节数；省略零个完整行不等于
+全部字节均被保留。出现溢出语句
 仅当实际编写完整副本时。
 
 Read/Glob/Grep 不在其有效负载中嵌入标记：窗口元数据
@@ -161,9 +162,10 @@ type GlobResult = { matches: string[]; count: number; truncated: boolean; notice
 ## 6. 优先级规则
 
 1. 截断时切勿省略截断标记
-2. Bash 标准输出保持领先地位； Bash stderr 保留其**尾巴**，因为失败
-   命令的可操作消息是它最后打印并删除的内容
-   96KB 的进度噪声导致模型盲目重试
+2. Bash stdout 同时保留首部和尾部，两部分共享 4000 行总上限且范围不能重叠。
+   首部分配三分之一字节预算，尾部分配剩余预算；标记说明省略行数。
+   超长 stdout 单行也保留两端；stderr 单行或多行都保留末尾错误。
+   截断保持 UTF-8 字符完整，诊断标记不计入载荷字节预算
 3. 二进制文件：不要将原始二进制文件转储到模型中；返回元数据错误
    `TOOL_BINARY_CONTENT`。通过扩展黑名单加上嗅探来检测
    第一个 4KB（任何 NUL 字节，或 >30% 不可打印）。 Grep 跳过二进制文件

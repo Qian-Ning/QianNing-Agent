@@ -1,5 +1,5 @@
 import { TOOL_ACTIVATION_SECTION, toolDeclarationPolicy, toolActivationSection, restoredToolActivation, syncToolActivation, type ToolDeclarationPolicy } from "./fixed-tool-declarations.js";
-import { watchRepetition } from "./repetition.js";
+import { trailingRepetition, watchRepetition } from "./repetition.js";
 import { orderSystemRows, SystemTranscriptJournal } from "./system-transcript-journal.js";
 import { accountModelStream } from "./request-usage.js";
 import { modeToolDenial, retainModeToolDeclaration, withModeExecutionGuard } from "./mode-tool-access.js";
@@ -7625,13 +7625,22 @@ Call TaskWait only when your next step genuinely depends on that report and noth
                 : {}),
             status: "streaming",
           };
+          if (textDelta.reset) this.repetitionReply = watchRepetition();
+          if (thinkingDelta.reset) this.repetitionThinking = watchRepetition();
           const replyLoop = textDelta.delta ? this.repetitionReply(textDelta.delta) : null;
           const thinkingLoop = thinkingDelta.delta
             ? this.repetitionThinking(thinkingDelta.delta)
             : null;
           if (replyLoop || thinkingLoop) {
-            this.stopForRepetition(replyLoop ? "reply" : "thinking", replyLoop ?? thinkingLoop!);
-            break;
+            const channel = replyLoop ? "reply" : "thinking";
+            const fullText = channel === "reply" ? nextText : nextThinking;
+            // Streaming watcher offsets are relative to its bounded tail. Only
+            // a full-text hit has an absolute offset safe for trimming the bubble.
+            const fullHit = trailingRepetition(fullText);
+            if (fullHit) {
+              this.stopForRepetition(channel, fullHit);
+              break;
+            }
           }
           if (
             textDelta.delta ||
@@ -8146,10 +8155,25 @@ Call TaskWait only when your next step genuinely depends on that report and noth
    */
   private stopForRepetition(
     channel: "reply" | "thinking",
-    hit: { period: number; span: number },
+    hit: { start: number; period: number; span: number },
   ): void {
     if (this.repetitionStop) return;
     this.repetitionStop = { channel, period: hit.period, span: hit.span };
+    if (this.currentAssistant) {
+      const text = channel === "reply"
+        ? this.currentAssistant.content
+        : this.currentAssistant.thinking ?? "";
+      let end = hit.start;
+      // Detection uses UTF-16 offsets; never leave half an emoji in the reply.
+      if (end > 0 && /[\uD800-\uDBFF]/.test(text[end - 1]) && /[\uDC00-\uDFFF]/.test(text[end] ?? "")) {
+        end -= 1;
+      }
+      const trimmed = text.slice(0, end);
+      this.currentAssistant = {
+        ...this.currentAssistant,
+        ...(channel === "reply" ? { content: trimmed } : { thinking: trimmed }),
+      };
+    }
     const error = {
       code: "OUTPUT_REPETITION",
       message: `The reply started repeating itself (${hit.period}-character unit over ${hit.span} characters), so the turn was stopped. Retrying with a smaller context usually clears it.`,

@@ -456,6 +456,21 @@ For every pi loop turn:
    checkpoint is re-estimated before persistence and continuation, and cannot
    authorize a request at or above the hard budget
 
+A streaming repetition stop closes the assistant bubble with `OUTPUT_REPETITION`,
+removes the repeated suffix using full-text offsets, and presents a localized
+summary. Provider rewrites reset the channel watcher so replaced text cannot
+contaminate later detection. Reply and reasoning channels remain independent.
+Trimming respects Unicode code-point boundaries. An `OUTPUT_REPETITION` terminal
+snapshot is authoritative even when empty; the renderer must not restore the
+repeated text from an earlier streamed row, including provisional-ID re-keys.
+
+Every model-generated summary is checked for exact periodic repetition before
+it can leave the shared summary-request boundary. This applies to standalone
+summaries, ordinary compaction, and both history/prefix requests for split turns.
+A repeating answer returns `summarization_failed`; it cannot become a new
+checkpoint or mutate the source transcript. Existing automatic failure recovery,
+abort handling, and provider usage on successful answers remain unchanged.
+
 Checkpoint generation and installation are separate operations.
 `buildCheckpoint` runs the preparation, budget preflight, and summary request
 without persisting anything or changing the active checkpoint; installation

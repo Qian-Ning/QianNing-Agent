@@ -25,7 +25,7 @@ copy could never be fuller than the excerpt it exists to back.
 | channel | limit | action when exceeded |
 |---|---|---|
 | Read / Glob / Grep result (`BUDGET_SEARCH`) | 128 KB, 4000 lines | bound the window + `notice` naming the next step |
-| Bash stdout (`BUDGET_SHELL`) | 96 KB, 4000 lines, head | truncate + marker + spill |
+| Bash stdout (`BUDGET_SHELL`) | 96 KB, 4000 lines total, head + tail | truncate + marker + spill |
 | Bash stderr (`BUDGET_SHELL_ERR`) | 96 KB, 4000 lines, **tail** | truncate + marker + spill |
 | any single line (`MAX_LINE_CHARS`) | 16,384 chars | clip, count it in `notice` |
 | Read window | 2000 lines default (max 4000), `offset`/`limit`; `totalLines` always reported | paginate; `truncated` only when this window was cut |
@@ -55,8 +55,8 @@ a `sed`/`awk` pipeline whose output nothing bounded.
 
 ## 3. Truncation marker format
 
-Implemented markers (host-core `truncate_to`), appended for a head cut and
-prepended for a tail cut:
+Implemented markers (host-core `tools/output_preview::truncate_to`), appended
+for a head cut, prepended for a tail cut, and between the regions for head/tail:
 
 ```text
 [truncated: kept the first 4000 of 51234 lines; limit 4000 lines / 96KB. Full output saved to <path> — Grep it, or Read it with offset/limit.]
@@ -65,7 +65,9 @@ prepended for a tail cut:
 ```
 
 A marker always states which end survived, how much was kept out of the total,
-the limit that applied, and where to get the rest. The spill sentence appears
+the limit that applied, and where to get the rest. If a boundary line is only
+partially retained, the marker separately states bytes omitted within clipped
+lines; zero whole lines omitted must not imply that every byte survived. The spill sentence appears
 only when a full copy was actually written.
 
 Read/Glob/Grep do not embed a marker in their payload: the window metadata
@@ -169,9 +171,13 @@ counts are the stable signals. The UI truncated chip follows `truncated`.
 ## 6. Priority rules
 
 1. never omit truncation marker when truncated
-2. Bash stdout keeps its head; Bash stderr keeps its **tail**, because a failing
-   command's actionable message is the last thing it printed and dropping it for
-   96KB of progress noise is what makes the model retry blindly
+2. Bash stdout keeps both ends, allocating one third of the byte budget to the
+   head and the remainder to the tail. Both regions share the 4000-line limit
+   and cannot overlap or repeat a line. The marker sits between them and states
+   how many lines were omitted. Bash stderr keeps its **tail**, including when
+   a single oversized UTF-8 line contains the final error. An oversized single
+   stdout line also keeps both ends. Byte boundaries must remain valid UTF-8;
+   the diagnostic marker is additional to the payload budget
 3. binary files: do not dump raw binary into model; return metadata error
    `TOOL_BINARY_CONTENT`. Detected by extension blacklist plus a sniff of the
    first 4KB (any NUL byte, or >30% non-printable). Grep skips binary files
