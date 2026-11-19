@@ -1,3 +1,4 @@
+import { repetitionRenderProbe } from "./repetition-render";
 import { transcriptEditProbe } from "./transcript-edit";
 import { turnProcessProbe } from "./turn-process";
 import { transcriptStatusProbe } from "./transcript-status";
@@ -17,6 +18,7 @@ import { useAppStore } from "../../apps/desktop/src/stores/app-store";
 
 declare global {
   var __activityGroupRenders: string[];
+  var repetitionRenderProbe: () => Promise<unknown>;
   var transcriptRenderProbe: () => Promise<unknown>;
   var transcriptRuntimeSlotProbe: () => Promise<unknown>;
   var smoothTextThrottleProbe: () => Promise<unknown>;
@@ -733,3 +735,5 @@ globalThis.smoothTextThrottleProbe = async () => {
     window.cancelAnimationFrame = originalCancelAnimationFrame;
   }
 };
+
+globalThis.repetitionRenderProbe = repetitionRenderProbe;

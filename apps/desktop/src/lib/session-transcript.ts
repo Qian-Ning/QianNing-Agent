@@ -92,7 +92,11 @@ export function projectMessageEnd(
     );
   const failed =
     event.message.status === "error" || event.message.status === "aborted";
-  if (!failed) return upsertLiveSessionMessage(next, event.message);
+  // Repetition stops intentionally remove output, including an entire channel.
+  // Their terminal snapshot is authoritative even when both channels are empty.
+  if (!failed || event.message.error?.code === "OUTPUT_REPETITION") {
+    return upsertLiveSessionMessage(next, event.message);
+  }
   const content = (event.message.content || "").trim()
     ? event.message.content
     : "";

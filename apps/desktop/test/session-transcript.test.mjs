@@ -370,6 +370,24 @@ const failure = (overrides = {}) => ({
   ...overrides,
 });
 
+test("a repetition stop keeps intentionally empty output after a re-key", () => {
+  for (const channel of ["reply", "thinking"]) {
+    const live = message("stream", {
+      content: channel === "reply" ? "loop ".repeat(60) : "",
+      thinking: channel === "thinking" ? "loop ".repeat(60) : undefined,
+      status: "streaming",
+    });
+    const terminal = message("saved", {
+      content: "",
+      status: "error",
+      error: failure({ code: "OUTPUT_REPETITION", details: { channel } }),
+    });
+    assert.deepEqual(projectMessageEnd([live], {
+      type: "message_end", message: terminal, replacesMessageId: "stream",
+    }), [terminal]);
+  }
+});
+
 test("a failed terminal payload keeps the text its live row already streamed", () => {
   const live = message("answer", { content: "半个章节", status: "streaming" });
   const settled = projectMessageEnd([live], {

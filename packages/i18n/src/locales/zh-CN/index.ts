@@ -3639,6 +3639,7 @@ sklm: {
     NETWORK_POLICY_BLOCKED: "应用的地址校验阻止了该请求。若使用代理或 VPN,请检查 设置 → 常规 → 网络。",
     TIMEOUT: "请求 AI 服务超时。",
     STREAM_FAILED: "回复中断了。",
+    OUTPUT_REPETITION: "检测到模型连续复读，已停止本轮。请重试，或缩短上下文后再试。",
     EMPTY_MODEL_RESPONSE: "模型连续两轮都没有输出内容。可以重试，或换一种说法。",
     OUTPUT_BUDGET_EXHAUSTED: "模型的推理占满了本次输出上限，没余量写正文。请在 设置 → Agent → 该模型的「输出上限」调大它，或降低思考级别后重试。",
     MUTATION_RETRY_BUDGET_EXHAUSTED:

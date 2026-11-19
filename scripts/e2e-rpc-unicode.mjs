@@ -3,10 +3,10 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(join(root, "packages/agent-runtime/package.json"));
@@ -32,7 +32,7 @@ async function deadline(promise) {
   }
 }
 try {
-  const bundle = join(temp, "transports.cjs");
+  const bundle = join(temp, "transports.mjs");
   await build({
     stdin: {
       contents: 'export { HostProcess } from "./apps/desktop/electron/main/host-process"; export { AgentSidecar } from "./apps/desktop/electron/main/agent-sidecar";',
@@ -42,12 +42,27 @@ try {
     outfile: bundle,
     bundle: true,
     platform: "node",
-    format: "cjs",
-    // Keep production development-path resolution pointed at this candidate.
-    define: { __dirname: JSON.stringify(join(root, "apps/desktop/electron/main")) },
+    format: "esm",
+    banner: { js: `import { createRequire as __fixtureRequire } from 'node:module'; const require = __fixtureRequire(${JSON.stringify(join(root, "packages/agent-runtime/package.json"))});` },
+    // Only the desktop location shim belongs to the source main directory.
+    // Other ESM modules retain their own import.meta semantics.
+    plugins: [{
+      name: "candidate-main-paths",
+      setup(builder) {
+        builder.onLoad({ filter: /[\\/]main-paths\.ts$/ }, () => ({
+          contents: `export const MAIN_DIR = ${JSON.stringify(join(root, "apps/desktop/electron/main"))};`,
+          loader: "ts",
+        }));
+      },
+    }],
   });
-  const { HostProcess, AgentSidecar } = require(bundle);
+  const { HostProcess, AgentSidecar } = await import(pathToFileURL(bundle).href);
   process.env.PI_DESKTOP_HOST_BIN ??= join(root, "target/debug", `pi-desktop-host-core${process.platform === "win32" ? ".exe" : ""}`);
+  // Fresh Host profiles otherwise fetch the marketplace before serving RPC.
+  // This fixture tests stdio only and must not depend on external networking.
+  const market = join(temp, "data/plugins/market");
+  await mkdir(market, { recursive: true });
+  await writeFile(join(market, "catalog.json"), JSON.stringify({ plugins: [] }));
   host = new HostProcess(join(temp, "data"), () => {});
   await deadline(host.handshake());
   const created = await deadline(host.call("session.create", { title: "Unicode regression", mode: "agent", projectPath: temp }));

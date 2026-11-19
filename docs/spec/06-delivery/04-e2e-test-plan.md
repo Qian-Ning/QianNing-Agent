@@ -8,6 +8,47 @@
 
 ## 1. Goals
 
+### Unicode RPC transport harness
+
+`pnpm test:e2e:rpc-unicode` uses real Host/Sidecar stdio processes, isolated
+storage, and a loopback SSE provider. The parent bundle stays ESM and maps only
+the desktop `MAIN_DIR` shim to the candidate checkout. An empty cached plugin
+catalog prevents fresh-profile startup from fetching the external marketplace.
+The test retains a 10-second deadline and checks Unicode session persistence
+across restart, streamed replies, parent-host history proxying, and subsequent
+health after a Unicode error response. No real model credentials are used.
+
+The repetition UI scenario runs in an isolated, off-screen, inactive Electron
+window with real React transcript components and the built application
+stylesheet. `node scripts/e2e-transcript-render.mjs` also covers its 24
+English/Chinese, light/dark, detailed/compact, empty-reply, empty-reasoning,
+and retained-prefix cases, verifying localized errors, removed output,
+disclosure actions and viewport bounds. The window must be shown inactive rather
+than left hidden, because Windows suspends frame callbacks for never-shown
+windows and the paint-settled probes would stall. `PI_TRANSCRIPT_SCREENSHOT`
+optionally saves the final rendered page. This fixture does not start the
+installed app or call a real provider.
+
+### E2E-RUNTIME-summary-and-output-boundaries
+
+- **Preconditions:** Offline provider-response fixtures and a temporary shell
+  output directory; no installed app profile or real model credentials.
+- **Steps:** Return a repeating summary through ordinary compaction and each
+  half of split-turn compaction. Repeat with valid text and provider abort/error.
+  Stream repetition from the first character and project its empty terminal
+  reply onto the desktop transcript, including a provisional-ID re-key. Test
+  emoji boundaries in reply/reasoning and cumulative rewrites before a loop.
+  Run a command with 4500 short output lines, then one with an oversized UTF-8
+  stderr line ending in an error marker.
+- **Expected:** Repeating summaries fail without mutating source history;
+  successful summaries preserve usage, file operations and the retained tail.
+  The shell preview contains at most 4000 unique payload lines, keeps both ends,
+  and names the fuller spill file. Single-line stderr preserves its final error.
+- **Specs:** 03-runtime/02-agent-runtime; 03-runtime/16-tool-result-limits.
+- **Acceptance:** C / E / F / Quality. **Milestone:** Maintenance.
+- **Status:** Automated by `pi-runtime-compaction-summary.test.ts`,
+  `tools/output_boundary_tests.rs`, and the real-process Bash spill tests.
+
 ### E2E-CHAT-fork-completed-reply-while-running
 
 - **Preconditions:** Isolated real desktop profile, configured model, two turns
@@ -8941,6 +8982,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 
 | Acceptance | Scenarios |
 |---|---|
+| C / E / F / Quality — Summary and output boundaries | E2E-RUNTIME-summary-and-output-boundaries |
 | C / F — Hourly task updates | E2E-SCHEDULED-manual-to-hourly |
 | C / F / Quality — Saved project isolation | E2E-SCHEDULED-manual-workspace-binding |
 | C / F / Quality — Desktop automations | E2E-SCHEDULED-desktop-automation-lifecycle |

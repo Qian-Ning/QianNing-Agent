@@ -3647,6 +3647,7 @@ sklm: {
     NETWORK_POLICY_BLOCKED: "Le contrôle d'adresse de l'application a bloqué cette requête. Si vous utilisez un proxy ou un VPN, vérifiez Paramètres → Général → Réseau.",
     "TIMEOUT": "La demande adressée au fournisseur d'IA a expiré.",
     "STREAM_FAILED": "La réponse a été interrompue.",
+    "OUTPUT_REPETITION": "Le modèle a répété le même texte et le tour a été arrêté. Réessayez ou réduisez le contexte.",
     "EMPTY_MODEL_RESPONSE": "Le modèle a terminé son tour sans rien dire, deux fois de suite. Réessayez ou reformulez votre demande.",
     "OUTPUT_BUDGET_EXHAUSTED": "Le modèle a épuisé toute sa limite de sortie en réflexion et n'a rien pu écrire. Augmentez la limite de sortie de ce modèle dans Réglages → Agent, ou baissez son niveau de réflexion, puis réessayez.",
     "MUTATION_RETRY_BUDGET_EXHAUSTED": "La même modification a échoué trois fois, donc ce tour s'est arrêté au lieu de réessayer en aveugle. Demandez à nouveau pour continuer.",

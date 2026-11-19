@@ -3689,6 +3689,7 @@ importConfirm: "Imported extensions run inside the agent process with the same a
     NETWORK_POLICY_BLOCKED: "The app's address check blocked this request. Behind a proxy or VPN, check Settings → General → Network.",
     TIMEOUT: "The request to the AI provider timed out.",
     STREAM_FAILED: "The reply was interrupted.",
+    OUTPUT_REPETITION: "The model repeated the same text and the turn was stopped. Try again, or shorten the context.",
     EMPTY_MODEL_RESPONSE:
       "The model finished its turn without saying anything, twice in a row. Try again, or rephrase your request.",
     OUTPUT_BUDGET_EXHAUSTED: "The model spent its entire output allowance on reasoning and had nothing left to write the answer. Raise this model's output limit in Settings → Agent, or lower its thinking level, then try again.",

@@ -3647,6 +3647,7 @@ sklm: {
     NETWORK_POLICY_BLOCKED: "La comprobación de direcciones de la aplicación bloqueó esta solicitud. Si usas proxy o VPN, revisa Configuración → General → Red.",
     "TIMEOUT": "Se agotó el tiempo de espera de la solicitud al proveedor de IA.",
     "STREAM_FAILED": "La respuesta fue interrumpida.",
+    "OUTPUT_REPETITION": "El modelo repitió el mismo texto y se detuvo el turno. Inténtalo de nuevo o reduce el contexto.",
     "EMPTY_MODEL_RESPONSE": "El modelo terminó su turno sin decir nada, dos veces seguidas. Inténtelo de nuevo o reformule su solicitud.",
     "OUTPUT_BUDGET_EXHAUSTED": "El modelo agotó todo su límite de salida pensando y no le quedó nada para escribir la respuesta. Suba el límite de salida de este modelo en Ajustes → Agent, o baje su nivel de razonamiento, y vuelva a intentarlo.",
     "MUTATION_RETRY_BUDGET_EXHAUSTED": "La misma edición falló tres veces, por lo que este turno se detuvo en lugar de volver a intentarlo a ciegas. Pregunta nuevamente para continuar.",

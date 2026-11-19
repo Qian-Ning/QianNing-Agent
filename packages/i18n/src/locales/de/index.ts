@@ -3647,6 +3647,7 @@ sklm: {
     NETWORK_POLICY_BLOCKED: "Die Adressprüfung der App hat diese Anfrage blockiert. Bei Proxy oder VPN: Einstellungen → Allgemein → Netzwerk prüfen.",
     "TIMEOUT": "Bei der Anfrage an den KI-Anbieter ist eine Zeitüberschreitung aufgetreten.",
     "STREAM_FAILED": "Die Antwort wurde unterbrochen.",
+    "OUTPUT_REPETITION": "Das Modell wiederholte denselben Text; der Zug wurde gestoppt. Versuchen Sie es erneut oder kürzen Sie den Kontext.",
     "EMPTY_MODEL_RESPONSE": "Das Modell beendete seinen Zug zweimal hintereinander, ohne etwas zu sagen. Versuchen Sie es erneut oder formulieren Sie Ihre Anfrage um.",
     "OUTPUT_BUDGET_EXHAUSTED": "Das Modell hat sein gesamtes Ausgabelimit fürs Nachdenken verbraucht und konnte nichts mehr schreiben. Erhöhen Sie das Ausgabelimit dieses Modells unter Einstellungen → Agent oder senken Sie die Denkstufe, dann versuchen Sie es erneut.",
     "MUTATION_RETRY_BUDGET_EXHAUSTED": "Die gleiche Bearbeitung schlug dreimal fehl, daher wurde dieser Zug abgebrochen, anstatt es erneut zu versuchen. Bitten Sie erneut, fortzufahren.",

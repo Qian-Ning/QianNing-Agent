@@ -129,12 +129,28 @@ const { app, BrowserWindow } = require("electron");
 const path = require("node:path");
 app.setPath("userData", path.join(__dirname, "profile"));
 app.whenReady().then(async () => {
-  const window = new BrowserWindow({ show: false, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
+  const window = new BrowserWindow({
+    // Never-shown windows suspend frame callbacks on Windows, which stalls the
+    // paint-settled probes for tens of seconds. Show it off-screen and inactive
+    // instead: frames run normally and no focus or taskbar entry changes hands.
+    show: false, x: -4000, y: -4000, skipTaskbar: true, focusable: false,
+    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false },
+  });
   window.webContents.on("console-message", (event) => console.error(event.message));
   try {
     await window.loadFile(path.join(__dirname, "index.html"));
+    window.showInactive();
     const result = await window.webContents.executeJavaScript("globalThis.transcriptRenderProbe().then((render) => globalThis.transcriptRuntimeSlotProbe().then((slot) => globalThis.smoothTextThrottleProbe().then((smoothText) => Object.assign({}, render, { runtimeSlot: slot, smoothText, ok: render.ok && slot.ok && smoothText.ok }))))");
+    const repetition = await window.webContents.executeJavaScript("globalThis.repetitionRenderProbe()");
+    result.repetition = repetition;
+    result.ok = result.ok && repetition.ok;
+    if (process.env.PI_TRANSCRIPT_SCREENSHOT) {
+      const image = await window.webContents.capturePage();
+      require("node:fs").writeFileSync(process.env.PI_TRANSCRIPT_SCREENSHOT, image.toPNG());
+    }
+    await window.webContents.executeJavaScript("globalThis.cleanupRepetitionProbe?.()");
     console.log("TRANSCRIPT_RENDER_PROBE " + JSON.stringify(result));
+    window.destroy();
     app.quit();
   } catch (error) {
     console.error("TRANSCRIPT_RENDER_PROBE " + JSON.stringify({ ok: false, error: String(error) }));
@@ -178,6 +194,7 @@ app.whenReady().then(async () => {
   // The merged result above already carries the geometry snapshots; this turns
   // a failed scenario into a message that names the checks that failed.
   // check can be read from the scenario output alone.
+  assert.equal(result.repetition?.ok, true);
   assert.equal(
     result.runtimeSlot?.ok,
     true,

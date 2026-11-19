@@ -49,6 +49,30 @@
 
 ## 1. 目标
 
+### Unicode RPC 传输测试入口
+
+`pnpm test:e2e:rpc-unicode` 启动真实 Host/Sidecar 标准输入输出进程，使用隔离数据目录和
+本地回环 SSE 服务。父进程保持 ESM 打包，只把桌面的 `MAIN_DIR` 路径映射到候选工作区。
+预置空插件市场缓存，避免新配置启动时访问外部市场。测试保留 10 秒期限，验证 Unicode
+会话重启持久化、流式回复、父进程历史代理，以及 Unicode 错误响应后的健康请求；不使用
+真实模型凭据。
+
+复读 UI 场景在隔离的离屏非激活 Electron 窗口中使用真实 React 对话组件及应用构建样式。
+运行 `node scripts/e2e-transcript-render.mjs` 时，会一并覆盖中英文、深浅主题、详细/紧凑模式
+以及空正文、空推理、保留前缀的 24 种组合，检查本地化错误、已移除内容、详情交互及视口边界。
+窗口须以非激活方式显示而非保持隐藏，因为 Windows 会暂停从未显示窗口的帧回调，导致等待绘制
+稳定的探针长时间挂起。`PI_TRANSCRIPT_SCREENSHOT` 可保存最终渲染截图。此夹具不启动已安装
+应用，也不调用真实服务商。
+
+### E2E-RUNTIME-summary-and-output-boundaries
+
+- **前提：** 使用离线模型响应夹具与临时工具输出目录，不使用已安装应用的数据或真实模型凭据。
+- **步骤：** 分别向普通压缩、拆分回合的历史与前缀摘要返回复读内容；再返回正常摘要及中止、错误响应。从首字符开始流式复读，把空终态投影到桌面对话（含临时 ID 替换）；验证正文及推理的 emoji 边界，以及累计文本重写后的检测。运行产生 4500 行短输出的命令，以及末尾包含错误标记的超长 UTF-8 stderr 单行。
+- **预期：** 复读摘要失败且不改写原始历史；正常摘要保留用量、文件操作与活动尾部。输出预览最多包含 4000 行互不重复的载荷，首尾保留，并指向更完整的落盘副本；超长 stderr 单行保留末尾错误。
+- **规格：** 03-runtime/02-agent-runtime；03-runtime/16-tool-result-limits。
+- **验收：** C / E / F / Quality。**里程碑：** 维护。
+- **状态：** 由 `pi-runtime-compaction-summary.test.ts`、`tools/output_boundary_tests.rs` 及真实 Bash 子进程输出测试自动覆盖。
+
 - 记录 MVP 必须验证的每个用户可见和协议可见的行为。
 - 提供映射到验收标准 (A–H) 和里程碑 (M1–M6) 的场景目录。
 - 作为可追溯性主干：场景 ID ↔ 验收标准 ↔ 规范。
@@ -5483,6 +5507,7 @@ eleven-tool-round desktop paths are verified by
 
 | 验收 | 应用场景 |
 |---|---|
+| C / E / F / Quality — 摘要与输出边界 | E2E-RUNTIME-summary-and-output-boundaries |
 | C / F — Hourly task updates | E2E-SCHEDULED-manual-to-hourly |
 | C / F / Quality — Saved project isolation | E2E-SCHEDULED-manual-workspace-binding |
 | C / F / Quality — 桌面定时任务 | E2E-SCHEDULED-desktop-automation-lifecycle |
