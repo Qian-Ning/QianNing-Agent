@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
+    version: "2.4.2",
+    date: "2026-11-19",
+    highlights: [
+      "Uma resposta que começa a se repetir agora para na repetição. A parte que não era um laço permanece na transcrição, e o turno termina com um erro que pode ser tentado de novo, em vez de gastar todo o orçamento de saída.",
+      "As prévias de saída do Bash agora mantêm o começo e o fim de um resultado longo. O corte só acontece em limites UTF-8 válidos, e o marcador informa quantos bytes foram perdidos dentro de uma linha cortada; assim, um resultado de asserção ou marcador de erro final não some mais enquanto o aviso diz que nada foi omitido.",
+    ],
+  },
+  {
     version: "2.4.1",
     date: "2026-11-16",
     highlights: [

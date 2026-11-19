@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    version: "2.4.2",
+    date: "2026-11-19",
+    highlights: [
+      "Una respuesta que empieza a repetirse se detiene ahora en la repetición. La parte que no era un bucle permanece en la transcripción y el turno termina con un error reintentable, en lugar de gastar el presupuesto de salida hasta el final.",
+      "Las vistas previas de Bash conservan ahora tanto el principio como el final de un resultado largo. Solo recortan en límites UTF-8 válidos, y el marcador indica cuántos bytes se perdieron dentro de una línea recortada, así que un resultado de aserción o un mensaje de error ya no se descartan mientras el aviso dice que no se omitió nada.",
+    ],
+  },
+  {
     version: "2.4.1",
     date: "2026-11-16",
     highlights: [

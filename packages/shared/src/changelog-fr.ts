@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    version: "2.4.2",
+    date: "2026-11-19",
+    highlights: [
+      "Une réponse qui commence à se répéter s'arrête désormais à la répétition. La partie qui n'était pas une boucle reste dans la transcription, et le tour se termine par une erreur réessayable au lieu de consommer tout le budget de sortie.",
+      "Les aperçus de sortie Bash conservent maintenant le début et la fin d'un long résultat. Ils ne coupent que sur des frontières UTF-8 valides, et le marqueur indique combien d'octets ont été perdus dans une ligne tronquée ; un résultat d'assertion ou un marqueur d'erreur final n'est donc plus supprimé alors que l'avertissement affirme que rien n'a été omis.",
+    ],
+  },
+  {
     version: "2.4.1",
     date: "2026-11-16",
     highlights: [

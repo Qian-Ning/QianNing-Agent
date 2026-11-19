@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    version: "2.4.2",
+    date: "2026-11-19",
+    highlights: [
+      "Eine Antwort, die sich zu wiederholen beginnt, bricht jetzt an der Wiederholung ab. Der nicht wiederholte Teil bleibt im Gesprächsverlauf, und der Zug endet mit einem erneut versuchbaren Fehler, statt das Ausgabebudget bis zum Ende zu verbrauchen.",
+      "Bash-Ausgabevorschauen behalten bei einem langen Ergebnis sowohl den Anfang als auch das Ende. Sie schneiden nur an gültigen UTF-8-Grenzen, und die Markierung nennt die Bytes, die innerhalb einer gekürzten Zeile verloren gingen; ein abschließendes Assert-Ergebnis oder ein Fehlermarker wird damit nicht mehr verworfen, obwohl der Hinweis behauptet, es sei nichts weggelassen worden.",
+    ],
+  },
+  {
     version: "2.4.1",
     date: "2026-11-16",
     highlights: [
