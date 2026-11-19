@@ -2,6 +2,14 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    version: "2.4.2",
+    date: "2026-11-19",
+    highlights: [
+      "Kendini tekrar etmeye başlayan bir yanıt artık tekrarın olduğu yerde duruyor. Döngüye girmeyen kısım konuşma dökümünde kalıyor ve tur, çıktı bütçesini sonuna kadar tüketmek yerine yeniden denenebilir bir hatayla bitiyor.",
+      "Bash çıktı önizlemeleri artık uzun bir sonucun hem başını hem de sonunu koruyor. Kesme yalnızca geçerli UTF-8 sınırlarında yapılıyor ve işaret, kesilen bir satırın içinde kaç bayt kaybolduğunu belirtiyor; böylece sondaki bir doğrulama sonucu ya da hata işareti, hiçbir şey atlanmadığı söylenirken kaybolmuyor.",
+    ],
+  },
+  {
     version: "2.4.1",
     date: "2026-11-16",
     highlights: [

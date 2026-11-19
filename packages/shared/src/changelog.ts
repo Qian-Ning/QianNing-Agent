@@ -30,6 +30,14 @@ export type ChangelogEntry = {
 
 const enEntries: ChangelogEntry[] = [
   {
+    version: "2.4.2",
+    date: "2026-11-19",
+    highlights: [
+      "A reply that starts repeating itself now stops at the repeat. The part that was not a loop stays in the transcript, and the turn ends with a retriable error instead of billing to the end of the output budget.",
+      "Bash output previews keep both the first and the last of a long result. They cut only on valid UTF-8 boundaries, and the marker states how many bytes were lost inside a clipped line, so a final assertion result or error marker is no longer discarded while the notice claims nothing was omitted.",
+    ],
+  },
+  {
     version: "2.4.1",
     date: "2026-11-16",
     highlights: [
@@ -1205,6 +1213,14 @@ const enEntries: ChangelogEntry[] = [
 
 const zhCNEntries: ChangelogEntry[] = [
   {
+    version: "2.4.2",
+    date: "2026-11-19",
+    highlights: [
+      "回复一旦开始自我复读，就会在重复处停下。没有进入循环的那部分内容会留在对话里，本轮以一个可重试的错误结束，而不是把输出额度一路烧到底。",
+      "Bash 长输出预览现在同时保留开头和结尾。截断只落在合法的 UTF-8 边界上，标记里会写明被截断的单行内部丢了多少字节，所以结尾的断言结果或错误标记不会再被丢掉、提示却写着什么都没省略。",
+    ],
+  },
+  {
     version: "2.4.1",
     date: "2026-11-16",
     highlights: [
@@ -2379,6 +2395,14 @@ const zhCNEntries: ChangelogEntry[] = [
 ];
 
 const zhTWEntries: ChangelogEntry[] = [
+  {
+    version: "2.4.2",
+    date: "2026-11-19",
+    highlights: [
+      "回覆一旦開始自我重複，就會在重複處停下。沒有進入迴圈的那部分內容會留在對話裡，本輪以一個可重試的錯誤結束，而不是把輸出額度一路燒到底。",
+      "Bash 長輸出預覽現在同時保留開頭和結尾。截斷只落在合法的 UTF-8 邊界上，標記裡會寫明被截斷的單行內部丟了多少位元組，所以結尾的斷言結果或錯誤標記不會再被丟掉、提示卻寫著什麼都沒省略。",
+    ],
+  },
   {
     version: "2.4.1",
     date: "2026-11-16",
