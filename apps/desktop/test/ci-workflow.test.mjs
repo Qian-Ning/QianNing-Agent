@@ -257,6 +257,35 @@ test("release builds are gated on the CI checks and least-privilege permissions"
   assert.match(publishJob, /^    permissions:\n      contents: write$/m);
 });
 
+test("release publication is staged as a verified draft", () => {
+  const publishJob = releaseWorkflowSource.match(/^  publish:\n[\s\S]*$/m)?.[0] ?? "";
+  assert.ok(publishJob, "release publish job is missing");
+  assert.match(
+    publishJob,
+    /flags=\(--draft --title "QianNing Agent \$TAG" --generate-notes\)/,
+    "the release is created as a draft",
+  );
+  assert.match(
+    publishJob,
+    /gh release download "\$TAG" --dir verify/,
+    "the drafted assets are downloaded back before publishing",
+  );
+  assert.match(
+    publishJob,
+    /node scripts\/verify-release-assets\.mjs --dir verify/,
+  );
+  assert.match(publishJob, /gh release edit "\$TAG" --draft=false/);
+  assert.match(publishJob, /node scripts\/audit-public-release\.mjs/);
+  assert.match(publishJob, /gh release delete-asset "\$TAG" "\$feed" --yes/);
+  const downloadIndex = publishJob.indexOf("gh release download");
+  const editIndex = publishJob.indexOf("gh release edit");
+  const auditIndex = publishJob.indexOf("node scripts/audit-public-release.mjs");
+  assert.ok(
+    downloadIndex !== -1 && downloadIndex < editIndex && editIndex < auditIndex,
+    "bytes are downloaded and verified before the draft becomes public",
+  );
+});
+
 test("release artifacts bypass redundant Actions compression", () => {
   assert.match(
     releaseWorkflowSource,
@@ -699,6 +728,11 @@ test("GitHub releases trigger the CNB mirror pipeline with a JSON payload", () =
   assert.match(
     mirrorToCnbWorkflowSource,
     /github\.repository == 'vastsa\/PI-Desktop'/,
+  );
+  assert.match(
+    mirrorToCnbWorkflowSource,
+    /github\.event\.release\.draft == false/,
+    "a draft release must not trigger the mirror before its feed is public",
   );
   assert.match(
     mirrorToCnbWorkflowSource,
