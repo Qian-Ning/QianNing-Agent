@@ -765,6 +765,8 @@ jobs:
         # Never leave a public latest*.yml pointing at an installer that failed
         # the anonymous audit. The installers stay downloadable; the feed is
         # removed so clients fail closed instead of updating to a bad build.
+        # A withdrawal is a fail-closed state, not a second chance at the same
+        # tag: repair the build and cut a new patch tag.
         if: failure() && steps.publish.outcome == 'success'
         run: |
           set -euo pipefail
