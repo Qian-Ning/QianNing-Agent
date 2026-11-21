@@ -8137,3 +8137,25 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   restart, dead-letter cap, session delete) and
   E2E-SESSION-outbox-unclassifiable-failure-does-not-stall-the-queue. See ADR
   0041, `03-runtime/04-data-storage.md`, and `03-runtime/06-host-rpc-protocol.md`.
+
+## 2026-11-20 — A release feed is published only after a draft byte audit (D677)
+
+- D677 makes the GitHub Release's **public feed** a post-verification event.
+  The tag workflow builds and uploads the artifacts as a draft Release, downloads
+  that draft back, and verifies every file against `release-manifest.json`
+  (size, sha256, base64 sha512) and every `latest*.yml` reference before
+  `gh release edit --draft=false` makes the feed visible. A failed verification
+  leaves the draft invisible; a failed public audit withdraws the `latest*.yml`
+  assets.
+- A published GitHub Release is immutable from the workflow's point of view.
+  Re-running a tag whose release is already public fails instead of replacing
+  its assets. Repairing a published build is a new patch tag, not a mutation of
+  the feed existing clients may already have read.
+- `release-manifest.json` and `SHA256SUMS.txt` ship with every release.
+  `SHA256SUMS.txt` includes the manifest's own digest so the set can be checked
+  with stock `sha256sum -c`.
+- Every third-party action in `.github/workflows/` is pinned to a 40-character
+  commit SHA; `scripts/check-action-pins.mjs` enforces it in CI and in the tag's
+  verify job.
+- Covered by `scripts/release-manifest.test.mjs` and
+  `scripts/check-action-pins.test.mjs`; see `06-release-runbook.md` §4.3.

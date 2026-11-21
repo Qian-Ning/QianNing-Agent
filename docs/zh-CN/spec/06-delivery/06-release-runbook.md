@@ -227,9 +227,11 @@ DMG、ZIP、NSIS、AppImage、deb、rpm、块图和更新程序提要输出已
 发布作业之前压缩级别为零的临时操作工件
 组装 GitHub 版本。
 
+发布作业还会写入 `release-manifest.json` 与 `SHA256SUMS.txt`。前者为每个产物记录 `size`、`sha256` 和 electron-updater 使用的 base64 `sha512`；后者让用户可以用系统自带的 `sha256sum -c` 校验整套文件。发布作业先把产物上传到 **draft** Release，再下载回来按清单逐个复核，通过后才把 draft 改为公开；失败时公开更新源不会出现半套产物。草稿对 electron-updater 不可见；已经公开的同名 tag 不再允许改写资产，修复应切新的 patch tag。
+
 ### 4.4 CNB 镜像触发
 
-`softprops/action-gh-release` 发布或更新 GitHub Release 之后，
+发布作业把 GitHub Release 从 draft 改为公开之后，
 `.github/workflows/mirror-to-cnb.yml` 会启动 `aixk/Pi-Desktop` 上的 CNB
 流水线。GitHub Release 仍是权威产物源；CNB 只是同一标签的副本，供从
 https://cnb.cool/aixk/Pi-Desktop 拉取的用户使用。
@@ -243,7 +245,7 @@ https://cnb.cool/aixk/Pi-Desktop 拉取的用户使用。
 - 使用仓库密钥 `CNB_MIRROR_TOKEN`（已配置）；密钥为空时失败退出
 - 用 `jq` 构造 JSON，避免手动运行时标签缺失导致空的 `MIRROR_TAGS`
 
-若 CNB 流水线幂等，对同一标签重跑是安全的。它不会重新构建桌面产物，
+若 CNB 流水线幂等，对同一标签重跑 **CNB 镜像** 作业是安全的。它不会重新构建桌面产物，
 也不会改写 electron-updater 更新源。
 
 ### 4.5 macOS 签名配置

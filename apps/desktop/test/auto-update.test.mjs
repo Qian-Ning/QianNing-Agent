@@ -332,8 +332,8 @@ test("packaging publishes an electron-updater feed for GitHub Releases", () => {
   // all platforms unfiltered (D126/D285).
   assert.match(releaseWorkflowSource, /release\/\*\.zip/);
   assert.match(releaseWorkflowSource, /release\/\*\.rpm/);
-  assert.match(releaseWorkflowSource, /release\/latest\*\.yml/);
-  assert.match(releaseWorkflowSource, /files: dist\/\*/);
+  assert.match(releaseWorkflowSource, /apps\/desktop\/release\/latest\*\.yml/);
+  assert.match(releaseWorkflowSource, /gh release upload "\$TAG" dist\/\* --clobber/);
 });
 
 test("shared shipped-locale changelog is the in-app notes source of truth", () => {
