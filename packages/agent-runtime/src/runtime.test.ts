@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { type Agent, type AgentMessage } from "@earendil-works/pi-agent-core";
 import {
@@ -418,6 +422,93 @@ describe("session persona", () => {
     expect(prompt).toContain("Additional root: /work/b");
 
     await runtime.dispose();
+  });
+});
+
+describe("system prompt cache prefix", () => {
+  const promptOf = (runtime: DesktopAgentRuntime): string =>
+    (runtime as any).agent.state.systemPrompt as string;
+  const sectionsOf = (runtime: DesktopAgentRuntime): { runtime: string; context: string } =>
+    (runtime as any).composedSections as { runtime: string; context: string };
+  const digest = (text: string): string => createHash("sha256").update(text).digest("hex");
+
+  it("keeps the runtime prefix byte-identical when only session context changes", async () => {
+    // The cacheable prefix is the persona + operational rules. Roots, project
+    // memory, mode and tool activation are session facts and must enter only
+    // through the context tail; a fact changing here cannot rewrite the prefix
+    // above it.
+    const first = createRuntime({
+      mode: "agent",
+      projectPath: "/work/primary",
+      workspaceRootsGuide: "Primary root: /work/primary",
+      projectMemory: "First project memory.",
+    });
+    const second = createRuntime({
+      mode: "plan",
+      projectPath: "/work/primary",
+      workspaceRootsGuide: "Primary root: /work/primary\nAdditional root: /work/extra",
+      projectMemory: "Second project memory.",
+    });
+
+    try {
+      const a = sectionsOf(first);
+      const b = sectionsOf(second);
+      expect(b.runtime).toBe(a.runtime);
+      expect(digest(b.runtime)).toBe(digest(a.runtime));
+      expect(b.context).not.toBe(a.context);
+      expect(promptOf(second).startsWith(b.runtime)).toBe(true);
+    } finally {
+      await first.dispose();
+      await second.dispose();
+    }
+  });
+
+  it("does not read the wall clock into the system prompt", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const first = createRuntime({ mode: "agent", projectPath: "/work/primary" });
+    try {
+      vi.setSystemTime(new Date("2026-01-02T03:04:05.000Z"));
+      const before = digest(promptOf(first));
+
+      vi.setSystemTime(new Date("2027-08-09T10:11:12.000Z"));
+      const second = createRuntime({ mode: "agent", projectPath: "/work/primary" });
+      try {
+        expect(digest(promptOf(second))).toBe(before);
+      } finally {
+        await second.dispose();
+      }
+    } finally {
+      vi.useRealTimers();
+      await first.dispose();
+    }
+  });
+
+  it("does not read the process working directory into the system prompt", async () => {
+    const original = process.cwd();
+    const first = createRuntime({ mode: "agent", projectPath: "/work/primary" });
+    const a = digest(promptOf(first));
+    const dirA = mkdtempSync(join(tmpdir(), "qn-prefix-a-"));
+    const dirB = mkdtempSync(join(tmpdir(), "qn-prefix-b-"));
+    let second: DesktopAgentRuntime | undefined;
+    try {
+      process.chdir(dirA);
+      const runtimeA = createRuntime({ mode: "agent", projectPath: "/work/primary" });
+      try {
+        expect(digest(promptOf(runtimeA))).toBe(a);
+      } finally {
+        await runtimeA.dispose();
+      }
+
+      process.chdir(dirB);
+      second = createRuntime({ mode: "agent", projectPath: "/work/primary" });
+      expect(digest(promptOf(second))).toBe(a);
+    } finally {
+      process.chdir(original);
+      await second?.dispose();
+      await first.dispose();
+      rmSync(dirA, { recursive: true, force: true });
+      rmSync(dirB, { recursive: true, force: true });
+    }
   });
 });
 
