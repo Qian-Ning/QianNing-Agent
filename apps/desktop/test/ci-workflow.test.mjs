@@ -260,7 +260,7 @@ test("release builds are gated on the CI checks and least-privilege permissions"
 test("release artifacts bypass redundant Actions compression", () => {
   assert.match(
     releaseWorkflowSource,
-    /uses: actions\/upload-artifact@v7[\s\S]*?compression-level: 0/,
+    /uses: actions\/upload-artifact@[0-9a-f]{40} # v7[\s\S]*?compression-level: 0/,
   );
 });
 
@@ -302,7 +302,7 @@ test("manual Linux package validation covers the RPM desktop identity", () => {
   );
   assert.match(
     linuxPackageWorkflowSource,
-    /uses: actions\/upload-artifact@v7[\s\S]*path: apps\/desktop\/release\/\*\.rpm/,
+    /uses: actions\/upload-artifact@[0-9a-f]{40} # v7[\s\S]*path: apps\/desktop\/release\/\*\.rpm/,
   );
 });
 
@@ -410,7 +410,7 @@ test("release matrix packages the fork's Windows, Linux, and macOS lanes", () =>
   const publishJobForMerge = releaseWorkflowSource.match(/^  publish:\n[\s\S]*$/m)?.[0] ?? "";
   const checkoutIndex = publishJobForMerge.indexOf("actions/checkout@");
   const mergeIndex = publishJobForMerge.indexOf("Merge the macOS update feed");
-  const releaseIndex = publishJobForMerge.indexOf("Create GitHub Release");
+  const releaseIndex = publishJobForMerge.indexOf("Stage a draft release");
   assert.ok(mergeIndex !== -1, "the merge step lives in the publish job");
   assert.ok(
     releaseIndex !== -1 && mergeIndex < releaseIndex,
@@ -426,7 +426,7 @@ test("release matrix packages the fork's Windows, Linux, and macOS lanes", () =>
   );
   assert.match(
     releaseWorkflowSource,
-    /^  publish:\n[\s\S]*?actions\/checkout@v7[\s\S]*?actions\/download-artifact@v8/m,
+    /^  publish:\n[\s\S]*?actions\/checkout@[0-9a-f]{40}[\s\S]*?actions\/download-artifact@[0-9a-f]{40}/m,
     "the publish job checks out before downloading artifacts",
   );
 });
@@ -698,7 +698,7 @@ test("GitHub releases trigger the CNB mirror pipeline with a JSON payload", () =
   );
   assert.match(
     mirrorToCnbWorkflowSource,
-    /if: github\.repository == 'vastsa\/PI-Desktop'/,
+    /github\.repository == 'vastsa\/PI-Desktop'/,
   );
   assert.match(
     mirrorToCnbWorkflowSource,
