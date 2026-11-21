@@ -16,6 +16,11 @@ disagrees, so a green `check:release-docs` is a precondition, not a substitute.
 | `check-release-docs.mjs` | `pnpm check:release-docs` | Verify the changelog, its test list, `APP_VERSION`, workspace versions, Cargo versions, and both README release lines agree |
 | `check-agent-policy-sync.mjs` | `pnpm check:agent-policy` | Verify `AGENTS.md` and `CLAUDE.md` share the same `Policy-Sync` token, cross-references, and non-negotiable policy anchors |
 | `check-marketplace-catalog.mjs` | `pnpm check:marketplace -- --url <url> --plugin <id>` | Marketplace catalog preflight; rejects a version record missing a checksum, package URL, size, or permissions, and a catalog `author` that is not a string |
+| `check-action-pins.mjs` | `pnpm check:action-pins` | Fail any workflow `uses:` that names a tag or branch instead of a 40-character commit SHA; local actions and Docker references are skipped |
+| `check-release-assets.mjs` | `pnpm check:release-assets -- --version <v> --dir dist` | Fail a staged or published release that is missing a platform asset declared by the build matrix, or whose updater feed declares another version |
+| `generate-release-manifest.mjs` | called by the Release workflow before upload | Write `release-manifest.json` (size, sha256, base64 sha512 per asset) and `SHA256SUMS.txt` (sha256 values plus the manifest's own digest) into a staged release directory |
+| `verify-release-assets.mjs` | called by the Release workflow after upload | Recompute every file in a staged/downloaded release directory and fail on a size, sha256, sha512, unexpected-asset, or `latest*.yml` reference mismatch against `release-manifest.json` |
+| `audit-public-release.mjs` | called by the Release workflow after publish | Fetch the public release URLs with no Authorization header, verify the published manifest, feeds, and Windows installer, and fail the release if anonymous clients see different bytes |
 | `check-style-tokens.mjs` | run by the desktop `lint` script | Fail renderer styles that hardcode values instead of design-system tokens |
 
 ## Upstream synchronization

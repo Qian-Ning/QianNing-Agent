@@ -223,7 +223,8 @@ host. This keeps the native Rust host sidecar and Electron package aligned.
 x64 installers (`dist:win`: NSIS setup, portable export, and the win zip), the
 Linux x64 desktop packages (AppImage/deb/rpm plus the system-Electron ASAR
 export), both macOS architectures (DMG + ZIP), and the Linux `pi-host`
-remote-host bundle, then creates the GitHub Release itself. Cutting a release is
+remote-host bundle, then stages the GitHub Release as a draft, verifies the
+uploaded bytes, and publishes it. Cutting a release is
 two commands: run `node scripts/release.mjs <version> --tag` on `main`, then
 `git push origin main v<version>`. The tag push is the whole trigger — no
 manual asset upload.
@@ -239,10 +240,20 @@ fails the run: publishing artifacts weaker than the repository claims to
 produce is worse than not publishing. The values, and how to obtain each, are
 in § 4.6 below.
 
-Re-publishing the same tag is supported: each publish run first deletes the
-assets already attached to that tag, then uploads the ones it produced, so the
-published set always matches the run that last succeeded. Force-pushing a tag
-after a repair therefore never leaves the earlier run's assets behind.
+Re-publishing a tag is deliberately **not** supported once its GitHub Release
+is public: a published release is the update feed, and silently replacing its
+assets would change what every electron-updater client sees. The tag run now
+stages a draft release, uploads every artifact, downloads that draft again, and
+verifies each byte against `release-manifest.json` (sha256, sha512, size) and
+against each `latest*.yml` reference before publishing. A failed run leaves the
+draft invisible; a failure after publication is repaired by cutting a new patch
+tag, not by mutating the old release. If a draft from an earlier failed run is
+still present, the next run discards that draft first.
+
+The draft is invisible to electron-updater because GitHub excludes draft
+releases from the anonymous release API. The publish step is therefore the
+atomic visibility point: the feed and the installers it names appear together,
+after the runner has re-read the bytes GitHub actually stored.
 
 The GitHub Release workflow validates that the pushed tag matches
 `apps/desktop/package.json` on every runner immediately after checkout, before
@@ -334,6 +345,15 @@ assembles the GitHub Release. The Linux runner also copies
 exact archive used by the Linux installers for downstream repackaging with a
 system Electron.
 
+Before upload, the publish job also writes `release-manifest.json` and
+`SHA256SUMS.txt`. The manifest is the machine-readable contract for this tag:
+one entry per asset with `size`, `sha256`, and the base64 `sha512`
+electron-updater already records. It is generated from the staged `dist/`
+directory, then verified twice — once against the staged directory, and once
+against the assets downloaded back from the draft release. `SHA256SUMS.txt`
+contains the same sha256 values plus the manifest's own digest, so a user can
+check the whole set with stock `sha256sum -c` without trusting GitHub's API.
+
 ### 4.4 Documentation site deployment
 
 The release workflow does not deploy the documentation site. Vercel Git
@@ -343,7 +363,7 @@ initiated manually in Vercel when required.
 
 ### 4.5 CNB mirror trigger
 
-After `softprops/action-gh-release` publishes or updates a GitHub Release,
+After the publish job makes the GitHub Release public,
 `.github/workflows/mirror-to-cnb.yml` starts the CNB pipeline at
 `aixk/Pi-Desktop`. GitHub Release remains the canonical artifact source; CNB
 is a copy of the same tag for users who pull from
@@ -360,9 +380,9 @@ The job:
 - builds the JSON body with `jq` so a missing tag cannot produce an empty
   `MIRROR_TAGS` value on a manual run
 
-Re-running the workflow for the same tag is safe if the CNB pipeline is
-idempotent. It does not rebuild desktop artifacts and does not change
-electron-updater feeds.
+Re-running the **CNB mirror** workflow for the same tag is safe if the CNB
+pipeline is idempotent. It does not rebuild desktop artifacts and does not
+change electron-updater feeds.
 
 ### 4.6 GitHub Actions configuration for macOS signing
 

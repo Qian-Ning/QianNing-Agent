@@ -55,21 +55,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
           cache: pnpm
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Check GitHub Actions pins
+        # A tag push bypasses ci.yml; this is the equivalent guard on the
+        # release path. Every third-party action must be a commit SHA.
+        run: node scripts/check-action-pins.mjs
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Release pipeline unit tests
+        run: node --test scripts/check-release-assets.test.mjs scripts/release-manifest.test.mjs scripts/check-action-pins.test.mjs
 
       - name: Build workspace packages
         run: pnpm build:js
@@ -205,7 +213,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Verify native runner architecture
         # A mislabelled or emulated runner would wrap one architecture's
@@ -246,18 +254,18 @@ jobs:
           console.log(`${path} is valid`);
           NODE
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           # Match the Node that Electron 43 bundles (24.18), so the released
           # artifacts are built against the runtime the app actually ships.
           node-version: 24
           cache: pnpm
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
 
       - name: Prepare package inputs
         run: |
@@ -530,7 +538,7 @@ jobs:
         run: mv apps/desktop/release/latest-mac.yml apps/desktop/release/latest-mac-${{ matrix.arch }}.yml
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: dist-${{ matrix.artifact }}
           if-no-files-found: error
@@ -567,7 +575,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Compare tag with apps/desktop/package.json
         if: startsWith(github.ref, 'refs/tags/v')
@@ -580,16 +588,16 @@ jobs:
             exit 1
           fi
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
           cache: pnpm
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
 
       - name: Build inputs (host-core, workspace, sidecar bundle)
         run: |
@@ -630,7 +638,7 @@ jobs:
           cat "$out/${name}.tar.gz.sha256"
 
       - name: Upload pi-host bundle
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: pi-host-linux-${{ matrix.arch }}
           if-no-files-found: error
@@ -640,20 +648,25 @@ jobs:
             apps/pi-host/dist-bundle/pi-host-*-linux-${{ matrix.arch }}.tar.gz.sha256
 
   publish:
-    name: Publish GitHub Release
+    name: Stage, verify, and publish GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [build, pi-host-bundle]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     permissions:
       contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ github.ref_name }}
+      VERSION: ${{ github.ref_name }}
+      REPO: ${{ github.repository }}
     steps:
       # The merge step below runs a repository script, and download-artifact
       # only materialises build outputs — without a checkout `scripts/` does not
       # exist and the merge dies on a missing module.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           path: dist
           merge-multiple: true
@@ -676,54 +689,91 @@ jobs:
         # `dist` is exactly what the upload is about to publish. A matrix entry
         # that failed leaves a hole here, before anything reaches the release
         # page, instead of in a published release that is missing a platform.
-        run: node scripts/check-release-assets.mjs --version "${GITHUB_REF_NAME#v}" --dir dist
+        run: node scripts/check-release-assets.mjs --version "${VERSION#v}" --dir dist
 
-      # Re-publishing a tag — after a repaired commit, or after a build failed
-      # halfway — lands on the release that is already there, and
-      # `action-gh-release` merges rather than replaces: an asset the new run
-      # no longer produces would linger beside the fresh ones. Clear the slate
-      # first so the published set always matches this run exactly.
-      - name: Clear assets from an earlier run of this tag
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+      - name: Write the release manifest and checksums
+        run: >-
+          node scripts/generate-release-manifest.mjs
+          --dir dist
+          --version "${VERSION#v}"
+          --commit "$GITHUB_SHA"
+
+      - name: Verify the staged bytes against the manifest
+        run: node scripts/verify-release-assets.mjs --dir dist --version "${VERSION#v}"
+
+      - name: Stage a draft release
+        # Draft is the point: until verify passes, no anonymous electron-updater
+        # client can see a feed that points at an installer this run has not
+        # re-read. A previous draft for the same tag is discarded; a published
+        # release is left alone and fails the run.
         run: |
           set -euo pipefail
-          if ! gh release view "$TAG" > /dev/null 2>&1; then
-            echo "No release for $TAG yet; nothing to clear."
-            exit 0
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            draft="$(gh release view "$TAG" --json isDraft --jq '.isDraft')"
+            if [[ "$draft" != "true" ]]; then
+              echo "::error::Release $TAG is already published; refusing to mutate a live update feed. Cut a new patch tag."
+              exit 1
+            fi
+            echo "Discarding the previous draft for $TAG."
+            gh release delete "$TAG" --yes
           fi
-          stale=$(gh release view "$TAG" --json assets --jq '.assets[].name')
-          if [ -z "$stale" ]; then
-            echo "Release for $TAG has no assets yet."
-            exit 0
+          flags=(--draft --title "QianNing Agent $TAG" --generate-notes)
+          if [[ "$TAG" == *-* ]]; then
+            flags+=(--prerelease)
           fi
-          while IFS= read -r name; do
-            [ -n "$name" ] || continue
-            echo "Deleting stale asset: $name"
-            gh release delete-asset "$TAG" "$name" --yes
-          done <<< "$stale"
+          gh release create "$TAG" "${flags[@]}"
+          gh release upload "$TAG" dist/* --clobber
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          # The Windows installers, the Linux packages and ASAR, both macOS
-          # architectures, each platform's electron-updater feed, and the Linux
-          # pi-host bundle with its checksum. `generate_release_notes` supplies
-          # the web-page body; the in-app changelog stays
-          # packages/shared/src/changelog.ts.
-          files: dist/*
-          generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
+      - name: Download the draft and verify every uploaded byte
+        # This is the acceptance join: reread the bytes GitHub stored, not the
+        # bytes the runner still has in `dist`. A truncated asset is a failed
+        # release here, while the release is still invisible.
+        run: |
+          set -euo pipefail
+          rm -rf verify
+          mkdir verify
+          gh release download "$TAG" --dir verify
+          cmp dist/release-manifest.json verify/release-manifest.json
+          cmp dist/SHA256SUMS.txt verify/SHA256SUMS.txt
+          node scripts/verify-release-assets.mjs --dir verify --version "${VERSION#v}"
 
-      - name: Audit the published asset set
-        # Re-read the release after uploading. The staged audit proves what the
-        # build produced; this proves what actually attached — an asset can
-        # still fail to upload while the action reports success.
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+      - name: Publish the verified release
+        id: publish
+        run: gh release edit "$TAG" --draft=false
+
+      - name: Audit the public update feed anonymously
+        # The script sends no Authorization header: this is the request an
+        # electron-updater client makes. It fails if GitHub is still serving
+        # a stale draft or if the feed does not name a verified installer.
+        run: |
+          set -euo pipefail
+          node scripts/audit-public-release.mjs \
+            --repo "$REPO" \
+            --tag "$TAG" \
+            --version "${VERSION#v}" \
+            --manifest verify/release-manifest.json
+
+      - name: Audit the public asset set by name
+        # The draft download proves the bytes; this proves the *published*
+        # release still names every platform artifact the build matrix promised.
         run: |
           set -euo pipefail
           gh release view "$TAG" --json assets --jq '.assets[].name' > published-assets.txt
-          node scripts/check-release-assets.mjs --version "${TAG#v}" --assets-from published-assets.txt
+          node scripts/check-release-assets.mjs --version "${VERSION#v}" --assets-from published-assets.txt
+
+      - name: Withdraw update feeds if publication failed
+        # Never leave a public latest*.yml pointing at an installer that failed
+        # the anonymous audit. The installers stay downloadable; the feed is
+        # removed so clients fail closed instead of updating to a bad build.
+        if: failure() && steps.publish.outcome == 'success'
+        run: |
+          set -euo pipefail
+          feeds="$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null | grep -E '^latest.*\.yml$' || true)"
+          if [[ -z "$feeds" ]]; then
+            echo "No public update feeds to withdraw for $TAG."
+            exit 0
+          fi
+          while IFS= read -r feed; do
+            echo "::warning::withdrawing $feed from $TAG after a failed public audit"
+            gh release delete-asset "$TAG" "$feed" --yes || true
+          done <<< "$feeds"
