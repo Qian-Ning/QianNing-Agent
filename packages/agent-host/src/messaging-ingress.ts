@@ -597,6 +597,11 @@ type IngressAdapterCommon = {
    * Project one raw platform event onto the shared shape. The same function the
    * live client calls, so the conformance suite exercises the runtime path
    * rather than a parallel copy of it.
+   *
+   * A channel whose admission is a sender allowlist must return `filtered` for
+   * a sender outside that list, with a structural reason that never echoes the
+   * sender's identity. The conformance fixture's `denied` probe is the
+   * mechanical proof of that rule.
    */
   readonly normalise: IngressNormalise;
   /**

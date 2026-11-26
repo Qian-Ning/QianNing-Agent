@@ -1183,6 +1183,18 @@ function emailFixture(): IngressConformanceFixture {
         uid: EMAIL_FOREIGN_UID + 1,
         source: plainMessage({ from: "bot@example.org", messageId: "<own@example.org>" }),
       }) as unknown,
+    denied: () => ({
+      raw: {
+        uid: EMAIL_FOREIGN_UID + 2,
+        source: plainMessage({
+          from: "Mallory <mallory@example.net>",
+          messageId: "<m-denied@example.net>",
+          body: "delete everything",
+        }),
+      },
+      reason: "the sender is not on the allowlist",
+      identity: "mallory@example.net",
+    }),
     async refusedCredential() {
       const refusedAudit: EmailInboundAuditEntry[] = [];
       const server = new FakeImap({ loginOk: false });
@@ -1216,6 +1228,7 @@ function emailFixture(): IngressConformanceFixture {
 /** The account and correspondent the Signal fixture speaks as and with. */
 const SIGNAL_ACCOUNT = "+15550000000";
 const SIGNAL_CORRESPONDENT = "+15551110000";
+const SIGNAL_STRANGER = "+15552220000";
 const SIGNAL_FOREIGN_TIMESTAMP = 1_760_000_000_900;
 
 /**
@@ -1265,6 +1278,16 @@ function signalFixture(): IngressConformanceFixture {
     }),
     // What the bridge hands back for a message this channel itself sent.
     own: () => signalOwnSyncEnvelope({ text: "the channel's own reply" }),
+    denied: () => ({
+      raw: signalEnvelope({
+        from: SIGNAL_STRANGER,
+        text: "delete everything",
+        timestamp: SIGNAL_FOREIGN_TIMESTAMP + 1,
+        account: SIGNAL_ACCOUNT,
+      }),
+      reason: "the sender is not on the allowlist",
+      identity: SIGNAL_STRANGER,
+    }),
     deliver: (text: string) => {
       const chunks: string[] = [];
       const result = (async () => {
@@ -1618,11 +1641,20 @@ const FIXTURES: { name: string; build: () => IngressConformanceFixture }[] = [
   { name: "bluebubbles", build: bluebubblesFixture },
 ];
 
+// Channels whose admission is a sender allowlist. A channel added here must
+// supply `denied`; the declaration test below fails if it does not.
+const SENDER_ALLOWLIST_FIXTURES = new Set(["email", "signal"]);
+
 for (const entry of FIXTURES) {
   describe(`${entry.name} ingress conformance`, () => {
     const fixture = entry.build();
     afterAll(async () => {
       await fixture.dispose?.();
+    });
+    it("declares the sender-allowlist contract where the channel has one", () => {
+      expect(typeof fixture.denied).toBe(
+        SENDER_ALLOWLIST_FIXTURES.has(entry.name) ? "function" : "undefined",
+      );
     });
     for (const scenario of ingressConformanceScenarios(fixture)) {
       it(scenario.name, scenario.run);
@@ -1885,6 +1917,53 @@ describe("the conformance suite rejects a broken adapter", () => {
     const own = scenarios.find((s) => s.name.includes("own message"));
     expect(own).toBeDefined();
     await expect(own!.run()).rejects.toThrow();
+  });
+
+  function admitsDeniedSender(): IngressConformanceFixture {
+    return {
+      ...emailFixture(),
+      adapter: createEmailIngressAdapter({
+        imap: IMAP_TARGET,
+        smtp: SMTP_TARGET,
+        username: "bot@example.org",
+        password: PASSWORD,
+        allowedSenders: [...ALLOWED, "mallory@example.net"],
+      }),
+    };
+  }
+
+  it("fails the allowlist scenario when the denied sender is admitted", async () => {
+    const scenarios = ingressConformanceScenarios(admitsDeniedSender());
+    const allowlist = scenarios.find((s) => s.name.includes("outside the allowlist"));
+    expect(allowlist).toBeDefined();
+    await expect(allowlist!.run()).rejects.toThrow();
+  });
+
+  it("passes the allowlist scenario with the real allowlist", async () => {
+    const scenarios = ingressConformanceScenarios(emailFixture());
+    const allowlist = scenarios.find((s) => s.name.includes("outside the allowlist"));
+    expect(allowlist).toBeDefined();
+    await expect(allowlist!.run()).resolves.toBeUndefined();
+  });
+
+  it("fails the allowlist scenario when the refused identity becomes the channel id", async () => {
+    const fixture = emailFixture();
+    const good = fixture.adapter;
+    const fixtureWithLeak: IngressConformanceFixture = {
+      ...fixture,
+      adapter: {
+        ...good,
+        normalise: (raw: unknown) => {
+          const normalisation = good.normalise(raw);
+          if (normalisation.kind !== "filtered") return normalisation;
+          return { ...normalisation, channelId: "mallory@example.net" };
+        },
+      },
+    };
+    const scenarios = ingressConformanceScenarios(fixtureWithLeak);
+    const allowlist = scenarios.find((s) => s.name.includes("outside the allowlist"));
+    expect(allowlist).toBeDefined();
+    await expect(allowlist!.run()).rejects.toThrow();
   });
 
   it("passes the own-message scenario with the real adapter", async () => {
