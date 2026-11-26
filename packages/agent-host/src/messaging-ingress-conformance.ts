@@ -18,7 +18,9 @@
  * 6. replies chunk at the declared limit, in order — and where the adapter owns
  *    a deliverer, leave through it chunked, at the limit and in order;
  * 7. a pull channel applies a polled batch once and advances its cursor once,
- *    and a failed poll neither applies nor moves it.
+ *    and a failed poll neither applies nor moves it;
+ * 8. a sender outside the adapter's configured allowlist produces no turn, and
+ *    the adapter's refusal does not echo that sender's identity.
  *
  * Each fixture supplies only what is platform-specific: one raw event from
  * another person, one the bot itself produced, the channel's credential-refusal
@@ -55,6 +57,24 @@ export type IngressConformanceEvent = {
   frame?: unknown;
   /** The message the shared inbound shape must carry. */
   expected: IngressMessage;
+};
+
+/**
+ * A sender the adapter's configured allowlist must refuse.
+ *
+ * `reason` is the adapter's closed refusal reason, not the sender's value:
+ * the audit record is allowed to say why, never who. `identity` is only the
+ * fixture's copy, so the suite can prove that value did not leak into the
+ * projection.
+ */
+export type IngressConformanceDenied = {
+  raw: unknown;
+  /** The exact refusal reason the adapter must return. */
+  reason: string;
+  /** The identity string the adapter must not echo into the projection. */
+  identity?: string;
+  /** The envelope the live connection receives, where it differs from `raw`. */
+  frame?: unknown;
 };
 
 /** One live connection the suite can feed, drop and replace. */
@@ -210,6 +230,13 @@ export type IngressConformanceFixture = {
   foreign(): IngressConformanceEvent;
   /** One raw event the bot itself produced, where the platform delivers it. */
   own?(): unknown;
+  /**
+   * One raw event from a sender outside the configured allowlist, where the
+   * channel's admission is a sender allowlist (Email, Signal). A channel whose
+   * admission is a transport credential or a fixed conversation leaves this
+   * absent; it has no sender list to test.
+   */
+  denied?(): IngressConformanceDenied;
   /** A push channel's live reconnect probe. */
   reconnect?(): Promise<IngressReconnectProbe>;
   /** A long-poll channel's opaque-token half: its poll and its projection. */
@@ -337,6 +364,34 @@ export function ingressConformanceScenarios(
         assert.equal(normalisation.kind, "filtered", "the bot's own message must be filtered");
         const messages = await throughGate(adapter, own());
         assert.deepEqual(messages, [], "an own message must reach no handler");
+      },
+    });
+  }
+
+  if (fixture.denied) {
+    scenarios.push({
+      name: "a sender outside the allowlist produces no turn",
+      async run() {
+        const denied = fixture.denied!();
+        const normalisation = adapter.normalise(denied.raw);
+        assert.equal(normalisation.kind, "filtered", "an off-list sender must be refused");
+        if (normalisation.kind === "filtered") {
+          assert.equal(normalisation.reason, denied.reason);
+          assert.equal(
+            normalisation.channelId,
+            undefined,
+            "a refused sender's identity must not become the channel id",
+          );
+        }
+        if (denied.identity !== undefined) {
+          assert.equal(
+            JSON.stringify(normalisation).includes(denied.identity),
+            false,
+            "the refused identity must not appear in the projection",
+          );
+        }
+        const messages = await throughGate(adapter, denied.raw);
+        assert.deepEqual(messages, [], "an off-list sender must reach no handler");
       },
     });
   }
