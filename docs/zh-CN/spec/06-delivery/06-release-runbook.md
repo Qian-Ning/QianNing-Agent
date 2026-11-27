@@ -535,8 +535,9 @@ Windows 的 `dist:win` 命令会运行 `scripts/build-desktop-release.mjs`，分
 
 macOS 软件包包括按本机架构构建的 `bin/QianNing-Agent-Host-Core`；Windows
 软件包包括 `bin/QianNing-Agent-Host-Core.exe`；Linux 包括
-`bin/QianNing-Agent-Host-Core`。签名、回滚和安装程序升级资质仍保持发布
-硬化工作；发布本身已在 D126/D285/D603 下启用。
+`bin/QianNing-Agent-Host-Core`。签名和回滚仍保持发布硬化工作；
+Windows 安装器升级链已作为 tag 门禁（E2E-266）。发布本身已在 D126/D285/D603
+下启用。
 
 Native-runner 输出矩阵：
 

@@ -5575,6 +5575,7 @@ eleven-tool-round desktop paths are verified by
 | C — 对话与流式（会话列表响应性） | E2E-SESSION-list-refresh-keeps-desktop-responsive |
 | 品质（会话列表响应性） | E2E-SESSION-list-refresh-keeps-desktop-responsive |
 | 品质（Windows 更新缓存） | E2E-260 |
+| 品质（Windows NSIS 升级） | E2E-266 |
 | 安全（桌面控制） | E2E-261 |
 | 品质（桌面控制） | E2E-261 |
 | 安全（出向连接） | E2E-262 |
@@ -5617,6 +5618,7 @@ eleven-tool-round desktop paths are verified by
 | M6+（目的页加载与焦点） | E2E-087b |
 | M6+（会话列表响应性） | E2E-SESSION-list-refresh-keeps-desktop-responsive |
 | M6+（Windows 更新缓存） | E2E-260 |
+| M6+（Windows NSIS 升级） | E2E-266 |
 | M6+（出向连接） | E2E-262, E2E-263, E2E-264 |
 | M6+（独立会话通信） | E2E-SESSION-independent-top-level-communication、E2E-SESSION-hover-card-model-and-links |
 | M5（聊天文件引用） | E2E-CHAT-shorthand-file-ref-opens-the-matching-file、E2E-CHAT-file-ref-opens-the-surface-that-owns-it |
@@ -7415,6 +7417,34 @@ eleven-tool-round desktop paths are verified by
 - **验收**：A（应用启动）、质量（全新安装打包）
 - **里程碑**：M6+
 - **状态**：源码契约已覆盖；全新 Windows x64 与 ARM64 资格验证仍需运行器验证（适用变更合入前需在具备条件的环境中运行 E2E）
+
+#### E2E-266：Windows NSIS 安装器连续升级最近三个稳定版
+
+- **前提条件**：候选版本有 `vX.Y.Z` tag，Release 工作流已产出
+  `dist-windows-x64`；GitHub 上至少有前三个非草稿、非预发布的稳定 Release，
+  且同时带 `latest.yml` 与 `QianNing-Agent-Setup-*.exe`。
+- **步骤**：1）`windows-upgrade` job 下载候选安装器，运行
+  `scripts/e2e/windows-install-upgrade.ps1`。2）脚本按 API 返回顺序选出当前
+  tag 之前最近的三个稳定版，并对每个安装器校验 feed 声明的字节数与 base64
+  SHA-512。3）在 `~/.qianning-agent` 与 `%APPDATA%\QianNing Agent` 各放一个
+  JSON 标记，记录 SHA-256；用隔离的 `/D=` 目录静默安装最旧版本，记录其
+  `DisplayVersion` 与安装位置。4）不卸载，依次覆盖安装另外两个稳定版和
+  候选版本身，每步断言 EXE 版本、卸载项只剩一个且版本为 feed 版本、安装位置
+  未变、两个数据标记哈希不变。5）启动候选版等待 20 秒，确认进程仍存活。
+  6）卸载并确认卸载项消失，再全新安装并卸载候选版。7）检查
+  job 日志中的报告与 job summary。
+- **预期**：每次相邻升级都替换同一个安装，不留下第二份；Add/Remove Programs
+  始终只有一条，版本与安装位置随新安装器更新；`~/.qianning-agent` 数据逐字节
+  不变；候选版能从升级后的安装启动，也能在卸载后全新安装。该 job 失败时
+  `publish` 不启动，损坏的升级路径不会进入公开 feed。
+- **链接规格**：`06-delivery/06-release-runbook.md` §4.10、§5；D628
+- **验收**：质量（发布打包与升级兼容性）
+- **里程碑**：M6+
+- **状态**：已由 `.github/workflows/release.yml` 的 `windows-upgrade` job 与
+  `scripts/e2e/windows-install-upgrade.ps1` 自动化；首次 tag 候选验证待运行。
+  本地已用发布 feed 验证计划发现流程和 `-VerifyInstallers`：
+  v2.3.1、v2.4.0、v2.4.1、v2.4.2 四个安装器全部匹配。
+
 #### E2E-211：Windows 便携版 ZIP 解压后即可启动（D603）
 
 - **前提条件**：Windows x64 标签或 `dist:win` 包已从共享 electron-builder 配置

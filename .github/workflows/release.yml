@@ -28,9 +28,13 @@
 # readable for anonymous installs to fetch it.
 #
 # The Linux `pi-host` bundle is what the desktop's SSH bootstrap downloads at
-# the desktop's own version and checksum-verifies before installing on a remote
-# machine (06-delivery/07-remote-control-rollout.md §6 acceptance 4; D375 /
+# the desktop's own version and checksum-verifies before installing on a
+# remote machine (06-delivery/07-remote-control-rollout.md §6 acceptance 4; D375 /
 # ADR 0284).
+#
+# Before publish, the `windows-upgrade` job installs recent stable Windows
+# releases and upgrades the same directory to this tag's NSIS artifact. The
+# candidate's feed and bytes stay private until that installer path passes.
 
 name: Release
 
@@ -554,6 +558,51 @@ jobs:
             apps/desktop/release/*.blockmap
             apps/desktop/release/latest*.yml
 
+  windows-upgrade:
+    name: Windows install -> upgrade E2E
+    # The installer is the only release artifact that mutates an existing
+    # install. A green build matrix proves the bytes exist, not that the
+    # previous stable release can be upgraded in place. This gate runs after
+    # the Windows artifact is available, before publish makes any feed public,
+    # and walks the last three stable releases into this candidate.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build]
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: dist-windows-x64
+          path: dist
+
+      - name: Run Windows install and upgrade E2E
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem -LiteralPath dist -Filter 'QianNing-Agent-Setup-*.exe' -File |
+            Select-Object -First 1
+          if (-not $setup) {
+            throw "No Windows NSIS setup in dist-windows-x64."
+          }
+          $feed = Join-Path 'dist' 'latest.yml'
+          if (-not (Test-Path -LiteralPath $feed)) {
+            throw "No latest.yml in dist-windows-x64."
+          }
+          Write-Host "Candidate: $($setup.Name)"
+          pwsh -NoProfile -File scripts/e2e/windows-install-upgrade.ps1 `
+            -Repo $env:REPO `
+            -CurrentTag $env:TAG `
+            -CurrentSetup $setup.FullName `
+            -CurrentFeed $feed `
+            -WorkDir (Join-Path $env:RUNNER_TEMP 'qn-upgrade')
+
   pi-host-bundle:
     name: Bundle pi-host (Linux ${{ matrix.arch }})
     # The desktop's SSH bootstrap downloads this asset at the desktop's own
@@ -650,7 +699,7 @@ jobs:
   publish:
     name: Stage, verify, and publish GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, pi-host-bundle]
+    needs: [build, pi-host-bundle, windows-upgrade]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

@@ -229,7 +229,7 @@ test("release preparation overlaps independent work and avoids duplicate builds"
   );
   // The full JS build belongs to the verify gate; the build matrix only
   // builds the desktop app's workspace dependencies.
-  const buildJob = releaseWorkflowSource.match(/^  build:\n[\s\S]*?(?=^  publish:)/m)?.[0];
+  const buildJob = releaseWorkflowSource.match(/^  build:\n[\s\S]*?(?=^  windows-upgrade:)/m)?.[0];
   assert.ok(buildJob, "release build job is missing");
   assert.doesNotMatch(buildJob, /run: pnpm build:js/);
 });
@@ -290,6 +290,33 @@ test("release artifacts bypass redundant Actions compression", () => {
   assert.match(
     releaseWorkflowSource,
     /uses: actions\/upload-artifact@[0-9a-f]{40} # v7[\s\S]*?compression-level: 0/,
+  );
+});
+
+test("Windows install and upgrade E2E gates publication", () => {
+  const job = releaseWorkflowSource.match(
+    /^  windows-upgrade:\n[\s\S]*?(?=^  pi-host-bundle:)/m,
+  )?.[0];
+  assert.ok(job, "release windows-upgrade job is missing");
+  assert.match(job, /^    needs: \[build\]$/m);
+  assert.match(job, /^    runs-on: windows-latest$/m);
+  assert.match(job, /^      contents: read$/m);
+  assert.match(job, /name: dist-windows-x64/);
+  assert.match(job, /scripts\/e2e\/windows-install-upgrade\.ps1/);
+  assert.match(job, /-WorkDir \(Join-Path \$env:RUNNER_TEMP 'qn-upgrade'\)/);
+  // `publish` downloads every artifact in the run with merge-multiple. An
+  // evidence upload here would land in its release directory and fail the
+  // staged asset audit, so the job's report stays in the log and job summary.
+  assert.doesNotMatch(job, /uses: actions\/upload-artifact@/);
+
+  const publishJob = releaseWorkflowSource.match(
+    /^  publish:\n[\s\S]*$/m,
+  )?.[0];
+  assert.ok(publishJob, "release publish job is missing");
+  assert.match(
+    publishJob,
+    /^    needs: \[build, pi-host-bundle, windows-upgrade\]$/m,
+    "publish must wait for the Windows upgrade gate",
   );
 });
 
