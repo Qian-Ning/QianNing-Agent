@@ -265,7 +265,10 @@ function Get-UninstallEntries {
     'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
   )
   @(Get-ItemProperty -Path $keys -ErrorAction SilentlyContinue |
-    Where-Object { $_.DisplayName -eq $AppName } |
+    # electron-builder's default uninstallDisplayName is
+    # "${productName} ${version}", so the Add/Remove entry is not the bare
+    # product name. Accept both forms and still require one entry per version.
+    Where-Object { $_.DisplayName -eq $AppName -or $_.DisplayName -like "$AppName *" } |
     Select-Object DisplayName, DisplayVersion, InstallLocation, UninstallString, PSChildName)
 }
 
