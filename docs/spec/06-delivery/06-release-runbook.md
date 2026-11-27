@@ -548,6 +548,16 @@ published set is checked against the declared set twice:
   users and the updater actually see is verified separately from what the build
   produced.
 
+A third gate exercises the Windows installer as an executable: the
+`windows-upgrade` job installs the oldest of the three previous stable Windows
+releases, upgrades that same directory through the next two and the candidate,
+and verifies every published SHA-512, the executable and Add/Remove Programs
+version, the single surviving uninstall entry, and the `~/.qianning-agent` and
+`%APPDATA%\QianNing Agent` markers after each step. `publish` needs that job,
+so an installer that cannot replace an installed copy never acquires a public
+`latest.yml`. The scenario is E2E-266; the script is
+`scripts/e2e/windows-install-upgrade.ps1`.
+
 `scripts/check-release-assets.mjs` owns the declared list (`expectedAssets`):
 Windows NSIS, portable and zip; both macOS architectures, DMG and ZIP with their
 blockmaps; AppImage, deb, rpm and the Linux ASAR; the pi-host bundle and its
@@ -744,9 +754,9 @@ gets the correct updater distribution marker.
 
 The macOS packages include `bin/QianNing-Agent-Host-Core` built for their runner
 architecture; Windows includes `bin/QianNing-Agent-Host-Core.exe`; Linux includes
-`bin/QianNing-Agent-Host-Core`. Signing, rollback, and installer upgrade
-qualification remain release hardening work; publication is active under
-D126/D285/D603.
+`bin/QianNing-Agent-Host-Core`. Signing and rollback remain release hardening
+work; the Windows installer upgrade chain is a tag gate (E2E-266).
+Publication is active under D126/D285/D603.
 
 Native-runner output matrix:
 

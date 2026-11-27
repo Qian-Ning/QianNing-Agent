@@ -637,6 +637,44 @@ identify the platform validation still needed.
 - **Status**: Source-contract covered (`ci-workflow.test.mjs`); live CNB
   start remains operator validation (run only in a capable environment when this surface changes)
 
+#### E2E-266: Windows NSIS installer upgrades the last three stable releases
+
+- **Preconditions**: A `vX.Y.Z` tag exists for the candidate, the Release
+  workflow has built `dist-windows-x64`, and at least three earlier
+  non-prerelease, non-draft GitHub Releases carry both `latest.yml` and
+  `QianNing-Agent-Setup-*.exe`.
+- **Steps**: 1) Let the `windows-upgrade` job download the candidate artifact
+  and run `scripts/e2e/windows-install-upgrade.ps1`. 2) The script lists the
+  newest stable Windows releases before the tag, keeps the three nearest,
+  and verifies each feed's declared size and base64 SHA-512 against the
+  downloaded installer. 3) Seed one JSON marker in `~/.qianning-agent` and
+  one in `%APPDATA%\QianNing Agent`, then install the oldest release silently
+  with an isolated `/D=` directory and record both marker SHA-256 hashes. 4)
+  Upgrade in place through the next two stable releases and the candidate,
+  without uninstalling between steps, asserting the executable's product and
+  file version, exactly one HKCU Add/Remove Programs entry whose
+  `DisplayVersion` matches the feed and whose reported location, when present,
+  is the install directory, and that both marker hashes are unchanged. 5) Launch
+  the candidate for 20 seconds and confirm the process is still alive. 6)
+  Uninstall, assert no Add/Remove entry remains, then install and uninstall
+  the candidate fresh. 7) Inspect the report printed by the job and the job
+  summary.
+- **Expected**: Every stable-to-candidate adjacent step upgrades the same
+  installation instead of leaving a second one behind. One uninstall entry
+  survives, its version and install location match the new installer, and
+  user data under `~/.qianning-agent` is byte-identical. The candidate launches
+  from the upgraded install and can be installed fresh after an uninstall.
+  The publish job does not start when this job fails, so a broken upgrade path
+  cannot reach a public feed.
+- **Specs linked**: `06-delivery/06-release-runbook.md` §4.10, §5; D628
+- **Acceptance**: Quality (release packaging and upgrade compatibility)
+- **Milestone**: M6+
+- **Status**: Automated by the `windows-upgrade` job in
+  `.github/workflows/release.yml` and
+  `scripts/e2e/windows-install-upgrade.ps1`; first tagged candidate run
+  pending. Local `-VerifyInstallers` matched every published feed for
+  v2.3.1, v2.4.0, v2.4.1, and v2.4.2.
+
 ### Boot & Healthcheck
 
 #### E2E-001: App launches and shows main window
@@ -9019,6 +9057,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | G — Plugins (import visibility) | E2E-257 |
 | Quality (import visibility) | E2E-257 |
 | Quality (Windows updater cache) | E2E-260 |
+| Quality (Windows NSIS upgrade) | E2E-266 |
 | Security (desktop control) | E2E-261 |
 | Quality (desktop control) | E2E-261 |
 | Security (outbound connections) | E2E-262 |
@@ -9075,6 +9114,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | M6+ (Destination loading and focus) | E2E-087b |
 | M6+ (Session list responsiveness) | E2E-SESSION-list-refresh-keeps-desktop-responsive |
 | M6+ (Windows updater cache) | E2E-260 |
+| M6+ (Windows NSIS upgrade) | E2E-266 |
 | M6+ (outbound connections) | E2E-262, E2E-263, E2E-264 |
 | M6+ (Independent session communication) | E2E-SESSION-independent-top-level-communication, E2E-SESSION-hover-card-model-and-links |
 | M5 (Chat file references) | E2E-CHAT-shorthand-file-ref-opens-the-matching-file, E2E-CHAT-file-ref-opens-the-surface-that-owns-it |
