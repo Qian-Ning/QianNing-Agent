@@ -250,7 +250,7 @@ Rules:
 PRAGMA journal_mode = WAL;
 PRAGMA synchronous = NORMAL;      -- durable enough under WAL; app-crash safe
 PRAGMA foreign_keys = ON;
-PRAGMA busy_timeout = 5000;
+-- busy_timeout is replaced by the bounded, jittered busy handler below.
 PRAGMA temp_store = MEMORY;
 PRAGMA cache_size = -16000;       -- 16 MB page cache
 PRAGMA trusted_schema = ON;       -- required by the FTS triggers (§4.8); the DB
@@ -262,7 +262,14 @@ PRAGMA auto_vacuum = INCREMENTAL; -- set at creation, before any table
 - Schema version lives in `PRAGMA user_version` (v15 = `15`). The v1 `meta`
   table is gone.
 - host-core is the **single writer**; statements use `prepare_cached`; every
-  multi-row write runs in one transaction.
+  multi-row write runs in `BEGIN IMMEDIATE`. Taking the writer lock before the
+  first statement avoids SQLite's read-to-write upgrade case, where the busy
+  handler cannot wait on the lock and the transaction fails with `SQLITE_BUSY`
+  (or `SQLITE_BUSY_SNAPSHOT` in WAL) instead of retrying.
+- A writer waits at most five seconds for the lock, with randomized exponential
+  backoff. The budget is per lock event; after it expires the write fails with
+  `SQLITE_BUSY` rather than blocking an RPC indefinitely. Jitter keeps concurrent
+  connections from retrying in lockstep.
 - Boot maintenance runs before RPC service: one transaction marks every
   `plan_approvals` row with `status='pending'` as `interrupted` and every row
   with `execution_state IN ('queued', 'running')` as `interrupted`; it also

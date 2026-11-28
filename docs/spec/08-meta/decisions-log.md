@@ -8159,3 +8159,20 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   verify job.
 - Covered by `scripts/release-manifest.test.mjs` and
   `scripts/check-action-pins.test.mjs`; see `06-release-runbook.md` §4.3.
+
+## 2026-11-28 — SQLite writers take the write lock before reading (D678)
+
+- D678 sets `TransactionBehavior::Immediate` as the default on every host-core
+  `Database` connection. Existing `unchecked_transaction()` calls that wrap
+  multi-row writes now emit `BEGIN IMMEDIATE`, so a writer queues for the lock
+  instead of upgrading a read snapshot and failing with `SQLITE_BUSY` when the
+  writer lock is contended.
+- The connection installs a bounded busy handler: randomized exponential
+  sleep between 1 ms and 50 ms per attempt, a five-second budget per lock event,
+  and `SQLITE_BUSY` after the budget. The old `PRAGMA busy_timeout = 5000` is
+  removed because SQLite replaces that handler when this one is installed.
+  The budget covers acquiring the lock, not statement execution after it is
+  held.
+- No schema, RPC, IPC, or persisted-data change. Covered by four host-core
+  tests in `crates/host-core/src/db/repositories/busy.rs`; see
+  `03-runtime/04-data-storage.md` §3.
