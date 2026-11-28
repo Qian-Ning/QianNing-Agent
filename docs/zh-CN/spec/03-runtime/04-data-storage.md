@@ -169,7 +169,7 @@ commit 不会删除历史审查证据。
 PRAGMA journal_mode = WAL;
 PRAGMA synchronous = NORMAL;      -- durable enough under WAL; app-crash safe
 PRAGMA foreign_keys = ON;
-PRAGMA busy_timeout = 5000;
+-- busy_timeout 由下方有界、带抖动的 busy handler 取代。
 PRAGMA temp_store = MEMORY;
 PRAGMA cache_size = -16000;       -- 16 MB page cache
 PRAGMA trusted_schema = ON;       -- required by the FTS triggers (§4.8); the DB
@@ -180,8 +180,13 @@ PRAGMA auto_vacuum = INCREMENTAL; -- set at creation, before any table
 
 - 架构版本位于 `PRAGMA user_version` (v15 = `15`) 中。 v1 `meta`
   桌子不见了。
-- host-core 是**单一作者**；语句使用 `prepare_cached`；每个
-  多行写入在一个事务中运行。
+- host-core 是**单一写入者**；语句使用 `prepare_cached`；每个
+  多行写入在 `BEGIN IMMEDIATE` 中运行。在第一条语句之前取得写入锁，
+  避开 SQLite 的读转写升级场景：该场景下 busy handler 无法等待锁，
+  事务直接以 `SQLITE_BUSY`（WAL 下可能是 `SQLITE_BUSY_SNAPSHOT`）失败。
+- 写入者最多等待锁五秒，并带随机指数退避。预算按每次锁事件计算；超时后
+  写入以 `SQLITE_BUSY` 失败，而不是无限期阻塞 RPC。抖动避免并发连接
+  同步重试。
 - 启动维护在 RPC 服务之前运行：一个事务标记每个
   `plan_approvals` 行，其中 `status='pending'` 为 `interrupted` 以及每一行
   将 `execution_state IN ('queued', 'running')` 设为 `interrupted`；它也

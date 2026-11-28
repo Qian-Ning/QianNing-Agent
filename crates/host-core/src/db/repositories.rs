@@ -1,5 +1,7 @@
 use super::*;
 
+mod busy;
+
 pub(crate) const OBSOLETE_PLAN_APPROVAL_PERMISSION_MODE: &str = "planApprovalPermissionMode";
 
 pub(crate) fn strip_obsolete_plan_approval_permission_mode(value: &mut Value) -> bool {
@@ -103,13 +105,13 @@ impl Database {
             Some(p) if !p.as_os_str().is_empty() => p.to_path_buf(),
             _ => std::path::PathBuf::from("."),
         };
-        let conn = Connection::open(path).context("open sqlite")?;
+        let mut conn = Connection::open(path).context("open sqlite")?;
+        busy::install(&mut conn)?;
         conn.execute_batch(
             r#"
         PRAGMA journal_mode = WAL;
         PRAGMA synchronous = NORMAL;
         PRAGMA foreign_keys = ON;
-        PRAGMA busy_timeout = 5000;
         PRAGMA temp_store = MEMORY;
         PRAGMA cache_size = -16000;
         PRAGMA trusted_schema = ON;
